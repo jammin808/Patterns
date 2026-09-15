@@ -296,6 +296,11 @@
     <TextBlock Classes="hint tip"
                Text="Everything Windows will say about this machine's graphics, audio and processing, read every half minute on a worker (never on the desk's thread): the Windows edition and build, the CPU and the memory, every graphics adapter with the driver that runs it (NVIDIA's own number derived), every display with its mode, its connector, its encoding and the EDID it presents, every audio endpoint with its shared-mode format, the power plan, hardware GPU scheduling, Game DVR and the overlay planes. The same words are in the support bundle, in STATE (machine.inventory), in RIG STATUS on the wire and in the assistant's facts." />
 
+    <TextBlock Classes="h2" Text="COMMISSIONING" />
+    <TextBlock Classes="label" Text="{Binding CommissioningText}" TextWrapping="Wrap" LineHeight="20" FontFamily="Consolas,monospace" FontSize="12" />
+    <TextBlock Classes="hint tip"
+               Text="The rig commissioned in seven stages, each judged from the desk's own evidence and each saying what to do next: DISCOVER (Windows shows every display, none lost), ASSIGN (every planned screen adopted), CONTRACT (every screen says what its link carries — a screen on TEST ROUTE is not contracted yet), CAPABILITY (every display's EDID offers the contract), OUTPUT TEST (the outputs have opened — IDENTIFY and a test card on the wall), VERIFY (Windows reports MATCH on every contracted screen) and KNOWN GOOD (the rig saved and unchanged). The same lines are in STATE (commissioning), in COMMISSION STATUS on the wire, in the assistant's facts and as the Technician's 'Commission the rig' walkthrough, ticked by the same evidence." />
+
     <TextBlock Classes="h2" Text="KNOWN GOOD RIG" />
     <TextBlock Classes="label" Text="{Binding RigText}" TextWrapping="Wrap" LineHeight="20" />
     <WrapPanel Margin="0,6,0,0">

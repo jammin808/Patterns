@@ -457,6 +457,13 @@ public sealed class ShowFacts
     /// moved since the engineer commissioned it.
     /// </summary>
     public IReadOnlyList<string> Machine { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Round 65.10: the commissioning flow — DISCOVER, ASSIGN, CONTRACT, CAPABILITY, OUTPUT TEST, VERIFY,
+    /// KNOWN GOOD — each stage with its mark, its value and the next step in the desk's own words, the
+    /// headline first; so "is the rig ready?" is answered from the flow's evidence, stage by stage.
+    /// </summary>
+    public IReadOnlyList<string> Commissioning { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -668,6 +675,13 @@ public static class ShowBrief
                 // (a new driver, a display that moved, an audio device gone), never a fault to assume.
                 sb.AppendLine("The machine as Windows describes it, and the known-good rig (what the engineer commissioned — a change since is a fact to name, not a fault to assume):");
                 foreach (var line in facts.Machine) sb.Append("  ").AppendLine(line);
+            }
+            if (facts.Commissioning.Count > 0)
+            {
+                // The commissioning flow (round 65.10): answer "is the rig ready" and "what next" from these
+                // lines — the stage that is not green is where the engineer is, and its words are the next step.
+                sb.AppendLine("The commissioning flow (✓ green, ! amber, ✗ red, · not yet — the first stage not green is where the engineer is; answer 'is the rig ready?' and 'what next?' from these lines and their next steps, never from a guess):");
+                foreach (var line in facts.Commissioning) sb.Append("  ").AppendLine(line);
             }
         }
         else

@@ -254,6 +254,17 @@ public sealed class ScreenPlacement : Observable
     /// desk holds what Windows sends against. Empty: the display's own, nothing verified.
     /// </summary>
     public SignalContract Signal { get; init; } = new();
+
+    private bool _testRoute;
+    /// <summary>
+    /// Round 65.10: TEST ROUTE — the diagnostic profile (1080p50, RGB, 8-bit, SDR, stereo) stands in for
+    /// the contract while a path is proven, the contract itself untouched. A screen on the test route
+    /// holds the commissioning flow at CONTRACT: the route may be proven, the design is not.
+    /// </summary>
+    public bool TestRoute { get => _testRoute; set => Set(ref _testRoute, value); }
+
+    /// <summary>The contract the desk holds the link against right now: the diagnostic profile on the test route, else the engineer's.</summary>
+    public SignalContract EffectiveSignal => TestRoute ? SignalContract.Diagnostic() : Signal;
     public double BrightnessPct { get => _brightnessPct; set => Set(ref _brightnessPct, Math.Clamp(value, 10, 200)); }
     /// <summary>Midtone gamma trim; 1.0 = neutral, above darkens mids, below lifts them.</summary>
     public double Gamma { get => _gamma; set => Set(ref _gamma, Math.Clamp(value, 0.4, 2.5)); }

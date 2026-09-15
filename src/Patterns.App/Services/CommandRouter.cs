@@ -98,6 +98,8 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Actions.EdidJson(cmd.Text));
             case RemoteCommandKind.RigStatus:
                 return ControlProtocol.Ok(_services.Actions.RigJson());
+            case RemoteCommandKind.CommissionStatus:
+                return ControlProtocol.Ok(_services.Actions.CommissionJson());
         }
 
         var action = cmd.Action;
@@ -523,6 +525,7 @@ public sealed class CommandRouter : IRouter
                 pending = _services.Video.PendingChanges.Select(p => new { key = p.Key, target = p.Target, what = TopologyPolicy.Name(p.Edit), words = p.Words }).ToArray(),
             },
             machine = MachineRow(),
+            commissioning = _services.Actions.CommissioningRow(),                                 // round 65.10: where the commissioning flow is
             modules = Modules.Rows().Select(r => new { name = r.Name, version = r.Version, native = r.Native, loaded = r.Loaded }).ToArray(),   // the build's assemblies, and which this process loaded
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
             // The room around the desk, for a deck's keys: every node heard, the callers linked, the twin, the stage.

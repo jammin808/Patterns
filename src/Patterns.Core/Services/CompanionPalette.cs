@@ -58,6 +58,9 @@ public static class CompanionPalette
         ["countdown"] = Row(("running", "green"), ("over", "red")),
         ["presenter"] = Row(("on", "steel"), ("ended", "amber"), ("out", "red")),
         ["install"] = Row(("schedule", "green"), ("announcement", "amber"), ("advert", "steel")),
+        // Round 65.10: signal truth and the rig on the keys — MATCH green, MISMATCH red; the known-good rig unchanged green, moved amber, commissioned green.
+        ["signal"] = Row(("match", "green"), ("mismatch", "red")),
+        ["rig"] = Row(("same", "green"), ("drift", "amber"), ("commissioned", "green")),
         ["stream"] = Row(("active", "red"), ("trouble", "amber")),
         ["device"] = Row(("open", "green"), ("fault", "red")),
         ["tone"] = Row(("on", "amber")),

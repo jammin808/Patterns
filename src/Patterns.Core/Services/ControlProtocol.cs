@@ -49,6 +49,8 @@ public enum RemoteCommandKind
     ScreenEdid,
     /// <summary>RIG STATUS / RIG (round 65.9): the machine as Windows describes it, the commissioned rig and the drift from it, as JSON.</summary>
     RigStatus,
+    /// <summary>COMMISSION / COMMISSION STATUS (round 65.10): the commissioning flow's seven stages, each with its light and its next step, as JSON.</summary>
+    CommissionStatus,
 }
 
 /// <summary>
@@ -374,6 +376,17 @@ public static class ControlProtocol
                 {
                     var words = rest[7..].Trim();
                     return words.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenSignal, n, words);
+                }
+                // "SCREEN 2 TESTROUTE ON" / "SCREEN 2 TEST ROUTE OFF" / bare "SCREEN 2 TESTROUTE" toggles (round 65.10): the
+                // diagnostic profile (1080p50 RGB 8-bit SDR stereo) stands in for the contract while the path is proven.
+                {
+                    var route = rest.Replace("TEST ROUTE", "TESTROUTE", StringComparison.OrdinalIgnoreCase);
+                    if (route.Equals("TESTROUTE", StringComparison.OrdinalIgnoreCase)) return Act(ShowActionKind.ScreenTestRoute, n, "");
+                    if (route.StartsWith("TESTROUTE ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var word = route[10..].Trim().ToUpperInvariant();
+                        return word is "ON" or "OFF" ? Act(ShowActionKind.ScreenTestRoute, n, word) : Unknown(s);
+                    }
                 }
                 // "SCREEN 2 PATTERN Grid": a kind of picture on that screen alone, live.
                 if (rest.StartsWith("PATTERN ", StringComparison.OrdinalIgnoreCase))
@@ -1016,6 +1029,10 @@ public static class ControlProtocol
                 };
             }
 
+            // "COMMISSION" / "COMMISSION STATUS" / "COMMISSIONING" (round 65.10): the flow's seven stages as JSON.
+            case "COMMISSION":
+            case "COMMISSIONING":
+                return arg.ToUpperInvariant() is "" or "STATUS" ? Query(RemoteCommandKind.CommissionStatus) : Unknown(s);
             case "RIGDAY":
             case "RIG-DAY":
             case "GAMES":

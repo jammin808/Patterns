@@ -288,8 +288,28 @@ public sealed partial class MainViewModel
         "beacon-on" => State.Watchdog.BeaconEnabled || State.Watchdog.BeaconListen,
         "multiview-present" => State.Multiviews.Count > 0 || State.Pattern.Kind == PatternKind.Multiview
             || State.Independent.Any(a => a.Pattern.Kind == PatternKind.Multiview),
+        // Round 65.10: the commissioning flow's stages — green in the report is done.
+        "commission-discover" => CommissionDone(CommissionStage.Discover),
+        "commission-assign" => CommissionDone(CommissionStage.Assign),
+        "commission-contract" => CommissionDone(CommissionStage.Contract),
+        "commission-capability" => CommissionDone(CommissionStage.Capability),
+        "commission-output" => CommissionDone(CommissionStage.OutputTest),
+        "commission-verify" => CommissionDone(CommissionStage.Verify),
+        "commission-known-good" => CommissionDone(CommissionStage.KnownGood),
         _ => null,
     };
+
+    private bool CommissionDone(CommissionStage stage)
+    {
+        try
+        {
+            return _services.Actions.CommissioningReport().Lines.FirstOrDefault(l => l.Stage == stage)?.Light == CheckLight.Green;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     public string GroupSummary
     {

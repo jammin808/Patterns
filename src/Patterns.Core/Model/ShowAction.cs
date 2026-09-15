@@ -264,6 +264,8 @@ public enum ShowActionKind
     /// the screen's link is meant to carry (round 65) — each word sets its property, the rest stay.
     /// </summary>
     ScreenSignal,
+    /// <summary>Round 65.10: the diagnostic profile stands in for the screen's contract (ON), the contract holds again (OFF), or toggle ("").</summary>
+    ScreenTestRoute,
     /// <summary>
     /// The staged verbs (round 60): Target = a screen, a canvas, or empty / PGM for the programme;
     /// the picture lands on that target's PVW in the sandboxed preview and nowhere else — EDIT

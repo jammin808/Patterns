@@ -77,6 +77,8 @@ export const STATES = {
 	countdown: { running: 'green', over: 'red' },
 	presenter: { on: 'steel', ended: 'amber', out: 'red' },
 	install: { schedule: 'green', announcement: 'amber', advert: 'steel' },
+	signal: { match: 'green', mismatch: 'red' },
+	rig: { same: 'green', drift: 'amber', commissioned: 'green' },
 	stream: { active: 'red', trouble: 'amber' },
 	device: { open: 'green', fault: 'red' },
 	tone: { on: 'amber' },

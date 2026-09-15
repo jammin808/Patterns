@@ -1438,7 +1438,22 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Attention = attention,
             Signals = SignalLinesForBrief(),
             Machine = MachineLinesForBrief(),
+            Commissioning = CommissioningLinesForBrief(),
         };
+    }
+
+    /// <summary>The commissioning flow's lines for the brief; nothing when the desk cannot read them.</summary>
+    private IReadOnlyList<string> CommissioningLinesForBrief()
+    {
+        try
+        {
+            return Actions.CommissioningBriefLines();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the commissioning flow.", ex);
+            return Array.Empty<string>();
+        }
     }
 
     /// <summary>The machine's lines and the known-good verdict for the brief; nothing when the desk cannot read them.</summary>

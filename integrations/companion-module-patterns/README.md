@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.5.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.6.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -62,8 +62,12 @@ and rechecks every feedback. `$(patterns:desk_version)` and `$(patterns:show)` s
 show a deck is on; `$(patterns:last_error)` carries the last refusal. `$(patterns:machine_faulting)`,
 `$(patterns:devices_failing)` and `$(patterns:device_last_failure)` say when an output or a box is in
 trouble, and the `render_faulting` and `device_failing` feedbacks light a key red for it;
-`$(patterns:cue_last_pending)` counts the device receipts the last cue still waits for. The connection says `HELLO
-<label> module=3.5.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+`$(patterns:cue_last_pending)` counts the device receipts the last cue still waits for. From 3.6.0 the
+rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a screen's link carrying
+against its contract (MATCH / MISMATCH / UNVERIFIED — never a pass by default), `$(patterns:machine_rig)`
+is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
+`signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
+<label> module=3.6.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -90,6 +94,12 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.6.0** — the round-65 rig words: `screen_signal` / `screen_testroute` / `rig_save` actions,
+  the `screen_signal_is`, `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned`
+  feedbacks, the `screen_n_signal`, `machine_inventory`, `machine_rig`, `commissioning` and
+  `commissioning_next` variables, the Rig preset page, the `signal` and `rig` colours.
+- **3.5.0** — the pairing token: the connection's **Pairing token** field, `AUTH <token>` after
+  `HELLO`, a trust refusal shown as a bad-config status.
 - **3.2.0** — the round-58 deck words: `machine_memory_pressure` (the rung the desk's media
   memory ladder stands on) and `inputs_pending` (a reopen staged under a source on air); the
   `memory_pressure_at_least` and `inputs_change_pending` feedbacks.

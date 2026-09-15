@@ -18,6 +18,7 @@ export function variableDefinitions() {
 		v[`screen_${n}`] = `Screen ${n} (its label, or empty)`
 		v[`track_${n}`] = `Audio playlist track ${n} (name, or empty)`
 		v[`screen_${n}_pattern`] = `Screen ${n} — the kind of picture it is showing`
+		v[`screen_${n}_signal`] = `Screen ${n} — the signal result: MATCH, MISMATCH or UNVERIFIED (round 65)`
 		v[`node_${n}`] = `Node ${n} as the Nodes page lists it — its kind and its machine (or empty)`
 		v[`node_${n}_kind`] = `Node ${n} — desk, caller, arcade or timer`
 		v[`node_${n}_words`] = `Node ${n} — its own health line`
@@ -102,6 +103,10 @@ export function variableDefinitions() {
 		machine_render_faults: 'Render faults in the last minute (frames whose draw threw; the last good picture was shown instead)',
 		machine_faulting: 'An output is faulting right now (FAULT / ok)',
 		machine_live_age: 'Live input age: the oldest camera or feed picture an output drew in the last minute, decoder to frame (ms, or n/a with none drawn) — the IMAG number',
+		machine_inventory: 'The machine as Windows describes it, in one line: the card and its driver, the displays, the audio outputs, the power plan (round 65.9)',
+		machine_rig: 'The known-good rig: not saved, unchanged since …, or N changes since … (round 65.9)',
+		commissioning: 'The commissioning flow\'s headline: commissioned, or N of 7 stages green and where it stands (round 65.10)',
+		commissioning_next: 'The commissioning flow\'s next step in the desk\'s words; empty once commissioned (round 65.10)',
 		machine_memory_pressure: 'Media memory pressure: none / elevated / high / critical — the rung the desk\'s memory ladder stands on (pictures, frame pools, retiring frames and decks against their budget)',
 		inputs_pending: "A reopen staged under a source on air ('Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.'), or empty",
 		devices_failing: 'Interactive devices whose last word was a failure (count)',

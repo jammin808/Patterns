@@ -147,6 +147,22 @@ export function buildActions(ctx) {
 			callback: (a) => { const look = clean(a.options.look); if (look) send(`SCREEN ${a.options.n} LOOK ${look}`) },
 		},
 		screen_program: { name: 'Screen — back to the program (drops its own picture)', options: [screenN], callback: (a) => send(`SCREEN ${a.options.n} PROGRAM`) },
+		// Round 65.10: commissioning from the deck — the link's contract in words, the test route, the rig saved as known good.
+		screen_signal: {
+			name: 'Screen — signal contract (what the link is meant to carry)',
+			options: [screenN, text('words', 'Contract words (3840x2160 50 RGB 8 SDR; CLEAR for none)', '1920x1080 50 RGB 8 SDR')],
+			callback: (a) => { const w = clean(a.options.words); if (w) send(`SCREEN ${a.options.n} SIGNAL ${w}`) },
+		},
+		screen_testroute: {
+			name: 'Screen — TEST ROUTE (the diagnostic profile stands in for the contract)',
+			options: [screenN, onOff()],
+			callback: (a) => send(a.options.mode === 'TOGGLE' ? `SCREEN ${a.options.n} TESTROUTE` : `SCREEN ${a.options.n} TESTROUTE ${a.options.mode}`),
+		},
+		rig_save: {
+			name: 'RIG SAVE — the rig as it stands saved as known good (with a note)',
+			options: [text('note', 'Note (first show, after the driver update…)', 'first show')],
+			callback: (a) => { const n = clean(a.options.note); send(n ? `RIG SAVE ${n}` : 'RIG SAVE') },
+		},
 		// Round 63 — the tile's own CUT / TAKE: the desk's preview to this one screen, as its own picture (OWN lights up); the programme and every other screen stay. EDIT SAFE must be open on the desk.
 		screen_take: {
 			name: 'Screen — CUT / TAKE the desk\'s preview to this screen alone (it becomes the screen\'s own picture; every other screen stays)',

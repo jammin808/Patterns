@@ -41,6 +41,16 @@ export function buildFeedbacks(ctx) {
 		look_bank_on_air: bool("The look at a place in the show's list is on air (bank key n)", style('look', 'air'), [{ type: 'number', id: 'n', label: 'Place in the list (1–16)', default: 1, min: 1, max: 16 }], (fb) => !!s().looks?.[fb.options.n - 1]?.air),
 		look_bank_edited: bool('The look at a place in the list is on air but has been changed since (bank key n)', style('look', 'edited'), [{ type: 'number', id: 'n', label: 'Place in the list (1–16)', default: 1, min: 1, max: 16 }], (fb) => !!s().looks?.[fb.options.n - 1]?.air && s().lookEdited === true),
 		look_f_on_air: bool('The look on an F-key is on air', style('look', 'air'), [{ type: 'number', id: 'slot', label: 'F-key (1–12)', default: 1, min: 1, max: 12 }], (fb) => !!s().looks?.find((l) => l.slot === fb.options.slot)?.air),
+		// Round 65.10: signal truth and the rig on the keys — the verdict Windows gives a screen's link, the
+		// known-good rig's drift, the commissioning flow's end. Evidence only: UNVERIFIED is not a pass.
+		screen_signal_is: bool('Screen signal result is (MATCH / MISMATCH / UNVERIFIED)', style('signal', 'match'), [screenN, {
+			type: 'dropdown', id: 'result', label: 'Result', default: 'MATCH',
+			choices: [{ id: 'MATCH', label: 'MATCH — Windows reports the link carrying its contract' }, { id: 'MISMATCH', label: 'MISMATCH — the observation differs from the contract' }, { id: 'UNVERIFIED', label: 'UNVERIFIED — no contract, or nothing observed' }],
+		}], (fb) => norm(s().screens?.find((x) => x.n === fb.options.n)?.signal?.result) === norm(fb.options.result)),
+		signal_mismatch_any: bool('Any screen reads MISMATCH against its contract', style('signal', 'mismatch'), [], () => (s().screens ?? []).some((x) => norm(x.signal?.result) === 'mismatch')),
+		rig_known_good: bool('The rig is the one saved as known good (unchanged)', style('rig', 'same'), [], () => String(s().machine?.rig ?? '').startsWith('unchanged')),
+		rig_drift: bool('The rig moved since it was saved as known good', style('rig', 'drift'), [], () => /^\d+ change/.test(String(s().machine?.rig ?? ''))),
+		commissioned: bool('The rig is commissioned — every stage of the flow green', style('rig', 'commissioned'), [], () => s().commissioning?.complete === true),
 		// The install: the clock running, an announcement or an advert over the programme.
 		schedule_on: bool('The install schedule is on (the clock runs the site)', style('install', 'schedule'), [], () => s().install?.on === true),
 		announcement_on: bool('An announcement is on (any, or a named one)', style('install', 'announcement'), [named('name', 'Announcement name (blank = any)')], (fb) => {

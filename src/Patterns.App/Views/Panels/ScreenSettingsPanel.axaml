@@ -73,12 +73,14 @@
                   SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
 
         <TextBlock Classes="label" Text="Signal contract" Margin="0,8,0,0" />
-        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto,8,Auto">
           <TextBox Grid.Column="0" Text="{Binding Screens.SelectedSignalWords, Mode=TwoWay}" FontFamily="Consolas,monospace"
                    Watermark="3840x2160 50 RGB 8 SDR — empty: the display's own, nothing verified" />
           <Button Grid.Column="2" Classes="chip" Content="APPLY" Command="{Binding Screens.ApplySignalCommand}"
                   ToolTip.Tip="Set the contract from the words — each word sets its property, the rest stay" />
           <Button Grid.Column="4" Classes="chip" Content="CLEAR" Command="{Binding Screens.ClearSignalCommand}" />
+          <Button Grid.Column="6" Classes="chip" Content="{Binding Screens.TestRouteLabel}" Command="{Binding Screens.TestRouteCommand}"
+                  ToolTip.Tip="TEST ROUTE: the diagnostic profile (1080p50, RGB, 8-bit, SDR, stereo) stands in for the contract while the path is proven — a soft or wrong picture that clears on the test route is a capability problem, one that stays is a path problem. The contract itself is untouched; ROUTE OFF puts it back (SCREEN n TESTROUTE ON / OFF on the wire)" />
         </Grid>
         <TextBlock Classes="hint" Text="{Binding Screens.SignalStatus}" TextWrapping="Wrap" />
         <TextBlock Text="{Binding Screens.SelectedSignalText}" FontFamily="Consolas,monospace" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />

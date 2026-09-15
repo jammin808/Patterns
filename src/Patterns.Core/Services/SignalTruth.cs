@@ -188,10 +188,12 @@ public static class SignalTruth
     /// display's refresh as Windows' mode says it (0 unknown); <paramref name="clockHz"/> the render
     /// clock as measured (≤ 0 not measured).
     /// </summary>
-    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null, string plannedEdidHash = "")
+    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null, string plannedEdidHash = "", bool testRoute = false)
     {
         var lines = new List<SignalLine>();
         var design = DesignWords(contract);
+        // Round 65.10: on the test route the diagnostic profile is the contract held against — said first, so no one reads a proven route as a commissioned design.
+        if (testRoute) lines.Add(new SignalLine("Test route", CheckLight.Amber, "the diagnostic profile stands in for the contract", "1080p50 RGB 8-bit SDR stereo tells a capability problem from a path problem; TESTROUTE OFF when the path is proven"));
         var requested = RequestedWords(screenWidth, screenHeight, presentFps, displayHz);
         var observedWords = ObservedWords(observed);
         var advertisedWords = advertised?.AdvertisedWords ?? "";

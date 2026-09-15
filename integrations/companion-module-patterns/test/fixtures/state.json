@@ -15,8 +15,8 @@
   "lookEdited": true, "lookScreensOff": 1,
   "presenter": { "armed": false, "index": 2, "count": 5, "steps": [] },
   "screens": [
-    { "n": 1, "label": "Main wall", "enabled": true, "group": "", "locked": false, "role": "main", "armed": false, "own": false, "black": false, "pattern": "Grid", "off": false },
-    { "n": 2, "label": "Side", "enabled": true, "group": "", "locked": true, "role": "info", "armed": false, "own": true, "black": true, "pattern": "TestCard", "off": true }
+    { "n": 1, "label": "Main wall", "enabled": true, "group": "", "locked": false, "role": "main", "armed": false, "own": false, "black": false, "pattern": "Grid", "off": false, "signal": { "design": "3840×2160 · 50 Hz · RGB 4:4:4 · 8-bit · SDR", "observed": "3840×2160 · 50 Hz (50/1) · RGB 4:4:4 · 8-bit · SDR", "result": "MATCH" } },
+    { "n": 2, "label": "Side", "enabled": true, "group": "", "locked": true, "role": "info", "armed": false, "own": true, "black": true, "pattern": "TestCard", "off": true, "signal": { "design": "", "observed": "1920×1080 · 60 Hz (60/1) · encoding unknown · bit depth unknown · HDR unknown", "result": "UNVERIFIED" } }
   ],
   "audio": { "playing": true, "track": "Intro", "n": 1, "count": 2, "next": "Outro", "position": 12, "length": 60, "remaining": 48, "positionText": "0:12", "lengthText": "1:00", "remainingText": "0:48", "items": [ { "n": 1, "name": "Intro" }, { "n": 2, "name": "Outro" } ] },
   "music": { "on": true, "playing": false, "level": 60, "now": "", "device": "Desk", "status": "paused", "items": [ { "n": 1, "name": "Lounge" } ] },
@@ -41,7 +41,8 @@
   "stream": { "active": true, "status": "Live", "word": "good", "health": "good", "light": "Green", "up": "0:42:10", "fps": 30, "trouble": false, "destinations": 1 },
   "health": "OK", "quality": { "mode": "Auto", "level": 0, "factor": 1, "text": "" }, "memory": { "appMB": 900, "ceilingMB": 2000, "text": "", "pressure": "elevated" },
   "inputs": { "mounted": 1, "retiring": 0, "limitNote": "", "pendingNote": "Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.", "pending": [] },
-  "machine": { "cpu": 31, "ram": 48, "fps": 60, "battery": false, "advice": 0, "renderFaults": 0, "faulting": false, "liveAgeMs": 33 },
+  "machine": { "cpu": 31, "ram": 48, "fps": 60, "battery": false, "advice": 0, "renderFaults": 0, "faulting": false, "liveAgeMs": 33, "inventory": "NVIDIA RTX A4000 · driver 560.94 · 2 displays · 1 audio output · High performance", "rig": "unchanged since 2026-09-15 09:00 (first show)" },
+  "commissioning": { "complete": false, "done": 6, "total": 7, "stage": "Known good", "headline": "6 of 7 stages green · at Known good: not saved", "next": "SAVE KNOWN GOOD on the Machine page (RIG SAVE first show) once every stage above is green" },
   "beacon": { "sending": true, "listening": false, "main": "" },
   "nodes": [
     { "n": 1, "instance": "a1b2", "kind": "caller", "name": "FOH-CALL", "show": "Gala", "live": false, "fresh": true, "words": "Caller FOH-CALL · linked", "address": "10.0.0.12", "http": 9696, "link": 9700, "heardSecondsAgo": 1 },

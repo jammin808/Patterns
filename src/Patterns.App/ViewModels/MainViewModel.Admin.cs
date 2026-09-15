@@ -739,6 +739,11 @@ public sealed partial class MainViewModel
     /// <summary>KNOWN GOOD RIG: not saved, or the drift's headline with every line that moved.</summary>
     public string RigText { get => _rigText; private set => Set(ref _rigText, value); }
 
+    private string _commissioningText = "";
+
+    /// <summary>COMMISSIONING (round 65.10): the seven stages with their marks and the next step, from the flow's evidence.</summary>
+    public string CommissioningText { get => _commissioningText; private set => Set(ref _commissioningText, value); }
+
     /// <summary>The rig of the moment saved as the commissioned one — the executor's words on the status line.</summary>
     public RelayCommand SaveKnownGoodCommand => _saveKnownGood ??= new RelayCommand(() =>
     {
@@ -758,6 +763,15 @@ public sealed partial class MainViewModel
     /// <summary>The block's words from the kernel's known-good rig and the comparison of the moment.</summary>
     public void RefreshRig()
     {
+        try
+        {
+            var flow = _services.Actions.CommissioningReport();
+            CommissioningText = string.Join(Environment.NewLine, new[] { char.ToUpperInvariant(flow.Headline[0]) + flow.Headline[1..] }.Concat(flow.Words));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The commissioning block could not be read.", ex);
+        }
         try
         {
             var known = _services.Kernel.KnownGood;

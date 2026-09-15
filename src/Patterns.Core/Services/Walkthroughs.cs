@@ -34,6 +34,8 @@ public static class Walkthroughs
         "wall-gaps", "blend-auto", "outputs-on", "looks-saved", "cues-present", "cues-timed", "stack-armed",
         "edit-safe", "remote-on", "osc-on", "ndi-on", "stream-armed", "vogs-present", "stingers-present",
         "lower-thirds-designed", "people-library", "web-source", "layers-on", "beacon-on", "multiview-present",
+        // Round 65.10: the commissioning flow's stages, each answered by the flow's own evidence.
+        "commission-discover", "commission-assign", "commission-contract", "commission-capability", "commission-output", "commission-verify", "commission-known-good",
     };
 
     public static string RoleLabel(DeskRole role) => role switch
@@ -90,6 +92,18 @@ public static class Walkthroughs
                 new WalkStep("Screens", "Trim and warp", "Brightness, gamma and RGB per output for mismatched displays; corner warp for a casually placed projector; the display mode for a wall that wants 50 Hz."),
                 new WalkStep("Screens", "Outputs on", "OUTPUTS ON opens a window on every enabled display. IDENTIFY flashes the numbers. Esc twice on an output closes them.", "outputs-on"),
                 new WalkStep("Machine", "Read the health line", "SUPER-CHECK reads the whole machine and the rig in one list: the GPU, the displays, the frame rate, the sends, the stream, the beacon."),
+            }),
+        new Walkthrough("tech-commission", DeskRole.Technician, "Commission the rig: contracts, capability, verify, known good",
+            "Every link carries what it was designed to carry, Windows agrees, and the rig is saved as known good — so 'it worked yesterday' has an answer.",
+            new[]
+            {
+                new WalkStep("Screens", "Discover", "Plug the links in and let Windows show every display; a screen whose display has gone reads lost on its row. Detect rescans.", "commission-discover"),
+                new WalkStep("Screens", "Assign", "Adopt every planned screen onto the display it turned out to be; enable the screens the show uses.", "commission-assign"),
+                new WalkStep("Screens", "Contract", "Say what each link is meant to carry — SIGNAL CONTRACT on the screen's row (3840x2160 50 RGB 8 SDR), or SCREEN n SIGNAL on the wire. A screen on TEST ROUTE is not contracted yet.", "commission-contract"),
+                new WalkStep("Screens", "Capability", "ADVERTISED reads the display's EDID: green where it offers what the contract asks, amber where it does not — change the contract, load the planned EDID on the processor or the PC, or accept the fallback knowingly.", "commission-capability"),
+                new WalkStep("Screens", "Output test", "OUTPUTS ON, IDENTIFY, a test card on every screen: the wall says which link is which. A picture that is soft or wrong on one link: SCREEN n TESTROUTE ON puts the diagnostic profile on it and tells a capability problem from a path problem.", "commission-output"),
+                new WalkStep("Screens", "Verify", "RESULT reads MATCH on every contracted screen — Windows reports the link carrying the contract. UNVERIFIED is not a pass: a property Windows never stated stays unknown.", "commission-verify"),
+                new WalkStep("Machine", "Known good", "SAVE KNOWN GOOD writes the rig — machine, drivers, displays, EDIDs, contracts, audio, senders, bindings, clock — beside the settings; every boot then says what moved.", "commission-known-good"),
             }),
         new Walkthrough("tech-blend", DeskRole.Technician, "Blend two projectors into one picture",
             "Two overlapping projectors read as one wide picture with a flat seam.",

@@ -224,6 +224,21 @@ the module reconnects as it always has. Nothing changes in what the module parse
 The module's version moves to 3.5.0 in every file that carries it; a deck with 3.4.0 keeps
 working on an open desk and lacks the token field.
 
+**Signal truth and the rig on the deck, version 3.6.0 (round 65.10).** Three actions: `screen_signal`
+(`SCREEN n SIGNAL <words>` — the link's contract), `screen_testroute` (`SCREEN n TESTROUTE ON / OFF`
+or bare to toggle — the diagnostic profile standing in for the contract while a path is proven) and
+`rig_save` (`RIG SAVE <note>` — the rig saved as known good). Five feedbacks, evidence only:
+`screen_signal_is` (a screen's result MATCH / MISMATCH / UNVERIFIED — UNVERIFIED is never a pass),
+`signal_mismatch_any`, `rig_known_good` (the rig is the one saved), `rig_drift` (it moved) and
+`commissioned` (every stage of the flow green). Variables `screen_n_signal`, `machine_inventory`
+(the card, its driver, the displays, the audio, the power plan in one line), `machine_rig` and
+`commissioning` / `commissioning_next` (the flow's headline and next step). A **Rig** preset page: a
+signal key per screen (green MATCH, red MISMATCH; press toggles the test route), KNOWN GOOD (green
+saved and unchanged, amber moved; press saves), COMMISSIONING and THIS MACHINE. Colours: the
+`signal` family (match green, mismatch red) and the `rig` family (same green, drift amber). The
+module reads STATE's `screens[].signal`, `machine.inventory`, `machine.rig` and `commissioning`
+rows as the desk has sent them since rounds 65.6–65.10; a 3.5.0 deck ignores them.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

@@ -108,6 +108,22 @@ public sealed partial class ShowActions
                 var report = SignalReportFor(placement, _s.Screens.All.FirstOrDefault(s => s.Id == id));
                 return ActionResult.Done($"{report.Label} signal contract: {report.Design}. {report.Result}.");
             }
+            case ShowActionKind.ScreenTestRoute:
+            {
+                // Round 65.10: the diagnostic profile stands in for the contract while the path is proven — the contract itself is never touched.
+                var target = ResolveScreenTarget(a.Target);
+                var placement = target is null ? null : State.Output.Placements.FirstOrDefault(p => p.ScreenId == target);
+                if (placement is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var on = a.Value.Trim().ToUpperInvariant() switch { "ON" => true, "OFF" => false, _ => !placement.TestRoute };
+                var id = placement.ScreenId;
+                _s.BulkEdit(() => placement.TestRoute = on);
+                if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.TestRoute = on; });
+                var report = SignalReportFor(placement, _s.Screens.All.FirstOrDefault(s => s.Id == id));
+                _s.Journal.Record("rig", "TestRoute", report.Label, on ? "On" : "Off", on ? "the diagnostic profile stands in for the contract" : $"the contract holds again: {SignalTruth.DesignWords(placement.Signal)}");
+                return ActionResult.Done(on
+                    ? $"{report.Label} on TEST ROUTE — the diagnostic profile ({report.Design}) stands in for the contract. {report.Result}."
+                    : $"{report.Label} off the test route — the contract holds again: {report.Design}. {report.Result}.");
+            }
             case ShowActionKind.RigSaveKnownGood:
             {
                 // Round 65.9: the engineer's word that the rig is right — the machine as Windows describes it,
@@ -286,7 +302,7 @@ public sealed partial class ShowActions
         var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
         // Round 65.8: the EDID Patterns wrote for this screen, so the view can say whether the display presents it.
         var plannedHash = placement.Signal.IsSet && width > 0 && height > 0 ? Edid.Hash(EdidWriter.Build(EdidPlanFor(placement, info))) : "";
-        return SignalTruth.Compare(label, placement.Signal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed), plannedHash);
+        return SignalTruth.Compare(label, placement.EffectiveSignal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed), plannedHash, placement.TestRoute);
     }
 
     /// <summary>The EDID plan a screen makes (round 65.8): its contract's words, its own size where the contract is silent, its identity in the product code.</summary>
@@ -430,6 +446,88 @@ public sealed partial class ShowActions
             },
             words = _s.Kernel.KnownGood.Words,
         });
+    }
+
+    // ---- the commissioning flow (round 65.10) ---------------------------------------------------
+
+    private bool _outputsWereLive;
+
+    /// <summary>
+    /// The facts the commissioning flow judges: what Windows shows, what is planned and what is lost,
+    /// each live screen's contract, test route, EDID and verdict, the outputs, the known-good rig.
+    /// Reads the kept machine reading and the signal reports — nothing here probes on the caller's thread.
+    /// </summary>
+    public CommissioningFacts CommissioningFactsNow()
+    {
+        var all = _s.Screens.All;
+        var real = all.Where(s => !s.IsPlanned && !s.IsVirtual && !s.IsMissing).ToList();
+        var placements = State.Output.Placements.Where(p => !p.IsVirtual).ToList();
+        // A display that went is disabled and marked planned by the hot-plug service: it is DISCOVER's to name, never ASSIGN's.
+        var lost = placements.Where(HotPlugWatch.IsLost).Select(p => $"{Rig.LabelFor(p, all.FirstOrDefault(s => s.Id == p.ScreenId))} — {HotPlugWatch.LostWords(p)}").ToList();
+        var clock = FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
+        var screens = new List<CommissionScreen>();
+        var n = 0;
+        foreach (var (placement, info) in Rig.OrderedLivePlacements(State, all))
+        {
+            n++;
+            if (info is null || info.IsVirtual || !placement.Enabled) continue;                        // the screens the show uses; a disabled one is not commissioned
+            var report = SignalReportFor(placement, info, clock);
+            var edid = EdidFor(info);
+            var advertises = edid is not null && !report.Lines.Any(l => l.Item.StartsWith("Advertised", StringComparison.Ordinal) && l.Light == CheckLight.Amber);
+            screens.Add(new CommissionScreen(n, report.Label, placement.Signal.IsSet, placement.TestRoute, edid is not null, advertises, report.Verdict, report.Observed));
+        }
+        _outputsWereLive |= _s.Outputs.IsLive;
+        var known = _s.Kernel.KnownGood;
+        var drift = RigDriftNow();
+        return new CommissioningFacts
+        {
+            DisplaysSeen = real.Count,
+            PlannedScreens = placements.Count(p => p.IsPlannedDisplay && !HotPlugWatch.IsLost(p)),
+            EnabledScreens = placements.Count(p => p.Enabled && !p.IsPlannedDisplay),
+            LostScreens = lost,
+            Screens = screens,
+            OutputsLive = _s.Outputs.IsLive,
+            OutputsWereLive = _outputsWereLive,
+            KnownGoodSaved = known.Known is not null,
+            KnownGoodSame = drift?.Same,
+            KnownGoodWords = known.Known is null ? "" : known.Words,
+        };
+    }
+
+    /// <summary>The flow judged: seven lines, the next step, the headline.</summary>
+    public CommissioningReport CommissioningReport() => Commissioning.Build(CommissioningFactsNow());
+
+    /// <summary>COMMISSION STATUS as JSON: every stage with its light, value and next step; the headline; the count.</summary>
+    public string CommissionJson()
+    {
+        var report = CommissioningReport();
+        return JsonUtil.SerializeCompact(new
+        {
+            complete = report.Complete,
+            done = report.Done,
+            total = report.Total,
+            percent = report.Percent,
+            headline = report.Headline,
+            next = report.Next,
+            overall = report.Overall.ToString().ToLowerInvariant(),
+            stages = report.Lines.Select(l => new { stage = l.Stage.ToString(), title = l.Title, light = l.Light.ToString().ToLowerInvariant(), value = l.Value, next = l.Next }).ToArray(),
+        });
+    }
+
+    /// <summary>The STATE row: where the flow is, in a few words.</summary>
+    public object CommissioningRow()
+    {
+        var report = CommissioningReport();
+        return new { complete = report.Complete, done = report.Done, total = report.Total, stage = report.Current?.Title ?? "", headline = report.Headline, next = report.Next };
+    }
+
+    /// <summary>The flow's lines for the assistant's brief: the headline first, then each stage with its mark.</summary>
+    public IReadOnlyList<string> CommissioningBriefLines()
+    {
+        var report = CommissioningReport();
+        var lines = new List<string> { "Commissioning: " + report.Headline };
+        lines.AddRange(report.Words);
+        return lines;
     }
 
     /// <summary>The machine's lines for the assistant's brief — without the machine's name — with the known-good rig's verdict last.</summary>

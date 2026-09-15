@@ -232,6 +232,17 @@ export function buildPresets() {
 	add('install_advert_off', key('Install', 'ADVERT OFF — the advert on ends, the programme comes back', 'ADVERT\nOFF', '14', press('advert_off'), [litAs('advert_on', { name: '' }, 'install', 'advert')]))
 	add('install_status', key('Install', 'The install: the programme on and the next change', '$(patterns:install_programme)\n$(patterns:install_next)', 'auto', []))
 
+	// ---- the rig (round 65.10): the signal verdicts, the test route, the known-good rig, the flow ------------
+	for (let n = 1; n <= 8; n++) {
+		add(`rig_signal_${n}`, key('Rig', `Screen ${n} — signal result: green MATCH, red MISMATCH (press: TEST ROUTE toggles)`, `S${n} SIGNAL\n$(patterns:screen_${n}_signal)`, 'auto', press('screen_testroute', { n, mode: 'TOGGLE' }),
+			[litAs('screen_signal_is', { n, result: 'MATCH' }, 'signal', 'match'), litAs('screen_signal_is', { n, result: 'MISMATCH' }, 'signal', 'mismatch'), empty('screen', n)]))
+	}
+	add('rig_known_good', key('Rig', 'KNOWN GOOD — green while the rig is the one saved, amber when it moved; press: RIG SAVE first show', 'KNOWN\nGOOD\n$(patterns:machine_rig)', 'auto', press('rig_save', { note: 'first show' }),
+		[litAs('rig_known_good', {}, 'rig', 'same'), litAs('rig_drift', {}, 'rig', 'drift')]))
+	add('rig_commissioning', key('Rig', 'COMMISSIONING — the flow\'s headline and the next step; green once every stage is', '$(patterns:commissioning)\n$(patterns:commissioning_next)', 'auto', [],
+		[litAs('commissioned', {}, 'rig', 'commissioned')]))
+	add('rig_inventory', key('Rig', 'THIS MACHINE — the card, its driver, the displays, the audio, the power plan', '$(patterns:machine_inventory)', 'auto', []))
+
 	// ---- the stage: the speaker's timer as the speaker sees it, and the messages ----------------------------
 	const stageColours = [litAs('stage_colour_is', { colour: 'green' }, 'stage', 'running'), litAs('stage_colour_is', { colour: 'amber' }, 'stage', 'amber'), litAs('stage_colour_is', { colour: 'red' }, 'stage', 'red'), litAs('stage_is', { phase: 'paused' }, 'stage', 'paused')]
 	const timerSimple = key('Stage', 'STAGE TIMER — what the speaker sees, in the timer\'s own colour; press: pause / resume', '$(patterns:stage_timer)\n$(patterns:stage_label)', 'auto', press('timer', { mode: 'TOGGLE', seconds: 60 }), stageColours).preset

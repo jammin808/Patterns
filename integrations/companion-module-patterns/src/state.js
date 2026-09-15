@@ -65,6 +65,7 @@ export function bankVariables(s) {
 		vars[`screen_${n}`] = bankName(s, 'screen', n)
 		vars[`track_${n}`] = bankName(s, 'track', n)
 		vars[`screen_${n}_pattern`] = s.screens?.find((x) => x.n === n)?.pattern ?? ''
+		vars[`screen_${n}_signal`] = s.screens?.find((x) => x.n === n)?.signal?.result ?? ''
 		const node = s.nodes?.[n - 1]
 		vars[`node_${n}`] = nodeLabel(node)
 		vars[`node_${n}_kind`] = node?.kind ?? ''
@@ -201,6 +202,10 @@ export function variableValues(s) {
 		machine_faulting: s.machine?.faulting ? 'FAULT' : 'ok',
 		machine_live_age: s.machine?.liveAgeMs >= 0 ? `${Math.round(s.machine.liveAgeMs)} ms` : 'n/a',
 		machine_memory_pressure: s.memory?.pressure ?? 'none',
+		machine_inventory: s.machine?.inventory ?? '',
+		machine_rig: s.machine?.rig ?? '',
+		commissioning: s.commissioning?.headline ?? '',
+		commissioning_next: s.commissioning?.next ?? '',
 		inputs_pending: s.inputs?.pendingNote ?? '',
 		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
 		device_last_reply: (() => {

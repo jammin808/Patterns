@@ -52,6 +52,7 @@ public sealed class ScreensPage : Observable
         ArrangeBlendGridCommand = new RelayCommand(ArrangeBlendGrid);
         ApplySignalCommand = new RelayCommand(() => ApplySignal(SelectedSignalWords));
         ClearSignalCommand = new RelayCommand(() => ApplySignal("CLEAR"));
+        TestRouteCommand = new RelayCommand(ToggleTestRoute);
         ExportEdidCommand = new RelayCommand(() => _ = ExportEdidAsync());
         _calibrationFolder = Path.Combine(services.Store.MediaDirectory, "calibration", "photos");
         RefreshCalibrationCamerasCommand = new RelayCommand(RefreshCalibrationCameras);
@@ -306,6 +307,21 @@ public sealed class ScreensPage : Observable
 
     public RelayCommand ApplySignalCommand { get; }
     public RelayCommand ClearSignalCommand { get; }
+
+    /// <summary>TEST ROUTE (round 65.10): the diagnostic profile stands in for the selected screen's contract, or the contract holds again.</summary>
+    public RelayCommand TestRouteCommand { get; }
+
+    /// <summary>The TEST ROUTE key's face: what pressing it does next.</summary>
+    public string TestRouteLabel => _selectedPlacement is { TestRoute: true } ? "ROUTE OFF" : "TEST ROUTE";
+
+    private void ToggleTestRoute()
+    {
+        if (_selectedPlacement is not { } placement) return;
+        var result = _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenTestRoute, placement.ScreenId, ""), ActionOrigin.Desk);
+        SignalStatus = result.Message;
+        Raise(nameof(TestRouteLabel));
+        Raise(nameof(SelectedSignalText));
+    }
 
     private void ApplySignal(string words)
     {
