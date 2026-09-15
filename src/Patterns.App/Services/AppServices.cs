@@ -1437,7 +1437,22 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Health = health,
             Attention = attention,
             Signals = SignalLinesForBrief(),
+            Machine = MachineLinesForBrief(),
         };
+    }
+
+    /// <summary>The machine's lines and the known-good verdict for the brief; nothing when the desk cannot read them.</summary>
+    private IReadOnlyList<string> MachineLinesForBrief()
+    {
+        try
+        {
+            return Actions.MachineBriefLines();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the machine.", ex);
+            return Array.Empty<string>();
+        }
     }
 
     /// <summary>The screens' signal lines for the brief; nothing when the desk cannot read them.</summary>

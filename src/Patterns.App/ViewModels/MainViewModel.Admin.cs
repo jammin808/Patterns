@@ -663,9 +663,12 @@ public sealed partial class MainViewModel
             }
         }
 
-        if (MachineOverview.Length == 0 || _statusTicks % 30 == 0)
+        // The overview every half minute — and as soon as the probe's first reading lands, so the desk's
+        // own lines give way to Windows' words within a tick of them arriving (round 65.9), never a minute later.
+        if (MachineOverview.Length == 0 || _statusTicks % 30 == 0 || (!_machineOverviewFromProbe && !MachineProbe.Read().IsEmpty))
         {
             MachineOverview = BuildMachineOverview(s);
+            RefreshRig();
         }
 
         static string Pct(double v) => v < 0 ? "n/a" : $"{v:0}%";
@@ -727,10 +730,72 @@ public sealed partial class MainViewModel
         return points;
     }
 
+    // ---- the known-good rig (round 65.9) ---------------------------------------------------
+
+    private string _rigText = "";
+    private bool _machineOverviewFromProbe;
+    private RelayCommand? _saveKnownGood, _forgetKnownGood;
+
+    /// <summary>KNOWN GOOD RIG: not saved, or the drift's headline with every line that moved.</summary>
+    public string RigText { get => _rigText; private set => Set(ref _rigText, value); }
+
+    /// <summary>The rig of the moment saved as the commissioned one — the executor's words on the status line.</summary>
+    public RelayCommand SaveKnownGoodCommand => _saveKnownGood ??= new RelayCommand(() =>
+    {
+        var result = _services.Actions.Execute(new ShowAction(ShowActionKind.RigSaveKnownGood), ActionOrigin.Desk);
+        StatusMessage = result.Message;
+        RefreshRig();
+    });
+
+    /// <summary>Drops the commissioned rig; the comparison stops until the next save.</summary>
+    public RelayCommand ForgetKnownGoodCommand => _forgetKnownGood ??= new RelayCommand(() =>
+    {
+        _services.Kernel.KnownGood.Forget();
+        StatusMessage = "The known-good rig was forgotten — SAVE KNOWN GOOD once the rig is right again.";
+        RefreshRig();
+    });
+
+    /// <summary>The block's words from the kernel's known-good rig and the comparison of the moment.</summary>
+    public void RefreshRig()
+    {
+        try
+        {
+            var known = _services.Kernel.KnownGood;
+            if (known.Known is null)
+            {
+                RigText = "Not saved. Once the rig is right — every display on its contract, the driver you commissioned, the audio devices in place — press SAVE KNOWN GOOD; every boot then compares the machine against it and says what moved.";
+                return;
+            }
+            var drift = _services.Actions.RigDriftNow();
+            var saved = $"Saved {known.Known.TakenUtc.ToLocalTime():yyyy-MM-dd HH:mm}{(known.Known.Note.Length > 0 ? $" ({known.Known.Note})" : "")}";
+            if (drift is null)
+            {
+                RigText = saved + " — the machine is still being read.";
+                return;
+            }
+            var lines = new List<string> { (drift.Same ? "✓ " : "! ") + char.ToUpperInvariant(drift.Headline[0]) + drift.Headline[1..] };
+            lines.AddRange(drift.Lines.Where(l => !l.Same).Select(l => (l.Severe ? "!! " : "! ") + l.Words));
+            RigText = string.Join(Environment.NewLine, lines);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The known-good block could not be read.", ex);
+        }
+    }
+
     private string BuildMachineOverview(MetricSample s)
     {
         try
         {
+            // Round 65.9: the machine as Windows describes it — build, Windows, CPU, every GPU with its
+            // driver, every display with its mode and EDID, every audio endpoint, power, GPU scheduling.
+            var facts = MachineProbe.Read();
+            _machineOverviewFromProbe = !facts.IsEmpty;
+            if (!facts.IsEmpty)
+            {
+                var full = new List<string>(facts.Lines) { $"Folder: {_services.Store.BaseDirectory}" };
+                return string.Join(Environment.NewLine, full);
+            }
             _cpuNameCache ??= WinRegistry.ReadCpuName();
             var parts = new List<string>
             {

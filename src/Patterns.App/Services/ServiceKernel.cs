@@ -36,6 +36,9 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
     public ShowLog Journal { get; }
 
+    /// <summary>The commissioned rig on disk and the comparison against it (round 65.9) — the desk's, a node's, the bundle's.</summary>
+    public KnownGoodRig KnownGood { get; }
+
     public StartupBudget Startup { get; } = new();
 
     public AdminGate Gate { get; } = new();
@@ -134,6 +137,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         Migrated = Store.LastLoadMigrated;
 
         Journal = new ShowLog(Store.BaseDirectory);
+        KnownGood = new KnownGoodRig(Store.BaseDirectory, Journal);
         StandDownNote = WatchdogMarker.ReadAndClear(Store.BaseDirectory);
         LastCrash = CrashMarker.ReadAndClear(Store.BaseDirectory);
         SafeRun = LastCrash?.NativeFault ?? false;

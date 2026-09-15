@@ -62,6 +62,10 @@ public sealed class CheckFacts
     public IReadOnlyList<CheckDisplay> Displays { get; init; } = Array.Empty<CheckDisplay>();
     /// <summary>Round 65: each screen's signal truth — the contract against what Windows is observed to send.</summary>
     public IReadOnlyList<SignalReport> Signals { get; init; } = Array.Empty<SignalReport>();
+    /// <summary>Round 65.9: whether the desk compared the rig against a commissioned one this round (false on a bare fact set: no RIG rows).</summary>
+    public bool RigChecked { get; init; }
+    /// <summary>The rig of the day against the commissioned one; null when none was saved.</summary>
+    public RigDrift? RigDrift { get; init; }
 
     public bool OutputsLive { get; init; }
     public int OutputWindows { get; init; } = -1;
@@ -239,6 +243,7 @@ public static class SuperCheck
         Graphics(f, rows);
         Displays(f, rows);
         Signals(f, rows);
+        Rig(f, rows);
         Show(f, rows);
         Ndi(f, rows);
         Stream(f, rows);
@@ -499,6 +504,29 @@ public static class SuperCheck
             {
                 rows.Add(new CheckRow("SIGNAL", $"{report.Label} {line.Item.ToLowerInvariant()}", line.Light, line.Value, line.Note));
             }
+        }
+    }
+
+    /// <summary>
+    /// Round 65.9: the commissioned rig against the rig of the day. Grey until an engineer saves
+    /// one; green while nothing moved; amber with a row per change, red for a display or an
+    /// adapter that is gone — "it worked yesterday" answered before the outputs open.
+    /// </summary>
+    private static void Rig(CheckFacts f, List<CheckRow> rows)
+    {
+        if (!f.RigChecked) return;
+        if (f.RigDrift is null)
+        {
+            rows.Add(new CheckRow("RIG", "Known good", CheckLight.Grey, "not saved", "SAVE KNOWN GOOD on the Machine page (RIG SAVE on the wire) once the rig is right — every boot then says what changed"));
+            return;
+        }
+        var d = f.RigDrift;
+        rows.Add(d.Same
+            ? new CheckRow("RIG", "Known good", CheckLight.Green, d.Headline)
+            : new CheckRow("RIG", "Known good", CheckLight.Amber, d.Headline, "the rig is not the one commissioned — the rows below say what moved; SAVE KNOWN GOOD again when the change is meant"));
+        foreach (var line in d.Lines.Where(l => !l.Same))
+        {
+            rows.Add(new CheckRow("RIG", line.Item, line.Severe ? CheckLight.Red : CheckLight.Amber, line.Words));
         }
     }
 

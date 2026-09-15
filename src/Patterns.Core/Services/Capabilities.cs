@@ -52,6 +52,9 @@ public interface IActionLayer
     /// <summary>Round 65.8: the EDID a screen is planned to present, by its number or id; null on a node, which has no rig of its own, and for no such screen.</summary>
     PlannedEdid? PlannedEdid(string word) => null;
 
+    /// <summary>Round 65.9: the rig of the moment — machine, displays, EDIDs, contracts, audio, network, clock — for SAVE KNOWN GOOD and the comparison; null on a host that cannot read its screens.</summary>
+    RigSnapshot? RigSnapshotNow(string note = "") => null;
+
     ActionResult Execute(ShowAction action, ActionOrigin origin);
 }
 

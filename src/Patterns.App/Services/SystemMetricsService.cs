@@ -444,6 +444,20 @@ public sealed class SystemMetricsService : IDisposable
             Log.Warn("Super-check: signal probe failed.", ex);
         }
 
+        // Round 65.9: the rig of the day against the commissioned one — no probe on this thread; with a
+        // rig saved, the section waits until the first reading of the machine has landed.
+        RigDrift? rigDrift = null;
+        var rigChecked = false;
+        try
+        {
+            rigDrift = _services.Actions.RigDriftNow();
+            rigChecked = _services.Kernel.KnownGood.Known is null || rigDrift is not null;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Super-check: rig probe failed.", ex);
+        }
+
         var senders = state.Ndi.Senders.Where(x => x.Enabled).ToList();
         var senderLines = new List<string>();
         foreach (var cfg in senders)
@@ -514,6 +528,8 @@ public sealed class SystemMetricsService : IDisposable
             DirectOutputSummary = DirectOutputService.Summary(state),
             Displays = displays,
             Signals = signals,
+            RigChecked = rigChecked,
+            RigDrift = rigDrift,
             OutputsLive = _services.Outputs.IsLive,
             OutputWindows = s?.OutputWindows ?? -1,
             OutputFps = History.Recent.Count > 0 ? History.AvgRecent(60, x => x.OutputFps) : -1,
@@ -666,6 +682,18 @@ public sealed class SystemMetricsService : IDisposable
             {
                 sb.AppendLine($"Advice [{advice.Severity}]: {advice.Title} — {advice.Detail}");
             }
+
+            // Round 65.9: the machine as Windows describes it, and the rig against the commissioned one.
+            var machine = MachineProbe.Read();
+            sb.AppendLine();
+            sb.AppendLine("MACHINE (as Windows describes it)");
+            if (machine.IsEmpty) sb.AppendLine("not read yet");
+            else foreach (var line in machine.Lines) sb.AppendLine(line);
+            sb.AppendLine();
+            sb.AppendLine("KNOWN GOOD RIG");
+            var drift = _services.Actions.RigDriftNow();
+            sb.AppendLine(_services.Kernel.KnownGood.Words);
+            if (drift is not null) foreach (var line in drift.Words) sb.AppendLine(line);
         }
         catch (Exception ex)
         {

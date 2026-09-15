@@ -49,6 +49,7 @@ public class WireVocabularyTests
         ("SCREEN 2 LABEL Stage left", new(ShowActionKind.ScreenLabel, "2", "Stage left")),
         ("SCREEN 2 LABEL", new(ShowActionKind.ScreenLabel, "2")),
         ("SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR", new(ShowActionKind.ScreenSignal, "2", "3840x2160 50 RGB 8 SDR")),
+        ("RIG SAVE first show", new(ShowActionKind.RigSaveKnownGood, "", "first show")),
         ("SCREEN 2 PATTERN LED wall", new(ShowActionKind.ScreenPattern, "2", "LED wall")),
         ("SCREEN 2 PVW LOOK Walk-in", new(ShowActionKind.ScreenStageLook, "2", "Walk-in")),
         ("SCREEN 2 PREVIEW PRESET Grid", new(ShowActionKind.ScreenStagePreset, "2", "Grid")),
@@ -218,7 +219,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)

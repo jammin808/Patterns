@@ -449,6 +449,14 @@ public sealed class ShowFacts
     /// capability read as a signal.
     /// </summary>
     public IReadOnlyList<string> Signals { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Round 65.9: the machine as Windows describes it — build, Windows, CPU, every GPU with its
+    /// driver, every display with its mode and EDID, every audio endpoint with its format, power,
+    /// GPU scheduling — without the machine's name, and last the known-good rig's verdict: what
+    /// moved since the engineer commissioned it.
+    /// </summary>
+    public IReadOnlyList<string> Machine { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -652,6 +660,14 @@ public static class ShowBrief
                 // offers RGB is not a signal that is RGB, and "unknown" is never a guess.
                 sb.AppendLine("Signal truth per screen (DESIGN is the engineer's contract; ADVERTISED is what the display's EDID offers — capability only, never the signal; OBSERVED is what Windows reports it sends, and a property marked unknown was not observed — say so, never infer it from the EDID or the request; RESULT compares contract and observation):");
                 foreach (var line in facts.Signals) sb.Append("  ").AppendLine(line);
+            }
+            if (facts.Machine.Count > 0)
+            {
+                // The machine (round 65.9): what Windows says about the graphics, the audio and the
+                // processing, and the known-good rig — a change since commissioning is a fact to name
+                // (a new driver, a display that moved, an audio device gone), never a fault to assume.
+                sb.AppendLine("The machine as Windows describes it, and the known-good rig (what the engineer commissioned — a change since is a fact to name, not a fault to assume):");
+                foreach (var line in facts.Machine) sb.Append("  ").AppendLine(line);
             }
         }
         else

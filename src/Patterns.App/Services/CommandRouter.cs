@@ -96,6 +96,8 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Actions.SignalJson(cmd.Text));
             case RemoteCommandKind.ScreenEdid:
                 return ControlProtocol.Ok(_services.Actions.EdidJson(cmd.Text));
+            case RemoteCommandKind.RigStatus:
+                return ControlProtocol.Ok(_services.Actions.RigJson());
         }
 
         var action = cmd.Action;
@@ -617,8 +619,11 @@ public sealed class CommandRouter : IRouter
         var liveAgeMs = Math.Round(sinks.Where(r => r.Kind == SinkKind.Output).Select(r => r.LiveAgeMs).DefaultIfEmpty(-1).Max(), 0);   // the oldest camera or feed picture an output drew in the last minute, decoder to frame; -1 none
         var renderClockHz = Math.Round(FrameBudgets.ClockHz(sinks), 1);                                  // the platform's render clock as measured; -1 not measured (round 64)
         var clockLimited = FrameBudgets.ClockLimited(sinks);                                             // the outputs it limits, in words — empty when none
+        var facts = MachineProbe.Read();                                                                 // round 65.9: the machine as Windows describes it, the kept reading
+        var inventory = facts.IsEmpty ? "" : facts.Summary;                                              // "RTX A4000 · driver 560.94 · 2 displays · 3 audio outputs · High performance"
+        var rig = _services.Kernel.KnownGood.Words;                                                       // "not saved", or the drift from the commissioned rig
         return m is null
-            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs, renderClockHz, clockLimited }
+            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs, renderClockHz, clockLimited, inventory, rig }
             : new
             {
                 cpu = Math.Round(m.CpuSystemPct, 0),
@@ -631,6 +636,8 @@ public sealed class CommandRouter : IRouter
                 liveAgeMs,
                 renderClockHz,
                 clockLimited,
+                inventory,
+                rig,
             };
     }
 

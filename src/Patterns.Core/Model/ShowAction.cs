@@ -405,6 +405,8 @@ public enum ShowActionKind
     /// lattice driven node by node onto the solver's targets. Value: a screen for START, "dx dy"
     /// for NUDGE. The desk's alone; never in a cue.
     /// </summary>
+    /// <summary>RIG SAVE [note] (round 65.9): the rig of the moment saved as the commissioned one — the machine, the displays and their EDIDs, the contracts, the audio, the network, the clock; every boot compares against it. Value = the note.</summary>
+    RigSaveKnownGood,
     RigDayOn,
     RigDayOff,
     AlignStart,

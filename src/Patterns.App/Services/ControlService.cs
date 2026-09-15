@@ -1045,14 +1045,39 @@ public sealed partial class ControlService : IDisposable
 
     /// <summary>The bundle's own page of facts, read on the UI thread where the show and the services live.</summary>
     private string SupportBundleInfo()
-        => string.Join(Environment.NewLine,
+    {
+        var lines = new List<string>
+        {
             $"Patterns support bundle — {DateTime.Now:yyyy-MM-dd HH:mm} (from the ADMIN page)",
             $"Site: {(_kernel.State.Install.SiteName.Length > 0 ? _kernel.State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
             $"Build: {UpdateService.RunningVersion} · .NET {Environment.Version} · {Environment.OSVersion}",
             $"Health: {HealthMonitor.Summary(DateTime.UtcNow)}",
             $"Install: {_services.Install?.Status ?? "not on this node"}",
             $"Update: {_services.Updates?.Status ?? "not on this node"}",
-            $"Management: {_services.Management?.Status ?? "not on this node"}");
+            $"Management: {_services.Management?.Status ?? "not on this node"}",
+        };
+        // Round 65.9: the machine as Windows describes it (the kept reading — this is the desk thread), and
+        // the rig of the day against the commissioned one; the snapshot itself rides along as patterns.knowngood.json.
+        var machine = MachineProbe.Read();
+        lines.Add("");
+        lines.Add("MACHINE (as Windows describes it)");
+        lines.AddRange(machine.IsEmpty ? new[] { "not read yet" } : machine.Lines);
+        lines.Add("");
+        lines.Add("KNOWN GOOD RIG");
+        var known = _kernel.KnownGood;
+        if (known.Known is null)
+        {
+            lines.Add("not saved");
+        }
+        else
+        {
+            var now = machine.IsEmpty ? null : _services.Actions.RigSnapshotNow();
+            var drift = now is null ? known.LastDrift : known.Compare(now);
+            lines.Add(drift?.Headline ?? "saved — not compared yet");
+            if (drift is not null) lines.AddRange(drift.Words);
+        }
+        return string.Join(Environment.NewLine, lines);
+    }
 
     /// <summary>The support bundle as bytes for the ADMIN page's download: written beside the settings, then read back.</summary>
     private byte[] BuildSupportBundle(string info)

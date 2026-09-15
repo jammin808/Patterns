@@ -47,6 +47,8 @@ public enum RemoteCommandKind
     ScreenSignal,
     /// <summary>SCREEN 2 EDID (round 65.8): the EDID the planned screen presents — the plan, the timing, the bytes as base64 and hex, the hash, whether the display presents it — as JSON; Text carries the screen's number.</summary>
     ScreenEdid,
+    /// <summary>RIG STATUS / RIG (round 65.9): the machine as Windows describes it, the commissioned rig and the drift from it, as JSON.</summary>
+    RigStatus,
 }
 
 /// <summary>
@@ -1000,6 +1002,20 @@ public static class ControlProtocol
             }
 
             // Rig day, gamified: the games' switch and the show-ready bar; the alignment game's verbs.
+            // "RIG SAVE first show" (round 65.9): the rig of the moment saved as the commissioned one; "RIG STATUS" / bare "RIG" reads the machine and the drift.
+            case "RIG":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1] : "";
+                return what switch
+                {
+                    "" or "STATUS" => Query(RemoteCommandKind.RigStatus),
+                    "SAVE" or "KNOWNGOOD" or "COMMISSION" => Act(ShowActionKind.RigSaveKnownGood, "", rest),
+                    _ => Unknown(s),
+                };
+            }
+
             case "RIGDAY":
             case "RIG-DAY":
             case "GAMES":

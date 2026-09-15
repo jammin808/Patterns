@@ -108,6 +108,26 @@ public sealed partial class ShowActions
                 var report = SignalReportFor(placement, _s.Screens.All.FirstOrDefault(s => s.Id == id));
                 return ActionResult.Done($"{report.Label} signal contract: {report.Design}. {report.Result}.");
             }
+            case ShowActionKind.RigSaveKnownGood:
+            {
+                // Round 65.9: the engineer's word that the rig is right — the machine as Windows describes it,
+                // each screen's contract, the senders, the bindings and the clock saved beside the settings.
+                var facts = MachineProbe.Read();
+                if (facts.IsEmpty) facts = MachineProbe.ReadNow();
+                var snapshot = SnapshotOf(facts, a.Value.Trim());
+                try
+                {
+                    _s.Kernel.KnownGood.Save(snapshot);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("The known-good rig could not be saved.", ex);
+                    return ActionResult.Refused($"The known-good rig could not be saved: {ex.Message}");
+                }
+                return ActionResult.Done($"Rig saved as known good{(snapshot.Note.Length > 0 ? $" — {snapshot.Note}" : "")}: {Count(snapshot.Gpus.Count, "GPU")}, {Count(snapshot.Displays.Count, "display")}, {Count(snapshot.Contracts.Count, "contract")}, {Count(snapshot.AudioOut.Count, "audio output")}. Every boot now says what moved.");
+
+                static string Count(int n, string word) => $"{n} {word}{(n == 1 || word == "GPU" ? "" : "s")}";
+            }
             case ShowActionKind.ScreenLabel:
             {
                 var target = ResolveScreenTarget(a.Target);
@@ -315,6 +335,121 @@ public sealed partial class ShowActions
             presented = planned.Presented is null ? null : new { identity = planned.Presented.Identity, hash = planned.Presented.Hash, matches = string.Equals(planned.Presented.Hash, planned.Hash, StringComparison.OrdinalIgnoreCase) },
             summary = planned.Summary,
         });
+    }
+
+    // ---- the machine and the known-good rig (round 65.9) ---------------------------------------
+
+    /// <summary>
+    /// The rig of the moment: the machine as Windows describes it (the kept reading — never a probe
+    /// on the caller's thread), each live screen's signal contract by its label, the NDI senders
+    /// that are on, the control network's bindings in words (never the token) and the render clock.
+    /// </summary>
+    public RigSnapshot RigSnapshotNow(string note = "") => SnapshotOf(MachineProbe.Read(), note);
+
+    private RigSnapshot SnapshotOf(MachineFacts facts, string note)
+    {
+        var contracts = Rig.OrderedLivePlacements(State, _s.Screens.All)
+            .Where(x => x.Placement.Signal.IsSet)
+            .Select(x => new RigContract(Rig.LabelFor(x.Placement, x.Info), SignalWords.Of(x.Placement.Signal)));
+        var senders = State.Ndi.Senders.Where(x => x.Enabled).Select(x => x.Name.Trim().Length > 0 ? x.Name.Trim() : x.Id);
+        var clock = FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
+        return RigSnapshot.From(facts, contracts, senders, BindingWords(State.Control), clock > 0 ? $"{clock:0.0} Hz" : "", note, DateTime.UtcNow);
+    }
+
+    /// <summary>The control network's bindings as words, never the token itself: "every interface · HTTP 9696 · TCP 9697 · paired".</summary>
+    public static string BindingWords(ControlConfig c)
+        => !c.Enabled ? "remote off" : $"{(c.Bind.Length > 0 ? c.Bind : "every interface")} · HTTP {c.HttpPort} · TCP {c.TcpPort}{(PairingToken.Needed(c.Token) ? " · paired" : " · open")}";
+
+    /// <summary>
+    /// The rig of the day against the commissioned one; null when none is saved, and the last
+    /// comparison (or none) while the first reading of the machine is still on its way — a rig
+    /// is never judged against an empty reading.
+    /// </summary>
+    public RigDrift? RigDriftNow()
+    {
+        var known = _s.Kernel.KnownGood;
+        if (known.Known is null) return null;
+        var facts = MachineProbe.Read();
+        return facts.IsEmpty ? known.LastDrift : known.Compare(SnapshotOf(facts, ""));
+    }
+
+    /// <summary>RIG STATUS as JSON: the machine as Windows describes it, the commissioned rig and the drift from it.</summary>
+    public string RigJson()
+    {
+        var facts = MachineProbe.Read();
+        var known = _s.Kernel.KnownGood.Known;
+        var drift = RigDriftNow();
+        return JsonUtil.SerializeCompact(new
+        {
+            machine = facts.IsEmpty ? null : new
+            {
+                takenUtc = facts.TakenUtc,
+                build = facts.Build,
+                machine = facts.Machine,
+                windows = facts.Windows,
+                dotnet = facts.DotNet,
+                cpu = facts.Cpu,
+                cores = facts.Cores,
+                ramGB = Math.Round(facts.RamGB, 1),
+                gpus = facts.Gpus.Select(g => new { name = g.Name, vendor = g.Vendor, vendorId = g.VendorId, deviceId = g.DeviceId, vramMB = g.VramMB, driver = g.DriverVersion, driverFriendly = g.FriendlyDriver, driverDate = g.DriverDate, provider = g.Provider, software = g.Software }).ToArray(),
+                displays = facts.Displays.Select(d => new { key = d.Key, x = d.X, y = d.Y, width = d.Width, height = d.Height, rate = d.Rate, connector = d.Connector, encoding = d.Encoding, bits = d.Bits, hdr = d.Hdr, edid = d.EdidIdentity, edidHash = d.EdidHash }).ToArray(),
+                audio = facts.Audio.Select(a => new { name = a.Name, flow = a.Flow, isDefault = a.IsDefault, rateHz = a.SampleRateHz, bits = a.Bits, channels = a.Channels }).ToArray(),
+                power = facts.PowerPlan,
+                onBattery = facts.OnBattery,
+                gpuScheduling = facts.HardwareScheduling,
+                gameDvr = facts.GameDvr,
+                overlayPlanes = facts.MultiplaneOverlay,
+                notes = facts.Notes,
+                summary = facts.Summary,
+                lines = facts.Lines,
+            },
+            known = known is null ? null : new
+            {
+                takenUtc = known.TakenUtc,
+                note = known.Note,
+                build = known.Build,
+                windows = known.Windows,
+                cpu = known.Cpu,
+                gpus = known.Gpus.Select(g => new { name = g.Name, driver = g.DriverVersion, driverDate = g.DriverDate, vramMB = g.VramMB }).ToArray(),
+                displays = known.Displays.Select(d => new { key = d.Key, width = d.Width, height = d.Height, rate = d.Rate, connector = d.Connector, edid = d.EdidIdentity, edidHash = d.EdidHash }).ToArray(),
+                contracts = known.Contracts.Select(c => new { screen = c.Screen, words = c.Words }).ToArray(),
+                audioOut = known.AudioOut,
+                audioIn = known.AudioIn,
+                ndiSenders = known.NdiSenders,
+                bindings = known.Bindings,
+                powerPlan = known.PowerPlan,
+                gpuScheduling = known.HardwareScheduling,
+                renderClock = known.RenderClock,
+            },
+            drift = drift is null ? null : new
+            {
+                same = drift.Same,
+                changes = drift.Changed,
+                headline = drift.Headline,
+                lines = drift.Lines.Select(l => new { same = l.Same, item = l.Item, words = l.Words, severe = l.Severe }).ToArray(),
+            },
+            words = _s.Kernel.KnownGood.Words,
+        });
+    }
+
+    /// <summary>The machine's lines for the assistant's brief — without the machine's name — with the known-good rig's verdict last.</summary>
+    public IReadOnlyList<string> MachineBriefLines()
+    {
+        var facts = MachineProbe.Read();
+        var lines = new List<string>(facts.IsEmpty ? Array.Empty<string>() : facts.LinesFor(withMachineName: false));
+        var known = _s.Kernel.KnownGood;
+        if (known.Known is null)
+        {
+            lines.Add("Known good rig: not saved — SAVE KNOWN GOOD on the Machine page once the rig is right.");
+        }
+        else
+        {
+            var drift = RigDriftNow();
+            lines.Add(drift is null ? "Known good rig: saved — not compared yet."
+                : drift.Same ? $"Known good rig: {drift.Headline}."
+                : $"Known good rig: {drift.Headline} — {string.Join("; ", drift.Changes)}.");
+        }
+        return lines;
     }
 
     /// <summary>The EDID behind a screen's display as Windows keeps it, parsed; null when there is none to read.</summary>

@@ -79,7 +79,7 @@ public static class SupportBundle
         SuperCheck.FileName, "patterns.metrics.csv", "patterns.recovery.json", WatchdogMarker.FileName, CrashMarker.FileName,
         // Who had the screens when this run started, and any ask left unanswered: the first thing to
         // read when a rig reports windows playing with nobody at the controls.
-        "patterns.outputs.json", "patterns.handover.json",
+        "patterns.outputs.json", "patterns.handover.json", "patterns.knowngood.json",
     };
 
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>

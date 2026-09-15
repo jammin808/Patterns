@@ -293,6 +293,19 @@
       <Button Classes="chip" Content="Open app folder" Command="{Binding OpenAppFolderCommand}" Margin="0,0,8,6"
               ToolTip.Tip="Settings, logs, presets and the metrics record live beside Patterns.exe" />
     </WrapPanel>
+    <TextBlock Classes="hint tip"
+               Text="Everything Windows will say about this machine's graphics, audio and processing, read every half minute on a worker (never on the desk's thread): the Windows edition and build, the CPU and the memory, every graphics adapter with the driver that runs it (NVIDIA's own number derived), every display with its mode, its connector, its encoding and the EDID it presents, every audio endpoint with its shared-mode format, the power plan, hardware GPU scheduling, Game DVR and the overlay planes. The same words are in the support bundle, in STATE (machine.inventory), in RIG STATUS on the wire and in the assistant's facts." />
+
+    <TextBlock Classes="h2" Text="KNOWN GOOD RIG" />
+    <TextBlock Classes="label" Text="{Binding RigText}" TextWrapping="Wrap" LineHeight="20" />
+    <WrapPanel Margin="0,6,0,0">
+      <Button Classes="chip" Content="SAVE KNOWN GOOD" Command="{Binding SaveKnownGoodCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="The rig as it stands — this machine's Windows build, its GPUs and their drivers, every display with its mode and EDID, each screen's signal contract, the audio devices, the NDI senders, the control bindings and the render clock — saved beside the settings as the commissioned rig (RIG SAVE on the wire). Every boot compares the machine against it and says what moved" />
+      <Button Classes="chip" Content="FORGET" Command="{Binding ForgetKnownGoodCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="Drops the saved rig; the comparison stops until the next SAVE KNOWN GOOD" />
+    </WrapPanel>
+    <TextBlock Classes="hint tip"
+               Text="&quot;It worked yesterday&quot; answered before the outputs open. The commissioned rig is a file beside the settings (patterns.knowngood.json, in the support bundle); the super-check's RIG rows read the comparison — green unchanged, amber for a driver, a mode, a contract or a plan that moved, red for a display or an audio device that is gone — and every change of the comparison is one line in the journal. Nothing here decides anything: it is evidence for the engineer, the assistant and support." />
 
     <TextBlock Classes="h2" Text="SHOW LOCK (NOTHING INTERRUPTS THE SHOW)" />
     <TextBlock Classes="hint tip"
