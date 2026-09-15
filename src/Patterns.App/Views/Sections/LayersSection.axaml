@@ -55,6 +55,8 @@
         </Grid>
         <TextBlock Classes="hint" TextWrapping="Wrap" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Arcade}}"
                    Text="This machine's game in the box, straight from the game loop — the Arcade page runs it, ARCADE SIZE shapes it." />
+        <Button Classes="mini" Content="OPEN ARCADE" HorizontalAlignment="Left" Margin="0,4,0,0" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Arcade}}"
+                Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OpenPageCommand}" CommandParameter="Arcade" />
         <ComboBox IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Screen}}"
                   ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewTargets}"
                   SelectedValue="{Binding TargetId, Mode=TwoWay}"

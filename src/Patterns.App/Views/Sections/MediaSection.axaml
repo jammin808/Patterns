@@ -62,6 +62,7 @@
       <TextBlock Classes="h2" Text="ARCADE" />
       <TextBlock Classes="hint tip"
                  Text="The game running on this machine — the Arcade page's picture — as the pattern, straight from the game loop's own buffers: no NDI, no network and no decode between the game and the wall, so a press is on the screen the next frame. The loop starts when this is picked and the picture is copied only while something shows it. Take it with a look or a cue like any pattern; ARCADE SIZE sets its shape (3840x1080 for a joined canvas). A game out front on an arcade node is that node's — put its NDI source on instead." />
+      <Button Classes="mini" Content="OPEN ARCADE" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Arcade" />
     </StackPanel>
 
     <!-- Capture device -->
@@ -158,6 +159,8 @@
         <ComboBox Grid.Column="1" ItemsSource="{Binding State.Web.SavedUrls}" SelectedItem="{Binding Media.SavedWebPick, Mode=TwoWay}"
                   PlaceholderText="Pick a remembered address…" HorizontalAlignment="Stretch" />
       </Grid>
+      <Button Classes="mini" Content="OPEN LIBRARY" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Library"
+              ToolTip.Tip="Every saved page as a tile of the Library page, beside the show's media, decks and presets" />
       <Grid ColumnDefinitions="130,*,8,Auto,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Page size (px)" VerticalAlignment="Center"
                    ToolTip.Tip="The page's own viewport — what it lays itself out for; the picture is then fitted like any other" />

@@ -33,6 +33,7 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="hint tip" Text="Custom holds the presets you save on the Pattern page while Particles is the pattern — your own scenes, beside the packs." />
+    <Button Classes="mini" Content="OPEN PATTERN" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Pattern" />
 
     <TextBlock Classes="h2" Text="EMITTER" />
     <ComboBox ItemsSource="{Binding ParticleEmitters}"

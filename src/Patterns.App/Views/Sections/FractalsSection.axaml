@@ -36,6 +36,7 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="hint tip" Text="A scene sets the family, the view, the depth, the motion and the palette; the sound settings below stay yours. Custom holds the presets you save on the Pattern page while Fractal is the pattern — your own scenes, beside the families." />
+    <Button Classes="mini" Content="OPEN PATTERN" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Pattern" />
 
     <TextBlock Classes="h2" Text="FAMILY" />
     <ComboBox ItemsSource="{Binding FractalKinds}"
@@ -117,6 +118,7 @@
 
     <TextBlock Classes="h2" Text="STINGS" />
     <TextBlock Classes="hint tip" Text="An effect sting surges through the picture: Vortex turns it, Supernova flashes and zooms in, Quake shakes it, Freeze holds it, Gust and Slow do what they say. Add one on the Audio page and fire it like any stinger — a cue, an F-key, Companion, the wire." />
+    <Button Classes="mini" Content="OPEN AUDIO" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Audio" ToolTip.Tip="The stingers and VOGs live on the Audio page" />
     <Button Classes="mini" Content="ADD AN EFFECT STING" HorizontalAlignment="Left" Command="{Binding Audio.AddEffectPulseCommand}"
             ToolTip.Tip="Adds an effect pulse to the stingers — pick its shape and length on the Audio page" />
   </StackPanel>

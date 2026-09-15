@@ -49,7 +49,11 @@
       <TextBox Grid.Column="0" Watermark="Logo file (PNG with alpha recommended)" Text="{Binding State.Brand.LogoPath}" />
       <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseLogoCommand}" />
     </Grid>
-    <TextBlock Classes="hint tip" Text="Use it as a watermark (Overlays page) or as a particle sprite (Logo shape)." />
+    <TextBlock Classes="hint tip" Text="Use it as a watermark (Overlays page) or as a particle sprite (Logo shape, Particles page)." />
+    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+      <Button Classes="mini" Content="OPEN OVERLAYS" Command="{Binding OpenPageCommand}" CommandParameter="Overlays" />
+      <Button Classes="mini" Content="OPEN PARTICLES" Command="{Binding OpenPageCommand}" CommandParameter="Particles" />
+    </StackPanel>
 
     <!-- The Patterns badge: the app's own mark over a test pattern — Patterns' branding, not the show's -->
     <TextBlock Classes="h2" Text="PATTERNS BADGE" />

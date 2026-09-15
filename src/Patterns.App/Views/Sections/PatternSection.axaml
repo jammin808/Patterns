@@ -237,6 +237,7 @@
 
       <TextBlock Classes="hint tip"
                  Text="Panels that stand apart with the raster packed (LED pillars, a gap in a wall): give the screen its gaps on the Screens page (Wall gaps). When this wall's raster matches the screen's, the tiles land on the real panels, the gaps are drawn black with their width in them, and every other pattern spans them too." />
+      <Button Classes="mini" Content="OPEN SCREENS" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Screens" />
 
       <TextBlock Classes="h2" Text="LED WALL — MARKINGS" />
       <ComboBox ItemsSource="{Binding TileNumberings}"
@@ -284,6 +285,7 @@
       </Grid>
       <TextBlock Classes="hint tip"
                  Text="Bezel (px) only hatches each element's edge. To compensate the bezels — content laid out across them, so a line is straight in the room — set Bezel H / V on the Screens page for a canvas of joined displays, or add gaps to the one screen that feeds a wall controller. When this wall's raster matches the screen's, the elements land on the real displays and a ring with two diagonals is drawn across the whole wall: round and straight through every bezel when the compensation is right, stepped when it is not." />
+      <Button Classes="mini" Content="OPEN SCREENS" HorizontalAlignment="Left" Margin="0,4,0,0" Command="{Binding OpenPageCommand}" CommandParameter="Screens" />
       <CheckBox Content="Numbers" IsChecked="{Binding ActivePattern.VideoWall.ShowNumbers}" />
       <CheckBox Content="Borders" IsChecked="{Binding ActivePattern.VideoWall.ShowBorders}" />
       <CheckBox Content="Diagonals" IsChecked="{Binding ActivePattern.VideoWall.ShowDiagonals}" />
@@ -396,13 +398,20 @@
     </StackPanel>
 
     <!-- Media / Particles pointers -->
-    <Panel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Media}}">
-      <TextBlock Classes="hint tip" Margin="0,10,0,0" Text="Configure the file and fit in the Media page." />
-    </Panel>
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Media}}">
+      <TextBlock Classes="hint tip" Margin="0,10,0,0" Text="Configure the file, the page, the feed and the fit in the Media page." />
+      <Button Classes="mini" Name="OpenMedia" Content="OPEN MEDIA" HorizontalAlignment="Left" Margin="0,6,0,0"
+              Command="{Binding OpenPageCommand}" CommandParameter="Media" />
+    </StackPanel>
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Particles}}">
       <TextBlock Classes="hint tip" Margin="0,10,0,0" Text="Design the animation in the Particles page (mini studio)." />
       <Button Classes="mini" Name="OpenParticles" Content="OPEN PARTICLES" HorizontalAlignment="Left" Margin="0,6,0,0"
               Command="{Binding OpenPageCommand}" CommandParameter="Particles" />
+    </StackPanel>
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Reactive}}">
+      <TextBlock Classes="hint tip" Margin="0,10,0,0" Text="Choose the scene and what it listens to in the Reactive page." />
+      <Button Classes="mini" Name="OpenReactive" Content="OPEN REACTIVE" HorizontalAlignment="Left" Margin="0,6,0,0"
+              Command="{Binding OpenPageCommand}" CommandParameter="Reactive" />
     </StackPanel>
 
     <!-- Multiview: the walls live on their own page now (SETUP -> Multiview); a pattern only says which one it draws. -->
@@ -447,6 +456,9 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="hint" Text="{Binding PresetHint}" TextWrapping="Wrap" />
+    <Button Classes="mini" Name="OpenLibrary" Content="OPEN LIBRARY" HorizontalAlignment="Left" Margin="0,4,0,0"
+            Command="{Binding OpenPageCommand}" CommandParameter="Library"
+            ToolTip.Tip="Every preset with its thumbnail, beside the packs, the show's media, its saved web pages and the brand kits — the Library page" />
     <TextBlock Classes="hint tip" Text="A preset is this picture and nothing else — the kind and all its settings, with no overlays, no countdown and no per-screen arrangement, which is what makes it safe to drop onto one screen without disturbing the rest of the show. Press one to recall it here. On the Show panel each screen's row offers your presets beside the show's looks, so → THIS SCREEN puts a saved picture on one screen alone; the Library page shows them with thumbnails. A cue can recall one (Preset — recall a saved pattern, or Screen — a saved preset on it alone) and so can the wire: PRESET Walk-in, SCREEN 2 PRESET Walk-in. Presets are files in the presets folder beside Patterns.exe, so they travel with the folder rather than inside a show file — copy the folder to take them to another machine." />
   </StackPanel>
 </UserControl>
