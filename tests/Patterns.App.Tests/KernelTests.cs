@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using Patterns.Devices;
 using System.Reflection;
 using Avalonia.Headless.XUnit;

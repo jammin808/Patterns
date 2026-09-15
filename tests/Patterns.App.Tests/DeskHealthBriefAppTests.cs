@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using Avalonia.Headless.XUnit;
 using Patterns.Core.Services;
 using Xunit;

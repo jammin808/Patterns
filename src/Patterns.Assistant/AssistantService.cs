@@ -3,11 +3,10 @@ using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
 using Patterns.Core.Media;
-using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Assistant;
 
 /// <summary>One request as it leaves: the fence with the brief, the turns so far (the new question last), and whether the reply is pinned to the schema on the wire or asked for in plain JSON with the schema in the prompt.</summary>
 public sealed record AssistantRequest(string System, IReadOnlyList<AssistantTurnText> Turns, bool Plain = false);
@@ -40,11 +39,11 @@ public sealed class AssistantService
     /// <summary>How many of the latest exchanges send their attachments again in full; older turns say what was attached in words instead of sending the bytes every ask.</summary>
     public const int ExchangesWithAttachments = 2;
 
-    private readonly ServiceKernel _services;
+    private readonly IAssistantHost _services;
     private readonly List<AssistantTurnText> _turns = new();
     private bool _plain;   // the service refused the reply's schema once this session: every ask since carries it in words instead
 
-    public AssistantService(ServiceKernel services, AssistantKeyStore keys)
+    public AssistantService(IAssistantHost services, AssistantKeyStore keys)
     {
         _services = services;
         Keys = keys;
@@ -77,7 +76,7 @@ public sealed class AssistantService
 
     /// <summary>
     /// The desk's state at the moment of the ask, as the brief tells it: what the desk gathers
-    /// (<see cref="ServiceKernel.Facts"/>) — a node, or a bare kernel, has nothing on air and says so.
+    /// (<see cref="IAssistantHost.Facts"/>) — a node, or a bare kernel, has nothing on air and says so.
     /// </summary>
     public ShowFacts Gather() => _services.Facts();
 

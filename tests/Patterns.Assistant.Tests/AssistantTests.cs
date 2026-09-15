@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using Patterns.Core.Geometry;
 using System.Text.Json;
 using Patterns.Core.LowerThirds;
@@ -7,7 +8,7 @@ using Patterns.Rendering;
 using Patterns.Core.Services;
 using Xunit;
 
-namespace Patterns.Core.Tests;
+namespace Patterns.Assistant.Tests;
 
 /// <summary>
 /// The assistant's pure half: the key store, the gate, the brief without its secrets, the fence and

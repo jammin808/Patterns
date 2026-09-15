@@ -1,8 +1,11 @@
+using Patterns.Core.Media;
+using Patterns.Core.Model;
+using Patterns.Core.Services;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Patterns.Core.Services;
+namespace Patterns.Assistant;
 
 /// <summary>What an attached file is to the assistant: a picture, a PDF, or words (plain text, a table, a document's text).</summary>
 public enum AssistantAttachmentKind
@@ -122,12 +125,12 @@ public static class AssistantAttachments
     /// A picture: decoded, brought down to <see cref="MaxImageSide"/> on its long side when it is
     /// larger, and re-encoded within <see cref="MaxImageBytes"/> — PNG for a picture that was PNG
     /// (a screenshot's text stays crisp) unless that is too big, JPEG otherwise. The codec is the
-    /// render side's (<see cref="Media.Pictures.Shrinker"/>); the rules and the words are here. A
+    /// render side's (<see cref="Pictures.Shrinker"/>); the rules and the words are here. A
     /// picture that cannot be decoded is refused, and a build with no codec says so.
     /// </summary>
     private static AssistantAttachmentResult ReadImage(string name, byte[] bytes)
     {
-        if (Media.Pictures.Shrinker is not { } shrink) return new AssistantAttachmentResult(null, $"'{name}' is a picture, and this build has no picture codec.");
+        if (Pictures.Shrinker is not { } shrink) return new AssistantAttachmentResult(null, $"'{name}' is a picture, and this build has no picture codec.");
         var wasPng = Path.GetExtension(name).Equals(".png", StringComparison.OrdinalIgnoreCase);
         var picture = shrink(bytes, MaxImageSide, MaxImageBytes, wasPng);
         if (picture is null) return new AssistantAttachmentResult(null, $"'{name}' is not a picture the assistant can read.");

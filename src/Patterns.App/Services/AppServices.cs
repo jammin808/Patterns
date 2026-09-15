@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using Patterns.Devices;
 using Patterns.Rendering;
 using Avalonia.Threading;

@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using System.Collections.ObjectModel;
 using Avalonia.Platform.Storage;
 using Patterns.App.Services;
@@ -128,7 +129,7 @@ public sealed class AssistantPage : Observable
 {
     private static readonly FilePickerFileType AttachTypes = new("Pictures, PDF, text, spreadsheets, Word & PowerPoint")
     {
-        Patterns = Patterns.Core.Services.AssistantAttachments.AllExtensions.Select(e => "*" + e).ToArray(),
+        Patterns = Patterns.Assistant.AssistantAttachments.AllExtensions.Select(e => "*" + e).ToArray(),
     };
 
     private readonly AppServices _services;
@@ -190,12 +191,12 @@ public sealed class AssistantPage : Observable
     /// <summary>A file onto the next ask, read now (a picture reduced, a sheet read as a table); a file that cannot be read says why on the status line. Tests call this without a picker.</summary>
     public bool AddAttachment(string path)
     {
-        if (Attachments.Count >= Patterns.Core.Services.AssistantAttachments.MaxAttachments)
+        if (Attachments.Count >= Patterns.Assistant.AssistantAttachments.MaxAttachments)
         {
-            Status = $"At most {Patterns.Core.Services.AssistantAttachments.MaxAttachments} files ride with one ask.";
+            Status = $"At most {Patterns.Assistant.AssistantAttachments.MaxAttachments} files ride with one ask.";
             return false;
         }
-        var result = Patterns.Core.Services.AssistantAttachments.Read(path);
+        var result = Patterns.Assistant.AssistantAttachments.Read(path);
         if (result.Attachment is null)
         {
             Status = result.Refusal;

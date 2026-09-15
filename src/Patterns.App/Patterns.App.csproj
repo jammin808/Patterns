@@ -24,7 +24,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Anthropic" Version="12.46.0" />
     <PackageReference Include="Avalonia" Version="11.3.20" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
@@ -59,6 +58,7 @@
     <ProjectReference Include="..\Patterns.Arcade\Patterns.Arcade.csproj" />
     <ProjectReference Include="..\Patterns.Devices\Patterns.Devices.csproj" />
     <ProjectReference Include="..\Patterns.Audio\Patterns.Audio.csproj" />
+    <ProjectReference Include="..\Patterns.Assistant\Patterns.Assistant.csproj" />
   </ItemGroup>
 
 </Project>

@@ -31,6 +31,7 @@ public class RenderCoreBoundaryTests
     {
         var ns = t.Namespace ?? "";
         if (ns.StartsWith("System.Net", StringComparison.Ordinal)) return true;
+        if (ns == "Patterns.Assistant" || ns.StartsWith("Patterns.Assistant.", StringComparison.Ordinal)) return true;   // the assistant is an integration: nothing that draws may reach it
         if (ns != "Patterns.Core.Services") return false;
         var name = t.Name;
         return name.StartsWith("Spotify", StringComparison.Ordinal)

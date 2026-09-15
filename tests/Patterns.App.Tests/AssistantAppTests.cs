@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;

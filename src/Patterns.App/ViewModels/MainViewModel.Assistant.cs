@@ -1,3 +1,4 @@
+using Patterns.Assistant;
 using Patterns.Core.Services;
 
 namespace Patterns.App.ViewModels;

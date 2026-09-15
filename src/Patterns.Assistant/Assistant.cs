@@ -1,3 +1,5 @@
+using Patterns.Core.Media;
+using Patterns.Core.Services;
 using Patterns.Core.Geometry;
 using System.Text;
 using System.Text.Json;
@@ -5,7 +7,7 @@ using System.Text.RegularExpressions;
 using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;
 
-namespace Patterns.Core.Services;
+namespace Patterns.Assistant;
 
 // The assistant, the pure half: what this machine's key is and where it lives, the fence the
 // model works inside, the brief of the show it is shown, the shape of what it answers, and how
@@ -1120,7 +1122,7 @@ public static class AssistantApply
         design.Preset = preset;
         Fill(design, part);
         state.LowerThirds.Designs.Add(design);
-        new LowerThirds.LowerThirdDesigner(state.LowerThirds).AdoptDefault(design);   // the first design of a show is its default (★)
+        new Patterns.Core.LowerThirds.LowerThirdDesigner(state.LowerThirds).AdoptDefault(design);   // the first design of a show is its default (★)
         report.Applied.Add($"lower third '{name}' ({preset}) added");
         return design;
     }

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(PatternsTfm)</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Patterns.Assistant.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
+    <ProjectReference Include="..\..\src\Patterns.Core\Patterns.Core.csproj" />
+    <ProjectReference Include="..\..\src\Patterns.Assistant\Patterns.Assistant.csproj" />
+    <ProjectReference Include="..\..\src\Patterns.Rendering\Patterns.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>

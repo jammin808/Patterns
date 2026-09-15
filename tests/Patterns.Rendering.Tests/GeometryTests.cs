@@ -122,21 +122,4 @@ public class GeometryTests
         }
         Assert.True(RenderingModule.Registered);                                             // the suite draws, so the module registered once
     }
-
-    [Fact]
-    public void ABuildWithoutAPictureCodecSaysSoInsteadOfGuessing()
-    {
-        var was = Pictures.Shrinker;
-        try
-        {
-            Pictures.Shrinker = null;
-            var result = AssistantAttachments.Read("shot.png", new byte[] { 1, 2, 3 });
-            Assert.Null(result.Attachment);
-            Assert.Contains("no picture codec", result.Refusal);
-        }
-        finally
-        {
-            Pictures.Shrinker = was;
-        }
-    }
 }

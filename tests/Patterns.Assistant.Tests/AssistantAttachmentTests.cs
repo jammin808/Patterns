@@ -1,10 +1,11 @@
+using Patterns.Assistant;
 using System.IO.Compression;
 using System.Text;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
 
-namespace Patterns.Core.Tests;
+namespace Patterns.Assistant.Tests;
 
 /// <summary>
 /// The files the operator attaches to an ask, read into what the wire carries: a picture reduced
