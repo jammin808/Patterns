@@ -1599,3 +1599,60 @@ every suite before the next.*
 Counts at the end of the round: Core 665, Rendering 602, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 673 — 1,994 in seven suites, every one green here, the module's seventeen beside
 them.
+
+## Round 61 review — the changelog, a roll-back on GitHub, ASIO and DirectX
+
+### 61.1 — the changelog
+
+- **Done.** `CHANGELOG.md`: rounds 61 to 15 from the history, 14 to 1 from the plan, one
+  entry each with its tag, its sections, its count and the module's version where it moved;
+  `ChangelogTests` keeps it. §79.1.
+- **Found on the way:** a third of the commits before round 39 do not name their round; the
+  boundaries were read from the plan's sections and the dates (round 16 ends with the encoder
+  process, 17 with the Fractals page, 26 with the show's files off the frame budget, 27 with the
+  MIDI device), and the tags record that reading.
+
+### 61.2 — the roll-back
+
+- **Done.** Forty-six annotated tags, the tag trigger and the release job in build.yml, the
+  rollback workflow and its script, the release-notes script, the README's section. §79.2.
+- **Found on the way:** a push made with the workflow's token starts no build, so a roll-back
+  that only pushed would leave the branch unbuilt; the workflow starts the build itself, and
+  build.yml gained `workflow_dispatch` for it. A roll-back that took the workflows with it would
+  take that trigger away; the workflows stay on the branch unless named. The release job takes
+  the run's own artifacts through `gh run download` — the same API as the download action, with
+  no action version to pin from a machine that cannot look one up.
+- **Tested by hand** in a scratch clone with `DRY_RUN=1`: everything back to round 58 by tag
+  (the tree equal to the tag's outside `.github`, `.github` kept); the docs and the module alone
+  by commit (the rest untouched); nothing to do; an unknown version refused; a path missing at
+  the version refused before anything is touched; a new branch made from the branch the run was
+  started from. The notes script on a round tag, a missing round and a show tag.
+- **The honest limit:** `main` is at round 28 and the working branch at 61; a
+  `workflow_dispatch` workflow is a button on the Actions page only once its file is on the
+  default branch, so the roll-back button waits for the merge. The tags and the Releases do not:
+  a tag push runs the workflow at the tag, and `round-61`'s run is the first to reach the release
+  job.
+- **Kept deliberate:** no Release for the historical tags (forty-six builds of old trees); the
+  first Release is `round-61`'s, and every tag after it gets one the same way.
+
+### 61.3 — the assessments
+
+- **Done.** ASIO: not as a blanket change and not now — WASAPI exclusive mode with a latency
+  setting and a channel map per destination first, ASIO as an optional destination kind after
+  them, behind the qualification list (§79.3). DirectX: already under every frame through
+  ANGLE's Direct3D 11, DirectComposition, the DXGI flip-model chain, D3D11VA and the DXGI
+  adapter list; the one direct use worth building is the decoded frame that never leaves the GPU,
+  as an optional sink path with the copy path kept (§79.4).
+
+### Seen, and noted
+
+- The changelog's counts before round 32 are the README's own line at each round's last commit,
+  which the rounds updated at their close; where a round did not move it (28 to 31 read 1,447)
+  the line is repeated rather than guessed.
+- `round-61`'s tag run is the first through the release job; its outcome is this round's
+  check-in, and a failure there is fixed forward with a new commit and a new tag, never a moved
+  one.
+
+Counts at the end of the round: Core 667, Rendering 602, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 673 — 1,996 in seven suites, every one green here, the module's seventeen beside
+them.

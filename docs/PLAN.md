@@ -7703,3 +7703,193 @@ STATE and a Companion feedback for it (recorded in COMPANION.md §9 as the next 
 entries for overlays and the countdown on the tile menus (the tile is a picture; the overlays'
 own sections carry their red line). Menus on the Media, Library and NDI pages (the layer menu's
 GO TO reaches them; their rows have no verb of their own yet that a menu would add).
+
+## 79. Round 61 — the changelog, a roll-back on GitHub, ASIO and DirectX answered
+
+The ask: "Introduce a concise ChangeLog in GitHub — it can be retrospective to inform what has
+happened in stages. Can you introduce a way to rollback in GitHub? Would audio benefit from ASIO
+support? Is DirectX already used? If not would it be beneficial?" Two things to build, two to
+answer; the answers are §79.3 and §79.4 and nothing was built for them.
+
+### 79.1 The changelog (61.1)
+
+`CHANGELOG.md` at the root: one entry per round, newest first — the round's number, its dates
+and its theme in a line, then its tag, its sections of this plan, the review, the suite's count
+at the round's end and the Companion module's version where it moved, then one to four lines of
+what landed. Rounds 15 to 61 are the repository's history; rounds 1 to 14 come before it and are
+listed from this plan and the checklists. It is the short form: the reasoning stays here, what
+was found stays in REVIEW.md, and a round's entry is what a reader — or the assistant — needs to
+know which round did what. A test keeps it: `ChangelogTests` reads the file and this plan and
+fails when the newest round in the plan has no entry, when a round is missing between, or when
+an entry lacks its date, its tag, one of its own sections of the plan, or its count — so a round
+that ships without its line fails a build, not a reader. The README links it from the top and
+from *Versions and rolling back*.
+
+Reading the early history into rounds was the work: a third of the commits before round 39 do
+not name their round, so the boundaries were read from the plan's sections and the dates, and
+the tags of §79.2 record that reading. From here on the changelog is the map.
+
+### 79.2 Rolling back on GitHub (61.2)
+
+Three parts, each a thing GitHub already knows how to keep, and none of them rewrites anything.
+
+**Tags.** An annotated tag on the last commit of every round, `round-15` … `round-61`, each
+carrying the changelog's line. A tag is a name for a commit: `git checkout round-57` is the desk
+exactly as round 57 left it, `git diff round-57 round-58 --stat` is what a round changed,
+`git log round-57..round-58` its commits. The rounds before the history have no commit to tag.
+A show's version is a tag too — `show-2026-09-19` — and the release job treats it the same.
+The forty-six historical tags were pushed at the round's end; a tag push runs the workflow file
+as it is at the tagged commit, and every earlier build.yml triggers on branches only, so they
+started no build.
+
+**Releases.** build.yml runs on `round-*` and `show-*` tags as it does on branches, and a fourth
+job, `release`, runs on a tag only, after the Windows publish and the module's package: it
+collects the run's own artifacts with `gh run download` (the portable exe, the full bundle with
+libVLC, the module's `.tgz`), zips the bundle, writes a checksum file, takes the notes from the
+changelog (`.github/scripts/release-notes.sh`: the round's entry for a round tag; for a show tag
+the tag's own line — commit, date, the round it sits on — and that round's entry) and creates the
+Release with `gh release create`; a re-run of the tag's workflow refreshes the files and the
+notes of the release it made. So every tagged version has a download that needs no build, and
+rolling a show machine back is downloading the older Release.
+
+**The rollback workflow.** `.github/workflows/rollback.yml`, run by hand from the Actions page
+with three inputs: `to` (a tag, a commit or a branch), `branch` (blank: the branch the run was
+started from; a name that does not exist yet is made from that branch, to look at first) and
+`what` (paths; blank: everything). Its hands are `.github/scripts/rollback.sh`: the version
+resolved (a tag first, then the remote's branch, then a commit); every named path checked to
+exist at that version — a path that does not is a deletion, which is a person's decision and a
+plain commit, not a roll-back; the branch checked out; the version's tree read into the index
+and the working tree (`git read-tree -u --reset`, or `git rm` and `git checkout <to> -- <paths>`
+for the paths); the workflows put back as they were on the branch unless named; and the result
+committed as a new commit whose message says what was put back from where, by whom, and the
+commit that undoes it — then pushed, and the build started on that branch with
+`gh workflow run`, because a push made with the workflow's own token starts no build by itself
+(build.yml gained `workflow_dispatch` for it). The step summary says the same for the run. No
+force-push, no reset, no rebase: the history keeps every version, a roll-back is itself a
+version, and rolling back to the commit before it undoes it.
+
+Why the workflows stay: a roll-back to round 57 with its own build.yml would put back a workflow
+with no `workflow_dispatch` and no release job — the build could not be started and the next
+tag on that branch would build without releasing. The tooling is the repository's, not the
+version's; `what: .github` rolls it back on purpose.
+
+The script is tested by hand in a scratch clone with `DRY_RUN=1` — everything by tag, paths by
+commit, nothing to do, an unknown version, a path missing at the version, a new branch from the
+branch the run started from — the workflow itself cannot run under xunit. A note for the
+repository as it is: a `workflow_dispatch` workflow is listed on the Actions page once its file
+is on the default branch, and `main` stands at round 28 while the working branch is at 61; the
+merge is what makes the button appear. Tags and Releases do not wait for it — a tag push runs
+the workflow at the tag.
+
+What a roll-back is not: the show file's own ladder on the machine (§20, the Machine page's
+RESTORE) and the watchdog's roll-back of an update that does not stay up (INSTALLS.md) are
+unchanged and unrelated; this round is the source and the builds.
+
+### 79.3 Would audio benefit from ASIO? (61.3)
+
+**What the audio does today.** Every output opens WASAPI in shared mode, event-driven: the
+synced players at 90 ms (`AudioService.DeviceLatencyMs`), the routing graph's lanes at 100 ms
+(`AudioGraphService`), the player and the stinger voice at 200 ms; `WaveOutEvent` where WASAPI
+is refused; the mix is 48 kHz stereo float (`AudioMix`); capture is a WASAPI loopback or an
+endpoint (the analyser, the reactive scenes). A destination is a named device (`dev:`), the
+computer's output or an NDI send, and each lane mixes its sources through dB crosspoints (§73).
+
+**What ASIO is.** Steinberg's driver model, where one application owns an audio interface's
+driver outright: it gets every channel the interface has, at the driver's buffer size (64 to 256
+samples — 1.3 to 5 ms at 48 kHz), on the driver's own clock, with no mixer between; NAudio has
+`AsioOut`, in the 2.2.1 package the desk already references. The price is the ownership:
+nothing else on the machine hears that interface while Patterns has it — not Spotify, not a
+browser, not Windows' own sounds — and only an interface with an ASIO driver qualifies (a
+laptop's own output has none; ASIO4ALL wraps WDM with a latency and a stability record of its
+own); the callback runs on the driver's thread, and a late buffer is a click, not a resample.
+
+**Would it help?** Where the desk plays VTs, music, stingers and a VOG into a stereo feed to
+the room's console, no: sound is cut with the picture at cue time, 90 ms is inside what an
+operator feels between a GO and a picture that itself takes two to three frames to reach a wall
+(§75.3), and the synced players already offset their start by the device latency on the show
+clock. Where it would: a rig that wants stems — programme, VOG, music, sting on separate
+channels of one interface or of a Dante/AVB virtual soundcard — sample-accurate to each other;
+and a room that times the desk's own audio against a live source that also passes through it.
+Both are real, both are rare today, and neither needs ASIO first:
+
+1. **WASAPI exclusive mode, event-driven, with a latency setting per destination.** The same
+   `WasapiOut` with `AudioClientShareMode.Exclusive` at the device's own period gives 10 ms and
+   under on an interface, keeps the one code path in the three places that open an output, and
+   leaves every other device on the machine to the other apps. The mix is already 48 kHz, which
+   exclusive mode wants matched; a device that refuses the format falls back to shared, said on
+   the Audio page.
+2. **A channel map per destination.** Interfaces and virtual soundcards expose multichannel
+   WDM endpoints (eight, sixteen, more); a destination that says "channels 3–4 of this device"
+   mixes its lane into that pair and leaves the rest silent, in `AudioRouting`'s vocabulary and
+   on the wire as `dev:` is — stems without a second driver model. A Dante virtual soundcard's
+   pairs already appear as separate stereo endpoints, so the matrix reaches them today at the
+   shared mode's latency.
+3. **ASIO as an optional destination kind after those** (`asio:<driver>`), for the interface
+   that offers its channel count only through its ASIO driver, with the desk's own mixer in
+   front of it so the desk's sounds still mix; opt-in per rig, never a default, and only once
+   the qualification list (§76.7) has an interface on it to prove it on.
+
+So: not as a blanket change and not now; the two steps above buy most of what ASIO buys without
+its ownership, and the third is a destination kind the matrix, the wire and Companion take
+without a new word.
+
+### 79.4 Is DirectX already used? (61.3)
+
+Yes — under every frame, without a line of it in the tree:
+
+- **Direct3D 11 draws the desk and every output.** Avalonia on Windows renders Skia through
+  ANGLE — OpenGL ES over Direct3D 11 — and the compositor's D3D11 device is created through
+  `GraphicsAdapterSelectionCallback` (`Program.cs`), where `GpuService.SelectAdapter` picks the
+  card; `SkiaOptions.MaxGpuResourceSizeBytes` bounds Skia's texture cache on it by machine class
+  (§75.2).
+- **DXGI and DirectComposition present it.** `CompositionMode` is the list
+  `DirectOutputService.CompositionModes()` builds: the low-latency DXGI flip-model swap chain
+  first when the direct-output mode asks for it, then WinUI composition, DirectComposition, the
+  redirection surface (§75.3).
+- **D3D11VA decodes the video.** libVLC's `EnableHardwareDecoding` (`VideoEngine`) puts every
+  clip, stream and capture through Direct3D 11 video acceleration (DXVA2 on older machines), and
+  the per-app GPU preference the desk writes under `DirectX\UserGpuPreferences` (`GpuService`,
+  `SystemProbes`) keeps decode and draw on the same card.
+- **DXGI enumerates the adapters** for the Machine page and the preference (`Administration`).
+
+What is not used is a Direct3D device the app owns. A decoded frame comes out of D3D11VA on the
+GPU, libVLC copies it to system memory for the app's frame ring, and the sink uploads it again as
+a Skia texture — a GPU → CPU → GPU round trip per frame (a 1080p60 NV12 stream is about 190 MB/s
+of copies, 4K four times that), one to two frames of the live picture's age (§75.3), and the
+frame pool's reason to exist (§76.3). The path that removes it is the one MEMORY-RESEARCH.md §9
+and PLAYER-RESEARCH.md describe: libVLC's Direct3D 11 output callbacks hand over the decoded
+texture on a device the app shares with Avalonia's (ANGLE exposes its D3D11 device through
+`EGL_D3D11_DEVICE_ANGLE`), and the sink samples it through the `GRContext` lease as a Skia image
+bound to that texture (`EGL_ANGLE_d3d_texture_client_buffer`), a keyed mutex per frame. That is
+beneficial — memory, latency and CPU at once — and costly: interop that is native-flavoured C#,
+a device shared with the toolkit's, driver by driver, so it must keep the copy path to fall back
+to and be proved on the qualification list first. Beyond it, three smaller uses that only DirectX
+offers: Desktop Duplication as a capture source (another window or screen as a picture at one
+frame of latency, GPU-side); the DXGI frame statistics or a vblank wait as the direct output's
+true present clock for the GO timing (§70); and the hardware encoders (NVENC, AMF) fed D3D11
+textures for the stream encoder, which today receives frames through a shared-memory ring.
+
+"Raw DirectX" as a renderer in place of Skia was rejected in §2 and stays rejected: the patterns
+are two-dimensional, and Skia on ANGLE is already the card. Recommendation: the GPU-resident
+frame path as an optional sink path behind the hardware list, the copy path kept; nothing else
+of DirectX is worth its own code yet.
+
+### 79.5 Tests, docs (61.4)
+
+Core: `ChangelogTests` (every round from the plan's newest down to 15 has its entry in order;
+every entry names its date, its tag, one of its own sections of the plan and the suite's count).
+The scripts by hand in a scratch clone (§79.2). Docs: CHANGELOG.md, this section, REVIEW round
+61, README (the bullet, *Versions and rolling back*, the Releases page in the quick start, the
+count), the tags, the two workflows and the two scripts.
+
+### 79.6 Considered and left
+
+A changelog generated from the commit messages (they say more than a changelog should, and a
+third of the early ones do not name their round; the file is written, and the test keeps it
+written). GitHub's generated release notes (a list of commits with no sense of a round; the
+changelog's entry is the notes). A roll-back by force-push or `git reset` (rewrites what others
+have; the workflow's whole point is that it never does). A Release for every historical tag
+(forty-six builds of old trees for downloads nobody asked for; any older round can still be
+built and released by rolling it back onto a branch and tagging that `show-…`). Version numbers
+of the semantic kind (the rounds are the versions; the module keeps its own three numbers
+because Companion needs them). ASIO and the GPU-resident frame path (§79.3, §79.4).
