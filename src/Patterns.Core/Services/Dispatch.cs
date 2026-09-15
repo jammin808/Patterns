@@ -26,6 +26,9 @@ public interface IDispatchProvider
     /// <summary>Runs the action on the desk's thread, later.</summary>
     void Post(Action action);
 
+    /// <summary>Runs the function on the desk's thread and answers when it has.</summary>
+    Task<T> InvokeAsync<T>(Func<T> function);
+
     IDispatchTimer Timer(TimeSpan interval);
 }
 
@@ -50,6 +53,10 @@ public static class Dispatch
 
     public static void Post(Action action) => _provider.Post(action);
 
+    public static Task<T> InvokeAsync<T>(Func<T> function) => _provider.InvokeAsync(function);
+
+    public static Task InvokeAsync(Action action) => _provider.InvokeAsync(() => { action(); return true; });
+
     public static IDispatchTimer Timer(TimeSpan interval) => _provider.Timer(interval);
 }
 
@@ -67,6 +74,8 @@ public sealed class InlineDispatch : IDispatchProvider
     public bool CheckAccess() => true;
 
     public void Post(Action action) => action();
+
+    public Task<T> InvokeAsync<T>(Func<T> function) => Task.FromResult(function());
 
     public IDispatchTimer Timer(TimeSpan interval)
     {

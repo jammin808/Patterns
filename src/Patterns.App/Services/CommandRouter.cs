@@ -1,3 +1,4 @@
+using Patterns.Audience;
 using System.Text.Json;
 using Avalonia.Threading;
 using Patterns.Core.Model;

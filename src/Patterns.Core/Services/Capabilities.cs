@@ -66,3 +66,14 @@ public interface IRouter
 
     Task<string> CueListJsonAsync();
 }
+
+/// <summary>What the audience room asks of the desk: the edit scope, and the audience port's facts from the wire.</summary>
+public interface IPlayHost
+{
+    void BulkEdit(Action edit);
+    /// <summary>The wall went on: the picture lane it rides (the arcade's loop) runs from here.</summary>
+    void StartWall();
+    IReadOnlyList<string> AudienceUrls();
+    bool AudienceListening { get; }
+    int AudienceConnections { get; }
+}

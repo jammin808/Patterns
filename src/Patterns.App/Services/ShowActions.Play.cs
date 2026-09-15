@@ -1,3 +1,4 @@
+using Patterns.Audience;
 using Patterns.Core.Model;
 
 namespace Patterns.App.Services;

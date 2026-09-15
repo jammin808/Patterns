@@ -1,3 +1,4 @@
+using Patterns.Audience;
 using Patterns.Assistant;
 using Patterns.Devices;
 using System.Reflection;

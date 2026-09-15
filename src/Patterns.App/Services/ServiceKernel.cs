@@ -1,3 +1,4 @@
+using Patterns.Audience;
 using Patterns.Assistant;
 using Patterns.Devices;
 using Patterns.Core.Model;
@@ -17,7 +18,7 @@ namespace Patterns.App.Services;
 /// <see cref="IWireHost"/>, <see cref="ICueHost"/>…) or a slot the desk fills (<see cref="Air"/>,
 /// <see cref="Link"/>, <see cref="Notifier"/>).
 /// </summary>
-public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssistantHost
+public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssistantHost, IAudienceHost
 {
     /// <summary>What this process is: the desk, or a node that boots a fraction of it and never opens an output.</summary>
     public NodeKind Profile { get; }
@@ -57,6 +58,29 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     IBeaconIdentity IMdnsHost.BeaconIdentity => Beacon;
 
     ShowFacts IAssistantHost.Facts() => Facts();
+
+    /// <summary>The room's moderation: the desk asks its own assistant; a node asks the first desk the beacon heard, over its wire.</summary>
+    async Task<string?> IAudienceHost.ModerateAsync(string text)
+    {
+        if (IsDesk)
+        {
+            var answer = await Assistant.AskAsync(PlayService.ModerationQuestion(text));
+            return answer.Sent ? answer.Reply?.Reply : null;
+        }
+        var desk = await UiThread.InvokeAsync(() => Nodes.Desks().FirstOrDefault());
+        if (desk is null) return null;
+        var line = await NodesService.AskNodeAsync(desk, "ASSISTANT MODERATE " + text.Replace('\n', ' '));
+        if (!line.StartsWith("OK ", StringComparison.Ordinal)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(line[3..]);
+            return doc.RootElement.TryGetProperty("sent", out var sent) && sent.GetBoolean() && doc.RootElement.TryGetProperty("reply", out var r) ? r.GetString() : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 
     string IMdnsHost.AppVersion => AppVersion.Current;
 

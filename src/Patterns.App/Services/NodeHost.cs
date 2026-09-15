@@ -1,3 +1,4 @@
+using Patterns.Audience;
 using Patterns.Devices;
 using Avalonia.Threading;
 using Patterns.Core.Media;

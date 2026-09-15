@@ -50,6 +50,8 @@ public sealed class AvaloniaDispatch : IDispatchProvider
 
     public void Post(Action action) => UiThread.Post(action);
 
+    public Task<T> InvokeAsync<T>(Func<T> function) => UiThread.InvokeAsync(function).GetTask();
+
     public IDispatchTimer Timer(TimeSpan interval) => new AvaloniaTimer(interval);
 
     private sealed class AvaloniaTimer : IDispatchTimer

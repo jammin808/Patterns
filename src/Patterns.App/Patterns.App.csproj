@@ -59,6 +59,7 @@
     <ProjectReference Include="..\Patterns.Devices\Patterns.Devices.csproj" />
     <ProjectReference Include="..\Patterns.Audio\Patterns.Audio.csproj" />
     <ProjectReference Include="..\Patterns.Assistant\Patterns.Assistant.csproj" />
+    <ProjectReference Include="..\Patterns.Audience\Patterns.Audience.csproj" />
   </ItemGroup>
 
 </Project>

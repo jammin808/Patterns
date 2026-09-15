@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using Avalonia.Threading;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
 using Patterns.Arcade;
@@ -8,7 +7,7 @@ using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 
-namespace Patterns.App.Services;
+namespace Patterns.Audience;
 
 /// <summary>
 /// Audience play on the hub: the room (<see cref="PlayRoom"/>, pure) under one lock, the phones'
@@ -18,7 +17,7 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class PlayService : IDisposable
 {
-    private readonly ServiceKernel _k;
+    private readonly IAudienceHost _k;
     private readonly IPlayHost _s;
     private readonly object _gate = new();
     private readonly Random _rng = new();
@@ -32,7 +31,7 @@ public sealed class PlayService : IDisposable
     private int _longPolls;
     private int _longPollsPeak;
 
-    public PlayService(ServiceKernel kernel, IPlayHost host)
+    public PlayService(IAudienceHost kernel, IPlayHost host)
     {
         _k = kernel;
         _s = host;
@@ -261,31 +260,9 @@ public sealed class PlayService : IDisposable
         _lastAskUtc = DateTime.UtcNow;
         try
         {
-            string? reply = null;
-            if (_k.IsDesk)
-            {
-                var answer = await _k.Assistant.AskAsync(ModerationQuestion(item.Text));
-                reply = answer.Sent ? answer.Reply?.Reply : null;
-            }
-            else
-            {
-                var desk = await UiThread.InvokeAsync(() => _k.Nodes.Desks().FirstOrDefault());
-                if (desk is not null)
-                {
-                    var line = await NodesService.AskNodeAsync(desk, "ASSISTANT MODERATE " + item.Text.Replace('\n', ' '));
-                    if (line.StartsWith("OK ", StringComparison.Ordinal))
-                    {
-                        try
-                        {
-                            using var doc = JsonDocument.Parse(line[3..]);
-                            if (doc.RootElement.TryGetProperty("sent", out var sent) && sent.GetBoolean() && doc.RootElement.TryGetProperty("reply", out var r)) reply = r.GetString();
-                        }
-                        catch (JsonException) { }
-                    }
-                }
-            }
+            var reply = await _k.ModerateAsync(item.Text);
             var verdict = Verdict(reply);
-            await UiThread.InvokeAsync(() =>
+            await Dispatch.InvokeAsync(() =>
             {
                 lock (_gate)
                 {

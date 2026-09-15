@@ -1,3 +1,4 @@
+using Patterns.Audience;
 using Patterns.Devices;
 using Patterns.Core.Media;
 using Patterns.Rendering.Media;
@@ -97,17 +98,6 @@ public interface IMachineHost
     IRouter NewRouter();
 
     IActionLayer Actions { get; }
-}
-
-/// <summary>What the audience room asks of the desk: the edit scope, and the audience port's facts from the wire.</summary>
-public interface IPlayHost
-{
-    void BulkEdit(Action edit);
-    /// <summary>The wall went on: the picture lane it rides (the arcade's loop) runs from here.</summary>
-    void StartWall();
-    IReadOnlyList<string> AudienceUrls();
-    bool AudienceListening { get; }
-    int AudienceConnections { get; }
 }
 
 /// <summary>

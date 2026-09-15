@@ -78,3 +78,21 @@ public interface IMdnsHost
 
     string AppVersion { get; }
 }
+
+/// <summary>
+/// What the audience room asks of the process it runs in: the show (its name is the room's),
+/// the store (the room's story file lives beside the show), a notice for the operator, and a
+/// moderation — the queue's words put to an assistant: the desk's own, or the first desk a node
+/// can reach; null when none answered, which leaves the item to the host.
+/// </summary>
+public interface IAudienceHost
+{
+    ShowState State { get; }
+
+    SettingsStore Store { get; }
+
+    void Notify(string message);
+
+    /// <summary>The assistant's reply to the moderation question about the text, or null when no assistant answered.</summary>
+    Task<string?> ModerateAsync(string text);
+}
