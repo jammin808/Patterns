@@ -81,7 +81,7 @@ public class DeskLayoutTests
             Assert.True(window.IsWideApplied);
             Assert.True(vm.State.Desk.WideWorkArea);
             Assert.True(pages.Bounds.Width > 800, $"the page has the room ({pages.Bounds.Width:0})");
-            var take = window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "TAKE");
+            var take = window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "TAKE" && x.Classes.Contains("go"));
             Assert.True(take.IsEffectivelyVisible);
             Assert.True(Extent(take, window).Right <= window.Bounds.Width + 0.5, "the wall's TAKE is still on the window");
             vm.WideWorkArea = false;

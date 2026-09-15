@@ -1779,6 +1779,9 @@ boot, and ran to its end green (62.7).
   `screen_take` and presets, version 3.4.0. §81.1.
 - **Found on the way:** the tile's menu had no TO AIR group at all — the programme's had TAKE and
   CUT, a screen's had only the staged verbs. It has one now, with the same reasons.
+- **Found by CI:** two tests looked the wall's big TAKE key up by its word alone and found a
+  tile's own TAKE first — hidden until EDIT SAFE opens, so "not visible". `ShellTests` and
+  `DeskLayoutTests` name the big key by its class now.
 - **The honest limit:** the look tally reads the result by fingerprint, so the words follow the
   next tally refresh — the desk refreshes it on the press, the wire's STATE reads it on the poll.
 
