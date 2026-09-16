@@ -183,6 +183,7 @@ public sealed class EyeService
         var air = _s.AirState;
         var geo = Rig.Geometry(state, all);
         var liveTargets = new HashSet<string>(_s.Outputs.Windows.Select(w => w.TargetScreenId), StringComparer.Ordinal);
+        var ticked = new HashSet<string>(_s.TickedTargets?.Invoke() ?? Array.Empty<string>(), StringComparer.Ordinal);
         var n = 0;
         foreach (var (placement, info) in Rig.OrderedLivePlacements(state, all))
         {
@@ -216,6 +217,11 @@ public sealed class EyeService
                 ReceivedLight = receivedLight,
                 Sources = SourcesOf(picture),
                 Role = placement.Role.ToString(),
+                // Round 67.8: the tile's switches and the canvas, read from the same facts the wall and the take plan read.
+                Locked = ScreenRoles.IsLocked(state, target),
+                Armed = _s.Arming.IsArmed(target),
+                Ticked = ticked.Contains(target),
+                Canvas = ContentTargets.IsCanvasKey(target) ? geo.LabelFor(state, target) : "",
             });
         }
 
@@ -318,6 +324,9 @@ public sealed class EyeService
             runtime.Hold, runtime.Executing, "", cues.Armed ? (runtime.Hold ? CheckLight.Amber : CheckLight.Green) : CheckLight.Grey);
 
         var hasKey = _s.Kernel.Assistant.HasKey;
+        // Round 67.8: the wall's take plan — the desk's picker on a desk, every armed screen on a node with no picker.
+        var takeScope = _s.TakeScopeWords?.Invoke();
+        var plan = takeScope is null ? null : _s.Actions.PlanTake(FadeScope.Parse(takeScope) ?? FadeScope.Everything);
 
         return new EyeFacts
         {
@@ -328,6 +337,8 @@ public sealed class EyeService
             HealthWords = report?.Headline ?? "",
             Attention = attention,
             NextTake = _s.NextTake.Pending?.Words ?? "",
+            TakeScope = plan?.Scope.Label ?? "",
+            TakeWords = plan is null ? "" : plan.IsRefused ? plan.Refusal! : plan.Words,
             Displays = displays,
             Screens = screens,
             Sources = sources,

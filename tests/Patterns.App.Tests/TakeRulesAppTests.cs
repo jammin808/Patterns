@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -38,6 +39,62 @@ public class TakeRulesAppTests
     }
 
     private static SwitcherTile Tile(MainViewModel vm, string id) => vm.SwitcherTiles.Single(t => t.TargetId == id);
+
+    private static string Send(CommandRouter router, string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
+
+    [AvaloniaFact]
+    public void TheEyeAndStateCarryTheTakeFactsOfEveryScreen()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            Rig(b);
+            var router = new CommandRouter(services);
+
+            // LOCK b, hold c, tick a, FOCUSED on a: the Eye's screens and desk say so, and STATE's rows agree — one set of facts.
+            Assert.True(services.Actions.Execute(ShowActionKind.ScreenLock, ActionOrigin.Desk, "b").Ok);
+            services.Arming.Set("c", false);
+            Tile(vm, "a").IsSendTarget = true;
+            vm.SelectTileCommand.Execute(Tile(vm, "a"));
+            vm.SelectedTakeScope = vm.TakeScopes[1];
+            services.Eye.Refresh();
+            var g = services.Eye.Graph;
+            Assert.Contains(g.Find("screen:b")!.Words, w => w.StartsWith("LOCKED", StringComparison.Ordinal));
+            Assert.Contains(g.Find("screen:c")!.Words, w => w.StartsWith("held", StringComparison.Ordinal));
+            Assert.Contains(g.Find("screen:a")!.Words, w => w.StartsWith("ticked", StringComparison.Ordinal));
+            Assert.DoesNotContain(g.Find("screen:a")!.Words, w => w.StartsWith("LOCKED", StringComparison.Ordinal) || w.StartsWith("held", StringComparison.Ordinal));
+            var desk = g.Find(EyeGraph.DeskId)!.Words.Single(w => w.StartsWith("Next TAKE", StringComparison.Ordinal));
+            Assert.Contains("(the focused screen)", desk);
+            Assert.Contains("1 · Left", desk);
+
+            var reply = Send(router, "STATUS");
+            Assert.StartsWith("OK {", reply);
+            using var doc = JsonDocument.Parse(reply[3..]);
+            var rows = doc.RootElement.GetProperty("screens").EnumerateArray().ToDictionary(r => r.GetProperty("n").GetInt32());
+            Assert.True(rows[1].GetProperty("ticked").GetBoolean());
+            Assert.False(rows[2].GetProperty("ticked").GetBoolean());
+            Assert.True(rows[2].GetProperty("locked").GetBoolean());
+            Assert.False(rows[3].GetProperty("armed").GetBoolean());
+            var take = doc.RootElement.GetProperty("take");
+            Assert.Equal("FOCUSED", take.GetProperty("scope").GetString());
+            Assert.Equal(new[] { "a" }, take.GetProperty("taken").EnumerateArray().Select(t => t.GetString()));
+
+            // Unlock, arm, untick: the words go, on the next read.
+            Assert.True(services.Actions.Execute(ShowActionKind.ScreenUnlock, ActionOrigin.Desk, "b").Ok);
+            services.Arming.ArmAll();
+            Tile(vm, "a").IsSendTarget = false;
+            Assert.True(services.Eye.Refresh());
+            g = services.Eye.Graph;
+            Assert.DoesNotContain(g.Find("screen:b")!.Words, w => w.StartsWith("LOCKED", StringComparison.Ordinal));
+            Assert.DoesNotContain(g.Find("screen:c")!.Words, w => w.StartsWith("held", StringComparison.Ordinal));
+            Assert.DoesNotContain(g.Find("screen:a")!.Words, w => w.StartsWith("ticked", StringComparison.Ordinal));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 
     [AvaloniaFact]
     public void LockedMeansLockedAndAHeldScopeIsARefusalThatSaysWhy()

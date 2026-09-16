@@ -82,6 +82,10 @@ public sealed class EyeFacts
     public IReadOnlyList<string> Attention { get; init; } = Array.Empty<string>();
     /// <summary>Round 67.6: what the next TAKE alone arrives by, in words; "" for the show's own.</summary>
     public string NextTake { get; init; } = "";
+    /// <summary>Round 67.8: the wall's take scope as the picker labels it ("every screen", "the focused screen", "the ticked screens"); "" on a node.</summary>
+    public string TakeScope { get; init; } = "";
+    /// <summary>Round 67.8: what the next TAKE will do — the plan's words ("→ 1 · Left, 2 · Right · 1 outside the scope keeps its picture") or its refusal; "" on a node.</summary>
+    public string TakeWords { get; init; } = "";
     public IReadOnlyList<EyeDisplay> Displays { get; init; } = Array.Empty<EyeDisplay>();
     public IReadOnlyList<EyeScreen> Screens { get; init; } = Array.Empty<EyeScreen>();
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
@@ -136,6 +140,14 @@ public sealed class EyeScreen
     /// <summary>The input keys its picture draws from ("ndi:Cam 1", "cap:…", "web:…", "media:…").</summary>
     public IReadOnlyList<string> Sources { get; init; } = Array.Empty<string>();
     public string Role { get; init; } = "";
+    /// <summary>Round 67.8: LOCKED — it keeps its picture through looks, cues, every take and a sting.</summary>
+    public bool Locked { get; init; }
+    /// <summary>Round 67.8: ARM — the next CUT / TAKE changes it; false is held through it.</summary>
+    public bool Armed { get; init; } = true;
+    /// <summary>Round 67.8: the tick at the top of its tile — a TICKED take, a fade or SEND TO TICKED reads it.</summary>
+    public bool Ticked { get; init; }
+    /// <summary>Round 67.8: the joined canvas it renders through ("A · Main wall"); "" for a screen of its own.</summary>
+    public string Canvas { get; init; } = "";
 }
 
 /// <summary>A live input: mounted or not, delivering or not; Page is the rail page that edits it ("" for the kind's default).</summary>
@@ -460,6 +472,7 @@ public sealed class EyeGraph
         if (f.Build.Length > 0) deskWords.Add($"Build {f.Build}");
         if (f.HealthWords.Length > 0) deskWords.Add(f.HealthWords);
         if (f.NextTake.Length > 0) deskWords.Add($"Next take: {f.NextTake} (one shot)");
+        if (f.TakeWords.Length > 0) deskWords.Add($"Next TAKE ({f.TakeScope}) {f.TakeWords}");
         deskWords.AddRange(f.Attention);
         Add(new EyeNode(DeskId, EyeKind.Desk, EyePlane.Video, 1, f.MachineName.Length > 0 ? f.MachineName : "This desk", f.OutputsLive ? "outputs live" : "outputs closed", f.Health)
         {
@@ -522,6 +535,10 @@ public sealed class EyeGraph
             if (s.Received.Length > 0) words.Add("Received " + s.Received);
             if (s.Own) words.Add("its own picture");
             if (s.Staged) words.Add("its own picture in the preview — not taken yet");
+            if (s.Canvas.Length > 0) words.Add("in canvas " + s.Canvas);
+            if (s.Locked) words.Add("LOCKED — keeps its picture through looks, cues, every take and a sting");
+            if (!s.Armed) words.Add("held — the next CUT / TAKE leaves it");
+            if (s.Ticked) words.Add("ticked — a TICKED take, a fade or SEND TO TICKED reads it");
             Add(new EyeNode(id, EyeKind.Screen, EyePlane.Video, 2, s.Label.Length > 0 ? s.Label : (s.Number.Length > 0 ? "Screen " + s.Number : s.Id), sub, light)
             {
                 Words = words,

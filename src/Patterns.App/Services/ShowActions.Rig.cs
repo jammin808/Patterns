@@ -296,6 +296,7 @@ public sealed partial class ShowActions
         var groups = Rig.CanvasGroups(State, known);
         var geometry = _s.Bus.Current.Rig;
         var clockHz = FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
+        var ticked = new HashSet<string>(_s.TickedTargets?.Invoke() ?? Array.Empty<string>(), StringComparer.Ordinal);
         return Rig.OrderedLivePlacements(State, known)
             .Select((x, i) =>
             {
@@ -310,6 +311,7 @@ public sealed partial class ShowActions
                     locked = !x.Placement.FollowsCues,
                     role = x.Placement.Role.ToString().ToLowerInvariant(),
                     armed = _s.Arming.IsArmed(target),                          // the next CUT / TAKE changes it
+                    ticked = ticked.Contains(target),                           // round 67.8: the tick at the top of its tile — a TICKED take, a fade or SEND TO TICKED reads it
                     own = ContentTargets.UsesOwnPattern(State, target),           // its own picture, not the program's
                     black = _s.Bus.BlackTargets.Contains(target),                // faded to black on its own (FADE SCREEN n) — the blackout is separate
                     // What this screen is actually drawing, and whether that is still what the look

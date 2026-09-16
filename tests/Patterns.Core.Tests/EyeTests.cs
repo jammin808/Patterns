@@ -30,8 +30,10 @@ public class EyeTests
         {
             new EyeScreen { Id = "s1", Number = "1", Label = "Main wall", DisplayId = "d1", OnAir = true, Contract = "3840x2160 50 RGB 8", Verdict = "MATCH", SignalWords = "MATCH · 3840×2160 50", Sources = new[] { "ndi:Cam 1" } },
             new EyeScreen { Id = "s2", Number = "2", Label = "Projector 1", DisplayId = "d2", OnAir = true, Contract = "1920x1080 50 RGB 8", Verdict = "MISMATCH", SignalWords = "rate: 50 asked · 60 observed", Received = "1920x1080 60", ReceivedLight = CheckLight.Red, Sources = new[] { "web:sponsor" } },
-            new EyeScreen { Id = "s3", Number = "3", Label = "Confidence", DisplayId = "d3", Sources = Array.Empty<string>() },
+            new EyeScreen { Id = "s3", Number = "3", Label = "Confidence", DisplayId = "d3", Sources = Array.Empty<string>(), Locked = true, Armed = false, Ticked = true, Canvas = "A · Main wall" },
         },
+        TakeScope = "every screen",
+        TakeWords = "→ 1 · Main wall, 2 · Projector 1 · 1 held (locked)",
         Sources = new[]
         {
             new EyeSource("ndi:Cam 1", "Cam 1", "ndi", true, "receiving 50 fps", CheckLight.Green),
@@ -178,6 +180,25 @@ public class EyeTests
         Assert.Equal(1.0, EyeGraph.Emphasis(null));
         Assert.True(g.Hops("desk").Count > 10);                                         // the desk's own focus walks everything it touches
         Assert.Empty(g.Hops("nowhere"));
+    }
+
+    [Fact]
+    public void TheTakePlanAndEveryTileSwitchAreInThePicture()
+    {
+        // Round 67.8: what the next TAKE will do is on the desk's node; a screen's lock, arm, tick and canvas are on its own.
+        var g = EyeGraph.Build(Rig());
+        Assert.Contains("Next TAKE (every screen) → 1 · Main wall, 2 · Projector 1 · 1 held (locked)", g.Find("desk")!.Words);
+        var held = g.Find("screen:s3")!.Words;
+        Assert.Contains(held, w => w.StartsWith("LOCKED", StringComparison.Ordinal));
+        Assert.Contains(held, w => w.StartsWith("held", StringComparison.Ordinal));
+        Assert.Contains(held, w => w.StartsWith("ticked", StringComparison.Ordinal));
+        Assert.Contains("in canvas A · Main wall", held);
+        // An armed, unlocked, unticked screen of its own says none of it — the notable state is the word, the default is silence.
+        var plain = g.Find("screen:s1")!.Words;
+        Assert.DoesNotContain(plain, w => w.StartsWith("LOCKED", StringComparison.Ordinal) || w.StartsWith("held", StringComparison.Ordinal) || w.StartsWith("ticked", StringComparison.Ordinal) || w.StartsWith("in canvas", StringComparison.Ordinal));
+        // A node with no picker says nothing about a take.
+        var node = EyeGraph.Build(new EyeFacts { MachineName = "CALLER", Health = CheckLight.Green });
+        Assert.DoesNotContain(node.Find("desk")!.Words, w => w.StartsWith("Next TAKE", StringComparison.Ordinal));
     }
 
     [Fact]
