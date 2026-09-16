@@ -368,7 +368,7 @@ public sealed class PlayService : IDisposable
                 {
                     var (to, text) = SplitMessage(value);
                     var m = Room.Send(to, text);
-                    if (m is null) return ActionResult.Refused(to.StartsWith("phone:") ? $"No phone named '{to[6..]}'." : "PLAY MESSAGE [room | group:<name> | phone:<nick>] <words>");
+                    if (m is null) return ActionResult.Refused(to.StartsWith("phone:", StringComparison.Ordinal) ? $"No phone named '{to[6..]}'." : "PLAY MESSAGE [room | group:<name> | phone:<nick>] <words>");
                     return ActionResult.Done($"Sent to {m.ToWords}: {m.Text}");
                 }
                 case ShowActionKind.PlayApprove:
@@ -452,7 +452,7 @@ public sealed class PlayService : IDisposable
         var head = sp < 0 ? v : v[..sp];
         var lower = head.ToLowerInvariant();
         if (lower == "room") return ("room", sp < 0 ? "" : v[(sp + 1)..].Trim());
-        if (lower.StartsWith("group:") || lower.StartsWith("phone:"))
+        if (lower.StartsWith("group:", StringComparison.Ordinal) || lower.StartsWith("phone:", StringComparison.Ordinal))
         {
             // "group:Table 4 you won": the name runs to the first word that is not part of it — the name is what a phone typed, so take words while the target has no message yet.
             var rest = sp < 0 ? "" : v[(sp + 1)..].Trim();
@@ -589,7 +589,7 @@ public sealed class PlayService : IDisposable
             }
             _wallRev++;
             Signal();
-            return JsonUtil.SerializeCompact(new { ok = msg.StartsWith("ok"), msg });
+            return JsonUtil.SerializeCompact(new { ok = msg.StartsWith("ok", StringComparison.Ordinal), msg });
         }
     }
 

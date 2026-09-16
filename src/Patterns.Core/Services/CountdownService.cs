@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 
 namespace Patterns.Core.Services;
@@ -64,7 +65,7 @@ public static class CountdownService
         string[] formats = { @"h\:m", @"h\:m\:s", @"hhmm" };
         foreach (var f in formats)
         {
-            if (TimeSpan.TryParseExact(s, f, null, out var ts) && ts < TimeSpan.FromDays(1))
+            if (TimeSpan.TryParseExact(s, f, CultureInfo.InvariantCulture, out var ts) && ts < TimeSpan.FromDays(1))
             {
                 timeOfDay = ts;
                 return true;

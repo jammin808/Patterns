@@ -117,8 +117,8 @@ public static class CueTiming
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         var s = text.Trim().ToLowerInvariant();
-        var pm = s.EndsWith("pm") || s.EndsWith("p.m.");
-        var am = s.EndsWith("am") || s.EndsWith("a.m.");
+        var pm = s.EndsWith("pm", StringComparison.Ordinal) || s.EndsWith("p.m.", StringComparison.Ordinal);
+        var am = s.EndsWith("am", StringComparison.Ordinal) || s.EndsWith("a.m.", StringComparison.Ordinal);
         if (pm || am) s = s[..s.LastIndexOf(pm ? 'p' : 'a')].Trim();
         s = s.Replace('.', ':');
         int hours, minutes, seconds = 0;

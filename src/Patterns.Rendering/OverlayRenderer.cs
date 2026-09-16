@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Media;
 using Patterns.Rendering.Media;
 using Patterns.Core.Model;
@@ -203,10 +204,10 @@ public static class OverlayRenderer
 
         var time = (o.TwentyFourHour, o.ShowSeconds) switch
         {
-            (true, true) => now.ToString("HH:mm:ss"),
-            (true, false) => now.ToString("HH:mm"),
-            (false, true) => now.ToString("h:mm:ss tt"),
-            (false, false) => now.ToString("h:mm tt"),
+            (true, true) => now.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
+            (true, false) => now.ToString("HH:mm", CultureInfo.InvariantCulture),
+            (false, true) => now.ToString("h:mm:ss tt", CultureInfo.InvariantCulture),
+            (false, false) => now.ToString("h:mm tt", CultureInfo.InvariantCulture),
         };
 
         var size = (float)(f.H * o.SizePct / 100);
@@ -215,7 +216,7 @@ public static class OverlayRenderer
         var timeW = DrawUtil.MeasureFixedDigits(time, font);
 
         var dateFontSize = size * 0.32f;
-        string? date = o.ShowDate ? now.ToString("ddd d MMM yyyy") : null;
+        string? date = o.ShowDate ? now.ToString("ddd d MMM yyyy", CultureInfo.InvariantCulture) : null;
         float dateW = 0;
         if (date is not null)
         {
@@ -745,7 +746,7 @@ public static class OverlayRenderer
 
         var font = pc.FontBold;
         font.Size = badge * 0.52f;
-        DrawUtil.TextCentered(c, ctx.SinkIndex.ToString(), rect.MidX, rect.MidY - badge * 0.06f, font, pc.Text(SKColors.White.WithAlpha(alpha)));
+        DrawUtil.TextCentered(c, ctx.SinkIndex.ToString(CultureInfo.InvariantCulture), rect.MidX, rect.MidY - badge * 0.06f, font, pc.Text(SKColors.White.WithAlpha(alpha)));
 
         var sub = pc.FontRegular;
         sub.Size = Math.Clamp(badge * 0.085f, 10, 60);

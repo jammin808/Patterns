@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -147,7 +148,7 @@ public sealed class InstallService
             idle = _rt.Idle,
             over = _rt.Override?.IsAdHoc == true ? _rt.Override.Text : _rt.Override?.Name ?? "",
             overKind = _rt.Override is { } o ? Schedule.KindWord(o.Kind) : "",
-            overUntil = _rt.Override is null ? "" : _rt.OverrideEndsAt.ToString("HH:mm:ss"),
+            overUntil = _rt.Override is null ? "" : _rt.OverrideEndsAt.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
             next = next is { } n ? $"{n.At:HH:mm} {n.What}" : "",
             status = Status,
             slots = cfg.Slots.Select((s, i) => new { n = i + 1, name = s.Name, kind = Schedule.KindWord(s.Kind), enabled = s.Enabled, status = s.Status }).ToArray(),

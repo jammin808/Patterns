@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.LowerThirds;
 using Patterns.Rendering.Effects;
 using Patterns.Core.Media;
@@ -248,9 +249,9 @@ public static class LowerThirdRenderer
         };
     }
 
-    private static string DateOf(LowerThirdDesign d, DateTime now) => d.DateText.Length > 0 ? d.DateText : now.ToString("ddd d MMM yyyy");
+    private static string DateOf(LowerThirdDesign d, DateTime now) => d.DateText.Length > 0 ? d.DateText : now.ToString("ddd d MMM yyyy", CultureInfo.InvariantCulture);
 
-    private static string TimeOf(LowerThirdDesign d, DateTime now) => d.TimeText.Length > 0 ? d.TimeText : now.ToString("HH:mm");
+    private static string TimeOf(LowerThirdDesign d, DateTime now) => d.TimeText.Length > 0 ? d.TimeText : now.ToString("HH:mm", CultureInfo.InvariantCulture);
 
     /// <summary>A colour word (primary, secondary, accent, text, background) from the brand kit, or a hex colour.</summary>
     public static SKColor ColorOf(in PatternFrame f, string value, SKColor fallback)

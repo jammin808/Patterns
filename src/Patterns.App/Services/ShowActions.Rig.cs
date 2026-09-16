@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.LowerThirds;
 using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Media;
@@ -769,7 +770,7 @@ public sealed partial class ShowActions
                 identity = edid.Identity,
                 manufacturer = edid.Manufacturer,
                 product = edid.ProductCode,
-                serial = edid.SerialText.Length > 0 ? edid.SerialText : edid.SerialNumber.ToString(),
+                serial = edid.SerialText.Length > 0 ? edid.SerialText : edid.SerialNumber.ToString(CultureInfo.InvariantCulture),
                 name = edid.Name,
                 version = edid.Version,
                 preferred = edid.Preferred?.Words ?? "",

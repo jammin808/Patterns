@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -251,7 +252,7 @@ public sealed class ArcadeService : IDisposable
     /// <summary>A number on the keyboard: the house plays that game; START joins.</summary>
     public void PickGame(int number)
     {
-        if (ArcadeEngine.Find(number.ToString()) is not { } info) return;
+        if (ArcadeEngine.Find(number.ToString(CultureInfo.InvariantCulture)) is not { } info) return;
         Start();
         lock (_gate) _engine.Attract(info.Id);
     }

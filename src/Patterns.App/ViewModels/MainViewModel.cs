@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Devices;
 using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
@@ -638,7 +639,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     /// <summary>The canvas size panel only applies to non-wall patterns (walls define their own).</summary>
     public bool ShowCanvasPanel => ActivePattern.Kind is not (PatternKind.LedWall or PatternKind.VideoWall or PatternKind.ProjectionBlend);
 
-    public string HeaderClock => DateTime.Now.ToString("HH:mm:ss");
+    public string HeaderClock => DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
     public string CountdownPreview
     {

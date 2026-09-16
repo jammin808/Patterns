@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.LowerThirds;
 using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Media;
@@ -73,7 +74,7 @@ public sealed partial class ShowActions
     public bool ApplyLookHotkey(int slot, ActionOrigin origin)
     {
         if (State.LooksAndCues.Looks.All(l => l.Hotkey != slot)) return false;
-        return Execute(new ShowAction(ShowActionKind.ApplyLookHotkey, slot.ToString()), origin).Ok;
+        return Execute(new ShowAction(ShowActionKind.ApplyLookHotkey, slot.ToString(CultureInfo.InvariantCulture)), origin).Ok;
     }
 
     /// <summary>

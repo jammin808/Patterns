@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Geometry;
 using Avalonia;
 using Avalonia.Controls;
@@ -208,7 +209,7 @@ public sealed class LedMapEditorControl : Control
                 c.DrawRect(r, border);
             }
 
-            var label = string.IsNullOrWhiteSpace(tile.Tile.Label) ? tile.Number.ToString() : tile.Tile.Label;
+            var label = string.IsNullOrWhiteSpace(tile.Tile.Label) ? tile.Number.ToString(CultureInfo.InvariantCulture) : tile.Tile.Label;
             if (r.Height > 26 && r.Width > 26)
             {
                 DrawCentered(c, label, r.MidX, r.MidY - (r.Height > 44 ? 7 : 0), Math.Min(15, r.Height * 0.3f), SKColors.White);

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 
 namespace Patterns.Core.Services;
@@ -39,7 +40,7 @@ public sealed record CueExecutionRecord(
 {
     public string Label => $"{Number} {Name}";
     public DateTime AtLocal => AtUtc.ToLocalTime();
-    public string TimeText => AtLocal.ToString("HH:mm:ss");
+    public string TimeText => AtLocal.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
     public bool IsFailure => Outcome is CueOutcome.Failed or CueOutcome.FailedLate or CueOutcome.Refused;
 
     /// <summary>The outcome as the Run page reads it: "Done", "Awaiting 2 receipts", "Settling", "Failed late".</summary>

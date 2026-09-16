@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Avalonia.Threading;
@@ -693,19 +694,19 @@ public sealed class SystemMetricsService : IDisposable
         var sb = new System.Text.StringBuilder();
         var s = Current;
         sb.AppendLine("PATTERNS SUPPORT INFO");
-        sb.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss} (local)");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss} (local)");
         try
         {
             var version = typeof(SystemMetricsService).Assembly.GetName().Version?.ToString() ?? "dev";
-            sb.AppendLine($"App: Patterns {version} · .NET {Environment.Version} · {RuntimeInformation.ProcessArchitecture}");
-            sb.AppendLine($"OS: {RuntimeInformation.OSDescription}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"App: Patterns {version} · .NET {Environment.Version} · {RuntimeInformation.ProcessArchitecture}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"OS: {RuntimeInformation.OSDescription}");
             sb.AppendLine(Modules.Words());
-            sb.AppendLine($"Machine: {Environment.MachineName}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Machine: {Environment.MachineName}");
             var cpuName = WinRegistry.ReadCpuName();
-            sb.AppendLine($"CPU: {(cpuName.Length > 0 ? cpuName : "unknown")} · {Environment.ProcessorCount} threads");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"CPU: {(cpuName.Length > 0 ? cpuName : "unknown")} · {Environment.ProcessorCount} threads");
             if (s is { RamTotalMB: > 0 })
             {
-                sb.AppendLine($"RAM: {s.RamTotalMB / 1024.0:0.0} GB total · {s.RamSystemPct:0}% in use");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"RAM: {s.RamTotalMB / 1024.0:0.0} GB total · {s.RamSystemPct:0}% in use");
             }
             if (GpuService.Adapters.Count > 0)
             {
@@ -713,30 +714,30 @@ public sealed class SystemMetricsService : IDisposable
                 {
                     var active = string.Equals(g.Name, GpuService.ActiveAdapterName, StringComparison.OrdinalIgnoreCase)
                         ? " — in use" : "";
-                    sb.AppendLine($"GPU: {g.Name} · {g.DedicatedVideoMemoryMB / 1024.0:0.#} GB · {g.VendorName}{active}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"GPU: {g.Name} · {g.DedicatedVideoMemoryMB / 1024.0:0.#} GB · {g.VendorName}{active}");
                 }
             }
             var screens = _services.Screens.All;
-            sb.AppendLine($"Screens: {screens.Count}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Screens: {screens.Count}");
             foreach (var sc in screens)
             {
-                sb.AppendLine($"  {sc.Label}: {sc.Bounds.Width}×{sc.Bounds.Height} @ {sc.Scaling:0.##}x{(sc.IsPrimary ? " · primary" : "")}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  {sc.Label}: {sc.Bounds.Width}×{sc.Bounds.Height} @ {sc.Scaling:0.##}x{(sc.IsPrimary ? " · primary" : "")}");
             }
-            sb.AppendLine($"Lifetime census: {DeskCensus.Take(_services).Describe()}");
-            sb.AppendLine($"Folder: {_services.Store.BaseDirectory}");
-            sb.AppendLine($"Watchdog: {(_services.State.Watchdog.Enabled ? "on" : "off")} · {HealthMonitor.Summary(DateTime.UtcNow)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Lifetime census: {DeskCensus.Take(_services).Describe()}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Folder: {_services.Store.BaseDirectory}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Watchdog: {(_services.State.Watchdog.Enabled ? "on" : "off")} · {HealthMonitor.Summary(DateTime.UtcNow)}");
             var (onBattery, pct) = (s?.OnBattery ?? false, s?.BatteryPct ?? -1);
-            sb.AppendLine($"Power: {(onBattery ? $"battery{(pct >= 0 ? $" {pct}%" : "")}" : "mains/unknown")}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Power: {(onBattery ? $"battery{(pct >= 0 ? $" {pct}%" : "")}" : "mains/unknown")}");
             if (s is not null)
             {
-                sb.AppendLine($"Now: app CPU {P(s.CpuAppPct)} · system CPU {P(s.CpuSystemPct)} · app RAM {P(s.RamAppMB, " MB")} · " +
+                sb.AppendLine(CultureInfo.InvariantCulture, $"Now: app CPU {P(s.CpuAppPct)} · system CPU {P(s.CpuSystemPct)} · app RAM {P(s.RamAppMB, " MB")} · " +
                               $"VRAM {P(s.VramUsedMB, " MB")}/{P(s.VramTotalMB, " MB")} · GPU {P(s.GpuBusyPct)} · " +
                               $"outputs {s.OutputFps:0} fps ×{s.OutputWindows} · worst frame {s.WorstFrameMs:0.0} ms · " +
                               $"threads {s.Threads} · handles {s.Handles} · disk free {P(s.DiskFreeGB, " GB")}");
             }
             foreach (var advice in Suggestions)
             {
-                sb.AppendLine($"Advice [{advice.Severity}]: {advice.Title} — {advice.Detail}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"Advice [{advice.Severity}]: {advice.Title} — {advice.Detail}");
             }
 
             // Round 65.9: the machine as Windows describes it, and the rig against the commissioned one.
@@ -753,7 +754,7 @@ public sealed class SystemMetricsService : IDisposable
         }
         catch (Exception ex)
         {
-            sb.AppendLine($"(support info incomplete: {ex.Message})");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"(support info incomplete: {ex.Message})");
         }
         return sb.ToString();
 

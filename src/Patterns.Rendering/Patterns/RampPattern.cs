@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 using Patterns.Rendering;
 using SkiaSharp;
@@ -46,7 +47,7 @@ public sealed class RampPattern : IPatternRenderer
                     if (o.ShowMarkers && n <= 32 && x1 - x0 > font.Size * 2.2f)
                     {
                         var text = pc.Text(v > 127 ? SKColors.Black : SKColors.White);
-                        DrawUtil.TextCentered(c, v.ToString(), (x0 + x1) / 2f, h * 0.94f, font, text);
+                        DrawUtil.TextCentered(c, v.ToString(CultureInfo.InvariantCulture), (x0 + x1) / 2f, h * 0.94f, font, text);
                     }
                 }
                 break;
@@ -81,7 +82,7 @@ public sealed class RampPattern : IPatternRenderer
             var x = (int)Math.Round((f.W - 1) * pct / 100.0);
             DrawUtil.LineV(c, x, 0, (int)(font.Size * 1.6f), f.Hairline(1), pc.Fill(new SKColor(255, 160, 32)));
             var tx = Math.Clamp(x, font.Size * 1.4f, f.W - font.Size * 1.4f);
-            DrawUtil.TextCentered(c, pct.ToString(), tx, font.Size * 2.4f, font, pc.Text(new SKColor(255, 160, 32)));
+            DrawUtil.TextCentered(c, pct.ToString(CultureInfo.InvariantCulture), tx, font.Size * 2.4f, font, pc.Text(new SKColor(255, 160, 32)));
         }
     }
 
@@ -95,7 +96,7 @@ public sealed class RampPattern : IPatternRenderer
             var y = (int)Math.Round((f.H - 1) * pct / 100.0);
             DrawUtil.LineH(c, y, 0, (int)(font.Size * 1.6f), f.Hairline(1), pc.Fill(new SKColor(255, 160, 32)));
             var ty = Math.Clamp(y, font.Size, f.H - font.Size);
-            DrawUtil.TextCentered(c, pct.ToString(), font.Size * 3f, ty, font, pc.Text(new SKColor(255, 160, 32)));
+            DrawUtil.TextCentered(c, pct.ToString(CultureInfo.InvariantCulture), font.Size * 3f, ty, font, pc.Text(new SKColor(255, 160, 32)));
         }
     }
 }

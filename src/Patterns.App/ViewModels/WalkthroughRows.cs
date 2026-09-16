@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -62,7 +63,7 @@ public sealed class WalkStepRow : Observable
     {
         Index = index;
         Step = step;
-        Number = (index + 1).ToString();
+        Number = (index + 1).ToString(CultureInfo.InvariantCulture);
         PageWords = $"→ {step.Page} page";
         GoCommand = new RelayCommand(() => vm.WalkGo(index));
         DoneCommand = new RelayCommand(() => vm.WalkMark(index, !_isDone));

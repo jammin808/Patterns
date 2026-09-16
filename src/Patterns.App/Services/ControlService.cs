@@ -706,7 +706,7 @@ public sealed partial class ControlService : IDisposable
             {
                 payload = MultiviewPage;
             }
-            else if (method == "GET" && path.StartsWith("/mv.jpg"))
+            else if (method == "GET" && path.StartsWith("/mv.jpg", StringComparison.Ordinal))
             {
                 contentType = "image/jpeg";
                 payload = "";
@@ -714,7 +714,7 @@ public sealed partial class ControlService : IDisposable
                     int.TryParse(QueryValue(path, "w"), out var mvw) ? Math.Clamp(mvw, 320, 1920) : 1024,
                     int.TryParse(QueryValue(path, "n"), out var mvn) ? mvn : 1);
             }
-            else if (method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?")))
+            else if (method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?", StringComparison.Ordinal)))
             {
                 contentType = "application/json";
                 // ?since=<rev> long-polls: the handler is already asynchronous, so it can wait
@@ -747,7 +747,7 @@ public sealed partial class ControlService : IDisposable
             {
                 payload = RunPage;
             }
-            else if (method == "GET" && (path == "/stage" || path.StartsWith("/stage?")))
+            else if (method == "GET" && (path == "/stage" || path.StartsWith("/stage?", StringComparison.Ordinal)))
             {
                 payload = StagePage;
             }
@@ -755,7 +755,7 @@ public sealed partial class ControlService : IDisposable
             {
                 payload = TimerPage;
             }
-            else if (method == "GET" && (path == "/api/stage" || path.StartsWith("/api/stage?")))
+            else if (method == "GET" && (path == "/api/stage" || path.StartsWith("/api/stage?", StringComparison.Ordinal)))
             {
                 contentType = "application/json";
                 if (_services.Stage is not { } stage)
@@ -794,11 +794,11 @@ public sealed partial class ControlService : IDisposable
                 var acked = id.Length > 0 && (await UiThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.StageAck, "", id), ackOrigin))).Ok;
                 payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
             }
-            else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?")))
+            else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?", StringComparison.Ordinal)))
             {
                 payload = PadPage;
             }
-            else if (method == "GET" && (path == "/api/arcade" || path.StartsWith("/api/arcade?")))
+            else if (method == "GET" && (path == "/api/arcade" || path.StartsWith("/api/arcade?", StringComparison.Ordinal)))
             {
                 contentType = "application/json";
                 // On the arcade node its own state; on a desk the arcade nodes' — asked on their wires.
@@ -816,11 +816,11 @@ public sealed partial class ControlService : IDisposable
                 var result = await UiThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.ArcadeKey, "", words), padOrigin));
                 payload = JsonUtil.SerializeCompact(new { ok = result.Ok, msg = result.Message });
             }
-            else if (method == "GET" && (path == "/play" || path.StartsWith("/play?")))
+            else if (method == "GET" && (path == "/play" || path.StartsWith("/play?", StringComparison.Ordinal)))
             {
                 payload = PlayPage;
             }
-            else if (method == "GET" && (path == "/host" || path.StartsWith("/host?")))
+            else if (method == "GET" && (path == "/host" || path.StartsWith("/host?", StringComparison.Ordinal)))
             {
                 payload = HostPage;
             }
@@ -830,7 +830,7 @@ public sealed partial class ControlService : IDisposable
                 var from = client.Client.RemoteEndPoint is IPEndPoint joinEp ? joinEp.Address.ToString() : "?";
                 payload = await RoomAnswer(r => ((PlayService)r).JoinJson(body, from));
             }
-            else if (method == "GET" && (path == "/api/play/state" || path.StartsWith("/api/play/state?")))
+            else if (method == "GET" && (path == "/api/play/state" || path.StartsWith("/api/play/state?", StringComparison.Ordinal)))
             {
                 contentType = "application/json";
                 // ?rev=<rev> long-polls the room: a question opened, an answer counted, a message sent, the wall changed.
@@ -880,7 +880,7 @@ public sealed partial class ControlService : IDisposable
                     payload = await RoomAnswer(r => ((PlayService)r).HostJson());
                 }
             }
-            else if (method == "GET" && (path == "/api/play" || path.StartsWith("/api/play?")))
+            else if (method == "GET" && (path == "/api/play" || path.StartsWith("/api/play?", StringComparison.Ordinal)))
             {
                 contentType = "application/json";
                 payload = await RoomAnswer(r => ((PlayService)r).StatusJson(QueryValue(path, "what")));
@@ -916,10 +916,10 @@ public sealed partial class ControlService : IDisposable
                 {
                     response = await _router.ExecuteAsync(ControlProtocol.Parse(line), adminOrigin);
                 }
-                var ok = response.StartsWith("OK");
+                var ok = response.StartsWith("OK", StringComparison.Ordinal);
                 payload = $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)}}}";
             }
-            else if (method == "GET" && path.StartsWith("/api/admin/log"))
+            else if (method == "GET" && path.StartsWith("/api/admin/log", StringComparison.Ordinal))
             {
                 contentType = "text/plain; charset=utf-8";
                 // The passcode rides in its header (round 65) — never in the URL, which a browser's history and a proxy's log keep.
@@ -933,7 +933,7 @@ public sealed partial class ControlService : IDisposable
                     payload = LogTail(80);
                 }
             }
-            else if (method == "GET" && path.StartsWith("/support-bundle.zip"))
+            else if (method == "GET" && path.StartsWith("/support-bundle.zip", StringComparison.Ordinal))
             {
                 if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow)))
                 {
@@ -950,7 +950,7 @@ public sealed partial class ControlService : IDisposable
                     binary = await Task.Run(() => BuildSupportBundle(info));
                 }
             }
-            else if (method == "GET" && path.StartsWith("/api/screens/") && (path.EndsWith("/edid.bin") || path.EndsWith("/edid.hex") || path.EndsWith("/edid.txt")))
+            else if (method == "GET" && path.StartsWith("/api/screens/", StringComparison.Ordinal) && (path.EndsWith("/edid.bin", StringComparison.Ordinal) || path.EndsWith("/edid.hex", StringComparison.Ordinal) || path.EndsWith("/edid.txt", StringComparison.Ordinal)))
             {
                 // Round 65.8: the planned screen's EDID as a processor input or a PC loads it — the bytes, the hex, the summary. Reading: no token.
                 var word = Uri.UnescapeDataString(path["/api/screens/".Length..].Split('/')[0]);
@@ -961,7 +961,7 @@ public sealed partial class ControlService : IDisposable
                     contentType = "text/plain";
                     payload = $"No screen '{word}'.";
                 }
-                else if (path.EndsWith(".bin"))
+                else if (path.EndsWith(".bin", StringComparison.Ordinal))
                 {
                     contentType = "application/octet-stream";
                     payload = "";
@@ -970,10 +970,10 @@ public sealed partial class ControlService : IDisposable
                 else
                 {
                     contentType = "text/plain; charset=utf-8";
-                    payload = path.EndsWith(".hex") ? planned.Hex : planned.Summary;
+                    payload = path.EndsWith(".hex", StringComparison.Ordinal) ? planned.Hex : planned.Summary;
                 }
             }
-            else if (method == "GET" && path.StartsWith("/pgm.jpg"))
+            else if (method == "GET" && path.StartsWith("/pgm.jpg", StringComparison.Ordinal))
             {
                 contentType = "image/jpeg";
                 payload = "";
@@ -1001,7 +1001,7 @@ public sealed partial class ControlService : IDisposable
                 {
                     response = await _router.ExecuteAsync(cmd, httpOrigin);
                 }
-                var ok = response.StartsWith("OK");
+                var ok = response.StartsWith("OK", StringComparison.Ordinal);
                 payload = $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)}}}";
             }
             else

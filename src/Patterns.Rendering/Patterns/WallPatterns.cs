@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Rendering;
@@ -182,7 +183,7 @@ public sealed class LedWallPattern : IPatternRenderer
 
             if (t.Width >= 24 && t.Height >= 16)
             {
-                var label = string.IsNullOrWhiteSpace(t.Label) ? (i + 1).ToString() : t.Label;
+                var label = string.IsNullOrWhiteSpace(t.Label) ? (i + 1).ToString(CultureInfo.InvariantCulture) : t.Label;
                 var font = pc.FontBold;
                 font.Size = Math.Clamp(Math.Min(t.Width, t.Height) * 0.3f, 7, 64);
                 DrawUtil.TextCentered(c, label, rect.MidX + 1, rect.MidY + 1, font, pc.Text(SKColors.Black));
@@ -223,9 +224,9 @@ public sealed class LedWallPattern : IPatternRenderer
     /// <summary>Label for a tile — shared with tests.</summary>
     public static string TileLabel(TileNumbering numbering, LedLayout l, int col, int row) => numbering switch
     {
-        TileNumbering.Linear => (row * l.Columns + col + 1).ToString(),
+        TileNumbering.Linear => (row * l.Columns + col + 1).ToString(CultureInfo.InvariantCulture),
         // Column-major snake: data runs top-down, next column bottom-up.
-        TileNumbering.Serpentine => (col * l.Rows + ((col & 1) == 0 ? row : l.Rows - 1 - row) + 1).ToString(),
+        TileNumbering.Serpentine => (col * l.Rows + ((col & 1) == 0 ? row : l.Rows - 1 - row) + 1).ToString(CultureInfo.InvariantCulture),
         _ => $"{row + 1}-{col + 1}",
     };
 }
@@ -291,8 +292,8 @@ public sealed class VideoWallPattern : IPatternRenderer
                 {
                     var font = pc.FontBold;
                     font.Size = Math.Clamp(Math.Min(ew, eh) * 0.28f, 10, 300);
-                    DrawUtil.TextCentered(c, num.ToString(), rect.MidX + 2, rect.MidY + 2, font, pc.Text(SKColors.Black));
-                    DrawUtil.TextCentered(c, num.ToString(), rect.MidX, rect.MidY, font, pc.Text(f.Palette.Accent));
+                    DrawUtil.TextCentered(c, num.ToString(CultureInfo.InvariantCulture), rect.MidX + 2, rect.MidY + 2, font, pc.Text(SKColors.Black));
+                    DrawUtil.TextCentered(c, num.ToString(CultureInfo.InvariantCulture), rect.MidX, rect.MidY, font, pc.Text(f.Palette.Accent));
 
                     var sub = pc.FontRegular;
                     sub.Size = Math.Clamp(Math.Min(ew, eh) * 0.06f, 8, 40);

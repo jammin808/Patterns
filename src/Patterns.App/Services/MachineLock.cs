@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -465,7 +466,7 @@ public sealed class WindowsMachineLock : IMachineLock
         var (root, key, value) = Split(path);
         using var k = root.OpenSubKey(key);
         var v = k?.GetValue(value);
-        return v is null ? null : Convert.ToString(v);
+        return v is null ? null : Convert.ToString(v, CultureInfo.InvariantCulture);
     }
 
     private static void PutRegistry(string path, string? original)

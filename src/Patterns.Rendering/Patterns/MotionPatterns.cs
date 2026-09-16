@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 using Patterns.Rendering;
 using SkiaSharp;
@@ -128,7 +129,7 @@ public sealed class MotionPattern : IPatternRenderer
 
         var font = pc.FontBold;
         font.Size = h * 0.2f;
-        DrawUtil.FixedDigitsCentered(c, (f.Ctx.Frame % 1000).ToString("000"), w / 2f, h / 2f, font, pc.Text(fg));
+        DrawUtil.FixedDigitsCentered(c, (f.Ctx.Frame % 1000).ToString("000", CultureInfo.InvariantCulture), w / 2f, h / 2f, font, pc.Text(fg));
 
         var sub = pc.FontRegular;
         sub.Size = Math.Clamp(h * 0.03f, 10, 40);

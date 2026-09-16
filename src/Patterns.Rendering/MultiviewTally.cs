@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -239,7 +240,7 @@ public static class MultiviewTally
             return letter.Length > 0 ? letter : "canvas";
         }
         var n = snap.Rig.NumberOf(targetId);
-        return n > 0 ? n.ToString() : targetId;
+        return n > 0 ? n.ToString(CultureInfo.InvariantCulture) : targetId;
     }
 
     private static string MirrorOf(ShowState state, string targetId)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Media;
 using Patterns.Rendering.Media;
 using Patterns.Core.Geometry;
@@ -830,11 +831,11 @@ public sealed class PatternEngine
                 canvas.DrawRect(rect, f.Paints.Fill(new SKColor(0x0C, 0x0E, 0x14)));
                 var font = f.Paints.FontBold;
                 font.Size = rect.Height * 0.3f;
-                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("HH:mm:ss"), rect.MidX, rect.MidY + font.Size * 0.1f,
+                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture), rect.MidX, rect.MidY + font.Size * 0.1f,
                     font, f.Paints.Text(new SKColor(0xE8, 0xEC, 0xF2)));
                 var small = f.Paints.FontRegular;
                 small.Size = rect.Height * 0.1f;
-                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("ddd d MMM"), rect.MidX, rect.MidY + rect.Height * 0.28f,
+                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("ddd d MMM", CultureInfo.InvariantCulture), rect.MidX, rect.MidY + rect.Height * 0.28f,
                     small, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
                 break;
             }

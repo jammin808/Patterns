@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -129,7 +130,7 @@ public sealed class TwinLauncher : IDisposable
             child.Dispose();
             _child = null;
             _nextStartUtc = now + _retry;
-            Log.Warn($"Twin: the standby process exited (code {_lastExitCode?.ToString() ?? "?"}); starting it again in {_retry.TotalSeconds:0} s.");
+            Log.Warn($"Twin: the standby process exited (code {_lastExitCode?.ToString(CultureInfo.InvariantCulture) ?? "?"}); starting it again in {_retry.TotalSeconds:0} s.");
             _retry = TimeSpan.FromTicks(Math.Min(_retry.Ticks * 2, MaxRetry.Ticks));
             return;
         }

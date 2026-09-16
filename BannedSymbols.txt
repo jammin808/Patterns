@@ -1,0 +1,18 @@
+# Round 70 — the APIs Patterns never calls, with the reason each. The build fails on a use (RS0030);
+# the exceptions are named beside the code that needs them with a #pragma and a reason.
+P:System.Environment.TickCount; wraps to negative after 24.9 days — a show machine runs for weeks; use Environment.TickCount64 or the show clock
+M:System.Threading.Thread.Sleep(System.Int32); a blocking sleep stalls the thread it is on — wait on a signal, a timer or a delay
+M:System.Threading.Thread.Sleep(System.TimeSpan); a blocking sleep stalls the thread it is on — wait on a signal, a timer or a delay
+M:System.GC.Collect(); the collector is governed by ShowGc — a forced collection is a pause on the show
+M:System.GC.Collect(System.Int32); the collector is governed by ShowGc — a forced collection is a pause on the show
+M:System.GC.Collect(System.Int32,System.GCCollectionMode); the collector is governed by ShowGc — a forced collection is a pause on the show
+M:System.GC.Collect(System.Int32,System.GCCollectionMode,System.Boolean); the collector is governed by ShowGc — a forced collection is a pause on the show
+M:System.GC.Collect(System.Int32,System.GCCollectionMode,System.Boolean,System.Boolean); the collector is governed by ShowGc — a forced collection is a pause on the show
+M:System.Console.WriteLine(System.String); the desk has no console — Log.Info/Warn writes the journal (the runtime checks that print by design opt out beside their code)
+M:System.Console.WriteLine(); the desk has no console — Log.Info/Warn writes the journal
+M:System.Console.Write(System.String); the desk has no console — Log.Info/Warn writes the journal
+M:System.Threading.Tasks.Task.Wait(); a blocking wait on the UI thread is a hang — await it, or hand the work to a worker
+M:System.Threading.Tasks.Task.Wait(System.Int32); a blocking wait on the UI thread is a hang — await it, or hand the work to a worker
+M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken); a blocking wait on the UI thread is a hang — await it, or hand the work to a worker
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[]); a blocking wait on the UI thread is a hang — await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[]); a blocking wait on the UI thread is a hang — await Task.WhenAny

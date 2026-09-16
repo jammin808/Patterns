@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -202,7 +203,7 @@ public sealed class EyeService
             screens.Add(new EyeScreen
             {
                 Id = placement.ScreenId,
-                Number = n.ToString(),
+                Number = n.ToString(CultureInfo.InvariantCulture),
                 Label = Rig.LabelFor(placement, info),
                 DisplayId = info?.Id ?? "",
                 Enabled = placement.Enabled,

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Play;
 using Patterns.Core.Arcade;
 using Patterns.Arcade;
@@ -135,8 +136,8 @@ public static class PlayBoard
                 {
                     var h = (baseY - top - 40) * counts[i] / max;
                     c.DrawRoundRect(SKRect.Create(x0 + i * barW + 8, baseY - h, barW - 16, h), 8, 8, p.FillAA(Sky.WithAlpha(0x90)));
-                    ArcadeText.Draw(c, p, (q.ScaleMin + i).ToString(), x0 + i * barW + barW / 2, baseY + 44, 32, Faint);
-                    if (counts[i] > 0) ArcadeText.Draw(c, p, counts[i].ToString(), x0 + i * barW + barW / 2, baseY - h - 12, 28, Ink);
+                    ArcadeText.Draw(c, p, (q.ScaleMin + i).ToString(CultureInfo.InvariantCulture), x0 + i * barW + barW / 2, baseY + 44, 32, Faint);
+                    if (counts[i] > 0) ArcadeText.Draw(c, p, counts[i].ToString(CultureInfo.InvariantCulture), x0 + i * barW + barW / 2, baseY - h - 12, 28, Ink);
                 }
                 if (results.Answers > 0) ArcadeText.Draw(c, p, $"average {results.ScaleAverage:0.0}", W / 2, H - 90, 40, Neon);
                 break;
@@ -208,9 +209,9 @@ public static class PlayBoard
         for (var i = 0; i < top.Count; i++)
         {
             var colour = i == 0 ? Neon : i < 3 ? Sky : Ink;
-            ArcadeText.Draw(c, p, (i + 1).ToString(), 360, y, 44, Faint, SKTextAlign.Right);
+            ArcadeText.Draw(c, p, (i + 1).ToString(CultureInfo.InvariantCulture), 360, y, 44, Faint, SKTextAlign.Right);
             ArcadeText.Draw(c, p, Fit(p.FontBold, top[i].Nick + (top[i].Group.Length > 0 ? $"  ·  {top[i].Group}" : ""), 44, 900), 420, y, 44, colour, SKTextAlign.Left);
-            ArcadeText.Draw(c, p, top[i].Score.ToString(), W - 360, y, 44, colour, SKTextAlign.Right);
+            ArcadeText.Draw(c, p, top[i].Score.ToString(CultureInfo.InvariantCulture), W - 360, y, 44, colour, SKTextAlign.Right);
             y += 78;
         }
     }
@@ -297,7 +298,7 @@ public static class PlayBoard
             c.DrawRoundRect(SKRect.Create(160, ry, (W - 320) * frac, 88), 10, 10, p.FillAA(Bars[i % Bars.Length].WithAlpha(0x70)));
             c.DrawRoundRect(SKRect.Create(160, ry, W - 320, 88), 10, 10, p.StrokeAA(Bars[i % Bars.Length].WithAlpha(0x70), 2));
             ArcadeText.Draw(c, p, $"{i + 1}  {Fit(p.FontBold, scene.Options[i].Text, 36, W - 600)}", 190, ry + 56, 36, Ink, SKTextAlign.Left);
-            if (path.VotingOpen) ArcadeText.Draw(c, p, counts[i].ToString(), W - 190, ry + 56, 36, Ink, SKTextAlign.Right);
+            if (path.VotingOpen) ArcadeText.Draw(c, p, counts[i].ToString(CultureInfo.InvariantCulture), W - 190, ry + 56, 36, Ink, SKTextAlign.Right);
         }
         ArcadeText.Draw(c, p, path.VotingOpen ? "VOTE ON YOUR PHONE" : path.LastChoice.Length > 0 ? $"the room chose: {path.LastChoice}" : "the host opens the vote", W / 2, H - 36, 30, Faint, bold: false);
     }

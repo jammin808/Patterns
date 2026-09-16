@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -196,7 +197,7 @@ public static class AssistantAttachments
         else
         {
             var slides = zip.Entries.Where(e => Regex.IsMatch(e.FullName, @"^ppt/slides/slide\d+\.xml$"))
-                .OrderBy(e => int.Parse(Regex.Match(e.FullName, @"slide(\d+)\.xml").Groups[1].Value)).ToList();
+                .OrderBy(e => int.Parse(Regex.Match(e.FullName, @"slide(\d+)\.xml").Groups[1].Value, CultureInfo.InvariantCulture)).ToList();
             if (slides.Count == 0) return new AssistantAttachmentResult(null, $"'{name}' is not a PowerPoint file.");
             var n = 0;
             foreach (var slide in slides)

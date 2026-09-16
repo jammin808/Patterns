@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Geometry;
 using Avalonia;
 using Avalonia.Controls;
@@ -364,7 +365,7 @@ public sealed class ScreenArrangeControl : Control
             }
 
             // Number badge + caption.
-            DrawBadge(c, tile.Number.ToString(), r.Left + 14, r.Top + 14, borderColor);
+            DrawBadge(c, tile.Number.ToString(CultureInfo.InvariantCulture), r.Left + 14, r.Top + 14, borderColor);
             var caption = $"{tile.Info.Label} · {tile.Arranged.Width}×{tile.Arranged.Height}";
             DrawCentered(c, caption, r.MidX, r.Bottom + 11, 11, new SKColor(0xC8, 0xD0, 0xDC));
         }

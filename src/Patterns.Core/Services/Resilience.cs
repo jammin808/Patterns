@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 
 namespace Patterns.Core.Services;
@@ -391,7 +392,7 @@ public sealed record CrashNote(int ExitCode, string Words, bool NativeFault, boo
     {
         get
         {
-            var when = AtUtc.ToLocalTime().ToString("HH:mm:ss");
+            var when = AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
             var ran = RanForSeconds >= 3600 ? $"{RanForSeconds / 3600:0.#} h" : RanForSeconds >= 60 ? $"{RanForSeconds / 60:0} min" : $"{RanForSeconds:0} s";
             var why = Hung ? "a hung UI thread (the watchdog ended it)" : Words;
             var detail = Detail.Length > 0 ? $" — {Detail} —" : "";

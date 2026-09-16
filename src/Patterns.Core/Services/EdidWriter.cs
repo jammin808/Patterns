@@ -214,7 +214,7 @@ public static class EdidWriter
         var sb = new StringBuilder();
         for (var i = 0; i < bytes.Length; i += 16)
         {
-            sb.AppendLine(string.Join(' ', bytes.Skip(i).Take(16).Select(b => b.ToString("X2"))));
+            sb.AppendLine(string.Join(' ', bytes.Skip(i).Take(16).Select(b => b.ToString("X2", CultureInfo.InvariantCulture))));
         }
         return sb.ToString();
     }
@@ -225,12 +225,12 @@ public static class EdidWriter
         var timing = Timing(plan.Width, plan.Height, plan.Rate);
         var info = Edid.Parse(bytes);
         var sb = new StringBuilder();
-        sb.AppendLine($"Patterns planned-screen EDID · {plan.Name}");
-        sb.AppendLine($"contract: {plan.Words}");
-        sb.AppendLine($"timing: {timing.Words}");
-        sb.AppendLine($"identity: {info.Identity} · serial {(plan.SerialText.Length > 0 ? plan.SerialText : plan.Serial.ToString(CultureInfo.InvariantCulture))}");
-        sb.AppendLine($"blocks: {string.Join(", ", info.Blocks)} · {bytes.Length} bytes · checksums {(info.ChecksumsValid ? "valid" : "BAD")}");
-        sb.AppendLine($"sha-256: {info.Hash}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Patterns planned-screen EDID · {plan.Name}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"contract: {plan.Words}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"timing: {timing.Words}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"identity: {info.Identity} · serial {(plan.SerialText.Length > 0 ? plan.SerialText : plan.Serial.ToString(CultureInfo.InvariantCulture))}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"blocks: {string.Join(", ", info.Blocks)} · {bytes.Length} bytes · checksums {(info.ChecksumsValid ? "valid" : "BAD")}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"sha-256: {info.Hash}");
         sb.AppendLine("advertised:");
         foreach (var line in info.AdvertisedWords.Split('\n')) sb.AppendLine("  " + line);
         if (info.Problems.Count > 0) sb.AppendLine("problems: " + string.Join("; ", info.Problems));

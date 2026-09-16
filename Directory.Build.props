@@ -15,4 +15,14 @@
     <InvariantGlobalization>false</InvariantGlobalization>
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
   </PropertyGroup>
+
+  <!-- Round 70: the analyzers as fences. The SDK's rules, Sonar's, the threading analyzers and a banned-API
+       list run in every build; .editorconfig at the root names each rule that fails the build and why, and
+       BannedSymbols.txt the APIs the desk never calls. TreatWarningsAsErrors above makes a fence a stop. -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.34.0.3385" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" Link="BannedSymbols.txt" Visible="false" />
+  </ItemGroup>
 </Project>

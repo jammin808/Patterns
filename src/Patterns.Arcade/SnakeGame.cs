@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Arcade;
 using Patterns.Rendering;
 using SkiaSharp;
@@ -73,7 +74,7 @@ public sealed class SnakeGame : IArcadeGame
         {
             if (_seats <= 1) return $"SNAKE — {_scores[0]}";
             var parts = new string[_seats];
-            for (var i = 0; i < _seats; i++) parts[i] = _scores[i].ToString();
+            for (var i = 0; i < _seats; i++) parts[i] = _scores[i].ToString(CultureInfo.InvariantCulture);
             return "SNAKE — " + string.Join(" : ", parts);
         }
     }

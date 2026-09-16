@@ -145,7 +145,7 @@ public sealed class PlayPlayer
 public sealed record PlayMessage(long Seq, string Id, string To, string Text, DateTime SentUtc)
 {
     public bool IsFor(PlayPlayer p) => To == "room" || To == "group:" + p.Group || To == "phone:" + p.Token;
-    public string ToWords => To == "room" ? "the room" : To.StartsWith("group:") ? To[6..] : "one phone";
+    public string ToWords => To == "room" ? "the room" : To.StartsWith("group:", StringComparison.Ordinal) ? To[6..] : "one phone";
 }
 
 /// <summary>Something the room wrote, on its way to the wall: the list first, the assistant second, the host last.</summary>

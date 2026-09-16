@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 using System.Text;
 
@@ -338,9 +339,9 @@ public static class SuperCheck
     {
         var sb = new StringBuilder();
         sb.AppendLine("PATTERNS SUPER-CHECK");
-        sb.AppendLine($"Generated: {report.GeneratedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} (local)");
-        sb.AppendLine($"[{report.Overall.ToString().ToUpperInvariant()}] {report.Headline}");
-        if (report.Level.Reasons.Count > 0) sb.AppendLine($"Level notes: {string.Join("; ", report.Level.Reasons)}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Generated: {report.GeneratedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} (local)");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"[{report.Overall.ToString().ToUpperInvariant()}] {report.Headline}");
+        if (report.Level.Reasons.Count > 0) sb.AppendLine(CultureInfo.InvariantCulture, $"Level notes: {string.Join("; ", report.Level.Reasons)}");
         var section = "";
         foreach (var row in report.Rows)
         {
@@ -350,8 +351,8 @@ public static class SuperCheck
                 sb.AppendLine();
                 sb.AppendLine(section);
             }
-            sb.Append($"  [{row.Light.ToString().ToUpperInvariant()}] {row.Item}: {row.Value}");
-            if (row.Note.Length > 0) sb.Append($" — {row.Note}");
+            sb.Append(CultureInfo.InvariantCulture, $"  [{row.Light.ToString().ToUpperInvariant()}] {row.Item}: {row.Value}");
+            if (row.Note.Length > 0) sb.Append(CultureInfo.InvariantCulture, $" — {row.Note}");
             sb.AppendLine();
         }
         return sb.ToString();

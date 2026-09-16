@@ -248,11 +248,11 @@ public static class WebPresets
         if (!TryUri(url, out var u)) return PageService.Page;
         var host = u.Host.ToLowerInvariant();
         var path = u.AbsolutePath.ToLowerInvariant();
-        if (host.EndsWith("youtube.com") || host.EndsWith("youtube-nocookie.com") || host == "youtu.be") return PageService.YouTube;
-        if (host.EndsWith("vimeo.com")) return PageService.Vimeo;
-        if (host == "docs.google.com" && path.StartsWith("/presentation/")) return PageService.GoogleSlides;
-        if (host.EndsWith("onedrive.live.com") || host == "1drv.ms" || host.EndsWith("sharepoint.com") || host.EndsWith("officeapps.live.com")
-            || host.EndsWith("office.com") || host.EndsWith("microsoft365.com") || host.EndsWith("powerpoint.com"))
+        if (host.EndsWith("youtube.com", StringComparison.Ordinal) || host.EndsWith("youtube-nocookie.com", StringComparison.Ordinal) || host == "youtu.be") return PageService.YouTube;
+        if (host.EndsWith("vimeo.com", StringComparison.Ordinal)) return PageService.Vimeo;
+        if (host == "docs.google.com" && path.StartsWith("/presentation/", StringComparison.Ordinal)) return PageService.GoogleSlides;
+        if (host.EndsWith("onedrive.live.com", StringComparison.Ordinal) || host == "1drv.ms" || host.EndsWith("sharepoint.com", StringComparison.Ordinal) || host.EndsWith("officeapps.live.com", StringComparison.Ordinal)
+            || host.EndsWith("office.com", StringComparison.Ordinal) || host.EndsWith("microsoft365.com", StringComparison.Ordinal) || host.EndsWith("powerpoint.com", StringComparison.Ordinal))
         {
             return PageService.PowerPoint;
         }
@@ -397,7 +397,7 @@ public static class WebPresets
         var list = q.GetValueOrDefault("list") ?? "";
         if (id == "videoseries") id = "";
         if (id.Length == 0 && list.Length == 0) return null;
-        var already = host.EndsWith("youtube-nocookie.com") && path.Length >= 1 && path[0] == "embed" && q.ContainsKey("controls");
+        var already = host.EndsWith("youtube-nocookie.com", StringComparison.Ordinal) && path.Length >= 1 && path[0] == "embed" && q.ContainsKey("controls");
         if (already) return u.ToString();
 
         var sb = new System.Text.StringBuilder("https://www.youtube-nocookie.com/embed/");

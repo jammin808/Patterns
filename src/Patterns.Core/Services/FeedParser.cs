@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 using Patterns.Core.Model;
 
@@ -13,13 +14,13 @@ public static class FeedParser
     public static FeedKind Detect(string content, string sourceNameHint)
     {
         var hint = sourceNameHint.ToLowerInvariant();
-        if (hint.EndsWith(".ics")) return FeedKind.Ics;
-        if (hint.EndsWith(".csv") || hint.EndsWith(".txt")) return FeedKind.Csv;
-        if (hint.EndsWith(".rss") || hint.EndsWith(".xml") || hint.EndsWith(".atom")) return FeedKind.Rss;
+        if (hint.EndsWith(".ics", StringComparison.Ordinal)) return FeedKind.Ics;
+        if (hint.EndsWith(".csv", StringComparison.Ordinal) || hint.EndsWith(".txt", StringComparison.Ordinal)) return FeedKind.Csv;
+        if (hint.EndsWith(".rss", StringComparison.Ordinal) || hint.EndsWith(".xml", StringComparison.Ordinal) || hint.EndsWith(".atom", StringComparison.Ordinal)) return FeedKind.Rss;
 
         var head = content.TrimStart();
         if (head.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase)) return FeedKind.Ics;
-        if (head.StartsWith("<")) return FeedKind.Rss;
+        if (head.StartsWith("<", StringComparison.Ordinal)) return FeedKind.Rss;
         return FeedKind.Csv;
     }
 
@@ -76,7 +77,7 @@ public static class FeedParser
         return content
             .Split('\n')
             .Select(l => Clean(l.Replace(",", "  ·  ")))
-            .Where(l => l.Length > 0 && !l.StartsWith("#"))
+            .Where(l => l.Length > 0 && !l.StartsWith("#", StringComparison.Ordinal))
             .ToList();
     }
 

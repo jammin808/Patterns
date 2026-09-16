@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Patterns.Core.Services;
 using Patterns.Platform.Windows;
@@ -38,7 +39,7 @@ public static class SignalReportCheck
     public static string Report()
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Patterns signal report · {DateTime.Now:yyyy-MM-dd HH:mm:ss} · {Environment.MachineName} · {Environment.OSVersion}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Patterns signal report · {DateTime.Now:yyyy-MM-dd HH:mm:ss} · {Environment.MachineName} · {Environment.OSVersion}");
         if (!DisplayObservation.Supported)
         {
             sb.AppendLine("observation: not on Windows — nothing to ask");
@@ -51,25 +52,25 @@ public static class SignalReportCheck
         }
         catch (Exception ex)
         {
-            sb.AppendLine($"observation: failed — {ex.GetType().Name}: {ex.Message}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"observation: failed — {ex.GetType().Name}: {ex.Message}");
             return sb.ToString();
         }
-        sb.AppendLine($"observation: {observations.Count} active display path{(observations.Count == 1 ? "" : "s")}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"observation: {observations.Count} active display path{(observations.Count == 1 ? "" : "s")}");
         var n = 0;
         foreach (var o in observations)
         {
             n++;
-            sb.AppendLine($"[{n}] desktop {o.X},{o.Y} {o.Width}×{o.Height} · signal {SignalTruth.ObservedWords(o)}");
-            sb.AppendLine($"    monitor: {(o.Monitor.Length > 0 ? o.Monitor : "unnamed")} · connector: {(o.Connector.Length > 0 ? o.Connector : "unknown")} · EDID ids {o.EdidManufacturerId:X4}/{o.EdidProductCode:X4}");
-            sb.AppendLine($"    device path: {(o.DevicePath.Length > 0 ? o.DevicePath : "none")}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"[{n}] desktop {o.X},{o.Y} {o.Width}×{o.Height} · signal {SignalTruth.ObservedWords(o)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"    monitor: {(o.Monitor.Length > 0 ? o.Monitor : "unnamed")} · connector: {(o.Connector.Length > 0 ? o.Connector : "unknown")} · EDID ids {o.EdidManufacturerId:X4}/{o.EdidProductCode:X4}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"    device path: {(o.DevicePath.Length > 0 ? o.DevicePath : "none")}");
             var edid = EdidReader.For(o);
             if (edid is null)
             {
                 sb.AppendLine("    EDID: none read");
                 continue;
             }
-            sb.AppendLine($"    EDID: {edid.Summary}");
-            sb.AppendLine($"    blocks: {string.Join(", ", edid.Blocks)} · checksums {(edid.ChecksumsValid ? "valid" : "BAD")}{(edid.Problems.Count > 0 ? " · problems: " + string.Join("; ", edid.Problems) : "")}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"    EDID: {edid.Summary}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"    blocks: {string.Join(", ", edid.Blocks)} · checksums {(edid.ChecksumsValid ? "valid" : "BAD")}{(edid.Problems.Count > 0 ? " · problems: " + string.Join("; ", edid.Problems) : "")}");
             foreach (var line in edid.AdvertisedWords.Split('\n')) sb.AppendLine("    advertised: " + line);
         }
         return sb.ToString();

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -112,7 +113,7 @@ public sealed class TolerantEnumConverter<T> : JsonConverter<T> where T : struct
                 {
                     var value = (T)Enum.ToObject(typeof(T), number);
                     if (Enum.IsDefined(value)) return value;
-                    return Fallback(number.ToString());
+                    return Fallback(number.ToString(CultureInfo.InvariantCulture));
                 }
                 return Fallback("number");
             }

@@ -119,7 +119,7 @@ public static class SupportBundle
                 }
                 catch (Exception ex)
                 {
-                    notes.AppendLine($"{name}: could not be read — {ex.Message}");
+                    notes.AppendLine(CultureInfo.InvariantCulture, $"{name}: could not be read — {ex.Message}");
                 }
             }
             var last = Path.Combine(UpdatePackage.Folder(baseDirectory), UpdateApply.NoteName);
@@ -132,7 +132,7 @@ public static class SupportBundle
                 }
                 catch (Exception ex)
                 {
-                    notes.AppendLine($"{UpdateApply.NoteName}: could not be read — {ex.Message}");
+                    notes.AppendLine(CultureInfo.InvariantCulture, $"{UpdateApply.NoteName}: could not be read — {ex.Message}");
                 }
             }
             AddCrashDumps(zip, baseDirectory, included, notes);
@@ -163,11 +163,11 @@ public static class SupportBundle
         }
         catch (Exception ex)
         {
-            notes.AppendLine($"crashes: could not be listed — {ex.Message}");
+            notes.AppendLine(CultureInfo.InvariantCulture, $"crashes: could not be listed — {ex.Message}");
             return;
         }
         if (dumps.Count == 0) return;
-        notes.AppendLine($"Mini-dumps of native crashes on disk ({dumps.Count}):");
+        notes.AppendLine(CultureInfo.InvariantCulture, $"Mini-dumps of native crashes on disk ({dumps.Count}):");
         foreach (var dump in dumps)
         {
             long size;
@@ -179,7 +179,7 @@ public static class SupportBundle
             {
                 size = -1;
             }
-            notes.AppendLine($"  {Path.GetFileName(dump)} ({(size < 0 ? "size unknown" : $"{size / 1024.0 / 1024.0:0.#} MB")})");
+            notes.AppendLine(CultureInfo.InvariantCulture, $"  {Path.GetFileName(dump)} ({(size < 0 ? "size unknown" : $"{size / 1024.0 / 1024.0:0.#} MB")})");
         }
         var newest = dumps[0];
         try
@@ -187,17 +187,17 @@ public static class SupportBundle
             var length = new FileInfo(newest).Length;
             if (length > CrashDumps.BundleMaxBytes)
             {
-                notes.AppendLine($"The newest dump is larger than {CrashDumps.BundleMaxBytes / 1024 / 1024} MB and is not in this zip: copy {newest} by hand.");
+                notes.AppendLine(CultureInfo.InvariantCulture, $"The newest dump is larger than {CrashDumps.BundleMaxBytes / 1024 / 1024} MB and is not in this zip: copy {newest} by hand.");
                 return;
             }
             var entryName = CrashDumps.Folder + "/" + Path.GetFileName(newest);
             zip.CreateEntryFromFile(newest, entryName);
             included.Add(entryName);
-            notes.AppendLine($"The newest dump is in the zip as {entryName}.");
+            notes.AppendLine(CultureInfo.InvariantCulture, $"The newest dump is in the zip as {entryName}.");
         }
         catch (Exception ex)
         {
-            notes.AppendLine($"{Path.GetFileName(newest)}: could not be added — {ex.Message}");
+            notes.AppendLine(CultureInfo.InvariantCulture, $"{Path.GetFileName(newest)}: could not be added — {ex.Message}");
         }
     }
 
@@ -544,8 +544,8 @@ public static class CheckIn
         if (uri.Scheme != Uri.UriSchemeHttp) return "only https:// (or http:// on this machine or a private network)";
         var host = uri.Host.ToLowerInvariant();
         if (host is "localhost" or "127.0.0.1" or "::1" or "[::1]") return null;
-        if (host.StartsWith("10.") || host.StartsWith("192.168.") || host.EndsWith(".local")) return null;
-        if (host.StartsWith("172.") && host.Split('.') is { Length: 4 } parts && int.TryParse(parts[1], out var second) && second is >= 16 and <= 31) return null;
+        if (host.StartsWith("10.", StringComparison.Ordinal) || host.StartsWith("192.168.", StringComparison.Ordinal) || host.EndsWith(".local", StringComparison.Ordinal)) return null;
+        if (host.StartsWith("172.", StringComparison.Ordinal) && host.Split('.') is { Length: 4 } parts && int.TryParse(parts[1], out var second) && second is >= 16 and <= 31) return null;
         return "http:// is only for this machine or a private network — use https:// across the internet";
     }
 

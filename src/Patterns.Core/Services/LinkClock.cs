@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Patterns.Core.Services;
 
 /// <summary>
@@ -18,7 +19,7 @@ public readonly record struct TwinBeat(long Seq, long SentTicks, long PeerSentTi
     /// <summary>"12 1000 900 950"; "1 1000" before any beat was heard; "7" with no stamps at all.</summary>
     public string Format() => PeerSentTicks > 0 && PeerReceivedTicks > 0
         ? $"{Seq} {SentTicks} {PeerSentTicks} {PeerReceivedTicks}"
-        : SentTicks > 0 ? $"{Seq} {SentTicks}" : Seq.ToString();
+        : SentTicks > 0 ? $"{Seq} {SentTicks}" : Seq.ToString(CultureInfo.InvariantCulture);
 
     public bool HasStamps => SentTicks > 0;
 

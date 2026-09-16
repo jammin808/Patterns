@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Arcade;
 using Patterns.Rendering;
 using SkiaSharp;
@@ -189,8 +190,8 @@ public sealed class PongGame : IArcadeGame
         var by = ArcadeText.Lerp(_byPrev, _by, alpha);
         c.DrawRect(bx - Ball / 2, by - Ball / 2, Ball, Ball, white);
         var dim = new SKColor(0xFF, 0xFF, 0xFF, 0xB0);
-        ArcadeText.Draw(c, p, _scores[0].ToString(), W / 2 - 160, 170, 140, dim);
-        ArcadeText.Draw(c, p, _scores[1].ToString(), W / 2 + 160, 170, 140, dim);
+        ArcadeText.Draw(c, p, _scores[0].ToString(CultureInfo.InvariantCulture), W / 2 - 160, 170, 140, dim);
+        ArcadeText.Draw(c, p, _scores[1].ToString(CultureInfo.InvariantCulture), W / 2 + 160, 170, 140, dim);
         var faint = new SKColor(0xFF, 0xFF, 0xFF, 0x60);
         ArcadeText.Draw(c, p, _human[0] ? "P1" : "HOUSE", W / 2 - 160, 210, 28, faint);
         ArcadeText.Draw(c, p, _human[1] ? "P2" : "HOUSE", W / 2 + 160, 210, 28, faint);

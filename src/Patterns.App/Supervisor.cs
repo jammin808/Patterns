@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Devices;
 using System.Diagnostics;
 using System.IO.Pipes;
@@ -145,7 +146,7 @@ internal static class Supervisor
             {
                 psi.ArgumentList.Add("--recover");
                 psi.ArgumentList.Add("--restarts");
-                psi.ArgumentList.Add(restarts.ToString());
+                psi.ArgumentList.Add(restarts.ToString(CultureInfo.InvariantCulture));
             }
             foreach (var arg in LaunchOptions.Forwarded())
             {

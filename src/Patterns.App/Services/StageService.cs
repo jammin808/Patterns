@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -196,7 +197,7 @@ public sealed class StageService
             rev = Rev,
             serverUtc = now,
             show = air.Name,
-            clock = now.ToLocalTime().ToString("HH:mm:ss"),
+            clock = now.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture),
             timer = new
             {
                 phase = time.Phase.ToString().ToLowerInvariant(),

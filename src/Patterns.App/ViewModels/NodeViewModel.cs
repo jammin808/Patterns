@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -469,7 +470,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     public RunViewModel Run { get; }
 
     /// <summary>The desk's clock while linked — the room's one clock — and this machine's alone.</summary>
-    public string HeaderClock => _host.Kernel.Clock.Now.ToString("HH:mm:ss");
+    public string HeaderClock => _host.Kernel.Clock.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
     /// <summary>A node's outputs are always held — the chip would say nothing a caller does not know.</summary>
     public bool IsPrepMode => false;
@@ -774,7 +775,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             var t = Time;
             return t.Phase switch
             {
-                StageTimerPhase.Idle => State.Stage.SpeakerSeesClock ? _host.Kernel.Clock.Now.ToString("HH:mm:ss") : "--:--",
+                StageTimerPhase.Idle => State.Stage.SpeakerSeesClock ? _host.Kernel.Clock.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture) : "--:--",
                 StageTimerPhase.Over => "-" + StageTimer.Format(-t.RemainingSeconds),
                 _ => t.Text,
             };
