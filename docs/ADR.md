@@ -192,3 +192,39 @@ second implementation to justify it.
 
 **Revisit when.** A second host (a headless render node, a service install) needs the same
 services in a different order — then the phases become a contract, not a method.
+
+## ADR-012 — A composition root, not a container; MVVM with a fence, not a framework
+
+**Decision.** Services are built once, in `AppServices`' constructor order — the kernel's
+composition root (ADR-011) — and handed to the view models as one object; there is no dependency
+injection container, no registration by convention, no property injection. The desk is MVVM as it
+stands: the pages are view models the sections bind to, every action goes through
+`ShowActions.Execute` with an origin, and a view's code-behind is layout and input plumbing — the
+divider drags, the windows' key latches, the Media list's row drag, two copy buttons, two `Loaded`
+hooks. The seams that remain are *named*, by file and by count, in a test
+(`ArchitectureFenceTests`): the ambient `AppServices.Instance`, reached only where Avalonia
+constructs the object itself (a tile's pipeline, the lazy page's warm-up, a XAML converter, the
+crash note before the desk exists); the code-behind handlers there are; and the engines, which the
+kernel alone constructs. The test fails when a file reaches for the ambient service, gains a
+handler, does heavy work in code-behind (files, threads, the network, serialisation, an engine
+driven directly) or builds an engine of its own — so each of those becomes a decision made in the
+fence's list with a reason beside it, as the module rules are for the assemblies.
+
+**Why.** The risk the question names — tight coupling between classes, UI logic leaking into
+business logic — is real, and a container does not answer it: a container answers *registration*.
+With the desk's services in one constructor the graph is explicit and its order is the lifecycle
+(ADR-011); a test builds the whole desk headless in under a second and 700-odd of them do; the
+node compositions (round 64.7's role allowlists) are constructors, not configuration; the start-up
+budget (round 56.7) has no reflection in it. What actually leaks is measured rather than argued:
+at round 69, 18 code-behind handlers in 7 of 44 code-behind files, none doing heavy work; 11 reaches
+for `AppServices.Instance` in 6 files, all at Avalonia's own construction seams; every engine built
+in one file. A container would hide the order behind a registry and move those numbers nowhere. The
+static registries that remain by design — `InputBus`, `ImageCache`, `FramePools`,
+`QualityLadder.Shared`, `UiThread`, `MediaLocator.WebResolver`, `MachineProbe.Source`, `ShowGc`,
+`GpuCacheGovernor` — were audited in round 64.3 and each has a reason (a frame's path that must not
+allocate or look anything up; a seam Avalonia's own objects reach; a runtime setting that is one per
+process); a test replaces one by handing in a reading or a factory, not by mocking an interface.
+
+**Revisit when.** A second host needs the same services in a different graph (ADR-011's trigger),
+or a static seam acquires a second implementation worth swapping at run time — then an interface
+at that seam, not a container, is the first step; the fence's list says where.
