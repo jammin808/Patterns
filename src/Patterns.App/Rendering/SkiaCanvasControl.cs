@@ -188,6 +188,7 @@ public class SkiaCanvasControl : Control
             var leaseFeature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>();
             if (leaseFeature is null) return;
             using var lease = leaseFeature.Lease();
+            GpuCacheGovernor.Apply(lease.GrContext);                                                    // round 69: the GPU cache's limit, purge and fill, once a second, through the one lease the process holds
             _pipeline.Render(lease.SkCanvas, Bounds.Width, Bounds.Height, _scaling);
         }
     }

@@ -168,7 +168,7 @@ pool ever was. The steady frame's own allocation stayed at nought (the round-56 
    research (`docs/PLAYER-RESEARCH.md`) has the path; it needs a device the app owns or a share
    with Avalonia's.
 4. **The GPU cache read back.** Reaching the `GRContext` through Avalonia's Skia lease would let
-   the ledger read Skia's fill instead of naming its limit.
+   the ledger read Skia's fill instead of naming its limit. *Done in round 69.3 — §12.*
 
 ## 10. Honest limits
 
@@ -232,3 +232,87 @@ holds only what Skia uploads to draw a frame, in its resource cache. Nothing mov
 time because nothing would gain: a texture is an upload of pixels the pool already has. What the round
 adds on the GPU side is §12's governor — the cache bounded by the card's dedicated memory and shrunk
 under either pressure — and the honest numbers beside it.
+
+## 12. Round 69 — the GPU cache governed, and the collector's facts
+
+*The brief: "Can Patterns balance and swap memory between graphics RAM and computer RAM for better
+performance? Likewise CPU and GPU? It needs to dispose of old redundant memory better."*
+
+### 12.1 The straight answer on swapping
+
+Patterns does not page textures between the card and system memory, and should not. The pixels of
+every frame already live in system memory — the pools (§7) and the picture cache — and the card holds
+an upload of them for the frame in hand; Windows' display driver model already pages every GPU
+allocation against the budget it grants the process, and a second paging layer inside the app would
+fight the driver's with less information than the driver has. What the app *can* do, and now does, is
+three things: bound what Skia keeps on the card from the card itself rather than from one number for
+every machine; shrink that bound as *either* memory presses — the media ladder's rung or the card's
+own; and, when pressure is high, empty the cache to what the frame in hand holds. And read back what
+the cache actually holds instead of naming its limit, which §9 item 4 asked for.
+
+The CPU/GPU balance is the quality ladder's (round 56.8): it moves work between them — the sizes of
+the CPU-drawn surfaces, the web capture's size and rate, the render clock — from the measured p95 and
+the machine profile. The governor sits beside it: when the card's memory presses, the cache shrinks;
+when the frame budget presses, the ladder lowers the work. Neither swaps; both bound.
+
+### 12.2 The policy — `GpuGovernor` (Core, pure)
+
+| Question | Answer |
+|---|---|
+| The class's number | 64 MB small, 128 MB standard, 256 MB big — round 57's table, unchanged |
+| The card's bound | never more than an eighth of the card's dedicated memory when the card is known — the largest *hardware* adapter the machine inventory (round 65.9) reports; the Basic Render Driver never counts |
+| The rung | the worse of two: the media ladder's rung (§7, round 64's hysteresis) and the card's own — this process's use of the video memory the OS grants it, from the metrics sample, on the same 70 / 85 / 100 % lines |
+| Under pressure | elevated three quarters, high a half, critical a quarter |
+| The floor | 32 MB, whatever the pressure — under it the cache thrashes and re-uploads cost more than they save |
+| The purge | at high and critical the *unlocked* resources go as well: the cache empties to what the frame in hand holds |
+| The words | "GPU cache 48 MB of 128 MB (212 resources) · purged 3×", or "GPU cache: no GPU context (software rendering)" |
+
+### 12.3 The mechanism — `GpuCacheGovernor` (App)
+
+Avalonia owns the GPU context; the one place the process may touch it is a sink's draw, through the
+Skia API lease (`ISkiaSharpApiLease.GrContext`). So the governor is a static hand-off: the metrics tick
+computes the limit and whether to purge (`Want`), and every sink's draw offers its lease's context
+(`Apply`). The first draw each second — one across every sink, an interlocked tick gate — sets the
+limit when it changed (`SetResourceCacheLimit`), purges when asked (`PurgeUnlockedResources`, unlocked
+only: the frame in hand keeps what it holds), and reads the fill back (`GetResourceCacheUsage`). A
+lease without a context — the raster backend, the headless tests — is recorded as such and the words
+say so rather than pretend. The tick's order is the tick's truth: the ladder's rung from the bytes
+first, the governor's limit from that rung, then the sample — which carries the limit decided this
+tick — then the residency ledger (§11).
+
+### 12.4 The collector's facts, and the large-object heap given back
+
+Round 57 set the collector to sustained low latency while the outputs are live and let it rest off
+air. Round 69 adds the give-back: each time the outputs go off air, `ShowGc` asks the runtime to
+compact the large-object heap at its next full collection (`GCLargeObjectHeapCompactionMode.CompactOnce`)
+— the frames' arrays, the pictures' pixels and the snapshot clones fragment that heap over a long
+day, and compaction is the one collector operation that returns the fragments' address space. It is
+never asked during a show: a blocking compaction is exactly the pause sustained low latency exists to
+avoid.
+
+The facts are read from `GC.GetGCMemoryInfo()` every tick and carried everywhere the other numbers go:
+collections by generation, the large-object and pinned heaps after the last collection, the last
+collection's pause and the pause share, the compactions asked. They are in the metric sample (the CSV,
+the history), STATE's machine row (`machine.gc`, beside `machine.gpuCache`), and the Machine page's
+lines — the VRAM line ends with the cache's words, the extras line with "gen 2 × 3 · large objects
+84 MB · last pause 4.2 ms".
+
+### 12.5 What "dispose of old redundant memory better" means in numbers
+
+Three things now go when they are old rather than when memory is short: an idle picture (§11, on its
+class's grace), the GPU cache's unlocked resources (at high pressure), and the large-object heap's
+fragments (between shows). The evidence for each is a number the desk shows and STATE carries:
+`memory.residency.letGo` climbing on a still stage, `machine.gpuCache.purges`, `machine.gc.compactions`
+with `machine.gc.lohMB` lower after the outputs go off air. The soak (`docs/SOAK.md`) can gate on them
+as it gates on `forcedFrees` today.
+
+### 12.6 Honest limits
+
+Skia's usage counts Skia's cache alone — not Avalonia's own render-target surfaces, not libVLC's or
+the capture cards' allocations; the card's *total* is the machine's VRAM reading, which is the whole
+story. The card's own rung needs the DXGI reading (Windows); without it the rung is the media ladder's
+alone. Everything here was proven headless with no GPU context — the policy, the tick's hand-off, the
+sample, STATE and the Machine page's words; the context path is written to SkiaSharp 3.116's contract
+(`SetResourceCacheLimit`, `PurgeUnlockedResources`, `GetResourceCacheUsage`) and runs on the rig, where
+the qualification record (`docs/QUALIFICATION.md`) should gain a row: the cache's fill against its limit
+over the four-hour matrix, and no purge during a show that is not under pressure.

@@ -632,9 +632,9 @@ public sealed partial class MainViewModel
                        $" · computer {Pct(s.RamSystemPct)}" +
                        (s.RamTotalMB > 0 ? $" of {s.RamTotalMB / 1024.0:0.0} GB" : "");
         AdminGpuText = s.GpuBusyPct >= 0 ? $"busy {Pct(s.GpuBusyPct)} — the card's share of its time" : "busy n/a — no reading from this card";
-        AdminVramText = s.VramTotalMB > 0
+        AdminVramText = (s.VramTotalMB > 0
             ? $"in use {Mb(s.VramUsedMB)} of {Mb(s.VramTotalMB)}{(s.VramUsedMB >= 0 ? $" ({s.VramUsedMB / s.VramTotalMB * 100:0}%)" : "")}"
-            : "in use n/a — no reading from this card";
+            : "in use n/a — no reading from this card") + " · " + Patterns.App.Rendering.GpuCacheGovernor.Words;   // round 69: the GPU cache as governed
         AdminRenderText = s.OutputWindows > 0
             ? $"outputs {s.OutputFps:0} fps × {s.OutputWindows} window{(s.OutputWindows == 1 ? "" : "s")} · " +
               $"preview {s.PreviewFps:0} fps · worst frame {s.WorstFrameMs:0.0} ms" +
@@ -642,6 +642,7 @@ public sealed partial class MainViewModel
             : $"preview {s.PreviewFps:0} fps — outputs closed";
         AdminExtrasText = $"threads {s.Threads} · handles {s.Handles}" +
                           (s.GcPausePct >= 0 ? $" · GC pause {s.GcPausePct:0.0}%" : "") +
+                          (s.LohMB >= 0 ? $" · gen 2 × {s.GcGen2} · large objects {Mb(s.LohMB)} · last pause {s.GcLastPauseMs:0.0} ms" : "") +   // round 69: the collector's facts
                           (s.DiskFreeGB >= 0 ? $" · disk free {s.DiskFreeGB:0.0} GB" : "") +
                           $" · {(s.OnBattery ? $"ON BATTERY{(s.BatteryPct >= 0 ? $" {s.BatteryPct}%" : "")}" : "mains power")}";
 

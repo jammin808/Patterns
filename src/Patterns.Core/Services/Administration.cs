@@ -185,6 +185,16 @@ public sealed record MetricSample
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
+    /// <summary>Round 69: the collector's facts — collections by generation, the large-object heap, the last pause.</summary>
+    public int GcGen0 { get; init; }
+    public int GcGen1 { get; init; }
+    public int GcGen2 { get; init; }
+    public double LohMB { get; init; } = -1;
+    public double GcLastPauseMs { get; init; } = -1;
+    /// <summary>Round 69: Skia's GPU resource cache as governed — its limit and its fill (MB; -1 without a GPU context).</summary>
+    public double GpuCacheLimitMB { get; init; } = -1;
+    public double GpuCacheUsedMB { get; init; } = -1;
+    public int GpuCachePurges { get; init; }
     /// <summary>The process's private bytes (MB; -1 unknown): what it holds that nothing else shares — the number that climbs in a leak.</summary>
     public double PrivateMB { get; init; } = -1;
     /// <summary>The managed heap (MB; -1 unknown): objects, not pictures — pictures and frames are native.</summary>

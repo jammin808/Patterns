@@ -121,17 +121,22 @@ driving one GO a minute for the last hour.
 **Read.** The CSV's columns at the end (`retiringMB`, `poolStarved`, `fenceOldestMs`,
 `renderP95`, `switchP95`, `goP95`); STATE `memory` (`hungFrames`, `quarantinedMB`,
 `fenceFaults`, `pressure`, the media figure); `census` after the outputs close; every ladder
-transition in `patterns.log` with the reading that caused it.
+transition in `patterns.log` with the reading that caused it. Round 69: STATE `machine.gpuCache`
+(`hasContext` true on the rig, `usedMB` against `limitMB`, `purges`) and `machine.gc` (`gen2`,
+`lohMB`, `lastPauseMs`) read every hour, and `memory.residency.letGo` at the end.
 
 **Pass.** `retiringMB` flat, `poolStarved` 0, `hungFrames` 0, `quarantinedMB` 0, `fenceFaults`
 empty, *media* flat, `renderP95` within the budget the Machine page shows for the target rate,
 the census back at the baseline read after the first output opened (desks 1, nodes 0,
 openFrames 0, retiredFrames 0) once the outputs close, and no more than one pressure
-transition per dwell if any.
+transition per dwell if any. Round 69: `gpuCache.usedMB` never above `limitMB`, `gpuCache.purges`
+0 unless the rung left *none* (a purge on a quiet stage is a finding), `gc.lastPauseMs` under a
+frame at the target rate while the outputs are live, `gc.lohMB` no higher after the outputs close
+than after they first opened, and `residency.letGo` climbing only while the stage was still.
 
-| date | machine | build / manifest hash | retiringMB | poolStarved | hungFrames | quarantinedMB | renderP95 | census at close | result | notes |
-|------|---------|-----------------------|------------|-------------|------------|---------------|-----------|-----------------|--------|-------|
-|      |         |                       |            |             |            |               |           |                 |        |       |
+| date | machine | build / manifest hash | retiringMB | poolStarved | hungFrames | quarantinedMB | renderP95 | GPU cache used / limit · purges | LOH at open / close · worst pause | census at close | result | notes |
+|------|---------|-----------------------|------------|-------------|------------|---------------|-----------|---------------------------------|-----------------------------------|-----------------|--------|-------|
+|      |         |                       |            |             |            |               |           |                                 |                                   |                 |        |       |
 
 ## 7. The signal, the EDID and the far end on a real link
 

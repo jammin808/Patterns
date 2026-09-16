@@ -125,3 +125,11 @@ clock* row green on every output whose display the render clock can serve (an ou
 *LIMITED BY RENDER CLOCK* is a finding about the machine, recorded, not a pass). The forced free
 of earlier rounds is not a gate because it no longer exists. The record to fill on the rig, with
 each matrix's setup, keys, rows, columns and pass marks, is `docs/QUALIFICATION.md`.
+
+Round 69's gates, beside them: STATE `machine.gpuCache.usedMB` never above `limitMB` and `purges`
+0 while the pressure rung stays *none* (the cache is purged at high and critical only — a purge on a
+quiet stage is a finding); `machine.gc.lastPauseMs` under one frame at the target rate while the
+outputs are live; `machine.gc.lohMB` no higher after the outputs close than after they first opened
+(the large-object heap is asked to compact once each time the outputs go off air); and
+`memory.residency.letGo` climbing only while the stage was still — an idle picture goes on its
+class's grace, never one the show names, never one drawn in the last second and a half.

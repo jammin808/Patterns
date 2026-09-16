@@ -710,8 +710,22 @@ public sealed class CommandRouter : IRouter
         var facts = MachineProbe.Read();                                                                 // round 65.9: the machine as Windows describes it, the kept reading
         var inventory = facts.IsEmpty ? "" : facts.Summary;                                              // "RTX A4000 · driver 560.94 · 2 displays · 3 audio outputs · High performance"
         var rig = _services.Kernel.KnownGood.Words;                                                       // "not saved", or the drift from the commissioned rig
+        // Round 69: the GPU cache as governed and the collector's facts — the numbers behind "memory swaps" and "old memory disposed".
+        var gpuFacts = Patterns.App.Rendering.GpuCacheGovernor.Facts;
+        var gpuCache = new
+        {
+            hasContext = gpuFacts.HasContext,
+            limitMB = gpuFacts.LimitBytes > 0 ? Math.Round(gpuFacts.LimitBytes / (1024.0 * 1024.0)) : -1,
+            usedMB = gpuFacts.HasContext ? Math.Round(gpuFacts.UsedBytes / (1024.0 * 1024.0), 1) : -1,
+            resources = gpuFacts.Resources,
+            purges = gpuFacts.Purges,
+            rung = MediaMemory.Word(_services.Metrics.GpuRung),
+            words = Patterns.App.Rendering.GpuCacheGovernor.Words,
+        };
+        var gcFacts = ShowGc.Facts();
+        var gc = new { mode = gcFacts.Mode, gen0 = gcFacts.Gen0, gen1 = gcFacts.Gen1, gen2 = gcFacts.Gen2, lohMB = gcFacts.LohMB, pohMB = gcFacts.PohMB, lastPauseMs = gcFacts.LastPauseMs, pausePct = gcFacts.PausePct, compactions = gcFacts.Compactions, words = gcFacts.Words };
         return m is null
-            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs, renderClockHz, clockLimited, inventory, rig }
+            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs, renderClockHz, clockLimited, inventory, rig, gpuCache, gc }
             : new
             {
                 cpu = Math.Round(m.CpuSystemPct, 0),
@@ -726,6 +740,8 @@ public sealed class CommandRouter : IRouter
                 clockLimited,
                 inventory,
                 rig,
+                gpuCache,
+                gc,
             };
     }
 

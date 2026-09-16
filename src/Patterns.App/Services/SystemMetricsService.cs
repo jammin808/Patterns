@@ -84,14 +84,8 @@ public sealed class SystemMetricsService : IDisposable
         var utcNow = DateTime.UtcNow;
         var elapsed = Math.Clamp((utcNow - _lastTickUtc).TotalSeconds, 0.25, 5.0);
         _lastTickUtc = utcNow;
-        try
-        {
-            Ingest(Sample(utcNow, elapsed));
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Metrics sample failed.", ex);
-        }
+        // The order is the tick's truth: the ladder's rung from the bytes first, the GPU governor's limit from that rung
+        // (and the last sample's card figures), then the sample — which carries the limit decided this tick — and the ledger.
         try
         {
             Pressure.Apply(MediaMemory.Read(MemoryBudget.MachineMB));                                   // the ladder: the rung from the bytes, its steps taken, every second
@@ -102,12 +96,55 @@ public sealed class SystemMetricsService : IDisposable
         }
         try
         {
+            GovernGpuCache();                                                                            // round 69: the GPU cache's limit for this card and rung, applied by the sinks' next draw
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("GPU cache governor failed.", ex);
+        }
+        try
+        {
+            Ingest(Sample(utcNow, elapsed));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Metrics sample failed.", ex);
+        }
+        try
+        {
             _services.Residency.Poll(Pressure.Level);                                                    // round 69: the ledger's rows, and idle pictures let go on their clock
         }
         catch (Exception ex)
         {
             Log.Warn("Residency ledger failed.", ex);
         }
+    }
+
+    /// <summary>The rung the GPU cache is governed at now: the worse of the media ladder's and the card's own (what it uses of the budget the OS grants).</summary>
+    public MemoryPressure GpuRung { get; private set; }
+
+    /// <summary>The dedicated memory of the card the desk draws with (MB), 0 unknown — the machine's reading, the largest hardware adapter.</summary>
+    public static long DedicatedVramMB()
+    {
+        try
+        {
+            var facts = MachineProbe.Read();
+            return facts.IsEmpty ? 0 : facts.Gpus.Where(g => !g.Software).Select(g => g.VramMB).DefaultIfEmpty(0L).Max();
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Round 69: the policy's limit and purge for this second, handed to the sinks' draws.</summary>
+    private void GovernGpuCache()
+    {
+        var sample = Current;
+        var vram = GpuGovernor.VramPressure(sample?.VramUsedMB ?? -1, sample?.VramTotalMB ?? -1);
+        GpuRung = GpuGovernor.Worse(Pressure.Level, vram);
+        var limit = GpuGovernor.LimitBytes(MemoryBudget.ClassOf(MemoryBudget.MachineMB), DedicatedVramMB(), GpuRung);
+        Patterns.App.Rendering.GpuCacheGovernor.Want(limit, GpuGovernor.PurgeAt(GpuRung));
     }
 
     /// <summary>History + advisor + CSV for one sample. Public so tests can feed synthetic data.</summary>
@@ -218,6 +255,8 @@ public sealed class SystemMetricsService : IDisposable
         {
             // Not available on every runtime configuration.
         }
+        var gc = ShowGc.Facts();                                                                          // round 69: the collector's generations, the large-object heap, the last pause
+        var gpuCache = Patterns.App.Rendering.GpuCacheGovernor.Facts;                                     // round 69: Skia's GPU cache as governed — limit, fill, purges
 
         double diskFree = -1;
         try
@@ -263,6 +302,14 @@ public sealed class SystemMetricsService : IDisposable
             Threads = threads,
             Handles = handles,
             GcPausePct = gcPause,
+            GcGen0 = gc.Gen0,
+            GcGen1 = gc.Gen1,
+            GcGen2 = gc.Gen2,
+            LohMB = gc.LohMB,
+            GcLastPauseMs = gc.LastPauseMs,
+            GpuCacheLimitMB = gpuCache.HasContext || gpuCache.LimitBytes > 0 ? Math.Round(gpuCache.LimitBytes / (1024.0 * 1024.0)) : -1,
+            GpuCacheUsedMB = gpuCache.HasContext ? Math.Round(gpuCache.UsedBytes / (1024.0 * 1024.0), 1) : -1,
+            GpuCachePurges = gpuCache.Purges,
             PrivateMB = privateMB,
             ManagedMB = managedMB,
             GcCommittedMB = committedMB,
