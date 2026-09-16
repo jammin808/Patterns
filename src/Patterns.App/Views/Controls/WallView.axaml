@@ -191,6 +191,10 @@
     <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
               ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"
               ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (TICKED GROUPS means the ticked joined canvases — screens dragged flush together on SETUP → Screens — not the roles on the tiles' foot lines). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
+    <!-- What the next press does, from the same plan the verb runs (round 67): the targets taken, then what is held and why —
+         or the refusal it would meet, in the hold colour -->
+    <TextBlock Name="TakePlanText" Classes="hint" FontSize="10" MaxWidth="240" TextTrimming="CharacterEllipsis"
+               Text="{Binding TakePlanText}" ToolTip.Tip="{Binding TakePlanText}" Classes.hold="{Binding TakePlanIsRefusal}" />
   </StackPanel>
 </Grid>
 </UserControl>

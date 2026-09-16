@@ -365,7 +365,10 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     public bool IsSendTarget
     {
         get => _isSendTarget;
-        set => Set(ref _isSendTarget, value);
+        set
+        {
+            if (Set(ref _isSendTarget, value)) _vm.RefreshTakeScope();   // the plan under CUT / TAKE follows the tick at once
+        }
     }
 
     /// <summary>OWN: this target shows its own pattern instead of the program.</summary>

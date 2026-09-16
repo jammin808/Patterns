@@ -164,28 +164,17 @@ public sealed partial class ShowActions
                 {
                     return ActionResult.Refused($"'{a.Target}' is not a place to take to — leave it empty for every armed screen, or SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS.");
                 }
-                var all = Rig.Targets(State, _s.Screens.All);
-                // Un-armed tiles and locked screens (a confidence monitor, an info screen) keep their picture.
-                var held = new HashSet<string>(_s.Arming.Unarmed, StringComparer.Ordinal);
-                foreach (var t in ScreenRoles.LockedTargets(State, all)) held.Add(t);
-                var where = "on every armed screen";
-                if (!(scope.IsEverything || (scope.Kind == FadeScopeKind.Focused && _s.FocusedTarget?.Invoke() is null)))
-                {
-                    var (targets, problem) = FadeTargets(scope);
-                    if (problem is not null) return ActionResult.Refused(problem);
-                    var inside = new HashSet<string>(targets, StringComparer.Ordinal);
-                    foreach (var t in all)
-                    {
-                        if (!inside.Contains(t)) held.Add(t);
-                    }
-                    where = $"on {FadeWords(targets)}";
-                }
-                _s.Sandbox.SendAll(cut, held);
+                // One rule (round 67): TakePlan says what this scope changes and what it holds — LOCKED never
+                // taken, ARM counting inside every scope, a repeater never, everything outside the scope kept —
+                // and a take that would move nothing is refused with the reason, never reported as done.
+                var plan = PlanTake(scope);
+                if (plan.IsRefused) return ActionResult.Refused(plan.Refusal!);
+                _s.Sandbox.SendAll(cut, plan.Kept);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
-                var kept = held.Count == 0 ? "" : $" ({held.Count} kept their picture)";
+                var kept = plan.Kept.Count == 0 ? "" : $" ({plan.Kept.Count} kept their picture)";
                 return ActionResult.Done((cut
-                    ? $"CUT — sandbox is now the program {where}{kept}."
-                    : $"TAKE — sandbox faded up {where}{kept}.") + rearmed);
+                    ? $"CUT — sandbox is now the program {plan.Where}{kept}."
+                    : $"TAKE — sandbox faded up {plan.Where}{kept}.") + rearmed);
             }
             case ShowActionKind.ScreenTake:
             case ShowActionKind.ScreenCut:
@@ -206,9 +195,14 @@ public sealed partial class ShowActions
                 {
                     return ActionResult.Refused("A repeater draws its source's picture and has none of its own — take to its source instead.");
                 }
+                var where = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                // LOCKED means locked (round 67): the tile's own key is no way round it either.
+                if (ScreenRoles.IsLocked(State, target))
+                {
+                    return ActionResult.Refused($"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
+                }
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
                 _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne);
-                var where = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
                 return ActionResult.Done(cutOne
                     ? $"CUT — the preview is on {where} alone, as its own picture; every other screen stays."
                     : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.");
@@ -265,6 +259,35 @@ public sealed partial class ShowActions
                 return (new[] { ContentTargets.IsCanvasKey(scope.Arg) ? scope.Arg : geometry.TargetOf(scope.Arg) }, null);
             }
         }
+    }
+
+    /// <summary>
+    /// What the next CUT / TAKE with this scope changes and holds (round 67): the one rule,
+    /// <see cref="TakePlan"/>, over this rig — its geometry, its focus, its ticks, its arming and its
+    /// locks. The wall's keys, their words, the PGM tile's menu, the multiview's NEXT TAKE line and
+    /// STATE all read it here, so none of them can disagree about what a press will do.
+    /// </summary>
+    public TakePlan PlanTake(FadeScope scope)
+    {
+        var geometry = Rig.Geometry(State, _s.Screens.All);
+        var ticked = new HashSet<string>(_s.TickedTargets?.Invoke() ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var byId = State.Output.Placements.ToDictionary(p => p.ScreenId, StringComparer.Ordinal);
+        var rig = new List<TakeTarget>();
+        foreach (var target in Rig.Targets(State, _s.Screens.All))
+        {
+            var canvas = ContentTargets.IsCanvasKey(target);
+            var mirror = !canvas && byId.TryGetValue(target, out var p) && p.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, p.MirrorOf);
+            rig.Add(new TakeTarget(target, geometry.LabelFor(State, target), canvas, mirror,
+                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target)));
+        }
+        IReadOnlyList<string>? named = null;
+        if (scope.Kind is FadeScopeKind.Screen or FadeScopeKind.Group or FadeScopeKind.Target)
+        {
+            var (targets, problem) = FadeTargets(scope);
+            if (problem is not null) return new TakePlan { Scope = scope, Refusal = problem };
+            named = targets;
+        }
+        return TakePlan.Resolve(rig, scope, _s.FocusedTarget?.Invoke(), named);
     }
 
     /// <summary>"Screen 2 · Group A" — the targets as the wall names them.</summary>

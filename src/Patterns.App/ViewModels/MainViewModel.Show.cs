@@ -292,11 +292,34 @@ public sealed partial class MainViewModel
 
     public string TakeScopeText => HeldCount is var n && n > 0 ? $"{n} held" : "";
 
+    /// <summary>What the next CUT / TAKE with the picker's scope changes and holds — the one rule the verbs run (round 67).</summary>
+    public TakePlan CurrentTakePlan => _services.Actions.PlanTake(FadeScope.Parse(SelectedTakeScope.Words) ?? FadeScope.Everything);
+
+    /// <summary>The plan in words under the picker: "→ 1 · Main, A · Wall · held: 2 · Comfort (locked)", or why the press would be refused.</summary>
+    public string TakePlanText { get; private set; } = "";
+
+    /// <summary>The press would be refused: nothing the scope names can be taken.</summary>
+    public bool TakePlanIsRefusal { get; private set; }
+
+    private HashSet<string>? _takeHeldPushed;
+
     internal void RefreshTakeScope()
     {
         Raise(nameof(HeldCount));
         Raise(nameof(AnyHeld));
         Raise(nameof(TakeScopeText));
+        var plan = CurrentTakePlan;
+        TakePlanText = plan.IsRefused ? plan.Refusal! : plan.Words;
+        TakePlanIsRefusal = plan.IsRefused;
+        Raise(nameof(TakePlanText));
+        Raise(nameof(TakePlanIsRefusal));
+        // The multiview's NEXT TAKE line reads the same plan through the snapshot — pushed only when it moved,
+        // so a poll that changed nothing publishes nothing.
+        var held = new HashSet<string>(plan.IsRefused ? Rig.Targets(State, _services.Screens.All) : plan.Kept, StringComparer.Ordinal);
+        if (_takeHeldPushed is not null && held.SetEquals(_takeHeldPushed)) return;
+        _takeHeldPushed = held;
+        _services.Bus.TakeHeld = held;
+        _services.PublishRuntime();
     }
 
     /// <summary>The desk's BLACKOUT toggles go through the action layer, so they are journaled like every other origin.</summary>
@@ -530,6 +553,7 @@ public sealed partial class MainViewModel
                 onAir: live && enabled && !black, held: building && (!armed || locked), locked: locked, black: black,
                 canSend: building);
         }
+        RefreshTakeScope();
     }
 
     /// <summary>LOCK on a tile: the target keeps its picture through looks, cues, TAKE ALL and stingers; through the action layer, so it is journaled.</summary>
@@ -827,7 +851,10 @@ public sealed partial class MainViewModel
     public FadeScopeChoice SelectedTakeScope
     {
         get => _selectedTakeScope ?? TakeScopes[0];
-        set => Set(ref _selectedTakeScope, value ?? TakeScopes[0]);
+        set
+        {
+            if (Set(ref _selectedTakeScope, value ?? TakeScopes[0])) RefreshTakeScope();
+        }
     }
 
     /// <summary>The look LOOK BACK returns to, by name ("" = none yet).</summary>
@@ -899,7 +926,9 @@ public sealed partial class MainViewModel
             case ShowActionKind.Cut:
                 if (result.Ok)
                 {
-                    ClearSendTargets();
+                    // The ticks were the scope only when the take read them: an ALL ARMED or FOCUSED take
+                    // leaves a tick set the operator prepared for a fade exactly as it was (round 67).
+                    if (FadeScope.Parse(action.Target) is { Kind: FadeScopeKind.Ticked or FadeScopeKind.Groups }) ClearSendTargets();
                     Raise(nameof(IsSandboxActive));
                     RebuildEditTargets(); // a scoped send pins / lifts own patterns — OWN follows
                 }

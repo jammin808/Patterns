@@ -90,6 +90,21 @@ public class MultiviewTallyTests
         bus.Publish(state);
         snap = bus.Current;
         Assert.Equal(new[] { "PGM", "OWN", "NEXT" }, Words(snap, Screen(Lobby), pvw));
+
+        // Round 67: the desk's own plan, when it has said one, outranks the arming — a FOCUSED take on the
+        // lobby holds the canvas though it is armed; everything held is NOTHING; withdrawn, the arming rules again.
+        bus.TakeHeld = new HashSet<string>(StringComparer.Ordinal) { CanvasKey };
+        bus.Publish(state);
+        snap = bus.Current;
+        Assert.Equal("NEXT TAKE → 2", MultiviewTally.PreviewTargets(snap, pvw));
+        Assert.Equal(new[] { "PGM", "HELD" }, Words(snap, Screen(CanvasKey), pvw));
+        Assert.Equal(new[] { "PGM", "OWN", "NEXT" }, Words(snap, Screen(Lobby), pvw));
+        bus.TakeHeld = new HashSet<string>(StringComparer.Ordinal) { CanvasKey, Lobby };
+        bus.Publish(state);
+        Assert.Equal("NEXT TAKE → NOTHING (ALL HELD)", MultiviewTally.PreviewTargets(bus.Current, pvw));
+        bus.TakeHeld = null;
+        bus.Publish(state);
+        Assert.Equal("NEXT TAKE → A · 2", MultiviewTally.PreviewTargets(bus.Current, pvw));
         Assert.Equal("ON A", MultiviewTally.ProgramTargets(snap));
         ContentTargets.SetOwnPattern(state, Lobby, false);
 

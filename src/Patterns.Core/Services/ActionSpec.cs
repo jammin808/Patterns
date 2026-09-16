@@ -165,6 +165,7 @@ public static class ActionSpec
         ShowActionKind.RunMonitorOff => (TargetKind.None, ValueKind.None),
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
+        ShowActionKind.Take or ShowActionKind.Cut => (TargetKind.Place, ValueKind.Transition),
         ShowActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
         _ => (TargetKind.None, ValueKind.None),
     };

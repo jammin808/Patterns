@@ -73,7 +73,9 @@ public static class MultiviewTally
                 // repeater already says the take leaves it alone.
                 if (HasPreview(preview) && mirror.Length == 0 && !locked)
                 {
-                    list.Add(IsArmed(snap, id) ? new TileBadge("NEXT", Preview, true) : new TileBadge("HELD", Held, false));
+                    // NEXT / HELD read the desk's TakePlan when it has said one (the wall's scope, its ticks, its focus); the arming alone until then.
+                    var next = snap.TakeHeld is { } held ? !held.Contains(id) : IsArmed(snap, id);
+                    list.Add(next ? new TileBadge("NEXT", Preview, true) : new TileBadge("HELD", Held, false));
                 }
                 break;
             }
@@ -213,9 +215,15 @@ public static class MultiviewTally
     {
         if (!HasPreview(preview)) return "EDIT SAFE OFF";
         var words = new List<string>();
+        // The desk's own plan when it has said one (round 67: the wall's scope, its ticks and its focus
+        // count); the arming, the locks and the repeaters alone until then.
+        var held = snap.TakeHeld;
         foreach (var t in snap.Rig.Targets)
         {
-            if (!IsArmed(snap, t) || ScreenRoles.IsLocked(snap.State, t) || MirrorOf(snap.State, t).Length > 0) continue;
+            var skip = held is not null
+                ? held.Contains(t)
+                : !IsArmed(snap, t) || ScreenRoles.IsLocked(snap.State, t) || MirrorOf(snap.State, t).Length > 0;
+            if (skip) continue;
             words.Add(Short(snap, t));
         }
         if (words.Count > 0) return "NEXT TAKE → " + string.Join(" · ", words);

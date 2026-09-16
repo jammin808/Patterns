@@ -65,6 +65,14 @@ public sealed class ShowSnapshot
     public IReadOnlyCollection<string> UnarmedTargets { get; init; } = Array.Empty<string>();
 
     /// <summary>
+    /// Runtime-only (round 67): every content target the next CUT / TAKE leaves alone under the wall's
+    /// chosen scope — held by LOCK or ARM, a repeater, or outside the scope — as the desk's TakePlan
+    /// resolved it. Null until the desk has said; then the multiview's NEXT TAKE line reads this rather
+    /// than working the rule out again from the arming alone.
+    /// </summary>
+    public IReadOnlyCollection<string>? TakeHeld { get; init; }
+
+    /// <summary>
     /// Runtime-only: the content targets faded to black on their own — FADE with a scope — by
     /// target id (a canvas key or a screen id). Blackout is the whole rig and lives in the show
     /// state; this is the per-screen version and, like FREEZE, never in the show file. Assigned
@@ -275,6 +283,9 @@ public sealed class SnapshotBus
 
     /// <summary>Set by the wall's arming; carried on every snapshot (the multiview's NEXT / HELD badges). Assigned whole, never mutated.</summary>
     public IReadOnlyCollection<string> UnarmedTargets { get; set; } = Array.Empty<string>();
+
+    /// <summary>Set by the wall from its TakePlan (round 67); carried on every snapshot. Assigned whole, never mutated.</summary>
+    public IReadOnlyCollection<string>? TakeHeld { get; set; }
 
     /// <summary>Set by FADE with a scope; carried on every snapshot (the targets black on their own). Assigned whole, never mutated.</summary>
     public IReadOnlyCollection<string> BlackTargets { get; set; } = Array.Empty<string>();
@@ -497,6 +508,7 @@ public sealed class SnapshotBus
             ReviewOnMultiview = ReviewOnMultiview,
             Frozen = Frozen,
             UnarmedTargets = UnarmedTargets,
+            TakeHeld = TakeHeld,
             BlackTargets = BlackTargets,
         };
         if (previous is not null && dirty is not null
