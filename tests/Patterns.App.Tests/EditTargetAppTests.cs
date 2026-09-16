@@ -70,7 +70,7 @@ public class EditTargetAppTests
             Settle(window);
 
             // Program alone: the picker is hidden and the target is Program.
-            Assert.False(vm.ShowEditTargets);
+            Assert.True(vm.ShowEditTargets);                                           // round 67: every screen of the rig is an editing target
             Assert.Null(vm.EditTarget.ScreenId);
             Assert.StartsWith("EDITING: PROGRAM", vm.EditTargetBanner);
 
@@ -124,11 +124,11 @@ public class EditTargetAppTests
             Assert.Equal("Program", ((EditTarget)picker.SelectedItem!).Label);
 
             // Every own pattern gone (the lock gave the first screen its own, and keeps it after the unlock):
-            // Program, the picker hidden, the target never null.
+            // Program, every screen still listed (round 67), the target never null.
             foreach (var tile in vm.SwitcherTiles.Where(t => t.IsOwn).ToList()) tile.IsOwn = false;
             Settle(window);
-            Assert.False(vm.ShowEditTargets);
-            Assert.Single(vm.EditTargets);
+            Assert.True(vm.ShowEditTargets);
+            Assert.Equal(4, vm.EditTargets.Count);
             Assert.NotNull(vm.EditTarget);
             Assert.Null(vm.EditTarget.ScreenId);
             Assert.Same(vm.EditTargets[0], vm.EditTarget);

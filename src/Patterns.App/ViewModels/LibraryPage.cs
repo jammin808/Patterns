@@ -41,6 +41,11 @@ public sealed class PresetItem : Observable
 
     public Bitmap? Thumbnail { get => _thumbnail; set => Set(ref _thumbnail, value); }
 
+    private bool _isSelected;
+
+    /// <summary>Lit on the page: the last tile put in the preview (round 67.4).</summary>
+    public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
+
     /// <summary>The same tile with the same face: the instance on the page stays, with its thumbnail.</summary>
     public bool SameFaceAs(PresetItem other)
         => Id == other.Id && Name == other.Name && Section == other.Section && Category == other.Category

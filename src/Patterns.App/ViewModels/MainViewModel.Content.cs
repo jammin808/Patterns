@@ -267,8 +267,15 @@ public sealed partial class MainViewModel
         get => _editTarget;
         set
         {
+            var previous = _editTarget;
             if (value is not null && Set(ref _editTarget, value))
             {
+                // Round 67: the target's picture the editors write into. A target that follows the
+                // programme gets an inert copy of it (nothing jumps, nothing publishes a change) and a
+                // watch on that copy: the first edit makes the target its own. Leaving a target whose
+                // copy was never edited takes the copy away again, so the show file never gathers them.
+                if (previous?.ScreenId is { } left && left != value.ScreenId) DropUnusedStaging(left);
+                if (value.ScreenId is { } id) EnsureStaged(id);
                 Raise(nameof(ActivePattern));
                 Raise(nameof(EditTargetBanner));
                 Raise(nameof(CanvasInfo));
@@ -299,6 +306,63 @@ public sealed partial class MainViewModel
 
     public bool ShowEditTargets => EditTargets.Count > 1;
 
+    // ---- own on the first edit (round 67.5) ----------------------------------------
+
+    private readonly Dictionary<string, (PatternConfig Pattern, ChangeTracker Watch)> _editWatches = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The target's own assignment, or an inert copy of the programme when it still follows it — and
+    /// a watch on that pattern, so the first edit flips the target to its own picture at once.
+    /// </summary>
+    private void EnsureStaged(string id)
+    {
+        if (!ContentTargets.IsInRig(State, id)) return;
+        if (State.Independent.All(x => x.ScreenId != id)) _services.BulkEdit(() => ContentTargets.EnsureAssignment(State, id));
+        ArmEditWatch(id);
+    }
+
+    private void ArmEditWatch(string id)
+    {
+        var assignment = State.Independent.FirstOrDefault(x => x.ScreenId == id);
+        if (assignment is null) return;
+        if (_editWatches.TryGetValue(id, out var have) && ReferenceEquals(have.Pattern, assignment.Pattern)) return;
+        var pattern = assignment.Pattern;
+        // Wired once per pattern object, zero per-frame cost; runtime-only chrome on the pattern never counts as an edit.
+        _editWatches[id] = (pattern, new ChangeTracker(pattern, () => OnStagedEdited(id, pattern), onRuntimeOnlyChanged: static () => { }));
+    }
+
+    /// <summary>An edit landed on the target's staged copy: it is the target's own picture from this moment.</summary>
+    private void OnStagedEdited(string id, PatternConfig pattern)
+    {
+        if (_editTarget?.ScreenId != id) return;                                        // a stale watch: not the target being edited
+        if (ContentTargets.UsesOwnPattern(State, id)) return;
+        var assignment = State.Independent.FirstOrDefault(x => x.ScreenId == id);
+        if (assignment is null || !ReferenceEquals(assignment.Pattern, pattern)) return;
+        _services.BulkEdit(() =>
+        {
+            assignment.PinnedByTake = false;                                              // the operator chose this picture — it stays
+            ContentTargets.SetOwnPattern(State, id, true);
+        });
+        RefreshSwitcherTiles();                                                           // OWN lights on the tile at once
+        Raise(nameof(EditTargetBanner));
+        Raise(nameof(CanvasInfo));
+        _services.Eye.Refresh();                                                          // the Eye's screen word follows on the same press
+        StatusMessage = $"{TargetTitle(id)} is its own picture now — the programme and every other screen are untouched.";
+    }
+
+    /// <summary>A target left without an edit: its inert copy goes; a pin or an own picture stays.</summary>
+    private void DropUnusedStaging(string id)
+    {
+        if (ContentTargets.UsesOwnPattern(State, id)) return;
+        var assignment = State.Independent.FirstOrDefault(x => x.ScreenId == id);
+        if (assignment is null || assignment.PinnedByTake) return;
+        _services.BulkEdit(() => State.Independent.Remove(assignment));
+        _editWatches.Remove(id);
+    }
+
+    /// <summary>"2 · Comfort", "A · Main wall" — the wall's name for a target.</summary>
+    private string TargetTitle(string id) => Rig.Geometry(State, _services.Screens.All).LabelFor(State, id);
+
     private void EnsureAssignmentsForCustomScreens()
     {
         foreach (var p in State.Output.Placements.Where(p => p.UseCustomPattern))
@@ -319,18 +383,21 @@ public sealed partial class MainViewModel
         var current = _editTarget?.ScreenId;
         EditTargets.Clear();
         EditTargets.Add(new EditTarget("Program", null));
-        // A joined canvas with its own pattern is an edit target like a screen. A member screen
-        // keeps its own entry too (its pattern is what the screen shows when split off again).
+        // Round 67: every target of the wall is an editing target — a joined canvas and every screen
+        // that stands alone — whether it shows its own picture yet or follows the programme (its first
+        // edit makes it its own). A repeater draws its source's picture and is never one.
         var groups = CanvasGroups();
+        var grouped = groups.SelectMany(g => g).Select(m => m.ScreenId).ToHashSet(StringComparer.Ordinal);
         for (var i = 0; i < groups.Count; i++)
         {
             var key = CanvasNameConfig.KeyFor(groups[i].Select(m => m.ScreenId));
-            if (!ContentTargets.UsesOwnPattern(State, key)) continue;
             var letter = ((char)('A' + i)).ToString();
             EditTargets.Add(new EditTarget($"Canvas {letter} — {CanvasNameFor(groups[i], letter)}", key));
         }
-        foreach (var p in State.Output.Placements.Where(p => p.UseCustomPattern))
+        foreach (var p in State.Output.Placements)
         {
+            if (grouped.Contains(p.ScreenId) && !p.UseCustomPattern) continue;          // a member's own entry stays while it has a picture of its own
+            if (p.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, p.MirrorOf)) continue;
             var info = LiveInfo(p);
             if (info is not null)
             {
@@ -347,6 +414,7 @@ public sealed partial class MainViewModel
         if (wanted.ScreenId == _editTarget?.ScreenId)
         {
             _editTarget = wanted;
+            if (wanted.ScreenId is { } kept) EnsureStaged(kept);                        // its copy may have gone with the rig change
             Raise(nameof(EditTarget));
             Raise(nameof(EditTargetBanner));
         }
@@ -816,6 +884,46 @@ public sealed partial class MainViewModel
         var brand = JsonUtil.SerializeCompact(over.Brand);
         var jobs = Library.Concat(LibraryAll.Except(Library)).Select(tile => LibraryCatalogue.JobFor(tile, over, brand)).ToList();
         LibraryThumbnails = _services.Thumbnails.Submit(jobs);
+    }
+
+    private PresetItem? _selectedLibraryItem;
+
+    /// <summary>The library tile last put in the preview — lit on the page until another is chosen.</summary>
+    public PresetItem? SelectedLibraryItem
+    {
+        get => _selectedLibraryItem;
+        private set
+        {
+            if (ReferenceEquals(_selectedLibraryItem, value)) return;
+            if (_selectedLibraryItem is not null) _selectedLibraryItem.IsSelected = false;
+            _selectedLibraryItem = value;
+            if (value is not null) value.IsSelected = true;
+            Raise(nameof(SelectedLibraryItem));
+        }
+    }
+
+    /// <summary>
+    /// A library tile clicked (round 67.4): its picture lands in the editing target's preview at once —
+    /// EDIT SAFE opens first when it was off, so the air never moves — and the target tile's PVW shows
+    /// it on the same publish; a target that followed the programme is its own picture from this press.
+    /// </summary>
+    private void ApplyLibraryItem(PresetItem? item)
+    {
+        if (item is null) return;
+        var brandKit = item.Section == "Brand kits";
+        if (!brandKit) EnsureEditSafe();
+        item.Apply();
+        SelectedLibraryItem = item;
+        if (brandKit) return;
+        Raise(nameof(IsSandboxActive));
+        RefreshSwitcherTiles();
+        RefreshTallies();
+        Raise(nameof(ActivePattern));
+        Raise(nameof(EditTargetBanner));
+        var where = _editTarget.ScreenId is { } id
+            ? $"{TargetTitle(id)}'s preview{(ContentTargets.UsesOwnPattern(State, id) ? " (its own picture)" : "")}"
+            : "the programme's preview";
+        StatusMessage = $"{item.Name} → {where} — CUT or TAKE puts it up.";
     }
 
     /// <summary>The chip and the search box together: every search word must appear in the tile's name, category or section.</summary>

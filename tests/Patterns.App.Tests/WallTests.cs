@@ -375,7 +375,9 @@ public class WallTests
             Assert.Equal(3840.0 / 1080.0, b.Vm.SelectedTargetRatio, 3);
             Assert.Equal("3840×1080", b.Vm.SelectedTargetSizeText);
             Assert.Equal(CanvasKey, b.Services.PreviewScreenId); // the preview resolves it to the program
-            Assert.Null(b.Vm.EditTarget.ScreenId);                // no own pattern: the editors stay on the program
+            Assert.Equal(CanvasKey, b.Vm.EditTarget.ScreenId);    // round 67: the tile clicked is the editing target — its first edit makes it its own
+            Assert.Contains("follows the programme", b.Vm.EditTargetBanner);
+            Assert.False(ContentTargets.UsesOwnPattern(b.Vm.State, CanvasKey));
             Assert.True(b.Vm.SwitcherTiles[1].IsSelected);
             Assert.False(b.Vm.SwitcherTiles[0].IsSelected);
             Assert.StartsWith("A ·", b.Vm.SelectedTargetLabel);

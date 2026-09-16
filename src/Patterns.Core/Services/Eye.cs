@@ -118,6 +118,8 @@ public sealed class EyeScreen
     public bool Enabled { get; init; } = true;
     public bool OnAir { get; init; }
     public bool Own { get; init; }
+    /// <summary>Its own picture in the preview that the audience has not seen yet (round 67).</summary>
+    public bool Staged { get; init; }
     /// <summary>The contract's words, "" when none.</summary>
     public string Contract { get; init; } = "";
     /// <summary>MATCH, MISMATCH, UNVERIFIED or "" when there is no contract.</summary>
@@ -516,6 +518,7 @@ public sealed class EyeGraph
             if (s.Verdict.Length > 0) words.Add("Result " + s.Verdict);
             if (s.Received.Length > 0) words.Add("Received " + s.Received);
             if (s.Own) words.Add("its own picture");
+            if (s.Staged) words.Add("its own picture in the preview — not taken yet");
             Add(new EyeNode(id, EyeKind.Screen, EyePlane.Video, 2, s.Label.Length > 0 ? s.Label : (s.Number.Length > 0 ? "Screen " + s.Number : s.Id), sub, light)
             {
                 Words = words,

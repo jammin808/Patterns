@@ -4,6 +4,16 @@
              x:Class="Patterns.App.Views.Sections.LibrarySection"
              Classes="hue-library"
              x:DataType="vm:MainViewModel">
+  <UserControl.Styles>
+    <!-- Round 67.4: the tile last put in the preview wears the PVW green -->
+    <Style Selector="Button.libTile">
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.libTile.inPreview">
+      <Setter Property="BorderBrush" Value="#2EE68A" />
+    </Style>
+  </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*" Margin="4,8,4,4">
     <StackPanel Grid.Row="0">
@@ -37,6 +47,7 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:PresetItem">
             <Button Margin="0,0,8,8" Padding="0" CornerRadius="8" Background="{StaticResource PanelBg2Brush}"
+                    Classes="libTile" Classes.inPreview="{Binding IsSelected}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyPresetCommand}"
                     CommandParameter="{Binding}" ToolTip.Tip="{Binding Name}">
               <StackPanel Width="128">

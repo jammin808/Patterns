@@ -202,7 +202,8 @@ public sealed partial class ShowActions
                     return ActionResult.Refused($"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
                 }
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
-                _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne);
+                // What this tile's PVW shows (round 67): its own picture when one was edited or staged there, else the programme's preview.
+                _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne, ownPicture: true);
                 return ActionResult.Done(cutOne
                     ? $"CUT — the preview is on {where} alone, as its own picture; every other screen stays."
                     : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.");

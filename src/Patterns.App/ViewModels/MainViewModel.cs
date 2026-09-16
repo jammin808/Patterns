@@ -130,7 +130,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         {
             if (label is not null) State.Countdown.Label = label;
         });
-        ApplyPresetCommand = new RelayCommand<PresetItem>(item => item?.Apply());
+        ApplyPresetCommand = new RelayCommand<PresetItem>(ApplyLibraryItem);
         SaveBrandKitCommand = new RelayCommand(SaveBrandKit);
         LoadBrandKitCommand = new RelayCommand(() => _ = LoadBrandKitAsync());
         ResetLayoutCommand = new RelayCommand(ResetLayout);
@@ -328,9 +328,11 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         SelectTileCommand = new RelayCommand<SwitcherTile>(tile =>
         {
             if (tile is null) return;
-            // The editors work on the tile's own pattern when it has one, else on the program;
-            // the big panes show the tile either way.
-            EditTarget = (tile.IsOwn ? EditTargets.FirstOrDefault(t => t.ScreenId == tile.TargetId) : null) ?? EditTargets[0];
+            // Round 67: the tile clicked is the editing target — its own picture when it has one, an inert
+            // copy of the programme until its first edit makes it its own; the big panes, the editors, the
+            // menus and CUT / TAKE with FOCUSED all mean this tile. The PGM tile is the programme.
+            if (tile.TargetId is { } wanted && EditTargets.All(t => t.ScreenId != wanted)) RebuildEditTargets();
+            EditTarget = EditTargets.FirstOrDefault(t => t.ScreenId == tile.TargetId) ?? EditTargets[0];
             SelectTarget(tile.TargetId);
             StatusMessage = EditTargetBanner;
         });

@@ -75,9 +75,9 @@ public class LayersPageTests
             Assert.Contains("LAYER 2", texts);
             Assert.Contains(texts, t => t is not null && t.StartsWith("EDITING: PROGRAM", StringComparison.Ordinal));
 
-            // Program alone: no target picker; OWN on the lobby brings it, and the editors follow the lobby's own pattern.
-            Assert.False(vm.ShowEditTargets);
-            Assert.DoesNotContain(window.GetVisualDescendants().OfType<ComboBox>().Where(c => c.IsEffectivelyVisible), c => ReferenceEquals(c.ItemsSource, vm.EditTargets));
+            // The picker lists every screen of the rig (round 67); OWN on the lobby hands it to the editors.
+            Assert.True(vm.ShowEditTargets);
+            Assert.Null(vm.EditTarget.ScreenId);
             vm.SwitcherTiles.First(t => t.TargetId == "c").IsOwn = true;
             Settle(window);
             Assert.True(vm.ShowEditTargets);

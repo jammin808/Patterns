@@ -143,7 +143,12 @@ public sealed class SandboxService
     ///   toAir: true  — LIVE. It lands in the frozen program too, so it is on the screens now. SEND
     ///                  TO TICKED and a look sent to one screen both go this way.
     /// </summary>
-    public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true, bool cut = false)
+    /// <param name="ownPicture">
+    /// Round 67: take what the tile's own PVW shows — its own picture when the operator edited or staged
+    /// one there, else the programme's preview — rather than the programme's preview whatever the tile
+    /// holds. The tile's own CUT / TAKE go this way; SEND and SEND TO TICKED carry the programme's preview.
+    /// </param>
+    public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true, bool cut = false, bool ownPicture = false)
     {
         if (!Active || _program is null || targetIds.Count == 0) return;
         using var take = toAir ? _services.Bus.Take() : default;
@@ -152,13 +157,13 @@ public sealed class SandboxService
         if (toAir && cut) _services.Bus.CutOnNextPublish();
         var state = _services.State;
         var program = _program;
-        var pattern = JsonUtil.ClonePattern(state.Pattern);
+        var pictures = targetIds.ToDictionary(id => id, id => JsonUtil.ClonePattern(ownPicture ? LookService.Shown(state, id) : state.Pattern), StringComparer.Ordinal);
         void Land(ShowState s)
         {
             foreach (var id in targetIds)
             {
                 var assignment = ContentTargets.EnsureAssignment(s, id);
-                ModelCopier.Copy(JsonUtil.ClonePattern(pattern), assignment.Pattern);
+                ModelCopier.Copy(JsonUtil.ClonePattern(pictures[id]), assignment.Pattern);
                 assignment.PinnedByTake = false; // the operator chose this picture — it stays
                 ContentTargets.SetOwnPattern(s, id, true);
             }

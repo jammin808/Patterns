@@ -207,6 +207,7 @@ public sealed class EyeService
                 Enabled = placement.Enabled,
                 OnAir = liveTargets.Contains(placement.ScreenId) || liveTargets.Contains(target),
                 Own = own is not null,
+                Staged = own is null && ContentTargets.UsesOwnPattern(state, target),
                 Contract = placement.Signal.IsSet ? SignalTruth.DesignWords(placement.Signal) : "",
                 Verdict = hasContract ? signal.Result : "",
                 SignalWords = hasContract ? (worst is null ? signal.Result + " · " + signal.Design : $"{signal.Result} — {worst.Item}: {worst.Value}") : "",

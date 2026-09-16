@@ -753,6 +753,7 @@ public sealed partial class MainViewModel
         }
         else
         {
+            EditTarget = EditTargets[0];                                                  // OWN off: the editors go to the programme it follows now
             SelectTarget(target);
             StatusMessage = $"{tile.Title} follows the program again.";
         }
@@ -764,6 +765,8 @@ public sealed partial class MainViewModel
         get
         {
             if (_editTarget.ScreenId is not { } id) return "EDITING: PROGRAM — every target without its own pattern";
+            // Round 67: a target that still follows the programme is edited all the same — its first edit makes it its own.
+            var own = ContentTargets.UsesOwnPattern(State, id) ? "(its own pattern)" : "— follows the programme; the first edit makes it its own";
             if (ContentTargets.IsCanvasKey(id))
             {
                 var groups = CanvasGroups();
@@ -771,7 +774,7 @@ public sealed partial class MainViewModel
                 {
                     if (CanvasNameConfig.KeyFor(groups[i].Select(m => m.ScreenId)) != id) continue;
                     var letter = ((char)('A' + i)).ToString();
-                    return $"EDITING: CANVAS {letter} · {CanvasNameFor(groups[i], letter)} (its own pattern)";
+                    return $"EDITING: CANVAS {letter} · {CanvasNameFor(groups[i], letter)} {own}";
                 }
                 return "EDITING: PROGRAM";
             }
@@ -779,7 +782,7 @@ public sealed partial class MainViewModel
             if (placement is null) return "EDITING: PROGRAM";
             var ordered = OrderedLivePlacements();
             var n = ordered.FindIndex(x => x.Placement.ScreenId == placement.ScreenId) + 1;
-            return $"EDITING: SCREEN {n} · {LabelFor(placement)} (its own pattern)";
+            return $"EDITING: SCREEN {n} · {LabelFor(placement)} {own}";
         }
     }
 
