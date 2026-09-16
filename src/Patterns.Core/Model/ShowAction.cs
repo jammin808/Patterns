@@ -411,6 +411,12 @@ public enum ShowActionKind
     /// </summary>
     /// <summary>RIG SAVE [note] (round 65.9): the rig of the moment saved as the commissioned one — the machine, the displays and their EDIDs, the contracts, the audio, the network, the clock; every boot compares against it. Value = the note.</summary>
     RigSaveKnownGood,
+    /// <summary>The God's Eye (round 66) — the operator's own view of the whole show: EYE FOCUS &lt;words&gt; (Value: an id, "screen 2", a label), EYE NEXT / EYE PREV (the problems queue), EYE LENS &lt;all|video|control|audio|room|problems&gt; (Value), EYE RESET. Desk-only: a running order never moves what the desk is looking at.</summary>
+    EyeFocus,
+    EyeNext,
+    EyePrev,
+    EyeLens,
+    EyeReset,
     RigDayOn,
     RigDayOff,
     AlignStart,

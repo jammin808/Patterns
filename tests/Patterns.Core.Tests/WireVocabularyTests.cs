@@ -50,6 +50,11 @@ public class WireVocabularyTests
         ("SCREEN 2 LABEL", new(ShowActionKind.ScreenLabel, "2")),
         ("SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR", new(ShowActionKind.ScreenSignal, "2", "3840x2160 50 RGB 8 SDR")),
         ("RIG SAVE first show", new(ShowActionKind.RigSaveKnownGood, "", "first show")),
+        ("EYE FOCUS screen 2", new(ShowActionKind.EyeFocus, "", "screen 2")),
+        ("EYE NEXT", new(ShowActionKind.EyeNext)),
+        ("EYE PREV", new(ShowActionKind.EyePrev)),
+        ("EYE LENS control", new(ShowActionKind.EyeLens, "", "control")),
+        ("EYE RESET", new(ShowActionKind.EyeReset)),
         ("SCREEN 2 TESTROUTE ON", new(ShowActionKind.ScreenTestRoute, "2", "ON")),
         ("SCREEN 2 TEST ROUTE", new(ShowActionKind.ScreenTestRoute, "2")),
         ("SCREEN 2 RECEIVED 3840x2160 50 RGB 8", new(ShowActionKind.ScreenReceived, "2", "3840x2160 50 RGB 8")),
@@ -222,7 +227,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -270,6 +275,10 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.PlayStatus, ControlProtocol.Parse("AUDIENCE").Kind);
         Assert.Equal("align", ControlProtocol.Parse("ALIGN STATUS").Text);
         Assert.False(ControlProtocol.Parse("ALIGN NUDGE").IsAction);
+        Assert.Equal(RemoteCommandKind.EyeStatus, ControlProtocol.Parse("EYE").Kind);
+        Assert.Equal(RemoteCommandKind.EyeStatus, ControlProtocol.Parse("EYE STATUS").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("EYE FOCUS").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("EYE LENS").Kind);
         var hello = ControlProtocol.Parse("HELLO FOH deck");
         Assert.Equal(RemoteCommandKind.Hello, hello.Kind);
         Assert.Equal("FOH deck", hello.Text);

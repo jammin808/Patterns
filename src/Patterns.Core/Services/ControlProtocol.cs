@@ -51,6 +51,8 @@ public enum RemoteCommandKind
     RigStatus,
     /// <summary>COMMISSION / COMMISSION STATUS (round 65.10): the commissioning flow's seven stages, each with its light and its next step, as JSON.</summary>
     CommissionStatus,
+    /// <summary>EYE / EYE STATUS (round 66): the God's Eye — every thing of the show with its place, light and words, every link with its light, the headline, the counts, the problems, the focus and the lens — as JSON.</summary>
+    EyeStatus,
 }
 
 /// <summary>
@@ -1033,6 +1035,25 @@ public static class ControlProtocol
                 {
                     "" or "STATUS" => Query(RemoteCommandKind.RigStatus),
                     "SAVE" or "KNOWNGOOD" or "COMMISSION" => Act(ShowActionKind.RigSaveKnownGood, "", rest),
+                    _ => Unknown(s),
+                };
+            }
+
+            // "EYE" (round 66): the God's Eye — bare or STATUS reads the whole picture as JSON; FOCUS <words>, NEXT,
+            // PREV, LENS <name> and RESET move the operator's eye (desk-only: a cue never moves what the desk looks at).
+            case "EYE":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1] : "";
+                return what switch
+                {
+                    "" or "STATUS" or "GRAPH" => Query(RemoteCommandKind.EyeStatus),
+                    "FOCUS" or "ON" => rest.Length > 0 ? Act(ShowActionKind.EyeFocus, "", rest) : Unknown(s),
+                    "NEXT" => Act(ShowActionKind.EyeNext),
+                    "PREV" or "PREVIOUS" or "BACK" => Act(ShowActionKind.EyePrev),
+                    "LENS" or "PLANE" => rest.Length > 0 ? Act(ShowActionKind.EyeLens, "", rest) : Unknown(s),
+                    "RESET" or "HOME" or "ALL" => Act(ShowActionKind.EyeReset),
                     _ => Unknown(s),
                 };
             }
