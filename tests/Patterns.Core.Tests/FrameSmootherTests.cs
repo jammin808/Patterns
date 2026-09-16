@@ -304,4 +304,23 @@ public class FrameSmootherTests
         big.Cap = 1;
         Assert.Equal("smooth 1 (33 ms)", big.Words);
     }
+
+    /// <summary>
+    /// Round 72: a measured arrival allocates nothing. The p95 used to sort a fresh array on every arrival
+    /// once the jitter window was full — thirty allocations a second per web source, on the decode thread.
+    /// </summary>
+    [Fact]
+    public void AMeasuredArrivalAllocatesNothing()
+    {
+        var s = Standard();
+        var n = 0;
+        // Warm up: the window fills, the clock locks, the depth settles — every code path of a steady arrival has run once.
+        for (; n < 200; n++) s.Offer(n, Arrival(n));
+        Assert.True(s.Measured);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var k = 0; k < 600; k++, n++) s.Offer(n, Arrival(n));
+        var after = GC.GetAllocatedBytesForCurrentThread();
+        Assert.Equal(0, after - before);
+    }
 }

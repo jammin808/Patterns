@@ -54,6 +54,7 @@ public sealed class ScreenService
             _screens.Changed += (_, _) =>
             {
                 Log.Info("Screen topology changed.");
+                DisplayEvidence.InvalidateTopology();   // round 72: the observation, the EDIDs and the inventory are the old rig's — read afresh
                 Refresh();
             };
         }

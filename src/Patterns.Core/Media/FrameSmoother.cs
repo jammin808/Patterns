@@ -93,6 +93,7 @@ public sealed class FrameSmoother
 
     private readonly Waiting[] _ring = new Waiting[Capacity];
     private readonly double[] _jitter = new double[JitterWindow];       // the last latenesses against the clock's prediction, for the p95
+    private readonly double[] _jitterScratch = new double[JitterWindow]; // round 72: the p95's sort scratch, allocated once — a measured arrival allocates nothing
     private readonly double[] _arrivals = new double[JitterWindow];     // the last arrivals since the clock locked, for the rate
     private int _jitterNext;
     private int _jitterCount;
@@ -287,10 +288,9 @@ public sealed class FrameSmoother
     /// <summary>The depth from the jitter (enough frames to cover the p95 stray, plus one) and Auto's judgement of the rate — the depth grows at once and shrinks a frame at a time after a quiet window.</summary>
     private void Adapt()
     {
-        var sorted = new double[_jitterCount];
-        Array.Copy(_jitter, sorted, _jitterCount);
-        Array.Sort(sorted);
-        JitterSeconds = sorted[Math.Min(sorted.Length - 1, (int)Math.Floor(sorted.Length * 0.95))];
+        Array.Copy(_jitter, _jitterScratch, _jitterCount);
+        Array.Sort(_jitterScratch, 0, _jitterCount);
+        JitterSeconds = _jitterScratch[Math.Min(_jitterCount - 1, (int)Math.Floor(_jitterCount * 0.95))];
         var needed = ClampDepth((int)Math.Ceiling(JitterSeconds / Math.Max(_cadence, MinCadence)) + 1);
         if (needed > Depth)
         {

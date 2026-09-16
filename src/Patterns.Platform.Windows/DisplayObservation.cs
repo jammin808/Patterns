@@ -84,6 +84,9 @@ public static class DisplayObservation
     // ---- Win32 ---------------------------------------------------------------------------
 
     private const uint QdcOnlyActivePaths = 0x2;
+    private const int ErrorInsufficientBuffer = 122;   // the sizes moved under the read (a topology change mid-ask)
+    /// <summary>How many times the query re-reads its sizes when the topology moves under it (round 72).</summary>
+    public const int QueryAttempts = 3;
     private const uint ModeInfoSource = 1;
     private const uint ModeInfoTarget = 2;
     private const uint DeviceInfoGetTargetName = 2;
@@ -92,10 +95,21 @@ public static class DisplayObservation
     [SupportedOSPlatform("windows")]
     private static IReadOnlyList<SignalObservation> Query()
     {
-        if (GetDisplayConfigBufferSizes(QdcOnlyActivePaths, out var pathCount, out var modeCount) != 0 || pathCount == 0) return Array.Empty<SignalObservation>();
-        var paths = new DisplayConfigPathInfo[pathCount];
-        var modes = new DisplayConfigModeInfo[modeCount];
-        if (QueryDisplayConfig(QdcOnlyActivePaths, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0) return Array.Empty<SignalObservation>();
+        // Round 72: the topology can change between the size query and the read — a display plugged as the desk
+        // asks — and Windows answers ERROR_INSUFFICIENT_BUFFER; the documented loop re-reads the sizes and asks
+        // again, a bounded number of times, rather than reporting nothing for a rig that is there.
+        uint pathCount, modeCount;
+        DisplayConfigPathInfo[] paths;
+        DisplayConfigModeInfo[] modes;
+        for (var attempt = 0; ; attempt++)
+        {
+            if (GetDisplayConfigBufferSizes(QdcOnlyActivePaths, out pathCount, out modeCount) != 0 || pathCount == 0) return Array.Empty<SignalObservation>();
+            paths = new DisplayConfigPathInfo[pathCount];
+            modes = new DisplayConfigModeInfo[modeCount];
+            var rc = QueryDisplayConfig(QdcOnlyActivePaths, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+            if (rc == 0) break;
+            if (rc != ErrorInsufficientBuffer || attempt >= QueryAttempts - 1) return Array.Empty<SignalObservation>();
+        }
 
         var list = new List<SignalObservation>();
         for (var i = 0; i < pathCount; i++)
