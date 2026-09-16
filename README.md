@@ -23,6 +23,28 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The rig's truth** — every screen's link has a **signal contract** (`3840x2160 50 RGB 8 SDR
+  709 HDMI`, an exact rate: 59.94 is not 60) and the Screens page's technical view holds it
+  against three witnesses: what the display's **EDID advertises** (read from Windows and parsed —
+  base, CTA-861, DisplayID — never judged), what Windows **observes** it sends (the path's raster,
+  rate, encoding, depth, HDR and connector; unknown stays unknown, nothing is inferred), and what
+  the **far end receives** (a processor's input status through an adapter, or the engineer's own
+  reading of its panel). MATCH, MISMATCH or UNVERIFIED, journaled when it changes, on the wire
+  (`SCREEN n SIGNAL`), in STATE and Super Check, in the assistant's brief and on the deck. A
+  **planned EDID** is built from the contract for a processor input or a PC's port (`.bin` /
+  `.hex`, `GET /api/screens/<n>/edid.bin`) and the view says when the display presents it. The
+  **machine fully exposed** — the Windows build, the CPU and memory, every GPU with its driver,
+  every display with its mode and EDID, every audio endpoint, the power plan, GPU scheduling — on
+  the Machine page, in STATE and the bundle; **SAVE KNOWN GOOD** keeps the commissioned rig and
+  every reading says what drifted. **Commissioning** is seven stages judged from that evidence —
+  discover, assign, contract, capability, output test, verify, known good — with **TEST ROUTE**
+  (1080p50 RGB 8-bit stands in while a path is proven), `COMMISSION STATUS`, the Technician's
+  walkthrough and Companion 3.6.0's feedbacks. Underneath: the control network's **trust** made
+  explicit (a bind address, a pairing token for every mutating verb — `AUTH` on the wire,
+  `X-Patterns-Token` on the web — the passcode out of every URL), one writer per remote peer,
+  the shutdown in eight phases, the watchdog's startup deadline, the render fence failing closed,
+  the Windows probes as an assembly of their own, and the decisions written down in
+  [`docs/ADR.md`](docs/ADR.md).
 - **CUT and TAKE on a tile, the output on its display's clock, the Preview's own menus, overlays
   that arrive** — CUT and TAKE on each screen tile put the preview on that screen alone as its
   own picture; an output paces to its own display (a 50 Hz screen is no longer drawn at 60) and
@@ -1712,17 +1734,23 @@ the caller, the stage timer. The kernel is what every role needs, not what every
 — the arcade engine is a role's, the updates folder and the management check-in are everyone's.
 `docs/PLAN.md` §57.4, §58.3, §59.
 
-The build is nine assemblies with the rules between them enforced by the compiler and a test
+The build is ten assemblies with the rules between them enforced by the compiler and a test
 ([`docs/MODULES.md`](docs/MODULES.md)): `Patterns.Core` is the show — the model, the snapshot,
 the clock, the cues, the actions, the budgets, the words — and references the runtime and
 nothing else; `Patterns.Rendering` (SkiaSharp), `Patterns.Ndi`, `Patterns.Arcade`,
 `Patterns.Devices` (the boxes' transports), `Patterns.Audio` (the DSP), `Patterns.Assistant`
-(the AI's brain and its model client) and `Patterns.Audience` (the room) are the edges, each on
-its own native library and the core and nothing across; the App composes them and is the only
+(the AI's brain and its model client), `Patterns.Audience` (the room) and
+`Patterns.Platform.Windows` (what Windows says about the machine: the display paths, the EDID,
+the adapters and their drivers, the audio endpoints, the power plan) are the edges, each on its
+own native library and the core and nothing across; the App composes them and is the only
 module that names the UI. An edge asks for a contract, never the desk, so it is tested through
 the contract alone — a Companion driven through a fake wire, a room run for the phones, the audio
 providers over the mix format — with no headless platform, and STATE, the support ticket and the
-assistant's brief say which modules a process actually loaded.
+assistant's brief say which modules a process actually loaded. The decisions that shaped the
+build — the evidence rule, one writer per peer, explicit trust, the three witnesses of a signal,
+the known-good rig as a fact, the platform assembly, the persistence lane, the secrets list, and
+the two designs deferred with the conditions to revisit them — are one page each in
+[`docs/ADR.md`](docs/ADR.md).
 
 One UI-independent render engine (`Patterns.Rendering`, SkiaSharp) draws every sink — the preview,
 each fullscreen output, preset thumbnails and NDI frames — from immutable show-state snapshots

@@ -8310,3 +8310,265 @@ process, which is the same claim short of the exe.
 
 Counts at the end of the round: Core 725, Rendering 647, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 696 — 2,122 in seven suites, the module's seventeen beside them.
+
+## 83. Round 65 — the rig's truth: what the machine is, what each link carries, what the far end receives, and a rig commissioned on evidence
+
+The round began as the round-64 review's list — the arcade tab built on every node (P0), the
+watchdog's startup hang (P1.1), the fence's exhaustion (P1.2), the shutdown's phases (P1.3), one
+writer per remote peer and the open control network (P1.4, P1.5) — and grew when the roadmap
+*Patterns Development Roadmap — Architecture Hardening* was handed in (see 83.14): its Phase 1 was
+these very items, its Phase 3 the signal truth that follows, and the instruction with it was
+plain — everything Windows knows about graphics, audio and processing is to be exposed to
+Patterns and exploited. The units below are the answer; the roadmap's own lines and where each
+landed, or why it did not, are 83.14.
+
+### 83.1 The arcade tab built only on an arcade node (65.1)
+
+Run 231's Windows lane launched a real timer node and found the room's and the arcade's
+assemblies loaded after all: the node window instantiated the arcade's section from XAML on every
+role, and the view model's poll read the arcade's and the room's words every second through
+getters that named their types. The section is built in code, only when the host has an arcade;
+every `Arcade*` and `Play*` getter asks `HasArcade` / `HasRoom` first and reaches the module
+through a method of its own, compiled only on a role that has it. The strict footprint test
+builds the view model and the window for the timer and the caller, polls once, and asserts the
+arcade tab stays empty and the assemblies stay out — the same claim the Windows lane reads from
+the exe (`--footprint`), green from run 232.
+
+### 83.2 The watchdog's startup deadline (65.2)
+
+A child that never sent its first heartbeat was neither a crash nor a hang to the supervisor —
+it waited forever. `SupervisorPolicy.StartupDeadline` (120 s) and `Phase(startedUtc,
+lastBeatUtc, now)` name the child's phase — starting, running, hung at start, hung — and a start
+that never beats is killed, recorded as a startup hang and restarted under the same back-off as
+a crash; the crash loop's window counts it. The marker names it for the next start's health line.
+
+### 83.3 Render-fence exhaustion fails closed (65.3)
+
+Two hundred and fifty-six seats is a ceiling that a leak or a storm of pipelines could reach; the
+old answer was to render unpooled, quietly. Now no seat means no pooled rendering for that sink —
+its frame is refused, the fault is recorded with the sink's label, and Super Check's *Frame fence*
+row goes red naming the output. The mixed-refresh row carries its FIX words (which display to
+make primary), as the render-clock row does.
+
+### 83.4 Shutdown as phases; one persistence lane at exit; no DNS on the desk thread (65.4)
+
+`AppServices.Shutdown` is eight named phases — audience, authority, machine, workers, persist,
+recovery, ownership, process — each step on its own guard: a step that throws is recorded and the
+next still taken, and `ShutdownPhases` and the report are what a test reads. A fault-injection
+test names a step to fail and asserts the rest ran. The final save goes down the same ordered file
+lane as the autosaves, bounded (`SaveAtExit(wait)`), and when the show could not be written the
+recovery record stays with a marker for the next start. `RemoteUrls` no longer resolves the host
+name on the desk's thread (a venue DNS that stalls stalled the status strip).
+
+### 83.5 One writer per remote client, and explicit control-network trust (65.5)
+
+`WirePeer` is the one writer a TCP peer has: replies in order, STATE latest-wins behind them, the
+queue capped at 256, a write past ten seconds closes the peer, a closed peer clears its queue
+(`WirePeerTests`, forty threads at once). `ControlConfig.Bind` binds the listeners to the address
+the show names; `ControlConfig.Token` is the per-show pairing token (`PairingToken`: twelve
+symbols in three groups from an alphabet without 0/O/1/I/L, constant-time compare, dashes and
+case ignored) that every mutating verb over TCP (`AUTH <token>` after HELLO) and HTTP
+(`X-Patterns-Token`; 403 *not paired* on `/api/cmd`, `/api/stage/ack`, `/api/arcade/key`) must
+have presented; reads and loopback need nothing; five wrong tokens close the peer; the admin
+passcode rides `X-Patterns-Pass`, never a query string. The Remote page's TRUST block (bind,
+token, NEW TOKEN), Super Check's *Remote* row (green paired, amber open on every interface with
+FIX), the Companion module 3.5.0 (a Pairing token field, `AUTH` after HELLO, a trust refusal as a
+bad-config status). The bundle's redaction already covered `Token`.
+
+### 83.6 Signal truth — the contract and the observation (65.6)
+
+`SignalContract` on every screen: raster, an exact rational rate (`SignalRate` — `Of` reduces
+and snaps within 0.02 % onto the canonical rates, `Parse` refuses under 20 Hz, `Family` reads
+Film / PAL / NTSC-fractional / integer), encoding, bit depth, range, dynamic range, colour space,
+audio policy, transport, fallback. `SignalWords` is its vocabulary on the wire and the page
+(`3840x2160 50 RGB 8 SDR FULL 8CH HDMI`, `CLEAR`). `DisplayObservation` asks Windows what it
+sends — `QueryDisplayConfig` for every active path (the source's desktop rectangle, the target's
+raster, the exact vSync rational, the connector, the monitor's device path and EDID ids) and
+`DisplayConfigGetDeviceInfo` for the advanced colour (encoding, bits, HDR active and capable) —
+kept two seconds, a `Source` hook for a test. `SignalTruth.Compare` holds the two together
+property by property: red for a raster that is not the contract's, amber for a rate, an encoding,
+a depth, HDR or a connector that is not, grey *not available from this Windows path* where the
+path never stated it — never inferred; MATCH needs the raster and the rate observed. The Screens
+page's technical view (DESIGN, REQUESTED, OBSERVED, RESULT and the lines), `SCREEN n SIGNAL
+<words>` and bare `SCREEN n SIGNAL` as JSON, STATE's screen rows (`signal`), Super Check's SIGNAL
+section, the journal (one line per change of verdict, never per reading), the assistant's brief
+(one line per screen, and the rule).
+
+### 83.7 The EDID read and not judged (65.7)
+
+`Edid.Parse` reads what a display presents — the base block's identity and parameters, the
+established, standard and detailed timings (the preferred one as an exact rate), the CTA-861
+extension (video formats resolved to raster and rate, audio, speakers, HDMI LLC and Forum blocks,
+video capability, colorimetry, HDR static metadata, the 4:2:0 blocks), the DisplayID 1.3 / 2.0
+extension (Type I / VII timings, tiled topology); every checksum checked, a fault a problem named,
+SHA-256 the identity. `EdidInfo` answers what the display *offers* — capability, never the
+signal. `EdidReader` reads the bytes Windows keeps under the display's instance key, once per
+path. ADVERTISED joins the technical view; Advertised lines green where the display offers what
+the contract asks, amber where it does not; none of them moves the verdict. `Patterns.exe
+--signal-report <file>` writes it all, and the Windows lane runs it on every push — run 233 read
+the runner's Hyper-V path and its EDID, checksums valid: the P/Invoke layouts are proven on a real
+Windows, which the Linux suites cannot do.
+
+### 83.8 The planned screen's EDID (65.8)
+
+`EdidPlan.ForContract` and `EdidWriter.Build` make the EDID a screen is planned to present from
+its contract — an E-EDID 1.4 base (CTA standard totals when they fit a DTD, else CVT-RB with the
+vertical total walked onto a 10 kHz step), a CTA-861 extension, a DisplayID 2.0 extension when
+the raster is past 4095 — valid, re-parsed by the same parser, exported as `.bin` / `.hex` with a
+summary (`SCREEN n EDID`, `GET /api/screens/<n>/edid.bin|.hex|.txt`, the Screens page's Planned
+EDID block and EXPORT). Load it as the custom EDID of the processor input or the PC's port and the
+view says whether the display presents that very EDID (the hash).
+
+### 83.9 The machine fully exposed, and the Known Good Rig (65.9)
+
+`MachineProbe` reads everything Windows will say about graphics, audio and processing into
+`MachineFacts`: the Windows edition, version and build (the registry), the CPU, the cores and the
+memory, every adapter DXGI enumerates with the driver the display class key names for it
+(version, date, provider — NVIDIA's own number derived from the Windows one), every display with
+its mode, connector, encoding, depth, HDR and the EDID it presents, every audio endpoint with its
+shared-mode format and the default, the power plan (powrprof), hardware GPU scheduling, Game DVR
+and the overlay-plane switch. Best-effort, a failed probe a note; read at most every half minute
+and never on the desk's thread — `Read()` answers with the kept reading and refreshes on a worker,
+`ReadNow()` only for SAVE, the bundle and a test; a `Source` hook. The words are on the Machine
+page's THIS COMPUTER, in STATE (`machine.inventory`), in RIG STATUS, in the support info and the
+bundle, and in the assistant's brief without the machine's name.
+
+`RigSnapshot` is the commissioned rig — machine, drivers, displays with EDID hashes, contracts,
+audio, senders, the control bindings in words (never the token), the render clock — written
+beside the settings by SAVE KNOWN GOOD (`RIG SAVE [note]`; atomic, the old file kept); every
+reading compares the rig of the day (`RigDrift`: a driver, a mode, an EDID, a contract, a plan or
+the clock amber; a display, a GPU or an audio output gone red) and one journal line per change of
+the comparison. Super Check's RIG rows; STATE's `machine.rig`; the Machine page's KNOWN GOOD RIG
+block with SAVE and FORGET; `KnownGoodRig` on the kernel so a node and the bundle read it too.
+Nothing decides: it is evidence.
+
+### 83.10 The commissioning flow (65.10)
+
+`Commissioning.Build` judges seven stages from `CommissioningFacts` alone — DISCOVER, ASSIGN,
+CONTRACT, CAPABILITY, OUTPUT TEST, VERIFY, KNOWN GOOD — each line with its light, its value and
+the next step in the desk's own words; the first stage not green is where the engineer is;
+UNVERIFIED is never a pass. TEST ROUTE (`ScreenPlacement.TestRoute`; `SCREEN n TESTROUTE ON |
+OFF`, bare toggles): the diagnostic profile — 1080p50, RGB, 8-bit, SDR, stereo — stands in for
+the contract while a path is proven, the contract itself untouched, a *Test route* line first in
+the signal view, and the flow held at CONTRACT until it is off. `COMMISSION STATUS` as JSON,
+STATE's `commissioning` row, the Machine page's COMMISSIONING block, the Technician's *Commission
+the rig* walkthrough ticked by the same evidence (seven checks), the assistant's facts with the
+rule to answer *is the rig ready?* from them. Companion module 3.6.0: `screen_signal`,
+`screen_testroute`, `rig_save`; `screen_signal_is`, `signal_mismatch_any`, `rig_known_good`,
+`rig_drift`, `commissioned`; `screen_n_signal`, `machine_inventory`, `machine_rig`,
+`commissioning`, `commissioning_next`; a Rig preset page; the `signal` and `rig` colour families
+on both sides of the palette test.
+
+### 83.11 What the far end receives (65.11)
+
+The third witness. `InputStatus`: a device that carries a screen (*Input carries* on its card) is
+asked what its input receives — the words from the device (typed from the box's manual for a
+processor with its own API) or from the profile where the protocol is published (PJLink class 2's
+`IRES ?`; a class 1 projector's `ERR1` reads as no answer) — and the answer is read through a
+pattern whose groups `w`, `h`, `hz`, `enc` and `bits` make the contract's words; what the pattern
+does not read stays unsaid. `DeviceService` asks on its own clock and raises `InputReported`; the
+desk holds it against the screen's contract. `ScreenPlacement.Received / ReceivedBy /
+ReceivedAtUtc` carry the word, from a device or from the engineer's own reading of the box's
+panel (`SCREEN n RECEIVED 3840x2160 50 RGB 8`, CLEAR; the Screens page's RECEIVED and FORGET).
+`SignalTruth.Compare` adds the Received lines — green where the box agrees, red where it does
+not, and MISMATCH whatever Windows believes it sends; without an observation the far end's word
+still judges. RECEIVED in the view, the brief, the JSON, STATE (`signal.received`); the journal.
+ENDPOINTS.md's *Input status* says which words are published and which are typed.
+
+### 83.12 Architecture (65.12)
+
+**Patterns.Platform.Windows.** The five Windows probes — `DisplayModes` and `DisplayObservation`
+(the display paths, the advanced colour), `EdidReader` (the registry), `MachineProbe` (the
+edition, the CPU and memory, DXGI's adapters with the display class key's drivers, WASAPI's
+endpoints, powrprof's plan, the scheduling switches) and `SystemProbes` (`Dxgi`, `WinRegistry`,
+`Win32Perf`, `GpuEngineCounter`, public now) — are one assembly referencing the core and its
+native libraries alone, with no UI. The two probes that took Avalonia's `PixelRect` take the
+core's `RasterRect`; the desk's bounds cross at one seam (`PlatformSeams.ToRaster`), and
+`MachineProbe.BuildVersion` is handed in by the host (the desk sets its update service's version
+first thing; the entry assembly's otherwise). The module map gains the Platform row;
+`ModuleRulesTests` gains its rule row (Core and NAudio only) and scans its sources for Avalonia
+and for the desk; MODULES.md rule 8 says why. Every App test that used a probe goes through the
+seam; `PlatformSeamsTests` holds the four numbers.
+
+**PersistenceRuntime.** The show's files on one ordered lane, in the core
+(`Patterns.Core.Services`): the autosaves, generation-coalesced (five edits in a second are one
+serialisation and one write, of the latest show); the recovery record's writes, made on the
+worker and the overtaken never even made; its clears, behind the writes; the final save waited a
+bounded time and answered truthfully. Peeled from `AppServices`, which keeps `SaveNow`,
+`SaveInBackground`, `SaveAtExit`, `PendingSaves` and `QueueFileWork` as verbs that delegate and
+hands in its own `FileBudget`, so every reader of `Files` sees the same counts; `PrepareRestart`
+waits on the lane before writing its record. Behaviour as it was — and the lane is built and
+tested without a desk (`PersistenceRuntimeTests`: order, coalescing, a clear behind a write, the
+exit bounded and truthful, off means no file, a step that throws).
+
+**Secrets in one list.** `Secrets.Names` (the admin passcode, the management token, the pairing
+token, a box's password, the weather key, Spotify's tokens) and `Secrets.Placed` (the twin's key
+under its plain name). `SupportBundle.Redact` walks the JSON and masks by property — a box's
+password and the twin's key are masked now, which the regex over a few names missed — while a
+bare `Key` stays the identity it is (an input label's, an audio destination's, a canvas's member
+key), an empty secret stays empty, and text that is not JSON falls back to the regex; the twin's
+wire blanks through the same list, behaviour unchanged (`SecretsTests`, the twin's wire-secrecy
+tests).
+
+**Designs recorded, not built.** `docs/ADR.md`: eleven decision records — the evidence rule
+(ADR-001), one writer per peer (002), explicit trust (003), the three witnesses (004), the
+known-good rig as a fact (005), commissioning on evidence (006), the platform assembly (007), the
+persistence lane (008), the secrets list (009) — and two designs recorded rather than built:
+renderer isolation deferred behind the fence that fails closed (ADR-010), the lifecycle and the
+clocks kept as they are, with the reasons and the conditions to revisit (ADR-011).
+
+### 83.13 What was left, and why
+
+- The processors' own APIs (Brompton Tessera, Novastar, Barco, Christie) are not shipped as
+  presets: they differ by model and firmware and were not verified here; the words and the pattern
+  are typed from the manual, and the card shows the raw answer to write the pattern against.
+- TEST ROUTE changes the contract held against, not the display's mode: putting the output into
+  1080p50 stays the engineer's step (the display mode on the Screens page), so the test route never
+  moves a live wall by itself.
+- The Windows paths — QueryDisplayConfig, the advanced colour, the EDID registry key, DXGI, the
+  display class key, WASAPI, powrprof — are proven on the Windows lane's Hyper-V runner (one path,
+  one EDID, no discrete GPU, no audio endpoint). A real rig with an NVIDIA card, a processor and
+  several displays has not run this code: QUALIFICATION.md gains the rows to fill.
+- The renderer/DXGI isolation is a design (ADR-010), not a build; the lifecycle and clock
+  interfaces the roadmap named are recorded as not needed yet (ADR-011).
+- The roadmap's HealthFact convergence, network zones beyond control and audience, and role
+  permissions beyond the three tiers the desk already has are deferred with reasons in 83.14.
+
+### 83.14 The roadmap assessed
+
+The handed-in roadmap (*Patterns Development Roadmap — Architecture Hardening*, three phases)
+against what the tree already had and what this round did:
+
+| Roadmap item | Verdict | Where |
+|---|---|---|
+| P1.1 arcade off non-arcade nodes | done | 65.1 |
+| P1.2 startup hang deadline | done | 65.2 |
+| P1.3 fence exhaustion fail-closed | done | 65.3 |
+| P1.4 Windows CI | partly — the smoke lane exists (64.5) and runs the desk's classes, the exe, the footprint and the signal report; a supervisor restart exercise on Windows does not | 64.5, 65.7 |
+| P1.5 shutdown phases | done | 65.4 |
+| P1.6 one persistence lane at exit | done | 65.4, 65.12 |
+| P1.7 no DNS on the desk thread | done | 65.4 |
+| P1.8 one writer per peer | done | 65.5 |
+| P1.9 control-network trust (bind, token) | done | 65.5 |
+| P3 signal contract with transport and colour space | done — adopted the roadmap's extras | 65.6 |
+| P3 observation layer, amber/red semantics, journaled verdicts | done | 65.6 |
+| P3 EDID read, parsed, advertised | done | 65.7 |
+| P3 planned EDID for a PC or processor | done, at the user's word | 65.8 |
+| P3 machine inventory and known-good rig | done | 65.9 |
+| P3 commissioning flow, test route, assistant on evidence, Companion feedbacks | done | 65.10 |
+| P3 processor input-status adapters | done as a generic adapter plus PJLink class 2; vendor presets deferred | 65.11 |
+| Platform.Windows assembly | done | 65.12 |
+| PersistenceRuntime | done | 65.12 |
+| Secrets out of exports and the bundle | done | 65.12 |
+| ADRs | done | 65.12 |
+| OutputRuntime extraction | deferred — the output windows, the ownership record and the hot-plug service are already one seam (`OutputWindowManager`, `OutputOwnershipService`, `HotPlugService`); a further class would move code without a second host to need it |  |
+| RuntimeContext over statics | deferred — the platform probes stay static with `Source` hooks: one process, one Windows; a test hands facts in, which is the need the context would serve |  |
+| formal service lifecycle | recorded as ADR-011: the kernel's order and the shutdown's phases are the lifecycle, tested by fault injection |  |
+| clock interfaces | recorded as ADR-011: three clocks with owners; a reading is handed in, not mocked |  |
+| typed IPC / renderer host spike | recorded as ADR-010: designed, measured in outline, not built; when to revisit |  |
+| HealthFact convergence | deferred — `CheckFacts` is the one facts record every surface reads already; a second type would be the divergence |  |
+| network zones beyond control and audience | deferred — the audience port is its own listener with budgets (H1), the control port has bind and token; a third zone has no traffic yet |  |
+| role permissions | deferred — three tiers exist de facto (open reads, paired mutating verbs, the admin passcode); a matrix would name what no controller asks for yet |  |
+
+Counts at the end of the round: Core 785, Rendering 648, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 719 — 2,206 in seven suites, the module's eighteen beside them.

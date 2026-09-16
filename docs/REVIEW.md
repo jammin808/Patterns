@@ -1945,3 +1945,192 @@ P0.1 done (64.1). P0.2 prepared, not run — the record is written. P1.1 done (6
 `quarantinedMB` are the gates. P1.8 realised in the types (64.2). P2.1 done (64.6). P2.2 done
 (64.7). P2.3 done (64.6). P2.4 recorded for the maintainer (64.7). P2.5 done (64.4). P2.6 kept:
 `ModuleRulesTests` still passes, and the node's footprint shrank rather than grew.
+
+## Round 65 review — the rig's truth: the machine, each link's contract, the far end's word, and a rig commissioned on evidence
+
+### 65.1 — the arcade's section built only on an arcade node
+
+- **Done.** The node window builds the arcade's section in code, only when the host has an
+  arcade; every `Arcade*` and `Play*` getter of the node view model asks `HasArcade` / `HasRoom`
+  first and reaches the module through a method compiled only on a role that has it; the strict
+  footprint test builds the view model and the window for the timer and the caller, polls once,
+  and asserts the tab stays empty and the assemblies stay out. §83.1.
+- **Found on the way:** the Linux footprint test had been green for a round while the exe on
+  Windows loaded both assemblies — a XAML instantiation and a bound getter's type are loads the
+  class-level test never saw. Run 231's Windows lane found it; run 232 read the exe clean.
+- **The honest limit:** the separate-process claim is the Windows lane's (`--footprint` on the
+  built exe); on Linux the class runs in its own process, which is the same claim short of the exe.
+
+### 65.2 — the watchdog's startup deadline
+
+- **Done.** `SupervisorPolicy.StartupDeadline` (120 s) and `Phase`; a child that never beats is
+  a startup hang — killed, noted in the crash note, restarted under the crash back-off, counted
+  against the loop cap. `WatchdogStartupTests`. §83.2.
+- **Found on the way:** the supervisor judged the heartbeat only once a first beat had arrived,
+  and the beat begins after the framework's own initialisation — the exact window a wedged
+  graphics device or an output takeover falls in.
+- **The honest limit:** 120 s is a policy number; a machine that legitimately takes longer to
+  start is restarted once, and the loop cap still holds it.
+
+### 65.3 — the render fence fails closed
+
+- **Done.** `RenderLocked` takes the seat first; no seat means black, a flush and a return, whole
+  again on the first frame after a seat frees; refusals listed and recorded as faults;
+  `fenceRefused` on STATE; the red *Fence seats* row naming the output; the *Render clock* row's
+  FIX words first. §83.3.
+- **Found on the way:** a second hole beside the first — a seat reseated while its sink sat idle
+  left the sink's later frames unfenced; the same fix (take the seat first) closes both.
+- **The honest limit:** a sink without a seat shows black, on purpose: visible on the wall and
+  named on the row, never a pooled frame outside the fence.
+
+### 65.4 — the shutdown as phases, the final save bounded, no DNS on the desk thread
+
+- **Done.** Eight named phases, every step on its own guard and on `ShutdownReport`;
+  `FailShutdownStep`; `ShutdownPhaseTests` fails each step in turn and proves the rest ran; the
+  final save serialised on the desk's thread and queued on the file lane behind the autosaves,
+  waited `ExitSaveWait`; the recovery record kept when it did not land, with a note for the next
+  start; `LocalAddresses` reads the interfaces. §83.4.
+- **Found on the way:** the exit awaited the lane for ten seconds and then saved synchronously
+  under the same lock — a dead share could hold the exit forever; and `Dns.GetHostAddresses` on
+  the desk's thread stalled the status strip on a venue whose resolver did.
+- **The honest limit:** an exit can end with the show unsaved — the truth is a record kept and a
+  note, not a second save that never returns.
+
+### 65.5 — one writer per remote client, explicit trust
+
+- **Done.** `WirePeer`; `ControlConfig.Bind`; `PairingToken` and `ControlConfig.Token`; `AUTH`,
+  `X-Patterns-Token`, `X-Patterns-Pass`; the TRUST block, the *Remote* row, module 3.5.0.
+  `WirePeerTests` (eight threads, no line interleaved), `PairingTokenTests`, `RemoteTrustTests`.
+  §83.5.
+- **Found on the way:** the handler and `Broadcast` were two writers on one socket; `?pass=` in
+  the pages' URLs was in every history and proxy log.
+- **The honest limit:** reads stay open by design (a tally page, a deck's feedbacks, a support
+  engineer's look), and a twelve-symbol token is a venue LAN's guard, not the internet's — the
+  bind address is what keeps the ports off the wrong network.
+
+### 65.6 — signal truth: the contract and the observation
+
+- **Done.** `SignalContract`, `SignalRate` (exact rationals, families), `SignalWords`,
+  `DisplayObservation` (QueryDisplayConfig, advanced colour, kept two seconds, `Source`),
+  `SignalTruth.Compare`, the technical view, `SCREEN n SIGNAL`, STATE, Super Check's SIGNAL rows,
+  the journal, the brief. §83.6.
+- **Found on the way:** the pacer's 2.5 % rate rule had been standing in for engineering truth —
+  59.94 read as 60 — and a driver's 59940/1000 needed snapping onto the canonical rational, not
+  rounding; a field the driver never fills had to stay *not available*, which is more grey than
+  a screenshot likes and the only honest reading.
+- **The honest limit:** the verdict is Windows' word against the contract; Windows reports what
+  it asked the display for, which is why 65.7 and 65.11 add the other two witnesses.
+
+### 65.7 — the EDID read and not judged
+
+- **Done.** `Edid.Parse` (base, CTA-861, DisplayID 1.3 / 2.0; every checksum; SHA-256),
+  `EdidInfo`, `EdidReader` (the registry, once per path, `Source`), ADVERTISED in the view, the
+  EDID and advertised rows, the JSON's `edid`, the brief's rule, `--signal-report` on the
+  Windows lane. `EdidTests` over a synthetic Patterns LED EDID with every checksum computed.
+  §83.7.
+- **Found on the way:** a 60 Hz VIC carries 59.94 too, as CTA-861 has it, so a capability list
+  that said only 60 would have marked a 59.94 contract amber for nothing; the monitor's device
+  path does not always lead to the instance key that holds the EDID, so the reader searches the
+  display keys by manufacturer and product bytes when it does not.
+- **The honest limit:** an EDID emulator's EDID reads as the display's — the reader cannot tell
+  a processor's emulated EDID from a panel's, and does not try; ADVERTISED never moves the verdict.
+
+### 65.8 — the planned screen's EDID
+
+- **Done.** `EdidPlan.ForContract`, `EdidWriter.Build` / `Hex` / `Export`; `SCREEN n EDID`,
+  `GET /api/screens/<n>/edid.bin|.hex|.txt`, the Planned EDID block and EXPORT EDID, the
+  *Planned EDID* line green when the display presents it. `EdidWriterTests`,
+  `PlannedEdidAppTests`. §83.8.
+- **Found on the way:** 1920×1200 at 50 through CVT-RB lands on 49.98 unless the vertical total
+  is walked onto the 10 kHz pixel-clock step — so the writer walks it, and the rate is exact; a
+  raster past 4095 does not fit an 18-byte descriptor and needs DisplayID, with a 1080 line in
+  the base for a source that reads none.
+- **The honest limit:** the planned EDID is the desk's offer; loading it into the processor or
+  the port's emulator is the engineer's step, and TEST ROUTE never changes a display's mode.
+
+### 65.9 — the machine fully exposed, the Known Good Rig
+
+- **Done.** `MachineProbe` → `MachineFacts` (the edition, the CPU and memory, DXGI's adapters
+  with the display class key's drivers, every display with its EDID, WASAPI's endpoints,
+  powrprof's plan, the scheduling switches), read on a worker and kept; `RigSnapshot`,
+  `RigDrift`, `KnownGoodRig` on the kernel; `RIG SAVE`, `RIG STATUS`; the RIG rows, STATE's
+  `machine.inventory` and `machine.rig`, the Machine page's blocks, the brief. `RigSnapshotTests`,
+  `KnownGoodRigAppTests`. §83.9.
+- **Found on the way:** a first draft blocked the desk's thread on the probe — `Read()` now
+  answers the kept reading and refreshes on a worker, `ReadNow()` is for SAVE, the bundle and a
+  test; an App test awaited a router answer on the UI thread and deadlocked (the headless
+  dispatcher must be pumped, never `.GetResult()`); a `DisplayFact` already existed in the core,
+  so the machine's is `MachineDisplayFact`.
+- **The honest limit:** the Windows paths ran on the Windows lane's Hyper-V runner — one path at
+  1024×768 reported as 1 Hz and shown as 1 Hz, one EDID, no discrete GPU, no audio endpoint; a
+  real rig has not run this code (QUALIFICATION.md §8).
+
+### 65.10 — the commissioning flow
+
+- **Done.** `Commissioning.Build` over `CommissioningFacts`; TEST ROUTE and the diagnostic
+  profile; `COMMISSION STATUS`; STATE's `commissioning`; the COMMISSIONING block; the
+  *Commission the rig* walkthrough; the assistant's facts and rule; module 3.6.0.
+  `CommissioningTests`, `CommissioningAppTests`. §83.10.
+- **Found on the way:** the facts had to say what a lost display is regardless of Enabled, what
+  a planned screen is excluding the lost, and skip disabled placements — the first App test
+  showed a boot display counted as lost the moment a handed-in observation replaced it;
+  `CompanionPalette.States` needed the `signal` and `rig` colour families on the desk's side
+  before the module's test would pass.
+- **Found in the suite:** one App run failed one test with the name swallowed by a quiet logger;
+  the rerun with names was 717 of 717. It is recorded here as an unnamed flake, not dismissed —
+  the next quiet run keeps the names.
+- **The honest limit:** OUTPUT TEST is *the outputs opened this run*, not *the engineer looked at
+  the wall*; a stage is green only for what the desk can see.
+
+### 65.11 — what the far end receives
+
+- **Done.** `InputStatus` (the query, the pattern with `w`, `h`, `hz`, `enc`, `bits`; PJLink
+  class 2's `IRES ?` published, a class 1 `ERR1` as no answer), `DeviceConfig.Input*`,
+  `DeviceService.InputReported`, `ScreenPlacement.Received / ReceivedBy / ReceivedAtUtc`,
+  `SCREEN n RECEIVED`, the Received lines and MISMATCH on the box's word, RECEIVED and FORGET on
+  the page, the journal, ENDPOINTS.md's *Input status*. `InputStatusTests`,
+  `InputStatusAppTests`. §83.11.
+- **Found on the way:** the received lines were first added in the no-contract branch, which
+  cannot judge anything (a grey line is all it may say); the device's report was subscribed
+  before the desk's actions existed; a bare `SCREEN n RECEIVED` parsed as the toggle it is not,
+  so it is an unknown line now.
+- **The honest limit:** the processors' own APIs (Brompton, Novastar, Barco, Christie) are typed
+  from their manuals into the card, not shipped as presets — they differ by model and firmware
+  and none was verified here.
+
+### 65.12 — the architecture
+
+- **Done.** `Patterns.Platform.Windows`; `PersistenceRuntime` in the core with the desk
+  delegating; `Secrets` with the bundle and the twin reading it; `docs/ADR.md` (ADR-001 to
+  ADR-011); MODULES.md rule 8; `ModuleRulesTests`' row and source scan; `PersistenceRuntimeTests`,
+  `SecretsTests`, `PlatformSeamsTests`. §83.12.
+- **Found on the way:** the bundle's redaction is `SupportBundle.Redact`, not `RemoteAdmin`'s
+  as the plan had it; `AdminPasscode` lives under `Install`, which the first secrets test found
+  by naming the wrong section; `PrepareRestart` still waited on the desk's old lane after the
+  peel; the lane's every type is the core's, so it went to the core rather than the desk and is
+  tested without one; xUnit's analyser refused a blocking `Wait` in a test — the lane tests await.
+  The first full App run then failed three tests with a null reference: the constructor writes a
+  migrated show back once (`SaveNow`) before it had built the lane — the lane is built right after
+  the kernel now, before the first save can ask for it, and the startup, recovery and takeover
+  tests that found it are green.
+- **The honest limit:** every role loads the platform assembly (the desk sets the build version
+  on it first thing); the footprint step measures the cost. The lane's behaviour is unchanged by
+  design — the round moves code and adds tests, it does not change what lands on the disk.
+
+### Found by CI (runs 231–236)
+
+- Run 231's Windows lane launched the timer node and read the arcade's and the room's assemblies
+  loaded — 65.1 came from it; run 232 read the exe clean.
+- Run 233's signal-report step read the Hyper-V runner's one path — 1024×768 at 1 Hz, reported
+  as 1 Hz, never rounded — and its EDID (MSH 062E), both checksums valid: the QueryDisplayConfig
+  layouts, the advanced-colour call and the registry read proven on a real Windows.
+- Runs 234, 235 and 236 (65.8 with 65.9; 65.10; 65.11) were green on every lane, the module's
+  package test and the Windows lane's signal report included.
+
+### The review's items, answered
+
+P0 done (65.1). P1.1 done (65.2). P1.2 done (65.3). P1.3 done (65.4). P1.4 and P1.5 done (65.5).
+P1.6 done (65.4, then peeled in 65.12). P1.7 done (65.4). The roadmap handed in during the round
+is answered line by line in PLAN §83.14: its Phase 1 was these items; its Phase 3 is 65.6 to
+65.11; its architecture items are 65.12 or a recorded decision (ADR-010, ADR-011); what was
+deferred says why.

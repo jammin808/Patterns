@@ -8,6 +8,50 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 65 — 2026-09-16 — the rig's truth: what the machine is, what each link carries, what the far end receives, a rig commissioned on evidence
+
+`round-65` · PLAN §83 · REVIEW round 65 · 2,206 tests · module 3.6.0
+
+- Every screen's link has a **signal contract** — raster, an exact rational rate (59.94 is not
+  60), encoding, depth, range, SDR/HDR, colour space, audio, connector — and the Screens page's
+  technical view holds it against three witnesses: what the display's **EDID advertises** (read
+  from Windows, parsed — base, CTA-861, DisplayID — hashed, never judged), what Windows
+  **observes** it sends (QueryDisplayConfig and the advanced colour; unknown stays unknown), and
+  what the **far end receives** (a processor's input status through an adapter — PJLink class 2
+  published, others typed from the manual — or the engineer's own reading, `SCREEN n RECEIVED`).
+  MATCH, MISMATCH, UNVERIFIED; one journal line per change; `SCREEN n SIGNAL`, STATE, Super
+  Check's SIGNAL rows, the assistant's brief, Companion's feedbacks.
+- The **planned EDID** built from the contract for a processor input or a PC's port — valid,
+  re-parsed, exported as `.bin`/`.hex` with a summary, served over HTTP and the wire — and the
+  view says when the display presents that very one.
+- The **machine fully exposed**: the Windows build, the CPU and memory, every adapter with its
+  driver, every display with its mode and EDID, every audio endpoint with its format, the power
+  plan, GPU scheduling, Game DVR — read on a worker, never on the desk's thread; on the Machine
+  page, in STATE, the bundle and the assistant's facts. **SAVE KNOWN GOOD** keeps the commissioned
+  rig beside the settings and every reading says what drifted (`RIG SAVE`, `RIG STATUS`).
+- **Commissioning** as seven stages judged from evidence — discover, assign, contract, capability,
+  output test, verify, known good — each with its next step; **TEST ROUTE** (1080p50 RGB 8-bit
+  stands in while a path is proven); `COMMISSION STATUS`; the Technician's walkthrough ticked by
+  the same evidence; Companion module 3.6.0 with the signal and rig actions, feedbacks, variables
+  and a Rig preset page.
+- The control network's **trust** made explicit: a bind address, a per-show pairing token for
+  every mutating verb (`AUTH` on the wire, `X-Patterns-Token` on the web; reads and loopback
+  open), the passcode out of every URL, five wrong tokens close the peer; **one writer per remote
+  peer** (replies in order, STATE latest-wins, a slow peer closed, never a torn line).
+- Hardening from the round-64 review: the arcade's tab built only on an arcade node; the
+  watchdog's **startup deadline** (a child that never beats is a startup hang, restarted under the
+  crash policy); the render fence **fails closed** (no seat, no pooled frame — black and a red row
+  naming the output); the **shutdown in eight named phases** with a fault injected into every step
+  in turn; the final save on the file lane with a bounded wait; no DNS on the desk's thread.
+- Architecture: `Patterns.Platform.Windows` — the Windows probes as an assembly of their own, the
+  desk's geometry crossing at one seam; the show's files on one lane in the core
+  (`PersistenceRuntime`); every secret in one list, the bundle's redaction JSON-aware (a box's
+  password and the twin's key masked now); `docs/ADR.md` with eleven decision records, two of them
+  designs deferred with their revisit conditions (renderer isolation; lifecycle and clocks).
+- The Windows lane proves the P/Invoke layouts on a real Windows on every push
+  (`--signal-report`); the processors' own APIs stay typed from their manuals; a real rig with a
+  discrete GPU and a processor has not run this code — `docs/QUALIFICATION.md` gains the rows.
+
 ## Round 64 — 2026-09-15 — the frame's lifetime said outright, the census, a release that can be rebuilt, the rig's record
 
 `round-64` · PLAN §82 · REVIEW round 64 · 2,122 tests · module 3.4.0

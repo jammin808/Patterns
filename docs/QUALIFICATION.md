@@ -133,6 +133,66 @@ transition per dwell if any.
 |------|---------|-----------------------|------------|-------------|------------|---------------|-----------|-----------------|--------|-------|
 |      |         |                       |            |             |            |               |           |                 |        |       |
 
+## 7. The signal, the EDID and the far end on a real link
+
+**Set up.** A screen on a real display or a processor input — an LED processor (Brompton,
+Novastar), a projector on PJLink class 2, or a monitor on HDMI or DisplayPort — with the contract
+the design asks for typed on the Screens page (`SCREEN n SIGNAL 3840x2160 50 RGB 8 SDR 709 HDMI`)
+and the output opened on it.
+
+**Do.** Read the technical view (DESIGN, ADVERTISED, REQUESTED, OBSERVED, RESULT). Load the
+planned EDID (EXPORT EDID, or `GET /api/screens/<n>/edid.bin`) into the processor input or the
+port's EDID emulator and reopen the output. For a processor with an input-status API, fill the
+device card's *Input carries*, *Ask* and *Reads* and watch RECEIVED; for one without, read its
+panel and type `SCREEN n RECEIVED <words>`. Then change one thing on purpose — the display's rate
+to 60 on a 50 contract — and read the verdict.
+
+**Read.** `SCREEN n SIGNAL` (the JSON: `design`, `advertised`, `observed`, `received`,
+`result`, the `edid` object's `sha256` and `problems`); STATE's screen rows (`signal`); Super
+Check's SIGNAL rows; the journal's verdict lines; `patterns-signal-report.txt` from
+`Patterns.exe --signal-report` for the raw paths and EDIDs.
+
+**Pass.** OBSERVED names the raster, the rate as an exact rational, the encoding and the depth
+for every active path on the real GPU (not *not available from this Windows path*); the EDID
+parses with no problems and its identity matches the display's label; after the planned EDID is
+loaded the *Planned EDID* line reads green and OBSERVED is the contract; RECEIVED agrees with
+the contract on the processor; the deliberate rate change turns the verdict to MISMATCH within
+two seconds with the rate line amber, and back to MATCH when undone, with exactly two journal
+lines.
+
+| date | machine / GPU / driver | build / manifest hash | display or processor | connector | observed (raster · rate · enc · bits) | EDID id · problems | planned EDID presented | received | verdict on the rate change | result | notes |
+|------|------------------------|-----------------------|----------------------|-----------|---------------------------------------|--------------------|------------------------|----------|----------------------------|--------|-------|
+|      |                        |                       |                      |           |                                       |                    |                        |          |                            |        |       |
+
+## 8. The known-good rig and the commissioning flow
+
+**Set up.** The show machine as it will run the show: its displays, its processor, its audio
+output, the desk's bindings and the contracts typed. The Machine page open (Admin → Machine).
+
+**Do.** Walk the Technician's *Commission the rig* walkthrough from DISCOVER to KNOWN GOOD,
+reading the COMMISSIONING block's next step at each stage; TEST ROUTE a screen and clear it;
+SAVE KNOWN GOOD with a note. Then change one thing on purpose — a display mode, or unplug an
+audio output — and read the KNOWN GOOD RIG block, Super Check's RIG rows and the journal.
+
+**Read.** `COMMISSION STATUS` (the seven lines, the headline, the next step, the percentage);
+`RIG STATUS` (the saved rig's note and time, the drift lines); STATE's `commissioning`,
+`machine.inventory` and `machine.rig`; Super Check's RIG rows; the machine's THIS COMPUTER
+block against what Windows' own Settings say for the GPU driver, the displays and the audio
+endpoints.
+
+**Pass.** Every stage goes green on the rig's own evidence with no line left UNVERIFIED; TEST
+ROUTE holds the flow at CONTRACT and its clearing frees it; the inventory names every GPU
+(driver version and date as the vendor's control panel shows them), every display with its EDID
+hash, every audio endpoint with its shared-mode format, the power plan and the scheduling
+switches, and the reading never stalls the desk's tick (the Machine page's tick budget shows no
+slow area); after SAVE KNOWN GOOD the RIG rows are green; the deliberate change turns the drift
+line amber (a mode) or red (an output gone) within one reading and journals once; undoing it
+journals once more and the rows are green again.
+
+| date | machine | build / manifest hash | stages green | test route held CONTRACT | inventory complete (GPU · displays · audio · power) | drift on the change | result | notes |
+|------|---------|-----------------------|--------------|--------------------------|-----------------------------------------------------|---------------------|--------|-------|
+|      |         |                       |              |                          |                                                     |                     |        |       |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute
