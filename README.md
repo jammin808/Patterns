@@ -23,6 +23,17 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The switcher's rules, the tile, the next take, the group** — CUT / TAKE do what the picker says
+  and nothing else: LOCKED is never taken (not by ALL ARMED, not by the tile's own TAKE), ARM counts
+  inside every scope, FOCUSED is the edited tile alone, TICKED and TICKED GROUPS the ticked alone, a
+  repeater never; a take that would move nothing is refused with the reason, and the line under the
+  picker says what the press will do before you press. A click on a wall tile makes it the editing
+  target (one selection with BUILD → PATTERN); its first edit makes it its own picture at once; a
+  library tile lands in its preview. Right-click any TAKE for **NEXT TRANSITION** — a kind, a rate or
+  a video sting for that one take, the show's own never moved; right-click any tile for its
+  **Group** (Main, Confidence, Info, Repeater). `TAKE NEXT wipe left 800`, `TAKE NEXT STING Whoosh`,
+  `SCREEN 2 GROUP confidence` on the wire, STATE's `take` row, Companion 3.8.0's Take page, the Eye's
+  words. The design: `docs/PLAN.md` §85.
 - **The God's Eye** — EYE in the rail, above NODES, wears the worst light in the show and its
   headline (*Main LED: MISMATCH — Rate: 50 Hz asked · 59.94 Hz observed*, or ALL GREEN); the Eye
   page is the whole show as one picture — every display, screen, source, device, deck, node, audio

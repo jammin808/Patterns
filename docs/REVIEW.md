@@ -2203,3 +2203,96 @@ The round-65 review left no open items; the roadmap's deferred rows (PLAN §83.1
 round answers the field's request for one picture of the show with the picture in the core, on
 the desk, on the deck and in the brief, and records what it is not (§84.6): evidence, never
 authority; the desk's alone; the lights of now.
+
+## Round 67 review — the switcher's rules, the tile's isolation, the next take and the group
+
+### 67.1 — research and design
+
+- **Done.** The switcher's five scopes, the wall tile, the editing target, the library flow, OWN,
+  the transitions and "group" read as they stood; the gaps named before the code (the keys read the
+  arming alone, a LOCKED tile's own TAKE went through, a library tile ignored the editing target,
+  OWN never followed an edit, the multiview's NEXT TAKE line never read the scope). §85.1.
+
+### 67.2 — the take rules enforced
+
+- **Done.** `TakePlan` is the one resolver behind CUT, TAKE and the wire; LOCKED never, ARM inside
+  every scope, a repeater never, everything outside kept; a plan that would move nothing is a
+  refusal with the reason. The wall shows the plan before the press; the snapshot's `TakeHeld` and
+  the multiview read it; ticks are spent only by a take that read them. §85.2. Tests: TakePlanTests
+  (7), TakeRulesAppTests, MultiviewTallyTests.
+
+### 67.3–67.5 — the tile's isolation, the library and Own on edit
+
+- **Done.** Every wall target is an editing target both ways with BUILD → PATTERN; an inert copy
+  of the programme is the editor's picture until the first edit, when a `ChangeTracker` flips the
+  target to its own picture at once; the tile's CUT / TAKE sends what its PVW shows; a library
+  tile lands in the target's preview under EDIT SAFE. §85.3. Tests: TileIsolationAppTests,
+  LibraryFlowAppTests, EditTargetAppTests.
+
+### 67.6 — the next transition
+
+- **Done.** `NextTransition`, `NextTakeService`, the drawer on every TAKE, the key face, `TAKE
+  NEXT` on the wire, STATE's `take` row, the Eye's word; `StingerAfter.Take` with the scoped cover,
+  the restore before the take, FOCUSED pinned at the press, the ticks spent as the take lands, the
+  landing never spending a one-shot set meanwhile. §85.4. Tests: NextTransitionTests (4),
+  NextTransitionAppTests (3), the stinger suites unchanged and green.
+
+### 67.7 — the group in the tile's menu
+
+- **Done.** THIS TILE → Group on the role verb with `SCREEN n GROUP` as its wire line; the Screens
+  page's arrangement answers a right-click with the same menu; a canvas sets every screen in it;
+  one refresh from the verb's hook whoever changed the group. §85.5. Tests: DeskMenuTests,
+  WireVocabularyTests, GroupMenuAppTests.
+
+### 67.8 — everything follows
+
+- **Done.** The Eye's screen nodes carry LOCKED, held, ticked and the canvas; the desk node the next
+  TAKE's plan; STATE's rows `ticked`. §85.6. Tests: EyeTests, TakeRulesAppTests.
+
+### 67.9 — the deck and the papers of the wire
+
+- **Done.** Companion 3.8.0 with the take and group actions, feedbacks, variables and a Take page;
+  the palettes equal; lines.txt every line the desk parses; REMOTE.md, COMPANION.md §14, the
+  module's README and HELP, the switcher's help. §85.7. Tests: the module's twenty,
+  CompanionModuleContractTests, CompanionPaletteTests.
+
+### Found on the way
+
+- A tile's TAKE sent the programme's preview, not the tile's own staged picture — fixed with
+  `SendToTargets(ownPicture: true)` reading `LookService.Shown`.
+- The library had no EDIT SAFE guard: a tile applied went straight to air when EDIT SAFE was off —
+  fixed; brand kits stay live by design.
+- The multiview's NEXT TAKE line was scope-blind — it now reads the snapshot's `TakeHeld`.
+- `ActionSpec` gave TAKE / CUT a bare shape; they carry a place and a transition now, and
+  `NextTransition` is desk-only with its own row.
+- Unlocking keeps OWN with the pinned picture (the lock pins the picture as the screen's own) — kept
+  as it was and tested for what it is: a take never overwrites a screen's own picture; OWN off or
+  Follow the programme does.
+- A screen whose hot-plugged placement is disabled reads grey on the wall — a found display starts
+  disabled by design; the tests enable it.
+- Under a sting the ticks were spent at the press (`Requested` counted as `Ok`) — the desk spends
+  them only on `Done` now; FOCUSED was re-read at the clip's end; the clip-end take consumed a
+  one-shot set during the clip; a sting for one tile covered every screen and its dead frame was
+  pinned on the screens outside the scope when the take landed — all four fixed in 67.6.
+- The drawer's on-marks compared the whole wire line, so "wipe left 800" marked nothing — the kind
+  and the rate are matched apart now.
+- The Screens page's picker rebuilt the wall itself; the verb's hook does it for every origin.
+- "is a info screen" — the article follows the word.
+- `SCREEN n <unknown word>` toggles the screen's output (pre-existing); GROUP joined the bare words
+  that are unknown, the default is recorded in §85.9.
+- No round tag has ever reached the remote and the tag script's table stopped at round 60, so the
+  maintainer's one command would have halted at round 62 ("neither in the table nor a tag"): rows 61
+  to 66 added with each round's last commit — the parent of the next round's first — and round 67 is
+  HEAD, as the script expects.
+
+### Found by CI
+
+- Run for 2e339e5 (the round-66 papers) was read at the check-in — see the next round's first item
+  if anything was red; this round's commits go up together after every suite ran green here (Core
+  808, Rendering 648, Devices 7, Audio 9, Assistant 37, Audience 2, App 731; the module's twenty).
+
+### The review's items, answered
+
+The round-66 review left no open items. This round answers the field's request that the desk's
+words be the desk's facts: the plan under the picker is what the press does, a tile's menu and
+its switches read one truth, and a transition chosen for one take is spent by that take alone.

@@ -8752,3 +8752,151 @@ within its budget.
 
 Counts at the end of the round: Core 795, Rendering 648, Devices 7, Audio 9, Assistant 37,
 Audience 2, App 721 — 2,219 in seven suites, the module's nineteen beside them.
+
+## 85. Round 67 — the switcher's rules, the tile's isolation, the next take and the group: what the desk says a press will do is what the press does
+
+The request: a library item selected changes the pattern type and is viewable at once in the
+preview of the screen being edited; in the switcher's CUT / TAKE the rules on what is armed and
+which screens can be included are enforced — LOCKED means locked, FOCUSED is only the tile being
+edited, ALL ARMED works on armed screens and no others, TICKED only on the ticked, TICKED GROUPS
+only on the group selected; a right-click on any TAKE chooses the next transition or a video sting
+without resetting the show's default; on the wall a selected tile is what every edit, preview,
+right-click and CUT / TAKE acts on, in step with BUILD → PATTERN → Editing target; a screen edited
+in the preview is switched into its own picture at once, distinct from PGM and every other screen;
+every tile's right-click shows and selects the group it belongs to; and everything updates the
+God's Eye. The doctrine carried through: *attempts are not facts* — a take that would move nothing
+is a refusal that says why, and a sting-driven take is `Requested` until the clip ends and the
+preview lands.
+
+### 85.1 Research and design (67.1)
+
+- The picker under CUT / TAKE had the five scopes as words, but the keys read the arming alone:
+  FOCUSED, TICKED and TICKED GROUPS were the FADE's scopes, not the take's; a LOCKED tile's own
+  TAKE went through; "ALL ARMED" on a rig with nothing armed reported a take that changed nothing.
+- On this desk a screen's "group" is its role — Main, Confidence, Info, Repeater — read on every
+  tile's foot line ("Its group: Confidence") and set on the Screens page alone; the lettered
+  canvases (GROUP A) are geometry from adjacency and cannot be chosen. The lower-case `group` in
+  STATE's screens rows is that letter.
+- A library tile applied to the programme whatever the editing target; OWN was set by SEND and a
+  tile's TAKE, never by an edit; the transition was one setting for every take; the multiview's
+  NEXT TAKE line read the arming and never the scope. `TakePlan` (one pure resolver), `EditTarget`
+  for every wall target, a per-pattern dirty flag, a one-shot `NextTransition` and a Group drawer
+  were the design.
+
+### 85.2 The take rules enforced (67.2)
+
+- `TakePlan.Resolve(rig, scope, focused, named)` is the one rule behind CUT, TAKE and the wire: the
+  rig's facts per target (canvas, repeater, locked, armed, ticked), the scope, the focus. LOCKED is
+  never taken — not by ALL ARMED, not by the tile's own TAKE (`ScreenTake` refuses with the lock's
+  words); ARM counts inside every scope, so FOCUSED on a held tile is a refusal; a repeater is never
+  taken; everything outside the scope keeps its picture exactly as an un-armed tile does (pinned as
+  its own, lifted by the next full send). A plan that would move nothing is a refusal with the
+  reason and the key to press ("… is not armed — ARM it, or use the tile's own TAKE"; "Every screen
+  is locked — unlock one (LOCK on its tile)"), never a `Done` that changed nothing.
+- The wall shows the plan under the picker before the press — `→ 2 · Right · 2 outside the scope
+  keep their picture`, or the refusal in the hold tone — refreshed on every selection, tick, arm and
+  lock. The runtime snapshot carries `TakeHeld`, pushed only when the set changed, so the
+  multiview's NEXT TAKE line and the NEXT / HELD badges read the same plan as the wall. A tick set
+  is spent only by a take that read it (TICKED, TICKED GROUPS); an ALL ARMED or FOCUSED take leaves
+  the ticks prepared for a fade exactly where the operator put them.
+
+### 85.3 The tile's isolation, the library and Own on edit (67.3–67.5)
+
+- Every wall target is an editing target: a click on a tile makes it `EditTarget`, and BUILD →
+  PATTERN → Editing target and the wall's selection are one selection both ways. A target that
+  follows the programme gets an inert copy of the programme as its assignment (`UseCustomPattern`
+  off), so the editors have a picture to edit and the tile's PVW draws it; copies left unedited are
+  dropped when the target is left.
+- A `ChangeTracker` per staged pattern — the game-engine dirty flag: a subscription, zero per-frame
+  cost — flips the target to its own picture on the first edit (a look, a kind, a property, a
+  library tile): OWN lights, the pin a take would lift is cleared, the programme and every other
+  screen are untouched, the banner says "its own picture now", the Eye is refreshed. The tile's
+  CUT / TAKE sends what its PVW shows — its own staged picture — not the programme's preview.
+- A library tile lands in the editing target's preview under EDIT SAFE (opened if it was off):
+  the pattern type changes and the target's PVW shows it at once; the tile is outlined in the
+  preview colour while it is the picture there. Brand kits stay live, as before.
+
+### 85.4 The next transition (67.6)
+
+- `NextTransition` (Core): what the next TAKE alone arrives by — a kind, a rate, a direction, a
+  reactive scene, a cut, or a video sting of the library — with the operator's words ("WIPE LEFT
+  800 ms", "STING Whoosh"), the wire's words back, and a parser over the same words a cue's recall
+  takes plus `STING <name or number>` and `CLEAR`; a VOG or an unknown name is a problem, never a
+  guess. `NextTakeService` (App) holds the pending one; the TAKE that spends it — the wall's or a
+  tile's — arrives by it through the bus's next-publish overrides and says so; a CUT is a cut and
+  keeps it; `State.Transition` on the Outputs page never moves.
+- The NEXT TRANSITION drawer is in every menu with a TAKE — a tile's, the wall's keys, the PGM and
+  PREVIEW strips — with the choice that is on marked by its kind whatever its rate and by its rate
+  whatever its kind, a rate row keeping the pending kind, the show's own as CLEAR, one row per video
+  sting. The TAKE key reads "TAKE · WIPE LEFT 800 ms" while one is pending; STATE's `take` row and
+  the Eye's desk node carry it. `TAKE NEXT <…>` is the verb (desk-only); bare `TAKE` and `CUT`
+  stay unknown.
+- A video sting as the transition: `StingerAfter.Take`. The press answers `Requested`, the clip
+  plays, and the preview lands through the same verb the key runs when the clip ends. The cover is
+  scoped: a sting for one tile or a ticked set covers those screens alone, as their own pictures
+  pinned as a take pins, the programme and every other screen untouched, their pictures before the
+  clip put back first — inside the one edit, never on a frame — so the take keeps the right ones; a
+  full take's sting is the sting as it always was. The poll tracks the clip by its own path and
+  reads a takeover from what the clip covers. Under a sting the ticks are spent as the take lands,
+  never at the press; FOCUSED is pinned to the tile focused at the press, so a click elsewhere
+  during the clip moves nothing; the landing never spends a one-shot set meanwhile; the label goes
+  back before the take, so the air is named after the show the sting was fired over.
+
+### 85.5 The group in the tile's menu (67.7)
+
+- THIS TILE → Group on every wall tile: the group the screen is in and the others one press away,
+  on `ShowActionKind.ScreenRole` — the verb the Screens page's picker and `SCREEN n ROLE` already
+  used — with `SCREEN n GROUP <word>` as the alias each row carries. Confidence and Info lock the
+  tile as the role is chosen, as the page does; a Repeater row without a source says where the
+  source is chosen; a canvas sets every screen in it, rides the action (no wire number), reads
+  "mixed — its screens differ" with nothing on, and never repeats; the PGM tile has no group.
+- The Screens page's arrangement answers a right-click on a screen with the same menu (kind
+  `screen`, the placement as the subject) and starts no drag; a screen inside a canvas gets its menu
+  there. One refresh whoever changed the group: the verb's hook rebuilds the editing targets, the
+  wall (badge and foot line), the take plan and the page's picker.
+
+### 85.6 Everything follows (67.8)
+
+- The Eye's screen nodes say LOCKED, held, ticked and the canvas they render through — the notable
+  state is the word, the default is silence; the desk node says "Next TAKE (the focused screen) →
+  1 · Left · 2 outside the scope keep their picture", or the plan's refusal; a node with no picker
+  says nothing. The facts' hash carries the new fields, so the picture is rebuilt when a switch
+  moves and only then. STATE's screens rows gain `ticked`; the `take` row is the plan and the
+  one-shot; the multiview reads `TakeHeld`; the brief reads the Eye's lines.
+
+### 85.7 The deck and the papers (67.9)
+
+- Companion module 3.8.0: `take_next` and `screen_group` actions, `take_next_set`, `take_next_sting`,
+  `screen_group_is` and `screen_ticked` feedbacks, `take_next`, `take_scope`, `take_words` and
+  `screen_n_group` variables, a Take preset page and MAIN / CONF keys per screen, the `take` colours
+  and `screen.group` held equal on both sides; lines.txt at 270 lines, every one the desk parses.
+  REMOTE.md (`TAKE NEXT`, `SCREEN n GROUP`, the `take` row, `screens[].ticked`), COMPANION.md §14,
+  the module's README and HELP, and the switcher's help rewritten around the rules as enforced.
+
+### 85.8 Performance
+
+- Nothing per frame. The take plan is resolved on a selection, tick, arm or lock change and on the
+  wall's refresh; `TakeHeld` is published only when the set changed; the dirty flag is a
+  subscription that fires once; the sting cover is a handful of assignment writes inside one edit;
+  the Eye's facts are hashed and rebuilt only when they moved; the menus are built on the
+  right-click as before.
+
+### 85.9 What was left, and why
+
+- A TICKED or TICKED GROUPS take under a sting re-reads the ticks as the clip ends (the tick set is
+  visible state, and there is no wire grammar for a list of ids); FOCUSED is pinned because a focus
+  moves silently with a click. A multi-id scope word is the natural next step if the field wants
+  the ticks frozen at the press too.
+- A scoped sting cover is abandoned when the operator takes over any covered screen during the
+  clip; the other covered screens keep the clip's picture until the clip ends, as the whole cover
+  always did on a partial takeover. Covering per screen and releasing per screen is the fuller
+  answer.
+- The Group drawer cannot choose a repeater's source — that stays on the Screens page (Mirror of);
+  the PGM tile has no group; the lettered canvas is read in the tile's title and never chosen.
+- `SCREEN n <any other word>` still toggles the screen's output, as it did before this round; GROUP
+  joined LOOK, PRESET, ROLE and PATTERN as a bare word that is unknown. Tightening the default is a
+  wire change for its own round.
+- The Companion presets carry NEXT: STING 1 alone; a sting by name is the action's field.
+
+Counts at the end of the round: Core 808, Rendering 648, Devices 7, Audio 9, Assistant 37,
+Audience 2, App 731 — 2,242 in seven suites, the module's twenty beside them.

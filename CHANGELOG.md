@@ -8,6 +8,35 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 67 — 2026-09-16 — the switcher's rules, the tile's isolation, the next take and the group
+
+`round-67` · PLAN §85 · REVIEW round 67 · 2,242 tests · module 3.8.0
+
+- **The take rules enforced.** One plan behind CUT and TAKE: LOCKED is never taken — not by ALL
+  ARMED, not by the tile's own TAKE; ARM counts inside every scope; FOCUSED is the edited tile alone
+  (the PGM tile means every armed screen); TICKED and TICKED GROUPS the ticked alone; a repeater
+  never; everything outside the scope keeps its picture. A take that would move nothing is a
+  refusal that says why. The wall shows the plan under the picker before the press; the multiview's
+  NEXT TAKE line and the NEXT / HELD badges read the same plan; a tick set is spent only by a take
+  that read it.
+- **The tile's isolation.** A click on a tile makes it the editing target, both ways with BUILD →
+  PATTERN; editing, the preview, the right-click menus and CUT / TAKE act on that tile alone; the
+  first edit of a screen's preview switches it to its own picture at once (OWN lights; the
+  programme and every other screen are untouched); a library tile lands in the target's preview
+  under EDIT SAFE and the pattern type changes at once.
+- **The next transition.** Right-click any TAKE — a tile's, the wall's keys, the PGM or PREVIEW
+  strip — for NEXT TRANSITION: a kind, a rate or a video sting for that one take; the TAKE key reads
+  what is pending; the show's own transition never moves; a CUT keeps it. A video sting covers the
+  take's screens alone and the preview lands when the clip ends. `TAKE NEXT <words | STING name |
+  CLEAR>` on the wire; STATE's `take` row.
+- **The group in the tile's menu.** THIS TILE → Group (Main, Confidence, Info, Repeater) on the same
+  verb as the Screens page and `SCREEN n GROUP`; the Screens page's arrangement answers a
+  right-click with the screen's menu; a canvas sets every screen in it; one refresh whoever changed
+  it.
+- **Everything follows.** The Eye's screen nodes say LOCKED, held, ticked and the canvas; the desk
+  node says what the next TAKE will do; STATE's rows carry `ticked`. Companion 3.8.0: `take_next`,
+  `screen_group`, the one-shot and the group as feedbacks and variables, a Take page.
+
 ## Round 66 — 2026-09-16 — the God's Eye: the whole show as one picture, its problems worst first, the eye moved from the desk, a key or the wire
 
 `round-66` · PLAN §84 · REVIEW round 66 · 2,219 tests · module 3.7.0
