@@ -646,7 +646,7 @@ public static class ShowBrief
         // which screens name an output — so a question about an info screen's soundtrack is answered from the rows.
         if (s.AudioRouting.Enabled || s.Output.Placements.Any(p => p.AudioOutput.Length > 0))
         {
-            sb.Append("Audio routing: ").Append(AudioRouting.Words(s)).Append(' ').AppendLine(AudioRouting.FollowWords(s));
+            sb.Append("Audio routing: ").Append(AudioRouting.Words(s)).Append(' ').AppendLine(AudioRouting.FollowWords(s, facts?.Air ?? s));   // round 72: the room's sound is the on-air picture's
         }
         if (facts is not null)
         {

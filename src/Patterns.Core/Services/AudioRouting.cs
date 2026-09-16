@@ -260,14 +260,22 @@ public static class AudioRouting
     /// sound follow the picture. Read at every plan, so a TAKE that changes what a screen shows
     /// changes what its output carries without a row being touched.
     /// </summary>
-    public static IReadOnlyList<FollowedRoute> FollowedRoutes(ShowState state)
+    public static IReadOnlyList<FollowedRoute> FollowedRoutes(ShowState state) => FollowedRoutes(state, state);
+
+    /// <summary>
+    /// Round 72: the configuration and the picture apart. The rows, the follow switch and which screen
+    /// names which output are the show's configuration (the editable state — an operator's row applies
+    /// live); what each screen shows is the picture the audience has (the on-air state — a frozen clone
+    /// while EDIT SAFE is open). An edit in the preview moves no sound until it is taken.
+    /// </summary>
+    public static IReadOnlyList<FollowedRoute> FollowedRoutes(ShowState config, ShowState picture)
     {
         var list = new List<FollowedRoute>();
-        if (!state.AudioRouting.FollowPicture) return list;
-        foreach (var p in state.Output.Placements)
+        if (!config.AudioRouting.FollowPicture) return list;
+        foreach (var p in config.Output.Placements)
         {
             if (!p.Enabled || p.AudioOutput.Length == 0) continue;
-            var source = SourceOfScreen(state, p.ScreenId);
+            var source = SourceOfScreen(picture, p.ScreenId);
             if (source is null) continue;
             list.Add(new FollowedRoute(p.ScreenId, source, p.AudioOutput));
         }
@@ -279,15 +287,18 @@ public static class AudioRouting
     /// routes the picture makes where no row names the same crosspoint (at 0 dB — the row's trim
     /// still applies). A row for the crosspoint, on or off, is the operator's word and wins.
     /// </summary>
-    public static IReadOnlyList<EffectiveRoute> EffectiveRoutes(ShowState state)
+    public static IReadOnlyList<EffectiveRoute> EffectiveRoutes(ShowState state) => EffectiveRoutes(state, state);
+
+    /// <summary>As above, with the picture the audience has apart from the configuration (round 72).</summary>
+    public static IReadOnlyList<EffectiveRoute> EffectiveRoutes(ShowState config, ShowState picture)
     {
         var list = new List<EffectiveRoute>();
-        foreach (var r in state.AudioRouting.Routes)
+        foreach (var r in config.AudioRouting.Routes)
         {
             if (r.Source.Length == 0 || r.Destination.Length == 0) continue;
             list.Add(new EffectiveRoute(r.Source, r.Destination, r.LevelDb, r.Enabled, false));
         }
-        foreach (var f in FollowedRoutes(state))
+        foreach (var f in FollowedRoutes(config, picture))
         {
             if (list.Any(e => string.Equals(e.Source, f.Source, StringComparison.OrdinalIgnoreCase) && string.Equals(e.Destination, f.Destination, StringComparison.OrdinalIgnoreCase))) continue;
             list.Add(new EffectiveRoute(f.Source, f.Destination, 0, true, true, f.ScreenId));
@@ -296,15 +307,21 @@ public static class AudioRouting
     }
 
     /// <summary>The route the picture makes for a crosspoint, or null — the matrix's cell reads it to say "follows the picture".</summary>
-    public static FollowedRoute? FollowedRoute(ShowState state, string source, string destination)
-        => FollowedRoutes(state).FirstOrDefault(f => string.Equals(f.Source, source, StringComparison.OrdinalIgnoreCase) && string.Equals(f.Destination, destination, StringComparison.OrdinalIgnoreCase));
+    public static FollowedRoute? FollowedRoute(ShowState state, string source, string destination) => FollowedRoute(state, state, source, destination);
+
+    /// <summary>As above, over the picture the audience has (round 72).</summary>
+    public static FollowedRoute? FollowedRoute(ShowState config, ShowState picture, string source, string destination)
+        => FollowedRoutes(config, picture).FirstOrDefault(f => string.Equals(f.Source, source, StringComparison.OrdinalIgnoreCase) && string.Equals(f.Destination, destination, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>A hash of the routes the picture makes now: the audio graph folds it into its topology signature, so a take rebuilds the lanes and a quiet tick does not.</summary>
-    public static long FollowSignature(ShowState state)
+    public static long FollowSignature(ShowState state) => FollowSignature(state, state);
+
+    /// <summary>As above, over the picture the audience has: a take moves it, an edit in the preview does not (round 72).</summary>
+    public static long FollowSignature(ShowState config, ShowState picture)
     {
         var h = new HashCode();
-        h.Add(state.AudioRouting.FollowPicture);
-        foreach (var f in FollowedRoutes(state))
+        h.Add(config.AudioRouting.FollowPicture);
+        foreach (var f in FollowedRoutes(config, picture))
         {
             h.Add(f.ScreenId);
             h.Add(f.Source);
@@ -331,12 +348,16 @@ public static class AudioRouting
     /// Main → Room desk (the programme), Info → Info HDMI (its own picture), Stage left → Stage HDMI
     /// (Main's picture, repeated)." / "… — no screen names a sound output yet (Screens page → Sound out)." / "…: off — the rows alone."
     /// </summary>
-    public static string FollowWords(ShowState state)
+    public static string FollowWords(ShowState state) => FollowWords(state, state);
+
+    /// <summary>As above, with the picture the audience has apart (round 72): the words say what the room hears, never what the preview would.</summary>
+    public static string FollowWords(ShowState config, ShowState picture)
     {
+        var state = config;
         if (!state.AudioRouting.FollowPicture) return "Sound follows the picture: off — the matrix is the rows alone.";
-        var followed = FollowedRoutes(state);
+        var followed = FollowedRoutes(config, picture);
         if (followed.Count == 0) return "Sound follows the picture — no screen names a sound output yet (Screens page → Sound out, or SCREEN n AUDIO <output>).";
-        var parts = followed.Select(f => $"{AudioMonitorRule.LabelFor(state, f.ScreenId)} → {DestinationLabel(state, f.Destination)} ({SourceOfScreenWords(state, f.ScreenId)})");
+        var parts = followed.Select(f => $"{AudioMonitorRule.LabelFor(state, f.ScreenId)} → {DestinationLabel(state, f.Destination)} ({SourceOfScreenWords(picture, f.ScreenId)})");
         return $"Sound follows the picture on {followed.Count} screen{(followed.Count == 1 ? "" : "s")}: {string.Join(", ", parts)}.";
     }
 
@@ -482,11 +503,15 @@ public static class AudioRouting
     /// duck level, or to silence, or the VOG kept off it. The attack and release are not here: this
     /// is the target; the App's envelopes approach it.
     /// </summary>
-    public static IReadOnlyList<AudioDestinationPlan> Resolve(ShowState state, bool vogPlaying)
+    public static IReadOnlyList<AudioDestinationPlan> Resolve(ShowState state, bool vogPlaying) => Resolve(state, state, vogPlaying);
+
+    /// <summary>The plan with the configuration and the picture apart (round 72): the rows, the trims and the VOG policy are the configuration's; what a screen's sound is comes from the picture the audience has.</summary>
+    public static IReadOnlyList<AudioDestinationPlan> Resolve(ShowState config, ShowState picture, bool vogPlaying)
     {
+        var state = config;
         var plans = new List<AudioDestinationPlan>();
         if (!state.AudioRouting.Enabled) return plans;
-        var routes = EffectiveRoutes(state);
+        var routes = EffectiveRoutes(config, picture);
         // The destinations: the rows in their order, then the outputs the picture alone routes to (round 69) — no row, the defaults.
         var keys = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -536,8 +561,11 @@ public static class AudioRouting
     }
 
     /// <summary>The plan for one destination, or null when nothing routes to it (or the matrix is off).</summary>
-    public static AudioDestinationPlan? PlanFor(ShowState state, string key, bool vogPlaying)
-        => Resolve(state, vogPlaying).FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
+    public static AudioDestinationPlan? PlanFor(ShowState state, string key, bool vogPlaying) => PlanFor(state, state, key, vogPlaying);
+
+    /// <summary>As above, with the picture the audience has apart from the configuration (round 72).</summary>
+    public static AudioDestinationPlan? PlanFor(ShowState config, ShowState picture, string key, bool vogPlaying)
+        => Resolve(config, picture, vogPlaying).FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Where a sound of the show's own — the playlist, a VOG, a stinger, the tone — opens: with the

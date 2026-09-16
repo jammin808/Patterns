@@ -106,7 +106,7 @@ public sealed partial class ShowActions
                 var on = OverlayControl.SwitchTo(a.Value, State.AudioRouting.FollowPicture);
                 State.AudioRouting.FollowPicture = on;
                 _s.AudioGraph?.Reconcile();
-                return ActionResult.Done(AudioRouting.FollowWords(State) + (on && !State.AudioRouting.Enabled ? " Routing is off — AUDIO ROUTING ON puts the matrix in charge." : ""));
+                return ActionResult.Done(AudioRouting.FollowWords(State, _s.AirState) + (on && !State.AudioRouting.Enabled ? " Routing is off — AUDIO ROUTING ON puts the matrix in charge." : ""));
             }
 
             case ShowActionKind.SpotifyPlay:

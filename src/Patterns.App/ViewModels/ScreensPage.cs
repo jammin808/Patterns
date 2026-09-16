@@ -1067,7 +1067,7 @@ public sealed class ScreensPage : Observable
             var follow = !State.AudioRouting.FollowPicture ? "follow is off (Audio page, or AUDIO FOLLOW ON) — the rows alone"
                 : !State.AudioRouting.Enabled ? "follows the picture once routing is on (Audio page → ROUTING)"
                 : "follows the picture, moving with every take";
-            return $"Sound out: {AudioRouting.SourceOfScreenWords(State, p.ScreenId)} → {AudioRouting.DestinationLabel(State, p.AudioOutput)} — {follow}.";
+            return $"Sound out: {AudioRouting.SourceOfScreenWords(_services.AirState, p.ScreenId)} → {AudioRouting.DestinationLabel(State, p.AudioOutput)} — {follow}.";
         }
     }
 

@@ -268,7 +268,7 @@ public sealed class AudioPage : Observable
     {
         var cfg = State.AudioRouting;
         var sources = AudioRouting.Sources(State);
-        var followedAll = AudioRouting.FollowedRoutes(State);
+        var followedAll = AudioRouting.FollowedRoutes(State, _services.AirState);   // round 72: the picture the audience has
         var stamp = cfg.Enabled + "|" + string.Join(";", cfg.Destinations.Select(d => d.Key + "=" + d.Label)) + "|" + string.Join(";", sources.Select(s => s.Id)) + "|"
                     + string.Join(";", cfg.Routes.Select(r => $"{r.Source}>{r.Destination}@{r.LevelDb:0.#}/{r.Enabled}")) + "|"
                     + cfg.FollowPicture + "|" + string.Join(";", followedAll.Select(f => $"{f.ScreenId}:{f.Source}>{f.Destination}"));   // round 69: a take moves the followed cells
@@ -279,7 +279,7 @@ public sealed class AudioPage : Observable
         Raise(nameof(RoutingFollow));
         var graph = _services.AudioGraph;
         RoutingWords = AudioRouting.Words(State) + (cfg.Enabled && graph is not null ? " " + graph.Status : "");
-        RoutingFollowWords = AudioRouting.FollowWords(State);
+        RoutingFollowWords = AudioRouting.FollowWords(State, _services.AirState);
         var pages = _services.WebIn.AudioRouteNotes().Select(n => $"{State.InputLabel(n.Key, WebAddress.ShortName(n.Key[4..]))}: {(n.Device.Length == 0 ? "the machine's default output" : n.Device)}{(n.Note.Length > 0 ? " — " + n.Note : "")}").ToList();
         RoutingPagesWords = pages.Count == 0 ? "" : "Web pages: " + string.Join(" · ", pages);
         if (rebuild)

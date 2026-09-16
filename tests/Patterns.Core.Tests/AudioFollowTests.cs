@@ -243,4 +243,66 @@ public class AudioFollowTests
         // The help knows the words.
         Assert.Contains(HelpTopics.All, t => t.Id == "audio-routing" && t.Wire.Contains("AUDIO FOLLOW") && t.Wire.Contains("SCREEN n AUDIO") && t.Body.Contains("follows the picture"));
     }
+
+    /// <summary>
+    /// Round 72: the configuration and the picture apart. The rows, the follow switch and which
+    /// screen names which output are the show's configuration (the editable state — a row applies
+    /// live); what each screen shows is the picture the audience has (the on-air state — a frozen
+    /// clone while EDIT SAFE is open). An edit in the preview moves no sound until it is taken.
+    /// </summary>
+    [Fact]
+    public void TheRoutesFollowTheOnAirPictureAndTheRowsTheConfiguration()
+    {
+        var config = Show();
+        config.AudioRouting.Enabled = true;
+        var air = JsonUtil.Clone(config);                                                              // EDIT SAFE opens: the room's picture is a frozen clone
+        Assert.Equal(AudioRouting.FollowSignature(config), AudioRouting.FollowSignature(config, air)); // nothing edited: the same routes
+
+        // The main wall gets its own picture in the PREVIEW alone: the room still has the programme on it.
+        ContentTargets.SetOwnPattern(config, "MAIN", true);
+        var before = AudioRouting.FollowSignature(config, air);
+        Assert.Equal("screen:MAIN", AudioRouting.SourceOfScreen(config, "MAIN"));                     // the preview would
+        Assert.Equal("programme", AudioRouting.SourceOfScreen(air, "MAIN"));                          // the room does
+        var followed = AudioRouting.FollowedRoutes(config, air);
+        Assert.Equal("programme", followed.Single(f => f.ScreenId == "MAIN").Source);
+        Assert.Equal("programme", followed.Single(f => f.ScreenId == "REP").Source);
+        Assert.True(AudioRouting.PlanFor(config, air, "dev:Main HDMI", false)!.Carries("programme"));
+        Assert.False(AudioRouting.PlanFor(config, air, "dev:Main HDMI", false)!.Carries("screen:MAIN"));
+        Assert.Equal(before, AudioRouting.FollowSignature(config, air));                              // the graph does not rebuild for a preview edit
+        Assert.Contains("Main wall → Main HDMI (the programme)", AudioRouting.FollowWords(config, air));
+        Assert.Contains("Main wall → Main HDMI (its own picture)", AudioRouting.FollowWords(config));   // the single-state reading is the preview's
+
+        // The configuration applies live: a row, a screen's output, a screen switched off, the follow switch.
+        AudioRouting.SetRoute(config, "music", "dev:Main HDMI", -6);
+        var effective = AudioRouting.EffectiveRoutes(config, air);
+        Assert.Contains(effective, r => r.Source == "music" && r.Destination == "dev:Main HDMI" && !r.Followed && r.LevelDb == -6);
+        Assert.Contains(effective, r => r.Source == "programme" && r.Destination == "dev:Main HDMI" && r.Followed);
+        config.Output.Placements.First(p => p.ScreenId == "REP").AudioOutput = "dev:Stage XLR";
+        Assert.Equal("dev:Stage XLR", AudioRouting.FollowedRoutes(config, air).Single(f => f.ScreenId == "REP").Destination);
+        config.Output.Placements.First(p => p.ScreenId == "INFO2").Enabled = false;
+        Assert.DoesNotContain(AudioRouting.FollowedRoutes(config, air), f => f.ScreenId == "INFO2");
+        config.AudioRouting.FollowPicture = false;
+        Assert.Empty(AudioRouting.FollowedRoutes(config, air));
+        Assert.Null(AudioRouting.FollowedRoute(config, air, "programme", "dev:Main HDMI"));
+        config.AudioRouting.FollowPicture = true;
+
+        // The take: the picture moves, and only then the lanes.
+        before = AudioRouting.FollowSignature(config, air);
+        ContentTargets.SetOwnPattern(air, "MAIN", true);
+        Assert.NotEqual(before, AudioRouting.FollowSignature(config, air));
+        followed = AudioRouting.FollowedRoutes(config, air);
+        Assert.Equal("screen:MAIN", followed.Single(f => f.ScreenId == "MAIN").Source);
+        Assert.Equal("screen:MAIN", followed.Single(f => f.ScreenId == "REP").Source);                // the repeater carries the wall it repeats
+        var plan = AudioRouting.Resolve(config, air, vogPlaying: false);
+        Assert.True(plan.Single(p => p.Key == "dev:Main HDMI").Carries("screen:MAIN"));
+        Assert.False(plan.Single(p => p.Key == "dev:Main HDMI").Carries("programme"));
+        Assert.True(plan.Single(p => p.Key == "dev:Main HDMI").Carries("music"));                     // the operator's row stands beside it
+        Assert.NotNull(AudioRouting.FollowedRoute(config, air, "screen:MAIN", "dev:Main HDMI"));
+        Assert.Contains("Main wall → Main HDMI (its own picture)", AudioRouting.FollowWords(config, air));
+
+        // One state for both is what it always was: the single-state readings are the pair with itself.
+        Assert.Equal(AudioRouting.FollowSignature(air), AudioRouting.FollowSignature(air, air));
+        Assert.Equal(AudioRouting.FollowedRoutes(air).Count, AudioRouting.FollowedRoutes(air, air).Count);
+        Assert.Equal(AudioRouting.FollowWords(air), AudioRouting.FollowWords(air, air));
+    }
 }

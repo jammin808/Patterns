@@ -113,7 +113,7 @@ public static class DeskMenuFacts
             // Round 69: the output the sound leaves by (one for the whole canvas, or none), what the sound is now, and the outputs to choose from.
             SoundOut = first is { AudioOutput.Length: > 0 } && placements.All(p => p.AudioOutput == first.AudioOutput) ? AudioRouting.DestinationLabel(state, first.AudioOutput) : "",
             SoundOutKey = first is { AudioOutput.Length: > 0 } && placements.All(p => p.AudioOutput == first.AudioOutput) ? first.AudioOutput : "",
-            SoundSource = !isCanvas && first is not null ? AudioRouting.SourceOfScreenWords(state, first.ScreenId) : "",
+            SoundSource = !isCanvas && first is not null ? AudioRouting.SourceOfScreenWords(s.AirState, first.ScreenId) : "",
             SoundChoices = AudioRouting.Destinations(state, s.AudioEndpoints.RenderNames).Select(d => (d.Key, d.Label)).ToList(),   // round 71: the catalogue's list — a menu opens without asking Windows
         };
     }

@@ -282,10 +282,11 @@ public sealed class CommandRouter : IRouter
     private object AudioRoutingRow()
     {
         var s = _services.State;
+        var air = _services.AirState;   // round 72: what a screen's sound is comes from the picture the audience has
         var graph = _services.AudioGraph;
         var vog = _services.AudioPlayer.VogSoundPlaying;
-        var plan = AudioRouting.Resolve(s, vog);
-        var effective = AudioRouting.EffectiveRoutes(s);
+        var plan = AudioRouting.Resolve(s, air, vog);
+        var effective = AudioRouting.EffectiveRoutes(s, air);
         // The destinations: the rows in their order, then any output the picture alone routes to (round 69) — no row, the defaults.
         var keys = s.AudioRouting.Destinations.Where(d => d.Key.Length > 0).Select(d => d.Key).ToList();
         foreach (var p in plan)
@@ -299,8 +300,8 @@ public sealed class CommandRouter : IRouter
             status = graph?.Status ?? "",
             vog,
             follow = s.AudioRouting.FollowPicture,                                          // round 69: the sound follows the picture
-            followWords = AudioRouting.FollowWords(s),
-            followed = AudioRouting.FollowedRoutes(s).Select(f => new { screen = f.ScreenId, source = f.Source, destination = f.Destination, label = AudioRouting.DestinationLabel(s, f.Destination), what = AudioRouting.SourceOfScreenWords(s, f.ScreenId) }).ToArray(),
+            followWords = AudioRouting.FollowWords(s, air),
+            followed = AudioRouting.FollowedRoutes(s, air).Select(f => new { screen = f.ScreenId, source = f.Source, destination = f.Destination, label = AudioRouting.DestinationLabel(s, f.Destination), what = AudioRouting.SourceOfScreenWords(air, f.ScreenId) }).ToArray(),
             sources = AudioRouting.Sources(s).Select(src => new { id = src.Id, label = src.Label, kind = src.Kind.ToString().ToLowerInvariant() }).ToArray(),
             destinations = keys.Select(key =>
             {

@@ -210,7 +210,7 @@ public sealed class AudioGraphService : IDisposable
     {
         var h = new HashCode();
         h.Add(vog);
-        h.Add(AudioRouting.FollowSignature(_services.State));     // round 69: a take that moves a screen's picture moves its output's lanes
+        h.Add(AudioRouting.FollowSignature(_services.State, _services.AirState));   // round 72: the picture the audience has, never the preview's     // round 69: a take that moves a screen's picture moves its output's lanes
         foreach (var (key, buses, _, preRoll) in _services.Video.Taps())
         {
             h.Add(key);
@@ -247,7 +247,10 @@ public sealed class AudioGraphService : IDisposable
         if (_timer is null)
         {
             _timer = global::Patterns.App.Services.DeskTimers.Make(Tick);
-            _timer.Tick += (_, _) => Reconcile();
+            // Round 72: the 50 ms tick is the quiet one — the envelopes and the meters advance, and the plan is
+            // resolved only when the topology's signature moved. It used to call Reconcile, which forces a
+            // rebuild: twenty plans a second on the desk's thread while the matrix was on, for nothing.
+            _timer.Tick += (_, _) => Poll();
             _timer.Start();
             _lastTickUtc = nowUtc;
         }
@@ -266,7 +269,7 @@ public sealed class AudioGraphService : IDisposable
         _topologyDirty = false;
         _lastSignature = signature;
         TopologyRebuilds++;
-        var plan = AudioRouting.Resolve(state, vog);
+        var plan = AudioRouting.Resolve(state, _services.AirState, vog);   // round 72: the rows are the configuration's; the sources are the on-air picture's
         _plan = plan;
 
         // The taps: every tapped clip by the source its pictures make it, then the show's own sound.

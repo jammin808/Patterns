@@ -145,7 +145,7 @@ public sealed partial class ShowActions
                 var geo = Rig.Geometry(State, _s.Screens.All);
                 var names = string.Join(", ", ids.Select(id => geo.LabelFor(State, id)));
                 if (destination.Length == 0) return ActionResult.Done($"{names}: no sound output of its own — its sound leaves where the Audio page's rows put it.");
-                var what = ids.Count == 1 ? AudioRouting.SourceOfScreenWords(State, ids[0]) : "what each shows";
+                var what = ids.Count == 1 ? AudioRouting.SourceOfScreenWords(_s.AirState, ids[0]) : "what each shows";
                 return ActionResult.Done($"{names} → {AudioRouting.DestinationLabel(State, destination)}: the sound follows the picture ({what} now).{(switchedOn ? " Audio routing switched on." : "")}{(State.AudioRouting.FollowPicture ? "" : " Follow is off — AUDIO FOLLOW ON lets the picture route it.")}");
             }
             case ShowActionKind.ScreenSignal:
@@ -368,7 +368,7 @@ public sealed partial class ShowActions
                     signal = SignalSummary(x.Placement, x.Info, clockHz),                   // round 65: the contract against what Windows sends — design, observed, result
                     audioOut = x.Placement.AudioOutput,                                       // round 69: the output its sound leaves by (a destination key), "" for none
                     audioOutLabel = x.Placement.AudioOutput.Length > 0 ? AudioRouting.DestinationLabel(State, x.Placement.AudioOutput) : "",
-                    audioSource = x.Placement.AudioOutput.Length > 0 ? AudioRouting.SourceOfScreenWords(State, x.Placement.ScreenId) : "",   // what its picture's sound is now
+                    audioSource = x.Placement.AudioOutput.Length > 0 ? AudioRouting.SourceOfScreenWords(_s.AirState, x.Placement.ScreenId) : "",   // what its picture's sound is now
                 };
             })
             .ToArray();

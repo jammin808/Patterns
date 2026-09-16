@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.Core.Menus;
 using Patterns.Core.Model;
@@ -131,6 +132,94 @@ public class AudioFollowAppTests
             placement.UseCustomPattern = true;
             graph.Poll();
             Assert.True(graph.TopologyRebuilds > rebuilds, "a take that moves the screen's picture rebuilds the lanes");
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Round 72: EDIT SAFE. The routes the picture makes read the picture the audience has — the
+    /// frozen programme — never the preview's edit: a screen given its own picture in the preview
+    /// keeps carrying the programme's sound, the graph's lanes do not rebuild, and STATE, the tile's
+    /// menu and the Audio page say what the room hears. The send moves the picture, and only then
+    /// the sound; a discard moves nothing.
+    /// </summary>
+    [AvaloniaFact]
+    public void AnEditInThePreviewMovesNoSoundUntilItIsSent()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            var router = new CommandRouter(services);
+            var state = vm.State;
+            var placement = state.Output.Placements[0];
+            var id = placement.ScreenId;
+            placement.AudioOutput = "dev:Test HDMI";
+            state.AudioRouting.Enabled = true;
+            state.AudioRouting.FollowPicture = true;
+            Assert.Equal("programme", Assert.Single(AudioRouting.FollowedRoutes(services.State, services.AirState)).Source);
+
+            var graph = services.AudioGraph!;
+            graph.Reconcile();
+
+            // EDIT SAFE opens; the screen gets its own picture in the preview alone.
+            services.Sandbox.Enter();
+            Assert.True(services.Sandbox.Active);
+            Assert.NotSame(services.State, services.AirState);
+            ContentTargets.SetOwnPattern(vm.State, id, true);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(AudioRouting.ScreenSource(id), AudioRouting.SourceOfScreen(services.State, id));                       // the preview would
+            Assert.Equal("programme", Assert.Single(AudioRouting.FollowedRoutes(services.State, services.AirState)).Source);   // the room does
+            // The graph: the side effects of the publish force a reconcile, and the plan it builds is the room's — the
+            // lane carries the programme, not the preview's own picture — and the quiet ticks after it resolve nothing.
+            graph.Poll();
+            AudioDestinationPlan Lane() => graph.Plan.Single(p => p.Key == "dev:Test HDMI");
+            Assert.True(Lane().Carries("programme"), "the lane carries what the room sees");
+            Assert.False(Lane().Carries(AudioRouting.ScreenSource(id)), "a preview edit moves no lane");
+            var rebuilds = graph.TopologyRebuilds;
+            var quiet = graph.QuietTicks;
+            for (var i = 0; i < 3; i++) graph.Poll();
+            Assert.Equal(rebuilds, graph.TopologyRebuilds);
+            Assert.Equal(quiet + 3, graph.QuietTicks);
+
+            // Everything that says so reads the room: STATE, the tile's menu, the Audio page's words.
+            var st = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement;
+            var routing = st.GetProperty("audioRouting");
+            var row = Assert.Single(routing.GetProperty("followed").EnumerateArray());
+            Assert.Equal("programme", row.GetProperty("source").GetString());
+            Assert.Equal("the programme", row.GetProperty("what").GetString());
+            Assert.Contains("(the programme)", routing.GetProperty("followWords").GetString());
+            Assert.Equal("the programme", DeskMenuFacts.Screen(services, id).SoundSource);
+            vm.Audio.RefreshRouting(force: true);
+            Assert.Contains("(the programme)", vm.Audio.RoutingFollowWords);
+
+            // The send: the picture moves, and with it the sound.
+            services.Sandbox.SendAll();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(AudioRouting.ScreenSource(id), Assert.Single(AudioRouting.FollowedRoutes(services.State, services.AirState)).Source);
+            graph.Poll();
+            Assert.True(graph.TopologyRebuilds > rebuilds, "the send moves the screen's picture, so the lanes rebuild");
+            Assert.True(Lane().Carries(AudioRouting.ScreenSource(id)), "the lane carries the screen's own sound now");
+            Assert.False(Lane().Carries("programme"));
+            Assert.Equal("its own picture", DeskMenuFacts.Screen(services, id).SoundSource);
+            st = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement;
+            Assert.Equal(AudioRouting.ScreenSource(id), Assert.Single(st.GetProperty("audioRouting").GetProperty("followed").EnumerateArray()).GetProperty("source").GetString());
+
+            // An edit back in the preview, then discarded: the room's sound never moved.
+            if (!services.Sandbox.Active) services.Sandbox.Enter();
+            ContentTargets.SetOwnPattern(vm.State, id, false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(AudioRouting.ScreenSource(id), Assert.Single(AudioRouting.FollowedRoutes(services.State, services.AirState)).Source);
+            graph.Poll();
+            Assert.True(Lane().Carries(AudioRouting.ScreenSource(id)));
+            Assert.False(Lane().Carries("programme"));
+            services.Sandbox.Discard();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(AudioRouting.ScreenSource(id), Assert.Single(AudioRouting.FollowedRoutes(services.State, services.AirState)).Source);
+            Assert.Equal(AudioRouting.ScreenSource(id), AudioRouting.SourceOfScreen(services.State, id));                       // the discard put the room's picture back in the preview
         }
         finally
         {
