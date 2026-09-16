@@ -79,6 +79,7 @@ export const STATES = {
 	install: { schedule: 'green', announcement: 'amber', advert: 'steel' },
 	signal: { match: 'green', mismatch: 'red' },
 	rig: { same: 'green', drift: 'amber', commissioned: 'green' },
+	eye: { red: 'red', amber: 'amber', green: 'green' },
 	stream: { active: 'red', trouble: 'amber' },
 	device: { open: 'green', fault: 'red' },
 	tone: { on: 'amber' },

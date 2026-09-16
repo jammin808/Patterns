@@ -464,6 +464,14 @@ public sealed class ShowFacts
     /// headline first; so "is the rig ready?" is answered from the flow's evidence, stage by stage.
     /// </summary>
     public IReadOnlyList<string> Commissioning { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Round 66: the God's Eye — the whole show as one picture, in words: the headline and the counts,
+    /// then every thing that is red or amber with what is wrong and what it links to; so "what is
+    /// wrong right now?" is answered worst first and "what does screen 2 depend on?" from its links,
+    /// the same picture the operator sees on the Eye page, never a guess.
+    /// </summary>
+    public IReadOnlyList<string> Eye { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -682,6 +690,15 @@ public static class ShowBrief
                 // lines — the stage that is not green is where the engineer is, and its words are the next step.
                 sb.AppendLine("The commissioning flow (✓ green, ! amber, ✗ red, · not yet — the first stage not green is where the engineer is; answer 'is the rig ready?' and 'what next?' from these lines and their next steps, never from a guess):");
                 foreach (var line in facts.Commissioning) sb.Append("  ").AppendLine(line);
+            }
+            if (facts.Eye.Count > 0)
+            {
+                // The God's Eye (round 66): the whole show as one picture — every thing with its light and
+                // what it links to. "What is wrong?" is answered from the problems in their order, "what
+                // feeds / drives / shows X?" from the links; the operator sees the same picture on the Eye
+                // page, and EYE FOCUS <thing> on the wire puts their eye on it.
+                sb.AppendLine("The God's Eye — the whole show as one picture (each thing with its light: red is wrong now, amber needs a look, green is right, grey is off or unknown; the links say what feeds, drives, shows or controls what; the problems are worst first). Answer 'what is wrong?' from the problems in this order and 'what does X depend on?' from its links, never from a guess; EYE FOCUS <thing> on the wire puts the operator's eye on it:");
+                foreach (var line in facts.Eye) sb.Append("  ").AppendLine(line);
             }
         }
         else

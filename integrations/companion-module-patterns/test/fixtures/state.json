@@ -1,56 +1,461 @@
 {
-  "show": "Gala", "rev": 42, "version": "1.9.0", "airLabel": "Look: Awards", "linked": 1,
+  "show": "Gala",
+  "rev": 42,
+  "version": "1.9.0",
+  "airLabel": "Look: Awards",
+  "linked": 1,
   "cuestack": {
-    "armed": true, "hold": false, "seq": 7, "listRev": 3, "confirm": "",
-    "previous": { "id": "c1", "number": "01.010", "name": "Walk-in" },
-    "standby": { "id": "c2", "number": "01.020", "name": "Keynote", "requireConfirm": false, "plannedStart": "19:30" },
-    "next": [ { "id": "c3", "number": "01.030", "name": "Q&A" }, { "id": "c4", "number": "01.040", "name": "Break" } ],
-    "last": { "id": "c1", "number": "01.010", "name": "Walk-in", "outcome": "Done", "execution": "a1b2c3d4", "pending": 0 },
-    "timing": { "offsetSeconds": 420, "offset": "7 MIN LATE", "nextBreak": "01.040 Break 20:05", "end": "22:00", "follow": "" }
+    "armed": true,
+    "hold": false,
+    "seq": 7,
+    "listRev": 3,
+    "confirm": "",
+    "previous": {
+      "id": "c1",
+      "number": "01.010",
+      "name": "Walk-in"
+    },
+    "standby": {
+      "id": "c2",
+      "number": "01.020",
+      "name": "Keynote",
+      "requireConfirm": false,
+      "plannedStart": "19:30"
+    },
+    "next": [
+      {
+        "id": "c3",
+        "number": "01.030",
+        "name": "Q&A"
+      },
+      {
+        "id": "c4",
+        "number": "01.040",
+        "name": "Break"
+      }
+    ],
+    "last": {
+      "id": "c1",
+      "number": "01.010",
+      "name": "Walk-in",
+      "outcome": "Done",
+      "execution": "a1b2c3d4",
+      "pending": 0
+    },
+    "timing": {
+      "offsetSeconds": 420,
+      "offset": "7 MIN LATE",
+      "nextBreak": "01.040 Break 20:05",
+      "end": "22:00",
+      "follow": ""
+    }
   },
-  "blackout": false, "black": { "count": 1, "text": "Screen 2", "audio": false, "targets": ["Screen 2"] },
-  "live": true, "review": false, "frozen": false, "editSafe": true, "previousLook": "Walk-in",
-  "airLook": "Awards", "previewLook": "Walk-in", "pattern": "Grid", "patternKinds": ["Grid", "ColorBars", "LedWall"],
-  "looks": [ { "n": 1, "name": "Walk-in", "slot": 1, "air": false, "preview": true }, { "n": 2, "name": "Awards", "slot": 0, "air": true, "preview": false } ],
-  "lookEdited": true, "lookScreensOff": 1,
-  "presenter": { "armed": false, "index": 2, "count": 5, "steps": [] },
+  "blackout": false,
+  "black": {
+    "count": 1,
+    "text": "Screen 2",
+    "audio": false,
+    "targets": [
+      "Screen 2"
+    ]
+  },
+  "live": true,
+  "review": false,
+  "frozen": false,
+  "editSafe": true,
+  "previousLook": "Walk-in",
+  "airLook": "Awards",
+  "previewLook": "Walk-in",
+  "pattern": "Grid",
+  "patternKinds": [
+    "Grid",
+    "ColorBars",
+    "LedWall"
+  ],
+  "looks": [
+    {
+      "n": 1,
+      "name": "Walk-in",
+      "slot": 1,
+      "air": false,
+      "preview": true
+    },
+    {
+      "n": 2,
+      "name": "Awards",
+      "slot": 0,
+      "air": true,
+      "preview": false
+    }
+  ],
+  "lookEdited": true,
+  "lookScreensOff": 1,
+  "presenter": {
+    "armed": false,
+    "index": 2,
+    "count": 5,
+    "steps": []
+  },
   "screens": [
-    { "n": 1, "label": "Main wall", "enabled": true, "group": "", "locked": false, "role": "main", "armed": false, "own": false, "black": false, "pattern": "Grid", "off": false, "signal": { "design": "3840×2160 · 50 Hz · RGB 4:4:4 · 8-bit · SDR", "observed": "3840×2160 · 50 Hz (50/1) · RGB 4:4:4 · 8-bit · SDR", "result": "MATCH" } },
-    { "n": 2, "label": "Side", "enabled": true, "group": "", "locked": true, "role": "info", "armed": false, "own": true, "black": true, "pattern": "TestCard", "off": true, "signal": { "design": "", "observed": "1920×1080 · 60 Hz (60/1) · encoding unknown · bit depth unknown · HDR unknown", "result": "UNVERIFIED" } }
+    {
+      "n": 1,
+      "label": "Main wall",
+      "enabled": true,
+      "group": "",
+      "locked": false,
+      "role": "main",
+      "armed": false,
+      "own": false,
+      "black": false,
+      "pattern": "Grid",
+      "off": false,
+      "signal": {
+        "design": "3840×2160 · 50 Hz · RGB 4:4:4 · 8-bit · SDR",
+        "observed": "3840×2160 · 50 Hz (50/1) · RGB 4:4:4 · 8-bit · SDR",
+        "result": "MATCH"
+      }
+    },
+    {
+      "n": 2,
+      "label": "Side",
+      "enabled": true,
+      "group": "",
+      "locked": true,
+      "role": "info",
+      "armed": false,
+      "own": true,
+      "black": true,
+      "pattern": "TestCard",
+      "off": true,
+      "signal": {
+        "design": "",
+        "observed": "1920×1080 · 60 Hz (60/1) · encoding unknown · bit depth unknown · HDR unknown",
+        "result": "UNVERIFIED"
+      }
+    }
   ],
-  "audio": { "playing": true, "track": "Intro", "n": 1, "count": 2, "next": "Outro", "position": 12, "length": 60, "remaining": 48, "positionText": "0:12", "lengthText": "1:00", "remainingText": "0:48", "items": [ { "n": 1, "name": "Intro" }, { "n": 2, "name": "Outro" } ] },
-  "music": { "on": true, "playing": false, "level": 60, "now": "", "device": "Desk", "status": "paused", "items": [ { "n": 1, "name": "Lounge" } ] },
-  "tone": false,
-  "lowerThirds": [ { "n": 1, "name": "Name strap" } ], "lowerThird": "Name strap",
-  "people": [ { "n": 1, "name": "Jane Doe", "role": "CEO" } ], "lowerThirdPerson": "Jane Doe",
-  "lowerThirdPreview": "", "lowerThirdPreviewPerson": "", "lowerThirdDefault": "Name strap", "lowerThirdEdited": false,
-  "web": null, "deck": { "file": "deck.pdf", "kind": "PDF", "page": 3, "count": 12, "ended": false }, "video": null,
-  "weather": { "on": true, "view": "now", "place": "Manchester", "text": "Manchester · 18° · Light rain", "figure": "18°", "sky": "Rain", "source": "", "status": "" },
-  "overlays": {
-    "clock": { "on": true, "hours": 24, "seconds": false, "date": false, "text": "19:28:11" },
-    "message": { "on": false, "text": "Doors open at 7", "scroll": false },
-    "countdown": { "on": true, "phase": "running", "label": "DOORS IN", "target": "19:30", "remaining": 109, "text": "1:49 · DOORS IN" },
-    "logo": { "on": false, "file": true }, "pip": { "on": false }, "text": "Clock 24 h · Countdown 1:49 to 19:30"
+  "audio": {
+    "playing": true,
+    "track": "Intro",
+    "n": 1,
+    "count": 2,
+    "next": "Outro",
+    "position": 12,
+    "length": 60,
+    "remaining": 48,
+    "positionText": "0:12",
+    "lengthText": "1:00",
+    "remainingText": "0:48",
+    "items": [
+      {
+        "n": 1,
+        "name": "Intro"
+      },
+      {
+        "n": 2,
+        "name": "Outro"
+      }
+    ]
   },
-  "interactive": true, "devices": [ { "n": 1, "name": "Projector", "link": "tcp", "address": "10.0.0.9", "enabled": true, "open": true, "status": "power on", "lastIn": "", "lastOut": "", "lastCommand": "INPUT HDMI 2", "lastCommandUtc": "2026-09-14T19:00:10Z", "lastReply": "POWR: OK", "lastReplyUtc": "2026-09-14T19:00:02Z", "confirmed": "accepted", "confirmedUtc": "2026-09-14T19:00:02Z", "observed": "", "observedUtc": null, "lastFailure": "INPUT HDMI 2 — no answer in 2 s (delivered, not accepted)", "lastFailureUtc": "2026-09-14T19:00:12Z", "failing": true, "history": "Last sent INPUT HDMI 2 (5 s ago) · reply POWR: OK — accepted (13 s ago) · FAILED INPUT HDMI 2 — no answer in 2 s (delivered, not accepted) (3 s ago)" }, { "n": 2, "name": "Lights", "link": "udp", "address": "10.0.0.12", "enabled": true, "open": true, "status": "open", "lastIn": "", "lastOut": "", "lastCommand": "/wall/main 1", "lastCommandUtc": "2026-09-14T18:59:00Z", "lastReply": "", "lastReplyUtc": null, "confirmed": "sent", "confirmedUtc": "2026-09-14T18:59:00Z", "observed": "", "observedUtc": null, "lastFailure": "", "lastFailureUtc": null, "failing": false, "history": "Last sent /wall/main 1 (1 min ago) · sent (1 min ago)" } ],
-  "install": { "on": false, "programme": "", "over": "", "overKind": "", "next": "", "status": "" },
-  "stingers": [ { "n": 1, "name": "Whoosh", "kind": "sting", "source": "file" }, { "n": 2, "name": "Welcome", "kind": "vog", "source": "file" } ],
-  "stingerPlaying": "", "stingerKind": "", "vogSound": "", "stingHold": "", "duck": false,
-  "sections": [ { "n": 1, "name": "Part one", "active": true }, { "n": 2, "name": "Part two", "active": false } ],
-  "playlist": "", "nextCue": "",
-  "stream": { "active": true, "status": "Live", "word": "good", "health": "good", "light": "Green", "up": "0:42:10", "fps": 30, "trouble": false, "destinations": 1 },
-  "health": "OK", "quality": { "mode": "Auto", "level": 0, "factor": 1, "text": "" }, "memory": { "appMB": 900, "ceilingMB": 2000, "text": "", "pressure": "elevated" },
-  "inputs": { "mounted": 1, "retiring": 0, "limitNote": "", "pendingNote": "Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.", "pending": [] },
-  "machine": { "cpu": 31, "ram": 48, "fps": 60, "battery": false, "advice": 0, "renderFaults": 0, "faulting": false, "liveAgeMs": 33, "inventory": "NVIDIA RTX A4000 · driver 560.94 · 2 displays · 1 audio output · High performance", "rig": "unchanged since 2026-09-15 09:00 (first show)" },
-  "commissioning": { "complete": false, "done": 6, "total": 7, "stage": "Known good", "headline": "6 of 7 stages green · at Known good: not saved", "next": "SAVE KNOWN GOOD on the Machine page (RIG SAVE first show) once every stage above is green" },
-  "beacon": { "sending": true, "listening": false, "main": "" },
-  "nodes": [
-    { "n": 1, "instance": "a1b2", "kind": "caller", "name": "FOH-CALL", "show": "Gala", "live": false, "fresh": true, "words": "Caller FOH-CALL · linked", "address": "10.0.0.12", "http": 9696, "link": 9700, "heardSecondsAgo": 1 },
-    { "n": 2, "instance": "c3d4", "kind": "timer", "name": "STAGE-PI", "show": "Gala", "live": false, "fresh": false, "words": "", "address": "10.0.0.13", "http": 9696, "link": 0, "heardSecondsAgo": 40 }
+  "music": {
+    "on": true,
+    "playing": false,
+    "level": 60,
+    "now": "",
+    "device": "Desk",
+    "status": "paused",
+    "items": [
+      {
+        "n": 1,
+        "name": "Lounge"
+      }
+    ]
+  },
+  "tone": false,
+  "lowerThirds": [
+    {
+      "n": 1,
+      "name": "Name strap"
+    }
   ],
-  "twin": { "role": "main", "phase": "inStep", "words": "Twin: in step with STANDBY-PC", "main": "", "standbys": ["STANDBY-PC"], "holder": "", "clocks": "STANDBY-PC 0.3 s", "apart": false },
+  "lowerThird": "Name strap",
+  "people": [
+    {
+      "n": 1,
+      "name": "Jane Doe",
+      "role": "CEO"
+    }
+  ],
+  "lowerThirdPerson": "Jane Doe",
+  "lowerThirdPreview": "",
+  "lowerThirdPreviewPerson": "",
+  "lowerThirdDefault": "Name strap",
+  "lowerThirdEdited": false,
+  "web": null,
+  "deck": {
+    "file": "deck.pdf",
+    "kind": "PDF",
+    "page": 3,
+    "count": 12,
+    "ended": false
+  },
+  "video": null,
+  "weather": {
+    "on": true,
+    "view": "now",
+    "place": "Manchester",
+    "text": "Manchester · 18° · Light rain",
+    "figure": "18°",
+    "sky": "Rain",
+    "source": "",
+    "status": ""
+  },
+  "overlays": {
+    "clock": {
+      "on": true,
+      "hours": 24,
+      "seconds": false,
+      "date": false,
+      "text": "19:28:11"
+    },
+    "message": {
+      "on": false,
+      "text": "Doors open at 7",
+      "scroll": false
+    },
+    "countdown": {
+      "on": true,
+      "phase": "running",
+      "label": "DOORS IN",
+      "target": "19:30",
+      "remaining": 109,
+      "text": "1:49 · DOORS IN"
+    },
+    "logo": {
+      "on": false,
+      "file": true
+    },
+    "pip": {
+      "on": false
+    },
+    "text": "Clock 24 h · Countdown 1:49 to 19:30"
+  },
+  "interactive": true,
+  "devices": [
+    {
+      "n": 1,
+      "name": "Projector",
+      "link": "tcp",
+      "address": "10.0.0.9",
+      "enabled": true,
+      "open": true,
+      "status": "power on",
+      "lastIn": "",
+      "lastOut": "",
+      "lastCommand": "INPUT HDMI 2",
+      "lastCommandUtc": "2026-09-14T19:00:10Z",
+      "lastReply": "POWR: OK",
+      "lastReplyUtc": "2026-09-14T19:00:02Z",
+      "confirmed": "accepted",
+      "confirmedUtc": "2026-09-14T19:00:02Z",
+      "observed": "",
+      "observedUtc": null,
+      "lastFailure": "INPUT HDMI 2 — no answer in 2 s (delivered, not accepted)",
+      "lastFailureUtc": "2026-09-14T19:00:12Z",
+      "failing": true,
+      "history": "Last sent INPUT HDMI 2 (5 s ago) · reply POWR: OK — accepted (13 s ago) · FAILED INPUT HDMI 2 — no answer in 2 s (delivered, not accepted) (3 s ago)"
+    },
+    {
+      "n": 2,
+      "name": "Lights",
+      "link": "udp",
+      "address": "10.0.0.12",
+      "enabled": true,
+      "open": true,
+      "status": "open",
+      "lastIn": "",
+      "lastOut": "",
+      "lastCommand": "/wall/main 1",
+      "lastCommandUtc": "2026-09-14T18:59:00Z",
+      "lastReply": "",
+      "lastReplyUtc": null,
+      "confirmed": "sent",
+      "confirmedUtc": "2026-09-14T18:59:00Z",
+      "observed": "",
+      "observedUtc": null,
+      "lastFailure": "",
+      "lastFailureUtc": null,
+      "failing": false,
+      "history": "Last sent /wall/main 1 (1 min ago) · sent (1 min ago)"
+    }
+  ],
+  "install": {
+    "on": false,
+    "programme": "",
+    "over": "",
+    "overKind": "",
+    "next": "",
+    "status": ""
+  },
+  "stingers": [
+    {
+      "n": 1,
+      "name": "Whoosh",
+      "kind": "sting",
+      "source": "file"
+    },
+    {
+      "n": 2,
+      "name": "Welcome",
+      "kind": "vog",
+      "source": "file"
+    }
+  ],
+  "stingerPlaying": "",
+  "stingerKind": "",
+  "vogSound": "",
+  "stingHold": "",
+  "duck": false,
+  "sections": [
+    {
+      "n": 1,
+      "name": "Part one",
+      "active": true
+    },
+    {
+      "n": 2,
+      "name": "Part two",
+      "active": false
+    }
+  ],
+  "playlist": "",
+  "nextCue": "",
+  "stream": {
+    "active": true,
+    "status": "Live",
+    "word": "good",
+    "health": "good",
+    "light": "Green",
+    "up": "0:42:10",
+    "fps": 30,
+    "trouble": false,
+    "destinations": 1
+  },
+  "health": "OK",
+  "quality": {
+    "mode": "Auto",
+    "level": 0,
+    "factor": 1,
+    "text": ""
+  },
+  "memory": {
+    "appMB": 900,
+    "ceilingMB": 2000,
+    "text": "",
+    "pressure": "elevated"
+  },
+  "inputs": {
+    "mounted": 1,
+    "retiring": 0,
+    "limitNote": "",
+    "pendingNote": "Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.",
+    "pending": []
+  },
+  "machine": {
+    "cpu": 31,
+    "ram": 48,
+    "fps": 60,
+    "battery": false,
+    "advice": 0,
+    "renderFaults": 0,
+    "faulting": false,
+    "liveAgeMs": 33,
+    "inventory": "NVIDIA RTX A4000 · driver 560.94 · 2 displays · 1 audio output · High performance",
+    "rig": "unchanged since 2026-09-15 09:00 (first show)"
+  },
+  "commissioning": {
+    "complete": false,
+    "done": 6,
+    "total": 7,
+    "stage": "Known good",
+    "headline": "6 of 7 stages green · at Known good: not saved",
+    "next": "SAVE KNOWN GOOD on the Machine page (RIG SAVE first show) once every stage above is green"
+  },
+  "beacon": {
+    "sending": true,
+    "listening": false,
+    "main": ""
+  },
+  "nodes": [
+    {
+      "n": 1,
+      "instance": "a1b2",
+      "kind": "caller",
+      "name": "FOH-CALL",
+      "show": "Gala",
+      "live": false,
+      "fresh": true,
+      "words": "Caller FOH-CALL · linked",
+      "address": "10.0.0.12",
+      "http": 9696,
+      "link": 9700,
+      "heardSecondsAgo": 1
+    },
+    {
+      "n": 2,
+      "instance": "c3d4",
+      "kind": "timer",
+      "name": "STAGE-PI",
+      "show": "Gala",
+      "live": false,
+      "fresh": false,
+      "words": "",
+      "address": "10.0.0.13",
+      "http": 9696,
+      "link": 0,
+      "heardSecondsAgo": 40
+    }
+  ],
+  "twin": {
+    "role": "main",
+    "phase": "inStep",
+    "words": "Twin: in step with STANDBY-PC",
+    "main": "",
+    "standbys": [
+      "STANDBY-PC"
+    ],
+    "holder": "",
+    "clocks": "STANDBY-PC 0.3 s",
+    "apart": false
+  },
   "stage": {
-    "timer": { "phase": "running", "remaining": 95.4, "text": "1:35", "colour": "amber", "progress": 0.83, "label": "KEYNOTE", "paused": false },
-    "segment": "01.020 Keynote", "next": "01.030 Q&A", "pendingSpeaker": "Wrap up", "pendingCrew": "", "flash": false
+    "timer": {
+      "phase": "running",
+      "remaining": 95.4,
+      "text": "1:35",
+      "colour": "amber",
+      "progress": 0.83,
+      "label": "KEYNOTE",
+      "paused": false
+    },
+    "segment": "01.020 Keynote",
+    "next": "01.030 Q&A",
+    "pendingSpeaker": "Wrap up",
+    "pendingCrew": "",
+    "flash": false
+  },
+  "eye": {
+    "headline": "Main LED: MISMATCH — Rate: 50 Hz asked · 59.94 Hz observed",
+    "worst": "screen:s1",
+    "worstLight": "red",
+    "worstWords": "Main LED: MISMATCH — Rate: 50 Hz asked · 59.94 Hz observed",
+    "red": 1,
+    "amber": 1,
+    "green": 9,
+    "grey": 2,
+    "things": 13,
+    "problems": 2,
+    "focus": "",
+    "lens": "all"
   }
 }

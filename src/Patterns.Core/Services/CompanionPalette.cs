@@ -61,6 +61,8 @@ public static class CompanionPalette
         // Round 65.10: signal truth and the rig on the keys — MATCH green, MISMATCH red; the known-good rig unchanged green, moved amber, commissioned green.
         ["signal"] = Row(("match", "green"), ("mismatch", "red")),
         ["rig"] = Row(("same", "green"), ("drift", "amber"), ("commissioned", "green")),
+        // Round 66: the God's Eye's worst light on a key — red is wrong now, amber needs a look, green is all green.
+        ["eye"] = Row(("red", "red"), ("amber", "amber"), ("green", "green")),
         ["stream"] = Row(("active", "red"), ("trouble", "amber")),
         ["device"] = Row(("open", "green"), ("fault", "red")),
         ["tone"] = Row(("on", "amber")),

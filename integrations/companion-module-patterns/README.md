@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.6.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.7.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / UNVERIFIED — never a pass by default), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.6.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.7.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,10 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.7.0** — the God's Eye on the deck (round 66): `eye_focus` / `eye_next` / `eye_prev` / `eye_lens` /
+  `eye_reset` actions, the `eye_worst` and `eye_problems` feedbacks, the `eye_headline`, `eye_worst`,
+  `eye_problems` and `eye_focus` variables, the Eye preset page, the `eye` colours; the module reads
+  STATE's `eye` row.
 - **3.6.0** — the round-65 rig words: `screen_signal` / `screen_testroute` / `rig_save` actions,
   the `screen_signal_is`, `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned`
   feedbacks, the `screen_n_signal`, `machine_inventory`, `machine_rig`, `commissioning` and

@@ -30,7 +30,7 @@ export const CATEGORY_ORDER = [
 	'Lower thirds', 'Lower thirds — this show', 'People', 'People — this show',
 	'Stingers', 'Stingers — this show', 'VOG', 'VOGs — this show',
 	'Audio', 'Audio playlist — this show', 'Break music', 'Break music — this show', 'Playlist parts', 'Playlist parts — this show',
-	'Clock', 'Countdown', 'Message', 'Overlays', 'Stage', 'Nodes', 'Twin', 'Install',
+	'Clock', 'Countdown', 'Message', 'Overlays', 'Stage', 'Nodes', 'Twin', 'Install', 'Eye',
 ]
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
@@ -242,6 +242,14 @@ export function buildPresets() {
 	add('rig_commissioning', key('Rig', 'COMMISSIONING — the flow\'s headline and the next step; green once every stage is', '$(patterns:commissioning)\n$(patterns:commissioning_next)', 'auto', [],
 		[litAs('commissioned', {}, 'rig', 'commissioned')]))
 	add('rig_inventory', key('Rig', 'THIS MACHINE — the card, its driver, the displays, the audio, the power plan', '$(patterns:machine_inventory)', 'auto', []))
+	// Round 66 — the God's Eye page: the headline lit by the worst light, the problems stepped, the lenses, the whole picture.
+	add('eye_headline', key('Eye', "GOD'S EYE — the picture's headline, lit by the worst light (red wrong now, amber needs a look, green all green); press: NEXT problem", '$(patterns:eye_headline)', 'auto', press('eye_next'),
+		[litAs('eye_worst', { light: 'red' }, 'eye', 'red'), litAs('eye_worst', { light: 'amber' }, 'eye', 'amber'), litAs('eye_worst', { light: 'green' }, 'eye', 'green')]))
+	add('eye_next', key('Eye', 'NEXT PROBLEM — the eye moves to the next red or amber thing (amber while there are any)', 'NEXT\nPROBLEM\n$(patterns:eye_problems)', 'auto', press('eye_next'), [litAs('eye_problems', {}, 'eye', 'amber')]))
+	add('eye_prev', key('Eye', 'PREVIOUS PROBLEM', 'PREV\nPROBLEM', 'auto', press('eye_prev')))
+	add('eye_reset', key('Eye', 'RESET — the whole picture, nothing dimmed, the view from before the focus', 'EYE\nRESET', 'auto', press('eye_reset')))
+	for (const lens of ['all', 'video', 'control', 'audio', 'room', 'problems']) add(`eye_lens_${lens}`, key('Eye', `LENS ${lens.toUpperCase()} — the picture through one lens`, `LENS\n${lens.toUpperCase()}`, 'auto', press('eye_lens', { lens })))
+	add('eye_worst', key('Eye', 'WORST — the worst thing by name and what is wrong; press: the eye on screen 1', '$(patterns:eye_worst)', 'auto', press('eye_focus', { words: 'screen 1' })))
 
 	// ---- the stage: the speaker's timer as the speaker sees it, and the messages ----------------------------
 	const stageColours = [litAs('stage_colour_is', { colour: 'green' }, 'stage', 'running'), litAs('stage_colour_is', { colour: 'amber' }, 'stage', 'amber'), litAs('stage_colour_is', { colour: 'red' }, 'stage', 'red'), litAs('stage_is', { phase: 'paused' }, 'stage', 'paused')]

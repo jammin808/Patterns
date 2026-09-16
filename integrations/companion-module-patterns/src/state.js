@@ -206,6 +206,10 @@ export function variableValues(s) {
 		machine_rig: s.machine?.rig ?? '',
 		commissioning: s.commissioning?.headline ?? '',
 		commissioning_next: s.commissioning?.next ?? '',
+		eye_headline: s.eye?.headline ?? '',
+		eye_worst: s.eye?.worstWords ?? '',
+		eye_problems: String(s.eye?.problems ?? 0),
+		eye_focus: s.eye?.focus ?? '',
 		inputs_pending: s.inputs?.pendingNote ?? '',
 		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
 		device_last_reply: (() => {

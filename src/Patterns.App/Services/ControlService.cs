@@ -331,6 +331,10 @@ public sealed partial class ControlService : IDisposable
                     {
                         presented = cmd.Text;
                         wrongTokens = 0;
+                        lock (_gate)
+                        {
+                            if (_decks.TryGetValue(client, out var deck)) _decks[client] = deck with { Paired = true };   // round 66: the Eye reads it
+                        }
                         peer.Say(ControlProtocol.Ok("paired"));
                     }
                     else if (!PairingToken.Needed(token))
@@ -357,7 +361,7 @@ public sealed partial class ControlService : IDisposable
                     origin = new ActionOrigin(OriginKind.Tcp, name, endpoint);
                     lock (_gate)
                     {
-                        _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow);
+                        _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow) { Paired = Paired(token, presented, loopback) };
                     }
                 }
                 if (!ControlProtocol.IsQuery(cmd) && !Paired(token, presented, loopback))

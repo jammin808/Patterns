@@ -239,6 +239,27 @@ saved and unchanged, amber moved; press saves), COMMISSIONING and THIS MACHINE. 
 module reads STATE's `screens[].signal`, `machine.inventory`, `machine.rig` and `commissioning`
 rows as the desk has sent them since rounds 65.6–65.10; a 3.5.0 deck ignores them.
 
+## 13. Round 66 additions
+
+**The God's Eye on the deck, version 3.7.0.** The desk's picture of the whole show — every display,
+screen, source, device, deck, Companion heard, node, audio path, the audience room, the stream and the
+cue stack, each with its light and its links — reaches the deck as one STATE row,
+`eye{headline,worst,worstLight,worstWords,red,amber,green,grey,things,problems,focus,lens}`, and five
+actions move the operator's eye on the desk: `eye_focus` (`EYE FOCUS <words>` — a screen's number, a
+label or an id from `EYE`), `eye_next` / `eye_prev` (`EYE NEXT` / `EYE PREV` — the problems stepped,
+reds first, then ambers), `eye_lens` (`EYE LENS all | video | control | audio | room | problems`) and
+`eye_reset` (`EYE RESET`). Two feedbacks: `eye_worst` (the worst light in the picture is red / amber /
+green) and `eye_problems` (something is red or amber). Variables `eye_headline`, `eye_worst` (the worst
+thing by name and what is wrong), `eye_problems` (the count) and `eye_focus` (the id the eye is on, or
+empty). An **Eye** preset page: GOD'S EYE (the headline, lit by the worst light; press steps to the
+next problem), NEXT / PREV PROBLEM, RESET, a LENS key per lens, and WORST. The `eye` colour family
+(red, amber, green) is held equal on both sides like every other, and the group **God's Eye** in the
+connection's config keeps or drops the page. A 3.6.0 deck ignores the row.
+
+The point on a show: a key that is red before anyone looks at the desk, and NEXT PROBLEM under the
+operator's thumb — the desk's picture is already on the thing that is wrong when they turn to it. The
+module never reads the picture itself: the desk's row is the truth, latest-wins like every STATE push.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

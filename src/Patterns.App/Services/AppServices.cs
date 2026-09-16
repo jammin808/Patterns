@@ -126,6 +126,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Output hot-plug: a display unplugged, back, or new, and what the rig does about it.</summary>
     public HotPlugService HotPlug { get; }
 
+    /// <summary>The God's Eye (round 66): the whole show as one graph, gathered from the services once a second.</summary>
+    public EyeService Eye { get; }
+
     /// <summary>
     /// Why the outputs must stay closed whatever asks for them — "" when nothing holds them. A
     /// standby twin sets it: its screens open only when it takes the show. Runtime only, never
@@ -538,6 +541,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         RigEditor = new RigEditor(this);
         HotPlug = new HotPlugService(this);
         LookTally = new LookTally(this);
+        Eye = new EyeService(this);
         // A waiting step runs through the same action layer its cue's immediate steps went
         // through, and is journaled with its cue's name and its place in it.
         Tail.Run = step =>
@@ -1437,6 +1441,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Signals = SignalLinesForBrief(),
             Machine = MachineLinesForBrief(),
             Commissioning = CommissioningLinesForBrief(),
+            Eye = EyeLinesForBrief(),
         };
     }
 
@@ -1450,6 +1455,21 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         catch (Exception ex)
         {
             Log.Warn("The assistant's brief could not read the commissioning flow.", ex);
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>The God's Eye's lines for the brief (round 66) — the desk's picture, never a node's; nothing when the desk cannot read it.</summary>
+    private IReadOnlyList<string> EyeLinesForBrief()
+    {
+        if (!IsDesk) return Array.Empty<string>();
+        try
+        {
+            return Eye.BriefLines();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the God's Eye.", ex);
             return Array.Empty<string>();
         }
     }

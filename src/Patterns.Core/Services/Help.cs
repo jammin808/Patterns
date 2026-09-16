@@ -209,6 +209,21 @@ public static class HelpTopics
             new[] { "Run", "Cues" },
             new[] { "pad", "scratchpad", "scratch pad", "notes", "note", "live notes", "in-show notes", "last minute", "right-click", "right click", "context menu", "menu", "cue row", "skip", "unskip", "go now", "fire now", "jump", "caller", "show caller", "touch" }),
 
+        new HelpTopic("gods-eye", HelpGroup.RunningTheShow,
+            "The God's Eye: the whole show as one picture",
+            "EYE in the rail, above NODES — every display, screen, source, device, deck, node, audio path, the room, the stream and the stack, each with its light and its links; the worst light on the rail, the worst thing in the headline, and the eye stepped through the problems from the desk, a key or the wire.",
+            HelpBodies.Eye,
+            new[]
+            {
+                "Glance at the rail: EYE wears the worst light in the picture and its line is the headline — the worst thing and what is wrong, or ALL GREEN.",
+                "Open the page and press NEXT PROBLEM (or N): the camera glides to the first red thing, its neighbours stay bright and the rest dims; the card says what it is, its words and what it links to.",
+                "Right-click the thing: a screen opens its wall tile's menu, a cue its cue's, anything else FOCUS / the whole picture / its contacts / OPEN its page / ASK the assistant with its facts in the question.",
+                "Pick a lens — VIDEO, CONTROL, AUDIO, ROOM or PROBLEMS — to see one band alone; RESET (Esc) puts the whole picture and the view you had before the focus back.",
+                "On a deck: the Companion module's Eye page — the headline key lit by the worst light, NEXT / PREV PROBLEM, a LENS key per lens, RESET — and EYE FOCUS screen 2 from any controller on the wire.",
+            },
+            "EYE · EYE FOCUS <screen n | label | id> · EYE NEXT · EYE PREV · EYE LENS <all|video|control|audio|room|problems> · EYE RESET",
+            new[] { "Eye", "Run", "Screens", "Remote" },
+            new[] { "god's eye", "gods eye", "eye", "overview", "picture of the show", "topology", "map", "graph", "what is connected", "what is attached", "what feeds", "what drives", "links", "dependencies", "worst", "headline", "problems", "next problem", "red", "amber", "focus", "lens", "zoom", "pan", "bands", "contacts", "hive", "situational awareness", "single pane", "one picture", "companion eye", "eye focus" }),
         new HelpTopic("right-click-menus", HelpGroup.RunningTheShow,
             "Right-click menus: the preview first, the operator has the final say",
             "Anywhere on the desk: a tile of the wall, a screen row and a look on the Show panel, a cue row on Run or Cues, a lower third or a person, a layer, an overlay, the countdown, the PROGRAM and PREVIEW strips — right-click for the thing's own menu.",

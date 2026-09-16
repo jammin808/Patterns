@@ -70,6 +70,8 @@ public sealed partial class MainViewModel : IDeskMenuHost
             }
             case "monitor":
                 return new DeskMenuVm(DeskMenus.Monitor(facts, DeskMenuFacts.Monitor(_services)), e => RunMenuEntry(e, null));
+            case "eye":
+                return subject is EyeNode node ? EyeMenu(node, facts) : null;
             default:
                 return null;
         }
@@ -94,6 +96,32 @@ public sealed partial class MainViewModel : IDeskMenuHost
         HitKind.Countdown => MenuFor("countdown", null),
         _ => new DeskMenuVm(DeskMenus.Preview(facts), e => RunMenuEntry(e, null)),
     };
+
+    /// <summary>
+    /// A thing on the God's Eye (round 66) opens the menu the desk already has for it — a screen its
+    /// wall tile's, the stack its standby cue's — and its own Eye menu otherwise, so the Eye never
+    /// keeps a copy of a menu that could go stale.
+    /// </summary>
+    private DeskMenuVm? EyeMenu(EyeNode node, DeskFacts facts)
+    {
+        switch (node.MenuKind)
+        {
+            case "tile":
+            {
+                var tile = SwitcherTiles.FirstOrDefault(t => t.TargetId == node.MenuSubject);
+                if (tile is not null) return TileMenu(tile, facts);
+                var s = DeskMenuFacts.Screen(_services, node.MenuSubject);
+                return new DeskMenuVm(DeskMenus.Screen(facts, s), e => RunMenuEntry(e, null));
+            }
+            case "cue":
+            {
+                var menu = MenuFor("cue", State.Stacks.SelectMany(s => s.Cues).FirstOrDefault(c => c.Id == node.MenuSubject));
+                if (menu is not null) return menu;
+                break;
+            }
+        }
+        return new DeskMenuVm(EyeMenus.For(facts, _services.Eye.Graph, node), e => RunMenuEntry(e, node));
+    }
 
     private DeskMenuVm TileMenu(SwitcherTile tile, DeskFacts facts)
     {

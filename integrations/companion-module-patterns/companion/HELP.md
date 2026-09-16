@@ -44,6 +44,17 @@ the music, a VOG…) on a destination at a level in dB, `audio_vog` says whether
 disarms a first press that was a mistake. The desk's own fences still apply — a takeover the wall switch
 cannot confirm is refused and the key says so through the twin's state.
 
+### The God's Eye page
+
+The desk's picture of the whole show — every display, screen, source, device, deck, node and audio
+path with its light — reaches the deck as one STATE row. The **GOD'S EYE** key shows the headline
+(the worst thing and what is wrong, or all green) lit by the worst light: red is wrong now, amber
+needs a look, green is all green; a press steps the desk's eye to the next problem. **NEXT / PREV
+PROBLEM** walk everything red or amber, reds first; a **LENS** key keeps one band of the picture
+(VIDEO, CONTROL, AUDIO, ROOM, PROBLEMS); **RESET** puts the whole picture back. `EYE FOCUS screen 2`
+from any key puts the desk's eye on a screen. The keys move the picture on the desk's Eye page;
+they change nothing on the wall.
+
 No module? The same protocol works with Companion's built-in **Generic TCP** connection — one command per line,
 as `docs/REMOTE.md` in the Patterns repository lists them — without feedback.
 

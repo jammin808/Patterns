@@ -50,6 +50,7 @@ public static class Shell
     public static readonly IReadOnlyList<ShellPage> Pages = Table(
         ("Panel", ShellGroup.Show, "#2EE68A"),
         ("Run", ShellGroup.Show, "#2EE68A"),
+        ("Eye", ShellGroup.Show, "#F2D26B"),
         ("Cues", ShellGroup.Plan, "#6E9BFF"),
         ("Looks", ShellGroup.Plan, "#6E9BFF"),
         ("Install", ShellGroup.Plan, "#9AB4FF"),

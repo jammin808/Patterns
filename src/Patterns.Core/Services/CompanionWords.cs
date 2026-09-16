@@ -4,7 +4,7 @@ namespace Patterns.Core.Services;
 public static class CompanionModule
 {
     /// <summary>Kept equal to integrations/companion-module-patterns/package.json by a test.</summary>
-    public const string Version = "3.6.0";
+    public const string Version = "3.7.0";
 
     /// <summary>The port Companion's own TCP remote-control API listens on, as Companion 4 and 5 ship it.</summary>
     public const int ApiPort = 16759;
@@ -16,6 +16,9 @@ public static class CompanionModule
 /// <summary>One deck (a Companion connection, or anything else that said HELLO) on the wire right now.</summary>
 public sealed record WireDeck(string Name, string Module, string Address, DateTime SinceUtc)
 {
+    /// <summary>Round 66: the connection presented the show's pairing token (or the desk asks for none) — its mutating verbs run; false is a deck whose keys do nothing yet.</summary>
+    public bool Paired { get; init; }
+
     /// <summary>"FOH deck (module 3.0.0, 10.0.0.5)" — with a word when the module is behind the one this build ships.</summary>
     public string Line
     {

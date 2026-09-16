@@ -34,6 +34,7 @@ public sealed class LazyPage : ContentControl
     private static readonly Dictionary<string, Func<Control>> Factories = new()
     {
         ["Panel"] = () => Scroll(new ShowSection()),
+        ["Eye"] = () => new EyeSection(),                     // the picture fills the page; nothing scrolls
         ["Cues"] = () => Scroll(new CuesSection()),
         ["Looks"] = () => Scroll(new LooksSection()),
         ["Install"] = () => Scroll(new InstallSection()),

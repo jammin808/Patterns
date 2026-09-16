@@ -280,6 +280,7 @@ public sealed partial class MainViewModel
         var watch = _services.Beacon.WatchText;
         _services.Twin.Poll(); // the marker a standby on this machine leaves when it takes the show
         PollNodes();           // the beacons onto the Nodes page and the rail's foot
+        PollEye();             // the God's Eye's facts, rebuilt when they moved; the rail's EYE foot
         PollStage();           // the stage timer's line and the receipts
         PollArcade();          // the arcade node's words, its picture's status and its board
         PollPlay();            // the room's clock (a quiz closing itself), its queue to the assistant, its words

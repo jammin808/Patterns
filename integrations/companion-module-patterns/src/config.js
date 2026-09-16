@@ -25,11 +25,13 @@ export const GROUPS = [
 	{ id: 'install', label: 'Install — schedule, announcements, adverts', def: false },
 	{ id: 'stage', label: 'Stage — the speaker timer, messages to the stage', def: true },
 	{ id: 'nodes', label: 'Nodes and the twin — every other Patterns on the network', def: true },
+	{ id: 'eye', label: "God's Eye — the picture of the show: the headline, the problems stepped, the lenses", def: true },
 ]
 
 /** The group a preset category belongs to. */
 export function groupOf(category) {
 	const c = String(category ?? '')
+	if (c === 'Eye') return 'eye'
 	if (c.startsWith('Transport') || c.startsWith('Stream')) return 'transport'
 	if (c.startsWith('Cue') || c.startsWith('Upcoming cues')) return 'cues'
 	if (c.startsWith('Look')) return 'looks'

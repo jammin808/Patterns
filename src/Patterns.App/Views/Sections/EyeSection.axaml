@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:ctl="using:Patterns.App.Views.Controls"
+             x:Class="Patterns.App.Views.Sections.EyeSection"
+             Classes="hue-eye"
+             x:DataType="vm:MainViewModel">
+  <Grid RowDefinitions="Auto,Auto,*" Margin="4,8,12,12">
+    <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+      <TextBlock Classes="h1 neon-eye" Text="God's Eye" VerticalAlignment="Center" />
+      <TextBlock Classes="label" Text="{Binding EyeHeadline}" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="900"
+                 ToolTip.Tip="One line that is true for the whole picture: the count of things, the reds and ambers, and the worst thing named — the same words the rail's EYE foot, STATE and the Companion module carry" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,8,0,8" VerticalAlignment="Center">
+      <ItemsControl ItemsSource="{Binding EyeLenses}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:EyeLensChip">
+            <Button Classes="chip" Classes.on="{Binding IsCurrent}" Content="{Binding Label}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).EyeLensCommand}" CommandParameter="{Binding Word}"
+                    ToolTip.Tip="A lens: one band with the desk, everything, or the problems and what they touch — EYE LENS on the wire" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border Width="1" Height="18" Background="#2A2F3A" Margin="6,0" />
+      <Button Classes="mini" Content="◀ PREV" Command="{Binding EyePrevCommand}" ToolTip.Tip="The previous red or amber thing — EYE PREV" />
+      <Button Classes="mini" Content="NEXT PROBLEM ▶" Command="{Binding EyeNextCommand}" ToolTip.Tip="The next red or amber thing in the picture's order: the pictures first, upstream first — EYE NEXT" />
+      <Button Classes="mini" Content="RESET" Command="{Binding EyeResetCommand}" ToolTip.Tip="The whole picture, nothing dimmed, the view you had before the focus — EYE RESET, or Esc" />
+      <TextBlock Classes="label" Text="{Binding EyeProblemsWords}" VerticalAlignment="Center" Margin="8,0,0,0" />
+      <TextBlock Classes="label" Text="{Binding EyeFocusWords}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="#F2D26B" />
+    </StackPanel>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,300" MinHeight="420">
+      <Border Classes="panel" CornerRadius="10" ClipToBounds="True">
+        <ctl:EyeCanvas Name="Canvas" />
+      </Border>
+      <Border Grid.Column="1" Classes="panel" Margin="8,0,0,0" Padding="10" CornerRadius="10">
+        <ScrollViewer>
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="SELECTED" />
+            <TextBlock Classes="hint" TextWrapping="Wrap" IsVisible="{Binding !HasEyeSelection}"
+                       Text="Click a thing on the picture to read it here. Double-click focuses the eye on it and dims what it does not touch; right-click opens its own menu — a screen's is the wall tile's; the wheel zooms about the pointer; drag pans; Esc is the whole picture; arrows walk the problems." />
+            <StackPanel Spacing="5" IsVisible="{Binding HasEyeSelection}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Width="11" Height="11" Fill="{Binding EyeSelectedHue}" VerticalAlignment="Center" />
+                <TextBlock FontWeight="SemiBold" FontSize="15" Text="{Binding EyeSelectedLabel}" TextWrapping="Wrap" />
+              </StackPanel>
+              <TextBlock Classes="label" Text="{Binding EyeSelectedKind}" />
+              <TextBlock Classes="label" Text="{Binding EyeSelectedSub}" TextWrapping="Wrap" Foreground="#E6EAF2" />
+              <TextBlock Classes="label" Text="{Binding EyeSelectedWords}" TextWrapping="Wrap" IsVisible="{Binding EyeSelectedWords, Converter={StaticResource NotEmpty}}" />
+              <WrapPanel>
+                <Button Classes="mini" Content="FOCUS" Command="{Binding EyeFocusSelectedCommand}" Margin="0,0,6,6" ToolTip.Tip="The camera on it and what it links to — EYE FOCUS" />
+                <Button Classes="mini" Content="{Binding EyeOpenWords}" Command="{Binding EyeOpenCommand}" IsVisible="{Binding EyeCanOpen}" Margin="0,0,6,6" ToolTip.Tip="The page of the rail that shows it, with it selected there" />
+                <Button Classes="mini" Content="ASK" Command="{Binding EyeAskCommand}" Margin="0,0,6,6" ToolTip.Tip="The assistant, with this thing's facts and links in the question — typed in on the Assistant page when no key is saved" />
+              </WrapPanel>
+              <TextBlock Classes="h2" Text="LINKED TO" />
+              <ItemsControl ItemsSource="{Binding EyeContacts}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EyeContactRow">
+                    <Button Classes="chip" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="8,5"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).EyeSelectCommand}" CommandParameter="{Binding Id}"
+                            ToolTip.Tip="Select it; FOCUS then puts the eye on it">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="9" Height="9" Fill="{Binding Hue}" VerticalAlignment="Center" />
+                        <StackPanel>
+                          <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                          <TextBlock Classes="label" Text="{Binding Verb}" />
+                          <TextBlock Classes="label" Text="{Binding Sub}" TextWrapping="Wrap" MaxWidth="220" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

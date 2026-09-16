@@ -163,6 +163,23 @@ export function buildActions(ctx) {
 			options: [text('note', 'Note (first show, after the driver update…)', 'first show')],
 			callback: (a) => { const n = clean(a.options.note); send(n ? `RIG SAVE ${n}` : 'RIG SAVE') },
 		},
+		// Round 66 — the God's Eye: the desk's picture of the whole show. These move the operator's eye on the desk — a key under the thumb steps the problems before anyone turns to the desk.
+		eye_focus: {
+			name: "God's Eye — FOCUS the eye on a thing (a screen number, a label, or an id from EYE)",
+			options: [text('words', 'What to focus on (screen 2 · Main LED · device:… · desk)', 'screen 1')],
+			callback: (a) => { const w = clean(a.options.words); if (w) send(`EYE FOCUS ${w}`) },
+		},
+		eye_next: { name: "God's Eye — NEXT problem (reds first, then ambers; wraps)", options: [], callback: () => send('EYE NEXT') },
+		eye_prev: { name: "God's Eye — PREVIOUS problem", options: [], callback: () => send('EYE PREV') },
+		eye_lens: {
+			name: "God's Eye — LENS: the picture through one lens",
+			options: [{ type: 'dropdown', id: 'lens', label: 'Lens', default: 'all', choices: [
+				{ id: 'all', label: 'ALL — every band' }, { id: 'video', label: 'VIDEO — sources, screens, displays, NDI' }, { id: 'control', label: 'CONTROL — decks, devices, nodes, the stack' },
+				{ id: 'audio', label: 'AUDIO — sources, outputs, routes' }, { id: 'room', label: 'ROOM — the audience and the stream' }, { id: 'problems', label: 'PROBLEMS — what is red or amber, and its neighbours' },
+			] }],
+			callback: (a) => send(`EYE LENS ${a.options.lens}`),
+		},
+		eye_reset: { name: "God's Eye — RESET: the whole picture, nothing dimmed", options: [], callback: () => send('EYE RESET') },
 		// Round 63 — the tile's own CUT / TAKE: the desk's preview to this one screen, as its own picture (OWN lights up); the programme and every other screen stay. EDIT SAFE must be open on the desk.
 		screen_take: {
 			name: 'Screen — CUT / TAKE the desk\'s preview to this screen alone (it becomes the screen\'s own picture; every other screen stays)',

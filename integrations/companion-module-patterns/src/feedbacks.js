@@ -51,6 +51,11 @@ export function buildFeedbacks(ctx) {
 		rig_known_good: bool('The rig is the one saved as known good (unchanged)', style('rig', 'same'), [], () => String(s().machine?.rig ?? '').startsWith('unchanged')),
 		rig_drift: bool('The rig moved since it was saved as known good', style('rig', 'drift'), [], () => /^\d+ change/.test(String(s().machine?.rig ?? ''))),
 		commissioned: bool('The rig is commissioned — every stage of the flow green', style('rig', 'commissioned'), [], () => s().commissioning?.complete === true),
+		// Round 66 — the God's Eye: the worst light in the desk's picture of the show, and whether anything is red or amber at all.
+		eye_worst: bool("God's Eye — the worst light in the picture is …", style('eye', 'red'), [{ type: 'dropdown', id: 'light', label: 'Light', default: 'red', choices: [
+			{ id: 'red', label: 'red — something is wrong now' }, { id: 'amber', label: 'amber — something needs a look' }, { id: 'green', label: 'green — all green' },
+		] }], (fb) => String(s().eye?.worstLight ?? '') === fb.options.light),
+		eye_problems: bool("God's Eye — something in the picture is red or amber", style('eye', 'amber'), [], () => (s().eye?.problems ?? 0) > 0),
 		// The install: the clock running, an announcement or an advert over the programme.
 		schedule_on: bool('The install schedule is on (the clock runs the site)', style('install', 'schedule'), [], () => s().install?.on === true),
 		announcement_on: bool('An announcement is on (any, or a named one)', style('install', 'announcement'), [named('name', 'Announcement name (blank = any)')], (fb) => {

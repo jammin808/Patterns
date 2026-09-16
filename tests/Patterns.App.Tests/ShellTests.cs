@@ -125,7 +125,7 @@ public class ShellTests
             Assert.True(vm.IsRunSelected);
             Assert.False(vm.IsShowSelected);
             Assert.Equal(ShellGroup.Show, vm.SelectedGroup);
-            Assert.Equal(new[] { "Panel", "Run" }, vm.PageStrip.Select(p => p.Header));
+            Assert.Equal(new[] { "Panel", "Run", "Eye" }, vm.PageStrip.Select(p => p.Header));   // round 66: the God's Eye sits in SHOW
             Assert.Equal("Run", vm.PageStrip.Single(p => p.IsCurrent).Header);
             Assert.Equal(Shell.RunPage, tabs.SelectedIndex);
 
