@@ -287,3 +287,33 @@ the NDI sources (discovery is push-based).
 **Revisit when.** A platform's notification proves unreliable in the field (a device change the
 catalogue missed): then that platform's catalogue gains the slow worker cadence as a safety net, with
 the evidence in the round's paper; or a list is wanted that no platform reports at all.
+
+## ADR-015 — A press is a transaction: what lands is what was promised at the press, never more
+
+**Decision.** A verb whose effect lands later than its press — a TAKE under a video sting today;
+any cue, transition or handover that answers *Requested* and completes on a clock, a clip's end or a
+device's receipt tomorrow — freezes at the press exactly what it will do (a ticket: the targets, the
+scope's words, where, under what cover, when) and lands that ticket, never a fresh plan read from the
+desk as it is at the landing. The landing may do less than the press promised, for one kind of reason
+only — the world took something away since (a screen LOCKED after the press keeps its picture;
+a screen gone from the rig cannot be sent to; a show replaced voids the ticket) — and says so by
+name; it never does more (an ARM, a tick, a focus or a screen that arrived during the wait is the
+next press's). A landing with nothing left to do is a refusal in words, never a silent success. The
+ticket is visible while it waits (STATE, the Eye, the deck) and its words are the press's words. A
+one-shot the press carried is spent by a press that happened — a press that fails keeps it for the
+next press and says so; a one-shot that can never run (its sting gone from the library) is cleared,
+and says so.
+
+**Why.** Round 72's critique, verified: a sting-covered TAKE re-planned at the clip's end from the
+live arming, ticks and rig, so a tick added during the clip took a screen the operator never
+pressed for, and the Consume of the one-shot ran before the sting was found or fired, so a press
+that failed lost its transition. Event Master's program changes only by the Mix or Cut taken on the
+destinations armed *at the take*; QLab's broken cues cannot fire and say why; the doctrine — attempts
+are not facts — needs the *attempt* frozen before the *fact* can be checked against it. A ticket is
+the smallest object that makes the landing a fact about the press.
+
+**Revisit when.** A landing genuinely should follow the world (a cue whose targets are chosen by a
+rule at the landing, by design): then the ticket carries the rule and the round's paper says why
+that verb is not a promise; or when a second deferred verb needs the same shape — then the ticket
+becomes the one type every deferred verb carries, not the switcher's own.
+

@@ -23,6 +23,14 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Attempts are not facts, in six more places** — a critique from the field read claim by claim against
+  the code, every claim found real and answered: the sound follows the picture the audience has, never the
+  preview's edit; a TAKE under a video sting lands what the press promised (a ticket frozen at the press) and
+  never more; a loaded show starts as a show opens, with the session of the last one gone and the loaded
+  show on air; a misspelt ON on the wire is refused rather than flipping a latch; a signal contract with a
+  property nobody stated reads PARTIAL, never MATCH, until the far end states it; and the frame smoother,
+  the display query and the EDID parser each proved on a point of their own. ADR-015; the assessment:
+  `docs/ROADMAP-ASSESSMENT.md`; the design: `docs/PLAN.md` §90.
 - **The desk tick and the audio devices** — the tick asked Windows for its audio devices every second
   while a Fractal or Reactive was on the desk (a COM enumeration, 200–400 ms on the UI thread: the
   super-check's red "(audio)" tick row), and the menus, the health facts, the pickers and the verbs

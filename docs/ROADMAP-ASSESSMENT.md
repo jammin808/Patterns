@@ -68,3 +68,30 @@ more, less only by a lock applied since; a failed take keeps its one-shot; a rep
 no residue; every unknown word on the wire is refused; PARTIAL is the verdict when a contracted
 property is unobserved; the smoother allocates nothing on a steady stream; the display query loops on
 the race; the EDID parser survives a thousand mutations.
+
+## Closed — what the round did with each item
+
+Written at the round's end, against the plan above.
+
+- **72.2 audio truth** — done as designed: `AudioRouting` takes (configuration, picture) beside every
+  single-state reading; every reader passes `AirState`. Found on the way and fixed: the audio graph's 50 ms
+  tick forced a plan rebuild (twenty a second while the matrix was on); it polls now.
+- **72.3 the take ticket** — done as designed, with one addition: the tile's own take under a sting is a ticket
+  too, and a lock since holds it with words that say so. Seen, not done: a LOCK pressed during a running clip
+  pins the clip's picture as the screen's own in the edited state (the lock reads the air, which is the clip);
+  the next round should pin the picture under the clip. REVIEW round 72.
+- **72.4 the session reset** — done as designed, and one thing more than planned: with EDIT SAFE open the
+  loaded show is frozen as the programme too (`Sandbox.RestoreProgram` over a clone), because the old
+  programme would otherwise have stayed on the outputs and a discard would have put its pictures into the
+  loaded show. The sting's session is forgotten without a restore (`StingerService.ForgetSession`).
+- **72.5 the wire** — done as designed; twenty stray words in the regression.
+- **72.6 PARTIAL** — done as designed, with two decisions the plan did not name: a contract's audio policy
+  counts as unobserved (nothing on the machine observes the audio a link carries; the EDID advertises
+  capability), and the test route's diagnostic profile drops its audio word so a proven path still reads
+  MATCH. The far end's word settles dynamic range, colour space, transport and audio, like its raster, rate,
+  encoding and depth. Companion 3.11.0 carries PARTIAL and the take ticket together.
+- **72.7 the engineering items** — done as designed; the topology invalidation counts itself
+  (`DisplayEvidence.Invalidations`) for the Machine page and the qualification row.
+- **Declined, unchanged** — the container, the six-layer restructure, QLab's cue modes, the GPU browser
+  path without a Windows bench: the reasons above stand.
+

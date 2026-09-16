@@ -9348,3 +9348,126 @@ below, first: no. The tick was doing the work itself.
 
 Counts: two enumerations on the desk's thread removed from the code, eleven readers on the catalogue,
 one catalogue with four tests of its own and two on the desk; 2,315 tests green; module 3.10.0.
+
+## 90. Round 72 — the critique answered: attempts are not facts, in the audio, the take, the session, the wire and the signal
+
+The maintainer's critique and priority roadmap (`Patterns_Developer_Critique_and_Priority_Roadmap_Round_69_7.md`)
+read claim by claim against the code; every claim verified real, with the file and the line, in
+`docs/ROADMAP-ASSESSMENT.md`, with what the peers do (Event Master's program changes only by the Mix or Cut
+taken on the destinations armed at the take; PJLink's ERR1 for an undefined command and ERR2 for a parameter
+out of range; QLab's broken cues that cannot fire and say why; Microsoft's own loop for QueryDisplayConfig
+when the topology moves under it) and the decisions: the units below done in this round, and the container,
+the six-layer restructure, QLab's cue modes and the GPU browser path declined with the reasons. The thread
+through every unit is the doctrine: a thing the desk says is a fact about the audience's picture, the wire's
+verb, the press's promise or the link's signal — never about the preview, a misspelling, the desk as it is
+at the landing, or a property nobody stated.
+
+### 90.1 The assessment (72.1)
+
+- `docs/ROADMAP-ASSESSMENT.md`: thirteen claims, each verified in the code at a named line; the peers' practice with sources; the units and their acceptance as tests; what is declined and why.
+
+### 90.2 Audio truth (72.2)
+
+- **The claim.** With EDIT SAFE open, every reader of the picture-derived audio routes passed the editable
+  state alone — the graph's lanes and its topology signature, the resolved plan, STATE's audioRouting row, the
+  Eye's audio edges, the Screens and Audio pages' words, the tile's menu, the assistant's brief, the rig and
+  audio verbs — so a screen given its own picture in the preview moved the room's sound before the take.
+- **The design.** `AudioRouting` keeps every single-state reading and adds a pair beside each: (configuration,
+  picture). The rows, the follow switch, the trims, the VOG policy and which screen names which output are the
+  configuration — the editable state, an operator's row applies live; what each screen shows — its own picture,
+  the screen it repeats, the canvas it belongs to — is read from the picture the audience has (`AirState`: the
+  frozen programme while EDIT SAFE is open, the same state otherwise, so nothing changes with the desk unsplit).
+  Every reader passes both.
+- **Found on the way.** The audio graph's 50 ms tick called `Reconcile`, which forces a plan rebuild: twenty
+  plans a second resolved and allocated on the desk's thread whenever the matrix was on, and the quiet-tick
+  counter never moved. The tick is the quiet poll now; the plan is resolved when the topology's signature moves.
+- **Proof.** `AudioFollowTests.TheRoutesFollowTheOnAirPictureAndTheRowsTheConfiguration`;
+  `AudioFollowAppTests.AnEditInThePreviewMovesNoSoundUntilItIsSent`.
+
+### 90.3 A press is a transaction (72.3)
+
+- **The claim.** A TAKE under a video sting stored the scope's words at the press and re-planned from them at the
+  clip's end against the arming, the ticks and the rig as they were then — a tick set during the clip took a
+  screen the operator never pressed for; and the one-shot was consumed before the sting was found or fired, so a
+  press that failed lost its transition.
+- **The design.** `TakeTicket` (Core): what the press promised — the scope words, the targets in wall order with
+  the wall's names, where, under which sting, when — and its landing against the rig as it is now: the promised
+  targets still in the rig and not locked since land; a screen LOCKED after the press or gone from the rig is held
+  with the reason; every other target keeps its picture; nothing that arrived during the clip is taken; a landing
+  with nothing left is a refusal that says why. The sting carries the ticket in its session; the landing runs it
+  through the same verb the key runs (`ShowActions.Land` — the journal, the desk's hooks and the ticks read it as a
+  TAKE); the tile's own take under a sting is a ticket too. The one-shot is peeked at the press and spent after the
+  sting fired or the send happened; a sting that cannot fire leaves it and says so; a sting gone from the library
+  clears it and says so. STATE's take row carries the waiting ticket (`landing`); the Eye's desk node says
+  "Landing → …"; the deck's `take_landing`. ADR-015.
+- **Proof.** `TakeTicketTests`; `TakeTicketAppTests` (a tick during the clip is the next press's; a lock since
+  holds its screen with the reason and everything locked since puts the show back with words; the tile's take;
+  a failed press keeps its one-shot, a missing sting clears it, a CUT never spends it).
+
+### 90.4 The session on a replaced show (72.4)
+
+- **The claim.** A show loaded, restored or mirrored reset the cue lists, the hooks, the walls and the pages,
+  and left the operator's session as it was: the one-shot, a sting's waiting ticket, the ticks (a tile rebuild
+  carries them), the focus, the arming, the edit watchers; with EDIT SAFE open the frozen programme stayed the
+  last show's — the outputs kept the old show, and a discard would have put its pictures into the new one.
+- **The policy.** A show opens as a show opens. `ResetSession`, before the desk refreshes: the one-shot cleared;
+  the sting's session forgotten without a restore (`StingerService.ForgetSession`: the clip, the saved pictures
+  and the ticket were the last show's — the clip's sound released, the label given back, the recovery pin lifted,
+  a journal row; an announcement in progress goes on); the ticks cleared; the edit watchers dropped (the copies
+  went with the state — the loaded show's own pictures stand as its file says, nothing is staged); every target
+  armed; the programme focused and edited; with EDIT SAFE open the loaded show frozen as the programme too, so
+  the audience has the loaded show and a discard keeps it.
+- **A canvas's role as one edit.** `SetRoles`: every member's role and the lock its role picks, one edit of the
+  edited state and one of the frozen programme, the lock's picture read from the air before anything moves —
+  one publish of each, one side-effect pass, one result.
+- **Proof.** `SessionResetAppTests` (the whole session set up and a show loaded over it, EDIT SAFE open and
+  closed; the canvas role change costs the publishes one screen's does — the verb's one edit and the desk's NEXT TAKE line).
+
+### 90.5 The wire fails closed (72.5)
+
+- **The claim.** BLACKOUT, SCREEN n, LOCK n, DUCK, REVIEW and FREEZE parsed ON and OFF and let every other word
+  fall through to the toggle — "BLACKOUT ONN" from a misspelt deck key flipped the latch the other way.
+- **The design.** A latch toggles on its bare verb or TOGGLE alone; any other word is refused as unknown (PJLink's
+  ERR1 for the desk's wire). REMOTE.md says so on each row.
+- **Proof.** `WireVocabularyTests.ALatchTogglesOnItsBareVerbOrToggleAloneAndRefusesAnyOtherWord` — every
+  family's bare verb and TOGGLE toggle, twenty stray words are refused, ON and OFF stand in any case.
+
+### 90.6 Signal truth's PARTIAL (72.6)
+
+- **The claim.** A contract naming a colour space, a bit depth or an encoding Windows never stated read MATCH on
+  the raster and the rate alone, with the unstated properties on grey lines nobody reads as a withheld pass.
+- **The design.** `SignalVerdict.Partial`: the raster and the rate stated and agreeing, every stated property
+  agreeing, and a property the contract names stated by nobody — not Windows, not the far end. The report's
+  Verified line names them; `SignalReport.IsPass` says MATCH alone passes; `SignalTruth.Unobserved` reads the
+  names back. The far end's word (a processor's input status) settles what Windows never states — dynamic range,
+  colour space, transport and audio compare like its raster, rate, encoding and depth. A contract's audio policy
+  counts: nothing on the machine observes the audio a link carries (the EDID advertises capability), so the test
+  route's diagnostic profile drops its audio word and still reads MATCH on a proven path. The commissioning
+  flow's Verify stage reads amber PARTIAL with the property named; the Eye's screen node and its link to the
+  display read amber; the journal, STATE, the Screens page and the wire carry the word; Companion 3.11.0
+  colours it.
+- **Proof.** `SignalTruthTests` (the blind observation PARTIAL with its properties named; a colour space
+  PARTIAL on Windows' word alone, MATCH with the processor's 709, MISMATCH with its 2020; the far end settling a
+  blind observation; the diagnostic profile's words); the module's own tests.
+
+### 90.7 Three engineering items (72.7)
+
+- **The frame smoother** sorted a fresh array on every measured arrival once the jitter window was full — thirty
+  allocations a second per web source on the decode thread. A scratch array allocated once; a test counts the
+  bytes six hundred steady arrivals allocate and expects none.
+- **The display query** asked Windows for the buffer sizes and then for the paths with no loop: a display
+  plugged between the two calls made the read answer ERROR_INSUFFICIENT_BUFFER and the desk report no observation
+  for a rig that was there. The documented loop re-reads the sizes, three times at most.
+- **The display evidence** — the observation (kept 2 s), every EDID (kept by device path), the machine's
+  inventory (kept 30 s) — is one set: `DisplayEvidence.InvalidateTopology` drops it as one where the desk learns
+  the topology changed, before it refreshes the screens; the invalidations are counted.
+- **The EDID parser fuzzed**: every truncation of the sample blocks (a short block says so), thousands of seeded
+  byte flips, every claimed extension count, garbage and zero extension blocks, random bytes of any length —
+  the parser reports and never throws; a generator of the test's own, no `System.Random`.
+
+### 90.8 The papers (72.8)
+
+- QUALIFICATION §10 (the take under a sting with the wall changing under it), §11 (the sound follows the picture
+  the room has), §12 (a display topology change under the evidence); this section; REVIEW round 72; CHANGELOG;
+  README; ADR-015; the tag table to round 71.
+

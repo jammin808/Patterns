@@ -2562,3 +2562,68 @@ catch is in §8.
 The round-70 review left no open items. This round answers a report from the rig with the cause
 named in the code, the mechanism that removes it, and a test that counts the machine's reads on a
 desk with a Fractal on it: zero.
+
+## Round 72 review — the critique answered
+
+### 72.1 — the assessment
+
+- **Done.** Every claim of the maintainer's critique checked in the code and found real, with the file and the
+  line; the peers' practice read; the decisions written, including the four things declined. §90.
+
+### 72.2 — audio truth
+
+- **Done.** The (configuration, picture) pair on every picture-derived reading of `AudioRouting`; every reader in
+  the App and the assistant passes `AirState` as the picture. §90.2. Tests: a Core test over a configuration and
+  a cloned air, an App test through EDIT SAFE.
+- **Found on the way.** The audio graph's 50 ms timer called `Reconcile` — a forced rebuild twenty times a second
+  while the matrix was on. It polls now. A first App test asserted on the rebuild counter across the publish's
+  side effects (which force a reconcile by design); it asserts on the plan the rebuild makes and on the quiet
+  ticks after it, which is the fact that matters.
+
+### 72.3 — the take ticket
+
+- **Done.** `TakeTicket` and its landing in Core; the sting carries it; `ShowActions.Land` runs it through the
+  same verb the key runs; the one-shot spent only by a press that happened; STATE, the Eye and the deck show the
+  ticket while it waits. §90.3, ADR-015.
+- **Seen, not done.** A LOCK pressed during a running clip pins the clip's own picture as the screen's own in the
+  edited state (`SetLock` reads the air's picture, which is the clip); the scoped restore puts the air right and
+  the landing refuses the tile, but the edited state keeps a Media picture the operator never chose until the
+  next send lifts it. The lock should pin the picture under the clip — the stinger's saved picture — when a clip
+  covers the screen. Recorded for the next round; the qualification row in §10 will show it if it bites.
+
+### 72.4 — the session on a replaced show
+
+- **Done.** `ResetSession` with its policy in words; `StingerService.ForgetSession`; a canvas's role as one edit.
+  §90.4. Tests: the whole session set up and a show loaded over it, EDIT SAFE open and closed; a canvas's role
+  costs the publishes one screen's does (the verb's one edit, then the desk's own NEXT TAKE line through the
+  snapshot — the second publish is the desk's, not a member's).
+
+### 72.5 — the wire fails closed
+
+- **Done.** The six latch families refuse any word that is not ON, OFF, TOGGLE or nothing. §90.5. The Companion
+  module already sends the exact words; nothing on the deck changes.
+
+### 72.6 — PARTIAL
+
+- **Done.** The verdict, its words, the far end's settlement, the audio policy, the diagnostic profile's audio
+  word dropped, the commissioning flow, the Eye, the journal, Companion 3.11.0. §90.6.
+- **Found on the way.** Three tests pinned MATCH where a contracted property was never stated — the blind
+  observation, a colour space with the connector agreeing, and an EDID test whose contract named stereo audio —
+  and the diagnostic profile's words. Each moved to the new fact rather than the rule bending to the test.
+
+### 72.7 — the engineering items
+
+- **Done.** The smoother's scratch, the display query's loop, `DisplayEvidence.InvalidateTopology`, the EDID
+  fuzz. §90.7. The invalidation is exercised on a real Windows only (the window's screens change) — the desk's
+  hook is one line; the platform's Forgets are the ones the tests already drive.
+
+### 72.8 — the papers
+
+- **Done.** QUALIFICATION §10–§12, PLAN §90, this review, CHANGELOG round 72, README, ADR-015, the tag table to
+  round 71.
+
+### The review's items, answered
+
+The round-71 review left no open items. This round answers a critique with every claim verified before
+anything was built, and one item recorded as seen and not done (72.3's lock during a clip).
+

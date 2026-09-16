@@ -8,6 +8,38 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 72 — 2026-09-16 — the critique answered: attempts are not facts, in the audio, the take, the session, the wire and the signal
+
+`round-72` · PLAN §90 · REVIEW round 72 · 2,332 tests · module 3.11.0
+
+- **The critique assessed.** The maintainer's critique and priority roadmap read claim by claim against the
+  code — every claim real, at a named line — with the peers' practice and the decisions: `docs/ROADMAP-ASSESSMENT.md`.
+- **Audio truth.** The routes the picture makes read the picture the audience has (`AirState`), never the
+  preview's edit: `AudioRouting` takes the configuration and the picture apart, every reader passes both. A
+  screen given its own picture in the preview moves no sound until it is taken. Found on the way: the audio
+  graph's 50 ms tick forced a plan rebuild — twenty a second while the matrix was on; it polls now.
+- **A press is a transaction.** A TAKE under a video sting freezes a ticket at the press — the targets, the
+  scope's words, where, under which sting, when — and lands that, less only a screen locked since or gone
+  from the rig, never more; a landing with nothing left says why. The one-shot is spent by a press that
+  fired, kept by one that failed, cleared when its sting is gone from the library — with words each way.
+  STATE's `take.landing`, the Eye's "Landing → …", the deck's `take_landing`. ADR-015.
+- **A replaced show starts as a show opens.** The one-shot, a sting's waiting ticket, the ticks, the focus,
+  the arming and the edit watchers are the last show's and go; with EDIT SAFE open the loaded show is
+  frozen as the programme too, so the audience has it and a discard keeps it. A canvas's role changes as one
+  edit of the state and one of the programme.
+- **The wire fails closed.** BLACKOUT, SCREEN n, LOCK n, DUCK, REVIEW and FREEZE toggle on the bare verb or
+  TOGGLE alone; any other word is refused as unknown — a misspelt ON never flips a latch the other way.
+- **Signal truth's PARTIAL.** Everything the path states agrees and a property the contract names was stated
+  by nobody: PARTIAL, naming the property, never a pass; the far end's word settles the properties Windows
+  never states (dynamic range, colour space, transport, audio); the test route's profile drops its audio
+  word. The commissioning flow, the Eye, the journal, STATE, the Screens page and Companion 3.11.0 carry it.
+- **Three engineering items.** The frame smoother allocates nothing on a measured arrival; the display query
+  loops when the topology moves under it; the display evidence (observation, EDIDs, inventory) is forgotten
+  as one when the topology changes; the EDID parser fuzzed — never throws.
+- **The papers.** QUALIFICATION §10–§12 (the take under a sting with the wall changing, the sound following
+  the room's picture, a topology change under the evidence), PLAN §90, REVIEW round 72, ADR-015, the tag
+  table to round 71.
+
 ## Round 71 — 2026-09-16 — the desk tick and the audio devices: a catalogue Windows keeps current, and no COM on the desk's thread
 
 `round-71` · PLAN §89 · REVIEW round 71 · 2,315 tests · module 3.10.0

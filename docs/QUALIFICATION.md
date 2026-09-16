@@ -230,6 +230,91 @@ never shows on the outputs' frame budget.
 |------|---------|-----------------------|--------------------------------------------|------------------------------------------------------------|--------------------------|-------------|--------------|---------------------------|--------|
 |      |         |                       |                                            |                                                            |                          |             |              |                           |        |
 
+## 10. The take under a sting, with the wall changing under it (round 72)
+
+**Set up.** The show machine with two or more outputs on the wall, EDIT SAFE open, a video sting in
+the library (a two-second clip is enough), a deck running Companion 3.11.0 or a controller on the
+wire, and STATE open on a second screen (`curl` in a loop, or the deck's `$(patterns:take_landing)`).
+
+**Do.** Each row is one press. Set the one-shot (`TAKE NEXT STING <name>`, or right-click TAKE),
+build a look in the preview, press TAKE with the scope named, and during the clip do the thing in
+the row: tick another tile; click another tile (focus); ARM a tile that was not armed; LOCK a tile
+the press promised; LOCK every tile the press promised; unplug a display the press promised; load
+another show. Then let the clip end and read where the preview landed.
+
+**Read.** STATE's `take.landing` while the clip runs (the sting, the scope words, the targets, when
+it was pressed) and its absence after; the Eye's desk node ("Landing → …"); the journal's `Take` row
+at the landing (its words name the sting and any screen held since the press with the reason);
+the wall (which tiles moved, which kept their picture, OWN lights); the TAKE key's face and STATE's
+`take.next` (the one-shot spent at the press that fired, kept by a press that failed).
+
+**Pass.** The clip covers the press's targets alone; the landing changes exactly the press's targets
+less any locked since the press or gone from the rig, and nothing that arrived during the clip
+(a tick, a focus, an ARM, a screen) is taken; a LOCK since the press holds that screen and the
+journal's words say `locked since the press`; every promised screen locked since gives
+`Sting could not move the show on — previous content back.` with `Nothing lands — …` in the journal
+and the pictures from before the clip back; a press whose sting cannot fire (a missing file) leaves
+the one-shot on the key and says so; a sting gone from the library clears the one-shot and says so;
+a show loaded during the clip (§12) never lands the old show's ticket.
+
+| date | machine | build / manifest hash | scope pressed | change during the clip | landed exactly the press's targets | held since named | nothing arrived was taken | STATE landing row seen / gone | one-shot kept on a failed press | result |
+|------|---------|-----------------------|---------------|------------------------|-------------------------------------|------------------|---------------------------|-------------------------------|----------------------------------|--------|
+|      |         |                       |               |                        |                                     |                  |                           |                               |                                  |        |
+
+## 11. The sound follows the picture the room has, not the preview (round 72)
+
+**Set up.** Two outputs whose sound leaves by two devices (an HDMI display with speakers and a
+USB interface do), each named on the Screens page (Sound out), the matrix on (AUDIO ROUTING ON),
+follow on, a clip with a soundtrack on the programme, EDIT SAFE open.
+
+**Do.** With the programme's clip audible on both outputs, give one screen its own picture in the
+preview (click its tile, change the pattern) and leave it there for a minute without taking; then
+TAKE; then edit that screen again in the preview and press EDIT SAFE off (discard); then load a
+look that gives the other screen its own picture through a cue (the air moves without a press).
+
+**Read.** The Audio page's ROUTING words ("Sound follows the picture on 2 screens: …") and each
+output's meter; STATE's `audioRouting.followed[].what`; the tile's right-click menu ("Sound out … —
+the programme / its own picture"); the Machine page's audio graph line (rebuilds) and the tick's
+*audio* area.
+
+**Pass.** During the minute of preview editing every output carries what it carried before — the
+programme's sound stays on the edited screen's output, the meter does not move, the words say
+"the programme", and the graph reports no lane rebuilt; at the TAKE the edited screen's output
+switches to its own picture's sound within one tick, the words and STATE follow, and the graph
+reports one rebuild; the discard changes nothing; the cue's look moves the other output's sound as
+the take did, without any press on the Audio page. The tick's *audio* area stays inside its budget
+throughout (no plan resolved on the 50 ms tick — the graph's quiet-tick counter climbs, its rebuild
+counter does not).
+
+| date | machine | build / manifest hash | outputs and devices | preview edit moved nothing (words · meter · rebuilds) | TAKE moved the sound (ticks to switch · rebuilds) | discard moved nothing | cue's look moved it | audio area within budget | result |
+|------|---------|-----------------------|---------------------|--------------------------------------------------------|----------------------------------------------------|-----------------------|---------------------|--------------------------|--------|
+|      |         |                       |                     |                                                        |                                                    |                       |                     |                          |        |
+
+## 12. A display topology change under the evidence (round 72)
+
+**Set up.** The show machine with two displays on the card, contracts set on both screens (Screens page,
+SIGNAL CONTRACT), the EDIDs read (Super Check's SIGNAL block shows them), the machine's inventory taken
+(the Machine page), and the outputs on.
+
+**Do.** Pull one display's cable and plug it back; swap the two cables between the card's ports; plug a
+third display in while the desk is reading the signal view (SCREEN n SIGNAL in a loop on the wire); change
+one display's mode in Windows' settings. After each, read the screen's signal view and Super Check.
+
+**Read.** The log's "Screen topology changed." line and the Machine page's display-evidence count
+(`DisplayEvidence.Invalidations`) beside it; the signal view's OBSERVED and ADVERTISED blocks against what
+is now plugged; the RESULT on each screen (MATCH, PARTIAL naming what nobody stated, MISMATCH, UNVERIFIED);
+the inventory's display list.
+
+**Pass.** Every topology change increments the evidence count once and the next signal view is the new
+rig's — never the old cable's EDID under the new display, never a mode that was; a read that races the
+plug reports the rig (the query's loop), not an empty observation; a swapped cable reads MISMATCH on the
+transport line where the contract names the connector; a screen whose contract names a colour space reads
+PARTIAL with `colour space never stated` and a processor's input status turns it to MATCH.
+
+| date | machine | build / manifest hash | change made | evidence count moved once | signal view is the new rig's | raced read reported the rig | PARTIAL named the property | far end settled it | result |
+|------|---------|-----------------------|-------------|---------------------------|------------------------------|-----------------------------|----------------------------|--------------------|--------|
+|      |         |                       |             |                           |                              |                             |                            |                    |        |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute
