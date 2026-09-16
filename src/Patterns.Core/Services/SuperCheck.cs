@@ -207,6 +207,8 @@ public sealed class CheckFacts
     public string StreamStatus { get; init; } = "";
 
     public int AudioOutputDevices { get; init; } = -1;
+    /// <summary>Round 71: the endpoint catalogue's line — how many outputs and inputs, when and why they were last read, whether Windows reports their changes.</summary>
+    public string AudioEndpointWords { get; init; } = "";
     public string AudioStatus { get; init; } = "";
     public string ToneStatus { get; init; } = "";
 
@@ -928,7 +930,7 @@ public static class SuperCheck
         {
             < 0 => new CheckRow(s, "Output devices", CheckLight.Grey, "unknown", "the device list needs Windows audio"),
             0 => new CheckRow(s, "Output devices", CheckLight.Amber, "none", "no playback device — the audio track, stingers and the tone have nowhere to go"),
-            _ => new CheckRow(s, "Output devices", CheckLight.Green, $"{f.AudioOutputDevices} found"),
+            _ => new CheckRow(s, "Output devices", CheckLight.Green, $"{f.AudioOutputDevices} found", f.AudioEndpointWords),
         });
         if (f.AudioStatus.Length > 0) rows.Add(new CheckRow(s, "Audio track", StatusWords.ReadsAsFailure(f.AudioStatus) ? CheckLight.Amber : CheckLight.Grey, f.AudioStatus));
         if (f.ToneStatus.Length > 0) rows.Add(new CheckRow(s, "Tone", CheckLight.Grey, f.ToneStatus));

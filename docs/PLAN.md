@@ -9271,3 +9271,80 @@ StyleCop; the seven families — 145 culture, 52 disposal, 54 threading, 62 secu
 51 performance, 17 banned in the source, 493 in all — at zero with their exceptions written; 67 rules
 at error, 64 off by name, 22 kept as suggestions and 22 relaxed in the tests; 2,309 tests green;
 module 3.10.0.
+
+## 89. Round 71 — the desk tick asked Windows for its audio devices every second: a catalogue Windows keeps current, and no COM on the desk's thread
+
+The report, with the desk's own files: the super-check's SHOW block read "Desk tick: 203.1 ms · worst
+406.3 ms (audio) · 60 past 16 ms — the desk stutters — something on the UI thread blocks the tick
+(audio)"; Particles, Fractals and Reactives stuttered, on a laptop with Iris Xe graphics and on a desk
+with a 4 GB card alike; the side-effects line read "worst 249.7 ms after Output". The question asked
+with it — could it be the kind of permission problem a permanent install would avoid? — is answered
+below, first: no. The tick was doing the work itself.
+
+### 89.1 What the tick did (71.1)
+
+- **The audio area, every second.** `AudioPage.Poll` refreshed the sound-reactive input picker on
+  every tick while a Fractal or Reactive was the active pattern — and a Fractal was the programme in
+  the maintainer's show, with Particles on the second screen. The refresh called
+  `AudioAnalyserService.CaptureDevices()`: `MMDeviceEnumerator.EnumerateAudioEndPoints` with each
+  endpoint's friendly name read from its property store — COM, on the UI thread, 200–400 ms on an
+  ordinary machine. That is the "(audio)" the super-check named, sixty ticks of sixty past the
+  budget, and the stutter under every moving pattern: the render thread was fine, the desk's own
+  thread was held for a fifth of every second.
+- **The outputs, from everywhere.** `AudioPlayerService.OutputDevices()` — the same enumeration for
+  the render endpoints — ran on the desk's thread from every right-click menu of a screen tile and
+  MENU on the wire (`DeskMenuFacts.Screen`), from the health facts every fifth tick
+  (`SystemMetricsService.GatherFacts`), from the monitor picker, the routing rows and the track
+  player's outputs on rebuild, from the screens' audio-output choices after every rig change (the
+  side-effects line's "worst after Output"), from the cue editor's destination picker and from the
+  AUDIO ROUTE, AUDIO VOG and SCREEN n AUDIO verbs; `DeviceIdFor` did it once more for a decoder's
+  device id. A device list asked of the machine on the thread that draws the desk, again and again,
+  for an answer that changes when a cable moves.
+- **Why the card does not help.** The cost is COM and the property store on the CPU, on the one thread
+  the desk draws with; no GPU is in the path.
+- **The permissions question.** The log's "Access to the registry key HKCU\Software\Policies\
+  Microsoft\Windows\Explorer is denied" is the show lock's notifications item on a machine whose
+  policy key the account may not create; it is logged once per LOCK ON, costs nothing per tick, and a
+  permanent install would not change it — an administrator's policy would. The stutter has nothing to
+  do with it; it is the work above, and it is gone.
+
+### 89.2 The catalogue (71.2)
+
+- **`Patterns.Audio.AudioEndpointCatalogue`.** The machine's endpoints as one immutable snapshot —
+  the outputs and the inputs with their ids and names, the names as lists that keep their identity
+  until the endpoints change, a version, the read's moment, cost and reason. One read on a worker when
+  the desk starts; Windows' own word thereafter (`IMMNotificationClient`: a device added, removed,
+  changed state, a new default, a property changed), each a nudge; a burst settles for 400 ms and is
+  one read, on a worker, serialised; a new snapshot is published, and `Changed` raised, only when the
+  endpoints differ. An asked-for refresh (the picker's REFRESH) is a nudge, never a wait. Off Windows
+  the catalogue is empty and silent; a test hands it a reader of its own and reads on its own thread.
+- **Every reader reads it.** The tick's audio area compares one number — the catalogue's version —
+  and rebuilds the input picker, the track player's outputs, the monitor list, the routing rows and
+  the screens' audio choices only when it moved; the menus' sound choices, the verbs, the cue editor
+  (`IRunHost.OutputDeviceNames`, empty on a node), the health facts (the count and the catalogue's
+  words on the super-check's Output devices row) and the decoders' device ids read the snapshot. The
+  two static enumerations are gone from the code.
+- **The press, too.** `AudioOutputs.ResolveDevices(enumerator, names, known)` opens a name the
+  catalogue knows by its id — one call — so the track player, the VOGs and stingers and the graph's
+  lanes no longer scan every endpoint's property store at a GO; a name the catalogue has not got (a
+  device that arrived a moment ago) falls back to the scan, and nothing opened falls back to the
+  default with the missing list as before.
+- **Tests.** `AudioEndpointCatalogueTests`: the first read publishes and the same machine read again
+  does not (the lists keep their identity, the version holds, the read is on record); a burst of five
+  nudges is one read on a worker; two asks at once read twice, never together; off Windows empty and
+  silent. `AudioEndpointsAppTests`: a desk with a Fractal on it polled sixty times reads the machine
+  zero times, every list follows a change on the next tick, a device removed reaches the facts with
+  its reason, and REFRESH is a nudge the button does not wait for.
+
+### 89.3 What the round did not do
+
+- The analyser's own start — a Fractal that listens to an input — still finds that input by one scan,
+  when it starts, on the reconcile; not on the tick.
+- The show lock's walk over other apps' audio sessions stays where it was: LOCK ON and LOCK OFF.
+- Video capture devices (DirectShow) are enumerated on first need and on demand from the Media
+  pickers; the catalogue's shape is theirs the day their line shows in the tick (ADR-014).
+- The maintainer's numbers are the before; the after is to be read on the rig: the Desk tick row
+  green, the side-effects line without the audio choices inside it.
+
+Counts: two enumerations on the desk's thread removed from the code, eleven readers on the catalogue,
+one catalogue with four tests of its own and two on the desk; 2,315 tests green; module 3.10.0.

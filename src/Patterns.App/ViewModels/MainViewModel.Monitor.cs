@@ -87,7 +87,7 @@ public sealed partial class MainViewModel
         try
         {
             var wanted = new List<string> { "" };
-            wanted.AddRange(AudioPlayerService.OutputDevices());
+            wanted.AddRange(_services.AudioEndpoints.RenderNames);
             // A device the show names but the machine has not got stays in the list, so the choice
             // reads back as what was chosen rather than silently becoming "none".
             if (State.Monitor.Device.Length > 0 && !wanted.Contains(State.Monitor.Device)) wanted.Add(State.Monitor.Device);

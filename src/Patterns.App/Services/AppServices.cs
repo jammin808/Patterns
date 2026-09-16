@@ -64,6 +64,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>The venue's forecast for the weather overlay, fetched on the show's interval and carried on the snapshot.</summary>
     public WeatherService Weather { get; }
     public AudioService Audio { get; }
+    /// <summary>Round 71: the machine's audio endpoints as a catalogue Windows keeps current — read by every picker, menu, table and fact; never an enumeration on the desk's thread.</summary>
+    public Patterns.Audio.AudioEndpointCatalogue AudioEndpoints { get; }
     public AudioPlayerService AudioPlayer { get; }
 
     /// <summary>The Spotify sign-in for this machine, beside the settings file — never in a show.</summary>
@@ -477,6 +479,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0 ? HealthMonitor.WatchdogNote + " · " + note : note;
             Log.Warn(note);
         }
+        AudioEndpoints = new Patterns.Audio.AudioEndpointCatalogue();
         Ndi = new NdiService(Bus);
         Video = new VideoEngine
         {
@@ -487,9 +490,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             // which is what a single-interface rig wants anyway.
             DeviceFor = where => where switch
             {
-                AudioDestination.Monitor => AudioPlayerService.DeviceIdFor(State.Monitor.Device),
+                AudioDestination.Monitor => AudioEndpoints.Current.RenderIdOf(State.Monitor.Device),
                 AudioDestination.Program when State.AudioPlayer.Devices.Count == 1
-                    => AudioPlayerService.DeviceIdFor(State.AudioPlayer.Devices[0]),
+                    => AudioEndpoints.Current.RenderIdOf(State.AudioPlayer.Devices[0]),
                 _ => null,
             },
         };
@@ -688,6 +691,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (!IsDesk) OutputsHeldBy = NodeKinds.HoldWords(Profile);
         if (Profile == NodeKind.Arcade) Arcade.Start();          // the game is the node's window from its first frame
         Screens.Refresh(); // planned screens exist before any display is attached
+        AudioEndpoints.Start();   // round 71: the endpoints read once, on a worker; Windows says when they change
         Startup.Mark(StartupBudget.Services);
         Log.Info(Modules.Words());                                                              // what the desk loaded, on record at every start
         // The desk's first frame is the budget's last mark; a pipeline tells it once.
@@ -1665,6 +1669,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     IActionLayer IWireHost.Actions => Actions;
     IActionLayer IRunHost.Actions => Actions;
     IReadOnlyList<ScreenInfo> IRunHost.Screens => Screens.All;
+    IReadOnlyList<string> IRunHost.OutputDeviceNames => AudioEndpoints.RenderNames;
 
     // The cue stack's host: a cue's steps run for real here, through the action layer; the sidecar
     // services it watches for a late failure; rig day's streak while the games are on.
@@ -2060,6 +2065,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Step("workers", "deck in", DeckIn.Dispose);
         Step("workers", "audio", Audio.Dispose);
         Step("workers", "audio player", AudioPlayer.Dispose);
+        Step("workers", "audio endpoints", AudioEndpoints.Dispose);
         Step("workers", "playlist", Playlist.Dispose);
         Step("workers", "feeds", Feeds.Dispose);
         Step("workers", "weather", Weather.Dispose);

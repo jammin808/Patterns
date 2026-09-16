@@ -1,4 +1,5 @@
 using NAudio.CoreAudioApi;
+using Patterns.Core.Services;
 
 namespace Patterns.Audio;
 
@@ -36,6 +37,54 @@ public static class AudioOutputs
     /// physical endpoint never plays twice. Empty selection (or nothing matching) = default.
     /// </summary>
     public static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names) => ResolveDevices(enumerator, names, out _);
+
+    /// <summary>
+    /// Round 71: the same resolution with the catalogue's word first. A name the catalogue knows is opened
+    /// by its id — one call, no scan of every endpoint's property store on the desk's thread at a GO; a
+    /// name it has not got (a device that arrived a moment ago) falls back to the scan, and the missing
+    /// list reads as it always did.
+    /// </summary>
+    public static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names, IReadOnlyList<AudioEndpoint> known, out IReadOnlyList<string> missing)
+    {
+        var named = names.Where(n => n != DefaultDeviceKey).ToList();
+        if (known.Count == 0 || named.Count == 0 || named.Any(n => !known.Any(k => string.Equals(k.Name, n, StringComparison.OrdinalIgnoreCase))))
+        {
+            return ResolveDevices(enumerator, names, out missing);
+        }
+        var result = new List<MMDevice>();
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var gone = new List<string>();
+        if (names.Contains(DefaultDeviceKey))
+        {
+            var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            if (taken.Add(device.ID)) result.Add(device);
+            else device.Dispose();
+        }
+        foreach (var name in named)
+        {
+            var id = known.First(k => string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase)).Id;
+            if (!taken.Add(id)) continue;
+            try
+            {
+                var device = enumerator.GetDevice(id);
+                if (device.State == DeviceState.Active) result.Add(device);
+                else
+                {
+                    device.Dispose();
+                    gone.Add(name);
+                }
+            }
+            catch (Exception ex)
+            {
+                // The catalogue's word is a moment old: the device left between the read and the press.
+                Log.Warn($"'{name}' could not be opened by its id; the endpoints are read again.", ex);
+                gone.Add(name);
+            }
+        }
+        if (result.Count == 0) return ResolveDevices(enumerator, names, out missing);   // nothing opened: the scan and its fallback to the default, as ever
+        missing = gone;
+        return result;
+    }
 
     /// <summary>As above, naming the chosen devices that were not there: the desk shows them, because a fallback must never be silent.</summary>
     public static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names, out IReadOnlyList<string> missing)

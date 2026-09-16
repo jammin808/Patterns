@@ -37,7 +37,7 @@ public class FractalAppTests
             {
                 Assert.Equal("Sound-reactive effects listen on Windows only.", analyser.Status);
                 Assert.False(analyser.Listening);
-                Assert.Empty(AudioAnalyserService.CaptureDevices());
+                Assert.Empty(b.Services.AudioEndpoints.CaptureNames);                 // round 71: the catalogue is the desk's list, empty off Windows
             }
             b.Vm.PollNow();
             Assert.Equal(analyser.Status, b.Vm.Audio.AnalyserStatus);

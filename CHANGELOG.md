@@ -8,6 +8,21 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 71 — 2026-09-16 — the desk tick and the audio devices: a catalogue Windows keeps current, and no COM on the desk's thread
+
+`round-71` · PLAN §89 · REVIEW round 71 · 2,315 tests · module 3.10.0
+
+- **The stutter named.** The desk tick asked Windows for its audio input devices every second while a
+  Fractal or Reactive was on the desk — a WASAPI enumeration with each endpoint's name read from its
+  property store, 200–400 ms on the UI thread, the "(audio)" of the super-check's red tick row — and
+  for its outputs from every right-click menu, the health facts every fifth tick, the pickers, the
+  routing rows, the screens' choices, the cue editor and the verbs.
+- **The catalogue.** `AudioEndpointCatalogue`: one read on a worker at start, Windows' own
+  notifications thereafter, a debounced read on a worker, an immutable snapshot with a version
+  published only when the endpoints changed. The tick compares one number; every menu, picker, table,
+  fact and decoder id reads the snapshot; a press opens a known device by its id. `IRunHost.OutputDeviceNames`;
+  the super-check's Output devices row carries the catalogue's words. ADR-014.
+
 ## Round 70 — 2026-09-16 — the analyzers as fences: Sonar's rules and Roslyn's in every build, each stop with its reason, and one culture on every desk
 
 `round-70` · PLAN §88 · REVIEW round 70 · 2,309 tests · module 3.10.0

@@ -1050,7 +1050,7 @@ public sealed class ScreensPage : Observable
     public void RebuildAudioOutputChoices()
     {
         var wanted = new List<EditTarget> { new("— none (the Audio page's rows alone)", "") };
-        var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+        var devices = _services.AudioEndpoints.RenderNames;
         foreach (var d in AudioRouting.Destinations(State, devices)) wanted.Add(new EditTarget(d.Label + (d.Present ? "" : " (not plugged in)"), d.Key));
         var current = _selectedPlacement?.AudioOutput ?? "";
         if (current.Length > 0 && wanted.All(w => w.ScreenId != current)) wanted.Add(new EditTarget(AudioRouting.DestinationLabel(State, current), current));

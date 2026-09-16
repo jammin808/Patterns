@@ -308,7 +308,9 @@ public class RemoteControlTests
     {
         if (!OperatingSystem.IsWindows())
         {
-            Assert.Empty(AudioPlayerService.OutputDevices());
+            using var catalogue = new Patterns.Audio.AudioEndpointCatalogue();   // round 71: the desk's list is the catalogue's
+            catalogue.ReadNow("test");
+            Assert.Empty(catalogue.RenderNames);
         }
     }
 }

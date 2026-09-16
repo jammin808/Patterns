@@ -68,7 +68,7 @@ public sealed class AudioPlayerService : IDisposable
         // The voice opens on the destinations routed for its kind (the programme's outputs while
         // the matrix is off), at the crosspoint's gain and the destination's delay.
         VoiceFactory = (path, volumePct) => OperatingSystem.IsWindows()
-            ? WasapiStingerVoice.Open(path, volumePct, AudioRouting.OutputsFor(_services.State, _openingKind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting), _services.AudioGraph is not null)
+            ? WasapiStingerVoice.Open(path, volumePct, AudioRouting.OutputsFor(_services.State, _openingKind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting), _services.AudioGraph is not null, _services.AudioEndpoints.Current.Render)
             : null;
         _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(400));
         _timer.Tick += (_, _) => Tick();
@@ -89,57 +89,6 @@ public sealed class AudioPlayerService : IDisposable
     public Func<string, IEnumerable<string>> EnumerateFiles { get; set; } = folder =>
         Directory.Exists(folder) ? Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories) : Array.Empty<string>();
 
-    /// <summary>Active output device friendly names (WASAPI). Empty off-Windows.</summary>
-    /// <summary>
-    /// The Windows endpoint id behind a friendly name, for a decoder that routes by id rather than
-    /// by name (libVLC's mmdevice output). Null when the name is empty, the sentinel for the
-    /// default endpoint, or a device that is not plugged in — a route that cannot be made is
-    /// reported, never guessed at.
-    /// </summary>
-    public static string? DeviceIdFor(string? friendlyName)
-    {
-        if (string.IsNullOrWhiteSpace(friendlyName) || friendlyName == DefaultDeviceKey) return null;
-        if (!OperatingSystem.IsWindows()) return null;
-        try
-        {
-            using var enumerator = new MMDeviceEnumerator();
-            foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
-            {
-                using (device)
-                {
-                    if (string.Equals(device.FriendlyName, friendlyName, StringComparison.OrdinalIgnoreCase)) return device.ID;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Reading the audio endpoints failed.", ex);
-        }
-        return null;
-    }
-
-    public static IReadOnlyList<string> OutputDevices()
-    {
-        if (!OperatingSystem.IsWindows()) return Array.Empty<string>();
-        try
-        {
-            using var enumerator = new MMDeviceEnumerator();
-            var list = new List<string>();
-            foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
-            {
-                using (device)
-                {
-                    if (!string.IsNullOrWhiteSpace(device.FriendlyName)) list.Add(device.FriendlyName);
-                }
-            }
-            return list;
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Audio device enumeration failed.", ex);
-            return Array.Empty<string>();
-        }
-    }
 
     // ---- the list ----------------------------------------------------------------------------
 
@@ -448,7 +397,7 @@ public sealed class AudioPlayerService : IDisposable
         using var enumerator = new MMDeviceEnumerator();
         var deviceNames = picks.Select(p => p.Device).ToList();
         var first = true;
-        foreach (var device in ResolveDevices(enumerator, deviceNames))
+        foreach (var device in ResolveDevices(enumerator, deviceNames, _services.AudioEndpoints.Current.Render))
         {
             AudioFileReader? reader = null;
             WasapiOut? output = null;
@@ -571,9 +520,9 @@ public sealed class AudioPlayerService : IDisposable
     public double SyncWorstLagMs => _players.Count == 0 ? -1 : _players.Max(p => Math.Abs(p.LagMs));
 
     /// <summary>Stored names → devices: the audio module's rule.</summary>
-    internal static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names)
+    internal static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names, IReadOnlyList<AudioEndpoint> known)
     {
-        var devices = AudioOutputs.ResolveDevices(enumerator, names, out var missing);
+        var devices = AudioOutputs.ResolveDevices(enumerator, names, known, out var missing);
         MissingDevices = missing;
         return devices;
     }

@@ -75,7 +75,7 @@ public sealed partial class ShowActions
                 if (source is null) return ActionResult.Refused($"'{a.Target}' is not a sound the show has — programme, a screen with its own picture, preview, music, vog, sting or tone.");
                 var (toWord, db) = AudioRouting.ParseRouteValue(a.Value);
                 if (double.IsNaN(db)) return ActionResult.Refused("The level after AT is not a number in dB.");
-                var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+                var devices = _s.AudioEndpoints.RenderNames;
                 var destination = AudioRouting.FindDestination(State, devices, toWord);
                 if (destination is null) return ActionResult.Refused($"'{toWord}' is not a destination — an output this machine has (by its name), NDI <send>, or computer.");
                 var label = AudioRouting.DestinationLabel(State, destination);
@@ -92,7 +92,7 @@ public sealed partial class ShowActions
             case ShowActionKind.AudioVogMode:
             {
                 if (!AudioRouting.TryParseVogMode(a.Value, out var mode)) return ActionResult.Refused("AUDIO VOG takes duck, replace or leave.");
-                var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+                var devices = _s.AudioEndpoints.RenderNames;
                 var destination = AudioRouting.FindDestination(State, devices, a.Target);
                 if (destination is null) return ActionResult.Refused($"'{a.Target}' is not a destination — an output this machine has, NDI <send>, or computer.");
                 AudioRouting.EnsureRow(State, destination).VogMode = mode;

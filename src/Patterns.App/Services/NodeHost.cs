@@ -757,6 +757,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     public CueRuntime Cues => Kernel.Cues;
 
     IActionLayer IRunHost.Actions => Actions;
+    IReadOnlyList<string> IRunHost.OutputDeviceNames => Array.Empty<string>();
 
     /// <summary>What the validator may assume here: a desk's decoder and its music are the desk's to have, so neither is doubted; the presets are the ones beside this node's show.</summary>
     public CueValidationContext ValidationContext => new()

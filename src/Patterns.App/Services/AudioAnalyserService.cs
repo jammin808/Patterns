@@ -325,36 +325,6 @@ public sealed class AudioAnalyserService : IDisposable
         _fill = Spectrum.Window / 2;
     }
 
-    /// <summary>Active input device names (WASAPI). Empty off Windows.</summary>
-    public static IReadOnlyList<string> CaptureDevices()
-    {
-        if (!OperatingSystem.IsWindows()) return Array.Empty<string>();
-        try
-        {
-            return ListCaptureDevices();
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Audio input enumeration failed.", ex);
-            return Array.Empty<string>();
-        }
-    }
-
-    [SupportedOSPlatform("windows")]
-    private static List<string> ListCaptureDevices()
-    {
-        using var enumerator = new MMDeviceEnumerator();
-        var list = new List<string>();
-        foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
-        {
-            using (device)
-            {
-                if (!string.IsNullOrWhiteSpace(device.FriendlyName)) list.Add(device.FriendlyName);
-            }
-        }
-        return list;
-    }
-
     public void Dispose()
     {
         _timer.Stop();

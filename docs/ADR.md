@@ -261,3 +261,29 @@ wrong for this code and goes to suggestion with the reason written — CA1867 we
 with nothing to fix and five sites it would have made wrong; CA2213 stays, with thirty-nine fixed and
 ten explained); or a failure in the field turns out to be a class a rule would have caught — then that
 rule joins the fences with the field's example as its reason.
+
+## ADR-014 — A device list is a catalogue the platform keeps current, never an enumeration on the desk's thread
+
+**Decision.** Any list of the machine's devices the desk shows, searches or resolves — the audio
+endpoints today; video capture devices and NDI sources by the same rule when their line ever shows in
+the tick; the displays already so since round 32 — is a catalogue: read once on a worker when the
+desk starts, kept current by the platform's own notification (WASAPI's `IMMNotificationClient` for
+audio), published as an immutable snapshot with a version, and read by everything on the desk's thread
+in the time of a field read. A page rebuilds its list when the version moved, never on a schedule; a
+refresh asked for by name is a nudge to the worker, never a wait; a press opens a device by the id the
+catalogue holds. The desk's tick, its menus, its pickers, its facts and its verbs never call an
+enumeration. Where a platform has no notification, the catalogue reads on a slow worker cadence and
+says so in its words — still never on the tick.
+
+**Why.** Round 71's report: a WASAPI enumeration with each endpoint's name read from its property
+store costs 200–400 ms on an ordinary machine, and the desk ran one on its own thread every second
+while a sound-reactive pattern was on the desk, on every right-click menu of a screen, every fifth tick
+for the health facts, and after every rig change for the screens' choices — sixty ticks of sixty past
+the budget, every moving pattern stuttering, on a laptop and a 4 GB desk alike. The list changes when a
+cable moves, which Windows reports; asking for it on a schedule was an attempt at knowing, and the
+notification is the fact. The same shape already serves the displays (the hot-plug of round 32) and
+the NDI sources (discovery is push-based).
+
+**Revisit when.** A platform's notification proves unreliable in the field (a device change the
+catalogue missed): then that platform's catalogue gains the slow worker cadence as a safety net, with
+the evidence in the round's paper; or a list is wanted that no platform reports at all.

@@ -57,7 +57,7 @@ public sealed class WasapiStingerVoice : IStingerVoice
     /// routing matrix hands them over; the first output is tapped for the NDI lanes when a graph
     /// is given. Null when nothing opened (no device, unreadable file).
     /// </summary>
-    public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<AudioOutputPick> picks, bool tapForGraph)
+    public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<AudioOutputPick> picks, bool tapForGraph, IReadOnlyList<AudioEndpoint>? known = null)
     {
         var voice = new WasapiStingerVoice();
         if (picks.Count == 0) return null;   // routed nowhere: nothing to open, and that is the matrix's word
@@ -66,7 +66,7 @@ public sealed class WasapiStingerVoice : IStingerVoice
         List<MMDevice> devices;
         try
         {
-            devices = AudioOutputs.ResolveDevices(enumerator, deviceNames);
+            devices = known is null ? AudioOutputs.ResolveDevices(enumerator, deviceNames) : AudioOutputs.ResolveDevices(enumerator, deviceNames, known, out _);
         }
         catch (Exception ex)
         {

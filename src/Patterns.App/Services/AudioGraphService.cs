@@ -378,7 +378,7 @@ public sealed class AudioGraphService : IDisposable
             using var enumerator = new MMDeviceEnumerator();
             var device = name == AudioRouting.ComputerOutput
                 ? enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)
-                : AudioPlayerService.ResolveDevices(enumerator, new[] { name }).FirstOrDefault();
+                : AudioPlayerService.ResolveDevices(enumerator, new[] { name }, _services.AudioEndpoints.Current.Render).FirstOrDefault();
             if (device is null)
             {
                 lane.Error = $"'{name}' is not plugged in — nothing routed here is heard.";

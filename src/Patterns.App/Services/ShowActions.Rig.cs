@@ -114,7 +114,7 @@ public sealed partial class ShowActions
                 var destination = "";
                 if (!none)
                 {
-                    var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+                    var devices = _s.AudioEndpoints.RenderNames;
                     destination = AudioRouting.FindDestination(State, devices, word) ?? "";
                     if (destination.Length == 0) return ActionResult.Refused($"'{word}' is not an output this machine has (by its name), NDI <send>, or computer.");
                 }

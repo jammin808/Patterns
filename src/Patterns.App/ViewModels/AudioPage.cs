@@ -150,7 +150,11 @@ public sealed class AudioPage : Observable
             RefreshStingerGroups();
             _desk.StatusMessage = "Effect pulse added — fire it like any stinger; it surges through the particles and fractals on screen.";
         });
-        RefreshCaptureDevicesCommand = new RelayCommand(RefreshCaptureDevices);
+        RefreshCaptureDevicesCommand = new RelayCommand(() =>
+        {
+            _services.AudioEndpoints.Nudge("refresh asked");   // the machine read again on a worker; the tick rebuilds the lists when its version moves
+            RefreshCaptureDevices();
+        });
 
         RefreshStingerGroups();
         RefreshAfterChoices();
@@ -215,9 +219,10 @@ public sealed class AudioPage : Observable
     public string RoutingFollowWords { get => _routingFollowWords; private set => Set(ref _routingFollowWords, value); }
 
     private string _routingStamp = "";
+    private long _endpointsSeen = -1;
 
-    /// <summary>The outputs this machine has now (Windows), for the pickers and the lookups.</summary>
-    private IReadOnlyList<string> AvailableOutputs() => OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+    /// <summary>The outputs this machine has now, for the pickers and the lookups: the catalogue's list (round 71), never an enumeration on the desk's thread.</summary>
+    private IReadOnlyList<string> AvailableOutputs() => _services.AudioEndpoints.RenderNames;
 
     /// <summary>A cell ticked or unticked: the crosspoint made at its last level (0 dB when new), or removed.</summary>
     internal void SetCell(RoutingCellVm cell, bool on)
@@ -401,7 +406,7 @@ public sealed class AudioPage : Observable
         Devices.Add(new AudioDeviceChoice(this, AudioPlayerService.DefaultDeviceKey,
             selected.Contains(AudioPlayerService.DefaultDeviceKey),
             "Computer audio output (default device — venue sound feed)"));
-        foreach (var name in AudioPlayerService.OutputDevices())
+        foreach (var name in _services.AudioEndpoints.RenderNames)
         {
             Devices.Add(new AudioDeviceChoice(this, name, selected.Contains(name)));
         }
@@ -623,7 +628,7 @@ public sealed class AudioPage : Observable
     public void RefreshCaptureDevices()
     {
         var wanted = new List<string> { AudioInput.DefaultDevice };
-        wanted.AddRange(AudioAnalyserService.CaptureDevices());
+        wanted.AddRange(_services.AudioEndpoints.CaptureNames);
         var chosen = ChosenCaptureDevice;
         if (!AudioInput.WantsDefault(chosen) && AudioInput.IndexOf(wanted, chosen) < 0) wanted.Add(chosen);
         if (CaptureDevices.Count == wanted.Count && CaptureDevices.SequenceEqual(wanted)) return;
@@ -651,7 +656,25 @@ public sealed class AudioPage : Observable
         StingerHolding = _services.Stingers.Holding;
         StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
         AnalyserStatus = _services.Analyser.Status;
-        if (_desk.ActivePattern.Kind is PatternKind.Fractal or PatternKind.Reactive) RefreshCaptureDevices();
+        // Round 71: the device lists follow the catalogue's version — one compare a tick, a rebuild only when
+        // Windows said the endpoints changed. The tick asked Windows for the inputs every second while a
+        // sound-reactive pattern was on the desk: 200–400 ms on the UI thread, the stutter the super-check
+        // called "(audio)".
+        var endpoints = _services.AudioEndpoints.Version;
+        if (endpoints != _endpointsSeen)
+        {
+            _endpointsSeen = endpoints;
+            RefreshCaptureDevices();
+            RefreshDevices();
+            RefreshRouting(force: true);
+            _desk.Screens.RebuildAudioOutputChoices();
+        }
+        // The input picker also follows the show's own choice (a box named that is not plugged in here stays
+        // in the list): a compare of a few strings a tick while a sound-reactive pattern is on the desk.
+        else if (_desk.ActivePattern.Kind is PatternKind.Fractal or PatternKind.Reactive)
+        {
+            RefreshCaptureDevices();
+        }
     }
 
     /// <summary>A show read from a file became the show: the chips and pickers read the new lists.</summary>

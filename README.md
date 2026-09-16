@@ -23,6 +23,12 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The desk tick and the audio devices** — the tick asked Windows for its audio devices every second
+  while a Fractal or Reactive was on the desk (a COM enumeration, 200–400 ms on the UI thread: the
+  super-check's red "(audio)" tick row), and the menus, the health facts, the pickers and the verbs
+  asked again. An endpoint catalogue reads once on a worker, hears Windows' own device notifications,
+  and publishes an immutable snapshot every reader compares by version; a press opens a device by its
+  id. ADR-014; the design: `docs/PLAN.md` §89.
 - **The analyzers as fences** — the SDK's analyzers, Sonar's rules (`SonarAnalyzer.CSharp`, the rules
   a SonarQube server runs, inside the compiler) and the threading analyzers run on every build; a
   generated `.editorconfig` names each rule that stops the build and why, by family (culture, disposal,

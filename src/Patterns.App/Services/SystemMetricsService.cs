@@ -523,15 +523,7 @@ public sealed class SystemMetricsService : IDisposable
             senderLines.Add($"{cfg.Name} · {cfg.Width}×{cfg.Height}{(status.Length > 0 ? $" · {status}" : "")}");
         }
 
-        var audioDevices = -1;
-        try
-        {
-            if (OperatingSystem.IsWindows()) audioDevices = AudioPlayerService.OutputDevices().Count;
-        }
-        catch
-        {
-            // No audio stack — unknown.
-        }
+        var audioDevices = OperatingSystem.IsWindows() ? _services.AudioEndpoints.RenderNames.Count : -1;   // round 71: the catalogue's count, not an enumeration every fifth tick
 
         var remoteUrl = "";
         try
@@ -671,6 +663,7 @@ public sealed class SystemMetricsService : IDisposable
             StreamDestinations = state.Stream.Destinations.Count,
             StreamStatus = _services.Stream.Status,
             AudioOutputDevices = audioDevices,
+            AudioEndpointWords = _services.AudioEndpoints.Words,
             AudioStatus = _services.AudioPlayer.Status,
             ToneStatus = _services.Audio.Status,
             SyncLock = state.AudioPlayer.SyncLock,

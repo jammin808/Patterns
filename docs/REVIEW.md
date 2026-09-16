@@ -2528,3 +2528,37 @@ SonarQube server is recorded as the maintainer's decision, not built blind. What
 is in ANALYSIS §6 — a keep-awake taken for a fact, a class of locale-dependent spelling, a leak per sink,
 twenty-nine regexes with no timeout, a stop that waited two seconds for a sleep — and what they cannot
 catch is in §8.
+
+## Round 71 review — the desk tick and the audio devices
+
+### 71.1 — research
+
+- **Done.** The maintainer's super-check, log, settings and show log read; the "(audio)" of the tick
+  row traced to `AudioPage.Poll` refreshing the sound-reactive input picker by a WASAPI enumeration
+  every tick while a Fractal or Reactive was on the desk — the maintainer's programme was a Fractal —
+  and the outputs' enumeration found on the desk's thread from the menus, the health facts (every
+  fifth tick), the pickers, the routing rows, the screens' choices, the cue editor and the verbs.
+  §89.1. The permissions question answered from the log: the registry line is the show lock's
+  notifications item, once per lock, nothing to do with the tick.
+
+### 71.2 — the catalogue
+
+- **Done.** `AudioEndpointCatalogue` in `Patterns.Audio`, composed and started by the desk, disposed
+  in the workers' shutdown step; every reader on it; the by-id resolution at a press; the facts row.
+  §89.2. Tests: the catalogue's four, the desk's two; every suite green.
+- **Found on the way.** `FractalAppTests` asserted on the analyser's static enumeration off Windows;
+  it asserts on the catalogue's inputs now. The catalogue's default reader off Windows would have
+  tried WASAPI and logged a warning at every test boot; it reads nothing, without a word. The App
+  test measures the fix as a count — reads of the machine across sixty ticks: zero — rather than a
+  time, which a container cannot promise.
+
+### 71.3 — the papers
+
+- **Done.** PLAN §89, this review, CHANGELOG round 71, README, ADR-014, the tag table carried to
+  round 70.
+
+### The review's items, answered
+
+The round-70 review left no open items. This round answers a report from the rig with the cause
+named in the code, the mechanism that removes it, and a test that counts the machine's reads on a
+desk with a Fractal on it: zero.

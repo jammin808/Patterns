@@ -905,7 +905,7 @@ public sealed class CueEditor : Observable
                 return AudioRouting.Sources(state).Select(src => new PickItem(src.Id, src.Label));
             case TargetKind.AudioDestination:
                 // The show's own rows first, then what this machine has: a cue names a destination by its key, its label reads the same on the wire.
-                return AudioRouting.Destinations(state, OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>())
+                return AudioRouting.Destinations(state, _s.OutputDeviceNames)
                     .Select(d => new PickItem(d.Key, d.Configured ? d.Label : $"{d.Label} (not routed yet)"));
             case TargetKind.Page:
             {
