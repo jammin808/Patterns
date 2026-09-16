@@ -100,6 +100,14 @@ public sealed class SystemMetricsService : IDisposable
         {
             Log.Warn("Memory pressure ladder failed.", ex);
         }
+        try
+        {
+            _services.Residency.Poll(Pressure.Level);                                                    // round 69: the ledger's rows, and idle pictures let go on their clock
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Residency ledger failed.", ex);
+        }
     }
 
     /// <summary>History + advisor + CSV for one sample. Public so tests can feed synthetic data.</summary>

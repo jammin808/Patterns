@@ -18,6 +18,8 @@ public sealed class NdiInputEngine : IDisposable
 
     private readonly NdiFinder _finder = new();
     private readonly Dictionary<string, NdiReceiver> _receivers = new();
+    /// <summary>Every picture each receiver is on — the residency ledger reads its reason from them (round 69).</summary>
+    private readonly Dictionary<string, IReadOnlyList<MediaBus>> _buses = new();
     private readonly List<(string Key, NdiReceiver Receiver, DateTime RetiredUtc)> _retired = new();
 
     /// <summary>Non-empty when more feeds are wanted than the receiver cap allows.</summary>
@@ -26,6 +28,16 @@ public sealed class NdiInputEngine : IDisposable
     /// <summary>Mounted keys with a short status each — the Media tab's active-inputs line.</summary>
     public IReadOnlyList<(string Key, string Status)> MountStatuses
         => _receivers.Select(kv => (kv.Key, kv.Value.IsPlaying ? "receiving" : kv.Value.StatusText)).ToList();
+
+    /// <summary>Round 69: every receiver and every retired one with what holds it — the residency ledger's rows.</summary>
+    public IEnumerable<(string Key, IReadOnlyList<MediaBus> Buses, bool Retiring, string Status)> Holds()
+    {
+        foreach (var (key, receiver) in _receivers)
+        {
+            yield return (key, _buses.TryGetValue(key, out var b) ? b : Array.Empty<MediaBus>(), false, receiver.IsPlaying ? "receiving" : receiver.StatusText);
+        }
+        foreach (var (key, _, _) in _retired) yield return (key, Array.Empty<MediaBus>(), true, "fading out");
+    }
 
     /// <summary>Also called from the app's 1 s poll so a retired receiver never lingers.</summary>
     public void SweepRetired()
@@ -62,6 +74,7 @@ public sealed class NdiInputEngine : IDisposable
         {
             var receiver = _receivers[key];
             _receivers.Remove(key);
+            _buses.Remove(key);
             InputBus.Unmount(key);
             // Keep receiving briefly so a crossfade fades out live frames.
             InputBus.SetPrevious(key, receiver);
@@ -86,6 +99,7 @@ public sealed class NdiInputEngine : IDisposable
         var over = 0;
         foreach (var w in wanted)
         {
+            _buses[w.Key] = w.Buses;
             if (_receivers.ContainsKey(w.Key)) continue;
             if (_receivers.Count >= MaxReceivers)
             {

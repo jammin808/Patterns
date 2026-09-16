@@ -237,7 +237,7 @@ public sealed class EyeService
             var light = src is null ? CheckLight.Grey : src.FrameSize is null ? CheckLight.Amber : CheckLight.Green;
             var status = src?.StatusText ?? "";
             if (src is not null && src.FrameSize is null && status.Length == 0) status = "no frame yet";
-            sources.Add(new EyeSource(key, label, KindWord(kind), src is not null, status, light, EyeGraph.SourcePage(kind)));
+            sources.Add(new EyeSource(key, label, KindWord(kind), src is not null, status, light, EyeGraph.SourcePage(kind), _s.Residency.ReasonWords(key)));   // round 69: why it is in memory
         }
 
         var devices = state.Interactive.Devices.Select(d =>

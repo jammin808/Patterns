@@ -169,7 +169,7 @@ public static class MediaMemory
         MemoryPressure.None => "",
         MemoryPressure.Elevated => "retired swept, pictures trimmed",
         MemoryPressure.High => "retired swept, pictures trimmed, pre-roll held back, decks narrowed",
-        _ => "retired swept, pictures trimmed, pre-roll held back, decks narrowed, no new preview-only source opened",
+        _ => "retired swept, pictures trimmed, pre-roll held back, decks narrowed, no new preview-only source opened, armed pages let go",
     };
 
     /// <summary>The rung as one lower-case word for the wire and Companion.</summary>

@@ -13,6 +13,8 @@
     <TextBlock Classes="hint tip" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too. Every input runs separately: give each screen its own source (pick the screen in the strip, then choose here) and the same feed can sit on several screens, the PiP and the multiview at once — one decode per source." />
 
     <TextBlock Classes="label" Text="{Binding Media.ActiveInputsText}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint" Text="{Binding Media.ResidencyText}" TextWrapping="Wrap" IsVisible="{Binding Media.ResidencyText, Converter={StaticResource NotEmpty}}"
+               ToolTip.Tip="Round 69: every held thing has a reason — on air, in the preview, named by the show, armed at its mark, pre-rolled for the standby cue, retiring — or an idle clock: a picture nobody draws and nothing names is let go when its grace is up (shorter on a small machine, shorter still as the memory pressure ladder climbs), not only once the budget is passed" />
 
     <TextBlock Classes="h2" Text="SOURCE" />
     <ComboBox ItemsSource="{Binding MediaSources}"

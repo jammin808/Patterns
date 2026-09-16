@@ -151,7 +151,7 @@ public sealed class EyeScreen
 }
 
 /// <summary>A live input: mounted or not, delivering or not; Page is the rail page that edits it ("" for the kind's default).</summary>
-public sealed record EyeSource(string Key, string Label, string Kind, bool Mounted, string Status, CheckLight Light, string Page = "");
+public sealed record EyeSource(string Key, string Label, string Kind, bool Mounted, string Status, CheckLight Light, string Page = "", string Held = "");
 
 /// <summary>A box the desk drives; one with an InputScreen carries that screen and is the far end of its link.</summary>
 public sealed record EyeDevice(string Id, string Name, string Profile, string Address, bool Enabled, bool Open, string Status, CheckLight Light, string Words, string InputScreen = "", string Received = "");
@@ -489,7 +489,7 @@ public sealed class EyeGraph
             sourceLight[s.Key] = s.Light;
             Add(new EyeNode(id, EyeKind.Source, EyePlane.Video, 0, s.Label.Length > 0 ? s.Label : s.Key, SourceSub(s), s.Light)
             {
-                Words = new[] { $"Key {s.Key}", s.Kind, s.Mounted ? "mounted" : "not mounted", s.Status }.Where(w => w.Length > 0).ToList(),
+                Words = new[] { $"Key {s.Key}", s.Kind, s.Mounted ? "mounted" : "not mounted", s.Status, s.Held.Length > 0 ? "held: " + s.Held : "" }.Where(w => w.Length > 0).ToList(),
                 Route = new MenuRoute(s.Page.Length > 0 ? s.Page : SourcePage(s.Kind), s.Key),
             });
         }

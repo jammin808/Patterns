@@ -95,6 +95,17 @@ public sealed class VideoEngine : IDisposable
             ? (kv.Value.Source.IsHeld ? "pre-rolled" : "pre-rolling")
             : kv.Value.Source.IsPlaying ? "playing" : kv.Value.Source.StatusText)).ToList();
 
+    /// <summary>Round 69: every mount and every retired source with what holds it — the residency ledger's rows.</summary>
+    public IEnumerable<(string Key, IReadOnlyList<MediaBus> Buses, bool PreRoll, bool Retiring, long Bytes, string Status)> Holds()
+    {
+        foreach (var (key, mount) in _mounts)
+        {
+            var status = mount.PreRoll ? (mount.Source.IsHeld ? "pre-rolled" : "pre-rolling") : mount.Source.IsPlaying ? "playing" : mount.Source.StatusText;
+            yield return (key, mount.Buses, mount.PreRoll, false, mount.Source.MemoryBytes, status);
+        }
+        foreach (var (key, source, _, _) in _retired) yield return (key, Array.Empty<MediaBus>(), false, true, source.MemoryBytes, "fading out");
+    }
+
     /// <summary>Pre-roll clips that could not be mounted because the decoder limit was reached by live sources.</summary>
     public int PreRollWaiting { get; private set; }
 

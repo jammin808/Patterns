@@ -52,6 +52,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>PDF decks inside the engine — one per deck the show references, a page at a time.</summary>
     public DeckEngine DeckIn { get; }
 
+    /// <summary>Round 69: the residency ledger — every held thing with the reason it stays, and the sweep that lets idle pictures go on a clock.</summary>
+    public ResidencyService Residency { get; }
+
     /// <summary>This machine's arcade on the input bus while a picture shows it.</summary>
     public ArcadeInputEngine ArcadeIn { get; }
     public PlaylistService Playlist { get; }
@@ -497,6 +500,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         WebIn.HardwareDecoding = () => HardwareDecoding;
         AudioGraph = new AudioGraphService(this);
         DeckIn = new DeckEngine(Store.BaseDirectory);
+        Residency = new ResidencyService(this);
         DeckIn.Converter.ConfiguredPath = () => State.Admin.LibreOfficePath;
         // A conversion lands on a background thread; the swap to the PDF happens with the inputs, on the UI thread.
         DeckIn.Changed = () => UiThread.Post(() =>
@@ -1426,7 +1430,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                     : key.StartsWith("vid:", StringComparison.Ordinal) ? "a clip"
                     : "a source";
                 var label = state.InputLabel(key, "");
-                inputs.Add(label.Length > 0 ? $"{label} ({kind[2..]})" : kind);   // the nickname and the kind, never the key's path or address
+                var held = Residency.ReasonWords(key);                                          // round 69: why it is in memory — on air, the preview's, pre-rolled, armed
+                var reason = held.Length > 0 ? ", " + held : "";
+                inputs.Add(label.Length > 0 ? $"{label} ({kind[2..]}{reason})" : kind + reason);   // the nickname and the kind, never the key's path or address
             }
         }
         catch (Exception ex)

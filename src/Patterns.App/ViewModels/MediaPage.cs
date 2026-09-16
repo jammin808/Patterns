@@ -773,6 +773,10 @@ public sealed class MediaPage : Observable
     private string _activeInputsText = "No live inputs mounted.";
     public string ActiveInputsText { get => _activeInputsText; private set => Set(ref _activeInputsText, value); }
 
+    private string _residencyText = "";
+    /// <summary>Round 69: the residency ledger in a line — what is held, why, and when an idle picture goes.</summary>
+    public string ResidencyText { get => _residencyText; private set => Set(ref _residencyText, value); }
+
     public void RefreshActiveInputs()
     {
         var rows = new List<string>();
@@ -784,8 +788,10 @@ public sealed class MediaPage : Observable
                 : key.StartsWith("web:", StringComparison.Ordinal)
                     ? State.InputLabel(key, WebAddress.ShortName(bare))
                     : State.InputLabel(key, bare);
-            rows.Add($"{label} — {status}");
+            var held = _services.Residency.ReasonWords(key);                                            // round 69: why it is in memory
+            rows.Add($"{label} — {status}{(held.Length > 0 ? " · " + held : "")}");
         }
+        ResidencyText = "In memory: " + _services.Residency.Words + $" · idle pictures let go after {_services.Residency.Grace.TotalSeconds:0} s on this machine.";
         var native = _services.WebVideo.Note;
         var notes = string.Join("  ",
             new[] { _services.Video.LimitNote, _services.Video.PendingNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote, native }.Where(s => s.Length > 0));

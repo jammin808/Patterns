@@ -180,3 +180,55 @@ assumption the 400 ms hold made before; a sink that takes longer than that over 
 hung sink. A pool is held only by the sinks that told it they drew it — the two decoders and any
 source written the same way; a source that hands a pooled image to a canvas without `Touch` is
 covered by the fallback alone. The ledger sees what registers.
+
+## 11. Round 69 — residency: a reason for everything held, and a clock for what has none
+
+*The brief: "When something isn't needed or running it can be discarded from memory unless it is
+set up and adjusted like a marker on a YouTube video, or pre-loading media for the next cue … it
+needs to dispose of old redundant memory better."*
+
+**What was already true.** The engines never kept a source nobody wanted: a decoder or a browser
+page leaves the moment its picture does (kept a few hundred milliseconds for the crossfade, then
+disposed behind the render fence), a receiver the same, a deck drops the pages outside its window,
+and the standby cue's clips and pages are opened ahead and let go four seconds after the cue stops
+being next. What the desk lacked was two things. First, the picture cache kept a decoded still
+until the byte budget or the count was passed: on a big machine a 33 MB photograph shown once at
+09:00 was still resident at 17:00 with nothing drawing it — not a leak, but a drawer full of things
+nobody had a reason for. Second, nothing said *why* a thing was in memory: STATE listed the mounts
+and the bytes, not the holds.
+
+**The residency policy (`Residency`, Core).** Every held thing has one of seven reasons: on air (a
+frame drew it within the last second and a half), named by the show (a pattern, a layer, the logo or
+the standby cue's look references it — kept decoded whether or not a frame drew it this second, so
+the picture is there the moment it is asked for), in the preview, armed at its mark (a web page whose
+video the operator set up — the one thing kept past its want), pre-rolled for the standby cue,
+retiring, or idle. An idle thing gets a grace by the machine's class — 20 s small, 60 s standard,
+180 s big — halved at the ladder's elevated rung, a quarter at high, none at critical, then goes on
+its own clock, not only once the budget is passed. `Residency.Grace`, `ForBuses`, `ForPicture`,
+`NamedPictures` and `Summary` are pure and tested.
+
+**The sweep (`ImageCache.SweepIdle`, Rendering).** Once a second the residency service reads every
+resident picture's idle age from the cache's tick clock, lets the ones past the grace go — behind the
+fence, like any other picture, never one drawn within the window and never one the show names — and
+counts what went (`IdleSwept`). The ladder's `TrimTo` at elevated stands beside it: the sweep is the
+clock, the trim the emergency.
+
+**The armed page (`WebEngine.KeepArmed`).** A page whose video the operator armed in the preview
+used to be retired the moment the preview moved on — the browser, the mark and the advert skipped all
+gone, to be done again. Now the page stays mounted, off air, until it is disarmed or plays; the memory
+pressure ladder clears the keep at critical, and the page leaves like any other. A look's own arm
+(*Play the video from*) is not kept this way: the look brings it back.
+
+**The ledger (`ResidencyService`, App).** The rows — pictures, clips, pages, receivers, decks, each
+with its reason, its bytes and its idle age — are gathered once a second after the pressure ladder and
+read by STATE (`memory.residency`: the grace, the words, what was let go, every hold), the Media page's
+line under the live inputs (*In memory: 7 held (412 MB): 3 on air, 1 pre-rolled for the standby cue, 1
+named by the show, 2 idle — the first lets go in 12 s · idle pictures let go after 60 s on this
+machine*), the Eye's source nodes (*held: pre-rolled for the standby cue*) and the assistant's brief.
+
+**Balance between graphics memory and system memory — as it really is.** The split is by design, not
+by a swapper: decoded frames and pictures live in system memory (the pools, the cache) and the GPU
+holds only what Skia uploads to draw a frame, in its resource cache. Nothing moves between them at run
+time because nothing would gain: a texture is an upload of pixels the pool already has. What the round
+adds on the GPU side is §12's governor — the cache bounded by the card's dedicated memory and shrunk
+under either pressure — and the honest numbers beside it.

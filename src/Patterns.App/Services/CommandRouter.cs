@@ -578,6 +578,22 @@ public sealed class CommandRouter : IRouter
                 fenceFaults = Patterns.Rendering.Media.RenderFence.Faults.Select(x => x.ToString()).ToArray(),
                 mediaMB = Math.Round((_services.Metrics.Pressure.Reading?.Total ?? MediaMemory.Read(MemoryBudget.MachineMB).Total) / (1024.0 * 1024.0)),
                 mediaBudgetMB = Math.Round(MediaMemory.BudgetBytes(MemoryBudget.MachineMB) / (1024.0 * 1024.0)),
+                residency = new                                              // round 69: every held thing with the reason it stays, the grace an idle one gets, what was let go
+                {
+                    grace = Math.Round(_services.Residency.Grace.TotalSeconds),
+                    words = _services.Residency.Words,
+                    letGo = _services.Residency.PicturesLetGo,
+                    holds = _services.Residency.Holds.Select(h => new
+                    {
+                        key = h.Key,
+                        kind = h.Kind,
+                        label = h.Label,
+                        reason = Residency.Word(h.Reason),
+                        bytesMB = Math.Round(h.Bytes / (1024.0 * 1024.0), 1),
+                        idleS = Math.Round(h.IdleSeconds),
+                        status = h.Status,
+                    }).ToArray(),
+                },
                 pressure = MediaMemory.Word(_services.Metrics.Pressure.Level),                            // none / elevated / high / critical: the ladder's rung
                 pressureSteps = MediaMemory.Steps(_services.Metrics.Pressure.Level),
                 placed = MemoryLedger.Describe(),

@@ -99,6 +99,31 @@ public sealed class WebEngine : IDisposable
 
     public int PageCount => _pages.Count;
 
+    /// <summary>
+    /// Round 69: a page whose video the operator armed at a mark is set up — it stays mounted, off air, after
+    /// nothing wants it, until it is disarmed or plays. The memory pressure ladder clears this at critical,
+    /// and the page goes like any other.
+    /// </summary>
+    public bool KeepArmed { get; set; } = true;
+
+    /// <summary>Pages kept for their arm alone right now.</summary>
+    public int ArmedKept { get; private set; }
+
+    /// <summary>Round 69: every page and every retired browser with what holds it — the residency ledger's rows.</summary>
+    public IEnumerable<(string Key, bool PreRoll, bool OnAir, bool Armed, bool Retiring, long Bytes, string Status)> Holds()
+    {
+        foreach (var (key, page) in _pages)
+        {
+            var vt = _vts.TryGetValue(key, out var v) ? v : null;
+            var armed = vt is not null && vt.Arm.Armed && !vt.Arm.ByLook && page.UnwantedUtc is not null && !page.PreRoll;
+            yield return (key, page.PreRoll, vt?.OnAir ?? false, armed, false, BytesOf(page.Source), page.Source.StatusText);
+        }
+        foreach (var (key, source, _) in _retired) yield return (key, false, false, false, true, BytesOf(source), "leaving");
+    }
+
+    /// <summary>What a page's frame pool holds — the browser's source knows; a stand-in holds nothing the ledger counts.</summary>
+    private static long BytesOf(IWebSource source) => OperatingSystem.IsWindows() && source is WebFrameSource f ? f.MemoryBytes : 0;
+
     /// <summary>The mounted page for a key, or null.</summary>
     public IWebSource? For(string key) => _pages.TryGetValue(key, out var page) ? page.Source : null;
 
@@ -156,6 +181,7 @@ public sealed class WebEngine : IDisposable
         // crossfade fades out real frames — and a new viewport reopens below. One opened for a cue
         // ahead is given its grace first (see PreRollGrace).
         var sweep = DateTime.UtcNow;
+        var armedKept = 0;
         foreach (var key in _pages.Keys.ToList())
         {
             var page = _pages[key];
@@ -169,9 +195,17 @@ public sealed class WebEngine : IDisposable
                 }
                 if (sweep - page.UnwantedUtc.Value < PreRollGrace) continue;
             }
+            // Round 69: a page the operator armed at a mark is set up — it stays, off air, until disarmed or played (or the ladder's critical rung).
+            if (want is null && !page.PreRoll && KeepArmed && _vts.TryGetValue(key, out var armedVt) && armedVt.Arm.Armed && !armedVt.Arm.ByLook)
+            {
+                if (page.UnwantedUtc is null) _pages[key] = page with { UnwantedUtc = sweep };
+                armedKept++;
+                continue;
+            }
             if (want is null || want.Format != page.Format) Retire(key, LeaveFadeOf(snap.State));
             else if (page.UnwantedUtc is not null) _pages[key] = page with { UnwantedUtc = null };
         }
+        ArmedKept = armedKept;
 
         if (wanted.Count == 0 && early.Count == 0)
         {

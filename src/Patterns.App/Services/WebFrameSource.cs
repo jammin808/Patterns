@@ -67,6 +67,9 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     public const double CaptureChangeMs = 3000;
 
     private readonly WebFramePipeline _pipeline;
+
+    /// <summary>The bytes the page's frame pool holds, for the residency ledger (round 69).</summary>
+    public long MemoryBytes => _pipeline.MemoryBytes;
     private readonly bool _hardwareDecoding;
     private WebCapturePlan _plan;                            // what the next start asks for
     private WebCapturePlan _planApplied;                     // what the running screencast was started with

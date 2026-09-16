@@ -16,7 +16,11 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class DeckEngine : IDisposable
 {
-    private sealed record Mounted(IDeckSource Source, Task<DeckConverter.Result>? Conversion, int StartPage);
+    private sealed record Mounted(IDeckSource Source, Task<DeckConverter.Result>? Conversion, int StartPage)
+    {
+        /// <summary>Every picture the deck is on — the residency ledger reads its reason from them (round 69).</summary>
+        public IReadOnlyList<MediaBus> Buses { get; init; } = Array.Empty<MediaBus>();
+    }
 
     private readonly Dictionary<string, Mounted> _decks = new();
     private readonly List<(string Key, IDeckSource Source, DateTime RetiredUtc)> _retired = new();
@@ -57,6 +61,10 @@ public sealed class DeckEngine : IDisposable
     /// <summary>Mounted keys with a short status each — the Media page's active-inputs line.</summary>
     public IReadOnlyList<(string Key, string Status)> MountStatuses
         => _decks.Select(kv => (kv.Key, kv.Value.Source.StatusText)).ToList();
+
+    /// <summary>Round 69: every mounted deck with what holds it — the residency ledger's rows.</summary>
+    public IEnumerable<(string Key, IReadOnlyList<MediaBus> Buses, long Bytes, string Status)> Holds()
+        => _decks.Select(kv => (kv.Key, kv.Value.Buses, kv.Value.Source is PdfDeckSource pdf ? pdf.PageBytes : 0L, kv.Value.Source.StatusText));
 
     /// <summary>True while a mounted deck is still being converted.</summary>
     public bool Converting => _decks.Values.Any(m => m.Conversion is { IsCompleted: false });
@@ -108,6 +116,11 @@ public sealed class DeckEngine : IDisposable
         {
             if (_decks.TryGetValue(w.Key, out var have))
             {
+                if (!ReferenceEquals(have.Buses, w.Buses))
+                {
+                    have = have with { Buses = w.Buses };
+                    _decks[w.Key] = have;
+                }
                 if (have.Conversion is { IsCompleted: true } done) Land(w, have, done.Result, ceiling);
                 continue;
             }
@@ -117,7 +130,7 @@ public sealed class DeckEngine : IDisposable
                 Task<DeckConverter.Result>? conversion = null;
                 var source = SourceFactory is { } open ? open(w, ceiling) : Open(w, start, ceiling, out conversion);
                 if (source is null) continue;
-                _decks[w.Key] = new Mounted(source, conversion, start);
+                _decks[w.Key] = new Mounted(source, conversion, start) { Buses = w.Buses };
                 InputBus.Mount(w.Key, source);
                 DeckInput.AvailabilityNote = "";
             }

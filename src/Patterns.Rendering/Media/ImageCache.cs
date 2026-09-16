@@ -66,6 +66,8 @@ public static class ImageCache
         public long Bytes;
         public DateTime WriteTimeUtc;
         public long LastUse;
+        /// <summary>When a sink last fetched it (the tick clock): the residency ledger's idle clock (round 69).</summary>
+        public long LastDrawnTicks;
         /// <summary>When the file was last looked at on disk — its write time is trusted for <see cref="StatHold"/> after this.</summary>
         public long StatAt;
         /// <summary>Which frame of each sink last drew this picture: the fence's table, retired with the picture.</summary>
@@ -86,6 +88,11 @@ public static class ImageCache
 
     private static long _useCounter;
 
+    /// <summary>The tick clock the idle ages are read on (round 69): the machine's, or a test's.</summary>
+    public static Func<long>? Clock { get; set; }
+
+    private static long Now => Clock?.Invoke() ?? Environment.TickCount64;
+
     /// <summary>Bytes of pictures let go and waiting on the fence (they are <see cref="RetiredFrames"/>' now, of the picture kind).</summary>
     public static long GraveyardBytes => RetiredFrames.BytesOf(RetiredFrames.Kind.Picture);
 
@@ -99,13 +106,14 @@ public static class ImageCache
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
 
-        var now = Environment.TickCount64;
+        var now = Now;
         lock (Gate)
         {
             // The picture as it was: trusted for a moment before the disk is asked again.
             if (Entries.TryGetValue(path, out var fresh) && now - fresh.StatAt < StatHold.TotalMilliseconds)
             {
                 fresh.LastUse = ++_useCounter;
+                fresh.LastDrawnTicks = now;
                 RenderFence.Touch(fresh.DrewAt);                                                       // this sink's running frame draws it: noted with the fetch, under the lock
                 return fresh.Image;
             }
@@ -128,6 +136,7 @@ public static class ImageCache
             if (Entries.TryGetValue(path, out var e) && e.WriteTimeUtc == writeTime)
             {
                 e.LastUse = ++_useCounter;
+                e.LastDrawnTicks = now;
                 e.StatAt = now;
                 RenderFence.Touch(e.DrewAt);
                 return e.Image;
@@ -164,7 +173,7 @@ public static class ImageCache
                 Retire(old);
                 _bytes -= old.Bytes;
             }
-            var entry = new Entry { Image = image, Bytes = BytesOf(image), WriteTimeUtc = writeTime, LastUse = ++_useCounter, StatAt = now };
+            var entry = new Entry { Image = image, Bytes = BytesOf(image), WriteTimeUtc = writeTime, LastUse = ++_useCounter, LastDrawnTicks = now, StatAt = now };
             Entries[path] = entry;
             _bytes += entry.Bytes;
             RenderFence.Touch(entry.DrewAt);
@@ -234,6 +243,52 @@ public static class ImageCache
                 Entries.Remove(lruKey);
                 gone++;
             }
+        }
+        return gone;
+    }
+
+    /// <summary>Pictures the residency sweep let go for being idle, this session (round 69).</summary>
+    public static int IdleSwept { get; private set; }
+
+    /// <summary>Every resident picture with what it costs and how long since a sink fetched it, for the residency ledger (round 69).</summary>
+    public static IReadOnlyList<(string Path, long Bytes, long IdleMs)> Snapshot(long? nowTicks = null)
+    {
+        var now = nowTicks ?? Now;
+        lock (Gate)
+        {
+            var list = new List<(string, long, long)>(Entries.Count);
+            foreach (var (path, e) in Entries) list.Add((path, e.Bytes, Math.Max(0, now - e.LastDrawnTicks)));
+            return list;
+        }
+    }
+
+    /// <summary>A picture fetched within this long is being drawn: the sweep never touches it, whatever the grace — the floor under a grace of nought.</summary>
+    public const long DrawnWithinMs = 1500;
+
+    /// <summary>
+    /// The residency sweep (round 69): a picture no sink has fetched for longer than <paramref name="graceMs"/>
+    /// (and never within <see cref="DrawnWithinMs"/>) is let go — behind the fence like any other — unless
+    /// <paramref name="keep"/> says the show still names it. A picture on air is fetched every frame and is
+    /// never idle; idle things leave on their own clock, not only when the budget is passed.
+    /// </summary>
+    public static int SweepIdle(long graceMs, Func<string, bool>? keep = null, long? nowTicks = null)
+    {
+        var now = nowTicks ?? Now;
+        var floor = Math.Max(graceMs, DrawnWithinMs);
+        var gone = 0;
+        lock (Gate)
+        {
+            foreach (var k in Entries.Keys.ToList())
+            {
+                var e = Entries[k];
+                if (now - e.LastDrawnTicks <= floor) continue;
+                if (keep is not null && keep(k)) continue;
+                Retire(e);
+                _bytes -= e.Bytes;
+                Entries.Remove(k);
+                gone++;
+            }
+            IdleSwept += gone;
         }
         return gone;
     }

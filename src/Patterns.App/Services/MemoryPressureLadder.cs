@@ -62,6 +62,7 @@ public sealed class MemoryPressureLadder
         _services.Video.PreRollSuppressed = level >= MemoryPressure.High;
         PdfDeckSource.Window = level >= MemoryPressure.High ? PdfDeckSource.NarrowWindow : PdfDeckSource.DefaultWindow;
         _services.Video.RefuseNonCriticalOpens = level >= MemoryPressure.Critical;
+        _services.WebIn.KeepArmed = level < MemoryPressure.Critical;                                   // round 69: an armed page kept past its want goes at critical
 
         if (level == Level) return;
         var was = Level;
