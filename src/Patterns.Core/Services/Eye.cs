@@ -88,6 +88,8 @@ public sealed class EyeFacts
     public string TakeScope { get; init; } = "";
     /// <summary>Round 67.8: what the next TAKE will do — the plan's words ("→ 1 · Left, 2 · Right · 1 outside the scope keeps its picture") or its refusal; "" on a node.</summary>
     public string TakeWords { get; init; } = "";
+    /// <summary>Round 72: a TAKE waiting under a video sting — the ticket the press froze, in words ("→ 1 · Left, 2 · Right when 'Whoosh' ends"); "" with none.</summary>
+    public string Landing { get; init; } = "";
     public IReadOnlyList<EyeDisplay> Displays { get; init; } = Array.Empty<EyeDisplay>();
     public IReadOnlyList<EyeScreen> Screens { get; init; } = Array.Empty<EyeScreen>();
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
@@ -477,6 +479,7 @@ public sealed class EyeGraph
         if (f.MemoryWords.Length > 0) deskWords.Add(f.MemoryWords);                                   // round 69: the memory line
         if (f.NextTake.Length > 0) deskWords.Add($"Next take: {f.NextTake} (one shot)");
         if (f.TakeWords.Length > 0) deskWords.Add($"Next TAKE ({f.TakeScope}) {f.TakeWords}");
+        if (f.Landing.Length > 0) deskWords.Add($"Landing {f.Landing}");                             // round 72: the ticket a sting will land
         deskWords.AddRange(f.Attention);
         Add(new EyeNode(DeskId, EyeKind.Desk, EyePlane.Video, 1, f.MachineName.Length > 0 ? f.MachineName : "This desk", f.OutputsLive ? "outputs live" : "outputs closed", f.Health)
         {

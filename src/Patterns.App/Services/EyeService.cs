@@ -342,6 +342,7 @@ public sealed class EyeService
             NextTake = _s.NextTake.Pending?.Words ?? "",
             TakeScope = plan?.Scope.Label ?? "",
             TakeWords = plan is null ? "" : plan.IsRefused ? plan.Refusal! : plan.Words,
+            Landing = _s.Stingers.SessionTicket?.Words ?? "",                                          // round 72: the ticket a sting will land
             Displays = displays,
             Screens = screens,
             Sources = sources,

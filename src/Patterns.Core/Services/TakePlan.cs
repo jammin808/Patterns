@@ -16,6 +16,10 @@ public sealed record TakeHeld(string Id, string Label, string Reason)
     public const string LockedReason = "locked";
     public const string NotArmedReason = "not armed";
     public const string RepeaterReason = "a repeater";
+    /// <summary>Round 72: LOCKED after the press — a ticket's landing holds it, whenever the lock came.</summary>
+    public const string LockedSinceReason = "locked since the press";
+    /// <summary>Round 72: no longer a target in the rig when the ticket lands.</summary>
+    public const string GoneReason = "gone from the rig";
 }
 
 /// <summary>
@@ -70,7 +74,8 @@ public sealed record TakePlan
         }
     }
 
-    private IReadOnlyList<string> TakenLabels { get; init; } = Array.Empty<string>();
+    /// <summary>The wall's names for <see cref="Taken"/>, in the same order — a ticket keeps them, so its words stay the press's.</summary>
+    public IReadOnlyList<string> TakenLabels { get; init; } = Array.Empty<string>();
 
     /// <summary>
     /// Resolves the scope against the rig. <paramref name="focused"/> is the tile the desk has focused
@@ -183,4 +188,85 @@ public sealed record TakePlan
         if (mirrors > 0) parts.Add($"{mirrors} repeater{(mirrors == 1 ? "" : "s")}");
         return string.Join(", ", parts);
     }
+}
+
+/// <summary>
+/// Round 72: a press is a transaction. A TAKE under a video sting lands when the clip ends, and what lands is
+/// what the press promised — the targets its plan named then — never more: an ARM, a tick, a focus or a screen
+/// that arrived during the clip is the next press's, not this one's. Less only by what the rig took away since:
+/// a screen LOCKED after the press keeps its picture (LOCKED means locked, whenever the lock came), and a screen
+/// gone from the rig cannot be sent to. The words the press answered stay facts, and STATE and the Eye show the
+/// ticket while it waits.
+/// </summary>
+public sealed record TakeTicket
+{
+    /// <summary>The scope words the press ran with — "" every armed screen, "TICKED", "ID a", "TILE a" — for STATE, the Eye and the desk's hooks.</summary>
+    public required string Scope { get; init; }
+
+    /// <summary>What the press promised, in wall order.</summary>
+    public required IReadOnlyList<string> Taken { get; init; }
+
+    /// <summary>The wall's names for <see cref="Taken"/> at the press, in the same order.</summary>
+    public IReadOnlyList<string> Labels { get; init; } = Array.Empty<string>();
+
+    /// <summary>What the press said: "on every armed screen", "on 2 · Right alone".</summary>
+    public required string Where { get; init; }
+
+    /// <summary>A tile's own TAKE: the preview lands on the one target as its own picture.</summary>
+    public bool Tile { get; init; }
+
+    /// <summary>The sting that covers the take, by name.</summary>
+    public string Cover { get; init; } = "";
+
+    public DateTime PressedUtc { get; init; }
+
+    /// <summary>"→ 1 · Left, 2 · Right when 'Whoosh' ends".</summary>
+    public string Words => $"→ {string.Join(", ", Labels.Count == Taken.Count ? Labels : Taken)}{(Cover.Length > 0 ? $" when '{Cover}' ends" : "")}";
+
+    /// <summary>The ticket a plan makes at the press.</summary>
+    public static TakeTicket From(TakePlan plan, string scope, string cover, DateTime pressedUtc) => new()
+    {
+        Scope = scope,
+        Taken = plan.Taken,
+        Labels = plan.TakenLabels,
+        Where = plan.Where,
+        Cover = cover,
+        PressedUtc = pressedUtc,
+    };
+
+    /// <summary>
+    /// The landing against the rig as it is now: the promised targets that are still in the rig and not locked
+    /// since land; every other target in the rig keeps its picture, the ones the press promised with the reason.
+    /// A landing with nothing left to land is a refusal that names why — the sting then puts the show back and
+    /// says so — never a silent success.
+    /// </summary>
+    public TakeLanding Land(IReadOnlyList<string> rig, Func<string, bool> lockedNow)
+    {
+        var inRig = new HashSet<string>(rig, StringComparer.Ordinal);
+        var landed = new List<string>();
+        var held = new List<TakeHeld>();
+        for (var i = 0; i < Taken.Count; i++)
+        {
+            var id = Taken[i];
+            var label = i < Labels.Count ? Labels[i] : id;
+            if (!inRig.Contains(id)) held.Add(new TakeHeld(id, label, TakeHeld.GoneReason));
+            else if (lockedNow(id)) held.Add(new TakeHeld(id, label, TakeHeld.LockedSinceReason));
+            else landed.Add(id);
+        }
+        var landedSet = new HashSet<string>(landed, StringComparer.Ordinal);
+        var kept = rig.Where(t => !landedSet.Contains(t)).ToList();
+        string? refusal = landed.Count > 0 ? null
+            : Taken.Count == 0 ? "The press promised nothing."
+            : $"Nothing lands — {string.Join(", ", held.Select(h => $"{h.Label} ({h.Reason})"))}.";
+        return new TakeLanding(landed, held, kept, refusal);
+    }
+}
+
+/// <summary>What a ticket lands now: the targets, the promised ones held since with the reason, every rig target that keeps its picture, or the refusal.</summary>
+public sealed record TakeLanding(IReadOnlyList<string> Landed, IReadOnlyList<TakeHeld> HeldSince, IReadOnlyList<string> Kept, string? Refusal)
+{
+    public bool IsRefused => Refusal is not null;
+
+    /// <summary>" · held since the press: 2 · Right (locked since the press)" or "".</summary>
+    public string HeldWords => HeldSince.Count == 0 ? "" : " · held since the press: " + string.Join(", ", HeldSince.Select(h => $"{h.Label} ({h.Reason})"));
 }

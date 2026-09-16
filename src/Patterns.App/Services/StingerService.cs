@@ -23,7 +23,7 @@ namespace Patterns.App.Services;
 public sealed class StingerService : IDisposable
 {
     /// <summary>The after-policy as it was at the moment of the press — editing the row mid-sting must not change what has already fired.</summary>
-    private readonly record struct AfterPlan(string Name, StingerAfter After, string Target, bool MusicReturns);
+    private readonly record struct AfterPlan(string Name, StingerAfter After, string Target, bool MusicReturns, TakeTicket? Ticket = null);
 
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
@@ -33,6 +33,7 @@ public sealed class StingerService : IDisposable
     private IReadOnlyList<string>? _cover;                         // round 67.6: the screens a scoped cover holds; null = the whole rig
     private List<ScopedSave>? _savedScoped;                        // their own pictures before the clip, to put back
     private IReadOnlyList<string>? _coverTargets;                  // this firing's cover, while Fire runs
+    private TakeTicket? _ticket;                                   // round 72: the take the press froze, while Fire runs
     private StingerAfter? _afterOverride;
     private string _takeScope = "";
 
@@ -272,20 +273,26 @@ public sealed class StingerService : IDisposable
     // ---- firing -----------------------------------------------------------------------
 
     /// <param name="afterOverride">Round 67.6: this firing's after-policy instead of the item's own — TAKE the preview when the clip ends, for a sting used as the next take's transition.</param>
-    /// <param name="takeScope">With <see cref="StingerAfter.Take"/>: the take's scope words ("" the wall's, "ID a" one screen, "TICKED", "TILE &lt;id&gt;" a tile's own).</param>
-    /// <param name="coverTargets">The screens the take will change: a clip covers those alone when they are not the whole rig — the programme and every other screen are untouched. Null: the whole rig, as a sting fired from the library.</param>
-    public bool Fire(StingerItemConfig item, DateTime? nowUtc = null, StingerAfter? afterOverride = null, string takeScope = "", IReadOnlyList<string>? coverTargets = null)
+    /// <param name="ticket">
+    /// Round 72, with <see cref="StingerAfter.Take"/>: the take the press froze — its scope words ("" the wall's, "ID a" one
+    /// screen, "TICKED", "TILE &lt;id&gt;" a tile's own), the targets it promised (the clip covers those alone when they are
+    /// not the whole rig — the programme and every other screen are untouched), where it lands and when it was pressed.
+    /// The landing runs that ticket, never a fresh plan. Null: a sting fired from the library over the whole rig.
+    /// </param>
+    public bool Fire(StingerItemConfig item, DateTime? nowUtc = null, StingerAfter? afterOverride = null, TakeTicket? ticket = null)
     {
         try
         {
             _afterOverride = afterOverride;
-            _takeScope = takeScope;
-            _coverTargets = coverTargets;
+            _ticket = ticket;
+            _takeScope = ticket?.Scope ?? "";
+            _coverTargets = ticket?.Taken;
             return FireCore(item, nowUtc ?? NowUtc());
         }
         finally
         {
             _afterOverride = null;
+            _ticket = null;
             _takeScope = "";
             _coverTargets = null;
             NotifyChanged();
@@ -297,6 +304,9 @@ public sealed class StingerService : IDisposable
 
     /// <summary>The take scope the open session will run its TAKE with, "" for the wall's.</summary>
     public string SessionTakeScope => _after is { After: StingerAfter.Take } plan ? plan.Target : "";
+
+    /// <summary>Round 72: the ticket the open session will land — what the press promised — or null with no take waiting.</summary>
+    public TakeTicket? SessionTicket => _after is { After: StingerAfter.Take } plan ? plan.Ticket : null;
 
     private bool FireCore(StingerItemConfig item, DateTime now)
     {
@@ -546,7 +556,8 @@ public sealed class StingerService : IDisposable
     {
         StartGain(item.Kind == StingerKind.Sting ? 0 : 1, now);
         _after = item.Kind == StingerKind.Sting
-            ? new AfterPlan(item.DisplayName, _afterOverride ?? item.After, _afterOverride == StingerAfter.Take ? _takeScope : item.AfterTarget, item.MusicReturns)
+            ? new AfterPlan(item.DisplayName, _afterOverride ?? item.After, _afterOverride == StingerAfter.Take ? _takeScope : item.AfterTarget, item.MusicReturns,
+                            _afterOverride == StingerAfter.Take ? _ticket : null)
             : null;
         _sessionName = item.DisplayName;
         _sessionId = item.Id;
@@ -837,10 +848,14 @@ public sealed class StingerService : IDisposable
             if (plan.After == StingerAfter.Take)
             {
                 // Round 67.6: the sting was the next take's transition — the preview lands as the clip ends,
-                // through the same verb the key runs (the wall's scope, or one tile's own take).
-                var take = plan.Target.StartsWith("TILE ", StringComparison.Ordinal)
-                    ? _services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Stinger, plan.Target[5..])
-                    : _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Stinger, plan.Target);
+                // through the same verb the key runs (the wall's scope, or one tile's own take). Round 72: on
+                // the ticket the press froze — what it promised, less a lock since, never more — when the
+                // press left one; the scope words alone are an item's own after-policy.
+                var take = plan.Ticket is { } ticket
+                    ? _services.Actions.Land(ticket)
+                    : plan.Target.StartsWith("TILE ", StringComparison.Ordinal)
+                        ? _services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Stinger, plan.Target[5..])
+                        : _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Stinger, plan.Target);
                 if (!take.Ok)
                 {
                     detail = take.Message;

@@ -168,6 +168,8 @@ public sealed partial class ShowActions
                     return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the look, then CUT or TAKE it to air.");
                 }
                 var cut = a.Kind == ShowActionKind.Cut;
+                // Round 72: a sting's landing runs the ticket the press froze, never a fresh plan.
+                if (origin == ActionOrigin.Stinger && _landing is { Tile: false } landing) return LandWall(landing);
                 // Where: every armed screen — the wall's ARM and LOCK decide — or a part of the rig
                 // (the focused tile, the ticked tiles, the ticked groups, SCREEN n, GROUP A) with
                 // everything outside it keeping its picture exactly as an un-armed tile does: pinned
@@ -184,13 +186,22 @@ public sealed partial class ShowActions
                 // The one-shot (round 67.6): a CUT is a cut and leaves it for the TAKE it was given to; a video
                 // sting covers the screens first and the take lands when the clip ends — requested now, done then.
                 // The take a sting lands at its end is the press's own landing: it never spends a one-shot set meanwhile.
-                var next = cut || origin == ActionOrigin.Stinger ? null : _s.NextTake.Consume();
+                // Round 72: the one-shot is spent by a take that happens, never by a press that fails — a sting that
+                // cannot fire leaves it for the next press and says so; a sting gone from the library is cleared, and says so.
+                var next = cut || origin == ActionOrigin.Stinger ? null : _s.NextTake.Pending;
                 if (next is { IsSting: true })
                 {
-                    if (StingerLibrary.Find(State, next.StingId) is not { } sting) return ActionResult.Refused($"The sting '{next.StingName}' is not in the library any more.");
-                    if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, takeScope: StingTakeScope(scope, plan), coverTargets: plan.Taken)) return ActionResult.Failed(_s.Stingers.Status);
+                    if (StingerLibrary.Find(State, next.StingId) is not { } sting)
+                    {
+                        _s.NextTake.Consume();
+                        return ActionResult.Refused($"The sting '{next.StingName}' is not in the library any more — the one-shot is cleared; the next TAKE is the show's own.");
+                    }
+                    var ticket = TakeTicket.From(plan, StingTakeScope(scope, plan), sting.DisplayName, ShowClock.UtcNow);
+                    if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, ticket: ticket)) return ActionResult.Failed($"{_s.Stingers.Status} The one-shot stays for the next TAKE.");
+                    _s.NextTake.Consume();
                     return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands {plan.Where} when the clip ends; the show's transition is unchanged.");
                 }
+                if (next is not null) _s.NextTake.Consume();
                 ArmNextTransition(next);
                 _s.Sandbox.SendAll(cut, plan.Kept);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
@@ -220,19 +231,29 @@ public sealed partial class ShowActions
                     return ActionResult.Refused("A repeater draws its source's picture and has none of its own — take to its source instead.");
                 }
                 var where = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
-                // LOCKED means locked (round 67): the tile's own key is no way round it either.
+                // LOCKED means locked (round 67): the tile's own key is no way round it either — nor is a sting's
+                // landing (round 72): a lock that came after the press holds the screen, and the landing says so.
                 if (ScreenRoles.IsLocked(State, target))
                 {
-                    return ActionResult.Refused($"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
+                    return ActionResult.Refused(origin == ActionOrigin.Stinger && _landing is not null
+                        ? $"{where} was locked after the press — it keeps its picture; the take did not land."
+                        : $"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
                 }
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
-                var nextOne = cutOne || origin == ActionOrigin.Stinger ? null : _s.NextTake.Consume();
+                var nextOne = cutOne || origin == ActionOrigin.Stinger ? null : _s.NextTake.Pending;
                 if (nextOne is { IsSting: true })
                 {
-                    if (StingerLibrary.Find(State, nextOne.StingId) is not { } sting) return ActionResult.Refused($"The sting '{nextOne.StingName}' is not in the library any more.");
-                    if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, takeScope: "TILE " + target, coverTargets: new[] { target })) return ActionResult.Failed(_s.Stingers.Status);
+                    if (StingerLibrary.Find(State, nextOne.StingId) is not { } sting)
+                    {
+                        _s.NextTake.Consume();
+                        return ActionResult.Refused($"The sting '{nextOne.StingName}' is not in the library any more — the one-shot is cleared; the next TAKE is the show's own.");
+                    }
+                    var ticket = new TakeTicket { Scope = "TILE " + target, Taken = new[] { target }, Labels = new[] { where }, Where = $"on {where} alone", Tile = true, Cover = sting.DisplayName, PressedUtc = ShowClock.UtcNow };
+                    if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, ticket: ticket)) return ActionResult.Failed($"{_s.Stingers.Status} The one-shot stays for the next TAKE.");
+                    _s.NextTake.Consume();
                     return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands on {where} alone when the clip ends.");
                 }
+                if (nextOne is not null) _s.NextTake.Consume();
                 ArmNextTransition(nextOne);
                 // What this tile's PVW shows (round 67): its own picture when one was edited or staged there, else the programme's preview.
                 _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne, ownPicture: true);
@@ -314,6 +335,39 @@ public sealed partial class ShowActions
         return focused is { Length: > 0 } && plan.Taken.Count == 1 && plan.Taken[0] == focused ? new FadeScope(FadeScopeKind.Target, focused).Words : "";
     }
 
+    private TakeTicket? _landing;   // round 72: the ticket a sting's landing runs, while it runs
+
+    /// <summary>
+    /// Round 72: a sting's landing. The take runs through the same verb the key runs — the journal, the desk's
+    /// hooks and the ticks read it as a TAKE — on the ticket the press froze rather than a fresh plan: what the
+    /// press promised lands, less a lock since or a screen gone from the rig, never more.
+    /// </summary>
+    public ActionResult Land(TakeTicket ticket)
+    {
+        _landing = ticket;
+        try
+        {
+            return ticket.Tile
+                ? Execute(ShowActionKind.ScreenTake, ActionOrigin.Stinger, ticket.Taken.Count == 1 ? ticket.Taken[0] : "")
+                : Execute(ShowActionKind.Take, ActionOrigin.Stinger, ticket.Scope);
+        }
+        finally
+        {
+            _landing = null;
+        }
+    }
+
+    /// <summary>The wall's landing: the ticket against the rig as it is now, then the same send a press makes.</summary>
+    private ActionResult LandWall(TakeTicket ticket)
+    {
+        var landing = ticket.Land(Rig.Targets(State, _s.Screens.All), id => ScreenRoles.IsLocked(State, id));
+        if (landing.IsRefused) return ActionResult.Failed(landing.Refusal!);
+        _s.Sandbox.SendAll(cut: false, landing.Kept);
+        var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
+        var kept = landing.Kept.Count == 0 ? "" : $" ({landing.Kept.Count} kept their picture)";
+        return ActionResult.Done($"TAKE — sandbox faded up {ticket.Where}{kept}, as pressed under the sting '{ticket.Cover}'{landing.HeldWords}.{rearmed}");
+    }
+
     public TakePlan PlanTake(FadeScope scope)
     {
         var geometry = Rig.Geometry(State, _s.Screens.All);
@@ -366,6 +420,9 @@ public sealed partial class ShowActions
             outside = plan.Outside.Count,
             refusal = plan.Refusal ?? "",
             next = _s.NextTake.Row(),
+            landing = _s.Stingers.SessionTicket is { } ticket                                          // round 72: the take waiting under a sting — the press's promise
+                ? new { sting = ticket.Cover, scope = ticket.Scope, targets = ticket.Taken, where = ticket.Where, words = ticket.Words, pressedUtc = ticket.PressedUtc }
+                : null,
         };
     }
 
