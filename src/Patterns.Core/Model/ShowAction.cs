@@ -266,6 +266,8 @@ public enum ShowActionKind
     ScreenSignal,
     /// <summary>Round 65.10: the diagnostic profile stands in for the screen's contract (ON), the contract holds again (OFF), or toggle ("").</summary>
     ScreenTestRoute,
+    /// <summary>Round 65.11: what the far end says it receives on the screen's link, in the contract's words — the engineer's reading of the box's panel; CLEAR forgets it.</summary>
+    ScreenReceived,
     /// <summary>
     /// The staged verbs (round 60): Target = a screen, a canvas, or empty / PGM for the programme;
     /// the picture lands on that target's PVW in the sandboxed preview and nowhere else — EDIT

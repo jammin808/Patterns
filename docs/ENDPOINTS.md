@@ -55,6 +55,28 @@ the box without a press. A box's own answers are never taken as commands to the 
 trigger row on the device says so (d3's OSC device sends its transport state back; a row
 `/d3/showcontrol/transport *` → `MESSAGE d3 *` would put it on screen).
 
+## Input status (round 65.11)
+
+A box that carries a screen can be asked what its input receives — the third witness beside the
+engineer's signal contract and what Windows reports it sends. On the device's card: **Input carries**
+names the screen (its number in the overview or its label); **Ask** is the words that ask (empty for
+the profile's own where the protocol is published — a PJLink class 2 projector's `IRES ?`, which a
+class 1 projector answers with `ERR1`, read as no answer; a dash for none; a box with an HTTP API
+takes `GET` and its path); **Reads** is a regular expression over the answer with the groups `w` and
+`h` (the raster), `hz` (the rate), `enc` (RGB, 444, 422, 420) and `bits` — what the pattern does not
+read stays unsaid, never guessed; **Every** is the seconds between asks (0 = 30). The answer lands on
+the screen's signal view as RECEIVED with the device's name and the time, in STATE's screen row as
+`signal.received`, and in Super Check's SIGNAL rows: green where the box agrees with the contract,
+red where it does not — the box itself says the link carries something else, whatever Windows
+believes it sends — and the result reads MISMATCH. A box with no API at all: the engineer reads its
+panel and types `SCREEN <n> RECEIVED 3840x2160 50 RGB 8` (or RECEIVED on the Screens page); the
+witness is then "engineer" with the time. Nothing here is taken as a command to the show.
+
+Honest note: the PJLink `IRES` words are class 2's as published; the processors' own APIs (Brompton
+Tessera, Novastar, Barco, Christie) differ by model and firmware and are not shipped as presets — the
+words and the pattern are typed from the box's manual, and the device's card shows the raw answer so
+a pattern is written against what the box actually says.
+
 ## Honest notes
 
 - Companion's TCP API answers every line with `+OK` (a value after it for `GET`) or `-ERR` and the

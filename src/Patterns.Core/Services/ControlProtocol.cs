@@ -377,6 +377,14 @@ public static class ControlProtocol
                     var words = rest[7..].Trim();
                     return words.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenSignal, n, words);
                 }
+                // "SCREEN 2 RECEIVED 3840x2160 50 RGB 8" (round 65.11): what the far end says its input carries, in the
+                // contract's words — the engineer's reading of the processor's panel; "SCREEN 2 RECEIVED CLEAR" forgets it.
+                if (rest.Equals("RECEIVED", StringComparison.OrdinalIgnoreCase)) return Unknown(s);
+                if (rest.StartsWith("RECEIVED ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var said = rest[9..].Trim();
+                    return said.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenReceived, n, said);
+                }
                 // "SCREEN 2 TESTROUTE ON" / "SCREEN 2 TEST ROUTE OFF" / bare "SCREEN 2 TESTROUTE" toggles (round 65.10): the
                 // diagnostic profile (1080p50 RGB 8-bit SDR stereo) stands in for the contract while the path is proven.
                 {

@@ -82,6 +82,14 @@
           <Button Grid.Column="6" Classes="chip" Content="{Binding Screens.TestRouteLabel}" Command="{Binding Screens.TestRouteCommand}"
                   ToolTip.Tip="TEST ROUTE: the diagnostic profile (1080p50, RGB, 8-bit, SDR, stereo) stands in for the contract while the path is proven — a soft or wrong picture that clears on the test route is a capability problem, one that stays is a path problem. The contract itself is untouched; ROUTE OFF puts it back (SCREEN n TESTROUTE ON / OFF on the wire)" />
         </Grid>
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,4,0,0">
+          <TextBox Grid.Column="0" Text="{Binding Screens.SelectedReceivedWords, Mode=TwoWay}" FontFamily="Consolas,monospace"
+                   Watermark="what the processor's panel says it receives — 3840x2160 50 RGB 8" />
+          <Button Grid.Column="2" Classes="chip" Content="RECEIVED" Command="{Binding Screens.ApplyReceivedCommand}"
+                  ToolTip.Tip="The far end's own word (round 65.11): what the processor, scaler or projector says its input receives, read off its panel or its web page and typed here in the contract's words — held against the contract as the third witness beside Windows' observation; red where it disagrees. A device with an input-status adapter (Interactive page, Input carries) says it by itself" />
+          <Button Grid.Column="4" Classes="chip" Content="FORGET" Command="{Binding Screens.ClearReceivedCommand}" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding Screens.ReceivedByText}" />
         <TextBlock Classes="hint" Text="{Binding Screens.SignalStatus}" TextWrapping="Wrap" />
         <TextBlock Text="{Binding Screens.SelectedSignalText}" FontFamily="Consolas,monospace" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
         <TextBlock Classes="hint tip"

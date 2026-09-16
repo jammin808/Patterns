@@ -52,6 +52,7 @@ public class WireVocabularyTests
         ("RIG SAVE first show", new(ShowActionKind.RigSaveKnownGood, "", "first show")),
         ("SCREEN 2 TESTROUTE ON", new(ShowActionKind.ScreenTestRoute, "2", "ON")),
         ("SCREEN 2 TEST ROUTE", new(ShowActionKind.ScreenTestRoute, "2")),
+        ("SCREEN 2 RECEIVED 3840x2160 50 RGB 8", new(ShowActionKind.ScreenReceived, "2", "3840x2160 50 RGB 8")),
         ("SCREEN 2 PATTERN LED wall", new(ShowActionKind.ScreenPattern, "2", "LED wall")),
         ("SCREEN 2 PVW LOOK Walk-in", new(ShowActionKind.ScreenStageLook, "2", "Walk-in")),
         ("SCREEN 2 PREVIEW PRESET Grid", new(ShowActionKind.ScreenStagePreset, "2", "Grid")),

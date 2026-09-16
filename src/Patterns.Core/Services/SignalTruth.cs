@@ -56,7 +56,7 @@ public sealed record SignalLine(string Item, CheckLight Light, string Value, str
 /// OBSERVED (what Windows reports it sends, unknowns left unknown), RESULT — and the lines Super
 /// Check shows under SIGNAL. ADVERTISED (the EDID) joins in round 65.7.
 /// </summary>
-public sealed record SignalReport(string Label, SignalVerdict Verdict, string Design, string Requested, string Observed, IReadOnlyList<SignalLine> Lines, string Advertised = "")
+public sealed record SignalReport(string Label, SignalVerdict Verdict, string Design, string Requested, string Observed, IReadOnlyList<SignalLine> Lines, string Advertised = "", string Received = "")
 {
     public string Result => Words(Verdict);
 
@@ -71,11 +71,13 @@ public sealed record SignalReport(string Label, SignalVerdict Verdict, string De
     /// <summary>The technical view as text, for the Screens page and the wire: DESIGN, ADVERTISED (the EDID, when read), REQUESTED, OBSERVED, RESULT, the lines.</summary>
     public string Text => $"DESIGN\n{Design}\n\n"
         + (Advertised.Length > 0 ? $"ADVERTISED\n{Advertised}\n\n" : "")
-        + $"REQUESTED\n{Requested}\n\nOBSERVED\n{Observed}\n\nRESULT\n{Result}"
+        + $"REQUESTED\n{Requested}\n\nOBSERVED\n{Observed}\n\n"
+        + (Received.Length > 0 ? $"RECEIVED\n{Received}\n\n" : "")
+        + $"RESULT\n{Result}"
         + (Lines.Count == 0 ? "" : "\n\n" + string.Join("\n", Lines.Select(l => $"{l.Item}: {l.Value}{(l.Note.Length > 0 ? " — " + l.Note : "")}")));
 
     /// <summary>One line for the assistant's brief: the label, the design, the advertised summary, the observed words and the result — capability apart from signal, unknowns as unknown.</summary>
-    public string BriefLine => $"{Label}: DESIGN {Design} · ADVERTISED {(Advertised.Length > 0 ? Advertised.Replace("\n", "; ") : "no EDID read")} · REQUESTED {Requested} · OBSERVED {Observed} · RESULT {Result}";
+    public string BriefLine => $"{Label}: DESIGN {Design} · ADVERTISED {(Advertised.Length > 0 ? Advertised.Replace("\n", "; ") : "no EDID read")} · REQUESTED {Requested} · OBSERVED {Observed}{(Received.Length > 0 ? " · RECEIVED " + Received : "")} · RESULT {Result}";
 }
 
 /// <summary>
@@ -188,8 +190,9 @@ public static class SignalTruth
     /// display's refresh as Windows' mode says it (0 unknown); <paramref name="clockHz"/> the render
     /// clock as measured (≤ 0 not measured).
     /// </summary>
-    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null, string plannedEdidHash = "", bool testRoute = false)
+    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null, string plannedEdidHash = "", bool testRoute = false, SignalContract? received = null, string receivedBy = "", DateTime? receivedAtUtc = null)
     {
+        var receivedWords = received is { IsSet: true } ? $"{DesignWords(received)} — {(receivedBy.Length > 0 ? receivedBy : "unsaid")}{(receivedAtUtc is { } at ? $" at {at.ToLocalTime():HH:mm}" : "")}" : "";
         var lines = new List<SignalLine>();
         var design = DesignWords(contract);
         // Round 65.10: on the test route the diagnostic profile is the contract held against — said first, so no one reads a proven route as a commissioned design.
@@ -204,7 +207,8 @@ public static class SignalTruth
             // No contract: evidence alone, no verdict — and a line only when there is evidence to show.
             if (advertised is not null) lines.Add(EdidLine(advertised));
             if (observed is not null) lines.Add(new SignalLine("Signal", CheckLight.Grey, observedWords, "no contract to hold it against — Screens page, SIGNAL CONTRACT"));
-            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines, advertisedWords);
+            if (received is { IsSet: true }) lines.Add(new SignalLine("Received", CheckLight.Grey, receivedWords, "what the far end says it receives — no contract to hold it against"));
+            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines, advertisedWords, receivedWords);
         }
 
         lines.Add(new SignalLine("Contract", CheckLight.Green, design));
@@ -222,10 +226,12 @@ public static class SignalTruth
             }
             AdvertisedLines(contract!, screenWidth, screenHeight, advertised, lines);
         }
+        var mismatchBeforeObservation = false;
         if (observed is null)
         {
             lines.Add(new SignalLine("Observed", CheckLight.Grey, "not observed", "the display is not attached, or Windows did not answer for it — nothing is verified"));
-            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines, advertisedWords);
+            ReceivedLines(contract!, screenWidth, screenHeight, received, receivedBy, lines, ref mismatchBeforeObservation);
+            return new SignalReport(label, mismatchBeforeObservation ? SignalVerdict.Mismatch : SignalVerdict.Unverified, design, requested, observedWords, lines, advertisedWords, receivedWords);
         }
 
         var mismatch = false;
@@ -353,8 +359,53 @@ public static class SignalTruth
                 : new SignalLine("Render clock", CheckLight.Green, $"{clockHz:0.0} Hz"));
         }
 
+        // Round 65.11: what the far end says it receives — the third witness. A disagreement here is red: the box
+        // itself says the link carries something other than the contract, whatever Windows believes it sends.
+        ReceivedLines(contract, screenWidth, screenHeight, received, receivedBy, lines, ref mismatch);
+
         var verdict = mismatch ? SignalVerdict.Mismatch : rasterKnown && rateKnown ? SignalVerdict.Match : SignalVerdict.Unverified;
-        return new SignalReport(label, verdict, design, requested, observedWords, lines, advertisedWords);
+        return new SignalReport(label, verdict, design, requested, observedWords, lines, advertisedWords, receivedWords);
+    }
+
+    /// <summary>
+    /// The far end's own word against the contract, property by property where it said one: green agreed, red
+    /// disagreed (the box receives something else — a scaler, a processor input on the wrong preset, a converter
+    /// in the path), nothing where it said nothing. The engineer's own reading counts as the box's word.
+    /// </summary>
+    private static void ReceivedLines(SignalContract contract, int screenWidth, int screenHeight, SignalContract? received, string receivedBy, List<SignalLine> lines, ref bool mismatch)
+    {
+        if (received is not { IsSet: true }) return;
+        var who = receivedBy.Length > 0 ? receivedBy : "the far end";
+        var wantW = contract.Width > 0 ? contract.Width : screenWidth;
+        var wantH = contract.Height > 0 ? contract.Height : screenHeight;
+        if (received.Width > 0 && received.Height > 0 && wantW > 0 && wantH > 0)
+        {
+            var same = received.Width == wantW && received.Height == wantH;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received raster", same ? CheckLight.Green : CheckLight.Red, same ? $"{received.Width}×{received.Height} — {who}" : $"expected {wantW}×{wantH} · {who} receives {received.Width}×{received.Height}",
+                same ? "" : "FIX: the box receives another raster than the contract — a processor input preset, a scaler or a converter in the path, or the GPU's mode for this output"));
+        }
+        if (received.Rate.IsSet && contract.Rate.IsSet)
+        {
+            var same = received.Rate == contract.Rate;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received rate", same ? CheckLight.Green : CheckLight.Red, same ? $"{received.Rate.Words} Hz — {who}" : $"{contract.Rate.Words} Hz asked · {who} receives {received.Rate.Words} Hz",
+                same ? "" : "FIX: the box receives another rate than the contract — the GPU's mode for this output, or a frame-rate converter in the path"));
+        }
+        if (received.Encoding != PixelEncoding.Any && contract.Encoding != PixelEncoding.Any)
+        {
+            var same = received.Encoding == contract.Encoding;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received encoding", same ? CheckLight.Green : CheckLight.Red, same ? $"{EncodingWords(received.Encoding)} — {who}" : $"{EncodingWords(contract.Encoding)} asked · {who} receives {EncodingWords(received.Encoding)}",
+                same ? "" : "FIX: the box receives another encoding — the GPU's output colour format, or a link without the bandwidth falling back"));
+        }
+        if (received.BitDepth > 0 && contract.BitDepth > 0)
+        {
+            var same = received.BitDepth == contract.BitDepth;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received bit depth", same ? CheckLight.Green : CheckLight.Red, same ? $"{received.BitDepth}-bit — {who}" : $"{contract.BitDepth}-bit asked · {who} receives {received.BitDepth}-bit",
+                same ? "" : "FIX: the box receives another depth — the GPU's output depth, or a link without the bandwidth"));
+        }
     }
 
     /// <summary>The EDID's line: its identity and hash, green; amber when a block's checksum is wrong or the parse had problems.</summary>

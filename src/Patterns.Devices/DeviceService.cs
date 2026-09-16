@@ -86,6 +86,7 @@ public sealed class DeviceService : IDisposable
         /// <summary>The device's vocabulary for this connection: what its words become, what its bytes mean.</summary>
         public required ProfileSession Session;
         public DateTime NextPollUtc;
+        public DateTime NextInputUtc;
         public Dictionary<string, string>? Heard;
         public bool WasOpen;
         public string LastUnmapped = "";
@@ -144,6 +145,13 @@ public sealed class DeviceService : IDisposable
 
     /// <summary>Every receipt as it lands, on the UI thread — the journal's and the page's.</summary>
     public event Action<DeviceReceipt>? Receipt;
+
+    /// <summary>
+    /// Round 65.11: a box said what its input receives — the device's name, the screen its input carries
+    /// (a number or a label), what it said in the contract's words, and the raw answer. Raised on the
+    /// service's thread; the desk holds it against the screen's contract as the third witness.
+    /// </summary>
+    public event Action<InputStatusReport>? InputReported;
 
     /// <summary>The last receipt that failed — a no, a silence, a line that could not go — until that box answers again; null while every box is answering.</summary>
     public DeviceReceipt? LastFailed { get; private set; }
@@ -286,6 +294,15 @@ public sealed class DeviceService : IDisposable
             if (open.Session.PollWords is not { } poll || !open.Link.IsOpen || now < open.NextPollUtc) continue;
             open.NextPollUtc = now + open.Session.PollEvery;
             WriteTo(open, poll, out _, quiet: true);
+        }
+        // Round 65.11: the input-status adapter — a box that carries a screen is asked what its input receives, on its own clock.
+        foreach (var open in _open.Values)
+        {
+            if (!open.Link.IsOpen || now < open.NextInputUtc) continue;
+            var ask = InputStatus.QueryFor(open.Config, open.Session);
+            if (ask is null) continue;
+            open.NextInputUtc = now + InputStatus.EveryFor(open.Config);
+            WriteTo(open, ask, out _, quiet: true);
         }
         // The cards' history lines, their ages moved on: a string a second per box, raised only when it changed.
         foreach (var d in _services.State.Interactive.Devices)
@@ -650,6 +667,12 @@ public sealed class DeviceService : IDisposable
             }
             if (reply.IsError) Log.Warn($"Device '{open.Config.Name}' answered: {reply.Words}");
             open.Config.Status = StatusLine(open);
+            // Round 65.11: an answer that reads through the input pattern is what the box receives — said to the desk, never acted on.
+            if (InputStatus.PatternFor(open.Config, open.Session) is { } pattern && open.Config.InputScreen.Length > 0
+                && InputStatus.TryRead(pattern, line, out var received, out _))
+            {
+                InputReported?.Invoke(new InputStatusReport(open.Config.Name, open.Config.InputScreen, received, line.Trim(), DateTime.UtcNow));
+            }
             Acknowledge(open, reply, line);
 
             // A row waiting to be learned takes this line and nothing else happens: the operator is

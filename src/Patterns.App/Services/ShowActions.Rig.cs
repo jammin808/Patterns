@@ -108,6 +108,18 @@ public sealed partial class ShowActions
                 var report = SignalReportFor(placement, _s.Screens.All.FirstOrDefault(s => s.Id == id));
                 return ActionResult.Done($"{report.Label} signal contract: {report.Design}. {report.Result}.");
             }
+            case ShowActionKind.ScreenReceived:
+            {
+                // Round 65.11: what the far end says it receives, in the contract's words — the engineer's own reading of the
+                // processor's panel; CLEAR forgets it. Said, never inferred: it is held against the contract as the third witness.
+                var target = ResolveScreenTarget(a.Target);
+                var placement = target is null ? null : State.Output.Placements.FirstOrDefault(p => p.ScreenId == target);
+                if (placement is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var draft = new SignalContract();
+                var error = SignalWords.Apply(a.Value, draft);
+                if (error.Length > 0) return ActionResult.Refused(error);
+                return SetReceived(placement, draft, draft.IsSet ? "engineer" : "", DateTime.UtcNow);
+            }
             case ShowActionKind.ScreenTestRoute:
             {
                 // Round 65.10: the diagnostic profile stands in for the contract while the path is proven — the contract itself is never touched.
@@ -283,7 +295,7 @@ public sealed partial class ShowActions
     private object SignalSummary(ScreenPlacement placement, ScreenInfo? info, double clockHz)
     {
         var report = SignalReportFor(placement, info, clockHz);
-        return new { design = report.Design, observed = report.Observed, result = report.Result };
+        return new { design = report.Design, observed = report.Observed, received = report.Received, result = report.Result };
     }
 
     /// <summary>
@@ -302,7 +314,8 @@ public sealed partial class ShowActions
         var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
         // Round 65.8: the EDID Patterns wrote for this screen, so the view can say whether the display presents it.
         var plannedHash = placement.Signal.IsSet && width > 0 && height > 0 ? Edid.Hash(EdidWriter.Build(EdidPlanFor(placement, info))) : "";
-        return SignalTruth.Compare(label, placement.EffectiveSignal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed), plannedHash, placement.TestRoute);
+        return SignalTruth.Compare(label, placement.EffectiveSignal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed), plannedHash, placement.TestRoute,
+            placement.Received.IsSet ? placement.Received : null, placement.ReceivedBy, placement.ReceivedAtUtc);
     }
 
     /// <summary>The EDID plan a screen makes (round 65.8): its contract's words, its own size where the contract is silent, its identity in the product code.</summary>
@@ -446,6 +459,57 @@ public sealed partial class ShowActions
             },
             words = _s.Kernel.KnownGood.Words,
         });
+    }
+
+    // ---- what the far end receives (round 65.11) -------------------------------------------------
+
+    /// <summary>The far end's word set on a screen — from the engineer or a device — journaled when it changes, the verdict read back.</summary>
+    private ActionResult SetReceived(ScreenPlacement placement, SignalContract said, string by, DateTime atUtc)
+    {
+        var id = placement.ScreenId;
+        var before = SignalWords.Of(placement.Received);
+        var after = SignalWords.Of(said);
+        _s.BulkEdit(() =>
+        {
+            placement.Received.CopyFrom(said);
+            placement.ReceivedBy = said.IsSet ? by : "";
+            placement.ReceivedAtUtc = said.IsSet ? atUtc : null;
+        });
+        if (_s.Sandbox.Active) _s.EditAir(program =>
+        {
+            if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air)
+            {
+                air.Received.CopyFrom(said);
+                air.ReceivedBy = said.IsSet ? by : "";
+                air.ReceivedAtUtc = said.IsSet ? atUtc : null;
+            }
+        });
+        var report = SignalReportFor(placement, _s.Screens.All.FirstOrDefault(s => s.Id == id));
+        if (before != after)
+        {
+            _s.Journal.Record(by.Length > 0 ? by : "desk", "Received", report.Label, said.IsSet ? report.Result : "Cleared",
+                said.IsSet ? $"{(by.Length > 0 ? by : "the far end")} receives {SignalTruth.DesignWords(said)} — {report.Result}" : "what the far end receives is forgotten");
+        }
+        return ActionResult.Done(said.IsSet
+            ? $"{report.Label} — {(by.Length > 0 ? by : "the far end")} receives {SignalTruth.DesignWords(said)}. {report.Result}."
+            : $"{report.Label} — what the far end receives is forgotten. {report.Result}.");
+    }
+
+    /// <summary>
+    /// A device's input-status adapter said what its input receives (round 65.11): the screen it names — a
+    /// number in the overview or a label — gets the word, with the device as the witness. Runs on the desk's thread.
+    /// </summary>
+    public void ReceiveFromDevice(InputStatusReport report)
+    {
+        var target = ResolveScreenTarget(report.Screen);
+        var placement = target is null ? null : State.Output.Placements.FirstOrDefault(p => p.ScreenId == target);
+        if (placement is null)
+        {
+            Log.Warn($"Device '{report.Device}' reports an input for screen '{report.Screen}', which the rig does not have.");
+            return;
+        }
+        if (SignalWords.Of(placement.Received) == SignalWords.Of(report.Received) && placement.ReceivedBy == report.Device) return;   // the same word again: nothing moved
+        SetReceived(placement, report.Received, report.Device, report.AtUtc);
     }
 
     // ---- the commissioning flow (round 65.10) ---------------------------------------------------
@@ -616,6 +680,7 @@ public sealed partial class ShowActions
             advertised = r.Advertised,
             requested = r.Requested,
             observed = r.Observed,
+            received = r.Received,
             result = r.Result,
             edid = edid is null ? null : new
             {

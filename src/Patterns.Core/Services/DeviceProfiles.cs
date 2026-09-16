@@ -67,6 +67,15 @@ public abstract class ProfileSession
 
     public virtual TimeSpan PollEvery => TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// Round 65.11: the words that ask the box what its input receives — a PJLink class 2 projector's
+    /// "IRES ?" — and the pattern that reads the answer (groups w, h, hz, enc, bits); null when the
+    /// profile has no published way to ask, and the device's own InputQuery / InputPattern stand alone.
+    /// </summary>
+    public virtual string? InputQuery => null;
+
+    public virtual string? InputPattern => null;
+
     /// <summary>The bytes of one text frame.</summary>
     protected static byte[] Bytes(string s) => Encoding.UTF8.GetBytes(s);
 
@@ -198,6 +207,11 @@ public sealed class PjLinkSession : ProfileSession
     public override DeviceProfile Profile => DeviceProfile.PjLink;
 
     public override string? PollWords => "POWER ?";
+
+    /// <summary>PJLink class 2: IRES ? answers the input's resolution — "%2IRES=1920x1080"; a class 1 projector answers ERR1 (undefined command), which reads as no answer.</summary>
+    public override string? InputQuery => "%2IRES ?";
+
+    public override string? InputPattern => @"IRES=(?<w>\d{3,5})x(?<h>\d{3,5})";
 
     public override void OnConnected()
     {

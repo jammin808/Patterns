@@ -526,6 +526,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // would find nothing at all, which is the one failure the record exists for.
         _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
+        // Round 65.11: a box that carries a screen says what its input receives — held against the screen's contract on the desk's thread.
+        Devices.InputReported += report => UiThread.Post(() => Actions.ReceiveFromDevice(report));
         RigEditor = new RigEditor(this);
         HotPlug = new HotPlugService(this);
         LookTally = new LookTally(this);

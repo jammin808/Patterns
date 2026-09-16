@@ -265,6 +265,22 @@ public sealed class ScreenPlacement : Observable
 
     /// <summary>The contract the desk holds the link against right now: the diagnostic profile on the test route, else the engineer's.</summary>
     public SignalContract EffectiveSignal => TestRoute ? SignalContract.Diagnostic() : Signal;
+
+    /// <summary>
+    /// Round 65.11: what the far end — the processor, the scaler, the projector — says it receives on
+    /// this link: its input status, read by a device's input-status adapter or typed by the engineer
+    /// from the box's own panel (SCREEN n RECEIVED 3840x2160 50 RGB 8). The third witness beside the
+    /// contract and Windows' observation; empty when nothing has said.
+    /// </summary>
+    public SignalContract Received { get; init; } = new();
+
+    private string _receivedBy = "";
+    /// <summary>Who said it: "engineer", or the device's name; "" when nothing has.</summary>
+    public string ReceivedBy { get => _receivedBy; set => Set(ref _receivedBy, value ?? ""); }
+
+    private DateTime? _receivedAtUtc;
+    /// <summary>When it was said.</summary>
+    public DateTime? ReceivedAtUtc { get => _receivedAtUtc; set => Set(ref _receivedAtUtc, value); }
     public double BrightnessPct { get => _brightnessPct; set => Set(ref _brightnessPct, Math.Clamp(value, 10, 200)); }
     /// <summary>Midtone gamma trim; 1.0 = neutral, above darkens mids, below lifts them.</summary>
     public double Gamma { get => _gamma; set => Set(ref _gamma, Math.Clamp(value, 0.4, 2.5)); }
@@ -2287,6 +2303,10 @@ public sealed class DeviceConfig : Observable
     private string _id = Guid.NewGuid().ToString("N");
     private ConfirmLevel _confirm = ConfirmLevel.Accepted;
     private string _observeQuery = "";
+    private string _inputQuery = "";
+    private string _inputPattern = "";
+    private string _inputScreen = "";
+    private int _inputEverySeconds;
     private string _observeExpect = "";
     private int _confirmTimeoutMs = 2000;
     private string _name = "Arduino";
@@ -2378,6 +2398,26 @@ public sealed class DeviceConfig : Observable
 
     /// <summary>For Observed: what the answer to the query must contain — 31, or "input":"hdmi1".</summary>
     public string ObserveExpect { get => _observeExpect; set => Set(ref _observeExpect, value ?? ""); }
+
+    /// <summary>
+    /// Round 65.11: the input-status adapter — the words that ask the box what its input receives
+    /// (a PJLink class 2 projector's IRES ?, a processor's GET /api/input/…); "" for the profile's own
+    /// default, "-" for none.
+    /// </summary>
+    public string InputQuery { get => _inputQuery; set => Set(ref _inputQuery, value ?? ""); }
+
+    /// <summary>
+    /// Round 65.11: the pattern that reads the answer — a regular expression with the groups w, h (the
+    /// raster), hz (the rate), enc (RGB / 444 / 422 / 420) and bits where the box says them; "" for the
+    /// profile's own default.
+    /// </summary>
+    public string InputPattern { get => _inputPattern; set => Set(ref _inputPattern, value ?? ""); }
+
+    /// <summary>Round 65.11: the screen this box's input carries — its number in the overview, or its label; "" for none.</summary>
+    public string InputScreen { get => _inputScreen; set => Set(ref _inputScreen, (value ?? "").Trim()); }
+
+    /// <summary>Round 65.11: how often the input is asked while the link is open (5–600 s); 0 leaves it to the profile (30 s), and no screen means no asking.</summary>
+    public int InputEverySeconds { get => _inputEverySeconds; set => Set(ref _inputEverySeconds, value <= 0 ? 0 : Math.Clamp(value, 5, 600)); }
 
     /// <summary>How long a receipt is waited for before it is a failure (200 ms to 30 s).</summary>
     public int ConfirmTimeoutMs { get => _confirmTimeoutMs; set => Set(ref _confirmTimeoutMs, Math.Clamp(value, 200, 30000)); }

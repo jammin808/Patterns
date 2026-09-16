@@ -94,6 +94,22 @@
                 <TextBox Grid.Column="9" Text="{Binding ObserveExpect, Mode=TwoWay}" Watermark="31 · &quot;input&quot;:&quot;hdmi1&quot;"
                          ToolTip.Tip="For Observed: what the answer must contain" />
               </Grid>
+              <!-- Round 65.11: the input-status adapter — which screen this box's input carries, the words that ask what it receives, the pattern that reads the answer. -->
+              <Grid ColumnDefinitions="130,*,8,Auto,8,*,8,Auto,8,*,8,Auto,8,60" Margin="0,2,0,0"
+                    IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
+                <TextBlock Classes="label" Text="Input carries" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding InputScreen, Mode=TwoWay}" Watermark="screen 2 · LED wall"
+                         ToolTip.Tip="The screen this box's input carries — its number in the overview or its label. Set, the box is asked what it receives and the answer is held against that screen's signal contract as the third witness (RECEIVED on the Screens page); empty, the box is not asked" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Ask" VerticalAlignment="Center" />
+                <TextBox Grid.Column="5" Text="{Binding InputQuery, Mode=TwoWay}" Watermark="profile's own · %2IRES ? · GET /api/input"
+                         ToolTip.Tip="The words that ask the box what its input receives. Empty: the profile's own where the protocol is published (a PJLink class 2 projector's IRES ?); a dash for none. A box with an HTTP API: GET and its path" />
+                <TextBlock Grid.Column="7" Classes="label" Text="Reads" VerticalAlignment="Center" />
+                <TextBox Grid.Column="9" Text="{Binding InputPattern, Mode=TwoWay}" Watermark="(?&lt;w&gt;\d+)x(?&lt;h&gt;\d+)@(?&lt;hz&gt;[\d.]+)"
+                         ToolTip.Tip="A regular expression that reads the answer: the groups w and h are the raster, hz the rate (50, 59.94, 60000/1001), enc the encoding (RGB, 444, 422, 420), bits the depth. Empty: the profile's own. What the pattern does not read stays unsaid — never guessed" />
+                <TextBlock Grid.Column="11" Classes="label" Text="Every" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="13" Value="{Binding InputEverySeconds, Mode=TwoWay}" Minimum="0" Maximum="600" Increment="5" FormatString="0" ShowButtonSpinner="False"
+                               ToolTip.Tip="Seconds between asks while the link is open; 0 is the profile's thirty" />
+              </Grid>
               <!-- A control surface: its port from the machine's own list, and which starter rows the button puts in. -->
               <Grid ColumnDefinitions="130,*,8,Auto,8,*" Margin="0,2,0,0"
                     IsVisible="{Binding Link, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">

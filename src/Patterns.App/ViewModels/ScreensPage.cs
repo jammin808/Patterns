@@ -53,6 +53,8 @@ public sealed class ScreensPage : Observable
         ApplySignalCommand = new RelayCommand(() => ApplySignal(SelectedSignalWords));
         ClearSignalCommand = new RelayCommand(() => ApplySignal("CLEAR"));
         TestRouteCommand = new RelayCommand(ToggleTestRoute);
+        ApplyReceivedCommand = new RelayCommand(() => ApplyReceived(SelectedReceivedWords));
+        ClearReceivedCommand = new RelayCommand(() => ApplyReceived("CLEAR"));
         ExportEdidCommand = new RelayCommand(() => _ = ExportEdidAsync());
         _calibrationFolder = Path.Combine(services.Store.MediaDirectory, "calibration", "photos");
         RefreshCalibrationCamerasCommand = new RelayCommand(RefreshCalibrationCameras);
@@ -109,6 +111,7 @@ public sealed class ScreensPage : Observable
             if (Set(ref _selectedPlacement, value))
             {
                 _signalWords = SignalWords.Of(value?.Signal);
+                _receivedWords = SignalWords.Of(value?.Received);                                     // round 65.11: the far end's word for this screen
                 _signalStatus = "";
                 RaiseSelection();
                 _desk.RefreshPopOut();
@@ -310,6 +313,28 @@ public sealed class ScreensPage : Observable
 
     /// <summary>TEST ROUTE (round 65.10): the diagnostic profile stands in for the selected screen's contract, or the contract holds again.</summary>
     public RelayCommand TestRouteCommand { get; }
+
+    private string _receivedWords = "";
+
+    /// <summary>Round 65.11: what the far end says it receives, editable — the engineer's reading of the processor's panel; RECEIVED runs SCREEN n RECEIVED with the words.</summary>
+    public string SelectedReceivedWords { get => _receivedWords; set => Set(ref _receivedWords, value ?? ""); }
+
+    /// <summary>Who last said what the far end receives, and when — "engineer at 14:02", "Brompton SX40 at 14:05", or nothing.</summary>
+    public string ReceivedByText => _selectedPlacement is { Received.IsSet: true } p ? $"said by {p.ReceivedBy}{(p.ReceivedAtUtc is { } at ? $" at {at.ToLocalTime():HH:mm}" : "")}" : "nothing said — type what the box's panel shows, or set a device's Input carries";
+
+    public RelayCommand ApplyReceivedCommand { get; }
+    public RelayCommand ClearReceivedCommand { get; }
+
+    private void ApplyReceived(string words)
+    {
+        if (_selectedPlacement is not { } placement) return;
+        var result = _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenReceived, placement.ScreenId, words), ActionOrigin.Desk);
+        SignalStatus = result.Message;
+        _receivedWords = SignalWords.Of(placement.Received);
+        Raise(nameof(SelectedReceivedWords));
+        Raise(nameof(ReceivedByText));
+        Raise(nameof(SelectedSignalText));
+    }
 
     /// <summary>The TEST ROUTE key's face: what pressing it does next.</summary>
     public string TestRouteLabel => _selectedPlacement is { TestRoute: true } ? "ROUTE OFF" : "TEST ROUTE";
@@ -1145,6 +1170,11 @@ public sealed class ScreensPage : Observable
     public void RaiseSelection()
     {
         Raise(nameof(HasSelection));
+        // Rounds 65.10–65.11: the signal block follows the selection — the contract's words, the far end's word and who said it, the test route's key.
+        Raise(nameof(SelectedSignalWords));
+        Raise(nameof(SelectedReceivedWords));
+        Raise(nameof(ReceivedByText));
+        Raise(nameof(TestRouteLabel));
         // The mesh editor follows the selection: its pick drops, and the lattice on the projector moves to the new screen.
         _meshSelectedIndex = -1;
         Raise(nameof(MeshSelectedIndex));

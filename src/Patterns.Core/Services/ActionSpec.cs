@@ -108,6 +108,7 @@ public static class ActionSpec
         ShowActionKind.ScreenLabel => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.ScreenSignal => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.ScreenTestRoute => (TargetKind.Screen, ValueKind.Text),
+        ShowActionKind.ScreenReceived => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.RigSaveKnownGood => (TargetKind.None, ValueKind.Text),
         ShowActionKind.CanvasOn or ShowActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         ShowActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
@@ -212,6 +213,7 @@ public static class ActionSpec
         ShowActionKind.ScreenLabel => "Screen label (its name on the desk)",
         ShowActionKind.ScreenSignal => "Screen signal contract (raster, rate, encoding, depth, range, HDR, audio)",
         ShowActionKind.ScreenTestRoute => "Screen test route (the diagnostic profile stands in for the contract)",
+        ShowActionKind.ScreenReceived => "Screen received (what the processor says its input carries)",
         ShowActionKind.CanvasOn => "Canvas on",
         ShowActionKind.CanvasOff => "Canvas off",
         ShowActionKind.PatternKind => "Pattern — change its kind",
@@ -440,6 +442,7 @@ public static class ActionSpec
         ShowActionKind.ScreenSignal => "the rig's own signal contract, decided at commissioning on the Screens page or from a remote — a running order never redefines what a link carries",
         ShowActionKind.RigSaveKnownGood => "the engineer's word that the rig is right, at commissioning — a running order never declares the rig commissioned",
         ShowActionKind.ScreenTestRoute => "a commissioning tool — the diagnostic profile stands in for a contract while a path is proven; a running order never puts a screen on the test route",
+        ShowActionKind.ScreenReceived => "the engineer's own reading of a processor's input status, at commissioning — a running order never claims what a box receives",
         ShowActionKind.TwinTakeOver or ShowActionKind.TwinStandBy or ShowActionKind.TwinTakeBack => "the standby twin's own decision to run the show, or to follow again, or the main's to take it back — a cue never decides which machine is the main",
         ShowActionKind.ShowLockOn or ShowActionKind.ShowLockOff => "this machine's own hold on Windows — it goes on with the outputs and off with them, or from the Machine page and the wire; a cue never changes the machine's settings",
         ShowActionKind.CalibrateRun or ShowActionKind.CalibrateCancel or ShowActionKind.CalibrateDemo or ShowActionKind.CalibrateApply or ShowActionKind.CalibrateUndo
