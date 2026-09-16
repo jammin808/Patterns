@@ -29,4 +29,28 @@ public class InfoChipTests
         Assert.Equal("Output 3 · 1080×1920 · 9:16 · LedWall",
             OverlayRenderer.InfoChipText("Output 3", new SKSizeI(1080, 1920), PatternKind.LedWall, false, 60, 60, 60, 60));
     }
+
+    /// <summary>Round 73: what Patterns is trying to push down the link, and the master rate, beside what the display answers.</summary>
+    [Fact]
+    public void TheChipSaysWhatPatternsPushesAndTheMasterRateBesideWhatTheDisplayAnswers()
+    {
+        // A contract names the raster and the rate: the chip says the intent (4K at 50) beside the answer (the window's 1080 lines at 50).
+        Assert.Equal("Output 2 · 1920×1080 · 16:9 · Grid · pushing 3840×2160 16:9 @ 50 · master 60 · 50.0 fps of 50 · 50 Hz display (60 asked)",
+            OverlayRenderer.InfoChipText("Output 2", new SKSizeI(1920, 1080), PatternKind.Grid, true, 49.97, 50, 60, 50, pushPx: new SKSizeI(3840, 2160), pushHz: 50, masterFps: 60));
+        // No contract: the output's own pixels at the rate the sink is asked for — the master's here.
+        Assert.Equal("Output 1 · 1920×1080 · 16:9 · Media · pushing 1920×1080 16:9 @ 60 · master 60 · 59.9 fps of 60 · 60 Hz display",
+            OverlayRenderer.InfoChipText("Output 1", new SKSizeI(1920, 1080), PatternKind.Media, true, 59.94, 60, 60, 60, pushPx: new SKSizeI(1920, 1080), pushHz: 0, masterFps: 60));
+        // A screen's own rate over the master: the push says the screen's, the master stays named.
+        Assert.Contains("pushing 1920×1080 16:9 @ 30 · master 60",
+            OverlayRenderer.InfoChipText("Output 3", new SKSizeI(1920, 1080), PatternKind.Grid, true, 29.97, 30, 30, 60, pushPx: new SKSizeI(1920, 1080), masterFps: 60));
+        // No master rate and nothing asked: the display's own, said so.
+        Assert.Equal("Output 1 · 3840×2160 · 16:9 · Grid · pushing 3840×2160 16:9 @ the display's own · no master rate · 50.0 fps of 50 · 50 Hz display",
+            OverlayRenderer.InfoChipText("Output 1", new SKSizeI(3840, 2160), PatternKind.Grid, true, 50.02, 50, 0, 50, pushPx: new SKSizeI(3840, 2160)));
+        // A fractional contract rate reads as the engineer writes it; FPS off keeps the push — it is intent, not a measurement.
+        Assert.Equal("Output 2 · 1920×1080 · 16:9 · LedWall · pushing 1920×1080 16:9 @ 59.94 · master 60",
+            OverlayRenderer.InfoChipText("Output 2", new SKSizeI(1920, 1080), PatternKind.LedWall, false, 60, 60, 60, 60, pushPx: new SKSizeI(1920, 1080), pushHz: 59.94, masterFps: 60));
+        // A pane pushes nothing down any link, and says nothing.
+        Assert.Equal("Preview · 1280×720 · 16:9 · ColorBars · 59.9 fps",
+            OverlayRenderer.InfoChipText("Preview", new SKSizeI(1280, 720), PatternKind.ColorBars, true, 59.94, 0, 0, 0, masterFps: 60));
+    }
 }

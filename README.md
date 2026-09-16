@@ -109,8 +109,9 @@ fault containment, and settings that can never brick startup.
 - **CUT and TAKE on a tile, the output on its display's clock, the Preview's own menus, overlays
   that arrive** — CUT and TAKE on each screen tile put the preview on that screen alone as its
   own picture; an output paces to its own display (a 50 Hz screen is no longer drawn at 60) and
-  the tech info chip says the pixels, the shape, the kind and the frames against the rate it
-  presents at and the display's refresh; a right-click on the PREVIEW picture opens the menu of
+  the tech info chip says the pixels, the shape, the kind, what Patterns is trying to push down
+  the link (the contract's raster and rate, the show's master rate — round 73) and the frames
+  against the rate it presents at and the display's refresh; a right-click on the PREVIEW picture opens the menu of
   the thing under the pointer, or the preview's with SOURCE first; overlays and layers arrive
   and leave with a fade by default, a cut or a slide by choice.
 - **The menus back, the caller's eye and hands** — the right-click menus open again (Avalonia's

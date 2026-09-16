@@ -597,7 +597,7 @@ public static class OverlayRenderer
         if (info.Enabled && cfg is not null && ctx.Sink != SinkKind.Thumbnail)
         {
             var pc = sink.Paints;
-            var text = InfoChipText(ctx.SinkLabel, ctx.ViewportSize, cfg.Kind, info.ShowFps, ctx.MeasuredFps, ctx.PresentFps, ctx.WantedFps, ctx.DisplayHz, ctx.ClockHz);
+            var text = InfoChipText(ctx.SinkLabel, ctx.ViewportSize, cfg.Kind, info.ShowFps, ctx.MeasuredFps, ctx.PresentFps, ctx.WantedFps, ctx.DisplayHz, ctx.ClockHz, ctx.PushSize, ctx.PushHz, ctx.MasterFps);
             var size = Math.Clamp(ctx.ViewportSize.Height * 0.02f, 10, 22);
             DrawUtil.Chip(c, text, ctx.ViewportSize, info.Anchor, size, pc, palette.Text, palette.ChipBg);
         }
@@ -608,10 +608,25 @@ public static class OverlayRenderer
     /// picture, and — when asked — the frames it draws a second against the rate it presents at
     /// and its display's refresh. "50.0 fps of 50 · 50 Hz display (60 asked)" is a 60 fps show on
     /// a 50 Hz display saying exactly what the room gets, where it used to read 60.
+    ///
+    /// Round 73: between the two, what Patterns is trying to push down the link — the raster, its
+    /// shape and the rate asked (the contract's when the engineer named one, else the output's own
+    /// pixels at the rate the sink is asked for) and the show's master rate: "pushing 3840×2160
+    /// 16:9 @ 50 · master 60". An engineer at the wall reads the intent and the answer side by
+    /// side; a pane pushes nothing and says nothing.
     /// </summary>
-    public static string InfoChipText(string sinkLabel, SKSizeI px, PatternKind kind, bool showFps, double measuredFps, int presentFps, int wantedFps, int displayHz, double clockHz = -1)
+    public static string InfoChipText(string sinkLabel, SKSizeI px, PatternKind kind, bool showFps, double measuredFps, int presentFps, int wantedFps, int displayHz, double clockHz = -1,
+        SKSizeI pushPx = default, double pushHz = 0, int masterFps = 0)
     {
         var text = $"{sinkLabel} · {px.Width}×{px.Height} · {AspectWords.Of(px.Width, px.Height)} · {kind}";
+        if (pushPx.Width > 0 && pushPx.Height > 0)
+        {
+            var rate = pushHz > 0 ? pushHz.ToString("0.###", CultureInfo.InvariantCulture)
+                : wantedFps > 0 ? wantedFps.ToString(CultureInfo.InvariantCulture)
+                : "the display's own";
+            var master = masterFps > 0 ? $"master {masterFps.ToString(CultureInfo.InvariantCulture)}" : "no master rate";
+            text += $" · pushing {pushPx.Width}×{pushPx.Height} {AspectWords.Of(pushPx.Width, pushPx.Height)} @ {rate} · {master}";
+        }
         if (!showFps) return text;
         text += $" · {measuredFps:0.0} fps";
         if (presentFps > 0) text += $" of {presentFps}";

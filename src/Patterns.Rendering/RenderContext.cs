@@ -54,6 +54,15 @@ public readonly record struct RenderContext
     /// <summary>The measured beat of the render clock this sink is offered; 0 or less is not measured (round 64: the chip says LIMITED when the display needs more).</summary>
     public double ClockHz { get; init; }
 
+    /// <summary>Round 73: the raster Patterns is trying to push down this sink's link — the contract's, else the output's own pixels; empty for a pane, which pushes nothing.</summary>
+    public SKSizeI PushSize { get; init; }
+
+    /// <summary>Round 73: the exact rate the contract asks for; 0 when it leaves the rate to the display.</summary>
+    public double PushHz { get; init; }
+
+    /// <summary>Round 73: the show's master frame rate; 0 = every display's own.</summary>
+    public int MasterFps { get; init; }
+
     /// <summary>True while re-rendering the previous snapshot as the fading-out half of a crossfade.</summary>
     public bool IsFadeSource { get; init; }
 

@@ -119,6 +119,19 @@ public sealed record PipelineViewport(
     public int TargetFps { get; init; }
 
     /// <summary>
+    /// Round 73: the raster Patterns is trying to drive this sink at — the screen's signal contract
+    /// when the engineer named one, else the output's own pixels; empty for a pane, which pushes
+    /// nothing down a link. The tech info chip says it beside what the display answers.
+    /// </summary>
+    public SKSizeI PushSize { get; init; }
+
+    /// <summary>Round 73: the exact rate the contract asks for (59.94, 50); 0 when the contract leaves it to the display, in which case the chip says the rate asked of the sink.</summary>
+    public double PushHz { get; init; }
+
+    /// <summary>Round 73: the show's master frame rate (0 = every display's own), so the chip says it beside what this sink is asked for.</summary>
+    public int MasterFps { get; init; }
+
+    /// <summary>
     /// The dead strips of the target this output renders through (bezels, the air between LED
     /// pillars): <see cref="ReferenceSize"/> is then the surface with them put back, and the
     /// engine cuts them out of this output's picture. Empty for a plain screen.
@@ -480,6 +493,9 @@ public sealed class RenderPipeline : IDisposable
             PresentFps = PresentFps,
             WantedFps = vp.TargetFps,
             DisplayHz = vp.DisplayHz,
+            PushSize = vp.PushSize,
+            PushHz = vp.PushHz,
+            MasterFps = vp.MasterFps,
             Preview = input.Preview,         // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws — both from the frame's capture
         };
         _sink.Fps.Tick(ctx.Time);
@@ -672,6 +688,9 @@ public sealed class RenderPipeline : IDisposable
             PresentFps = PresentFps,
             WantedFps = vp.TargetFps,
             DisplayHz = vp.DisplayHz,
+            PushSize = vp.PushSize,
+            PushHz = vp.PushHz,
+            MasterFps = vp.MasterFps,
             Preview = input.Preview,         // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws — both from the frame's capture
             // A miniature: the patterns widen their hairlines to this pane's own pixels.
             DeviceScale = scale,

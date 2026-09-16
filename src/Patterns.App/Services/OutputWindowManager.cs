@@ -208,6 +208,13 @@ public sealed class OutputWindowManager
                     // The screen's own rate wins; else the master; 0 leaves the display's refresh.
                     TargetFps = placement.FpsOverride > 0 ? placement.FpsOverride : masterFps,
                     DisplayHz = info.Hz,   // the display's own refresh: the rate the output paces to when it is the slower (OutputRate)
+                    // Round 73: what Patterns is trying to push down this link — the contract's raster and rate when the
+                    // engineer named one, else the output's own pixels at the rate asked — for the tech info chip.
+                    PushSize = placement.EffectiveSignal is { Width: > 0, Height: > 0 } contract
+                        ? new SKSizeI(contract.Width, contract.Height)
+                        : new SKSizeI(member.Rect.Width, member.Rect.Height),
+                    PushHz = placement.EffectiveSignal.Rate.IsSet ? placement.EffectiveSignal.Rate.Hz : 0,
+                    MasterFps = masterFps,
                 };
                 result.Add((info, viewport));
             }

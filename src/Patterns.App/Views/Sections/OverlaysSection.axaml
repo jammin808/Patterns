@@ -354,7 +354,9 @@
     </StackPanel>
     <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="info">
     <TextBlock Classes="h2" Text="TECH INFO CHIP" />
-    <CheckBox Content="Show sink name, pattern and FPS" IsChecked="{Binding State.Overlays.Info.Enabled}" />
+    <TextBlock Classes="hint tip"
+               Text="The engineer's readout on every output: the sink, its pixels and their shape, the kind of picture, then what Patterns is trying to push down the link — the contract's raster and rate when one is set, else the output's own pixels at the rate asked — and the show's master rate, then the frames it draws against the rate it presents at and the display's refresh (LIMITED BY RENDER CLOCK when the clock cannot keep up). Intent and answer side by side." />
+    <CheckBox Content="Show the sink, its pixels, the kind, what Patterns pushes and the FPS" IsChecked="{Binding State.Overlays.Info.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Info.Enabled}">
       <CheckBox Content="Include FPS" IsChecked="{Binding State.Overlays.Info.ShowFps}" />
       <Grid ColumnDefinitions="130,*">
