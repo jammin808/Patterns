@@ -9,6 +9,7 @@ using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Ndi;
 using Patterns.Core.Services;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 
@@ -137,6 +138,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public SystemMetricsService Metrics { get; }
     public AudioAnalyserService Analyser { get; }
     public RecoveryStore Recovery { get; }
+
+    /// <summary>The show's files on one ordered lane: the autosaves, the recovery record, the final save (round 65.12).</summary>
+    public PersistenceRuntime Persistence { get; private set; } = null!;
 
     /// <summary>The part of a cue that has not happened yet — its steps with a wait on them.</summary>
     public CueTail Tail { get; } = new();
@@ -388,6 +392,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
         store ??= new SettingsStore();
         Log.Init(store.BaseDirectory);
+        MachineProbe.BuildVersion = () => UpdateService.RunningVersion;   // round 65.12: the platform assembly knows no update service
         // What Main found on the screens before Avalonia started, taken once so a second desk in
         // the same process never inherits the first one's story.
         Takeover = OutputTakeover.Consume();
@@ -417,6 +422,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Kernel = ServiceKernel.Build(Profile, store, preloaded);
         Kernel.Notifier = Notify;
         Kernel.Facts = GatherFacts;
+        // The show's files on one lane (round 65.12), built before the first save below can ask for it.
+        Recovery = new RecoveryStore(Store.BaseDirectory);
+        Persistence = new PersistenceRuntime(Store, Recovery, Files) { Autosave = _autosave };
         if (Kernel.Migrated)
         {
             // An upgraded file is written back once so the ids minted for its looks and
@@ -517,7 +525,6 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Stream = new StreamService(this);
         Metrics = new SystemMetricsService(this);
         Analyser = new AudioAnalyserService(this);
-        Recovery = new RecoveryStore(Store.BaseDirectory);
         Ownership = new OutputOwnershipService(this);
         PendingRecovery = Recovery.Read();
         // The record on disk belongs to the previous run until this one has either acted on it
@@ -959,7 +966,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public int PrepareRestart(bool forUpdate = false)
     {
         Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
-        AwaitPendingSaves();            // a record on the lane must not land over the one written here
+        Persistence.AwaitPending();     // a record on the lane must not land over the one written here
         Recovery.Write(RecoveryRecord(PlaceForRecovery()));
         _restartRequested = true;
         SaveNow();
@@ -996,8 +1003,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
         else if (!_recoveryPending)
         {
-            var recovery = Recovery;
-            QueueFileWork("Recovery clear", recovery.Clear);          // behind the writes, in order: a clear never races a write
+            Persistence.ClearRecovery();                                 // behind the writes, in order: a clear never races a write
             RaiseSafely(() => RecoveryMoved?.Invoke(null), "the recovery record's listener");
         }
     }
@@ -1012,7 +1018,6 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// </summary>
     private void QueueRecoveryWrite(RunPlace? place)
     {
-        var generation = Interlocked.Increment(ref _recoveryGeneration);
         var live = Outputs.IsLive;
         var audio = State.AudioPlayer.Playing;
         var sandboxed = Sandbox.Active;
@@ -1024,15 +1029,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var airLookId = AirLookId;
         var previousAirLookId = PreviousAirLookId;
         var previewLookId = PreviewLookId;
-        var recovery = Recovery;
         var files = Files;
-        QueueFileWork("Recovery write", () =>
+        Persistence.WriteRecovery(() =>
         {
-            if (Volatile.Read(ref _recoveryGeneration) != generation)
-            {
-                files.CoalescedOne();
-                return;
-            }
             var t = System.Diagnostics.Stopwatch.GetTimestamp();
             ShowState? air = null;
             if (airSource is not null)
@@ -1051,11 +1050,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 BlackTargets: black, Streaming: streaming, AirLabel: airLabel, AirLookId: airLookId, PreviousAirLookId: previousAirLookId, PreviewLookId: previewLookId);
             var json = RecoveryStore.Serialize(record);
             files.Record(FileBudget.RecoverySerialise, MsSince(t));
-            t = System.Diagnostics.Stopwatch.GetTimestamp();
-            recovery.WriteJson(json);
-            files.Record(FileBudget.RecoveryWrite, MsSince(t));
-            UiThread.Post(() => RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener"));
-        });
+            return (record, json);
+        }, record => UiThread.Post(() => RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener")));
     }
 
     /// <summary>
@@ -1851,50 +1847,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             ArmSave();
             return;
         }
-        AwaitPendingSaves();
-        try
-        {
-            Store.Save(State);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Settings save failed.", ex);
-        }
+        Persistence.SaveNow(State);
     }
-
-    private readonly object _saveGate = new();
-    private Task _saves = Task.CompletedTask;
-    private long _saveGeneration;
-    private long _recoveryGeneration;
 
     /// <summary>What the show's files cost, phase by phase, and the saves a newer one made unnecessary. The Machine page's line and the assistant's brief read it.</summary>
     public FileBudget Files { get; } = new();
 
-    /// <summary>
-    /// One ordered lane of file work on a worker: the autosaves, the recovery record's writes and
-    /// its clears, in the order they were asked for, so an older write can never land over a
-    /// newer one and a clear never races a write. A step that throws is logged and the lane
-    /// carries on.
-    /// </summary>
-    public void QueueFileWork(string what, Action work)
-    {
-        lock (_saveGate)
-        {
-            _saves = _saves.ContinueWith(_ =>
-            {
-                try
-                {
-                    work();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"{what} failed.", ex);
-                }
-            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
-        }
-    }
+    /// <summary>One step on the show's file lane (<see cref="Persistence"/>), behind everything queued before it: the quality profile's write rides it too.</summary>
+    public void QueueFileWork(string what, Action work) => Persistence.Queue(what, work);
 
-    private static double MsSince(long timestamp) => System.Diagnostics.Stopwatch.GetElapsedTime(timestamp).TotalMilliseconds;
+    private static double MsSince(long timestamp) => PersistenceRuntime.MsSince(timestamp);
 
     /// <summary>
     /// The autosave, off the frame budget: nothing of it runs on the desk's thread but taking the
@@ -1914,50 +1876,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
         var at = System.Diagnostics.Stopwatch.GetTimestamp();
         var frozen = Bus.Sandbox?.State ?? Bus.Current.State;         // the show as last published: the sandbox's edits while one is open, the program otherwise
-        var generation = Interlocked.Increment(ref _saveGeneration);
-        var store = Store;
-        var files = Files;
-        Files.Record(FileBudget.SaveSnapshot, MsSince(at), onDeskThread: true);
-        QueueFileWork("Settings save", () =>
-        {
-            if (Volatile.Read(ref _saveGeneration) != generation)
-            {
-                files.CoalescedOne();                                 // a newer save is behind this one: it writes the latest show, and this one need not
-                return;
-            }
-            var t = System.Diagnostics.Stopwatch.GetTimestamp();
-            var json = JsonUtil.Serialize(frozen);
-            files.Record(FileBudget.SaveSerialise, MsSince(t));
-            t = System.Diagnostics.Stopwatch.GetTimestamp();
-            store.SaveJsonTo(store.SettingsPath, json);
-            files.Record(FileBudget.SaveWrite, MsSince(t));
-        });
+        Persistence.SaveInBackground(frozen, MsSince(at));
     }
 
     /// <summary>The autosaves still on their way to the disk — complete when the file holds the last of them.</summary>
-    public Task PendingSaves
-    {
-        get
-        {
-            lock (_saveGate) return _saves;
-        }
-    }
-
-    /// <summary>Waits for the queued autosaves, briefly: a write that is stuck on a dead share must not stop an exit.</summary>
-    private void AwaitPendingSaves()
-    {
-        Task pending;
-        lock (_saveGate) pending = _saves;
-        if (pending.IsCompleted) return;
-        try
-        {
-            if (!pending.Wait(TimeSpan.FromSeconds(10))) Log.Warn("An autosave is still writing after ten seconds — saving over it.");
-        }
-        catch
-        {
-            // A queued write logs its own failure; the save below writes the newest show regardless.
-        }
-    }
+    public Task PendingSaves => Persistence.Pending;
 
     private bool _shutDown;
 
@@ -2105,38 +2028,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// end. Now the exit ends either way: true when the show reached the disk, false when it did
     /// not — and then the recovery record stays, so the next start puts the show back from it.
     /// </summary>
-    public bool SaveAtExit(TimeSpan wait)
-    {
-        if (!_autosave) return true;
-        string json;
-        try
-        {
-            json = JsonUtil.Serialize(State);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("The show could not be serialised at exit.", ex);
-            return false;
-        }
-        var done = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var store = Store;
-        QueueFileWork("Final save", () =>
-        {
-            try
-            {
-                store.SaveJsonTo(store.SettingsPath, json);
-                done.TrySetResult(true);
-            }
-            catch (Exception ex)
-            {
-                Log.Error("The final save failed.", ex);
-                done.TrySetResult(false);
-            }
-        });
-        if (done.Task.Wait(wait)) return done.Task.Result;
-        Log.Warn($"The final save did not reach the disk in {wait.TotalSeconds:0} s — an autosave ahead of it is still writing; the exit goes on and the recovery record is kept.");
-        return false;
-    }
+    public bool SaveAtExit(TimeSpan wait) => Persistence.SaveAtExit(State, wait);
 
     /// <summary>One shutdown step on its own guard: its failure logged, written to the report, and the next step still taken. A test can name a step to fail.</summary>
     private void Step(string phase, string what, Action step)

@@ -1,7 +1,7 @@
 using Microsoft.Win32;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Platform.Windows;
 
 /// <summary>
 /// The EDID a display presented, as Windows keeps it (round 65.7): the monitor's device path

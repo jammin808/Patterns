@@ -1,9 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Avalonia;
+using Patterns.Core.Geometry;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Platform.Windows;
 
 /// <summary>A display mode Windows offers: size and refresh rate.</summary>
 public readonly record struct DisplayMode(int Width, int Height, int Hz)
@@ -25,19 +25,19 @@ public static class DisplayModes
     public static bool Supported => OperatingSystem.IsWindows();
 
     /// <summary>The GDI device name ("\\.\DISPLAY2") of the display whose desktop rectangle starts at <paramref name="bounds"/>; null when none does.</summary>
-    public static string? DeviceFor(PixelRect bounds)
+    public static string? DeviceFor(RasterRect bounds)
     {
         if (!OperatingSystem.IsWindows()) return null;
         try
         {
             foreach (var (device, mode, x, y) in EnumerateAttached())
             {
-                if (x == bounds.X && y == bounds.Y && mode.Width == bounds.Width && mode.Height == bounds.Height) return device;
+                if (x == bounds.Left && y == bounds.Top && mode.Width == bounds.Width && mode.Height == bounds.Height) return device;
             }
             // A mode change moves neighbours: fall back to the origin alone.
             foreach (var (device, _, x, y) in EnumerateAttached())
             {
-                if (x == bounds.X && y == bounds.Y) return device;
+                if (x == bounds.Left && y == bounds.Top) return device;
             }
         }
         catch (Exception ex)

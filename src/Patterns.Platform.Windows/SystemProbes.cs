@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Platform.Windows;
 
 // ---------------------------------------------------------------------------------------------
 // The Win32/DXGI probes behind the Admin tab. Everything here is best-effort and guarded:
@@ -10,7 +10,7 @@ namespace Patterns.App.Services;
 // ---------------------------------------------------------------------------------------------
 
 /// <summary>DXGI adapter enumeration and video-memory queries (Windows only).</summary>
-internal static class Dxgi
+public static class Dxgi
 {
     private const int DxgiErrorNotFound = unchecked((int)0x887A0002);
     private const uint AdapterFlagSoftware = 2;
@@ -206,7 +206,7 @@ internal static class Dxgi
 }
 
 /// <summary>Registry writes for Windows' per-app GPU preference, plus small HKLM reads.</summary>
-internal static class WinRegistry
+public static class WinRegistry
 {
     private const string GpuPrefSubkey = @"Software\Microsoft\DirectX\UserGpuPreferences";
     private static readonly IntPtr HkeyCurrentUser = new(unchecked((int)0x80000001));
@@ -289,7 +289,7 @@ internal static class WinRegistry
 }
 
 /// <summary>System-wide CPU, memory and power readings (Windows; partial elsewhere).</summary>
-internal static class Win32Perf
+public static class Win32Perf
 {
     public static bool TryGetSystemTimes(out ulong idle, out ulong kernel, out ulong user)
     {
@@ -382,7 +382,7 @@ internal static class Win32Perf
 /// category, and a broken counter store must never cost more than a "n/a".
 /// </summary>
 [SupportedOSPlatform("windows")]
-internal sealed class GpuEngineCounter : IDisposable
+public sealed class GpuEngineCounter : IDisposable
 {
     private readonly List<System.Diagnostics.PerformanceCounter> _counters = new();
     private DateTime _refreshedUtc = DateTime.MinValue;

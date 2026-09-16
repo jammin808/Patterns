@@ -1,5 +1,6 @@
 using System.Text;
 using Patterns.Core.Services;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 

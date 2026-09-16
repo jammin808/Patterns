@@ -207,10 +207,7 @@ public static class SupportBundle
     /// input label's key ("ndi:…", "cap:…"), so the bundle no longer said which input each
     /// nickname belonged to — the one thing a bundle is read for.
     /// </summary>
-    public static string Redact(string settingsJson)
-        => Regex.Replace(settingsJson,
-            "(\"(AdminPasscode|ManagementToken|ClientSecret|ClientId|RefreshToken|AccessToken|ApiKey|Password|Passcode|Token)\"\\s*:\\s*\")([^\"]*)(\")",
-            m => m.Groups[1].Value + (m.Groups[3].Value.Length == 0 ? "" : "•••") + m.Groups[4].Value);
+    public static string Redact(string settingsJson) => Secrets.Redact(settingsJson);   // round 65.12: one list of secrets, walked as JSON — a box's password and the twin's key included
 }
 
 /// <summary>What a staged update package holds, and whether it can be used.</summary>

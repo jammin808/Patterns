@@ -27,6 +27,7 @@ public class ModuleRulesTests
         (typeof(Patterns.Audio.AudioRing).Assembly, new[] { "Patterns.Core", "NAudio" }),
         (typeof(Patterns.Assistant.AssistantService).Assembly, new[] { "Patterns.Core", "Anthropic" }),
         (typeof(Patterns.Audience.PlayService).Assembly, new[] { "Patterns.Core", "Patterns.Rendering", "Patterns.Arcade", "SkiaSharp" }),
+        (typeof(Patterns.Platform.Windows.MachineProbe).Assembly, new[] { "Patterns.Core", "NAudio" }),
     };
 
     [Fact]
@@ -54,7 +55,7 @@ public class ModuleRulesTests
         var root = RepoRoot();
         if (root is null) return;                                                                 // published tests without the tree: the compiled rule above still holds
         var offences = new List<string>();
-        foreach (var project in new[] { "Patterns.Core", "Patterns.Rendering", "Patterns.Ndi", "Patterns.Arcade", "Patterns.Devices", "Patterns.Audio", "Patterns.Assistant", "Patterns.Audience" })
+        foreach (var project in new[] { "Patterns.Core", "Patterns.Rendering", "Patterns.Ndi", "Patterns.Arcade", "Patterns.Devices", "Patterns.Audio", "Patterns.Assistant", "Patterns.Audience", "Patterns.Platform.Windows" })
         {
             var dir = Path.Combine(root, "src", project);
             foreach (var file in Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories))
@@ -63,6 +64,7 @@ public class ModuleRulesTests
                 var text = File.ReadAllText(file);
                 if (text.Contains("using Avalonia", StringComparison.Ordinal)) offences.Add($"{project}: {Path.GetFileName(file)} names Avalonia");
                 if (project is "Patterns.Core" or "Patterns.Devices" or "Patterns.Audio" or "Patterns.Assistant" && text.Contains("using SkiaSharp", StringComparison.Ordinal)) offences.Add($"{project}: {Path.GetFileName(file)} names SkiaSharp");
+                if (project is "Patterns.Core" or "Patterns.Platform.Windows" && text.Contains("using Patterns.App", StringComparison.Ordinal)) offences.Add($"{project}: {Path.GetFileName(file)} names the desk");
                 if (project == "Patterns.Core" && (text.Contains("using NAudio", StringComparison.Ordinal) || text.Contains("using Anthropic", StringComparison.Ordinal) || text.Contains("using LibVLCSharp", StringComparison.Ordinal) || text.Contains("using System.IO.Ports", StringComparison.Ordinal)))
                     offences.Add($"{project}: {Path.GetFileName(file)} names a native package");
             }

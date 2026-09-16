@@ -8,6 +8,7 @@ using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Tests;
 

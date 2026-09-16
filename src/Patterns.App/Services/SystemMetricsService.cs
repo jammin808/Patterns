@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Threading;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 
@@ -416,7 +417,7 @@ public sealed class SystemMetricsService : IDisposable
                 {
                     try
                     {
-                        var device = DisplayModes.DeviceFor(sc.Bounds);
+                        var device = DisplayModes.DeviceFor(sc.Bounds.ToRaster());
                         if (device is not null && DisplayModes.Current(device) is { } mode) hz = mode.Hz;
                     }
                     catch

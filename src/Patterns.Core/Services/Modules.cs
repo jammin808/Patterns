@@ -24,6 +24,7 @@ public static class Modules
         new("Audio", "Patterns.Audio", "NAudio (WASAPI)", "the DSP and the sample providers"),
         new("Assistant", "Patterns.Assistant", "the Anthropic SDK", "the assistant's brain and its model client"),
         new("Audience", "Patterns.Audience", "none", "the audience room"),
+        new("Platform", "Patterns.Platform.Windows", "Windows: DXGI, QueryDisplayConfig, the registry, powrprof, WASAPI", "what Windows says about the machine — display modes, the observed signal, the EDID, the adapters, the audio endpoints, the power plan"),
         new("App", "Patterns", "Avalonia, libVLC, WebView2, PDFtoImage", "the desk, the nodes, the wire and the pages"),
     };
 

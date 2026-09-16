@@ -15,6 +15,7 @@ using Patterns.Core.Services;
 using SkiaSharp;
 using Patterns.Core.LowerThirds;
 using Patterns.Rendering.LowerThirds;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.ViewModels;
 

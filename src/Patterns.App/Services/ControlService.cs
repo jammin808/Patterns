@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Patterns.Core.Services;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 
@@ -99,7 +100,7 @@ public sealed class ScreenService
         if (!DisplayModes.Supported) return 0;
         try
         {
-            var device = DisplayModes.DeviceFor(bounds);
+            var device = DisplayModes.DeviceFor(bounds.ToRaster());
             return device is null ? 0 : DisplayModes.Current(device)?.Hz ?? 0;
         }
         catch (Exception)

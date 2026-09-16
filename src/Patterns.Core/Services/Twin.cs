@@ -387,17 +387,8 @@ public static class TwinSync
     /// <summary>The sections that carry a credential the show needs: a box's password, the weather key.</summary>
     public static bool CarriesSecrets(string section) => section is nameof(ShowState.Interactive) or nameof(ShowState.Weather);
 
-    private static void BlankSecrets(System.Text.Json.Nodes.JsonObject root)
-    {
-        if (root[nameof(ShowState.Weather)] is System.Text.Json.Nodes.JsonObject weather && weather.ContainsKey(nameof(WeatherSettings.ApiKey))) weather[nameof(WeatherSettings.ApiKey)] = "";
-        if (root[nameof(ShowState.Interactive)] is System.Text.Json.Nodes.JsonObject interactive && interactive[nameof(InteractiveConfig.Devices)] is System.Text.Json.Nodes.JsonArray devices)
-        {
-            foreach (var d in devices)
-            {
-                if (d is System.Text.Json.Nodes.JsonObject device && device.ContainsKey(nameof(DeviceConfig.Secret))) device[nameof(DeviceConfig.Secret)] = "";
-            }
-        }
-    }
+    /// <summary>The credentials in the travelling sections blanked — the one list every exit door reads (round 65.12, <see cref="Secrets"/>): a box's password, the weather key; a bare Key is an identity and travels.</summary>
+    private static void BlankSecrets(System.Text.Json.Nodes.JsonObject root) => Secrets.Blank(root, "");
 
     /// <summary>What the target holds before a landing, so a blank on the wire never wipes a credential the standby typed itself.</summary>
     private static (string WeatherKey, Dictionary<string, string> DeviceSecrets) OwnSecrets(ShowState target)

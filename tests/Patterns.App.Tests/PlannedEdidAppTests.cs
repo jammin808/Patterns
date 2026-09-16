@@ -9,6 +9,7 @@ using Patterns.App.Services;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Tests;
 

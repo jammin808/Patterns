@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 
@@ -376,13 +377,13 @@ public sealed class HotPlugService
     private static IReadOnlyList<(int Width, int Height, int Hz)> DefaultModes(ScreenInfo info)
     {
         if (!DisplayModes.Supported) return Array.Empty<(int, int, int)>();
-        var device = DisplayModes.DeviceFor(info.Bounds);
+        var device = DisplayModes.DeviceFor(info.Bounds.ToRaster());
         return device is null ? Array.Empty<(int, int, int)>() : DisplayModes.List(device).Select(m => (m.Width, m.Height, m.Hz)).ToList();
     }
 
     private static string DefaultApply(ScreenInfo info, (int Width, int Height, int Hz) mode)
     {
-        var device = DisplayModes.DeviceFor(info.Bounds);
+        var device = DisplayModes.DeviceFor(info.Bounds.ToRaster());
         return device is null ? "This display could not be matched to a Windows display device." : DisplayModes.Apply(device, new DisplayMode(mode.Width, mode.Height, mode.Hz));
     }
 }

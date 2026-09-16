@@ -6,6 +6,7 @@ using Patterns.App.Services;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Tests;
 
@@ -178,14 +179,14 @@ public class SignalTruthAppTests
         if (!OperatingSystem.IsWindows())
         {
             Assert.Empty(DisplayObservation.Snapshot());
-            Assert.Null(DisplayObservation.For(new PixelRect(0, 0, 10, 10)));
+            Assert.Null(DisplayObservation.For(new PixelRect(0, 0, 10, 10).ToRaster()));
         }
         DisplayObservation.Source = () => new[] { Observation(SignalRate.Of(50, 1)) };
         try
         {
-            Assert.NotNull(DisplayObservation.For(Wall));
-            Assert.NotNull(DisplayObservation.For(new PixelRect(Wall.X, Wall.Y, 960, 540)));     // a scaled desktop: the origin ties them
-            Assert.Null(DisplayObservation.For(new PixelRect(5000, 5000, 100, 100)));
+            Assert.NotNull(DisplayObservation.For(Wall.ToRaster()));
+            Assert.NotNull(DisplayObservation.For(new PixelRect(Wall.X, Wall.Y, 960, 540).ToRaster()));     // a scaled desktop: the origin ties them
+            Assert.Null(DisplayObservation.For(new PixelRect(5000, 5000, 100, 100).ToRaster()));
             Assert.Equal("HDMI", DisplayObservation.Connector(5));
             Assert.Equal("DisplayPort", DisplayObservation.Connector(9));
             Assert.Equal("internal", DisplayObservation.Connector(0x80000000));

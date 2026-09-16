@@ -4,7 +4,7 @@ using Microsoft.Win32;
 using NAudio.CoreAudioApi;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Platform.Windows;
 
 /// <summary>
 /// Everything Windows will say about this machine's graphics, audio and processing (round 65.9),
@@ -30,6 +30,9 @@ public static class MachineProbe
 
     /// <summary>How long a reading is kept before Windows is asked again.</summary>
     public static TimeSpan KeptFor { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>The build's own version for the facts — the host sets it (the desk's update service knows it); the entry assembly's otherwise.</summary>
+    public static Func<string> BuildVersion { get; set; } = () => System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "dev";
 
     private static readonly object Gate = new();
     private static MachineFacts _kept = MachineFacts.Empty;
@@ -172,7 +175,7 @@ public static class MachineProbe
             }
         }
         var displays = Displays(notes);
-        return new MachineFacts(nowUtc, UpdateService.RunningVersion, Environment.MachineName, windows, Environment.Version.ToString(), cpu, Environment.ProcessorCount, ram,
+        return new MachineFacts(nowUtc, BuildVersion(), Environment.MachineName, windows, Environment.Version.ToString(), cpu, Environment.ProcessorCount, ram,
             gpus, displays, audio, power, battery, hags, dvr, mpo, notes);
     }
 

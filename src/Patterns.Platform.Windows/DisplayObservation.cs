@@ -1,10 +1,10 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Avalonia;
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Platform.Windows;
 
 /// <summary>
 /// What Windows says it sends each display (round 65): QueryDisplayConfig's active paths — the
@@ -74,11 +74,11 @@ public static class DisplayObservation
     }
 
     /// <summary>The observation for the display showing this desktop rectangle — the whole rectangle, or its origin alone on a scaled desktop; null when none.</summary>
-    public static SignalObservation? For(PixelRect bounds)
+    public static SignalObservation? For(RasterRect bounds)
     {
         var all = Snapshot();
-        return all.FirstOrDefault(o => o.Covers(bounds.X, bounds.Y, bounds.Width, bounds.Height))
-            ?? all.FirstOrDefault(o => o.X == bounds.X && o.Y == bounds.Y);
+        return all.FirstOrDefault(o => o.Covers(bounds.Left, bounds.Top, bounds.Width, bounds.Height))
+            ?? all.FirstOrDefault(o => o.X == bounds.Left && o.Y == bounds.Top);
     }
 
     // ---- Win32 ---------------------------------------------------------------------------

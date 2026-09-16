@@ -7,6 +7,7 @@ using Patterns.Core.Model;
 using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.ViewModels;
 
@@ -475,7 +476,7 @@ public sealed class ScreensPage : Observable
             DisplayModeStatus = "Display modes can only be changed on Windows.";
             return;
         }
-        var device = DisplayModes.DeviceFor(info.Bounds);
+        var device = DisplayModes.DeviceFor(info.Bounds.ToRaster());
         var current = device is null ? null : DisplayModes.Current(device);
         foreach (var m in device is null ? Array.Empty<DisplayMode>() : DisplayModes.List(device))
         {
@@ -502,7 +503,7 @@ public sealed class ScreensPage : Observable
             DisplayModeStatus = "Pick a mode first.";
             return;
         }
-        var device = DisplayModes.DeviceFor(info.Bounds);
+        var device = DisplayModes.DeviceFor(info.Bounds.ToRaster());
         if (device is null || DisplayModes.Current(device) is not { } previous)
         {
             DisplayModeStatus = "This display could not be matched to a Windows display device.";

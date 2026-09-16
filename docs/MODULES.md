@@ -1,8 +1,9 @@
 # The modules
 
 *Round 59. The one assembly that held the show, the renderer, the transports, the audio maths
-and the assistant is nine. This is the map, the rules between them, the seams that let a rule
-hold, and what the split found. The tests enforce it; this says why.*
+and the assistant is nine — ten from round 65.12, when what Windows says about the machine became
+an assembly of its own. This is the map, the rules between them, the seams that let a rule hold,
+and what the split found. The tests enforce it; this says why.*
 
 ## 0. The verdict, first
 
@@ -48,6 +49,13 @@ Patterns.Assistant   the key store, the scope, the facts, the brief, the proposa
                      seam                                          → Core, the Anthropic SDK
 Patterns.Audience    the room's service: the door, the answers, the queue, the wall's modes, the
                      host's page, the feed                         → Core, Rendering, Arcade
+Patterns.Platform.Windows
+                     what Windows says about the machine: the display modes, the observed signal
+                     (QueryDisplayConfig, advanced colour), the EDID reader (the registry), the
+                     adapters and their drivers (DXGI, the display class key), the audio
+                     endpoints (WASAPI), the power plan (powrprof), the CPU and memory counters —
+                     best-effort, cached, a Source hook per probe for a test
+                                                                   → Core, NAudio, PerformanceCounter
 Patterns (App)       the desk, the nodes, the wire and the pages; the video engine (libVLC), the
                      web engine (WebView2), the decks (PDFtoImage), the audio services that
                      compose the graph; the compositions of every edge  → all of the above, Avalonia
@@ -57,7 +65,8 @@ The tests follow the map: `Patterns.Core.Tests` (no native library beside it),
 `Patterns.Rendering.Tests` (the Skia natives, the render module registered once),
 `Patterns.Devices.Tests`, `Patterns.Audio.Tests`, `Patterns.Assistant.Tests` (the render module
 for the pictures), `Patterns.Audience.Tests`, and `Patterns.App.Tests` (the headless desk, every
-composition, the module rules and the node's footprint).
+composition, the module rules and the node's footprint — and the platform assembly through its
+Source hooks, since its Windows paths only run on the Windows lane).
 
 ## 2. The rules
 
@@ -85,6 +94,14 @@ composition, the module rules and the node's footprint).
    and the core's answers are honest for it.
 7. **Nothing that draws reaches an integration.** The render-core boundary test walks the
    render, NDI, arcade and audio assemblies' IL: no assistant type, no Spotify, no socket.
+8. **What Windows says lives in the platform assembly** (round 65.12). A probe of the operating
+   system — a display path, an EDID, an adapter, an audio endpoint, a power plan — is
+   `Patterns.Platform.Windows`'s, referencing the core and the native libraries alone; the desk's
+   UI geometry crosses to the core's `RasterRect` at one seam (`PlatformSeams`). Every probe is
+   best-effort and never throws into the desk; every probe answers through a `Source` hook so a
+   test hands facts in; the readings that cost (the machine, the display paths) are kept and
+   refreshed on a worker, never on the desk's thread. The Windows CI lane's signal-report step is
+   where the P/Invoke layouts are proven — the Linux suites cannot.
 
 ## 3. The seams
 

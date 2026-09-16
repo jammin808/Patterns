@@ -4,6 +4,7 @@ using Patterns.Core.Media;
 using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
+using Patterns.Platform.Windows;
 
 namespace Patterns.App.Services;
 
@@ -310,7 +311,7 @@ public sealed partial class ShowActions
         var width = info?.Bounds.Width ?? placement.PlannedWidth;
         var height = info?.Bounds.Height ?? placement.PlannedHeight;
         var present = placement.FpsOverride > 0 ? placement.FpsOverride : State.Output.MasterFps;
-        var observed = info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? DisplayObservation.For(info.Bounds) : null;
+        var observed = info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? DisplayObservation.For(info.Bounds.ToRaster()) : null;
         var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
         // Round 65.8: the EDID Patterns wrote for this screen, so the view can say whether the display presents it.
         var plannedHash = placement.Signal.IsSet && width > 0 && height > 0 ? Edid.Hash(EdidWriter.Build(EdidPlanFor(placement, info))) : "";
@@ -616,7 +617,7 @@ public sealed partial class ShowActions
 
     /// <summary>The EDID behind a screen's display as Windows keeps it, parsed; null when there is none to read.</summary>
     public EdidInfo? EdidFor(ScreenInfo? info)
-        => info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? EdidReader.For(DisplayObservation.For(info.Bounds)) : null;
+        => info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? EdidReader.For(DisplayObservation.For(info.Bounds.ToRaster())) : null;
 
     /// <summary>The signal lines for the assistant's brief: one per screen with a contract or an observation, capability apart from signal.</summary>
     public IReadOnlyList<string> SignalBriefLines()
