@@ -211,6 +211,8 @@ export function variableValues(s) {
 		machine_faulting: s.machine?.faulting ? 'FAULT' : 'ok',
 		machine_live_age: s.machine?.liveAgeMs >= 0 ? `${Math.round(s.machine.liveAgeMs)} ms` : 'n/a',
 		machine_memory_pressure: s.memory?.pressure ?? 'none',
+		machine_memory_held: s.memory?.residency?.words ?? '',
+		machine_gpu_cache: s.machine?.gpuCache?.words ?? '',
 		machine_inventory: s.machine?.inventory ?? '',
 		machine_rig: s.machine?.rig ?? '',
 		commissioning: s.commissioning?.headline ?? '',

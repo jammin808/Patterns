@@ -113,6 +113,14 @@ public static class Residency
     };
 
     /// <summary>"7 held (412 MB): 3 on air, 1 pre-rolled, 1 named by the show, 2 idle — the first lets go in 12 s" / "nothing held".</summary>
+    /// <summary>The Eye's line, stable from one tick to the next — the counts by reason, no bytes and no countdown: "3 held: 2 on air, 1 idle".</summary>
+    public static string CountWords(IReadOnlyList<Hold> holds)
+    {
+        if (holds.Count == 0) return "nothing held";
+        var parts = holds.GroupBy(h => h.Reason).OrderBy(g => Rank(g.Key)).Select(g => $"{g.Count()} {Word(g.Key)}");
+        return $"{holds.Count} held: {string.Join(", ", parts)}";
+    }
+
     public static string Summary(IReadOnlyList<Hold> holds, TimeSpan grace)
     {
         if (holds.Count == 0) return "nothing held";

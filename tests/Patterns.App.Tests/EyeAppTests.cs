@@ -242,6 +242,7 @@ public class EyeAppTests
             Assert.Equal(lines[0], facts.Eye[0]);
             Assert.True(services.Eye.Graph.Nodes.Count > 0);
             Assert.NotNull(services.Eye.Graph.Find(EyeGraph.DeskId));
+            Assert.Contains(services.Eye.Graph.Find(EyeGraph.DeskId)!.Words, w => w.Contains("held", StringComparison.Ordinal) && w.Contains("GPU cache", StringComparison.Ordinal));   // round 69: the desk node's memory line
             Assert.Contains(services.Eye.Graph.Nodes, node => node.Kind == EyeKind.Stack);
             Assert.Contains(services.Eye.Graph.Nodes, node => node.Kind == EyeKind.Assistant && node.Light == CheckLight.Grey);
             // The Eye page is in the shell and the rail's word is the picture's.

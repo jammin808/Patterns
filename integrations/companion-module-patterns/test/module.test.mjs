@@ -117,6 +117,8 @@ test('a STATE becomes the variables a key reads, the new blocks included', async
 	assert.equal(v.desk_version, '1.9.0')
 	assert.equal(v.show, 'Gala')
 	assert.equal(v.node_1, 'Caller\nFOH-CALL')
+	assert.equal(v.machine_memory_held, '3 held (212 MB): 2 on air, 1 idle — the first lets go in 43 s')
+	assert.equal(v.machine_gpu_cache, 'GPU cache 48 MB of 128 MB (212 resources)')
 	assert.equal(v.node_2_kind, 'timer')
 	assert.equal(v.nodes_count, '1')
 	assert.equal(v.nodes_text, 'Caller FOH-CALL')

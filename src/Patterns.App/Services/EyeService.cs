@@ -336,6 +336,7 @@ public sealed class EyeService
             OutputsLive = _s.Outputs.IsLive,
             Health = report?.Overall ?? CheckLight.Grey,
             HealthWords = report?.Headline ?? "",
+            MemoryWords = Residency.CountWords(_s.Residency.Holds) + " · " + GpuGovernor.EyeWords(Patterns.App.Rendering.GpuCacheGovernor.Facts.HasContext, Patterns.App.Rendering.GpuCacheGovernor.Facts.LimitBytes, _s.Metrics.GpuRung),   // round 69: stable words — counts and bounds, not the fill or the countdown
             Attention = attention,
             NextTake = _s.NextTake.Pending?.Words ?? "",
             TakeScope = plan?.Scope.Label ?? "",

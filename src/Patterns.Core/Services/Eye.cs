@@ -78,6 +78,8 @@ public sealed class EyeFacts
     /// <summary>The super-check's overall light — the desk's own.</summary>
     public CheckLight Health { get; init; } = CheckLight.Grey;
     public string HealthWords { get; init; } = "";
+    /// <summary>Round 69: what the desk holds in memory and why, and the GPU cache's bound — one line, stable from tick to tick ("4 held: 2 on air, 1 armed, 1 idle · GPU cache limit 128 MB · rung none").</summary>
+    public string MemoryWords { get; init; } = "";
     /// <summary>The super-check's rows that are not green, as words.</summary>
     public IReadOnlyList<string> Attention { get; init; } = Array.Empty<string>();
     /// <summary>Round 67.6: what the next TAKE alone arrives by, in words; "" for the show's own.</summary>
@@ -472,6 +474,7 @@ public sealed class EyeGraph
         var deskWords = new List<string>();
         if (f.Build.Length > 0) deskWords.Add($"Build {f.Build}");
         if (f.HealthWords.Length > 0) deskWords.Add(f.HealthWords);
+        if (f.MemoryWords.Length > 0) deskWords.Add(f.MemoryWords);                                   // round 69: the memory line
         if (f.NextTake.Length > 0) deskWords.Add($"Next take: {f.NextTake} (one shot)");
         if (f.TakeWords.Length > 0) deskWords.Add($"Next TAKE ({f.TakeScope}) {f.TakeWords}");
         deskWords.AddRange(f.Attention);

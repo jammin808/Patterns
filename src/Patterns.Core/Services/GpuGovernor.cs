@@ -56,6 +56,11 @@ public static class GpuGovernor
     /// <summary>At high and critical the unlocked resources are purged as well: the cache empties to what the frame in hand holds.</summary>
     public static bool PurgeAt(MemoryPressure pressure) => pressure >= MemoryPressure.High;
 
+    /// <summary>The Eye's line, stable from one tick to the next — the bound and the rung, not the fill: "GPU cache limit 128 MB · rung none" / "GPU cache: no GPU context (software rendering)".</summary>
+    public static string EyeWords(bool hasContext, long limitBytes, MemoryPressure rung)
+        => !hasContext ? "GPU cache: no GPU context (software rendering)"
+         : $"GPU cache limit {MemoryBudget.Mb(limitBytes / (double)MB)} · rung {MediaMemory.Word(rung)}";
+
     /// <summary>"GPU cache 48 MB of 128 MB (212 resources) · purged 3×" / "GPU cache: no GPU context (software rendering)".</summary>
     public static string Words(bool hasContext, long limitBytes, long usedBytes, int resources, int purges)
     {

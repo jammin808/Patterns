@@ -19,6 +19,7 @@ public class EyeTests
         OutputsLive = true,
         Health = CheckLight.Amber,
         HealthWords = "OK · 2 amber",
+        MemoryWords = "3 held: 2 on air, 1 idle · GPU cache limit 128 MB · rung none",
         Attention = new[] { "Frame fence: 3 hung" },
         Displays = new[]
         {
@@ -372,5 +373,27 @@ public class EyeTests
         }
         Assert.Equal((TargetKind.None, ValueKind.Text), ActionSpec.For(ShowActionKind.EyeFocus));
         Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.EyeReset));
+    }
+
+    [Fact]
+    public void TheDeskNodeCarriesTheMemoryLineAndItsHelpersStayStable()
+    {
+        var g = EyeGraph.Build(Rig());
+        var desk = g.Nodes.Single(n => n.Id == EyeGraph.DeskId);
+        Assert.Contains("3 held: 2 on air, 1 idle · GPU cache limit 128 MB · rung none", desk.Words);
+        Assert.DoesNotContain(EyeGraph.Build(new EyeFacts { MachineName = "bare" }).Nodes.Single(n => n.Id == EyeGraph.DeskId).Words, w => w.Contains("held", StringComparison.Ordinal));   // no line without the facts
+
+        // The helpers behind the line: counts by reason, no bytes and no countdown; the cache's bound and rung, not its fill.
+        var holds = new[]
+        {
+            new Hold("clip:a", "clip", "A", HoldReason.OnAir, 100),
+            new Hold("clip:b", "clip", "B", HoldReason.OnAir, 100),
+            new Hold("pic:c", "picture", "C", HoldReason.Idle, 50, IdleSeconds: 17),
+        };
+        Assert.Equal("3 held: 2 on air, 1 idle", Residency.CountWords(holds));
+        Assert.Equal("nothing held", Residency.CountWords(Array.Empty<Hold>()));
+        Assert.Equal("GPU cache limit 128 MB · rung none", GpuGovernor.EyeWords(true, 128L * 1024 * 1024, MemoryPressure.None));
+        Assert.Equal("GPU cache limit 64 MB · rung high", GpuGovernor.EyeWords(true, 64L * 1024 * 1024, MemoryPressure.High));
+        Assert.Equal("GPU cache: no GPU context (software rendering)", GpuGovernor.EyeWords(false, 128L * 1024 * 1024, MemoryPressure.None));
     }
 }

@@ -117,6 +117,8 @@ export function variableDefinitions() {
 		take_scope: "The wall's take scope as the desk's picker has it — every screen, the focused screen, the ticked screens, the ticked groups (round 67)",
 		take_words: "What the next TAKE will do — '→ 1 · Left, 2 · Right · 1 outside the scope keeps its picture' — or why it is refused (round 67)",
 		machine_memory_pressure: 'Media memory pressure: none / elevated / high / critical — the rung the desk\'s memory ladder stands on (pictures, frame pools, retiring frames and decks against their budget)',
+		machine_memory_held: "What the desk holds in memory and why — '4 held (312 MB): 2 on air, 1 armed, 1 idle — the first lets go in 43 s' (round 69)",
+		machine_gpu_cache: "Skia's GPU cache as governed — 'GPU cache 48 MB of 128 MB (212 resources)', or 'GPU cache: no GPU context (software rendering)' (round 69)",
 		inputs_pending: "A reopen staged under a source on air ('Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.'), or empty",
 		devices_failing: 'Interactive devices whose last word was a failure (count)',
 		device_last_reply: "The newest reply from any Interactive device ('Projector: POWR: OK — accepted', or empty)",

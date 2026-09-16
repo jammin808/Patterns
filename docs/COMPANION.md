@@ -310,6 +310,12 @@ screen's row gains `audioOut`, `audioOutLabel` and `audioSource`. Feedbacks `aud
 `screen_n_audio`. Two shades: the audio family's `follow` (sky) and the screen family's `sound` (blue),
 held equal on both sides by the palette test. A 3.9.0 deck ignores the rows.
 
+**The memory on the deck, still 3.10.0.** Two variables beside `machine_memory_pressure`: `machine_memory_held`
+reads STATE's `memory.residency.words` — what the desk holds in memory and why (*4 held (312 MB): 2 on air,
+1 armed, 1 idle — the first lets go in 43 s*; the residency ledger of round 69) — and `machine_gpu_cache` reads
+`machine.gpuCache.words` — Skia's GPU cache as governed (*GPU cache 48 MB of 128 MB (212 resources)*, or *no
+GPU context (software rendering)*). A machine key can carry both under the pressure rung.
+
 The point on a show: a video on the main screen and its repeaters and a playlist with a soundtrack of its
 own on the info screens — the room hears the video through the main's and the repeaters' outputs, the
 info screens' outputs carry the playlist, and the TAKE that puts the video on the info screens too moves

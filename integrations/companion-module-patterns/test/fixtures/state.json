@@ -390,7 +390,13 @@
     "appMB": 900,
     "ceilingMB": 2000,
     "text": "",
-    "pressure": "elevated"
+    "pressure": "elevated",
+    "residency": {
+      "grace": 60,
+      "words": "3 held (212 MB): 2 on air, 1 idle — the first lets go in 43 s",
+      "letGo": 2,
+      "holds": []
+    }
   },
   "inputs": {
     "mounted": 1,
@@ -409,7 +415,16 @@
     "faulting": false,
     "liveAgeMs": 33,
     "inventory": "NVIDIA RTX A4000 · driver 560.94 · 2 displays · 1 audio output · High performance",
-    "rig": "unchanged since 2026-09-15 09:00 (first show)"
+    "rig": "unchanged since 2026-09-15 09:00 (first show)",
+    "gpuCache": {
+      "hasContext": true,
+      "limitMB": 128,
+      "usedMB": 48.2,
+      "resources": 212,
+      "purges": 0,
+      "rung": "none",
+      "words": "GPU cache 48 MB of 128 MB (212 resources)"
+    }
   },
   "commissioning": {
     "complete": false,
