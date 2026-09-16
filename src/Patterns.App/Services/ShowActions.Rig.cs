@@ -80,18 +80,28 @@ public sealed partial class ShowActions
             }
             case ShowActionKind.ScreenRole:
             {
+                if (ScreenRoles.Parse(a.Value) is not { } role) return ActionResult.Refused($"'{a.Value}' is not a role — main, confidence, info or repeater.");
+                // Round 67.7: a canvas key (the tile's menu speaking for a joined canvas) sets every screen of it.
+                if (ContentTargets.IsCanvasKey(a.Target) && ContentTargets.IsInRig(State, a.Target))
+                {
+                    if (role == ScreenRole.Repeater) return ActionResult.Refused("A canvas cannot repeat — make one screen a repeater on the Screens page.");
+                    var members = ContentTargets.Members(a.Target).Where(id => State.Output.Placements.Any(p => p.ScreenId == id)).ToList();
+                    if (members.Count == 0) return ActionResult.Refused($"No screen in '{a.Target}'.");
+                    var notes = new List<string>();
+                    foreach (var member in members)
+                    {
+                        var each = SetRole(member, role);
+                        if (each.Length > 0) notes.Add(each.Trim());
+                    }
+                    var canvasLabel = Rig.Geometry(State, _s.Screens.All).LabelFor(State, a.Target);
+                    return ActionResult.Done($"{canvasLabel}: every screen is {RoleWords(role)}.{(notes.Count > 0 ? " " + string.Join(" ", notes) : "")}");
+                }
                 var target = ResolveScreenTarget(a.Target);
                 var placement = target is null ? null : State.Output.Placements.FirstOrDefault(p => p.ScreenId == target);
                 if (placement is null) return ActionResult.Refused($"No screen '{a.Target}'.");
-                if (ScreenRoles.Parse(a.Value) is not { } role) return ActionResult.Refused($"'{a.Value}' is not a role — main, confidence, info or repeater.");
-                var id = placement.ScreenId;
-                _s.BulkEdit(() => placement.Role = role);
-                if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.Role = role; });
-                // The role picks its follow default, the way the Screens page does: a confidence or an info screen keeps its picture.
-                var follows = ScreenRoles.DefaultFollows(role);
-                var held = placement.FollowsCues != follows ? " " + SetLock(id, !follows).Message : "";
-                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, id);
-                return ActionResult.Done($"{label} is a {ScreenRoles.Word(role)} screen.{held}");
+                var held = SetRole(placement.ScreenId, role);
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, placement.ScreenId);
+                return ActionResult.Done($"{label} is {RoleWords(role)}.{held}");
             }
             case ShowActionKind.ScreenSignal:
             {
@@ -232,6 +242,28 @@ public sealed partial class ShowActions
     }
 
     /// <summary>A screen by overview number (1-based), a placement id, or a canvas key — as a content target the rig has; null when it does not.</summary>
+    /// <summary>
+    /// One screen's role, on the edited state and the frozen programme alike, with the follow default the role
+    /// picks — a confidence or an info screen keeps its picture, a main or a repeater follows — the way the
+    /// Screens page does. The lock's words when it moved, else "".
+    /// </summary>
+    /// <summary>"a main screen", "an info screen".</summary>
+    private static string RoleWords(ScreenRole role)
+    {
+        var word = ScreenRoles.Word(role);
+        return $"{("aeiou".Contains(word[0]) ? "an" : "a")} {word} screen";
+    }
+
+    private string SetRole(string id, ScreenRole role)
+    {
+        var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
+        if (placement is null) return "";
+        _s.BulkEdit(() => placement.Role = role);
+        if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.Role = role; });
+        var follows = ScreenRoles.DefaultFollows(role);
+        return placement.FollowsCues != follows ? " " + SetLock(id, !follows).Message : "";
+    }
+
     private string? ResolveScreenTarget(string target)
     {
         if (int.TryParse(target, out var number))

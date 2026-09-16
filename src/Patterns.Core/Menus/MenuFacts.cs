@@ -91,6 +91,15 @@ public sealed record ScreenFacts
     public bool Monitored { get; init; } = true;
     public bool Collapsed { get; init; }
     public string RoleBadge { get; init; } = "";
+    /// <summary>
+    /// Round 67.7: the group the screen is in — its role's word (main, confidence, info, repeater); "" for the
+    /// programme, or a canvas whose screens are in different groups (<see cref="GroupsMixed"/>).
+    /// </summary>
+    public string Group { get; init; } = "";
+    /// <summary>A canvas whose screens are in different groups.</summary>
+    public bool GroupsMixed { get; init; }
+    /// <summary>The words of the target a repeater repeats ("1 · Main wall"); "" when none is chosen.</summary>
+    public string MirrorSource { get; init; } = "";
     /// <summary>The kind of picture the target shows now (the enum's word), "" when unknown.</summary>
     public string ShowingKind { get; init; } = "";
 

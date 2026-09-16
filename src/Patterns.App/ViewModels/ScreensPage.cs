@@ -963,11 +963,10 @@ public sealed class ScreensPage : Observable
         set
         {
             if (_selectedPlacement is null || _selectedPlacement.Role == value) return;
+            // The verb's own hook (OnActionPerformed) rebuilds the wall, the editing targets and the take plan — the
+            // same whether the group is chosen here, on a tile's menu, on the wire or by a cue (round 67.7).
             _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenRole, _selectedPlacement.ScreenId, ScreenRoles.Word(value)), ActionOrigin.Desk);
-            _desk.RebuildEditTargets();
-            _desk.RefreshTakeScope();
             RaiseSelection();
-            _desk.RebuildSwitcherTiles();   // the tile's badge and foot line read the group at once
         }
     }
 

@@ -256,7 +256,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         ? (IsMirror ? MirrorNote : SizeText)
         : IsMirror ? $"{KindWord} {MirrorNote}" : $"{KindWord} · {SizeText}";
 
-    private const string GroupRoute = "Click: SETUP → Screens opens with this screen selected — Role (Main, Confidence, Info, Repeater), whether it follows cues, and Mirror of are set there.";
+    private const string GroupRoute = "Right-click the tile: THIS TILE → Group changes it (Main, Confidence, Info, Repeater). Click: SETUP → Screens opens with this screen selected — whether it follows cues and Mirror of are set there.";
 
     /// <summary>What the foot line means, and where the group is set.</summary>
     public string GroupTip => KindWord switch

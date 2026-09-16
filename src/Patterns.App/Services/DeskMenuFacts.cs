@@ -105,6 +105,10 @@ public static class DeskMenuFacts
             Monitored = monitored,
             Collapsed = state.Desk.CollapsedTiles.Contains(targetId),
             RoleBadge = first is not null && oneRole ? ScreenRoles.Badge(first.Role) : "",
+            // Round 67.7: the group — the role's word; a canvas whose screens differ is mixed; a repeater names its source.
+            Group = first is not null && oneRole ? ScreenRoles.Word(first.Role) : "",
+            GroupsMixed = placements.Count > 1 && !oneRole,
+            MirrorSource = !isCanvas && first is { MirrorOf.Length: > 0 } && ContentTargets.IsInRig(state, first.MirrorOf) ? geo.LabelFor(state, first.MirrorOf) : "",
             ShowingKind = LookService.Shown(state, targetId).Kind.ToString(),
         };
     }

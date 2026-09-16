@@ -26,6 +26,11 @@ public sealed partial class MainViewModel : IDeskMenuHost
         {
             case "tile":
                 return subject is SwitcherTile tile ? TileMenu(tile, facts) : null;
+            case "screen":
+                // Round 67.7: a screen on the Screens page (its arrangement tile) gets the same menu as its wall tile —
+                // the group, the lock, the preview, TAKE — so the two never disagree; the wall tile, when there is
+                // one for this screen alone, carries its switches (arm, MON, collapse).
+                return subject is ScreenPlacement placement ? ScreenMenu(placement, facts) : null;
             case "program":
                 return new DeskMenuVm(DeskMenus.Program(facts), e => RunMenuEntry(e, null));
             case "preview":
@@ -121,6 +126,16 @@ public sealed partial class MainViewModel : IDeskMenuHost
             }
         }
         return new DeskMenuVm(EyeMenus.For(facts, _services.Eye.Graph, node), e => RunMenuEntry(e, node));
+    }
+
+    private DeskMenuVm ScreenMenu(ScreenPlacement placement, DeskFacts facts)
+    {
+        var id = placement.ScreenId;
+        var tile = SwitcherTiles.FirstOrDefault(t => t.TargetId == id);
+        if (tile is not null) return TileMenu(tile, facts);
+        // A screen inside a joined canvas has no wall tile of its own: the menu is the screen's, its tile switches read-only.
+        var s = DeskMenuFacts.Screen(_services, id);
+        return new DeskMenuVm(DeskMenus.Screen(facts, s), e => RunMenuEntry(e, null));
     }
 
     private DeskMenuVm TileMenu(SwitcherTile tile, DeskFacts facts)

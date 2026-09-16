@@ -50,6 +50,9 @@ public sealed class ScreenArrangeControl : Control
     public ScreenArrangeControl()
     {
         ClipToBounds = true;
+        // Round 67.7: a right-click on a screen opens its menu — the same as its wall tile's (group, lock, preview, TAKE).
+        Menus.SetKind(this, "screen");
+        Menus.SetSubjectAt(this, PlacementAt);
         _animTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render);
         _animTimer.Tick += (_, _) =>
         {
@@ -405,6 +408,9 @@ public sealed class ScreenArrangeControl : Control
 
     // ---- interaction --------------------------------------------------------
 
+    /// <summary>The screen drawn under a point, for the right-click menu; null over the floor.</summary>
+    private ScreenPlacement? PlacementAt(Point pos) => BuildView()?.Tiles.LastOrDefault(t => t.View.Contains(pos))?.Placement;
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
@@ -417,6 +423,12 @@ public sealed class ScreenArrangeControl : Control
         if (hit is null) return;
 
         _vm.Screens.SelectedPlacement = hit.Placement;
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+        {
+            // The menu's press: the screen is selected for it, and nothing starts to move.
+            InvalidateVisual();
+            return;
+        }
         _dragPlacement = hit.Placement;
         _dragStartRect = hit.Arranged;
         _dragPreview = hit.Arranged;

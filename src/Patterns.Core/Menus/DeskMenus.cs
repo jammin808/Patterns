@@ -72,6 +72,7 @@ public static class DeskMenus
                 IsOn = s.Armed,
                 Because = s.Locked ? "A locked tile keeps its picture whatever is armed — unlock it first." : "",
             },
+            GroupDrawer(s, target, W),
             new("tile.out", s.Enabled ? "Output on" : "Output off", MenuScope.Live, MenuTone.Tile)
             {
                 Detail = "The screen's output window, live",
@@ -264,6 +265,41 @@ public static class DeskMenus
                 Wire = w("CUT"),
                 Action = new ShowAction(ShowActionKind.ScreenCut, target),
                 Because = because,
+            },
+        };
+    }
+
+    /// <summary>
+    /// THIS TILE → Group (round 67.7): the group the screen is in — its role — with the others to choose.
+    /// Main follows looks, cues and TAKE; Confidence and Info keep their own picture (the choice locks the
+    /// tile, as the Screens page does); Repeater draws another target's picture and needs a source chosen
+    /// on the Screens page. A canvas sets every screen in it. The lettered canvas (GROUP A) is geometry —
+    /// read in the tile's title, never chosen here. The same verb as SCREEN n ROLE / GROUP on the wire.
+    /// </summary>
+    private static MenuEntry GroupDrawer(ScreenFacts s, string target, Func<string, string> W)
+    {
+        var current = s.Group;
+        MenuEntry Choice(string word, string text, string detail, string because = "") => new($"tile.group:{word}", text, MenuScope.Live, MenuTone.Tile)
+        {
+            Detail = detail,
+            Wire = W($"GROUP {word}"),
+            Action = new ShowAction(ShowActionKind.ScreenRole, target, word),
+            IsOn = !s.GroupsMixed && current.Equals(word, StringComparison.OrdinalIgnoreCase),
+            Because = because,
+        };
+        var name = s.GroupsMixed ? "mixed — its screens differ" : ScreenRoles.Parse(current) is { } role ? role.ToString() : "not set";
+        var repeater = s.IsCanvas ? "A canvas cannot repeat — make one screen a repeater on the Screens page."
+            : s.MirrorSource.Length == 0 && !current.Equals("repeater", StringComparison.OrdinalIgnoreCase) ? "Choose the screen it repeats on the Screens page first (Mirror of) — a repeater needs a source."
+            : "";
+        return new MenuEntry("tile.group", $"Group — {name}", MenuScope.Live, MenuTone.Tile)
+        {
+            Detail = s.IsCanvas ? "What these screens are for — the choice sets every screen of the canvas" : "What the screen is for — Main follows the programme; Confidence and Info keep their own picture",
+            Children = new[]
+            {
+                Choice("main", "Main — the audience's picture", "Follows looks, cues and TAKE; the tile unlocks"),
+                Choice("confidence", "Confidence — a stage monitor", "Its own picture, left alone by looks and cues; the tile locks"),
+                Choice("info", "Info — a foyer or info screen", "Its own picture, left alone by looks and cues; the tile locks"),
+                Choice("repeater", "Repeater — a copy of another screen", s.MirrorSource.Length > 0 ? $"Repeats {s.MirrorSource}" : "Draws another target's picture", repeater),
             },
         };
     }

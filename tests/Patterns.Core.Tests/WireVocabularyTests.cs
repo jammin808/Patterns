@@ -46,6 +46,7 @@ public class WireVocabularyTests
         ("SCREEN 2 LOOK Sponsor", new(ShowActionKind.ScreenLook, "2", "Sponsor")),
         ("SCREEN 2 PGM", new(ShowActionKind.ScreenProgram, "2")),
         ("SCREEN 2 ROLE confidence", new(ShowActionKind.ScreenRole, "2", "confidence")),
+        ("SCREEN 2 GROUP info", new(ShowActionKind.ScreenRole, "2", "info")),                  // round 67.7: the desk's word for the role
         ("SCREEN 2 LABEL Stage left", new(ShowActionKind.ScreenLabel, "2", "Stage left")),
         ("SCREEN 2 LABEL", new(ShowActionKind.ScreenLabel, "2")),
         ("SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR", new(ShowActionKind.ScreenSignal, "2", "3840x2160 50 RGB 8 SDR")),
@@ -295,5 +296,6 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("TAKE").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("TAKE ALL").Kind);        // round 67: only TAKE NEXT is a wire verb
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("CUT").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 GROUP").Kind);  // a group needs its word
     }
 }

@@ -49,6 +49,8 @@ public class DeskMenuTests
         Staged = staged,
         IsMirror = mirror,
         ShowingKind = "Grid",
+        Group = mirror ? "repeater" : "main",
+        MirrorSource = mirror ? "1 · Main wall" : "",
     };
 
     private static CueFacts Cue(bool hasLook = true, bool standby = false, string problem = "") => new()
@@ -194,6 +196,54 @@ public class DeskMenuTests
         Assert.Equal("", canvas.Find("stage.reset")!.Wire);
         Assert.Equal("a+b", canvas.Find("stage.reset")!.Action!.Value.Target);
         Assert.Equal("", canvas.Find("tile.lock")!.Wire);
+    }
+
+    [Fact]
+    public void TheTileMenuShowsTheGroupAndOffersTheOthersOnTheSameVerbAsTheWire()
+    {
+        var d = Facts();
+
+        // A main screen: the drawer names the group, Main is on, the others carry the wire's line and the desk's verb.
+        var menu = DeskMenus.Screen(d, Screen());
+        var group = menu.Find("tile.group")!;
+        Assert.Equal("Group — Main", group.Text);
+        Assert.True(group.HasChildren);
+        Assert.Null(group.Action);
+        Assert.Equal(new[] { "tile.group:main", "tile.group:confidence", "tile.group:info", "tile.group:repeater" }, group.Children.Select(c => c.Id));
+        Assert.True(group.Children[0].IsOn);
+        var conf = group.Children[1];
+        Assert.False(conf.IsOn);
+        Assert.Equal("SCREEN 2 GROUP confidence", conf.Wire);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenRole, "b", "confidence"), conf.Action);
+        Assert.Equal(ShowActionKind.ScreenRole, ControlProtocol.Parse(conf.Wire).Action.Kind);
+        Assert.Contains("locks", conf.Detail);
+        // A repeater needs a source: without one the row says where it is chosen.
+        var rep = group.Children[3];
+        Assert.False(rep.IsEnabled);
+        Assert.Contains("Screens page", rep.Because);
+        Assert.Contains("Mirror of", rep.Because);
+
+        // A repeater with its source: Repeater is on and the row repeats it by name; Main is offered to leave the group.
+        var repeater = DeskMenus.Screen(d, Screen(mirror: true)).Find("tile.group")!;
+        Assert.Equal("Group — Repeater", repeater.Text);
+        Assert.True(repeater.Children[3].IsOn);
+        Assert.True(repeater.Children[3].IsEnabled);
+        Assert.Contains("1 · Main wall", repeater.Children[3].Detail);
+        Assert.True(repeater.Children[0].IsEnabled);
+
+        // A canvas: the choice sets every screen; it rides the action (no wire number); a canvas cannot repeat;
+        // screens in different groups read as mixed with nothing on.
+        var canvas = DeskMenus.Screen(d, Screen(number: "") with { TargetId = "a+b", IsCanvas = true, Title = "A · Main wall", Group = "", GroupsMixed = true }).Find("tile.group")!;
+        Assert.Contains("mixed", canvas.Text);
+        Assert.Contains("every screen of the canvas", canvas.Detail);
+        Assert.All(canvas.Children, c => Assert.False(c.IsOn));
+        Assert.Equal("", canvas.Children[1].Wire);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenRole, "a+b", "confidence"), canvas.Children[1].Action);
+        Assert.False(canvas.Children[3].IsEnabled);
+        Assert.Contains("canvas cannot repeat", canvas.Children[3].Because);
+
+        // The PGM tile has no group — the programme is what the groups follow.
+        Assert.Null(DeskMenus.Program(d).Find("tile.group"));
     }
 
     [Fact]

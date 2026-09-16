@@ -944,6 +944,17 @@ public sealed partial class MainViewModel
                     RebuildEditTargets(); // a scoped send pins / lifts own patterns — OWN follows
                 }
                 break;
+            case ShowActionKind.ScreenRole:
+                // Round 67.7: the group changed — from a tile's menu, the Screens page, the wire or a cue: the wall's
+                // badge and foot line, the editing targets, the take plan and the Screens page's picker read it at once.
+                if (result.Ok)
+                {
+                    RebuildEditTargets();
+                    RebuildSwitcherTiles();
+                    RefreshTakeScope();
+                    Screens.RaiseSelection();
+                }
+                break;
             case ShowActionKind.OutputsOn:
             case ShowActionKind.OutputsOff:
                 RefreshOutputsStatus();

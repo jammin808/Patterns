@@ -360,6 +360,12 @@ public static class ControlProtocol
                     var role = rest[5..].Trim();
                     return role.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenRole, n, role);
                 }
+                // "SCREEN 2 GROUP confidence" (round 67.7): the same verb — the desk calls the role the screen's group.
+                if (rest.StartsWith("GROUP ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var group = rest[6..].Trim();
+                    return group.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenRole, n, group);
+                }
                 if (rest.StartsWith("LABEL ", StringComparison.OrdinalIgnoreCase) || rest.Equals("LABEL", StringComparison.OrdinalIgnoreCase))
                 {
                     return Act(ShowActionKind.ScreenLabel, n, rest.Length > 6 ? rest[6..].Trim() : "");
@@ -417,7 +423,7 @@ public static class ControlProtocol
                     // "SCREEN 2 TAKE" / "SCREEN 2 CUT" (round 63): the desk's preview to that screen alone, as its own picture — the tile's own keys.
                     "TAKE" => Act(ShowActionKind.ScreenTake, n),
                     "CUT" => Act(ShowActionKind.ScreenCut, n),
-                    "LOOK" or "PRESET" or "ROLE" or "PATTERN" => Unknown(s),
+                    "LOOK" or "PRESET" or "ROLE" or "GROUP" or "PATTERN" => Unknown(s),
                     _ => Act(ShowActionKind.ScreenToggle, n),
                 };
             }
