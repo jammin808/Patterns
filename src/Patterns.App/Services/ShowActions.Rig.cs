@@ -88,12 +88,10 @@ public sealed partial class ShowActions
                     if (role == ScreenRole.Repeater) return ActionResult.Refused("A canvas cannot repeat — make one screen a repeater on the Screens page.");
                     var members = ContentTargets.Members(a.Target).Where(id => State.Output.Placements.Any(p => p.ScreenId == id)).ToList();
                     if (members.Count == 0) return ActionResult.Refused($"No screen in '{a.Target}'.");
-                    var notes = new List<string>();
-                    foreach (var member in members)
-                    {
-                        var each = SetRole(member, role);
-                        if (each.Length > 0) notes.Add(each.Trim());
-                    }
+                    // Round 72: every screen of the canvas in one edit — one publish of the edited state and one of the
+                    // frozen programme, one side-effect pass, one result — never a publish per member with the canvas
+                    // half changed between them.
+                    var notes = SetRoles(members, role);
                     var canvasLabel = Rig.Geometry(State, _s.Screens.All).LabelFor(State, a.Target);
                     return ActionResult.Done($"{canvasLabel}: every screen is {RoleWords(role)}.{(notes.Count > 0 ? " " + string.Join(" ", notes) : "")}");
                 }
@@ -301,12 +299,68 @@ public sealed partial class ShowActions
 
     private string SetRole(string id, ScreenRole role)
     {
-        var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
-        if (placement is null) return "";
-        _s.BulkEdit(() => placement.Role = role);
-        if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.Role = role; });
-        var follows = ScreenRoles.DefaultFollows(role);
-        return placement.FollowsCues != follows ? " " + SetLock(id, !follows).Message : "";
+        var notes = SetRoles(new[] { id }, role);
+        return notes.Count > 0 ? " " + notes[0] : "";
+    }
+
+    /// <summary>
+    /// The role on every screen named, with the follow default the role picks — a confidence or an info screen
+    /// keeps its picture, a main or a repeater follows — as one edit of the edited state and one of the frozen
+    /// programme (round 72): the lock's picture is what the air shows now, read before anything moves. The
+    /// lock's words for each screen whose follow moved.
+    /// </summary>
+    private List<string> SetRoles(IReadOnlyList<string> ids, ScreenRole role)
+    {
+        var notes = new List<string>();
+        var moves = new List<(string Id, bool Locked, PatternConfig Picture, string Label)>();
+        var air = _s.AirState;
+        var geometry = Rig.Geometry(State, _s.Screens.All);
+        foreach (var id in ids)
+        {
+            var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
+            if (placement is null) continue;
+            var follows = ScreenRoles.DefaultFollows(role);
+            if (placement.FollowsCues == follows) { moves.Add((id, false, null!, "")); continue; }
+            var source = ScreenRoles.ResolveMirror(air, id);
+            var showing = ContentTargets.UsesOwnPattern(air, source)
+                ? air.Independent.FirstOrDefault(x => x.ScreenId == source)?.Pattern ?? air.Pattern
+                : air.Pattern;
+            moves.Add((id, !follows, JsonUtil.ClonePattern(showing), geometry.LabelFor(State, id)));
+        }
+        if (moves.Count == 0) return notes;
+        _s.BulkEdit(() =>
+        {
+            foreach (var (id, _, _, _) in moves)
+            {
+                if (State.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } placement) placement.Role = role;
+            }
+            foreach (var (id, locked, picture, _) in moves)
+            {
+                if (picture is not null) ScreenRoles.SetLocked(State, id, locked, picture);
+            }
+        });
+        if (_s.Sandbox.Active)
+        {
+            _s.EditAir(program =>
+            {
+                foreach (var (id, _, _, _) in moves)
+                {
+                    if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } placement) placement.Role = role;
+                }
+                foreach (var (id, locked, picture, _) in moves)
+                {
+                    if (picture is not null) ScreenRoles.SetLocked(program, id, locked, picture);
+                }
+            });
+        }
+        foreach (var (_, locked, picture, label) in moves)
+        {
+            if (picture is null) continue;
+            notes.Add(locked
+                ? $"{label} locked — it keeps its picture through looks, cues, TAKE ALL and stingers."
+                : $"{label} follows looks, cues and TAKE again.");
+        }
+        return notes;
     }
 
     private string? ResolveScreenTarget(string target)

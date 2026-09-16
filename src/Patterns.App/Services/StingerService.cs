@@ -299,6 +299,22 @@ public sealed class StingerService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Round 72: the show was replaced under an open session. The clip, the saved pictures and the ticket are
+    /// the last show's — nothing of them may be put back over, or landed on, the show that replaced it — so
+    /// the session is forgotten without a restore: the clip's sound released, the after-policy dropped, the
+    /// label given back, the recovery pin lifted. A VOG announcement in progress is sound alone and goes on.
+    /// </summary>
+    public void ForgetSession()
+    {
+        if (_after is null && !ClipActive && !_stingSoundActive && !_holding) return;
+        _services.AudioPlayer.ReleaseStingers();
+        _stingSoundActive = false;
+        GiveLabelBack();
+        Abandon("Show replaced — the sting's session was the last show's and lands nothing.", NowUtc());
+        Journal(ActionStatus.Refused, _status);
+    }
+
     /// <summary>The open session's after-policy (the override when the firing carried one), null with no session.</summary>
     public StingerAfter? SessionAfter => _after?.After;
 

@@ -885,12 +885,40 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         StatusMessage = status;
     }
 
+    /// <summary>
+    /// Round 72: the operator's session on the last show is the last show's. A show opens as a show
+    /// opens — nothing pending, every target armed, the programme focused — so nothing the last
+    /// session left behind runs against, or lands on, the show that replaced it:
+    ///   the one-shot (a TAKE NEXT set for the last show's take),
+    ///   a sting's ticket (a TAKE waiting under a clip — the clip and its saved pictures are the last show's),
+    ///   the ticks on the wall tiles (a tile rebuild carries them; a replaced show does not),
+    ///   the focus (the panes and CUT / TAKE FOCUSED mean the programme again),
+    ///   the arming (runtime only, back to everything armed, as a show opens),
+    ///   the edit watchers (they watched the last show's staged copies; the copies went with its state — the
+    ///   loaded show's own pictures stand as its file says, nothing is staged),
+    ///   and the programme the audience has: with EDIT SAFE open the frozen programme was the last show's — a
+    ///   discard would have put the last show's pictures into the loaded one — so the loaded show is frozen
+    ///   as the programme too, and the preview is the same show.
+    /// </summary>
+    private void ResetSession()
+    {
+        _services.NextTake.Set(null);
+        _services.Stingers.ForgetSession();
+        ClearSendTargets();
+        _editWatches.Clear();
+        _services.Arming.ArmAll();
+        if (EditTargets.Count > 0) EditTarget = EditTargets[0];      // the programme is the editing target, as a show opens
+        SelectTarget(null);
+        if (_services.Sandbox.Active) _services.Sandbox.RestoreProgram(JsonUtil.Clone(State));
+    }
+
     /// <summary>The model under the desk is another show now — loaded from a file, restored from a version, mirrored from a twin: every list starts over and every hook is re-tied.</summary>
     private void RefreshAfterShowReplaced()
     {
         Raise(nameof(HasLowerThirds));
         // A different show: nothing the last one left waiting may run against it.
         _services.Tail.DropAll();
+        ResetSession();
         HookTransition();
         HookMonitor();
         RefreshWallDestinations();   // another show, another set of walls and outputs
