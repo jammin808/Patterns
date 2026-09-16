@@ -185,6 +185,7 @@ public sealed partial class ShowActions
             case ShowActionKind.ScreenStagePattern:
             case ShowActionKind.ScreenStageProgram:
             case ShowActionKind.ScreenStageReset:
+            case ShowActionKind.ScreenStageLibrary:
                 return Stage(a);
             case ShowActionKind.PlaylistPart:
             {
@@ -220,9 +221,14 @@ public sealed partial class ShowActions
     /// </summary>
     private ActionResult Stage(ShowAction a)
     {
-        var program = ContentTargets.IsProgramTarget(a.Target);
-        var target = program ? "" : ResolveScreenTarget(a.Target);
-        if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+        // Round 73: FOCUSED is the desk's editing target — the tile the operator selected on the wall,
+        // the programme when none is (or on a node with no wall) — so a deck's LIBRARY key lands
+        // where a click on the Library page would.
+        var focused = a.Target.Equals("FOCUSED", StringComparison.OrdinalIgnoreCase);
+        var named = focused ? _s.FocusedTarget?.Invoke() ?? "" : a.Target;
+        var program = ContentTargets.IsProgramTarget(named);
+        var target = program ? "" : ResolveScreenTarget(named);
+        if (target is null) return ActionResult.Refused($"No screen '{named}'.");
         var label = program ? "the programme" : Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
 
         // Resolve everything before the sandbox opens: a refusal must leave the desk exactly as it was.
@@ -281,6 +287,24 @@ public sealed partial class ShowActions
                 what = "the programme";
                 break;
             }
+            case ShowActionKind.ScreenStageLibrary:
+            {
+                // Round 73: the tile by id (the desk's own press) or by name (the wire), from the same
+                // catalogue the Library page draws — so the two are one press, journaled alike.
+                var tile = LibraryItems.Find(LibraryItems.Build(State, _s.Store, swatches: false), a.Value);
+                if (tile is null) return ActionResult.Refused($"No Library tile '{a.Value.Trim()}' — name one as the Library page lists it (a file by its display name, a page by its title, a preset or a brand kit by name).");
+                if (tile.Picture is null)
+                {
+                    // A brand kit is the show's colours, not a picture: it applies to the show, as its tile does, and no picture is staged.
+                    _s.BulkEdit(() => tile.Show?.Invoke(State));
+                    return ActionResult.Done(tile.Words.Length > 0 ? tile.Words : $"Brand kit '{tile.Name}' applied.");
+                }
+                var basis = program ? State.Pattern : LookService.Shown(State, target);
+                picture = JsonUtil.ClonePattern(basis);
+                tile.Picture(picture);
+                what = $"library tile '{tile.Name}'";
+                break;
+            }
             default: // ScreenStageReset
             {
                 var onAir = _s.LookTally.OnAir();
@@ -336,6 +360,19 @@ public sealed partial class ShowActions
     }
 
     private static string Capitalise(string words) => words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
+
+    /// <summary>
+    /// STATE's editing row (round 73): what the desk's editors are on — the target, whether it is its own
+    /// picture, the kind, the page that edits it, and the Library tile last put there; null on a node,
+    /// which has no editors.
+    /// </summary>
+    public object? EditingRow()
+    {
+        var f = _s.EditingFacts?.Invoke();
+        return f is null
+            ? null
+            : new { target = f.TargetId, label = f.Label, program = f.IsProgram, own = f.Own, kind = f.Kind, editor = f.Editor, library = f.Library, librarySection = f.LibrarySection, words = f.Words };
+    }
 
     /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
     /// <summary>

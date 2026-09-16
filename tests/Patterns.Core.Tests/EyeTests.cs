@@ -35,6 +35,7 @@ public class EyeTests
         },
         TakeScope = "every screen",
         TakeWords = "→ 1 · Main wall, 2 · Projector 1 · 1 held (locked)",
+        Editing = "Projector 1's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot (Fractals)",
         Sources = new[]
         {
             new EyeSource("ndi:Cam 1", "Cam 1", "ndi", true, "receiving 50 fps", CheckLight.Green),
@@ -189,6 +190,8 @@ public class EyeTests
         // Round 67.8: what the next TAKE will do is on the desk's node; a screen's lock, arm, tick and canvas are on its own.
         var g = EyeGraph.Build(Rig());
         Assert.Contains("Next TAKE (every screen) → 1 · Main wall, 2 · Projector 1 · 1 held (locked)", g.Find("desk")!.Words);
+        // Round 73: what the desk's editors are on, and the Library tile last put there.
+        Assert.Contains("Editing Projector 1's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot (Fractals)", g.Find("desk")!.Words);
         var held = g.Find("screen:s3")!.Words;
         Assert.Contains(held, w => w.StartsWith("LOCKED", StringComparison.Ordinal));
         Assert.Contains(held, w => w.StartsWith("held", StringComparison.Ordinal));

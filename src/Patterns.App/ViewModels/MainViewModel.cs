@@ -258,6 +258,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         // A scoped FADE reads the wall's focus and ticks through the services, never the other way round.
         _services.FocusedTarget = () => _selectedTargetId;
         _services.TakeScopeWords = () => SelectedTakeScope.Words;
+        _services.EditingFacts = EditingFactsNow;                                              // round 73: STATE's editing row and the Eye read the desk's editors
         _services.NextTake.Changed += () =>
         {
             Raise(nameof(TakeButtonText));

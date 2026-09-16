@@ -61,6 +61,11 @@ export function buildFeedbacks(ctx) {
 		signal_partial_any: bool('Any screen reads PARTIAL — a contracted property was never stated', style('signal', 'partial'), [], () => (s().screens ?? []).some((x) => norm(x.signal?.result) === 'partial')),
 		// Round 72: a TAKE waiting under a video sting — the ticket the press froze lands when the clip ends.
 		take_landing_pending: bool('A TAKE is waiting under a video sting (the press froze what lands)', style('take', 'landing'), [], () => Boolean(s().take?.landing)),
+		// Round 73: a Library tile on the desk's editing target — chosen, in the preview, not yet taken.
+		library_selected: bool('A Library tile is on the editing target (any, or a named one)', style('library', 'selected'), [named('name', 'Tile name (blank = any)')], (fb) => {
+			const on = s().editing?.library ?? ''
+			return on !== '' && (!fb.options.name || norm(on) === norm(fb.options.name))
+		}),
 		rig_known_good: bool('The rig is the one saved as known good (unchanged)', style('rig', 'same'), [], () => String(s().machine?.rig ?? '').startsWith('unchanged')),
 		rig_drift: bool('The rig moved since it was saved as known good', style('rig', 'drift'), [], () => /^\d+ change/.test(String(s().machine?.rig ?? ''))),
 		commissioned: bool('The rig is commissioned — every stage of the flow green', style('rig', 'commissioned'), [], () => s().commissioning?.complete === true),

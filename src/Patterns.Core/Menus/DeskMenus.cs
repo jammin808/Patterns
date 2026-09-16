@@ -101,6 +101,11 @@ public static class DeskMenus
             Go("go.looks", "Looks page", "Looks"),
             Go("go.multiview", "Multiview page", "Multiview"),
         };
+        // Round 73: a picture with a studio of its own (a fractal, particles, a reactive scene, media) has its editor one entry away.
+        if (PictureEditors.StudioPage(s.ShowingKind) is { } studio)
+        {
+            go.Insert(2, Go("go.editor", $"{studio} page — this picture's own editor ({s.ShowingKind})", studio, target));
+        }
 
         var state = s.OnAir ? "on air" : "not on air";
         var picture = s.IsMirror ? "a repeater of another target" : s.Own ? $"its own picture{(s.ShowingKind.Length > 0 ? $" ({s.ShowingKind})" : "")}" : "the programme";

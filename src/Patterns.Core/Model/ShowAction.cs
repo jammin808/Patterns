@@ -289,6 +289,15 @@ public enum ShowActionKind
     /// <summary>Staged: the look on air's own picture for that target back on its PVW; the programme target loads the whole look into the preview. Refused when no look is on air.</summary>
     ScreenStageReset,
     /// <summary>
+    /// Round 73: a Library tile staged on a target's PVW — a factory pattern, a media file, a saved
+    /// web page, a preset or a brand kit, by name or id (Value). The picture it makes lands in the
+    /// preview like the other staged verbs, so a deck's key does exactly what a click on the Library
+    /// page does. Target as <see cref="ScreenStageLook"/>, or FOCUSED for the desk's editing target
+    /// (the programme when no tile is focused). A brand kit is the show's colours, not a picture:
+    /// it applies to the show, as its tile does.
+    /// </summary>
+    ScreenStageLibrary,
+    /// <summary>
     /// The clip on air jumps to its last seconds (Value = how many; empty = ten) — a rehearsal
     /// skips the body of a video and still sees its end, hears the out and lets whatever follows
     /// it (a playlist's next item, a stinger's ending) happen for real.

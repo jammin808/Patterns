@@ -145,6 +145,22 @@ public class DeskMenuTests
     }
 
     [Fact]
+    public void AScreenShowingAStudioPictureHasItsEditorInTheMenu()
+    {
+        // Round 73: a fractal, particles, a reactive scene or media has a studio of its own — one entry away.
+        var fractal = DeskMenus.Screen(Facts(), Screen() with { ShowingKind = "Fractal" });
+        var editor = fractal.Find("go.editor")!;
+        Assert.Equal(MenuScope.Go, editor.Scope);
+        Assert.Equal("Fractals", editor.Route!.Page);
+        Assert.Equal("b", editor.Route!.Item);
+        Assert.Contains("Fractal", editor.Text);
+        Assert.Equal("Media", DeskMenus.Screen(Facts(), Screen() with { ShowingKind = "Media" }).Find("go.editor")!.Route!.Page);
+        // A grid is edited on the Pattern page, which the menu already names.
+        Assert.Null(DeskMenus.Screen(Facts(), Screen()).Find("go.editor"));
+        Assert.Equal("Pattern", DeskMenus.Screen(Facts(), Screen()).Find("go.pattern")!.Route!.Page);
+    }
+
+    [Fact]
     public void TheScreenMenuStagesOnThePvwAndSaysWhyWhenItCannot()
     {
         var d = Facts();

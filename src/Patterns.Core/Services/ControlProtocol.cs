@@ -196,6 +196,7 @@ public static class ControlProtocol
             "LOOK" when value.Length > 0 => program ? Act(ShowActionKind.ApplyLookToPreview, value) : Act(ShowActionKind.ScreenStageLook, target, value),
             "PRESET" when value.Length > 0 => Act(ShowActionKind.ScreenStagePreset, target, value),
             "PATTERN" when value.Length > 0 => Act(ShowActionKind.ScreenStagePattern, target, value),
+            "LIBRARY" or "LIB" when value.Length > 0 => Act(ShowActionKind.ScreenStageLibrary, target, value),   // round 73: a Library tile
             "PROGRAM" or "PGM" or "FOLLOW" or "AIR" when value.Length == 0 => program ? Act(ShowActionKind.ScreenToPreview, target) : Act(ShowActionKind.ScreenStageProgram, target),
             "RESET" or "BACK" when value.Length == 0 => Act(ShowActionKind.ScreenStageReset, target),
             _ => Unknown(rest),
@@ -558,6 +559,13 @@ public static class ControlProtocol
 
             // A lower third by number (Lower thirds page order) or name; OFF / HIDE takes the one on air off;
             // "LT <design> WITH <person>" fills it from the library first (the person is the value).
+            // Round 73: a Library tile onto the desk's editing target's preview — exactly what a click
+            // on the Library page does, from a deck's key; "SCREEN n PVW LIBRARY x" and "PVW LIBRARY x"
+            // name the target instead. A bare LIBRARY is a question nobody asked: Unknown.
+            case "LIBRARY":
+            case "LIB":
+                return arg.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenStageLibrary, "FOCUSED", arg);
+
             case "LOWERTHIRD":
             case "LT":
             {

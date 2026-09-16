@@ -66,6 +66,8 @@ public enum ValueKind
     Look,
     /// <summary>A pattern saved as a preset, by name — a picker filled from the presets folder beside the show.</summary>
     Preset,
+    /// <summary>A Library tile by name (or id): a factory pattern, a media file, a saved web page, a preset or a brand kit, as the Library page lists them (round 73).</summary>
+    Library,
     /// <summary>A number of seconds (decimals allowed); empty means the action's own default.</summary>
     Seconds,
     /// <summary>The weather chip's view: now, day (the rest of today) or tomorrow.</summary>
@@ -162,6 +164,7 @@ public static class ActionSpec
         ShowActionKind.ScreenStageLook => (TargetKind.Stage, ValueKind.Look),
         ShowActionKind.ScreenStagePreset => (TargetKind.Stage, ValueKind.Preset),
         ShowActionKind.ScreenStagePattern => (TargetKind.Stage, ValueKind.PatternKind),
+        ShowActionKind.ScreenStageLibrary => (TargetKind.Stage, ValueKind.Library),
         ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset => (TargetKind.Stage, ValueKind.None),
         ShowActionKind.RunMonitor => (TargetKind.Monitor, ValueKind.None),
         ShowActionKind.RunMonitorOff => (TargetKind.None, ValueKind.None),
@@ -342,6 +345,7 @@ public static class ActionSpec
         ShowActionKind.ScreenStageLook => "Preview — a look staged on a screen's PVW",
         ShowActionKind.ScreenStagePreset => "Preview — a preset staged on a screen's PVW",
         ShowActionKind.ScreenStagePattern => "Preview — a kind of picture staged on a screen's PVW",
+        ShowActionKind.ScreenStageLibrary => "Preview — a Library tile staged on a screen's PVW",
         ShowActionKind.ScreenStageProgram => "Preview — the programme staged on a screen's PVW",
         ShowActionKind.ScreenStageReset => "Preview — the look's own picture back on a screen's PVW",
         ShowActionKind.RunMonitor => "Run monitor — a screen large on the RUN surface",
@@ -406,6 +410,7 @@ public static class ActionSpec
         ShowActionKind.ScreenLook, ShowActionKind.ScreenProgram,
         ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset, ShowActionKind.ScreenPattern,
         ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset,
+        ShowActionKind.ScreenStageLibrary,
         ShowActionKind.RunMonitor, ShowActionKind.RunMonitorOff,
         ShowActionKind.CanvasOn, ShowActionKind.CanvasOff,
         ShowActionKind.PatternKind,
@@ -486,7 +491,7 @@ public static class ActionSpec
     /// <summary>The staged verbs: a picture on a target's PVW in the preview, never on air (see <see cref="ShowActionKind.ScreenStageLook"/>).</summary>
     public static bool IsStaged(ShowActionKind kind) => kind is
         ShowActionKind.ScreenStageLook or ShowActionKind.ScreenStagePreset or ShowActionKind.ScreenStagePattern
-        or ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset;
+        or ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset or ShowActionKind.ScreenStageLibrary;
 
     /// <summary>A percent value: a number from 0 to 125 (the player's own ceiling, ≈ +2 dB).</summary>
     public static bool TryParsePercent(string? value, out double percent)

@@ -28,7 +28,7 @@ public static class OscMap
         ("/patterns/screen/<n>/pattern <kind>", "SCREEN n PATTERN kind — that kind of picture on the screen alone, live (also /patterns/screen/<n>/pattern/<kind>)"),
         ("/patterns/screen/<n>/take", "SCREEN n TAKE — the desk's preview to that screen alone, with the transition, as its own picture (OWN lights up); every other screen stays. EDIT SAFE must be open"),
         ("/patterns/screen/<n>/cut", "SCREEN n CUT — the same, instantly"),
-        ("/patterns/screen/<n>/pvw/look <name>", "SCREEN n PVW LOOK name — the look's picture staged on that screen's PVW in the preview; the audience sees nothing until CUT or TAKE (also /pvw/preset <name>, /pvw/pattern <kind>, /pvw/program, /pvw/reset — the look on air's picture back; bare /pvw is → PVW, its picture into the preview to edit)"),
+        ("/patterns/screen/<n>/pvw/look <name>", "SCREEN n PVW LOOK name — the look's picture staged on that screen's PVW in the preview; the audience sees nothing until CUT or TAKE (also /pvw/preset <name>, /pvw/pattern <kind>, /pvw/library <name>, /pvw/program, /pvw/reset — the look on air's picture back; bare /pvw is → PVW, its picture into the preview to edit)"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
         ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
         ("/patterns/audio/play [n|name]", "AUDIO PLAY — the audio playlist plays: a track by its place or its name, or the list resumes (also /patterns/audio/play/<n>)"),
@@ -92,7 +92,8 @@ public static class OscMap
         ("/patterns/pip [1|0]", "PIP ON / OFF — the picture-in-picture inset; no argument toggles"),
         ("/patterns/overlays/off", "OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off"),
         ("/patterns/pattern <kind>", "PATTERN — the kind of picture on air: Grid, ColorBars, LedWall, Particles, Fractal… (also /patterns/pattern/Grid)"),
-        ("/patterns/pvw/pattern <kind>", "PVW PATTERN kind — the programme's kind of picture in the preview, never on air; /pvw/preset <name>, /pvw/look <name> (the whole look into the preview), /pvw/reset (the look on air back into the preview), /pvw/program or bare /pvw (what is on air into the preview to edit)"),
+        ("/patterns/library <name>", "LIBRARY name — a Library tile (a factory pattern, a file, a saved page, a preset, a brand kit) onto the desk's editing target's preview, as a click on the Library page; nothing changes on air until CUT or TAKE (round 73). /patterns/screen/<n>/pvw/library <name> and /patterns/pvw/library <name> name the target"),
+        ("/patterns/pvw/pattern <kind>", "PVW PATTERN kind — the programme's kind of picture in the preview, never on air; /pvw/preset <name>, /pvw/library <name>, /pvw/look <name> (the whole look into the preview), /pvw/reset (the look on air back into the preview), /pvw/program or bare /pvw (what is on air into the preview to edit)"),
         ("/patterns/freeze [1|0]", "FREEZE ON / OFF — every output holds its frame; no argument toggles"),
         ("/patterns/fade [seconds]", "FADE — blackout with a fade of that many seconds (none: the show's transition time); /fade/up [seconds] lifts it"),
         ("/patterns/fade/screen/<n> [seconds]", "FADE SCREEN n — that screen alone to black (its canvas when it joined one); /fade/group/<A>, /fade/focused, /fade/ticked, /fade/groups the same; /fade/up/… brings them back"),
@@ -482,6 +483,8 @@ public static class OscMap
             case "logo": return "LOGO " + Switch(m, seg, "TOGGLE", toggles: true);
             case "pip": return "PIP " + Switch(m, seg, "TOGGLE", toggles: true);
             case "pattern": return Named("PATTERN", m, seg);
+            // /patterns/library "Mandelbrot" · /patterns/library/Mandelbrot — a Library tile onto the desk's editing target's preview (round 73).
+            case "library": case "lib": return Named("LIBRARY", m, seg);
             // /patterns/pvw/pattern "Grid" · /patterns/pvw/preset/Walk-in · /patterns/pvw/look "Walk-in" · /patterns/pvw/reset · /patterns/pvw/program · /patterns/pvw — the programme's picture in the preview.
             case "pvw": case "preview": return Staged("PVW", parts.Skip(1).ToArray(), m);
             case "overlays": return seg.Length == 0 || seg.ToLowerInvariant() is "off" or "clear" or "none" ? "OVERLAYS OFF" : null;
@@ -581,6 +584,7 @@ public static class OscMap
             case "look":
             case "preset":
             case "pattern":
+            case "library":
             {
                 var name = rest.Length > 1 ? string.Join(" ", rest.Skip(1)) : m.Text() ?? "";
                 return name.Length == 0 ? null : $"{prefix} {what.ToUpperInvariant()} {name}";

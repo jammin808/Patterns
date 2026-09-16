@@ -17,6 +17,7 @@ const stagedWhat = {
 	choices: [
 		{ id: 'LOOK', label: 'A look' }, { id: 'PRESET', label: 'A preset' }, { id: 'PATTERN', label: 'A kind of picture' },
 		{ id: 'PROGRAM', label: 'The programme' }, { id: 'RESET', label: 'The look on air, as it was (RESET)' },
+		{ id: 'LIBRARY', label: 'A Library tile — a factory pattern, a file, a saved page, a preset, a brand kit (round 73)' },
 	],
 }
 /** "PREFIX LOOK x" and the other staged words; null when a name is needed and none was typed. */
@@ -531,6 +532,23 @@ export function buildActions(ctx) {
 			name: 'Screen PVW — stage a look, a preset, a kind of picture, the programme, or the look on air back (RESET) on this screen\'s preview; nothing changes on air until CUT or TAKE',
 			options: [screenN, stagedWhat, text('name', 'Look / preset / kind (not for PROGRAM or RESET)')],
 			callback: (a) => { const line = stagedLine(`SCREEN ${a.options.n} PVW`, a.options.what, a.options.name); if (line) send(line) },
+		},
+		// Round 73 — a Library tile onto a preview: exactly what a click on the Library page does. FOCUSED is the
+		// desk's editing target (the tile selected on the wall, or the programme); PGM and a screen name the target.
+		library: {
+			name: 'Library — a tile (a factory pattern, a file, a saved page, a preset, a brand kit) onto a preview; nothing changes on air until CUT or TAKE',
+			options: [
+				{ type: 'dropdown', id: 'target', label: 'Where', default: 'FOCUSED', choices: [
+					{ id: 'FOCUSED', label: "The desk's editing target (the tile selected on the wall)" }, { id: 'PGM', label: 'The programme' }, { id: 'SCREEN', label: 'A screen by number' },
+				] },
+				screenN, text('name', 'The tile, as the Library page names it'),
+			],
+			callback: (a) => {
+				const x = clean(a.options.name)
+				if (!x) return
+				const t = a.options.target
+				send(t === 'SCREEN' ? `SCREEN ${a.options.n} PVW LIBRARY ${x}` : t === 'PGM' ? `PVW LIBRARY ${x}` : `LIBRARY ${x}`)
+			},
 		},
 		pvw: {
 			name: 'Preview — the programme\'s picture in the desk\'s preview: a look (whole), a preset, a kind of picture, the look on air back (RESET), or what is on air to edit (PROGRAM); nothing changes on air until CUT or TAKE',

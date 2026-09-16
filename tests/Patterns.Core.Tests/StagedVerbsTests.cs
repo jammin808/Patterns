@@ -25,7 +25,7 @@ public class StagedVerbsTests
     [Fact]
     public void TheStagedKindsAreClassifiedAndReadAsWords()
     {
-        var staged = new[] { ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset };
+        var staged = new[] { ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset, ShowActionKind.ScreenStageLibrary };
         foreach (var kind in staged)
         {
             Assert.True(ActionSpec.IsStaged(kind));
@@ -46,11 +46,16 @@ public class StagedVerbsTests
         Assert.Equal("PVW of screen 'Stage right' ← the programme", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.ScreenStageProgram, Target = "b" }));
         Assert.Equal("PVW of screen 'Stage right' ← preset 'Bars'", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.ScreenStagePreset, Target = "b", Value = "Bars" }));
         Assert.Equal("Screen 'Stage left' → LedWall", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.ScreenPattern, Target = "a", Value = "LedWall" }));
+        // Round 73: a Library tile is a staged verb like the others.
+        Assert.Equal("PVW of screen 'Stage right' ← library 'Mandelbrot'", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.ScreenStageLibrary, Target = "b", Value = "Mandelbrot" }));
+        Assert.Equal((TargetKind.Stage, ValueKind.Library), ActionSpec.For(ShowActionKind.ScreenStageLibrary));
 
         // The sheet's words come back, the short ones included.
         Assert.Equal(ShowActionKind.ScreenStagePattern, CueSheet.ParseKind("PVW pattern"));
         Assert.Equal(ShowActionKind.ScreenStageReset, CueSheet.ParseKind("reset"));
         Assert.Equal(ShowActionKind.ScreenStageLook, CueSheet.ParseKind("stage look"));
+        Assert.Equal(ShowActionKind.ScreenStageLibrary, CueSheet.ParseKind("pvw library"));
+        Assert.Equal(ShowActionKind.ScreenStageLibrary, CueSheet.ParseKind("library"));
         Assert.Equal(ShowActionKind.ScreenPattern, CueSheet.ParseKind("screen pattern"));
         Assert.Equal(ShowActionKind.ApplyLookToPreview, CueSheet.ParseKind("preview")); // the older word keeps its meaning
 
@@ -83,6 +88,9 @@ public class StagedVerbsTests
         Assert.Equal(0, CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStageProgram, "b"), ctx).BrokenCount);
         Assert.Equal(0, CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStageReset, ""), ctx).BrokenCount);
         Assert.Equal(0, CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStagePreset, "a", "Bars"), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStageLibrary, "a", "Mandelbrot"), ctx).BrokenCount);   // found when the cue runs
+        Assert.Equal(1, CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStageLibrary, "a"), ctx).BrokenCount);                 // which tile?
+        Assert.Equal(1, CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStageLibrary, "zz", "Mandelbrot"), ctx).BrokenCount);  // not in the rig
         // A preset this machine lacks is a warning, not a broken cue — presets are files beside the show.
         var missing = CueValidator.ValidateOne(s, Cue(ShowActionKind.ScreenStagePreset, "a", "Elsewhere"), ctx);
         Assert.Equal(0, missing.BrokenCount);
@@ -111,6 +119,11 @@ public class StagedVerbsTests
             ("/patterns/pvw/reset", null, "PVW RESET", ShowActionKind.ScreenStageReset),
             ("/patterns/pvw/program", null, "PVW PROGRAM", ShowActionKind.ScreenToPreview),
             ("/patterns/preview", null, "PVW", ShowActionKind.ScreenToPreview),
+            // Round 73: a Library tile, on a screen's PVW, on the programme's, or on the desk's editing target (FOCUSED).
+            ("/patterns/screen/2/pvw/library/Mandelbrot", null, "SCREEN 2 PVW LIBRARY Mandelbrot", ShowActionKind.ScreenStageLibrary),
+            ("/patterns/pvw/library", "Mandelbrot", "PVW LIBRARY Mandelbrot", ShowActionKind.ScreenStageLibrary),
+            ("/patterns/library", "Mandelbrot", "LIBRARY Mandelbrot", ShowActionKind.ScreenStageLibrary),
+            ("/patterns/library/Walk-in", null, "LIBRARY Walk-in", ShowActionKind.ScreenStageLibrary),
         };
         foreach (var (address, arg, line, kind) in lines)
         {
@@ -125,6 +138,11 @@ public class StagedVerbsTests
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 PVW LOOK").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("PVW WHATEVER").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 PATTERN").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LIBRARY").Kind);               // a bare LIBRARY names nothing
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 PVW LIBRARY").Kind);
+        Assert.Equal("FOCUSED", ControlProtocol.Parse("LIBRARY Mandelbrot").Action.Target);           // the desk's editing target
+        Assert.Equal("", ControlProtocol.Parse("PVW LIBRARY Mandelbrot").Action.Target);              // the programme
+        Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/library"));
         Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/screen/2/pvw/dance")));
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/screen/<n>/pvw/look"));
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/screen/<n>/pattern"));

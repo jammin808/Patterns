@@ -261,6 +261,7 @@ public static class CueValidator
                 case ShowActionKind.ScreenStagePattern:
                 case ShowActionKind.ScreenStageProgram:
                 case ShowActionKind.ScreenStageReset:
+                case ShowActionKind.ScreenStageLibrary:
                 {
                     // Staged on the preview, never on air: not content for the stinger rule. The
                     // target is a screen, a canvas, or blank / PGM for the programme.
@@ -278,6 +279,10 @@ public static class CueValidator
                             break;
                         case ShowActionKind.ScreenStagePattern:
                             if (ActionSpec.ParsePatternKind(a.Value) is null) Hard($"{where}: '{a.Value}' is not a kind of picture — Grid, ColorBars, LedWall, Media, Particles, Fractal…");
+                            break;
+                        case ShowActionKind.ScreenStageLibrary:
+                            // Round 73: the tile is found when the cue runs (files come and go); a blank name never can be.
+                            if (a.Value.Length == 0) Hard($"{where}: which Library tile? Name one as the Library page lists it.");
                             break;
                     }
                     break;

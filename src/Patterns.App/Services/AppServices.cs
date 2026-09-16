@@ -209,6 +209,13 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// </summary>
     public Func<string?>? FocusedTarget { get; set; }
 
+    /// <summary>
+    /// Round 73: what the desk is editing — the target under the editors, its kind, the page that
+    /// edits it and the Library tile last put there — for STATE's editing row, the Eye's desk node
+    /// and the brief. Set by the desk's view model; unset (a node) there is nothing being edited.
+    /// </summary>
+    public Func<EditingFacts?>? EditingFacts { get; set; }
+
     /// <summary>The wall's ticked tiles, by target id, read by a scoped FADE (TICKED, GROUPS). Set by the desk's view model; unset (no desk) nothing is ticked.</summary>
     public Func<IReadOnlyList<string>>? TickedTargets { get; set; }
 

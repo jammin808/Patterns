@@ -354,3 +354,20 @@ otherwise; `take_landing_pending` lights the sting's brown while one waits. What
 press promised, less only a screen locked since or gone from the rig, never more (ADR-015). A 3.10.0
 deck reads PARTIAL as a word it does not colour and ignores the row.
 
+## 18. Round 73 additions
+
+**The Library on the deck, version 3.12.0.** A `library` action puts a Library tile — a factory
+pattern, one of the show's images, videos or audio files, a saved web page, a preset, a brand kit —
+on a preview, exactly what a click on the desk's Library page does: on the desk's editing target
+(the tile selected on the wall, or the programme) with `LIBRARY <name>`, on the programme with `PVW
+LIBRARY <name>`, on a screen by number with `SCREEN n PVW LIBRARY <name>`. `screen_stage` and
+`pvw` gain the LIBRARY choice for the same words. The tile is named as the Library page lists it,
+case-blind; a name the library lacks is refused with the words and nothing moves. Staged like every
+PVW verb: EDIT SAFE opens by itself and the audience sees nothing until CUT or TAKE — a brand kit
+applies its colours to the show and stages no picture.
+
+`$(patterns:editing_target)`, `$(patterns:editing_kind)`, `$(patterns:editing_editor)` and
+`$(patterns:editing_library)` read STATE's `editing` row — what the desk's editors are on ("Right",
+"Fractal", "Fractals", "Mandelbrot") — so a key can label itself with the page a picture is edited
+on; `library_selected` lights amber while a tile sits on the editing target (any, or a named one).
+The Eye's desk node carries the same line. A 3.11.0 deck ignores the row and the choice.

@@ -225,6 +225,10 @@ export function variableValues(s) {
 		take_scope: s.take?.scopeLabel ?? '',
 		take_words: s.take?.refusal ? s.take.refusal : (s.take?.words ?? ''),
 		take_landing: s.take?.landing?.words ?? '',
+		editing_target: s.editing?.label ?? '',
+		editing_kind: s.editing?.kind ?? '',
+		editing_editor: s.editing?.editor ?? '',
+		editing_library: s.editing?.library ?? '',
 		inputs_pending: s.inputs?.pendingNote ?? '',
 		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
 		device_last_reply: (() => {

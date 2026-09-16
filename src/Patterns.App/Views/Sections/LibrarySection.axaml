@@ -37,6 +37,24 @@
                  Watermark="Search — a name, a kind, a section" VerticalAlignment="Top" />
       </Grid>
       <TextBlock Classes="label" Text="{Binding LibrarySummary}" Margin="0,0,0,6" />
+      <!-- Round 73: what was chosen and where it landed, with the way to its editor and the keys that put it up -->
+      <Border Classes="runRow" Name="LibrarySelection" Margin="0,0,0,8" Padding="8,6" IsVisible="{Binding HasLibrarySelection}">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+          <Border Grid.Column="0" Width="64" Height="36" CornerRadius="4" ClipToBounds="True" Background="#0A0A0E" Margin="0,0,10,0" VerticalAlignment="Center">
+            <Image Source="{Binding SelectedLibraryItem.Thumbnail}" Stretch="UniformToFill" />
+          </Border>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Text="{Binding LibrarySelectionTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="hint" Text="{Binding LibrarySelectionWhere}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <Button Grid.Column="2" Name="LibraryOpenEditor" Classes="mini" Content="{Binding LibraryOpenEditorText}" Command="{Binding OpenLibraryEditorCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                  ToolTip.Tip="The page that edits this kind of picture — Fractals, Particles, Reactive, Media, Branding or Pattern — with the same target under its editors" />
+          <Button Grid.Column="3" Classes="mini" Content="CUT" Command="{Binding CutCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                  ToolTip.Tip="The preview to the wall now — the take scope says which screens (FOCUSED: this one alone)" />
+          <Button Grid.Column="4" Classes="go" Content="TAKE" Command="{Binding TakeCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                  ToolTip.Tip="The preview to the wall with the transition" />
+        </Grid>
+      </Border>
     </StackPanel>
 
     <ScrollViewer Grid.Row="1">

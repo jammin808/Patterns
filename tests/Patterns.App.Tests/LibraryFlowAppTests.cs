@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -81,6 +82,139 @@ public class LibraryFlowAppTests
             Assert.Contains("programme", vm.StatusMessage);
             Assert.NotEqual(PatternKind.Grid, vm.State.Pattern.Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);           // still not on air
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    private static string Send(CommandRouter router, string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
+
+    private static PatternKind KindOf(PresetItem tile, ShowState state) => tile.ThumbConfig?.Invoke(state)?.Kind ?? PatternKind.Grid;
+
+    /// <summary>
+    /// Round 73: the tile says which page edits what it made, OPEN goes there, STATE and the Eye say what the
+    /// editors are on, and a deck's LIBRARY key is the same press — on the desk's editing target, the
+    /// programme, or a screen by number — journaled through the one action layer.
+    /// </summary>
+    [AvaloniaFact]
+    public void AFractalTileNamesItsEditorOpenGoesThereAndTheWireDoesTheSamePress()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            Rig(b);
+            vm.IsSandboxActive = false;
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            Dispatcher.UIThread.RunJobs();
+            var router = new CommandRouter(services);
+
+            var fractal = vm.LibraryAll.FirstOrDefault(i => i.Section == "Fractals" && KindOf(i, vm.State) == PatternKind.Fractal);
+            Assert.NotNull(fractal);
+            var particles = vm.LibraryAll.FirstOrDefault(i => i.Section == "Particles" && KindOf(i, vm.State) == PatternKind.Particles);
+            Assert.NotNull(particles);
+            Assert.False(vm.HasLibrarySelection);
+
+            // The right tile selected: a fractal scene lands there, and the strip names its studio.
+            vm.SelectTileCommand.Execute(vm.SwitcherTiles.Single(t => t.TargetId == "b"));
+            vm.ApplyPresetCommand.Execute(fractal);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.HasLibrarySelection, vm.StatusMessage);
+            Assert.Equal(PatternKind.Fractal, services.Bus.Sandbox!.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("b").Kind);              // the air never moved
+            Assert.Equal("Fractals", vm.LibraryEditorPage);
+            Assert.Equal("OPEN FRACTALS", vm.LibraryOpenEditorText);
+            Assert.Contains("Right", vm.LibrarySelectionWhere);
+            Assert.Contains("Fractal", vm.LibrarySelectionWhere);
+            Assert.StartsWith(fractal!.Name, vm.LibrarySelectionTitle);
+            Assert.Contains("OPEN FRACTALS", vm.StatusMessage);
+
+            // STATE's editing row and the Eye's desk node say what the editors are on.
+            var editing = JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("editing");
+            Assert.Equal("b", editing.GetProperty("target").GetString());
+            Assert.True(editing.GetProperty("own").GetBoolean());
+            Assert.Equal("Fractal", editing.GetProperty("kind").GetString());
+            Assert.Equal("Fractals", editing.GetProperty("editor").GetString());
+            Assert.Equal(fractal.Name, editing.GetProperty("library").GetString());
+            Assert.Equal("Fractals", editing.GetProperty("librarySection").GetString());
+            Assert.Contains("Right", editing.GetProperty("words").GetString());
+            services.Eye.Refresh();
+            // The label is the wall's own ("2 · Right"), so a deck and the desk name the same tile.
+            Assert.Contains(services.Eye.Graph.Find("desk")!.Words, w => w.StartsWith("Editing ", StringComparison.Ordinal) && w.Contains("Right's preview (its own picture)", StringComparison.Ordinal) && w.Contains("Fractals page", StringComparison.Ordinal) && w.Contains(fractal.Name, StringComparison.Ordinal));
+
+            // OPEN FRACTALS: the studio, with the same target under its editors.
+            vm.OpenLibraryEditorCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(Shell.IndexOf("Fractals"), vm.SelectedPageIndex);
+            Assert.Equal("b", vm.EditTarget.ScreenId);
+
+            // The wire: LIBRARY <name> is the same press on the desk's editing target — the left tile now.
+            vm.SelectTileCommand.Execute(vm.SwitcherTiles.Single(t => t.TargetId == "a"));
+            Dispatcher.UIThread.RunJobs();
+            var reply = Send(router, "LIBRARY " + particles!.Name);
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith("OK", reply);
+            Assert.Equal(PatternKind.Particles, services.Bus.Sandbox!.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Fractal, services.Bus.Sandbox!.PatternFor("b").Kind);          // the other tile keeps its picture
+            Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);                                   // the programme's preview untouched
+
+            // A screen by number, and the programme by name; the air still never moved.
+            Send(router, "SCREEN 2 PVW LIBRARY " + particles.Name.ToUpperInvariant());              // names are case-blind
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PatternKind.Particles, services.Bus.Sandbox!.PatternFor("b").Kind);
+            Send(router, "PVW LIBRARY " + fractal.Name);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PatternKind.Fractal, vm.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("b").Kind);
+
+            // A tile the library does not have is refused with the words, and nothing moves.
+            var refused = Send(router, "LIBRARY No such tile anywhere");
+            Assert.StartsWith("ERR", refused);
+            Assert.Contains("Library", refused);
+            Assert.Equal(PatternKind.Fractal, vm.State.Pattern.Kind);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>The page's tiles and the action layer's catalogue are one list, found by id, by name, by section/name.</summary>
+    [AvaloniaFact]
+    public void ThePagesTilesAndTheWiresCatalogueAreOneList()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            vm.State.MediaLibrary.Add(new MediaLibraryEntry { Path = "C:/show/opener.mp4", IsVideo = true, Name = "Opener" });
+            vm.State.Web.SavedUrls.Add("https://www.youtube.com/watch?v=abc123");
+            vm.RefreshLibrary();
+            Dispatcher.UIThread.RunJobs();
+
+            var tiles = LibraryItems.Build(vm.State, services.Store);
+            Assert.Equal(vm.LibraryAll.Select(t => t.Id), tiles.Select(t => t.Id));
+            Assert.Equal(vm.LibraryAll.Select(t => (t.Section, t.Category, t.Name)), tiles.Select(t => (t.Section, t.Category, t.Name)));
+            Assert.Contains(tiles, t => t.Id.StartsWith("media:", StringComparison.Ordinal) && t.Name == "Opener" && t.Section == "Videos" && t.IsPicture && t.Remove is not null);
+            Assert.Contains(tiles, t => t.Id.StartsWith("web:", StringComparison.Ordinal) && t.Category == "YouTube" && t.Swatch is not null);
+
+            var opener = tiles.First(t => t.Name == "Opener");
+            Assert.Same(opener, LibraryItems.Find(tiles, opener.Id));
+            Assert.Same(opener, LibraryItems.Find(tiles, "opener"));
+            Assert.Same(opener, LibraryItems.Find(tiles, "Videos/Opener"));
+            Assert.Same(opener, LibraryItems.Find(tiles, "videos:OPENER"));
+            Assert.Null(LibraryItems.Find(tiles, "nothing of the kind"));
+            Assert.Null(LibraryItems.Find(tiles, ""));
+
+            var picture = new PatternConfig();
+            opener.Picture!(picture);
+            Assert.Equal(PatternKind.Media, picture.Kind);
+            Assert.Equal(MediaSource.Video, picture.Media.Source);
+            Assert.Equal("C:/show/opener.mp4", picture.Media.VideoPath);
         }
         finally
         {

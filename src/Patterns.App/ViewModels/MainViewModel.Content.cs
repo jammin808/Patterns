@@ -280,6 +280,7 @@ public sealed partial class MainViewModel
                 Raise(nameof(EditTargetBanner));
                 Raise(nameof(CanvasInfo));
                 Raise(nameof(ShowCanvasPanel));
+                RaiseLibrarySelection();                                                        // round 73: the strip's "where" follows the target
                 // The panes follow the editors: a target with its own pattern is selected with
                 // it; "Program" keeps the selected tile unless that tile shows its own picture.
                 if (value.ScreenId is not null) SelectTarget(value.ScreenId);
@@ -908,24 +909,89 @@ public sealed partial class MainViewModel
     /// A library tile clicked (round 67.4): its picture lands in the editing target's preview at once —
     /// EDIT SAFE opens first when it was off, so the air never moves — and the target tile's PVW shows
     /// it on the same publish; a target that followed the programme is its own picture from this press.
+    /// Round 73: the press is the staged LIBRARY verb through the action layer — journaled like a key,
+    /// the same thing a deck's key does — named by the tile's id, so two files of one name stay two.
     /// </summary>
     private void ApplyLibraryItem(PresetItem? item)
     {
         if (item is null) return;
         var brandKit = item.Section == "Brand kits";
         if (!brandKit) EnsureEditSafe();
-        item.Apply();
+        var result = _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenStageLibrary, _editTarget.ScreenId ?? "", item.Id), ActionOrigin.Desk);
+        if (!result.Ok)
+        {
+            StatusMessage = result.Message;
+            return;
+        }
         SelectedLibraryItem = item;
-        if (brandKit) return;
+        RaiseLibrarySelection();
+        if (brandKit)
+        {
+            StatusMessage = result.Message;
+            return;
+        }
         Raise(nameof(IsSandboxActive));
         RefreshSwitcherTiles();
         RefreshTallies();
         Raise(nameof(ActivePattern));
         Raise(nameof(EditTargetBanner));
-        var where = _editTarget.ScreenId is { } id
-            ? $"{TargetTitle(id)}'s preview{(ContentTargets.UsesOwnPattern(State, id) ? " (its own picture)" : "")}"
-            : "the programme's preview";
-        StatusMessage = $"{item.Name} → {where} — CUT or TAKE puts it up.";
+        _services.Eye.Refresh();                                                              // the Eye's desk node says what the editors are on, on the same press
+        StatusMessage = $"{item.Name} → {LibraryWhere()} — CUT or TAKE puts it up; {LibraryOpenEditorText} edits it.";
+    }
+
+    // ---- the strip above the tiles (round 73) --------------------------------------------
+
+    private RelayCommand? _openLibraryEditor;
+
+    /// <summary>A tile has been put on the editing target: the strip shows.</summary>
+    public bool HasLibrarySelection => _selectedLibraryItem is not null;
+
+    /// <summary>"Mandelbrot · Fractal scenes" — the tile and the group the page files it under.</summary>
+    public string LibrarySelectionTitle => _selectedLibraryItem is { } item ? $"{item.Name} · {item.Category}" : "";
+
+    /// <summary>"→ Right's preview (its own picture) · Fractal — CUT or TAKE puts it up" — where the press landed and what it made.</summary>
+    public string LibrarySelectionWhere
+    {
+        get
+        {
+            if (_selectedLibraryItem is not { } item) return "";
+            if (item.Section == "Brand kits") return "→ the show's brand — every screen and overlay reads its colours";
+            return $"→ {LibraryWhere()} · {ActivePattern.Kind} — CUT or TAKE puts it up";
+        }
+    }
+
+    /// <summary>The page that edits what the tile made: Fractals, Particles, Reactive, Media, Branding, or Pattern.</summary>
+    public string LibraryEditorPage => _selectedLibraryItem is { } item ? PictureEditors.PageForTile(item.Section, ActivePattern.Kind) : "Pattern";
+
+    /// <summary>The key's face: "OPEN FRACTALS".</summary>
+    public string LibraryOpenEditorText => $"OPEN {LibraryEditorPage.ToUpperInvariant()}";
+
+    /// <summary>OPEN &lt;editor&gt; on the strip: the page that edits the tile's kind of picture, with the same target under its editors.</summary>
+    public RelayCommand OpenLibraryEditorCommand => _openLibraryEditor ??= new RelayCommand(() => OpenPageCommand.Execute(LibraryEditorPage));
+
+    private string LibraryWhere() => _editTarget.ScreenId is { } id
+        ? $"{TargetTitle(id)}'s preview{(ContentTargets.UsesOwnPattern(State, id) ? " (its own picture)" : "")}"
+        : "the programme's preview";
+
+    private void RaiseLibrarySelection()
+    {
+        Raise(nameof(HasLibrarySelection));
+        Raise(nameof(LibrarySelectionTitle));
+        Raise(nameof(LibrarySelectionWhere));
+        Raise(nameof(LibraryEditorPage));
+        Raise(nameof(LibraryOpenEditorText));
+    }
+
+    /// <summary>Round 73: what the desk is editing, for STATE's editing row, the Eye's desk node and the brief.</summary>
+    internal EditingFacts EditingFactsNow()
+    {
+        var id = _editTarget.ScreenId ?? "";
+        var label = id.Length == 0 ? "the programme" : TargetTitle(id);
+        var own = id.Length > 0 && ContentTargets.UsesOwnPattern(State, id);
+        var kind = ActivePattern.Kind;
+        var item = _selectedLibraryItem;
+        var editor = item is { } tile ? PictureEditors.PageForTile(tile.Section, kind) : PictureEditors.PageFor(kind);
+        return new EditingFacts(id, label, own, kind.ToString(), editor, item?.Name ?? "", item?.Section ?? "");
     }
 
     /// <summary>The chip and the search box together: every search word must appear in the tile's name, category or section.</summary>

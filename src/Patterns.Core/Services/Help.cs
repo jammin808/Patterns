@@ -641,6 +641,22 @@ public static class HelpTopics
             new[] { "Pattern", "Panel", "Library" },
             new[] { "preset", "presets", "save", "recall", "saved pattern", "save as preset", "build rail", "library", "chip", "send to screen", "one screen", "reuse", "favourite", "favorite" }),
 
+        new HelpTopic("library", HelpGroup.Content,
+            "The Library: one click to the preview, one more to its editor",
+            "BUILD → Library: every picture the show can put up, as tiles — a click lands it on the editing target's preview; the strip above the tiles opens the page that edits it.",
+            HelpBodies.LibraryFlow,
+            new[]
+            {
+                "Select the tile on the wall you are building (or leave PGM), then click a Library tile: it is in that target's preview at once, under EDIT SAFE — nothing reaches the audience until CUT or TAKE.",
+                "Read the strip: the tile's name, where it landed and what kind of picture it made. OPEN FRACTALS (or PARTICLES, REACTIVE, MEDIA, BRANDING, PATTERN) opens that editor with the same target under it.",
+                "CUT or TAKE from the strip, from the switcher or from the tile's own keys puts it up; FOCUSED puts it on that screen alone.",
+                "From a deck: LIBRARY <name> does the same press on the desk's editing target; SCREEN <n> PVW LIBRARY <name> and PVW LIBRARY <name> name the target.",
+                "STATE's editing row, the Eye's desk node and the assistant's brief say what is under the editors — the target, the kind, its page and the tile.",
+            },
+            "LIBRARY <name> · SCREEN <n> PVW LIBRARY <name> · PVW LIBRARY <name>",
+            new[] { "Library", "Pattern", "Fractals", "Particles", "Media" },
+            new[] { "library", "tile", "editing target", "preview", "open fractals", "open editor", "fractal", "particles", "brand kit", "one click", "build rail", "wall" }),
+
         new HelpTopic("test-card", HelpGroup.Content,
             "The Patterns test card: one card for a rig day's first four questions",
             "BUILD → Pattern → Patterns test card: which screen this is, whether the pixels arrive one to one, where the edges went and what the processor has done to black, white and grey — on one picture, read from the ladder. What a brand-new install comes up on.",

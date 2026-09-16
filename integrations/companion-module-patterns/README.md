@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.11.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.12.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.11.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.12.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,12 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.12.0** — the Library on the deck (round 73): a `library` action puts a tile (a factory pattern, a file, a
+  saved page, a preset, a brand kit) on the desk's editing target's preview, the programme's, or a screen's —
+  `LIBRARY <name>`, `PVW LIBRARY <name>`, `SCREEN n PVW LIBRARY <name>` — exactly what a click on the Library
+  page does; `screen_stage` and `pvw` gain the LIBRARY choice; `editing_target`, `editing_kind`,
+  `editing_editor` and `editing_library` say what the desk's editors are on; `library_selected` lights amber
+  while a tile sits on the editing target.
 - **3.11.0** — signal truth's PARTIAL and the take ticket (round 72): `screen_n_signal` reads PARTIAL when
   everything the path states agrees with the contract and a contracted property was never stated (a
   colour space Windows never reports, a bit depth the driver did not say) — amber on the `rig_signal_n`

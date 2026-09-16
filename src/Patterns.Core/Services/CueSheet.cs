@@ -279,6 +279,7 @@ public static class CueSheet
             "stagelook" or "pvwlook" or "lookonpvw" or "looktopvw" or "screenpvwlook" or "screenpreviewlook" => ShowActionKind.ScreenStageLook,
             "stagepreset" or "pvwpreset" or "previewpreset" or "presetonpvw" or "presettopvw" => ShowActionKind.ScreenStagePreset,
             "stagepattern" or "pvwpattern" or "previewpattern" or "patternonpvw" or "patterntopvw" => ShowActionKind.ScreenStagePattern,
+            "stagelibrary" or "pvwlibrary" or "previewlibrary" or "libraryonpvw" or "librarytopvw" or "library" => ShowActionKind.ScreenStageLibrary,
             "stageprogram" or "pvwprogram" or "previewprogram" or "pvwpgm" or "programonpvw" => ShowActionKind.ScreenStageProgram,
             "stagereset" or "pvwreset" or "previewreset" or "resettolook" or "backtolook" or "resetlook" or "reset" => ShowActionKind.ScreenStageReset,
             "videoend" or "videotoend" or "vtend" or "clipend" or "lastseconds" or "skiptoend" or "videolast" or "vtlast" => ShowActionKind.VideoToEnd,

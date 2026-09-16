@@ -65,187 +65,55 @@ public static class LibraryCatalogue
     public sealed record Desk(Func<PatternConfig> ActivePattern, Action<Action> Edit, Action<string> Say);
 
     /// <summary>The section chips, in the order they are shown; "All" first.</summary>
-    public static readonly string[] SectionNames = { "All", "Patterns", "Images", "Videos", "Audio", "Decks", "Web", "Particles", "Fractals", "Presets", "Brand kits" };
+    public static readonly string[] SectionNames = LibraryItems.SectionNames;
 
-    /// <summary>Every tile as the show and the store have them now: the factory table, the show's media, the saved presets, the brand kits.</summary>
+    /// <summary>
+    /// Every tile as the show and the store have them now — the facts of <see cref="LibraryItems"/>
+    /// (round 73: the same list the wire's LIBRARY verb finds a tile in) as the page's tiles: a
+    /// picture tile applies its picture to the pattern being edited through the desk's edit; a
+    /// brand kit puts its colours on the show and says so.
+    /// </summary>
     public static List<PresetItem> Build(ShowState state, SettingsStore store, Desk desk)
     {
         var tiles = new List<PresetItem>();
-        foreach (var b in BuiltInPresets.All)
+        foreach (var tile in LibraryItems.Build(state, store))
         {
-            var preset = b;
+            var fact = tile;
             tiles.Add(new PresetItem
             {
-                Id = $"builtin:{preset.Category}:{preset.Name}",
-                Section = preset.Section,
-                Category = preset.Category,
-                Name = preset.Name,
-                Apply = () => desk.Edit(() => preset.Apply(desk.ActivePattern())),
-                ThumbConfig = over =>
-                {
-                    var config = JsonUtil.ClonePattern(over.Pattern);
-                    preset.Apply(config);
-                    return config;
-                },
-            });
-        }
-
-        foreach (var media in state.MediaLibrary.ToList())
-        {
-            var entry = media;
-            var path = entry.Path;
-            var kind = entry.Kind == LibraryMediaKind.Unknown ? MediaLibraryEntry.KindOf(path, entry.IsVideo) : entry.Kind;
-            var (section, category) = kind switch
-            {
-                LibraryMediaKind.Video => ("Videos", "My videos"),
-                LibraryMediaKind.Audio => ("Audio", "My audio"),
-                LibraryMediaKind.Deck => ("Decks", "My decks"),
-                _ => ("Images", "My images"),
-            };
-            tiles.Add(new PresetItem
-            {
-                Id = "media:" + entry.Id,
-                Section = section,
-                Category = category,
-                Name = entry.DisplayName,
-                Apply = () => desk.Edit(() => ApplyMedia(desk.ActivePattern(), path, kind)),
-                ThumbConfig = over =>
-                {
-                    var config = JsonUtil.ClonePattern(over.Pattern);
-                    ApplyMedia(config, path, kind);
-                    return config;
-                },
-                Remove = () => state.MediaLibrary.Remove(entry),
-            });
-        }
-
-        // The show's saved web pages (round 62): a YouTube link, a Vimeo film, a deck of slides, a
-        // schedule — every address the Media page remembered, as a tile with the service's colours,
-        // grouped by what the address is. Apply puts the page on the picture being edited.
-        foreach (var url in state.Web.SavedUrls.ToList())
-        {
-            var address = url;
-            var service = WebPresets.Detect(address);
-            tiles.Add(new PresetItem
-            {
-                Id = "web:" + address,
-                Section = "Web",
-                Category = WebCategory(service),
-                Name = WebTitle(address),
-                Apply = () => desk.Edit(() => ApplyWeb(desk.ActivePattern(), address)),
-                Swatch = WebSwatch(service),
-                Remove = () => state.Web.SavedUrls.Remove(address),
-            });
-        }
-
-        foreach (var (name, path) in store.ListPresets())
-        {
-            var p = path;
-            tiles.Add(new PresetItem
-            {
-                Id = "preset:" + p,
-                Section = "Presets",
-                Category = "My presets",
-                Name = name,
-                Apply = () =>
-                {
-                    var cfg = store.LoadPreset(p);
-                    if (cfg is not null) desk.Edit(() => ModelCopier.Copy(cfg, desk.ActivePattern()));
-                },
-                ThumbConfig = _ => store.LoadPreset(p),
-            });
-        }
-
-        foreach (var (name, path) in store.ListBrandKits())
-        {
-            var p = path;
-            var kit = store.LoadBrandKit(p);
-            if (kit is null) continue;
-            var kitName = name;
-            tiles.Add(new PresetItem
-            {
-                Id = "brand:" + p,
-                Section = "Brand kits",
-                Category = "Brand kit",
-                Name = kitName,
-                Apply = () =>
-                {
-                    var fresh = store.LoadBrandKit(p);
-                    if (fresh is null) return;
-                    desk.Edit(() => ModelCopier.Copy(fresh, state.Brand));
-                    desk.Say($"Brand kit '{kitName}' applied.");
-                },
-                Swatch = new[] { kit.PrimaryColor, kit.SecondaryColor, kit.AccentColor, kit.BackgroundColor, kit.TextColor },
+                Id = fact.Id,
+                Section = fact.Section,
+                Category = fact.Category,
+                Name = fact.Name,
+                Apply = fact.Picture is { } picture
+                    ? () => desk.Edit(() => picture(desk.ActivePattern()))
+                    : () =>
+                    {
+                        desk.Edit(() => fact.Show?.Invoke(state));
+                        if (fact.Words.Length > 0) desk.Say(fact.Words);
+                    },
+                ThumbConfig = fact.Thumb,
+                Swatch = fact.Swatch,
+                Remove = fact.Remove,
             });
         }
         return tiles;
     }
 
     /// <summary>A web tile on a pattern: the page, treated as its address says (Auto), on the picture being edited.</summary>
-    public static void ApplyWeb(PatternConfig target, string url)
-    {
-        target.Kind = PatternKind.Media;
-        target.Media.Source = MediaSource.Web;
-        target.Media.WebUrl = WebAddress.Normalize(url);
-        target.Media.WebService = PageServicePick.Auto;
-    }
+    public static void ApplyWeb(PatternConfig target, string url) => LibraryItems.ApplyWeb(target, url);
 
     /// <summary>The Library's group for a saved address: the service it is, or a plain saved page.</summary>
-    public static string WebCategory(PageService service) => service switch
-    {
-        PageService.YouTube => "YouTube",
-        PageService.Vimeo => "Vimeo",
-        PageService.GoogleSlides => "Google Slides",
-        PageService.PowerPoint => "PowerPoint",
-        _ => "Saved pages",
-    };
+    public static string WebCategory(PageService service) => LibraryItems.WebCategory(service);
 
     /// <summary>The tile's bands: the service's own colours, so a YouTube link reads as one at a glance.</summary>
-    public static IReadOnlyList<string> WebSwatch(PageService service) => service switch
-    {
-        PageService.YouTube => new[] { "#FF0000", "#282828", "#FFFFFF" },
-        PageService.Vimeo => new[] { "#1AB7EA", "#0F1419", "#FFFFFF" },
-        PageService.GoogleSlides => new[] { "#F4B400", "#FFFFFF", "#3C4043" },
-        PageService.PowerPoint => new[] { "#D24726", "#FFFFFF", "#3C3C3C" },
-        _ => new[] { "#3EC1F3", "#101319", "#E6EAF2" },
-    };
+    public static IReadOnlyList<string> WebSwatch(PageService service) => LibraryItems.WebSwatch(service);
 
     /// <summary>The tile's name: the host and the path's tail — "youtube.com · watch?v=…" — never the scheme, never the whole address.</summary>
-    public static string WebTitle(string url)
-    {
-        var host = WebAddress.ShortName(url);
-        if (Uri.TryCreate(WebAddress.Normalize(url), UriKind.Absolute, out var uri) && !uri.IsFile)
-        {
-            var tail = Uri.UnescapeDataString(uri.PathAndQuery.Trim('/'));
-            if (tail.Length > 0)
-            {
-                if (tail.Length > 28) tail = tail[..27] + "…";
-                return $"{host.Replace("www.", "", StringComparison.OrdinalIgnoreCase)} · {tail}";
-            }
-        }
-        return host;
-    }
+    public static string WebTitle(string url) => LibraryItems.WebTitle(url);
 
     /// <summary>A media tile on a pattern: an image shows; a deck opens at its first page; a video or an audio file plays through the decoder.</summary>
-    public static void ApplyMedia(PatternConfig target, string path, LibraryMediaKind kind)
-    {
-        target.Kind = PatternKind.Media;
-        if (kind == LibraryMediaKind.Image)
-        {
-            target.Media.Source = MediaSource.Image;
-            target.Media.ImagePath = path;
-        }
-        else if (kind == LibraryMediaKind.Deck)
-        {
-            target.Media.Source = MediaSource.Deck;
-            target.Media.DeckPath = path;
-        }
-        else
-        {
-            target.Media.Source = MediaSource.Video;
-            target.Media.VideoPath = path;
-        }
-    }
+    public static void ApplyMedia(PatternConfig target, string path, LibraryMediaKind kind) => LibraryItems.ApplyMedia(target, path, kind);
 
     /// <summary>
     /// Brings the page's tiles to <paramref name="fresh"/>: a tile that is still the same tile keeps

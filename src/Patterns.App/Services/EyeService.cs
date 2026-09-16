@@ -343,6 +343,7 @@ public sealed class EyeService
             TakeScope = plan?.Scope.Label ?? "",
             TakeWords = plan is null ? "" : plan.IsRefused ? plan.Refusal! : plan.Words,
             Landing = _s.Stingers.SessionTicket?.Words ?? "",                                          // round 72: the ticket a sting will land
+            Editing = _s.EditingFacts?.Invoke()?.Words ?? "",                                           // round 73: what the desk's editors are on
             Displays = displays,
             Screens = screens,
             Sources = sources,

@@ -81,6 +81,7 @@ export const STATES = {
 	rig: { same: 'green', drift: 'amber', commissioned: 'green' },
 	eye: { red: 'red', amber: 'amber', green: 'green' },
 	take: { next: 'amber', sting: 'stingerBrown', landing: 'stingerBrown' },
+	library: { selected: 'amber' },
 	stream: { active: 'red', trouble: 'amber' },
 	device: { open: 'green', fault: 'red' },
 	tone: { on: 'amber' },
