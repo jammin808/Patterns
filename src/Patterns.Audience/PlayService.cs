@@ -159,7 +159,7 @@ public sealed class PlayService : IDisposable
         get
         {
             var urls = _s.AudienceUrls();
-            return urls.FirstOrDefault(u => !u.Contains("localhost", StringComparison.OrdinalIgnoreCase)) ?? urls.FirstOrDefault() ?? "";
+            return urls.FirstOrDefault(u => !u.Contains("localhost", StringComparison.OrdinalIgnoreCase)) ?? (urls.Count > 0 ? urls[0] : "");
         }
     }
 

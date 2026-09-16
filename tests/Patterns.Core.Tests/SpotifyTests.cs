@@ -150,17 +150,17 @@ public class SpotifyUriTests
         Assert.EndsWith("…", SpotifyUri.Describe("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"));   // a long id is shortened
         Assert.Equal("Track abc", SpotifyUri.Describe("spotify:track:abc"));
         Assert.Equal("", SpotifyUri.Describe("junk"));
-        SpotifyUri.TryParse("spotify:playlist:x", out var list);
-        SpotifyUri.TryParse("spotify:album:x", out var album);
-        SpotifyUri.TryParse("spotify:track:x", out var song);
-        SpotifyUri.TryParse("spotify:artist:x", out var artist);
+        Assert.True(SpotifyUri.TryParse("spotify:playlist:x", out var list));
+        Assert.True(SpotifyUri.TryParse("spotify:album:x", out var album));
+        Assert.True(SpotifyUri.TryParse("spotify:track:x", out var song));
+        Assert.True(SpotifyUri.TryParse("spotify:artist:x", out var artist));
         Assert.Equal("LIST", list.KindLabel);
         Assert.Equal("ALBUM", album.KindLabel);
         Assert.Equal("SONG", song.KindLabel);
         Assert.Equal("ARTIST", artist.KindLabel);
         Assert.True(list.IsContext);
         Assert.False(song.IsContext);
-        SpotifyUri.TryParse("junk", out var junk);
+        Assert.False(SpotifyUri.TryParse("junk", out var junk));
         Assert.Equal("", junk.KindLabel);
 
         var item = new SpotifyItemConfig { Uri = "spotify:playlist:X" };

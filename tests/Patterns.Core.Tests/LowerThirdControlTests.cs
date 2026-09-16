@@ -119,7 +119,7 @@ public class LowerThirdControlTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch { }
+            try { Directory.Delete(dir, true); } catch { /* a temp folder left behind is not a failed test */ }
         }
     }
 }

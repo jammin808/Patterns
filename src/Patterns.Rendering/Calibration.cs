@@ -282,6 +282,7 @@ public sealed class Correspondence
 }
 
 /// <summary>A 3×3 in doubles for the fits: multiply, invert, map — SkiaSharp's floats are for the drawing.</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "A 3×3 in an array for the fits; equality is not a question it answers.")]
 public readonly struct Homography
 {
     public readonly double[] M; // row-major, 9
@@ -463,7 +464,7 @@ public static class Calibrator
         // share of the canvas is wider than its raster — a share wider than the raster would be cut
         // off at the raster's edge before its blend had faded, and the room would see the cut.
         double canvasW = double.MaxValue, canvasH = double.MaxValue;
-        foreach (var (s, fit) in fits)
+        foreach (var (_, fit) in fits)
         {
             if (fit is null) continue;
             var tl = fit.Value.Fit.Map(canvas.TL);

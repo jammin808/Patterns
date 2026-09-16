@@ -85,6 +85,7 @@ public class HeadlessUiTests
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 Dispatcher.UIThread.RunJobs();
             }
+            Assert.Equal(Enum.GetValues<PatternKind>()[^1], vm.ActivePattern.Kind);   // every kind went through the real UI and the last one stuck
         }
         finally
         {

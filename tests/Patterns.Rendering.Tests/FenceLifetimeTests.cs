@@ -218,7 +218,7 @@ public sealed class FenceLifetimeTests : IDisposable
             }
             Assert.Equal(-1, RenderFence.Register("Late"));
             Assert.Equal(new[] { "Late" }, RenderFence.Refused);
-            Assert.Equal(FenceFaultKind.Refused, RenderFence.Faults.Last().Kind);
+            Assert.Equal(FenceFaultKind.Refused, RenderFence.Faults[^1].Kind);
             Assert.Equal(-1, RenderFence.Register("Late"));                                             // asked again: still refused, listed once
             Assert.Equal(new[] { "Late" }, RenderFence.Refused);
 
@@ -227,8 +227,8 @@ public sealed class FenceLifetimeTests : IDisposable
             var late = RenderFence.Register("Late");
             Assert.True(late >= 0);
             Assert.Empty(RenderFence.Refused);
-            Assert.Equal(FenceFaultKind.Seated, RenderFence.Faults.Last().Kind);
-            Assert.Contains("seated (Late)", RenderFence.Faults.Last().ToString());
+            Assert.Equal(FenceFaultKind.Seated, RenderFence.Faults[^1].Kind);
+            Assert.Contains("seated (Late)", RenderFence.Faults[^1].ToString());
 
             RenderFence.BeginFrame(late);                                                               // its frame open: the table is full again
             Assert.Equal(-1, RenderFence.Register("Gone"));

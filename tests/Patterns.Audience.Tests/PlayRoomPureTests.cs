@@ -25,7 +25,7 @@ public sealed class FakeAudienceHost : IAudienceHost, IDisposable
     public List<string> Moderated { get; } = new();
     public void Notify(string message) => Notices.Add(message);
     public Task<string?> ModerateAsync(string text) { Moderated.Add(text); return Task.FromResult(ModerationReply); }
-    public void Dispose() { try { Directory.Delete(Dir, true); } catch { } }
+    public void Dispose() { try { Directory.Delete(Dir, true); } catch { /* a temp folder left behind is not a failed test */ } }
 }
 
 /// <summary>The desk as the room asks of it: an edit scope, the wall's start, the door's addresses.</summary>

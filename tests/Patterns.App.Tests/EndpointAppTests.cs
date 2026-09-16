@@ -122,7 +122,7 @@ public class EndpointAppTests
             {
                 Dispatcher.UIThread.RunJobs();
                 services.Devices.Poll();
-                try { polled = ReadUntil(stream, "\r", 300); } catch (TimeoutException) { }
+                try { polled = ReadUntil(stream, "\r", 300); } catch (TimeoutException) { /* not yet: the poll asks again */ }
             }
             Assert.Equal("%1POWR ?", polled);
             Write(stream, "%1POWR=3\r");

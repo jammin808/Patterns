@@ -2444,3 +2444,87 @@ assumed, and the swap that was asked about is declined with the reason written d
 composition root stays, fenced by a test with the numbers in it; and a screen's sound follows its
 picture from the source through the matrix to the output the screen names, with the operator's own
 rows always winning.
+
+## Round 70 review — the analyzers as fences, each stop with its reason, and one culture on every desk
+
+### 70.1 — research and design
+
+- **Done.** The tree measured under every SDK rule, Sonar's, StyleCop's, the threading analyzers' and a
+  banned-API analyzer; the counts by rule and project; the bug classes behind the counts read in the
+  code (the NDI ten-bit switch, the keep-awake result, the registry writes, the argument order in the
+  transposes); the design as a generated configuration with a reason per stop. §88.1; `docs/ANALYSIS.md`;
+  ADR-013.
+- **Found on the way, kept by design:** CA1508's dead-condition findings are mostly the flow analysis
+  wrong about volatile fields and loops (the web source's lock-free handoff, the NDI sender's ten-bit
+  flag) — a suggestion, not a fence. S1244's floating-point equality flags sentinels compared exactly
+  on purpose — reviewed by hand, not fenced.
+
+### 70.2 — the culture family
+
+- **Done.** CA1305, CA1310 and S6580 at error; 145 sites fixed by a fixer that reads the build's own
+  log and edits the flagged call (a provider, a comparison, a parse's styles); `CultureGuard` at Main's
+  first line; the configuration, the banned list and the generator. §88.2. Tests: CultureGuardTests;
+  every suite green with the fence on.
+- **Found and fixed on the way:** the first culture guard test blocked on a task and the xUnit analyzer
+  (xUnit1031) refused it — the test awaits. The Core suite's result line was missing from the round's
+  first suite run because that compile error was filtered out of the log; the filter now keeps every
+  `error`.
+
+### 70.3 — the disposal, threading and security families
+
+- **Done.** Thirty-nine undisposed fields disposed or their reason written; every continuation
+  scheduled; the async-void appliers and UI lambdas made tasks; twenty-six tasks and delays given their
+  token; fifty-five P/Invokes given a search path; the commands, the ring's folder, the digest and the
+  shuffles as §88.3 says. Tests: every suite green with the three families at error.
+- **Found and fixed on the way:** the token fixer put `, ct` into an empty argument list
+  (`ReadToEndAsync(, ct)`) — the fixer now checks the list; it also tripped on a token already inside an
+  outer lambda's body — the check is now on the argument list's tail, and the outer call is edited before
+  the inner one. A `SuppressMessage` for CA1001 on a field does nothing — the rule reports on the type,
+  so the attribute moved to the class. A test's fake writer locked on its `MemoryStream`; it locks on a
+  gate now (CA2002 found that one in the tests, where it was as wrong as anywhere).
+- **Found by the suites and fixed:** forwarding the twin's cancellation token to its fire-and-forget
+  writes broke five twin tests — a handover cancels the source and does not renew it at once, so the
+  main's section and beat writes were tasks that never started ("no Section came"). The twin's
+  fire-and-forget writes and its reconnect delay now opt out of cancellation explicitly
+  (`CancellationToken.None`, which is what the rule asks for when a token is not wanted); the peers'
+  and the device links' own tokens stay, since those objects cancel only when they are disposed. The
+  changelog test failed once because the plan's round-70 section landed before the changelog's entry;
+  the entry is in.
+
+### 70.4 — the correctness, performance and banned families, CI and the loop
+
+- **Done.** The three families at error across the source and the tests, as §88.4 says; the pacing
+  loops on stop events; `IChildHandle.WaitForExit`; the encoder host's heartbeat on a timer;
+  `Separators` and `SafeRegex` for the shared character sets and the regex timeout; `ReachableUrl`
+  for the two places that picked the same address by hand; `FrameSmoother.OldestWaitingId` for the
+  room-making that walked an iterator to its first element. CI needed no new step (§88.5). Tests:
+  every suite green with all seven families at error.
+- **Found on the way.** `_ = Task` inside a lambda whose only underscore is a parameter assigns the
+  parameter (AppServices' NDI probe, the web source's navigation handler): named parameters now, and
+  the rule that found it (S1854) is a fence. CA1867 proposes a char overload for a case-insensitive
+  check — the analyzer's own source marks it the unsafe class — so the five sites stay and the rule is a
+  suggestion with the reason; the `Ordinal` class (CA1865/CA1866) was rewritten mechanically across
+  every project. Sonar's S3237 does not accept a comment as a use of `value`: the two default interface
+  setters discard it explicitly. A `readonly record struct` gives a scope handle and a palette value
+  equality in one word; a struct over an array does not get one (its equality would be the array's
+  reference), so it says why instead. The FrameBudget bucket counted slow frames per second and nothing
+  read the count — removed, the session's count is the one on the glance line.
+- **Found by the suites.** Nothing this unit: the seven suites ran green on the first full run after
+  the families landed.
+
+### 70.5 — the papers
+
+- **Done.** `docs/ANALYSIS.md` complete (§5's last three rows, §6 the bugs by family, §8 the limits);
+  PLAN §88.4–88.5 and the counts; this review; CHANGELOG round 70; README; the tag table carried to
+  round 69; ADR-013 as written in 70.1.
+
+### The review's items, answered
+
+The round-69 review left no open items. This round answers the maintainer's question with a
+measurement and a mechanism: the tools were switched on over the whole tree and counted before any
+was chosen; the rules with a show's failure mode behind them are fences that stop the build with their
+reason written; the style rules are off by name with theirs; StyleCop is out with its numbers; the
+SonarQube server is recorded as the maintainer's decision, not built blind. What the fences caught
+is in ANALYSIS §6 — a keep-awake taken for a fact, a class of locale-dependent spelling, a leak per sink,
+twenty-nine regexes with no timeout, a stop that waited two seconds for a sleep — and what they cannot
+catch is in §8.

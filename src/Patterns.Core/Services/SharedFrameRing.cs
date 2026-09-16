@@ -172,7 +172,7 @@ public sealed unsafe class SharedFrameRing : IDisposable
     /// </summary>
     public int BeginWrite()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(SharedFrameRing));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var slot = (int)((LatestSeq + 1) % Slots);
         Volatile.Write(ref *(long*)SlotHeader(slot), -1);
         // A full fence: the pixels drawn next are never seen before the mark, on any CPU — a release
@@ -184,7 +184,7 @@ public sealed unsafe class SharedFrameRing : IDisposable
     /// <summary>The frame in the slot is whole: it becomes the newest, and a waiting reader is woken. Returns its sequence number.</summary>
     public long EndWrite(int slot, long frameIndex)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(SharedFrameRing));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var seq = LatestSeq + 1;
         var h = SlotHeader(slot);
         *(long*)(h + 8) = DateTime.UtcNow.Ticks;
@@ -249,7 +249,9 @@ public sealed unsafe class SharedFrameRing : IDisposable
             }
             else
             {
+#pragma warning disable RS0030 // off Windows there is no cross-process event to wait on: a millisecond's poll is the wait
                 Thread.Sleep(1);
+#pragma warning restore RS0030
             }
         }
     }

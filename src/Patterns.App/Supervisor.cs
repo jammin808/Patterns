@@ -314,7 +314,9 @@ internal static class Supervisor
                         if (detail.Length > 0) WLog($"The app's own note: {detail}");
                         if (dump.Length > 0) WLog($"Mini-dump written: {dump}");
                     }
+#pragma warning disable RS0030 // the supervisor's restart back-off, on its own main thread: waiting is this thread's job
                     Thread.Sleep(verdict.Delay);
+#pragma warning restore RS0030
                     break;
             }
         }

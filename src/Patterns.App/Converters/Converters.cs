@@ -126,7 +126,7 @@ public sealed class FileNameConverter : IValueConverter
         {
             // Split on both separators — Windows paths must shorten on any host.
             var trimmed = s.TrimEnd('/', '\\');
-            var cut = trimmed.LastIndexOfAny(new[] { '/', '\\' });
+            var cut = trimmed.AsSpan().LastIndexOfAny(Separators.Path);
             var name = cut >= 0 ? trimmed[(cut + 1)..] : trimmed;
             return name.Length > 0 ? name : s;
         }

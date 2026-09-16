@@ -9,6 +9,9 @@ public interface IChildHandle : IDisposable
 
     bool HasExited { get; }
 
+    /// <summary>Waits up to <paramref name="milliseconds"/> for the host to leave: true when it has.</summary>
+    bool WaitForExit(int milliseconds);
+
     int ExitCode { get; }
 
     /// <summary>A line to the host's stdin, flushed; false when the host is gone.</summary>
@@ -347,9 +350,7 @@ public sealed class ChildProcess : IDisposable
         {
             try
             {
-                var deadline = Environment.TickCount64 + 3000;
-                while (!handle.HasExited && Environment.TickCount64 < deadline) Thread.Sleep(25);
-                if (!handle.HasExited) handle.Kill();
+                if (!handle.WaitForExit(3000)) handle.Kill();
             }
             catch
             {

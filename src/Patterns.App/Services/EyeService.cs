@@ -258,7 +258,7 @@ public sealed class EyeService
         if (_s.Twin.Role != TwinRole.Off)
         {
             var isMain = _s.Twin.Role == TwinRole.Main;
-            var other = isMain ? _s.Twin.StandbyNames.FirstOrDefault() ?? "" : _s.Twin.MainName;
+            var other = isMain ? (_s.Twin.StandbyNames is { Count: > 0 } standbys ? standbys[0] : "") : _s.Twin.MainName;
             var phase = _s.Twin.Phase;
             var light = isMain
                 ? (_s.Twin.StandbyNames.Count > 0 ? CheckLight.Green : CheckLight.Grey)

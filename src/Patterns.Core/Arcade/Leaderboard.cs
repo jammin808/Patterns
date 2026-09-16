@@ -65,6 +65,7 @@ public sealed class Leaderboard
         }
         catch (JsonException)
         {
+            // a corrupt board reads as empty; the next score rewrites the file
         }
         return board;
     }

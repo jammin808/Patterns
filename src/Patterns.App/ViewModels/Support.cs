@@ -44,7 +44,7 @@ public sealed class RelayCommand<T> : ICommand
         _execute = execute;
     }
 
-    public event EventHandler? CanExecuteChanged { add { } remove { } }
+    public event EventHandler? CanExecuteChanged { add { /* always executable: never raised */ } remove { /* never raised */ } }
 
     public bool CanExecute(object? parameter) => true;
 
@@ -753,7 +753,7 @@ public sealed record FpsOption(int Value, string Label)
 public static class Lists
 {
     private static string Pretty(string name)
-        => Regex.Replace(name, "(?<=[a-z0-9])(?=[A-Z])", " ");
+        => Regex.Replace(name, "(?<=[a-z0-9])(?=[A-Z])", " ", RegexOptions.None, SafeRegex.Timeout);
 
     public static EnumItem[] Of<T>() where T : struct, Enum
         => Enum.GetValues<T>().Select(v => new EnumItem(v, Pretty(v.ToString()))).ToArray();

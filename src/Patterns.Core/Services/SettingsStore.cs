@@ -252,7 +252,7 @@ public sealed class SettingsStore
     public static string ShowNameFor(string path)
     {
         // Show files travel between machines: split on both separators, whatever the host uses.
-        var cut = path.LastIndexOfAny(new[] { '/', '\\' });
+        var cut = path.AsSpan().LastIndexOfAny(Separators.Path);
         var file = cut >= 0 ? path[(cut + 1)..] : path;
         if (string.Equals(file, "patterns.settings.json", StringComparison.OrdinalIgnoreCase)) return "";
         var name = Path.GetFileNameWithoutExtension(file);
@@ -303,7 +303,9 @@ public sealed class SettingsStore
             if (!File.Exists(SettingsPath)) return;
             if (File.ReadAllText(SettingsPath) == newJson) return;
             var kept = ListBackupsLocked();
+            #pragma warning disable S6561 // backup stamps are wall-clock file names by design; a clock step only spaces two backups differently
             if (kept.Count > 0 && DateTime.Now - kept[0].When < BackupSpacing) return;
+            #pragma warning restore S6561
             Directory.CreateDirectory(BackupsDirectory);
             var stamp = DateTime.Now.ToString(BackupStamp, System.Globalization.CultureInfo.InvariantCulture);
             var target = Path.Combine(BackupsDirectory, $"{BackupPrefix}{stamp}.json");

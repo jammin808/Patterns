@@ -194,7 +194,9 @@ public static class OutputTakeover
         {
             probe ??= new SystemProcessProbe();
             clock ??= () => DateTime.UtcNow;
+#pragma warning disable RS0030 // the owner store is another process's file: the poll between reads is the wait, on the boot thread before the desk exists
             wait ??= Thread.Sleep;
+#pragma warning restore RS0030
             var store = new OutputOwnerStore(baseDirectory, files);
             var read = store.Read();
             // A record that cannot be read is a fence, not an absence: it may name a desk that is

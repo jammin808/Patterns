@@ -59,7 +59,7 @@ public static class CompanionWords
         var s = (v ?? "").Trim().TrimStart('v', 'V');
         var dash = s.IndexOf('-');
         if (dash > 0) s = s[..dash];
-        return s.Count(c => c == '.') == 0 ? s + ".0" : s;
+        return s.Contains('.') ? s : s + ".0";
     }
 
     /// <summary>The line about this process on the network.</summary>

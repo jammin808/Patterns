@@ -23,6 +23,14 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The analyzers as fences** — the SDK's analyzers, Sonar's rules (`SonarAnalyzer.CSharp`, the rules
+  a SonarQube server runs, inside the compiler) and the threading analyzers run on every build; a
+  generated `.editorconfig` names each rule that stops the build and why, by family (culture, disposal,
+  threading, security, correctness, performance, banned), and turns the style rules off by name with
+  the reason; `BannedSymbols.txt` bans `Thread.Sleep`, `Environment.TickCount`, `GC.Collect`,
+  `Console.Write` and `Task.Wait` with a reason each. Every desk runs on the invariant culture from
+  Main's first line. StyleCop measured and left out with its numbers. The paper: `docs/ANALYSIS.md`;
+  the decision: ADR-013; the design: `docs/PLAN.md` §88.
 - **Memory with a reason, the GPU cache governed, audio that follows the picture** — every held
   thing carries the reason it stays (on air, named, preview, armed, pre-rolled) or an idle clock
   with a grace by machine, and STATE's `memory.residency` says which; Skia's GPU cache is bounded

@@ -87,12 +87,16 @@ public sealed class PathStory
 
     public string Json() => JsonSerializer.Serialize(new { Title, Start, Scenes }, JsonUtil.Options);
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by System.Text.Json when a story file is read.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1144:Unused private types or members should be removed", Justification = "The setters are System.Text.Json's.")]
     private sealed class OptionDto
     {
         public string? Text { get; set; }
         public string? Next { get; set; }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by System.Text.Json when a story file is read.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1144:Unused private types or members should be removed", Justification = "The setters are System.Text.Json's.")]
     private sealed class SceneDto
     {
         public string? Id { get; set; }
@@ -100,6 +104,8 @@ public sealed class PathStory
         public List<OptionDto>? Options { get; set; }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by System.Text.Json when a story file is read.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1144:Unused private types or members should be removed", Justification = "The setters are System.Text.Json's.")]
     private sealed class StoryDto
     {
         public string? Title { get; set; }

@@ -172,6 +172,13 @@ public sealed partial class ControlService : IDisposable
         return urls;
     }
 
+    /// <summary>The URL another machine reaches the desk on: its first interface address when it has one, else the only door there is; "" with none.</summary>
+    public string ReachableUrl()
+    {
+        var urls = RemoteUrls();
+        return urls.Count > 1 ? urls[1] : urls.Count > 0 ? urls[0] : "";
+    }
+
     /// <summary>Drops the kept addresses so the next read asks the machine again (the listeners rebound, a test).</summary>
     public void ForgetRemoteUrls() => _urls = null;
 
@@ -209,11 +216,11 @@ public sealed partial class ControlService : IDisposable
             var controlBind = IPAddress.TryParse(cfg.Bind, out var boundTo) ? boundTo : IPAddress.Any;
             _tcp = new TcpListener(controlBind, cfg.TcpPort);
             _tcp.Start();
-            _ = AcceptLoop(_tcp, _cts.Token, HandleTcpClient);
+            _ = AcceptLoop(_tcp, HandleTcpClient, _cts.Token);
 
             _http = new TcpListener(controlBind, cfg.HttpPort);
             _http.Start();
-            _ = AcceptLoop(_http, _cts.Token, HandleHttpClient);
+            _ = AcceptLoop(_http, HandleHttpClient, _cts.Token);
 
             _status = $"Web remote on port {cfg.HttpPort} · Companion (TCP) on port {cfg.TcpPort}{(controlBind.Equals(IPAddress.Any) ? "" : $" at {controlBind} only")}.";
             if (cfg.AudienceEnabled)
@@ -222,7 +229,7 @@ public sealed partial class ControlService : IDisposable
                 var bind = IPAddress.TryParse(cfg.AudienceBind, out var address) ? address : IPAddress.Any;
                 _audience = new TcpListener(bind, cfg.AudiencePort);
                 _audience.Start();
-                _ = AcceptLoop(_audience, _cts.Token, HandleAudienceClient);
+                _ = AcceptLoop(_audience, HandleAudienceClient, _cts.Token);
                 _status += $" Audience on port {cfg.AudiencePort}{(bind.Equals(IPAddress.Any) ? "" : $" at {bind}")} — the play pages only.";
             }
             Log.Info(_status);
@@ -236,7 +243,7 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
-    private static async Task AcceptLoop(TcpListener listener, CancellationToken ct, Func<TcpClient, CancellationToken, Task> handler)
+    private static async Task AcceptLoop(TcpListener listener, Func<TcpClient, CancellationToken, Task> handler, CancellationToken ct)
     {
         try
         {
@@ -248,6 +255,7 @@ public sealed partial class ControlService : IDisposable
         }
         catch (OperationCanceledException)
         {
+            // stopped: the token was cancelled
         }
         catch (Exception ex) when (ct.IsCancellationRequested)
         {
@@ -526,7 +534,7 @@ public sealed partial class ControlService : IDisposable
         }
         try
         {
-            await HandleHttp(client, ct, audience: false);
+            await HandleHttp(client, audience: false, ct);
         }
         finally
         {
@@ -561,7 +569,7 @@ public sealed partial class ControlService : IDisposable
         }
         try
         {
-            await HandleHttp(client, ct, audience: true);
+            await HandleHttp(client, audience: true, ct);
         }
         finally
         {
@@ -643,7 +651,7 @@ public sealed partial class ControlService : IDisposable
         await stream.WriteAsync(bytes, ct);
     }
 
-    private async Task HandleHttp(TcpClient client, CancellationToken ct, bool audience)
+    private async Task HandleHttp(TcpClient client, bool audience, CancellationToken ct)
     {
         try
         {
@@ -835,7 +843,7 @@ public sealed partial class ControlService : IDisposable
                 contentType = "application/json";
                 // ?rev=<rev> long-polls the room: a question opened, an answer counted, a message sent, the wall changed.
                 var token = QueryValue(path, "token");
-                long.TryParse(QueryValue(path, "since"), out var sinceSeq);
+                var sinceSeq = long.TryParse(QueryValue(path, "since"), out var parsedSince) ? parsedSince : 0L;
                 // The wait is a signal, not a poll: the room wakes every waiting phone at once when it moves; past the budget a phone is answered now.
                 payload = await RoomAnswerAsync(async (r, waitCt) =>
                 {

@@ -371,7 +371,7 @@ public sealed class SnapshotBus
     public bool InTake => _takeDepth > 0;
 
     /// <summary>The lifetime of a take. See <see cref="Take"/>.</summary>
-    public readonly struct TakeScope : IDisposable
+    public readonly record struct TakeScope : IDisposable
     {
         private readonly SnapshotBus? _bus;
 

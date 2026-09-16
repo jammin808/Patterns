@@ -60,7 +60,7 @@ public class MdnsAppTests
     private static void Clean(NodeHost host, string dir)
     {
         host.Dispose();
-        try { Directory.Delete(dir, true); } catch (Exception) { }
+        try { Directory.Delete(dir, true); } catch (Exception) { /* a temp folder left behind is not a failed test */ }
     }
 
     [AvaloniaFact]

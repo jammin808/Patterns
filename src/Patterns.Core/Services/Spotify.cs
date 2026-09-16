@@ -71,7 +71,7 @@ public static class SpotifyUri
             return false;
         }
         url = url[(url.IndexOf('/') + 1)..];
-        var cut = url.IndexOfAny(new[] { '?', '#' });
+        var cut = url.AsSpan().IndexOfAny(Separators.UrlPathEnd);
         if (cut >= 0) url = url[..cut];
         var segments = url.Split('/', StringSplitOptions.RemoveEmptyEntries);
         for (var i = 0; i < segments.Length - 1; i++)

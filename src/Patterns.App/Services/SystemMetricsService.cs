@@ -425,7 +425,7 @@ public sealed class SystemMetricsService : IDisposable
         try
         {
             version = typeof(SystemMetricsService).Assembly.GetName().Version?.ToString() ?? "dev";
-            uptime = (DateTime.Now - _process.StartTime).TotalSeconds;
+            uptime = (DateTime.UtcNow - _process.StartTime.ToUniversalTime()).TotalSeconds;              // the process's start is a wall-clock fact; UTC keeps a daylight-saving step out of it
         }
         catch
         {
@@ -536,7 +536,7 @@ public sealed class SystemMetricsService : IDisposable
         var remoteUrl = "";
         try
         {
-            if (state.Control.Enabled) remoteUrl = _services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls().FirstOrDefault() ?? "";
+            if (state.Control.Enabled) remoteUrl = _services.Control.ReachableUrl();
         }
         catch
         {

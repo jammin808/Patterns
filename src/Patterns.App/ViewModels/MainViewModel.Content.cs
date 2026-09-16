@@ -572,11 +572,13 @@ public sealed partial class MainViewModel
     public bool IsRunLayout
     {
         get => _isRunLayout;
+#pragma warning disable S4275 // the layout follows the page: selecting the page sets the field (SetRunLayout)
         set
         {
             if (value == _isRunLayout) return;
             SelectPage(value ? Shell.RunPage : _lastBuildPage);
         }
+#pragma warning restore S4275
     }
 
     private void SetRunLayout(bool value)

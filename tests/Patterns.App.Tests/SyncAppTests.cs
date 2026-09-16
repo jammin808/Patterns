@@ -155,7 +155,7 @@ public class SyncAppTests
         {
             SyncMarks.Enabled = false;
             b.Dispose();
-            try { File.Delete(clip); } catch { }
+            try { File.Delete(clip); } catch { /* a temp file left behind is not a failed test */ }
         }
     }
 }

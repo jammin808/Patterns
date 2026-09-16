@@ -22,6 +22,7 @@ public sealed class NdiSender : IDisposable
 
     private Thread? _thread;
     private volatile bool _run;
+    private readonly ManualResetEventSlim _stop = new(false);   // set by RequestStop: every pause in the loop ends at once
     private volatile string _status = "Off";
     private volatile int _connections;
 
@@ -59,6 +60,7 @@ public sealed class NdiSender : IDisposable
             _status = RuntimeHelp;
             return;
         }
+        _stop.Reset();
         _run = true;
         _thread = new Thread(SendLoop)
         {
@@ -76,7 +78,18 @@ public sealed class NdiSender : IDisposable
     }
 
     /// <summary>Tells the send loop to end after its frame; <see cref="AwaitStop"/> waits for it. Split so several senders stop side by side.</summary>
-    public void RequestStop() => _run = false;
+    public void RequestStop()
+    {
+        _run = false;
+        _stop.Set();
+    }
+
+    /// <summary>A wait the stop cuts short: the loop's idle, retry and error pauses never outlive a Stop().</summary>
+    private void Pause(int ms)
+    {
+        try { _stop.Wait(ms); }
+        catch (ObjectDisposedException) { _run = false; }   // disposed under the loop: it ends at its next check
+    }
 
     /// <summary>Waits for the send loop until <paramref name="deadlineUtc"/>; a loop still running then is left to end on its own and noted.</summary>
     public void AwaitStop(DateTime deadlineUtc)
@@ -124,7 +137,7 @@ public sealed class NdiSender : IDisposable
                     if (cfg is null || !cfg.Enabled)
                     {
                         // Config vanished or was disabled — the service will Stop() us; idle briefly.
-                        Thread.Sleep(100);
+                        Pause(100);
                         continue;
                     }
 
@@ -144,7 +157,7 @@ public sealed class NdiSender : IDisposable
                         if (sender == IntPtr.Zero)
                         {
                             _status = $"Could not create NDI sender '{name}' (name in use?) — retrying…";
-                            Thread.Sleep(2000);
+                            Pause(2000);
                             continue;
                         }
                         lock (_handleGate) _handle = sender;
@@ -188,7 +201,7 @@ public sealed class NdiSender : IDisposable
                         if (surfaceA is null || surfaceB is null)
                         {
                             _status = $"Could not allocate {size.Width}×{size.Height} NDI frame buffers.";
-                            Thread.Sleep(2000);
+                            Pause(2000);
                             continue;
                         }
 
@@ -222,7 +235,7 @@ public sealed class NdiSender : IDisposable
                         if (pixmap is null)
                         {
                             _status = "NDI frame readback failed.";
-                            Thread.Sleep(500);
+                            Pause(500);
                             continue;
                         }
 
@@ -269,7 +282,7 @@ public sealed class NdiSender : IDisposable
                 {
                     Log.Error($"NDI send loop '{_senderId}' error — retrying in 2 s.", ex);
                     _status = $"NDI error: {ex.Message} — retrying…";
-                    Thread.Sleep(2000);
+                    Pause(2000);
                 }
             }
         }
@@ -366,7 +379,11 @@ public sealed class NdiSender : IDisposable
         }
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        Stop();
+        _stop.Dispose();
+    }
 }
 
 /// <summary>Keeps the set of running sender threads in sync with the configured senders.</summary>

@@ -22,7 +22,7 @@ public class MultiviewTallyAppTests
             var router = new CommandRouter(services);
             vm.IsSandboxActive = true;
             Dispatcher.UIThread.RunJobs();
-            var target = services.Bus.Current.Rig.Targets.First();
+            var target = services.Bus.Current.Rig.Targets[0];
             var tile = new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = target };
             Assert.Contains("NEXT", MultiviewTally.Badges(services.Bus.Current, tile, services.Bus.Sandbox).Select(x => x.Text));
             Assert.StartsWith("NEXT TAKE → ", MultiviewTally.PreviewTargets(services.Bus.Current, services.Bus.Sandbox));

@@ -105,7 +105,7 @@ public interface IWebSource : IVideoFrameSource
     string AudioDevice
     {
         get => "";
-        set { }
+        set { _ = value; /* a source without sound has no device to set */ }
     }
 
     /// <summary>"routed to HDMI 3", or why the page could not be — the Audio page's line; "" when nothing was asked.</summary>
@@ -115,7 +115,7 @@ public interface IWebSource : IVideoFrameSource
     Patterns.Core.Media.WebSmoothing Smoothing
     {
         get => Patterns.Core.Media.WebSmoothing.Auto;
-        set { }
+        set { _ = value; /* a source that is not a page has no buffer to shape */ }
     }
 
     /// <summary>What the browser is asked to hand over — size, quality, every nth frame — for the page as the rig draws it; applied live, the capture restarted only when it changed.</summary>
@@ -171,7 +171,8 @@ public interface IWebSource : IVideoFrameSource
 public static class WebInput
 {
     /// <summary>Availability text when pages cannot be shown (no WebView2 runtime, not Windows); empty = fine.</summary>
-    public static volatile string AvailabilityNote = "";
+    private static volatile string _availabilityNote = "";
+    public static string AvailabilityNote { get => _availabilityNote; set => _availabilityNote = value; }
 }
 
 /// <summary>
@@ -205,7 +206,8 @@ public interface IDeckSource : IVideoFrameSource
 public static class DeckInput
 {
     /// <summary>Availability text when decks cannot be shown (the PDF renderer missing); empty = fine.</summary>
-    public static volatile string AvailabilityNote = "";
+    private static volatile string _availabilityNote = "";
+    public static string AvailabilityNote { get => _availabilityNote; set => _availabilityNote = value; }
 }
 
 /// <summary>
@@ -378,12 +380,14 @@ public static class InputBus
 public static class VideoService
 {
     /// <summary>Availability text when no decode engine is present at all (e.g. libVLC missing).</summary>
-    public static volatile string AvailabilityNote = "";
+    private static volatile string _availabilityNote = "";
+    public static string AvailabilityNote { get => _availabilityNote; set => _availabilityNote = value; }
 }
 
 /// <summary>See <see cref="VideoService"/> — the NDI® receive side's availability note.</summary>
 public static class NdiInput
 {
     /// <summary>Availability text when receive isn't possible (NDI runtime missing).</summary>
-    public static volatile string AvailabilityNote = "";
+    private static volatile string _availabilityNote = "";
+    public static string AvailabilityNote { get => _availabilityNote; set => _availabilityNote = value; }
 }

@@ -198,7 +198,7 @@ public sealed class PaintCache : IDisposable
 }
 
 /// <summary>Resolved colours for one frame. Measurement lines stay neutral; accents take branding.</summary>
-public readonly struct Palette
+public readonly record struct Palette
 {
     public required SKColor Bg { get; init; }
     public required SKColor Line { get; init; }

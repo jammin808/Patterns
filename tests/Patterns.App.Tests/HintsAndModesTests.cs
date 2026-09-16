@@ -89,7 +89,7 @@ public class HintsAndModesTests
             Assert.Contains(tips, t => t.Text.StartsWith("The show's frame rate", StringComparison.Ordinal));
             Assert.Contains(tips, t => t.Text.StartsWith("For displays mounted in portrait", StringComparison.Ordinal)
                                        && t.Heading.StartsWith("SELECTED SCREEN · ", StringComparison.Ordinal));
-            Assert.DoesNotContain(tips, t => t.Text.StartsWith("{", StringComparison.Ordinal)); // words, never a binding
+            Assert.DoesNotContain(tips, t => t.Text.StartsWith('{')); // words, never a binding
 
             // Nothing selected: the column closes and its tips go with it; the page's stay, in the same order.
             vm.Screens.SelectedPlacement = null;

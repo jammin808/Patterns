@@ -1620,7 +1620,7 @@ public sealed class StingerItemConfig : Observable
         {
             if (_name.Length > 0) return _name;
             if (_source == StingerSource.EffectPulse) return $"{_pulsePreset} pulse";
-            var cut = _path.LastIndexOfAny(new[] { '/', '\\' });
+            var cut = _path.AsSpan().LastIndexOfAny(Services.Separators.Path);
             return cut >= 0 ? _path[(cut + 1)..] : _path;
         }
     }

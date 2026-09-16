@@ -62,9 +62,12 @@ public static class CuePlan
     /// lists of one role matches them by id and name only, so its second one is added, not folded.
     /// </summary>
     private static CueStackConfig? Match(IEnumerable<CueStackConfig> among, CueStackConfig wanted, IReadOnlyList<CueStackConfig> plan)
-        => among.FirstOrDefault(s => s.Id == wanted.Id)
-           ?? among.FirstOrDefault(s => string.Equals(s.Name, wanted.Name, StringComparison.OrdinalIgnoreCase) && s.Role == wanted.Role)
-           ?? (plan.Count(s => s.Role == wanted.Role) == 1 ? among.FirstOrDefault(s => s.Role == wanted.Role) : null);
+    {
+        var lists = among as IReadOnlyList<CueStackConfig> ?? among.ToList();                    // enumerated once, matched three ways
+        return lists.FirstOrDefault(s => s.Id == wanted.Id)
+               ?? lists.FirstOrDefault(s => string.Equals(s.Name, wanted.Name, StringComparison.OrdinalIgnoreCase) && s.Role == wanted.Role)
+               ?? (plan.Count(s => s.Role == wanted.Role) == 1 ? lists.FirstOrDefault(s => s.Role == wanted.Role) : null);
+    }
 
     private static string Fingerprint(RunCueConfig cue) => JsonSerializer.Serialize(cue, JsonUtil.CloneOptions);
 

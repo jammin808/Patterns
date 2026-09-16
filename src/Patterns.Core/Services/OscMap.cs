@@ -451,7 +451,7 @@ public static class OscMap
                 if (what is "on" or "off" or "toggle") return "MESSAGE " + Switch(m, seg, "TOGGLE", toggles: true);
                 if (seg.Length > 0) return "MESSAGE " + string.Join(" ", parts.Skip(1));   // /patterns/message/Doors%20open — the words as the address
                 // A string that is not a switch word is the message's words; a number, a bool, a switch word or nothing is the switch.
-                if (m.Args.FirstOrDefault() is string typed && typed.Trim().ToLowerInvariant() is not ("on" or "off" or "toggle" or "1" or "0" or "")) return "MESSAGE " + typed.Trim();
+                if (m.Args.Count > 0 && m.Args[0] is string typed && typed.Trim().ToLowerInvariant() is not ("on" or "off" or "toggle" or "1" or "0" or "")) return "MESSAGE " + typed.Trim();
                 return "MESSAGE " + Switch(m, seg, "TOGGLE", toggles: true);
             }
             case "ticker": return "MESSAGE SCROLL " + Switch(m, seg, "TOGGLE", toggles: true);

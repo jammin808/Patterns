@@ -97,7 +97,7 @@ public static class Shell
     public static IReadOnlyList<ShellGroupInfo> GroupsFor(Patterns.Core.Model.NodeKind kind) => Groups.Where(g => PagesFor(kind).Any(p => p.Group == g.Group)).ToList();
 
     /// <summary>The page a kind opens on: the desk's panel; a node's first page.</summary>
-    public static int HomePage(Patterns.Core.Model.NodeKind kind) => kind == Patterns.Core.Model.NodeKind.Desk ? PanelPage : PagesFor(kind).First().Index;
+    public static int HomePage(Patterns.Core.Model.NodeKind kind) => kind == Patterns.Core.Model.NodeKind.Desk ? PanelPage : PagesFor(kind)[0].Index;
 
     public static int IndexOf(string header) => Pages.First(p => p.Header == header).Index;
 

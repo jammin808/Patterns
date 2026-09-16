@@ -901,8 +901,6 @@ public sealed class PatternEngine
             font, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
     }
 
-    private static List<MultiviewTileConfig> DefaultTiles(ShowSnapshot snap) => Multiviews.DefaultTiles(snap.State);
-
     /// <summary>
     /// The target maths for a tile that re-renders show content. Null for a tile that draws a
     /// live input or the clock straight into its rect, and null for a Screen tile whose id

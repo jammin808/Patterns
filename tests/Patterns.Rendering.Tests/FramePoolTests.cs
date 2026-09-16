@@ -425,7 +425,7 @@ public class FramePoolTests : IDisposable
         Assert.Equal(Enumerable.Range(697, 3).Select(i => (double)i), h.Tail(3, s => s.PrivateMB));
         Assert.Equal(14.5, h.LongTerm[0].PrivateMB);                                                    // the first thirty averaged
         Assert.Equal(10, h.LongTerm[0].ManagedMB);
-        Assert.Equal(h.Recent.Count, h.Recent.Count());                                                 // enumerates what it indexes
+        Assert.Equal(h.Recent.Count, h.Recent.AsEnumerable().Count());                                                 // enumerates what it indexes
         var ring = new MetricsHistory.Ring<int>(3);
         ring.Add(1); ring.Add(2); ring.Add(3); ring.Add(4);
         Assert.Equal(new[] { 2, 3, 4 }, ring);

@@ -87,8 +87,7 @@ public sealed class EncoderHost : IDisposable
         using var stdin = new StreamReader(Console.OpenStandardInput());
         using var host = new EncoderHost(stdout);
         host.Say(HostProtocol.Hello, JsonUtil.Serialize(new HostHello(Environment.ProcessId, Role, VlcRuntime.Present)));
-        var beat = new Thread(host.BeatLoop) { IsBackground = true, Name = "encoder-beat" };
-        beat.Start();
+        _ = host.BeatLoopAsync();   // the heartbeat, on a timer, for the life of the process
         string? line;
         while ((line = stdin.ReadLine()) is not null)
         {
@@ -266,11 +265,12 @@ public sealed class EncoderHost : IDisposable
         _vlc = null;
     }
 
-    private void BeatLoop()
+    /// <summary>The heartbeat on a timer: a beat every <see cref="HostProtocol.BeatEvery"/> until stdout is gone — then the desk is gone, and the beat with it.</summary>
+    private async Task BeatLoopAsync()
     {
-        while (true)
+        using var timer = new PeriodicTimer(HostProtocol.BeatEvery);
+        while (await timer.WaitForNextTickAsync())
         {
-            Thread.Sleep(HostProtocol.BeatEvery);
             try
             {
                 Beat();

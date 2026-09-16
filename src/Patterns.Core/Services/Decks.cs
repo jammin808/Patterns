@@ -32,7 +32,7 @@ public static class Decks
             case "next" or "forward": word = "next"; return true;
             case "prev" or "previous" or "back": word = "prev"; return true;
         }
-        if (t.StartsWith("page ", StringComparison.Ordinal) || t.StartsWith("p", StringComparison.Ordinal) && t.Length > 1 && char.IsAsciiDigit(t[1]))
+        if (t.StartsWith("page ", StringComparison.Ordinal) || t.StartsWith('p') && t.Length > 1 && char.IsAsciiDigit(t[1]))
         {
             t = t.TrimStart('p').TrimStart("age ".ToCharArray()).Trim();
         }

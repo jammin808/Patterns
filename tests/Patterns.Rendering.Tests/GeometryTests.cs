@@ -55,7 +55,9 @@ public class GeometryTests
         Assert.True(a.IntersectsWith(b));
         Assert.False(a.IntersectsWith(apart));
         Assert.Equal(RasterRect.Empty, RasterRect.Intersect(a, apart));
+#pragma warning disable S2234 // the union is symmetric: the pair is asked both ways on purpose
         Assert.Equal(RasterRect.Union(a, b), RasterRect.Union(b, a));
+#pragma warning restore S2234
         Assert.True(RasterRect.Union(a, b).Contains(b));
         // The canvas union it replaced pulled the box to an empty rectangle at the origin; so does this one.
         Assert.Equal(new RasterRect(0, 0, 150, 150), RasterRect.Union(RasterRect.Empty, b));

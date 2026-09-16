@@ -26,6 +26,7 @@ public sealed class StreamRenderer : IDisposable
     private readonly SKSurface?[] _surfaces = new SKSurface?[SharedFrameRing.Slots];
     private Thread? _thread;
     private volatile bool _run;
+    private readonly ManualResetEventSlim _stop = new(false);   // set by Stop: the pace wait ends at once
 
     public StreamRenderer(SnapshotBus bus, string sourceId, SharedFrameRing ring, int fps)
     {
@@ -53,6 +54,7 @@ public sealed class StreamRenderer : IDisposable
     public void Start()
     {
         if (_run) return;
+        _stop.Reset();
         _run = true;
         _thread = new Thread(Loop) { Name = "stream-render", IsBackground = true, Priority = ThreadPriority.AboveNormal };
         _thread.Start();
@@ -65,6 +67,7 @@ public sealed class StreamRenderer : IDisposable
     public void Stop()
     {
         _run = false;
+        _stop.Set();
         var t = _thread;
         if (t is null)
         {
@@ -121,7 +124,7 @@ public sealed class StreamRenderer : IDisposable
                 // Pace on the show clock's grid: the next frame's due time, never a drift of sleeps.
                 var due = started + (long)(frame * interval * Stopwatch.Frequency);
                 var wait = (due - Stopwatch.GetTimestamp()) * 1000.0 / Stopwatch.Frequency;
-                if (wait > 1) Thread.Sleep((int)Math.Min(wait, 100));
+                if (wait > 1) Pause((int)Math.Min(wait, 100));
             }
         }
         finally
@@ -141,5 +144,16 @@ public sealed class StreamRenderer : IDisposable
         Ring.Dispose();
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        Stop();
+        _stop.Dispose();
+    }
+
+    /// <summary>The pace wait between frames, cut short by Stop; disposed under the loop, the loop ends at its next check.</summary>
+    private void Pause(int ms)
+    {
+        try { _stop.Wait(ms); }
+        catch (ObjectDisposedException) { _run = false; }
+    }
 }

@@ -6,6 +6,7 @@ using SkiaSharp;
 namespace Patterns.Rendering;
 
 /// <summary>Bundle handed to a pattern renderer for one frame. Allocation-free (readonly struct).</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "A per-frame bundle handed to the renderers by value; never compared.")]
 public readonly struct PatternFrame
 {
     public required ShowSnapshot Snapshot { get; init; }

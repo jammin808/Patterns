@@ -251,9 +251,11 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
         }
         catch (OperationCanceledException)
         {
+            // stopped: the token was cancelled
         }
         catch (ObjectDisposedException)
         {
+            // stopped: the socket was closed under the receive
         }
         catch (Exception ex) when (ct.IsCancellationRequested)
         {
@@ -300,7 +302,9 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
             for (var i = 0; i < 3; i++)
             {
                 udp.Send(bytes, to);
+#pragma warning disable RS0030 // the supervisor's last word at stand-down: three datagrams 100 ms apart on its own thread, which has nothing else to do
                 Thread.Sleep(100);
+#pragma warning restore RS0030
             }
         }
         catch (Exception ex)

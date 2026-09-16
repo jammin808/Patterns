@@ -94,8 +94,6 @@ public sealed class WarpMeshControl : Control
 
     private static SKPoint ToView(View v, SKPoint raster) => new(v.OffsetX + raster.X * v.Scale, v.OffsetY + raster.Y * v.Scale);
 
-    private static SKPoint ToRaster(View v, Point view) => new((float)((view.X - v.OffsetX) / v.Scale), (float)((view.Y - v.OffsetY) / v.Scale));
-
     // ---- input ------------------------------------------------------------------------------------
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)

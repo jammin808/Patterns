@@ -38,7 +38,11 @@ public class WireLimitsAppTests
         }
     }
 
-    private static void Wait(Task task) => TestApp.Pump(task.ContinueWith(t => { if (t.IsFaulted) throw t.Exception!; return 0; }));
+    private static void Wait(Task task) => TestApp.Pump(task.ContinueWith(t =>
+    {
+        if (t.IsFaulted) throw t.Exception!;
+        return 0;
+    }));
 
     /// <summary>An arcade node in a fresh folder with its own ports, started: the cheapest host with a wire.</summary>
     private static (NodeHost Host, string Dir) BootNode()

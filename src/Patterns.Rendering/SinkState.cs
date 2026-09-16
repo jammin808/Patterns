@@ -226,7 +226,7 @@ public sealed class SinkState : IDisposable
             _wall = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
             _wallSize = size;
         }
-        return _wall!;
+        return _wall;
     }
 
     private SKSurface? _freeze;
@@ -248,7 +248,7 @@ public sealed class SinkState : IDisposable
             _freeze = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
             FrozenSize = size;
         }
-        return _freeze!;
+        return _freeze;
     }
 
     /// <summary>Holds a captured frame until <see cref="DropFrozen"/>.</summary>

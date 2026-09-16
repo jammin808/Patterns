@@ -417,7 +417,7 @@ public sealed partial class MainViewModel
     {
         var key = CanvasNameConfig.KeyFor(members.Select(m => m.ScreenId));
         var stored = State.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key)?.Name;
-        return string.IsNullOrWhiteSpace(stored) ? $"Canvas {letter}" : stored!;
+        return string.IsNullOrWhiteSpace(stored) ? $"Canvas {letter}" : stored;
     }
 
     /// <summary>Rebuilds the wall: PGM tile, then joined canvases, then single screens.</summary>
@@ -1002,14 +1002,18 @@ public sealed partial class MainViewModel
         _services.DeskEdit(() =>
         {
             RefreshLookTallies();
-            live = RefreshStingerTallies() | RefreshLowerThirdTallies();
+            var stingers = RefreshStingerTallies();
+            var lowerThirds = RefreshLowerThirdTallies();                                              // both refresh; either keeps the timer
+            live = stingers || lowerThirds;
         });
         if (live && _tallyTimer is null)
         {
             var timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(200));
             timer.Tick += (_, _) =>
             {
-                if (RefreshStingerTallies() | RefreshLowerThirdTallies()) return;
+                var stingersLive = RefreshStingerTallies();
+                var lowerThirdsLive = RefreshLowerThirdTallies();
+                if (stingersLive || lowerThirdsLive) return;
                 timer.Stop();
                 if (ReferenceEquals(_tallyTimer, timer)) _tallyTimer = null;
             };

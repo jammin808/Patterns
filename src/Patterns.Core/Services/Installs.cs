@@ -508,7 +508,7 @@ public sealed class InstallRuntime
     public IReadOnlyList<InstallStep> Fire(ScheduleSlotConfig slot, DateTime now, int? seconds = null)
     {
         var steps = new List<InstallStep>();
-        if (Override is { } current) End(steps, $"replaced by {slot.Name}");
+        if (Override is not null) End(steps, $"replaced by {slot.Name}");
         Start(steps, slot, now, seconds ?? slot.DurationSeconds);
         return steps;
     }

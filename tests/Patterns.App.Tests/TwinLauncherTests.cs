@@ -9,6 +9,7 @@ internal sealed class FakeTwinChild : IChildHandle
 {
     public int Pid { get; init; }
     public bool HasExited { get; set; }
+    public bool WaitForExit(int milliseconds) => SpinWait.SpinUntil(() => HasExited, milliseconds);
     public int ExitCode { get; set; }
     public bool Killed { get; private set; }
     public bool WriteLine(string line) => false;

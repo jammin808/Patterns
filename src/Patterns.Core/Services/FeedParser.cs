@@ -20,7 +20,7 @@ public static class FeedParser
 
         var head = content.TrimStart();
         if (head.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase)) return FeedKind.Ics;
-        if (head.StartsWith("<", StringComparison.Ordinal)) return FeedKind.Rss;
+        if (head.StartsWith('<')) return FeedKind.Rss;
         return FeedKind.Csv;
     }
 
@@ -77,7 +77,7 @@ public static class FeedParser
         return content
             .Split('\n')
             .Select(l => Clean(l.Replace(",", "  ·  ")))
-            .Where(l => l.Length > 0 && !l.StartsWith("#", StringComparison.Ordinal))
+            .Where(l => l.Length > 0 && !l.StartsWith('#'))
             .ToList();
     }
 

@@ -29,7 +29,7 @@ public static class Secrets
 
     private static readonly Regex Fallback = new(
         "(\"(AdminPasscode|ManagementToken|ClientSecret|ClientId|RefreshToken|AccessToken|ApiKey|Password|Passcode|Token|Secret)\"\\s*:\\s*\")([^\"]*)(\")",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled, SafeRegex.Timeout);
 
     /// <summary>
     /// The JSON with every secret masked (an empty one stays empty): parsed and walked when it is

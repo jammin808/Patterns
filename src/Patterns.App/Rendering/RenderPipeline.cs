@@ -900,7 +900,7 @@ public sealed class RenderPipeline : IDisposable
             _offscreen = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
             _offscreenSize = size;
         }
-        return _offscreen!;
+        return _offscreen;
     }
 
     private static SKMatrix RotationMatrix(OutputRotation rotation, SKSizeI physicalPx) => WarpGeometry.RotationOf(rotation, physicalPx);

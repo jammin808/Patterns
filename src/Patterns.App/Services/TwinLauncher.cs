@@ -272,6 +272,12 @@ public sealed class TwinLauncher : IDisposable
             }
         }
 
+        public bool WaitForExit(int milliseconds)
+        {
+            try { return _process.WaitForExit(milliseconds); }
+            catch { return true; }
+        }
+
         public int ExitCode
         {
             get

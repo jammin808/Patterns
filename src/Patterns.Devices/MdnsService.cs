@@ -142,7 +142,6 @@ public sealed class MdnsService : IDisposable
                 try
                 {
                     socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, new MulticastOption(DnsSd.Group, IPAddress.Any));
-                    joined++;
                 }
                 catch (Exception ex)
                 {
@@ -196,7 +195,7 @@ public sealed class MdnsService : IDisposable
         _cts?.Dispose();
         _cts = null;
         _socket = null;
-        try { socket.Dispose(); } catch (Exception) { }
+        try { socket.Dispose(); } catch (Exception) { /* closing: a socket already gone is closed */ }
     }
 
     /// <summary>The announcement, unasked: on open, on a change, and once a minute so a browser that joined late hears it before the TTL runs out.</summary>

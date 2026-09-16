@@ -241,31 +241,6 @@ public class TestCardTests
         return shares;
     }
 
-    private static PatternFrame Frame(ShowState state, int w, int h)
-    {
-        var snap = RenderTestHarness.Snap(state);
-        return new PatternFrame
-        {
-            Snapshot = snap,
-            Config = state.Pattern,
-            Ctx = new RenderContext
-            {
-                ViewportSize = new SKSizeI(w, h),
-                ReferenceSize = new SKSizeI(w, h),
-                Time = 1,
-                Now = DateTime.Now,
-                UtcNow = RenderTestHarness.FixedUtcNow,
-                Sink = SinkKind.Output,
-                SinkLabel = "TEST",
-                DeviceScale = 1,
-            },
-            Sink = new SinkState(),
-            Canvas = new SKSizeI(w, h),
-            Palette = Palette.Resolve(snap),
-            DeviceScale = 1,
-        };
-    }
-
     private static bool Blank(SKBitmap bmp)
     {
         var first = bmp.GetPixel(0, 0);

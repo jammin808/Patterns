@@ -1255,7 +1255,7 @@ public sealed class VlcFrameSource : IMountedSource
     /// <summary>The decoder finished writing a picture: a pooled one waits, decoded, to be shown or skipped.</summary>
     private void OnUnlock(IntPtr opaque, IntPtr picture, IntPtr planes)
     {
-        var slot = (int)picture - 1;
+        var slot = checked((int)picture) - 1;
         if (slot >= 0) _pool?.Decoded(slot);
     }
 
@@ -1267,7 +1267,7 @@ public sealed class VlcFrameSource : IMountedSource
 
     private unsafe void OnDisplay(IntPtr opaque, IntPtr picture)
     {
-        var slot = (int)picture - 1;
+        var slot = checked((int)picture) - 1;
         var arrival = ShowClock.Seconds;                                                              // the frame's arrival, on the show clock: stamped on the frame
         Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(arrival));
         lock (_gate)

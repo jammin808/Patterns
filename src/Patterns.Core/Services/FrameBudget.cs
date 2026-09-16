@@ -93,7 +93,6 @@ public sealed class FrameBudget
         public double SumMs;
         public double WorstMs;
         public string? WorstStage;
-        public int Slow;
         public int Missed;
         public int[]? Hist;
         public double LagWorstMs;
@@ -367,7 +366,6 @@ public sealed class FrameBudget
                 b.WorstMs = ms;
                 b.WorstStage = slowestStage;
             }
-            if (ms > SlowMs) b.Slow++;
         }
     }
 

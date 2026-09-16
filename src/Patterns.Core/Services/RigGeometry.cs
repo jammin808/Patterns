@@ -338,7 +338,7 @@ public sealed class RigGeometry
             var stored = state.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == targetId)?.Name;
             var name = string.IsNullOrWhiteSpace(stored)
                 ? (letter.Length > 0 ? $"Canvas {letter}" : "Canvas")
-                : stored!;
+                : stored;
             return letter.Length > 0 ? $"{letter} · {name}" : name;
         }
         var n = NumberOf(targetId);
@@ -359,6 +359,8 @@ public sealed class RigGeometry
     /// <summary>The size a screen occupies in arrangement space (swapped for portrait rotations).</summary>
     public static RasterSize EffectiveSize(ScreenPlacement p, RasterSize raw)
         => p.Rotation is OutputRotation.Rot90 or OutputRotation.Rot270
-            ? new RasterSize(raw.Height, raw.Width)
+            #pragma warning disable S2234 // a transpose swaps width and height by definition
+            ? new RasterSize(Width: raw.Height, Height: raw.Width)
+            #pragma warning restore S2234
             : raw;
 }

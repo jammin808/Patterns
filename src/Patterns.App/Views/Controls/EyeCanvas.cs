@@ -25,10 +25,8 @@ public sealed class EyeCanvas : Control
     private const double ReleaseSeconds = 0.6;
 
     private static readonly IBrush Paper = new SolidColorBrush(Color.Parse("#0E0F13"));
-    private static readonly IBrush Panel = new SolidColorBrush(Color.Parse("#181B22"));
     private static readonly IBrush BandFill = new SolidColorBrush(Color.Parse("#12151B"));
     private static readonly IBrush BandInk = new SolidColorBrush(Color.Parse("#4A505E"));
-    private static readonly IBrush Ink = new SolidColorBrush(Color.Parse("#E6EAF2"));
     private static readonly IBrush Dim = new SolidColorBrush(Color.Parse("#9AA3B2"));
     private static readonly IPen Selected = new Pen(new SolidColorBrush(Color.Parse("#FFFFFF")), 2);
     private static readonly IPen Hovered = new Pen(new SolidColorBrush(Color.Parse("#C0CBDB")), 1.5);

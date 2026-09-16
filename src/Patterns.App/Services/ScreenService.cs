@@ -86,7 +86,7 @@ public sealed class ScreenService
         for (var i = 0; i < ordered.Count; i++)
         {
             var s = ordered[i];
-            var name = string.IsNullOrWhiteSpace(s.DisplayName) ? $"Display {i + 1}" : s.DisplayName!;
+            var name = string.IsNullOrWhiteSpace(s.DisplayName) ? $"Display {i + 1}" : s.DisplayName;
             var id = $"{i}:{s.Bounds.Width}x{s.Bounds.Height}@{s.Bounds.X},{s.Bounds.Y}";
             All.Add(new ScreenInfo(id, name, s.Bounds, s.Scaling, s.IsPrimary, i, Hz: RateOf(s.Bounds)));
         }

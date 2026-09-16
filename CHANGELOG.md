@@ -8,6 +8,29 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 70 — 2026-09-16 — the analyzers as fences: Sonar's rules and Roslyn's in every build, each stop with its reason, and one culture on every desk
+
+`round-70` · PLAN §88 · REVIEW round 70 · 2,309 tests · module 3.10.0
+
+- **Analyzers as fences.** The SDK's analyzers, Sonar's rules (`SonarAnalyzer.CSharp` — the rules a
+  SonarQube server runs, inside the compiler) and the threading analyzers run on every build, with a
+  generated `.editorconfig` that names each rule that stops the build and why, by family — culture,
+  disposal, threading, security, correctness, performance — and turns the style rules off by name with
+  the reason; a banned-API list (`Environment.TickCount`, `Thread.Sleep`, `GC.Collect`, `Console.Write`,
+  `Task.Wait`) with a reason per symbol. StyleCop measured (58,459 findings, none a defect) and left out.
+  `docs/ANALYSIS.md`, ADR-013.
+- **One culture.** 145 places formatted a number or compared a verb by the machine's locale; every one
+  names its provider now, and `CultureGuard` puts the process on the invariant culture from Main's first
+  line — a Hamburg desk writes `0.5` on the wire, not `0,5`.
+- **The fences' catch.** Thirty-nine undisposed fields disposed (the render pipeline's paints among
+  them — a leak per sink, per re-attach); every continuation scheduled; the async-void appliers made
+  tasks; fifty-five P/Invokes given a DLL search path so a library planted beside the portable exe is
+  never loaded; twenty-six fire-and-forget tasks carry their service's token; the keep-awake and the
+  registry writes observe their results; twenty-nine regular expressions over text the desk did not
+  write carry a timeout; DateTimes carry their Kind; the NDI sender, the arcade loop, the stream
+  renderer and the audio lane wait on their stop instead of sleeping through it; the desk waits for a
+  quitting host's exit instead of polling it; dead members and empty catches are gone or explained.
+
 ## Round 69 — 2026-09-16 — memory with a reason, the GPU cache governed, the composition root answered, audio that follows the picture
 
 `round-69` · PLAN §87 · REVIEW round 69 · 2,308 tests · module 3.10.0

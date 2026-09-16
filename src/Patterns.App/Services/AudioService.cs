@@ -127,13 +127,13 @@ public sealed class AudioService : IDisposable
             if (!cfg.Enabled)
             {
                 // Only the sync check wants the device: silent but for the clicks.
-                _provider!.SetTargets(0, 0);
+                _provider.SetTargets(0, 0);
                 SetIndicator("");
                 _status = "Sync check: a click on every flash.";
                 return;
             }
 
-            _provider!.Frequency = (float)cfg.FrequencyHz;
+            _provider.Frequency = (float)cfg.FrequencyHz;
             var amp = ToneSampleProvider.DbToAmplitude(cfg.LevelDb);
 
             if (cfg.Mode == ToneMode.Continuous)

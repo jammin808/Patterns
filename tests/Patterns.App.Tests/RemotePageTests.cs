@@ -57,8 +57,8 @@ public class RemotePageTests
                 Assert.Contains($"data-tab=\"{tab}\"", page);
                 Assert.Contains($"id=\"tab-{tab}\"", page);
             }
-            Assert.Equal(8, Regex.Matches(page, "<section ").Count);
-            Assert.Equal(8, Regex.Matches(page, "</section>").Count);
+            Assert.Equal(8, Regex.Count(page, "<section "));
+            Assert.Equal(8, Regex.Count(page, "</section>"));
             Assert.Contains("localStorage.setItem('patterns.tab'", page);
             Assert.Contains("width=device-width", page);
             Assert.DoesNotContain("<script src=", page); // nothing to fetch from anywhere else

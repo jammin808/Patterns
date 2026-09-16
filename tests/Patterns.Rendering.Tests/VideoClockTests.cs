@@ -21,7 +21,6 @@ public class VideoClockTests
         public double Position = 62;
         public bool Ended;
         public bool Seekable = true;
-        public double? SeekedTo;
 
         public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint) => false;
         public SKSizeI? FrameSize => null;
@@ -35,7 +34,6 @@ public class VideoClockTests
         public bool Seek(double seconds)
         {
             if (!Seekable) return false;
-            SeekedTo = seconds;
             return true;
         }
     }

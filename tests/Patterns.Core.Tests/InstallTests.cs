@@ -266,7 +266,7 @@ public class InstallTests
         Assert.Equal(new[] { InstallStepKind.OverrideEnd, InstallStepKind.Programme }, steps.Select(s => s.Kind));
 
         // An announcement due while an advert runs cuts it short; the programme is back underneath when the words end.
-        steps = rt.Tick(cfg, At(1, 13, 30));
+        rt.Tick(cfg, At(1, 13, 30));
         Assert.Same(advert, rt.Override);
         steps = rt.Tick(cfg, At(1, 13, 31));
         Assert.Equal(new[] { InstallStepKind.OverrideEnd, InstallStepKind.OverrideStart }, steps.Select(s => s.Kind));

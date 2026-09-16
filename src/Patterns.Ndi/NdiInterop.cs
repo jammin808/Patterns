@@ -119,6 +119,7 @@ public static class NdiInterop
 
     // ---- native structures (x64 layouts asserted by tests) ------------------
 
+#pragma warning disable CA1815 // native layouts for the NDI SDK's ABI, filled and handed over; equality is not a question they answer
     [StructLayout(LayoutKind.Sequential)]
     public struct SendCreate
     {
@@ -195,6 +196,7 @@ public static class NdiInterop
         [MarshalAs(UnmanagedType.U1)] public bool AllowVideoFields;
         public IntPtr RecvName; // UTF-8, may be null
     }
+#pragma warning restore CA1815
 
     // ---- native entry points ------------------------------------------------
 

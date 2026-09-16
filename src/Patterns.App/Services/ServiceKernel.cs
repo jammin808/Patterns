@@ -70,7 +70,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
             var answer = await Assistant.AskAsync(PlayService.ModerationQuestion(text));
             return answer.Sent ? answer.Reply?.Reply : null;
         }
-        var desk = await UiThread.InvokeAsync(() => Nodes.Desks().FirstOrDefault());
+        var desk = await UiThread.InvokeAsync(() => Nodes.Desks() is { Count: > 0 } desks ? desks[0] : null);
         if (desk is null) return null;
         var line = await NodesService.AskNodeAsync(desk, "ASSISTANT MODERATE " + text.Replace('\n', ' '));
         if (!line.StartsWith("OK ", StringComparison.Ordinal)) return null;

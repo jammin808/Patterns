@@ -685,7 +685,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>What is on air by name: the desk's, while a link is in step; the cue last rehearsed on paper alone.</summary>
     public string AirLabel
     {
-        get => Twin is { IsLinkedToDesk: true, Live.AirLabel.Length: > 0 } ? Twin.Live!.AirLabel : _airLabel;
+        get => Twin is { IsLinkedToDesk: true, Live.AirLabel.Length: > 0 } ? Twin.Live.AirLabel : _airLabel;
         set
         {
             if (_airLabel == value) return;

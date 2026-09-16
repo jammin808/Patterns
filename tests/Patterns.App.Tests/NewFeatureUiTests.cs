@@ -68,6 +68,7 @@ public class NewFeatureUiTests
                 Dispatcher.UIThread.RunJobs();
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 Dispatcher.UIThread.RunJobs();
+                Assert.Same(vm, section.DataContext);   // in the tree, over the live state
                 host.Hide();
             }
             host.Close();

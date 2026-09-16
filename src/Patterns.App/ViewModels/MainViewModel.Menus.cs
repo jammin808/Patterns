@@ -167,7 +167,7 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 }
                 else if (entry.Edit.StartsWith("layer.browse:", StringComparison.Ordinal))
                 {
-                    var layer = entry.Edit.EndsWith("2", StringComparison.Ordinal) ? ActivePattern.Layer2 : ActivePattern.Layer1;
+                    var layer = entry.Edit.EndsWith('2') ? ActivePattern.Layer2 : ActivePattern.Layer1;
                     if (layer.Source == LayerSource.Video) BrowseLayerVideoCommand.Execute(layer);
                     else BrowseLayerImageCommand.Execute(layer);
                 }

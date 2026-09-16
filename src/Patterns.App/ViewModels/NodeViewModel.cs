@@ -109,7 +109,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeStatusOf() => _host.Arcade!.Status;
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeBoardOf() => _host.Arcade!.BoardWords;
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private bool ArcadeNdiOf() => _host.Arcade!.NdiOn;
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeSizeOf() => $"{_host.Arcade!.Width}x{_host.Arcade!.Height}";
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeSizeOf() => $"{_host.Arcade!.Width}x{_host.Arcade.Height}";
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string RoomWordsOf() => _host.Play!.Words;
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -511,7 +511,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     }
 
     /// <summary>A node has no preview of its own: its chips go to the desk's air, as its keys do.</summary>
-    public bool LowerThirdChipsToPreview { get => false; set { } }
+    public bool LowerThirdChipsToPreview { get => false; set { _ = value; /* a node has no preview: its chips go to the desk's air */ } }
 
     public bool HasLowerThirdInPreview => false;
 

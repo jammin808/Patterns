@@ -173,7 +173,7 @@ public static class WebKeys
             var key = shift ? p.Shifted.ToString() : c.ToString();
             return new Named(key, p.Code, p.VirtualKey, key);
         }
-        foreach (var (baseChar, info) in Punctuation)
+        foreach (var (_, info) in Punctuation)
         {
             if (info.Shifted != c) continue;
             modifiers |= WebKeyPress.Shift;

@@ -41,7 +41,9 @@ public class RateAndAspectTests
     public void RatesAreOneFamilyWithinTheToleranceAndDifferentCadencesOutsideIt(double a, double b, bool same)
     {
         Assert.Equal(same, OutputRate.SameFamily(a, b));
+#pragma warning disable S2234 // the family is symmetric: the pair is asked both ways on purpose
         Assert.Equal(same, OutputRate.SameFamily(b, a));
+#pragma warning restore S2234
     }
 
     [Theory]

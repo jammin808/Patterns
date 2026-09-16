@@ -112,7 +112,7 @@ public sealed record MachineFacts(
         get
         {
             var parts = new List<string>();
-            var gpu = Gpus.FirstOrDefault(g => !g.Software) ?? Gpus.FirstOrDefault();
+            var gpu = Gpus.FirstOrDefault(g => !g.Software) ?? (Gpus.Count > 0 ? Gpus[0] : null);
             if (gpu is not null) parts.Add($"{gpu.Name} · driver {(gpu.DriverVersion.Length > 0 ? gpu.FriendlyDriver : "unknown")}");
             parts.Add($"{Displays.Count} display{(Displays.Count == 1 ? "" : "s")}");
             var outs = Audio.Count(a => a.Flow == "out");

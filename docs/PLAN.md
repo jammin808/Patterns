@@ -9144,3 +9144,130 @@ names as followed.
   music and the VOG.
 
 Counts at the end of the round: Core 850, Rendering 660, Devices 7, Audio 9, Assistant 37, Audience 2, App 743 — 2,308 in seven suites, the module's twenty-two beside them.
+
+## 88. Round 70 — the analyzers as fences: Sonar's rules and Roslyn's in every build, each stop with its reason, and one culture on every desk
+
+The request: could SonarQube, Roslyn analyzers or StyleCop improve Patterns in some way? The answer was
+measured before it was given. Every rule the .NET SDK ships, Sonar's rules (`SonarAnalyzer.CSharp` — the
+rules a SonarQube server runs, here inside the compiler), StyleCop, the threading analyzers and a
+banned-API analyzer were switched on over the whole tree and counted by rule and by project; the rules
+with a show's failure mode behind them became fences that stop the build, each with its reason written
+beside it; the rules describing a library's style were switched off by name with the reason; StyleCop
+was measured and left out. The doctrine carried through: *attempts are not facts* — the fences fixed
+the places a result was ignored (a keep-awake that may have failed, a registry write that may have
+failed), the places a wait could hang the desk, the places a number would have changed its spelling with
+the machine's locale. `docs/ANALYSIS.md` is the paper; ADR-013 the decision.
+
+### 88.1 Research and design (70.1)
+
+- Before: `TreatWarningsAsErrors` and the SDK's default dozen rules; no `.editorconfig`, no third-party
+  analyzer. With every SDK rule on, 7,359 findings (2,941 in `src/`): CA1307 alone 3,032 (Equals and
+  Contains are ordinal already), CA1062 1,067 (nullable is on). Sonar: ~1,600 distinct, S3358 nested
+  conditionals 562 (the house style for a word chosen from a state). StyleCop: 58,459, of which 25,720
+  the `this.` prefix. The threading analyzers: 139, of which 55 blocking waits (47 in tests).
+- The design: a generated `.editorconfig` (`tools/gen_editorconfig.py`) that names each fence with its
+  reason, by family — culture, disposal, threading, security, correctness, performance, banned — lands a
+  family at error once its instances are fixed, keeps the rest at suggestion, and turns the style rules
+  off by name; a `BannedSymbols.txt` with a reason per symbol; the tests exempt from the rules that are a
+  test's own business (a blocking wait, a plain HttpClient against a fake, a sleep for a worker).
+  `docs/ANALYSIS.md` §1–§4; ADR-013.
+
+### 88.2 The culture family (70.2)
+
+- 145 sites in the source formatted a number, a date or a byte, or compared a verb, by the machine's
+  locale — CA1305, CA1310, S6580. On a Hamburg desk `0.5` is `0,5` on the wire and in a file; on a
+  Swedish one `-1` carries a Unicode minus; `"SCREEN".StartsWith(...)` by culture is slower and, for a
+  few sequences, wrong. Every site now names its provider or its comparison; the wire's verbs compare
+  ordinally. `CultureGuard.Apply()` is Main's first line: the process, every thread made after it and
+  the UI culture run invariant, so a desk in any country formats and parses exactly as one in Leeds —
+  belt and braces with the analyzers, which keep the providers explicit from here on. Tests:
+  CultureGuardTests (a de-DE thread before the guard, invariant after it, on a worker too).
+
+### 88.3 The disposal, threading and security families (70.3)
+
+- **Disposal.** Thirty-nine fields the analyzer found never disposed: the render pipeline's fourteen
+  paints, its font and its mask image (a native Skia leak per pipeline — per sink, per re-attach — for
+  the length of a show); the control service's, the twin's, the beacon's, mDNS's, OSC's and the device
+  links' token sources, listeners and timers, which were stopped but never disposed; the deck converter's
+  semaphore; the break-music service's lifetime token. Each is disposed where its owner ends. Where the
+  analyzer cannot follow the path — a frame retired behind the render fence rather than disposed, a
+  child handle quit by `End`, the host's own stdout, a timer disposed with a wait handle so a tick in
+  flight lands first, a launcher whose `End` decides the standby process's fate — the field carries the
+  reason in a Justification, and the fence stays an error.
+- **Threading.** Continuations name `TaskScheduler.Default` (a continuation without one runs on whatever
+  scheduler is current — the UI thread's, when a tick started it); the screencast's clock locks on a gate
+  instead of an array of longs (an object with weak identity); the deck conversion, the handover's
+  receipts and the calibration run observe their continuations; the web source's two `async void`
+  appliers and two async UI lambdas are tasks their callers discard on purpose, so an exception in them
+  is logged rather than a process crash; the HTTP head is written asynchronously, the CSV export awaits
+  its write, the audience waiter cancels asynchronously; twenty-six fire-and-forget tasks and delays
+  carry their service's cancellation token, so a stopped twin, beacon or device link no longer runs a
+  write it queued before it stopped. The eight blocking waits that are right — the exit's bounded waits
+  on the persistence lane (ADR-008), a task already complete, a marshal from a worker to the UI thread —
+  carry their reason in a `#pragma`, and a ninth would have to write its own.
+- **Security.** Fifty-five P/Invokes had no DLL search path: an exe meant to run from a stick on any
+  machine would load a `user32.dll` planted beside it. Every P/Invoke now names its path — `System32` for
+  the system's libraries, the safe directories for the NDI runtime, which the assembly's own resolver
+  finds. The two folder-opening commands name `explorer.exe` by its full path rather than PATH; the
+  shared frame ring lives in the user's own local data on Windows (shared memory on Linux, by design,
+  said so beside the code); the PJLink digest says MD5 is the protocol's, and the playlist shuffles say
+  `Random` is a shuffle. The tests are exempt from what is a test's own business — a blocking wait, a
+  plain HttpClient against a fake server, a fixture's Dispose, a protocol digest computed to check one,
+  a sleep for a worker — and the banned list applies to the desk's code alone.
+
+### 88.4 The correctness, performance and banned families (70.4)
+
+- **Correctness.** A keep-awake and two registry deletes took their attempt for the fact — the result
+  is read now and a refusal logged (CA1806, *attempts are not facts* at the API's edge). Twenty-nine
+  regular expressions over text the desk did not write — the assistant's probes over anyone's words,
+  the cue sheet's headers, the feed parser's dates, the attachments' page counts — ran with no
+  timeout; every one carries `SafeRegex.Timeout` (S6444). Two `(int)IntPtr` conversions in the
+  decoder's callbacks are `checked` (CA2020). Two lambdas whose `_` was a parameter, not a discard,
+  assigned the event's sender where a task was meant to be dropped (S1854). A `DateTime` built without
+  its Kind carries its source's (S6562). Empty catches say why they are empty (S108, S2486); a setter
+  that ignores its value says so (S3237); redundant `!` are gone (S8969); dead members and locals are
+  gone (S1144, S4487, S1481) — a per-second slow count written and never read among them. In the
+  tests, two one-line blocks whose second statement did not repeat are braced (S2681), two tests with
+  no assertion assert what they walk (S2699), boolean asserts are `Assert.True` (S2701), parse results
+  are asserted (CA1806). The exceptions carry their reason: the story DTOs System.Text.Json fills, the
+  transposes whose arguments swap by definition, the layout that follows the page, the process start
+  as the only mark before Main.
+- **Performance.** Eighteen single-character searches use the char overload — the `Ordinal` class the
+  analyzer itself calls safe (CA1865, CA1866); the five case-insensitive ones stay as they are, because
+  the analyzer's other rule (CA1867) says the rewrite is not safe there, and that rule is a suggestion
+  now with the reason written. Fourteen `First`/`FirstOrDefault`/`Last` over lists index (CA1826);
+  the four character-set searches share one `SearchValues` each in `Separators` (CA1870); five
+  `Matches(...).Count` are `Regex.Count` (CA1875); the machine lock's receipt uses the shared
+  serializer options (CA1869); the palette, the pad state and the take scope are record structs
+  (CA1815), and the structs equality is not a question for — the NDI SDK's native layouts, the
+  calibration's 3×3, the per-frame render bundle — say so.
+- **Banned.** Seventeen uses of a banned symbol in the source, all `Thread.Sleep` and `Console.Write`
+  (no `Environment.TickCount`, no `GC.Collect`, no `Task.Wait` remained after the threading family).
+  The NDI sender slept two seconds between retries and a `Stop()` waited that out; the arcade loop, the
+  stream renderer and the audio's NDI lane paced with sleeps a stop had to wait for — each pause is a
+  wait on the owner's stop event now, cut short the moment the stop is asked, and a wait under a
+  disposed event ends the loop rather than throwing on its thread. The desk polled a quitting host
+  every 25 ms for three seconds; `IChildHandle.WaitForExit` waits for the exit. The encoder host's
+  heartbeat thread is a `PeriodicTimer`. Five stay with their reason beside them: the frame ring's poll
+  off Windows (no cross-process event there), the owner store's poll at boot (another process's file),
+  the supervisor's restart back-off and its stand-down datagrams (its own thread, whose job is to
+  wait), `--verify-runtime`'s console verdict.
+
+### 88.5 CI and the developer's loop (70.4)
+
+- The build is the run. `TreatWarningsAsErrors` was already on in every project, so the generated
+  `.editorconfig` makes every fence a build failure in `build.yml` and on the Windows lane exactly as on
+  a developer's machine, with no new step. A `dotnet format` gate was judged and not added (formatting
+  is not a defect class here; the module rules and the architecture fence are tests); the Companion
+  module's JavaScript keeps its own test suite in CI. `docs/ANALYSIS.md` §7 says how to run the
+  fences, how to see everything the analyzers would say beyond them, and what a SonarCloud dashboard
+  would take if the maintainer wants one.
+- The loop for a new instance: the build stops with the rule and its reason from `.editorconfig`; fix
+  it, or write the reason beside the code (`#pragma warning disable RULE // why` or a `SuppressMessage`
+  with its Justification) — never a blanket suppression, never an edit to the generated file.
+
+Counts: 7,359 SDK findings at the baseline (2,941 in `src/`), ~1,600 Sonar, 139 threading, 58,459
+StyleCop; the seven families — 145 culture, 52 disposal, 54 threading, 62 security, 112 correctness,
+51 performance, 17 banned in the source, 493 in all — at zero with their exceptions written; 67 rules
+at error, 64 off by name, 22 kept as suggestions and 22 relaxed in the tests; 2,309 tests green;
+module 3.10.0.

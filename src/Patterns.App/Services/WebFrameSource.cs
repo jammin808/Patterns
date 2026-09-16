@@ -242,7 +242,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _latestNavigationId = e.NavigationId;
                 _status = "Loading " + WebAddress.ShortName(e.Uri) + "…";
             };
-            _core.NavigationCompleted += (_, e) =>
+            _core.NavigationCompleted += (sender, e) =>
             {
                 if (e.NavigationId != _latestNavigationId) return;   // an older navigation finishing after a newer one started: not the page's state
                 _currentUrl = _core.Source;
@@ -854,6 +854,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
         catch (System.Text.Json.JsonException)
         {
+            // the page's answer was not JSON: the words below say so
         }
         return "the page's answer was not understood";
     }

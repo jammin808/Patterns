@@ -67,7 +67,7 @@ public class ArchitectureFenceTests
         foreach (var (relative, text) in AppSources(root))
         {
             if (relative == "Services/AppServices.cs") continue;                                   // the definition
-            var n = Regex.Matches(text, @"\bAppServices\.Instance\b").Count;
+            var n = Regex.Count(text, @"\bAppServices\.Instance\b");
             if (n > 0) found[relative] = n;
         }
         var offences = new List<string>();
@@ -93,7 +93,7 @@ public class ArchitectureFenceTests
             foreach (var (pattern, words) in HeavyWork)
                 foreach (Match m in pattern.Matches(text))
                     offences.Add($"{relative} {words}: {m.Value}");
-            var n = Handler.Matches(text).Count;
+            var n = Handler.Count(text);
             if (n > 0) handlers[relative] = n;
         }
         Assert.True(files >= 40, $"the scan saw {files} code-behind files: the tree is not where the test thinks");

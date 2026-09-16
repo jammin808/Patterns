@@ -455,7 +455,7 @@ public static class DeskMenus
             IsOn = c.CleanPicture,
         });
 
-        var design = d.Designs.FirstOrDefault(x => x.Id == c.LowerThirdDesignId) ?? d.Designs.FirstOrDefault(x => x.IsDefault) ?? d.Designs.FirstOrDefault();
+        var design = d.Designs.FirstOrDefault(x => x.Id == c.LowerThirdDesignId) ?? d.Designs.FirstOrDefault(x => x.IsDefault) ?? (d.Designs.Count > 0 ? d.Designs[0] : null);
         var timingChildren = new List<MenuEntry>();
         if (design is not null)
         {
@@ -707,7 +707,7 @@ public static class DeskMenus
 
     public static DeskMenu Person(DeskFacts d, MenuPerson p)
     {
-        var defaultDesign = d.Designs.FirstOrDefault(x => x.IsDefault) ?? d.Designs.FirstOrDefault();
+        var defaultDesign = d.Designs.FirstOrDefault(x => x.IsDefault) ?? (d.Designs.Count > 0 ? d.Designs[0] : null);
         var designs = d.Designs.Select(x => new MenuEntry($"person.preview.with:{x.Id}", (x.IsDefault ? "★ " : "") + x.Name, MenuScope.Preview, MenuTone.Preview)
         {
             Action = new ShowAction(ShowActionKind.LowerThirdPreview, x.Id, p.Id),

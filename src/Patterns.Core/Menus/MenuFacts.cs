@@ -1,3 +1,4 @@
+using Patterns.Core.Services;
 using System.Text.RegularExpressions;
 using Patterns.Core.Model;
 
@@ -65,7 +66,7 @@ public sealed record DeskFacts
 
     /// <summary>Every kind of picture, its enum word and a readable label (the desk hands its own labels in when it has them).</summary>
     public static readonly IReadOnlyList<MenuKind> DefaultKinds = Enum.GetNames<PatternKind>()
-        .Select(n => new MenuKind(n, Regex.Replace(n, "(?<=[a-z0-9])(?=[A-Z])", " ").Replace("Color", "Colour")))
+        .Select(n => new MenuKind(n, Regex.Replace(n, "(?<=[a-z0-9])(?=[A-Z])", " ", RegexOptions.None, SafeRegex.Timeout).Replace("Color", "Colour")))
         .ToList();
 }
 

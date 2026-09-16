@@ -126,7 +126,7 @@ public sealed record EdidInfo(
     int Length)
 {
     /// <summary>The preferred timing: the first detailed timing (E-EDID 1.4 makes it so; 1.3 says so with a flag).</summary>
-    public EdidTiming? Preferred => DetailedTimings.FirstOrDefault(t => t.Preferred) ?? DetailedTimings.FirstOrDefault();
+    public EdidTiming? Preferred => DetailedTimings.FirstOrDefault(t => t.Preferred) ?? (DetailedTimings.Count > 0 ? DetailedTimings[0] : null);
 
     public bool ChecksumsValid => BlockChecksums.Count > 0 && BlockChecksums.All(ok => ok);
 

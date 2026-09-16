@@ -141,12 +141,12 @@ public sealed class CompanionSession : ProfileSession
         var t = (text ?? "").Trim();
         if (t.StartsWith("+OK", StringComparison.OrdinalIgnoreCase) || t.Equals("OK", StringComparison.OrdinalIgnoreCase) || t.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
         {
-            var rest = t.StartsWith("+", StringComparison.Ordinal) ? t[3..].Trim() : t.Length > 2 ? t[2..].Trim() : "";
+            var rest = t.StartsWith('+') ? t[3..].Trim() : t.Length > 2 ? t[2..].Trim() : "";
             return ProfileReply.Acked(rest.Length > 0 ? $"OK — {rest}" : "OK");
         }
         if (t.StartsWith("-ERR", StringComparison.OrdinalIgnoreCase) || t.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
         {
-            var rest = t.StartsWith("-", StringComparison.Ordinal) ? t[4..].Trim() : t.Length > 3 ? t[3..].Trim() : "";
+            var rest = t.StartsWith('-') ? t[4..].Trim() : t.Length > 3 ? t[3..].Trim() : "";
             return ProfileReply.Refused(rest.Length > 0 ? $"Companion refused: {rest}" : "Companion refused");
         }
         return ProfileReply.Of(t);

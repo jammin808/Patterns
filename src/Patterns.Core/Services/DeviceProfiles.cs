@@ -225,14 +225,14 @@ public sealed class PjLinkSession : ProfileSession
     {
         var w = (words ?? "").Trim();
         if (w.Length == 0) return null;
-        if (w.StartsWith("%", StringComparison.Ordinal)) return w.Length > 2 ? w[2..] : null;   // %1POWR ? as typed
+        if (w.StartsWith('%')) return w.Length > 2 ? w[2..] : null;   // %1POWR ? as typed
         var parts = w.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var verb = parts[0].ToUpperInvariant();
         var arg = parts.Length > 1 ? string.Join(' ', parts.Skip(1)).ToUpperInvariant() : "";
         switch (verb)
         {
             case "RAW":
-                return arg.Length == 0 ? null : arg.StartsWith("%", StringComparison.Ordinal) && arg.Length > 2 ? arg[2..] : arg;
+                return arg.Length == 0 ? null : arg.StartsWith('%') && arg.Length > 2 ? arg[2..] : arg;
             case "POWER":
                 return arg switch { "ON" or "1" => "POWR 1", "OFF" or "0" or "STANDBY" => "POWR 0", "?" or "" => "POWR ?", _ => null };
             case "INPUT":
@@ -314,13 +314,13 @@ public sealed class PjLinkSession : ProfileSession
         if (t.StartsWith("PJLINK ", StringComparison.OrdinalIgnoreCase))
         {
             var rest = t[7..].Trim();
-            if (rest.StartsWith("1", StringComparison.Ordinal))
+            if (rest.StartsWith('1'))
             {
                 _seed = rest.Length > 2 ? rest[2..].Trim() : "";
                 _digestSent = false;
                 return ProfileReply.Of("connected — authentication on");
             }
-            if (rest.StartsWith("0", StringComparison.Ordinal))
+            if (rest.StartsWith('0'))
             {
                 _authOff = true;
                 _seed = null;
@@ -385,7 +385,7 @@ public static class OscWords
     public static OscMessage? Parse(string words)
     {
         var w = (words ?? "").Trim();
-        if (!w.StartsWith("/", StringComparison.Ordinal)) return null;
+        if (!w.StartsWith('/')) return null;
         var parts = Tokens(w);
         if (parts.Count == 0) return null;
         var args = new List<object?>();
@@ -492,7 +492,7 @@ public sealed class DisguiseSession : ProfileSession
     {
         var w = (words ?? "").Trim();
         if (w.Length == 0) return null;
-        if (w.StartsWith("/", StringComparison.Ordinal)) return OscWords.Parse(w);
+        if (w.StartsWith('/')) return OscWords.Parse(w);
         var parts = w.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var verb = parts[0].ToUpperInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
@@ -510,7 +510,7 @@ public sealed class DisguiseSession : ProfileSession
             case "FADE": return argUpper switch { "UP" or "IN" => Of("fadeup"), "DOWN" or "OUT" => Of("fadedown"), _ => null };
             case "TRACK":
                 if (arg.Length == 0) return null;
-                if (arg.StartsWith("#", StringComparison.Ordinal) && int.TryParse(arg[1..], NumberStyles.None, CultureInfo.InvariantCulture, out var id)) return Of("trackid", id);
+                if (arg.StartsWith('#') && int.TryParse(arg[1..], NumberStyles.None, CultureInfo.InvariantCulture, out var id)) return Of("trackid", id);
                 return Of("trackname", arg);
             case "CUE":
             case "GOTO":
@@ -594,14 +594,14 @@ public sealed class PixeraSession : ProfileSession
         problem = "";
         var w = (words ?? "").Trim();
         if (w.Length == 0) return None("Nothing to send.", out problem);
-        if (w.StartsWith("{", StringComparison.Ordinal)) return One(w + Terminator);
+        if (w.StartsWith('{')) return One(w + Terminator);
         var parts = w.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var verb = parts[0].ToUpperInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
         switch (verb)
         {
             case "RAW":
-                return arg.StartsWith("{", StringComparison.Ordinal) ? One(arg + Terminator) : None("RAW wants the JSON-RPC request itself, starting with {.", out problem);
+                return arg.StartsWith('{') ? One(arg + Terminator) : None("RAW wants the JSON-RPC request itself, starting with {.", out problem);
             case "API":
             {
                 var ap = arg.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

@@ -22,17 +22,6 @@ public class DeckStateAppTests
 
     private static JsonElement State(CommandRouter router) => JsonDocument.Parse(router.StateJson()).RootElement;
 
-    private static void PumpUntil(Func<bool> condition, int timeoutMs = 5000)
-    {
-        var deadline = Environment.TickCount64 + timeoutMs;
-        while (!condition())
-        {
-            Dispatcher.UIThread.RunJobs();
-            Thread.Sleep(10);
-            if (Environment.TickCount64 > deadline) throw new TimeoutException("the condition never held");
-        }
-    }
-
     private static JsonElement Fixture()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

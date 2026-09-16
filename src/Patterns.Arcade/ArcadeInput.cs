@@ -16,7 +16,7 @@ public enum PadButtons : byte
 }
 
 /// <summary>What one pad holds at a simulation step.</summary>
-public struct PadState
+public record struct PadState
 {
     public PadButtons Buttons;
 

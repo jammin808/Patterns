@@ -696,7 +696,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // The NDI runtime's first touch loads and initialises a native library: off the UI thread
         // now, so the desk's first poll (a second after the start) finds the answer cached instead
         // of loading it on the UI thread.
-        ThreadPool.QueueUserWorkItem(_ =>
+        ThreadPool.QueueUserWorkItem(static state =>
         {
             try { _ = NdiInterop.Available; }
             catch { /* the poll asks again and says what it found */ }

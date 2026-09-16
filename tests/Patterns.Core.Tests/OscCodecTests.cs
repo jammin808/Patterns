@@ -21,8 +21,8 @@ public class OscCodecTests
         Assert.Equal(0.5f, back.Args[1]);
         Assert.Equal("Walk-in", back.Args[2]);
         Assert.Equal(new byte[] { 1, 2, 3 }, back.Args[3]);
-        Assert.Equal(true, back.Args[4]);
-        Assert.Equal(false, back.Args[5]);
+        Assert.True(back.Args[4] is true);
+        Assert.True(back.Args[5] is false);
         Assert.Null(back.Args[6]);
         Assert.Same(OscImpulse.Instance, back.Args[7]);
         Assert.Equal(1.25, back.Args[8]);

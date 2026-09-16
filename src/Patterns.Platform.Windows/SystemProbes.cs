@@ -214,6 +214,7 @@ public static class WinRegistry
     private static readonly IntPtr HkeyLocalMachine = new(unchecked((int)0x80000002));
     private const uint RegSz = 1;
     private const uint KeyWrite = 0x20006;
+    private const int ErrorFileNotFound = 2;                                                  // a value that was not there is removed already
 
     /// <summary>Sets (or with an empty value removes) the per-app GPU preference for an exe path.</summary>
     public static void SetUserGpuPreference(string exePath, string value)
@@ -221,7 +222,8 @@ public static class WinRegistry
         if (!OperatingSystem.IsWindows()) return;
         if (value.Length == 0)
         {
-            RegDeleteKeyValueW(HkeyCurrentUser, GpuPrefSubkey, exePath);
+            var removed = RegDeleteKeyValueW(HkeyCurrentUser, GpuPrefSubkey, exePath);
+            if (removed != 0 && removed != ErrorFileNotFound) throw new InvalidOperationException($"Could not remove the GPU preference value (error {removed}).");
             return;
         }
         if (RegCreateKeyExW(HkeyCurrentUser, GpuPrefSubkey, 0, null, 0, KeyWrite, IntPtr.Zero,
@@ -239,14 +241,15 @@ public static class WinRegistry
         }
         finally
         {
-            RegCloseKey(key);
+            _ = RegCloseKey(key);                                                                   // a close that fails leaves nothing to do
         }
     }
 
     public static void DeleteUserGpuPreference(string exePath)
     {
         if (!OperatingSystem.IsWindows()) return;
-        RegDeleteKeyValueW(HkeyCurrentUser, GpuPrefSubkey, exePath);
+        var removed = RegDeleteKeyValueW(HkeyCurrentUser, GpuPrefSubkey, exePath);
+        if (removed != 0 && removed != ErrorFileNotFound) throw new InvalidOperationException($"Could not remove the GPU preference value (error {removed}).");
     }
 
     /// <summary>The marketing CPU name ("13th Gen Intel(R) Core(TM) i7-13700K"), or "".</summary>

@@ -377,6 +377,9 @@ public sealed class FrameSmoother
         return chosen.Id;
     }
 
+    /// <summary>The oldest id waiting, or −1 with none: the caller's room-making when every buffer is spoken for.</summary>
+    public long OldestWaitingId() => _count > 0 ? _ring[_head % Capacity].Id : -1;
+
     /// <summary>The ids waiting, oldest first — for a cut, the caller's room-making and the tests.</summary>
     public IEnumerable<long> WaitingIds()
     {

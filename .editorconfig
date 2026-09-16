@@ -74,99 +74,99 @@ dotnet_diagnostic.S2245.severity = error
 # S4790: a weak hash used as a secret; where a protocol demands one the site says so
 dotnet_diagnostic.S4790.severity = error
 
-# ---- correctness: not landed yet — suggestions until its instances are fixed ----
+# ---- correctness: landed — errors ----
 # CA1806: a result ignored is an attempt taken for a fact: a keep-awake that failed, a registry write that failed
-dotnet_diagnostic.CA1806.severity = suggestion
+dotnet_diagnostic.CA1806.severity = error
 # CA2211: a mutable static field is shared state with no owner
-dotnet_diagnostic.CA2211.severity = suggestion
+dotnet_diagnostic.CA2211.severity = error
 # CA1851: an IEnumerable enumerated twice runs its query twice
-dotnet_diagnostic.CA1851.severity = suggestion
+dotnet_diagnostic.CA1851.severity = error
 # CA1068: the cancellation token is the last parameter
-dotnet_diagnostic.CA1068.severity = suggestion
+dotnet_diagnostic.CA1068.severity = error
 # CA1513: ObjectDisposedException.ThrowIf says what it checks
-dotnet_diagnostic.CA1513.severity = suggestion
+dotnet_diagnostic.CA1513.severity = error
 # CA2020: a pointer narrowed to an int truncates silently past 2 GB
-dotnet_diagnostic.CA2020.severity = suggestion
+dotnet_diagnostic.CA2020.severity = error
 # CA1812: an internal class nothing instantiates is dead code; one that reflection builds says so
-dotnet_diagnostic.CA1812.severity = suggestion
+dotnet_diagnostic.CA1812.severity = error
 # S1751: a loop that runs once is a bug or a lie
-dotnet_diagnostic.S1751.severity = suggestion
+dotnet_diagnostic.S1751.severity = error
 # S2123: an increment whose result is dropped does nothing
-dotnet_diagnostic.S2123.severity = suggestion
+dotnet_diagnostic.S2123.severity = error
 # S2178: a non-short-circuit boolean hides which side ran
-dotnet_diagnostic.S2178.severity = suggestion
+dotnet_diagnostic.S2178.severity = error
 # S2234: arguments in the parameters' names but another order are swapped until proven otherwise; name them
-dotnet_diagnostic.S2234.severity = suggestion
+dotnet_diagnostic.S2234.severity = error
 # S2486: an exception caught and ignored is an attempt taken for a fact; log it or say why not
-dotnet_diagnostic.S2486.severity = suggestion
+dotnet_diagnostic.S2486.severity = error
 # S108: an empty block says nothing; a comment says why it is empty
-dotnet_diagnostic.S108.severity = suggestion
+dotnet_diagnostic.S108.severity = error
 # S1854: a value stored and never read is a bug or dead code
-dotnet_diagnostic.S1854.severity = suggestion
+dotnet_diagnostic.S1854.severity = error
 # S1144: a private member nothing uses is dead code
-dotnet_diagnostic.S1144.severity = suggestion
+dotnet_diagnostic.S1144.severity = error
 # S4487: a private field written and never read is dead code
-dotnet_diagnostic.S4487.severity = suggestion
+dotnet_diagnostic.S4487.severity = error
 # S1481: a local nothing reads is dead code
-dotnet_diagnostic.S1481.severity = suggestion
+dotnet_diagnostic.S1481.severity = error
 # S3237: a setter that ignores value is a bug
-dotnet_diagnostic.S3237.severity = suggestion
+dotnet_diagnostic.S3237.severity = error
 # S4275: a getter or setter on the wrong field is a bug
-dotnet_diagnostic.S4275.severity = suggestion
+dotnet_diagnostic.S4275.severity = error
 # S6561: elapsed time from a wall clock jumps with NTP and daylight saving; Stopwatch or the show clock measure it
-dotnet_diagnostic.S6561.severity = suggestion
+dotnet_diagnostic.S6561.severity = error
 # S6444: a regular expression without a timeout on text from the wire or a page is a hang waiting for its input
-dotnet_diagnostic.S6444.severity = suggestion
+dotnet_diagnostic.S6444.severity = error
 # S6562: a DateTime built without a Kind is neither local nor UTC until someone guesses
-dotnet_diagnostic.S6562.severity = suggestion
+dotnet_diagnostic.S6562.severity = error
 # S8969: a null-forgiving operator the compiler does not need hides the day it does
-dotnet_diagnostic.S8969.severity = suggestion
+dotnet_diagnostic.S8969.severity = error
 # S2681: a line indented under an if or a loop that is not in it misleads the reader
-dotnet_diagnostic.S2681.severity = suggestion
+dotnet_diagnostic.S2681.severity = error
 # S2699: a test without an assertion proves nothing
-dotnet_diagnostic.S2699.severity = suggestion
+dotnet_diagnostic.S2699.severity = error
 # S2701: asserting a constant proves nothing
-dotnet_diagnostic.S2701.severity = suggestion
+dotnet_diagnostic.S2701.severity = error
 
-# ---- performance: not landed yet — suggestions until its instances are fixed ----
+# ---- performance: landed — errors ----
 # CA1869: a JsonSerializerOptions per call rebuilds its metadata cache each time
-dotnet_diagnostic.CA1869.severity = suggestion
+dotnet_diagnostic.CA1869.severity = error
 # CA1870: a SearchValues instance searches many characters in one pass
-dotnet_diagnostic.CA1870.severity = suggestion
+dotnet_diagnostic.CA1870.severity = error
 # CA1875: Regex.Count does not materialise the matches
-dotnet_diagnostic.CA1875.severity = suggestion
+dotnet_diagnostic.CA1875.severity = error
 # CA1865: the char overload avoids a string search
-dotnet_diagnostic.CA1865.severity = suggestion
+dotnet_diagnostic.CA1865.severity = error
 # CA1866: the char overload avoids a string search
-dotnet_diagnostic.CA1866.severity = suggestion
-# CA1867: the char overload avoids a string search
-dotnet_diagnostic.CA1867.severity = suggestion
+dotnet_diagnostic.CA1866.severity = error
 # CA1826: an indexer beats LINQ on a list
-dotnet_diagnostic.CA1826.severity = suggestion
+dotnet_diagnostic.CA1826.severity = error
 # CA1827: Any beats Count for emptiness
-dotnet_diagnostic.CA1827.severity = suggestion
+dotnet_diagnostic.CA1827.severity = error
 # CA1829: the Count property beats the Count method
-dotnet_diagnostic.CA1829.severity = suggestion
+dotnet_diagnostic.CA1829.severity = error
 # CA1860: Count > 0 beats Any on a collection
-dotnet_diagnostic.CA1860.severity = suggestion
-# CA1859: a concrete type beats an interface call in a hot path
-dotnet_diagnostic.CA1859.severity = suggestion
-# CA1861: a constant array in an argument is rebuilt on every call
-dotnet_diagnostic.CA1861.severity = suggestion
+dotnet_diagnostic.CA1860.severity = error
 # CA1815: a struct compared without Equals boxes; the maths structs implement equality
-dotnet_diagnostic.CA1815.severity = suggestion
+dotnet_diagnostic.CA1815.severity = error
 # S1155: Any beats Count() for emptiness
-dotnet_diagnostic.S1155.severity = suggestion
+dotnet_diagnostic.S1155.severity = error
 
-# ---- banned: not landed yet — suggestions until its instances are fixed ----
+# ---- banned: landed — errors ----
 # RS0030: BannedSymbols.txt: Thread.Sleep, Environment.TickCount, GC.Collect, Console.Write, Task.Wait — each with its reason beside it
-dotnet_diagnostic.RS0030.severity = suggestion
+dotnet_diagnostic.RS0030.severity = error
 # RS0031: a banned symbol listed twice
-dotnet_diagnostic.RS0031.severity = suggestion
+dotnet_diagnostic.RS0031.severity = error
 
 # ---- kept as suggestions: seen, worth a look, not a stop ----
 # CA2000: dispose before losing scope: many false positives where the object is handed on; reviewed by hand
 dotnet_diagnostic.CA2000.severity = suggestion
+# CA1867: a single-char string compared with a comparison other than Ordinal: the analyzer itself calls the char overload unsafe here (a case-insensitive suffix is not one char), so the five sites stay as they are and a new one is judged, not fenced
+dotnet_diagnostic.CA1867.severity = suggestion
+# CA1861: a constant array in an argument: 27 sites in the source, all cold; reviewed by hand where a path is hot
+dotnet_diagnostic.CA1861.severity = suggestion
+# CA1859: a concrete type over an interface in a private signature: a virtual call saved, a shape the readers know lost; by hand where a path is hot
+dotnet_diagnostic.CA1859.severity = suggestion
 # CA1508: dead conditional code: the flow analysis is wrong about volatile fields and loops here
 dotnet_diagnostic.CA1508.severity = suggestion
 # CA2216: finalizers for handle owners: the services dispose deterministically and the census counts them
@@ -335,7 +335,7 @@ dotnet_diagnostic.VSTHRD011.severity = none
 dotnet_diagnostic.VSTHRD111.severity = none
 
 [tests/**/*.cs]
-# The tests: culture-sensitive formatting, blocking waits, a plain HttpClient against a fake server, a forced collection in a lifecycle test and a sleep for a worker are the test's own business; constant arrays in asserts are fine.
+# The tests: culture-sensitive formatting, blocking waits, a plain HttpClient against a fake server, a forced collection in a lifecycle test and a sleep for a worker are the test's own business; constant arrays in asserts are fine; a redundant ! or a date literal without a Kind in a test is noise, not a fence.
 dotnet_diagnostic.CA1305.severity = suggestion
 dotnet_diagnostic.CA1310.severity = suggestion
 dotnet_diagnostic.S6580.severity = suggestion
@@ -356,4 +356,6 @@ dotnet_diagnostic.CA1849.severity = suggestion
 dotnet_diagnostic.VSTHRD103.severity = suggestion
 dotnet_diagnostic.VSTHRD105.severity = suggestion
 dotnet_diagnostic.CA2008.severity = suggestion
+dotnet_diagnostic.S8969.severity = suggestion
+dotnet_diagnostic.S6562.severity = suggestion
 

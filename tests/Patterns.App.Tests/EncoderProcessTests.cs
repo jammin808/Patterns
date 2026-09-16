@@ -18,6 +18,8 @@ internal sealed class FakeHost : IChildHandle
 
     public bool HasExited { get; private set; }
 
+    public bool WaitForExit(int milliseconds) => SpinWait.SpinUntil(() => HasExited, milliseconds);
+
     public int ExitCode { get; private set; }
 
     public bool Killed { get; private set; }

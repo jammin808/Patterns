@@ -188,9 +188,11 @@ public sealed class OscService : IDisposable
         }
         catch (OperationCanceledException)
         {
+            // stopped: the token was cancelled
         }
         catch (ObjectDisposedException)
         {
+            // stopped: the socket was closed under the receive
         }
         catch (Exception ex) when (ct.IsCancellationRequested)
         {

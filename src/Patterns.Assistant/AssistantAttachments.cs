@@ -152,7 +152,7 @@ public static class AssistantAttachments
     private static int CountPdfPages(byte[] bytes)
     {
         var text = Encoding.Latin1.GetString(bytes, 0, Math.Min(bytes.Length, 4 * 1024 * 1024));
-        return Regex.Matches(text, @"/Type\s*/Page(?![s/])").Count;
+        return Regex.Count(text, @"/Type\s*/Page(?![s/])", RegexOptions.None, SafeRegex.Timeout);
     }
 
     private static AssistantAttachmentResult ReadText(string name, byte[] bytes)
@@ -196,8 +196,8 @@ public static class AssistantAttachments
         }
         else
         {
-            var slides = zip.Entries.Where(e => Regex.IsMatch(e.FullName, @"^ppt/slides/slide\d+\.xml$"))
-                .OrderBy(e => int.Parse(Regex.Match(e.FullName, @"slide(\d+)\.xml").Groups[1].Value, CultureInfo.InvariantCulture)).ToList();
+            var slides = zip.Entries.Where(e => Regex.IsMatch(e.FullName, @"^ppt/slides/slide\d+\.xml$", RegexOptions.None, SafeRegex.Timeout))
+                .OrderBy(e => int.Parse(Regex.Match(e.FullName, @"slide(\d+)\.xml", RegexOptions.None, SafeRegex.Timeout).Groups[1].Value, CultureInfo.InvariantCulture)).ToList();
             if (slides.Count == 0) return new AssistantAttachmentResult(null, $"'{name}' is not a PowerPoint file.");
             var n = 0;
             foreach (var slide in slides)
@@ -225,10 +225,10 @@ public static class AssistantAttachments
     /// <summary>The words of an Office XML body: a paragraph element becomes a line, a tab a tab, every other tag goes.</summary>
     public static string XmlWords(string xml, string paragraphTag)
     {
-        var s = Regex.Replace(xml, $@"</{Regex.Escape(paragraphTag)}>", "\n");
-        s = Regex.Replace(s, @"<(w:tab|a:tab)\s*/>", "\t");
-        s = Regex.Replace(s, @"<(w:br|a:br)\s*/>", "\n");
-        s = Regex.Replace(s, @"<[^>]+>", "");
+        var s = Regex.Replace(xml, $@"</{Regex.Escape(paragraphTag)}>", "\n", RegexOptions.None, SafeRegex.Timeout);
+        s = Regex.Replace(s, @"<(w:tab|a:tab)\s*/>", "\t", RegexOptions.None, SafeRegex.Timeout);
+        s = Regex.Replace(s, @"<(w:br|a:br)\s*/>", "\n", RegexOptions.None, SafeRegex.Timeout);
+        s = Regex.Replace(s, @"<[^>]+>", "", RegexOptions.None, SafeRegex.Timeout);
         s = System.Net.WebUtility.HtmlDecode(s);
         var lines = s.Split('\n').Select(l => l.TrimEnd()).ToList();
         return string.Join("\n", lines).Trim();

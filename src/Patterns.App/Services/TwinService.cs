@@ -174,6 +174,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             }
             catch (OperationCanceledException)
             {
+                // stopped: the token was cancelled
             }
             catch (Exception ex)
             {

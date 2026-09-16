@@ -120,7 +120,7 @@ public sealed class WindowsMachineLock : IMachineLock
         try
         {
             Directory.CreateDirectory(_baseDirectory);
-            File.WriteAllText(ReceiptPath, JsonSerializer.Serialize(receipt, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(ReceiptPath, JsonSerializer.Serialize(receipt, Patterns.Core.Services.JsonUtil.Options));
         }
         catch (Exception ex)
         {
@@ -358,7 +358,7 @@ public sealed class WindowsMachineLock : IMachineLock
             var receipt = Load();
             if (on)
             {
-                SetThreadExecutionState(EsContinuous | EsSystemRequired | EsDisplayRequired);
+                if (SetThreadExecutionState(EsContinuous | EsSystemRequired | EsDisplayRequired) == 0) Log.Warn("Keep awake: Windows refused the execution state (SetThreadExecutionState returned 0) — the machine may still sleep.");   // round 70: an attempt is not a fact
                 if (receipt.ScreenSaverActive is null)
                 {
                     var active = 0;
@@ -369,7 +369,7 @@ public sealed class WindowsMachineLock : IMachineLock
             }
             else
             {
-                SetThreadExecutionState(EsContinuous);
+                if (SetThreadExecutionState(EsContinuous) == 0) Log.Warn("Keep awake: Windows refused clearing the execution state (SetThreadExecutionState returned 0).");
                 if (receipt.ScreenSaverActive is { } was)
                 {
                     SystemParametersInfo(SpiSetScreenSaveActive, was ? 1u : 0u, IntPtr.Zero, SpifSendChange);
@@ -449,7 +449,7 @@ public sealed class WindowsMachineLock : IMachineLock
         {
             var window = GetForegroundWindow();
             if (window == IntPtr.Zero) return "";
-            GetWindowThreadProcessId(window, out var pid);
+            _ = GetWindowThreadProcessId(window, out var pid);                                   // the thread id is not wanted; the pid is the out
             return pid == 0 ? "" : ProcessName((int)pid);
         }
         catch

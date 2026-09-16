@@ -47,7 +47,11 @@ public class CommissioningAppTests
             services.Screens.Refresh();
             Dispatcher.UIThread.RunJobs();
             var placement = services.State.Output.Placements.Single(p => p.ScreenId == "com-a");
-            services.BulkEdit(() => { foreach (var other in services.State.Output.Placements.Where(p => p.ScreenId != "com-a" && !p.IsVirtual)) other.Enabled = false; placement.Enabled = true; });
+            services.BulkEdit(() =>
+            {
+                foreach (var other in services.State.Output.Placements.Where(p => p.ScreenId != "com-a" && !p.IsVirtual)) other.Enabled = false;
+                placement.Enabled = true;
+            });
             Dispatcher.UIThread.RunJobs();
             var n = Rig.OrderedLivePlacements(services.State, services.Screens.All).FindIndex(x => x.Placement.ScreenId == "com-a") + 1;
             var report = services.Actions.CommissioningReport();

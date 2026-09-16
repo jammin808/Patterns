@@ -427,7 +427,7 @@ public static class WebPresets
             {
                 if (!path[i].All(char.IsAsciiDigit)) continue;
                 id = path[i];
-                if (i + 1 < path.Length && Regex.IsMatch(path[i + 1], "^[0-9a-f]{6,}$")) hash = path[i + 1];
+                if (i + 1 < path.Length && Regex.IsMatch(path[i + 1], "^[0-9a-f]{6,}$", RegexOptions.None, SafeRegex.Timeout)) hash = path[i + 1];
                 break;
             }
         }
@@ -439,17 +439,17 @@ public static class WebPresets
     private static string? SlidesFullFrame(Uri u)
     {
         var path = u.AbsolutePath;
-        var published = Regex.Match(path, "^/presentation/d/e/([^/]+)/(pub|embed)", RegexOptions.IgnoreCase);
+        var published = Regex.Match(path, "^/presentation/d/e/([^/]+)/(pub|embed)", RegexOptions.IgnoreCase, SafeRegex.Timeout);
         if (published.Success)
         {
             var q = Query(u);
             if (published.Groups[2].Value.Equals("embed", StringComparison.OrdinalIgnoreCase) && q.GetValueOrDefault("rm") == "minimal") return u.ToString();
             return $"https://docs.google.com/presentation/d/e/{published.Groups[1].Value}/embed?start=false&loop=false&delayms=60000&rm=minimal";
         }
-        var own = Regex.Match(path, "^/presentation/d/([^/]+)(?:/([^/]*))?", RegexOptions.IgnoreCase);
+        var own = Regex.Match(path, "^/presentation/d/([^/]+)(?:/([^/]*))?", RegexOptions.IgnoreCase, SafeRegex.Timeout);
         if (!own.Success) return null;
         var mode = own.Groups[2].Value.ToLowerInvariant();
-        var slide = Regex.Match(u.Fragment + "&" + u.Query, "slide=([^&#]+)", RegexOptions.IgnoreCase);
+        var slide = Regex.Match(u.Fragment + "&" + u.Query, "slide=([^&#]+)", RegexOptions.IgnoreCase, SafeRegex.Timeout);
         var address = $"https://docs.google.com/presentation/d/{own.Groups[1].Value}/present";
         if (slide.Success) address += "?slide=" + slide.Groups[1].Value;
         if (mode == "present" && string.Equals(address, u.ToString().TrimEnd('/'), StringComparison.Ordinal)) return u.ToString();
@@ -459,7 +459,7 @@ public static class WebPresets
     private static string? PowerPointFullFrame(Uri u)
     {
         if (u.Query.Length == 0) return null;
-        var replaced = Regex.Replace(u.Query, "(?<=[?&]action=)(edit|view|default|interactivepreview)(?=&|$)", "embedview", RegexOptions.IgnoreCase);
+        var replaced = Regex.Replace(u.Query, "(?<=[?&]action=)(edit|view|default|interactivepreview)(?=&|$)", "embedview", RegexOptions.IgnoreCase, SafeRegex.Timeout);
         if (replaced == u.Query) return null;
         return u.GetLeftPart(UriPartial.Path) + replaced + u.Fragment;
     }
@@ -496,7 +496,7 @@ public static class WebPresets
         if (t.Length == 0) return 0;
         if (int.TryParse(t, NumberStyles.None, CultureInfo.InvariantCulture, out var plain)) return plain;
         var total = 0;
-        foreach (Match m in Regex.Matches(t, "(\\d+)([hms])", RegexOptions.IgnoreCase))
+        foreach (Match m in Regex.Matches(t, "(\\d+)([hms])", RegexOptions.IgnoreCase, SafeRegex.Timeout))
         {
             var n = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
             total += m.Groups[2].Value.ToLowerInvariant() switch { "h" => n * 3600, "m" => n * 60, _ => n };

@@ -59,7 +59,9 @@ public sealed class StartupBudget
         try
         {
             using var me = Process.GetCurrentProcess();
+            #pragma warning disable S6561 // the runtime's time before Main: no stopwatch of ours ran yet, the process start is the only mark
             _runtimeMsBeforeMain = Math.Max(0, (DateTime.Now - me.StartTime).TotalMilliseconds);
+            #pragma warning restore S6561
         }
         catch
         {

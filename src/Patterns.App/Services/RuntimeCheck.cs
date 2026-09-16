@@ -85,12 +85,14 @@ public static class RuntimeCheck
         lines.Add(ok ? "RUNTIME OK" : "RUNTIME FAILED");
 
         var text = string.Join(Environment.NewLine, lines);
+#pragma warning disable RS0030 // --verify-runtime is a console verdict by design: it prints
         Console.WriteLine(text);
         if (report is not null)
         {
             try { File.WriteAllText(report, text + Environment.NewLine); }
             catch (Exception ex) { Console.WriteLine($"(the report could not be written to {report}: {ex.Message})"); }
         }
+#pragma warning restore RS0030
         return ok ? 0 : 1;
     }
 

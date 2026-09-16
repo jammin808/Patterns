@@ -228,3 +228,36 @@ process); a test replaces one by handing in a reading or a factory, not by mocki
 **Revisit when.** A second host needs the same services in a different graph (ADR-011's trigger),
 or a static seam acquires a second implementation worth swapping at run time — then an interface
 at that seam, not a container, is the first step; the fence's list says where.
+
+## ADR-013 — Analyzers are fences with reasons, not a style; and the desk speaks one culture
+
+**Decision.** Every build runs the .NET SDK's analyzers, Sonar's rules (`SonarAnalyzer.CSharp` — the
+rules a SonarQube server runs, here inside the compiler), the threading analyzers and a banned-API
+list. A named set of rules stops the build — the fences — and each is written in `.editorconfig` with
+the reason it stops, generated from `tools/gen_editorconfig.py` where the plan lives by family:
+culture, disposal, threading, security, correctness, performance, banned. Everything else is a
+suggestion the IDE shows, or off with its reason written. `TreatWarningsAsErrors` makes a fence a stop
+locally and in CI alike. A new instance of a fenced rule is a decision: fix it, or carry the reason
+beside the code (`#pragma warning disable RULE // why`, or `[SuppressMessage]` with a Justification);
+a blanket suppression is never the answer. StyleCop is not used. The process runs on the invariant
+culture from Main's first line (`CultureGuard`), and every formatting and parsing call names its
+provider anyway: the guard for the machine, the provider for the reader.
+
+**Why.** An analyzer earns its place by the bug class it stops, and a rule that stops the build has to
+be one the team would fix every time. Measured on this tree (round 70, `docs/ANALYSIS.md` §3) the
+rules that describe a show's failure modes found 145 sites formatting or comparing by the machine's
+locale — a Hamburg desk writing `0,5` on the wire, a Swedish one a Unicode minus — 39 disposable fields
+never disposed, 55 P/Invokes with no DLL search path on an exe meant to run from a stick, 29 regular
+expressions with no timeout on text from the wire and pages, 7 results ignored (a keep-awake and a
+registry write among them), blocking waits and unscheduled continuations that could land on the UI
+thread. Those are the fences. The rules about naming and API shape — 7,000 of the SDK's 7,359
+findings at every rule on, all 58,459 of StyleCop's — describe a library style that is not this desk's;
+they are switched off by name with the reason, rather than left to shout or half-enabled. Sonar's
+server was not adopted here because it cannot be proven here; its rules were, because they can.
+
+**Revisit when.** A SonarCloud dashboard is wanted (a token and one job; `docs/ANALYSIS.md` §7 has the
+shape); a fenced rule's written exceptions come to outnumber the sites it corrected (then the rule is
+wrong for this code and goes to suggestion with the reason written — CA1867 went that way in round 70,
+with nothing to fix and five sites it would have made wrong; CA2213 stays, with thirty-nine fixed and
+ten explained); or a failure in the field turns out to be a class a rule would have caught — then that
+rule joins the fences with the field's example as its reason.

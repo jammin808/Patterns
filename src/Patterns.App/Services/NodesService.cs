@@ -132,7 +132,7 @@ public sealed class NodesService
             if (reply.StartsWith("OK ", StringComparison.Ordinal))
             {
                 try { status = JsonDocument.Parse(reply[3..]).RootElement.Clone(); }
-                catch (JsonException) { }
+                catch (JsonException) { /* a status that is not JSON is shown as the raw reply */ }
             }
             rows.Add(new { node = arcades[i].Name, instance = arcades[i].Instance, address = arcades[i].Address?.ToString() ?? "", status, reply = status is null ? reply : "" });
         }

@@ -36,7 +36,9 @@ public readonly record struct RasterSize(int Width, int Height)
     public long Area => HasArea ? (long)Width * Height : 0;
 
     /// <summary>The same size on its side: a rotated display.</summary>
-    public RasterSize Transposed => new(Height, Width);
+    #pragma warning disable S2234 // a transpose swaps width and height by definition
+    public RasterSize Transposed => new(Width: Height, Height: Width);
+    #pragma warning restore S2234
 
     public override string ToString() => $"{Width}×{Height}";
 }

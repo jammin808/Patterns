@@ -51,9 +51,9 @@ public static class CueSheet
     private static readonly string[] ValueHeaders = { "Value", "Action value", "Parameter" };
     private static readonly string[] AfterHeaders = { "After", "Delay", "Wait", "Offset", "After (s)", "Delay (s)" };
 
-    private static readonly Regex BreakWord = new(@"\b(break|coffee|tea|interval|recess)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex LunchWord = new(@"\b(lunch|dinner|supper)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex EndWord = new(@"\b(end of (the )?(day|show|event)|close|closing|wrap|goodbye|finish)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex BreakWord = new(@"\b(break|coffee|tea|interval|recess)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled, SafeRegex.Timeout);
+    private static readonly Regex LunchWord = new(@"\b(lunch|dinner|supper)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled, SafeRegex.Timeout);
+    private static readonly Regex EndWord = new(@"\b(end of (the )?(day|show|event)|close|closing|wrap|goodbye|finish)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled, SafeRegex.Timeout);
 
     /// <summary>
     /// Every row becomes a cue. A Look column becomes an Apply look action (by name or id; an

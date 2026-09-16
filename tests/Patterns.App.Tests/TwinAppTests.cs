@@ -142,6 +142,7 @@ public class TwinAppTests
             }
             catch (TimeoutException)
             {
+                // nothing more came: what was read is the answer
             }
             reader.Dispose();
             peer.Dispose();

@@ -181,6 +181,7 @@ public class SnapshotSharingTests
         var (_, _, bus) = Rig();
         var cell = bus.Current.State.Pattern.Grid.CellSize;
         bus.Current.State.Pattern.Grid.CellSize = cell; // a no-op: nothing moved, nothing throws
+        Assert.Equal(cell, bus.Current.State.Pattern.Grid.CellSize);
     }
 
     [Fact]

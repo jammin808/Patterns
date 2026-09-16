@@ -14,11 +14,9 @@ public class PipCropTests
     {
         public FrameCrop? LastCrop;
         public SKRect LastDest;
-        public int Calls;
 
         public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
         {
-            Calls++;
             LastDest = dest;
             canvas.DrawRect(dest, new SKPaint { Color = SKColors.Red });
             return true;

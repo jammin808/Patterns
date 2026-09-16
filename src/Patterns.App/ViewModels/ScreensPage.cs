@@ -394,8 +394,7 @@ public sealed class ScreensPage : Observable
         {
             var n = SelectedNumber;
             if (n <= 0) return "";
-            var urls = _services.Control.RemoteUrls();
-            var url = urls.Skip(1).FirstOrDefault() ?? urls.FirstOrDefault() ?? "";
+            var url = _services.Control.ReachableUrl();
             return url.Length == 0 ? $"SCREEN {n} EDID on the wire" : $"{url}api/screens/{n}/edid.bin (also .hex, .txt) · SCREEN {n} EDID on the wire";
         }
     }

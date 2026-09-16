@@ -101,7 +101,7 @@ public class CallerLowerThirdsTests
         finally
         {
             host?.Dispose();
-            try { Directory.Delete(dir, true); } catch { }
+            try { Directory.Delete(dir, true); } catch { /* a temp folder left behind is not a failed test */ }
         }
     }
 

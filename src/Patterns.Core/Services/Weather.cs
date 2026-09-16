@@ -375,7 +375,7 @@ public static class WeatherWords
     public static IReadOnlyList<WeatherMark> Marks(IReadOnlyList<WeatherHour> hours, DateTime from, int stepHours, int count, WeatherUnits units)
     {
         var list = new List<WeatherMark>();
-        var at = new DateTime(from.Year, from.Month, from.Day, from.Hour, 0, 0);
+        var at = new DateTime(from.Year, from.Month, from.Day, from.Hour, 0, 0, from.Kind);
         for (var i = 0; i < count; i++)
         {
             WeatherHour? hit = null;

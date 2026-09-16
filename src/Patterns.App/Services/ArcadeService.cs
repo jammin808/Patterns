@@ -62,6 +62,7 @@ public sealed class ArcadeService : IDisposable
     private Thread? _thread;
     private Thread? _lane;
     private volatile bool _run;
+    private readonly ManualResetEventSlim _stop = new(false);   // set by Stop: the loop's pace wait ends at once
     private volatile int _width = DefaultWidth;
     private volatile int _height = DefaultHeight;
     private volatile int _fps = DefaultFps;
@@ -198,6 +199,7 @@ public sealed class ArcadeService : IDisposable
     public void Start()
     {
         if (_run) return;
+        _stop.Reset();
         _run = true;
         _thread = new Thread(Loop) { IsBackground = true, Name = "arcade", Priority = ThreadPriority.AboveNormal };
         _lane = new Thread(Lane) { IsBackground = true, Name = "arcade-lane" };
@@ -208,6 +210,7 @@ public sealed class ArcadeService : IDisposable
     public void Stop()
     {
         _run = false;
+        _stop.Set();
         _ring.Wake();
         var t = _thread;
         var l = _lane;
@@ -428,6 +431,13 @@ public sealed class ArcadeService : IDisposable
 
     // ---- the loop ---------------------------------------------------------------------------------
 
+    /// <summary>The pace wait before a frame, cut short by Stop; disposed under the loop, the loop ends at its next check.</summary>
+    private void Pause(int ms)
+    {
+        try { _stop.Wait(ms); }
+        catch (ObjectDisposedException) { _run = false; }
+    }
+
     private void Loop()
     {
         var clock = Stopwatch.StartNew();
@@ -440,7 +450,7 @@ public sealed class ArcadeService : IDisposable
                 var now = clock.Elapsed.TotalSeconds;
                 var wake = (Math.Floor(now * fps) + 1) / fps;
                 var wait = wake - now;
-                if (wait > 0.002) Thread.Sleep((int)((wait - 0.001) * 1000));
+                if (wait > 0.002) Pause((int)((wait - 0.001) * 1000));
                 while (clock.Elapsed.TotalSeconds < wake && _run) Thread.SpinWait(40);
                 now = clock.Elapsed.TotalSeconds;
                 var elapsed = last == 0 ? 1.0 / fps : now - last;
@@ -627,6 +637,7 @@ public sealed class ArcadeService : IDisposable
     public void Dispose()
     {
         Stop();
+        _stop.Dispose();
         lock (_gate)
         {
             if (_boardDirty) SaveBoard();

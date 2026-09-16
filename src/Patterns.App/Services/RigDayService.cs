@@ -20,7 +20,6 @@ public sealed class RigDayService
 {
     private readonly AppServices _s;
     private DateTime _lastFactsUtc = DateTime.MinValue;
-    private bool _wasFull;
     private readonly CelebrationTrack _track = new();
     private Celebration? _celebration;
     private int _lockedBefore;
@@ -120,7 +119,6 @@ public sealed class RigDayService
             _s.Calibration.Applied,
             _s.ShowLock.Locked,
             _s.Metrics.LastReport?.Overall));
-        _wasFull = Ready.IsFull;
         if (_track.Observe(Ready, Quest, now) is { } moment) Celebrate(moment);
     }
 
@@ -133,7 +131,7 @@ public sealed class RigDayService
         var word = (screenWord ?? "").Trim();
         var placement = _s.State.Output.Placements.FirstOrDefault(p => p.ScreenId == word)
                         ?? _s.State.Output.Placements.FirstOrDefault(p => string.Equals(NameOf(p.ScreenId), word, StringComparison.OrdinalIgnoreCase))
-                        ?? (word.Length == 0 ? _s.Calibration.Projectors().FirstOrDefault() : null);
+                        ?? (word.Length == 0 && _s.Calibration.Projectors() is { Count: > 0 } projectors ? projectors[0] : null);
         if (placement is null) return ActionResult.Refused(word.Length == 0 ? "ALIGN START <screen> — a projector with a calibration." : $"No screen '{word}'.");
         var solved = _s.Calibration.Solution?.Projectors.FirstOrDefault(p => p.ScreenId == placement.ScreenId);
         if (solved is null || solved.Mesh.Length == 0 && double.IsNaN(solved.FitResidualPx)) return ActionResult.Refused($"No calibration for {NameOf(placement.ScreenId)} — CALIBRATE RUN <camera> (or CALIBRATE DEMO) first; the solver's mesh is the target.");

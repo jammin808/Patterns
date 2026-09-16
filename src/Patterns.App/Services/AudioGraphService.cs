@@ -78,12 +78,14 @@ public sealed class AudioGraphService : IDisposable
         public readonly Dictionary<string, Input> Inputs = new(StringComparer.Ordinal);
         public Thread? Thread;
         public volatile bool Run;
+        public readonly ManualResetEventSlim Stop = new(false);   // set on close: the lane's pace wait ends at once
         public NdiSender? Sender;
         public float PeakDb = -60;
 
         public void Dispose()
         {
             Run = false;
+            Stop.Set();
             try
             {
                 Output?.Stop();
@@ -97,6 +99,14 @@ public sealed class AudioGraphService : IDisposable
             Output = null;
             Device = null;
             Thread = null;
+            Stop.Dispose();
+        }
+
+        /// <summary>The pace wait of the lane's thread, cut short by the close; closed under it, the loop ends at its next check.</summary>
+        public void Pause(int ms)
+        {
+            try { Stop.Wait(ms); }
+            catch (ObjectDisposedException) { Run = false; }
         }
     }
 
@@ -404,7 +414,7 @@ public sealed class AudioGraphService : IDisposable
             var now = sw.Elapsed.TotalMilliseconds;
             if (now < next)
             {
-                Thread.Sleep(1);
+                lane.Pause(1);
                 continue;
             }
             next += periodMs;
@@ -427,7 +437,7 @@ public sealed class AudioGraphService : IDisposable
             catch (Exception ex)
             {
                 Log.Warn("NDI audio lane error.", ex);
-                Thread.Sleep(100);
+                lane.Pause(100);
             }
         }
     }

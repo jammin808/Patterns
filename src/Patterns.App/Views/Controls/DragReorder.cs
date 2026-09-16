@@ -61,7 +61,6 @@ public static class DragReorder
 
     private static ItemsControl? _host;
     private static Control? _container;
-    private static int _from = -1;
     private static Point _start;
     private static bool _dragging;
 
@@ -74,7 +73,6 @@ public static class DragReorder
         if (container is null) return;
         _host = host;
         _container = container;
-        _from = host.IndexFromContainer(container);
         _start = e.GetPosition(host);
         _dragging = false;
         e.Pointer.Capture(grip);
@@ -109,7 +107,6 @@ public static class DragReorder
     {
         _host = null;
         _container = null;
-        _from = -1;
         _dragging = false;
     }
 

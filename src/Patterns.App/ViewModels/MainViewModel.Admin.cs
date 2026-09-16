@@ -43,7 +43,8 @@ public sealed partial class MainViewModel
         if (!Enum.TryParse<DeviceProfile>(profileName ?? "", ignoreCase: true, out var profile)) return;
         var device = Core.Services.DeviceProfiles.Preset(profile, State.Interactive.Devices.Count + 1);
         // A Companion heard announcing itself on the network is the one meant: its address goes in, and the words say so.
-        var heard = profile == DeviceProfile.Companion ? _services.Kernel.Mdns.Companions.FirstOrDefault() : null;
+        var companions = _services.Kernel.Mdns.Companions;
+        var heard = profile == DeviceProfile.Companion && companions.Count > 0 ? companions[0] : null;
         if (heard?.Address is not null) device.Port = heard.Address.ToString();
         State.Interactive.Devices.Add(device);
         StatusMessage = heard is not null
@@ -72,7 +73,8 @@ public sealed partial class MainViewModel
             // trigger for NOTE 1 53 127" into a port with nowhere to put the sentence.
             device.SpeaksProtocol = false;
             device.EchoReplies = false;
-            device.Port = MidiSurfaceLink.Inputs().FirstOrDefault() ?? "";
+            var inputs = MidiSurfaceLink.Inputs();
+            device.Port = inputs.Count > 0 ? inputs[0] : "";
             var starter = Core.Services.MidiSurfaces.For(device.Port);
             if (starter is not null) Core.Services.MidiSurfaces.Seed(device, starter);
             BulkEdit(() => State.Interactive.Devices.Add(device));

@@ -141,6 +141,7 @@ public sealed partial class TwinService
         }
         catch (OperationCanceledException)
         {
+            // stopped: the token was cancelled
         }
         catch (Exception ex) when (ct.IsCancellationRequested)
         {

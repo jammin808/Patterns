@@ -49,7 +49,7 @@ public sealed class HttpDeviceLink : IDeviceLink
         }
         var url = path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
             ? path
-            : baseUrl + (path.StartsWith("/", StringComparison.Ordinal) ? path : "/" + path);
+            : baseUrl + (path.StartsWith('/') ? path : "/" + path);
         return (method, url, body);
     }
 
@@ -79,7 +79,7 @@ public sealed class HttpDeviceLink : IDeviceLink
             using var request = new HttpRequestMessage(new HttpMethod(method), url);
             if (body.Length > 0)
             {
-                var json = body.StartsWith("{", StringComparison.Ordinal) || body.StartsWith("[", StringComparison.Ordinal);
+                var json = body.StartsWith('{') || body.StartsWith('[');
                 request.Content = new StringContent(body, Encoding.UTF8, json ? "application/json" : "text/plain");
             }
             using var response = await Client.SendAsync(request);

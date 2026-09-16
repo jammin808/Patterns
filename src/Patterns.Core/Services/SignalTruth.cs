@@ -505,8 +505,8 @@ public static class SignalTruth
 /// </summary>
 public static class SignalWords
 {
-    private static readonly Regex Raster = new(@"^(\d{3,5})[x×](\d{3,5})$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex Bits = new(@"^(8|10|12|16)(-?bits?)?$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex Raster = new(@"^(\d{3,5})[x×](\d{3,5})$", RegexOptions.Compiled | RegexOptions.IgnoreCase, SafeRegex.Timeout);
+    private static readonly Regex Bits = new(@"^(8|10|12|16)(-?bits?)?$", RegexOptions.Compiled | RegexOptions.IgnoreCase, SafeRegex.Timeout);
 
     public const string Vocabulary = "WxH, a rate (50, 59.94, 60000/1001), RGB / 444 / 422 / 420, 8 / 10 / 12 bit, FULL / LIMITED, SDR / HDR10 / HLG, 709 / P3 / 2020, STEREO / 8CH / NOAUDIO, HDMI / DP / SDI / DVI / VGA / USBC, DIAGNOSTIC, or CLEAR";
 

@@ -33,7 +33,7 @@ public class CuePageStabilityTests
     private static int CountChanges(INotifyCollectionChanged collection, Action act)
     {
         var seen = 0;
-        void Handler(object? _, NotifyCollectionChangedEventArgs __) => seen++;
+        void Handler(object? _, NotifyCollectionChangedEventArgs __) { seen++; }
         collection.CollectionChanged += Handler;
         try { act(); }
         finally { collection.CollectionChanged -= Handler; }

@@ -167,12 +167,7 @@ public sealed class WebFramePipeline : IDisposable
                         if (slot < 0)
                         {
                             // Every buffer is spoken for: the oldest waiting frame makes room — the room gets the fresher picture.
-                            var oldest = -1L;
-                            foreach (var id in _smoother.WaitingIds())
-                            {
-                                oldest = id;
-                                break;
-                            }
+                            var oldest = _smoother.OldestWaitingId();
                             if (oldest >= 0 && _smoother.Remove(oldest))
                             {
                                 pool.Release((int)oldest);
