@@ -8,6 +8,38 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 66 — 2026-09-16 — the God's Eye: the whole show as one picture, its problems worst first, the eye moved from the desk, a key or the wire
+
+`round-66` · PLAN §84 · REVIEW round 66 · 2,219 tests · module 3.7.0
+
+- **EYE** in the rail, above NODES, wears the worst light in the show and its headline (*Main LED:
+  MISMATCH — Rate: 50 Hz asked · 59.94 Hz observed*, or ALL GREEN). The **Eye page** is the whole
+  show as one picture — every display, screen (with its signal truth), source, device, deck (paired
+  or merely connected), Companion heard, node, the twin, the audience room, the stream, the NDI
+  sends, the audio sources, outputs and routes, the cue stack and the assistant — each a thing with
+  a light by the evidence rule (never a guess), every link a line with a light of its own, in four
+  bands: CONTROL, VIDEO, AUDIO, ROOM.
+- The method borrowed from `bilawalsidhu/gods-eye-view` and written up in `docs/EYE.md`: **click to
+  track** (a double-click puts the camera on the thing on a critically damped spring and dims the
+  rest by hop distance), the card with what it is, its words and what it links to, **NEXT PROBLEM**
+  through everything red or amber worst first (reds, then ambers; Video before Control before Audio
+  before Room; the cause before the symptom), lenses that keep one band, a headline that regenerates
+  with the view, **RESET** restoring the exact view from before the focus, and `EYE FOCUS <thing>`
+  on the wire as the handoff.
+- Right-click on the picture opens the thing's own desk menu — a screen its wall tile's, a cue its
+  cue's — or the Eye's: FOCUS, the whole picture, each contact, OPEN the page that shows it, ASK the
+  assistant with its facts and links in the question. The layout is a deterministic grid (no
+  simulation, nothing jitters); the picture is rebuilt only when the facts moved; the canvas draws
+  only on a change or while the camera moves.
+- On the wire: `EYE` (the picture as JSON), `EYE FOCUS <screen n | label | id>`, `EYE NEXT`,
+  `EYE PREV`, `EYE LENS <name>`, `EYE RESET` — desk verbs a cue never carries; STATE's `eye` row.
+  Companion module 3.7.0: the Eye preset page (the headline key lit by the worst light, NEXT / PREV
+  PROBLEM, a LENS key per lens, RESET), `eye_*` actions, feedbacks and variables. The assistant's
+  brief carries the picture in words under a rule — "what is wrong?" worst first, "what does X
+  depend on?" from its links. A `gods-eye` help topic.
+- Left with reasons (PLAN §84.6): the Eye is the desk's alone; the lights are now, not a trail;
+  the assistant reads the picture and does not act on it; no URL form of the handoff.
+
 ## Round 65 — 2026-09-16 — the rig's truth: what the machine is, what each link carries, what the far end receives, a rig commissioned on evidence
 
 `round-65` · PLAN §83 · REVIEW round 65 · 2,206 tests · module 3.6.0

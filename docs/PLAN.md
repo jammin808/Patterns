@@ -8572,3 +8572,183 @@ against what the tree already had and what this round did:
 
 Counts at the end of the round: Core 785, Rendering 648, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 719 — 2,206 in seven suites, the module's eighteen beside them.
+
+## 84. Round 66 — the God's Eye: the whole show as one picture, its problems worst first, the eye moved from the desk, a key or the wire
+
+The request: a "God's Eye" over the entire show — what is what, what is attached, what is
+communicating what with what, how everything links — an area where an operator sees the overview
+or selects and zooms in on a part of the show; working with or without the assistant, and with it
+enabled unlocking everything about everything connected and the show; the referenced project
+(`bilawalsidhu/gods-eye-view`) read and its focused method applied; a new rail item. `docs/EYE.md`
+is the research and the design (66.1) and the units below are what shipped: the picture in the
+core (66.2), on the desk (66.3), on the deck, in the brief and in the help (66.4), the papers (66.5).
+
+### 84.1 The method, read and transferred (66.1)
+
+- The referenced project is a globe with layers and one idea worth carrying whole: **click to
+  track**. Selecting a thing puts the camera on it, keeps its immediate contacts bright and dims
+  everything else by distance, with a roster of what it is linked to, a terse headline that
+  regenerates with the view, questions answered from the live facts of the thing under the eye, a
+  global context that restores the exact view, share links as handoffs, and one reset. Each of
+  those became a Patterns thing (EYE.md §1 and §3): focus and de-emphasis by hop distance, the
+  LINKED TO rows on the card, the headline under EYE in the rail, ASK with the thing's facts in
+  the question, RESET restoring the view from before the focus, and `EYE FOCUS <thing>` on the
+  wire as the handoff — a caller says "eye on screen 2" and the desk's picture is already there.
+- The field (EYE.md §2): on a show day the truth about the rig is split across the tools that own
+  a piece of it — a Dante controller, an NDI monitor, the switcher's own page, a processor's own
+  UI, Companion's connections page, the desk's Screens and Interactive pages — and none of them
+  shows the links across domains or orders what is wrong. The operator's blind spots are exactly
+  the links (what feeds what, what a deck drives) and the second-order effects (a source with no
+  frame feeding a screen whose own link is fine). The Eye is one picture across every plane the
+  desk knows, with the problems in one queue.
+- What it is not (EYE.md §5): a controller of its own — every verb it offers is the desk's own
+  action, so a key, the page, the wire and a menu do the same thing through the same layer; and it
+  never probes a network or a machine — it reads what the services already know.
+
+### 84.2 The picture in the core (66.2)
+
+- **Facts in, graph out.** `EyeFacts` is plain records — displays, screens with their signal
+  truth, sources on the input bus, devices, decks, Companions heard, wire and web clients, OSC,
+  the twin, the nodes, the audience room, the stream, the NDI sends, audio sources, outputs and
+  routes, the cue stack, the assistant — so a test hands facts in and the desk's gather is the
+  only place that knows a service. `EyeGraph.Build` makes a node per thing (id, kind, plane, tier,
+  label, sub, light, words, the page and item that show it, the desk menu it opens) and an edge
+  per link (from, to, kind — feeds, shows, drives, carries, controls, mirrors, follows, hears,
+  routes, serves, sends — light, words). Ids are deterministic (`screen:<id>`, `display:<id>`,
+  `source:<key>`, `device:<id>`, `deck:<name>@<address>`, `stack`, `assistant`, `desk`), so a
+  focus survives a rebuild and a wire line names a thing.
+- **The evidence rule for lights.** A node's light is the worst thing known about it, never a
+  guess: a screen that is disabled is grey *disabled* whatever else is known; its display missing
+  is red; MISMATCH is red with the mismatching line as its words; the test route amber; MATCH
+  green; a contract not yet verified grey *not verified*; no contract at all is green *showing ·
+  no contract* only while the outputs are live and the display is present — otherwise grey
+  *outputs closed* or *planned, no display*. A deck that said HELLO but never paired is amber
+  *connected, not paired — its keys do nothing*. A source mounted with no frame yet is amber; a
+  device the desk drives whose link is not open is red. The edge that carries a link wears the
+  same rule (the screen→display *drives* edge is red on a MISMATCH and says why).
+- **Planes and tiers, and a layout that is maths, not a simulation.** Four bands — CONTROL,
+  VIDEO, AUDIO, ROOM — with the desk in the middle of what it drives; within a band a thing's tier
+  is its distance from the desk in the flow (sources before screens before displays). The layout
+  (`EyeLayout.Place`) is a grid by band and tier: O(n), deterministic, nothing overlaps by
+  construction, the same picture on every machine and every rebuild. A force-directed layout was
+  considered and rejected: it jitters between frames, differs between runs, costs CPU every frame
+  and moves the things an operator has learnt the place of. The relaxation the plan named was
+  therefore not needed — the grid has nothing to relax.
+- **The camera is maths too.** `EyeCamera` is a scale and an offset with fit-to-rectangle, focus
+  (the node and its neighbours), zoom about the pointer (in log-scale space, so a wheel step is
+  the same ratio at any zoom), pan, and restore. Motion is a critically damped spring on the
+  offset and the log scale — `a = ω²(target − x) − 2ωv`, semi-implicit Euler sub-stepped at
+  1/120 s with the frame's dt clamped — so the view arrives fast, never overshoots and never
+  oscillates, with one parameter; `Snap` lands it for a test.
+- **Focus, hops and lenses.** Hop distance is a breadth-first walk from the focus that does not
+  expand *through* the desk hub — otherwise everything is two hops from everything, and a focus
+  dims nothing. Emphasis falls with hops to a floor, and the canvas eases it in time. Lenses: ALL,
+  VIDEO, CONTROL, AUDIO, ROOM keep one band and the desk; PROBLEMS keeps what is red or amber,
+  its neighbours and the desk.
+- **The headline and the problems queue.** Reds first, then ambers; within a light Video before
+  Control before Audio before Room (a wall that is wrong matters before a deck that is not paired);
+  within a plane upstream first (a red source before the red screen it feeds — the cause before the
+  symptom); then the label. The headline is the first problem and what is wrong, or *all green*;
+  `Next` and `Prev` step the queue and wrap. `Resolve(words)` takes an exact id, `desk`, a screen's
+  wire number (`screen 2` or `2`), then a whole label, then a part of one — problems first, so
+  "screen" on a rig with one red screen is that screen.
+- **On the wire.** `EYE` / `EYE STATUS` / `EYE GRAPH` answer the picture as one JSON (headline,
+  counts, problems, focus, lens, every node with its place and its own `wire` line, every edge);
+  `EYE FOCUS <words>`, `EYE NEXT`, `EYE PREV`, `EYE LENS <name>`, `EYE RESET` are actions through
+  the action layer, and `ActionSpec.DeskOnly` says why a cue never carries them: a running order
+  never moves the operator's eye. The Eye's own right-click menu (`EyeMenus.For`) is built in the
+  core like every other menu: FOCUS, the whole picture, NEXT PROBLEM, each contact as a FOCUS of
+  its own, OPEN the page that shows the thing, ASK with the thing's facts and links in the
+  question (WHY when it is a problem).
+
+### 84.3 The picture on the desk (66.3)
+
+- **`EyeService`** gathers the facts from the services once a second on the desk's tick (the
+  health area), serialises them compactly and keeps the hash: the graph and the layout are rebuilt
+  only when the hash moved, so a steady show rebuilds nothing and a change lands within a second.
+  A focus on a thing that left the picture is let go. The verbs (focus, next, prev, lens, reset)
+  return an `ActionResult` and raise one revision, so the page, the canvas and the rail redraw
+  once per change, never per tick. A wire query before the first tick reads the picture itself.
+- **The rail.** EYE sits above NODES on a desk (never on a node): its word is the worst light's
+  count — `2 RED`, `1 AMBER`, `ALL GREEN` — its hue the worst light, its line the headline; the
+  whole show's health is one glance from any page.
+- **The page.** The headline strip; lens chips; ◀ PREV · NEXT PROBLEM ▶ · RESET; the canvas; the
+  card on the right for the selected thing — kind · band · light, its words, FOCUS, OPEN <PAGE>
+  (the rail page that shows it, with it selected there, through the same `GoTo` every OPEN button
+  uses), ASK (the Eye menu's own question), and LINKED TO rows a click follows.
+- **The canvas** is one `Control` drawing the bands, the edges with their lights and the nodes with
+  level of detail (labels drop below a scale); formatted text, brushes and pens are cached per
+  node; the animation timer runs only while the camera or the emphasis moves. Wheel zooms at the
+  pointer, drag pans, click selects, double-click focuses (or resets on empty space), hover rings
+  the node; Esc resets, → ↓ N next problem, ← ↑ P previous, F / Enter focus the selection, Home
+  fits, + and − zoom. The focus keeps the view from before it and RESET restores that view exactly
+  (the referenced project's global context).
+- **Menus stay one.** A right-click asks the desk's menu host with kind `eye` and the node under
+  the pointer: a screen opens the wall tile's own menu (or the Screen menu when the wall has no
+  tile for it), a cue the cue's, anything else the Eye menu; every choice runs through
+  `RunMenuEntry`, so the wire hints, the tones and the disabled reasons are the ones the desk has
+  everywhere.
+- **The wire, STATE and the deck's word.** The router answers `EYE` with the JSON and carries the
+  verbs; STATE gains an `eye` row (headline, worst, its light and words, the counts, focus, lens).
+  A deck that presented the pairing token is now recorded as paired on the wire (`WireDeck.Paired`),
+  so the Eye can tell a paired deck from one merely connected — the amber that says its keys do
+  nothing.
+- **Found on the way.** A display the desk finds arrives as a placement that is *disabled* until
+  the operator turns it on, so a mismatching contract on such a screen is grey *disabled* with
+  *Result MISMATCH* in its words: kept, because a screen the operator switched off is not a problem
+  of the show, and the card says the result. The wire answers a verb with a bare `OK` — the view is
+  the answer, as for every other verb — and the STATE document is `STATUS` on the wire.
+
+### 84.4 The deck, the brief and the help (66.4)
+
+- **Companion module 3.7.0.** Actions `eye_focus` (`EYE FOCUS <words>`), `eye_next`, `eye_prev`,
+  `eye_lens` (a dropdown of the six lenses) and `eye_reset`; feedbacks `eye_worst` (the worst light
+  is red / amber / green) and `eye_problems` (something is red or amber); variables `eye_headline`,
+  `eye_worst`, `eye_problems`, `eye_focus`; an **Eye** preset page (GOD'S EYE lit by the worst
+  light, press steps to the next problem; NEXT / PREV PROBLEM; RESET; a LENS key per lens; WORST);
+  the `eye` colour family held equal on both sides by the palette test; a **God's Eye** group in
+  the connection's config. The module's lines test writes ten EYE lines the desk parses (256 in
+  all). A 3.6.0 deck ignores the row.
+- **The brief.** `ShowFacts.Eye` is `EyeGraph.Lines()` — the headline first, then every thing
+  with its plane, kind, label, light and words, then every link with its verb and light — under a
+  rule that says how to read it: red is wrong now, amber needs a look, green is right, grey is
+  off or unknown; answer "what is wrong?" from the problems in this order and "what does X depend
+  on?" from its links, never from a guess; `EYE FOCUS <thing>` on the wire puts the operator's eye
+  on it. The desk gathers it (`EyeLinesForBrief`, desk-only, guarded); the Eye menu's ASK carries
+  the selected thing's facts and links in the question.
+- **The help.** A `gods-eye` topic under RUNNING THE SHOW, filed on the Eye, Run, Screens and
+  Remote pages, with the steps, the keys and the wire line; `HelpBodies.Eye` says how the picture
+  is read, what the lights mean, what right-click does, and what the Eye is not.
+- **The papers of the wire.** REMOTE.md gains the `EYE` rows and STATE's `eye` row; COMPANION.md
+  §13 the module's words; the module's README its 3.7.0 entry.
+
+### 84.5 Performance and the tick
+
+The gather reads collections the services already hold and serialises a few kilobytes once a
+second on the desk's thread; the rebuild (graph, layout) runs only when that text changed; the
+canvas draws on a revision or while the camera moves, at 16 ms, and stops when still; text and
+brushes are cached by node; level of detail drops labels when the picture is small. None of this
+was measured on a rig — the Machine page's tick line names the *health* area if the gather ever
+costs a frame, and the cheaper change signal (a revision per service instead of a hash of the
+facts) is the first thing to do if it does. `docs/QUALIFICATION.md` §9 has the rows to fill on a
+rig: every thing of the rig in the picture once with the light its own page gives it, each break
+seen within a tick, the problems' order, RESET exact, the deck following, the tick's health area
+within its budget.
+
+### 84.6 What was left, and why
+
+- The Eye is the desk's picture: a caller, a timer or an arcade node has no EYE (they hold no
+  outputs, drive no devices); a standby's Eye reads its own services and shows the twin's link.
+- The lights are now. A trail — *was red at 19:32 for 40 s* — is the journal's; a timeline lens
+  over the journal's verdict lines is the natural next step.
+- The assistant reads the picture and answers from it; it does not act on it by itself. Every fix
+  is a desk verb the operator or a cue runs — the charter (EYE.md §5): the Eye is evidence, never
+  authority.
+- The handoff is `EYE FOCUS` on the wire; there is no URL form. The web remote opening the Eye at a
+  focus, and a search field on the page (Resolve is on the wire and in the menu), are small next
+  steps.
+- The layout is a grid: a show with dozens of sources makes a wide VIDEO band, answered today by
+  the wheel, the drag and the lenses; hiding what is grey (off) behind a chip is a candidate.
+
+Counts at the end of the round: Core 795, Rendering 648, Devices 7, Audio 9, Assistant 37,
+Audience 2, App 721 — 2,219 in seven suites, the module's nineteen beside them.

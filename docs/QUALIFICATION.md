@@ -193,6 +193,38 @@ journals once more and the rows are green again.
 |------|---------|-----------------------|--------------|--------------------------|-----------------------------------------------------|---------------------|--------|-------|
 |      |         |                       |              |                          |                                                     |                     |        |       |
 
+## 9. The God's Eye on a rig
+
+**Set up.** The show machine with the rig of §7 and §8 — several displays, a processor, a deck
+running Companion 3.7.0, a device the desk drives, an NDI feed or a capture card as a source, the
+audio routing on — and the desk on the Eye page (EYE in the rail, above NODES).
+
+**Do.** Read the picture cold: every display, screen, source, device and deck of the rig should
+be there with the light the Screens, Interactive and Remote pages give it, and nothing else.
+Then break one link at a time and watch the rail and the page: pull a display's cable (its screen
+red, the display gone), set a contract Windows does not send (MISMATCH), power a driven device
+down (red), connect a deck without its pairing token (amber, *connected, not paired*), stop the
+source's feed (amber, *no frame yet*). Press NEXT PROBLEM through them, double-click one, RESET,
+right-click a screen (its tile menu) and a device (the Eye menu, OPEN and ASK). On the deck: the
+Eye page's headline key and NEXT PROBLEM; from a controller, `EYE FOCUS screen 2`.
+
+**Read.** The rail's EYE word and hue against Super Check's overall light; `EYE` on the wire
+(the counts, the problems' order); STATE's `eye` row against the deck's `$(patterns:eye_headline)`;
+the Machine page's tick line for the *health* area while the picture is steady and while it
+changes; the canvas's smoothness while the camera moves (no hitch on the outputs' frame budget).
+
+**Pass.** Every thing of the rig is in the picture once, with the same light the page that owns
+it shows and a link to what feeds, drives or shows it; each break turns its thing and its link the
+expected colour within one tick and the headline names it; NEXT PROBLEM walks reds before ambers
+and the wall before the deck; RESET restores the exact view from before the focus; the deck's
+headline key follows the rail's light within a STATE push; the *health* area of the tick stays
+inside its budget with the Eye's gather on it (a steady show costs no rebuild), and a camera move
+never shows on the outputs' frame budget.
+
+| date | machine | build / manifest hash | things in the picture = things on the rig | breaks seen (display · contract · device · deck · source) | NEXT PROBLEM order right | RESET exact | deck follows | health area within budget | result |
+|------|---------|-----------------------|--------------------------------------------|------------------------------------------------------------|--------------------------|-------------|--------------|---------------------------|--------|
+|      |         |                       |                                            |                                                            |                          |             |              |                           |        |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute

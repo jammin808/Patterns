@@ -23,6 +23,18 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The God's Eye** — EYE in the rail, above NODES, wears the worst light in the show and its
+  headline (*Main LED: MISMATCH — Rate: 50 Hz asked · 59.94 Hz observed*, or ALL GREEN); the Eye
+  page is the whole show as one picture — every display, screen, source, device, deck, node, audio
+  path, the room, the stream and the cue stack, each with its light by the evidence rule and every
+  link with a light of its own — in four bands, zoomed and panned; a click selects (the card says
+  what it is, its words and what it links to), a double-click focuses (the camera glides, the rest
+  dims by distance), **NEXT PROBLEM** steps through everything red or amber worst first, lenses keep
+  one band, RESET puts the view back. Right-click opens the thing's own desk menu or the Eye's
+  (FOCUS, contacts, OPEN, ASK). Rebuilt only when the facts move. `EYE`, `EYE FOCUS screen 2`,
+  `EYE NEXT`, `EYE LENS audio`, `EYE RESET` on the wire, STATE's `eye` row, Companion 3.7.0's Eye
+  page, the assistant's brief. The method and the field: `docs/EYE.md`; the design: `docs/PLAN.md`
+  §84.
 - **The rig's truth** — every screen's link has a **signal contract** (`3840x2160 50 RGB 8 SDR
   709 HDMI`, an exact rate: 59.94 is not 60) and the Screens page's technical view holds it
   against three witnesses: what the display's **EDID advertises** (read from Windows and parsed —
@@ -275,7 +287,7 @@ fault containment, and settings that can never brick startup.
 - **Nodes: a caller's own Patterns, and the desk that finds it** — `Patterns.exe --node caller`
   is the same build as a small process: the Show pages alone, no outputs, no generators, planning
   cues at home on its own show file. At the venue the beacon shows it on the desk's Nodes page
-  (NODES in the rail, above STREAM: `1 NEAR`, `1 LINKED`) and the desk on its; LINK with the
+  (NODES in the rail, between EYE and STREAM: `1 NEAR`, `1 LINKED`) and the desk on its; LINK with the
   desk's key and the desk's show lands on the caller, the cues it planned are offered to the desk
   as a diff ("2 cues to add, 1 the desk has that the plan does not") for APPLY — a version kept
   first — and during the show its GO, STANDBY and HOLD run on the desk as the caller's own hand

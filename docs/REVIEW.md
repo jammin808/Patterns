@@ -2134,3 +2134,72 @@ P1.6 done (65.4, then peeled in 65.12). P1.7 done (65.4). The roadmap handed in 
 is answered line by line in PLAN §83.14: its Phase 1 was these items; its Phase 3 is 65.6 to
 65.11; its architecture items are 65.12 or a recorded decision (ADR-010, ADR-011); what was
 deferred says why.
+
+## Round 66 review — the God's Eye: the whole show as one picture, its problems worst first, the eye moved from the desk, a key or the wire
+
+### 66.1 — the method, read and transferred
+
+- **Done.** The referenced project read for its method — click-to-track focus with the rest dimmed
+  by distance, a contacts roster, a global context that restores the exact view, a terse headline
+  regenerated with the view, questions grounded in the thing's live facts, share links as
+  handoffs, one reset — and each carried into a Patterns thing; the field's overview tools and
+  their gaps surveyed; the design written before the code (`docs/EYE.md`). §84.1.
+
+### 66.2 — the picture in the core
+
+- **Done.** `EyeFacts` → `EyeGraph` (nodes with kinds, planes, tiers, lights by the evidence rule,
+  words, routes, menu kinds; edges with kinds and lights), a deterministic grid layout by band and
+  tier, `EyeCamera` on a critically damped spring, lenses, hop distance and emphasis, the headline
+  and the problems queue, `Resolve`, `EyeJson`, `EyeMenus`, the wire grammar (`EYE`, `EYE FOCUS`,
+  `EYE NEXT` / `PREV`, `EYE LENS`, `EYE RESET`) and its desk-only reasons; ten Core tests. §84.2.
+- **Found on the way:** a breadth-first walk that expanded through the desk hub made everything
+  two hops from everything, so a focus dimmed nothing — the walk now stops at the desk unless the
+  desk is the focus. A planned display counted as present made a planned screen *showing*; the
+  rule reads present as *found and not planned*. The problems queue's first expectation in the
+  test named the red screen; the queue puts the red source that feeds it first — the cause before
+  the symptom — and the test was corrected, not the rule. `IReadOnlyList` has no `IndexOf`: the
+  graph answers `ProblemIndex` itself.
+
+### 66.3 — the picture on the desk
+
+- **Done.** `EyeService` (the facts gathered on the tick, hashed, the picture rebuilt only when
+  they moved, the verbs through the action layer), EYE above NODES in the rail with the worst light
+  as its hue and the headline as its line, the Eye page (the canvas with pan, zoom at the pointer,
+  click, double-click, hover and the keys; the lens chips; PREV / NEXT PROBLEM / RESET; the card
+  with the words, FOCUS / OPEN / ASK and the LINKED TO rows), right-click opening the thing's own
+  desk menu or the Eye's, the router's `EYE` and verbs, STATE's `eye` row, `WireDeck.Paired`; two
+  App tests. §84.3.
+- **Found on the way:** a display the desk finds arrives as a placement that is disabled until the
+  operator turns it on, so the test's mismatching screen came back grey *disabled* with the
+  MISMATCH in its words — the rule was right and the test enables the screen as the operator does.
+  The wire answers a verb with a bare `OK` and the STATE document is `STATUS`, as everywhere; the
+  test had assumed the verb's message travelled. The shell test that pins the SHOW group's chips to
+  Panel and Run gains Eye.
+
+### 66.4 — the deck, the brief and the help
+
+- **Done.** Companion module 3.7.0 (five actions, two feedbacks, four variables, the Eye preset
+  page, the `eye` colour family, a config group; the fixture's `eye` row; a node test; the lines
+  file with ten EYE lines the desk parses), `ShowFacts.Eye` with its rule in the brief and the desk
+  gathering it, the `gods-eye` help topic, REMOTE.md and COMPANION.md; a Core test for the help, an
+  Assistant test for the brief. §84.4.
+- **Found on the way:** the module's palette families are read from `palette.js` by the desk's
+  test and held equal to `CompanionPalette` — a new family lands on both sides or the Core suite
+  says so.
+
+### Found by CI
+
+- Run 237 — the round-65 papers (65.13), the last push before this round — was green on every
+  lane, the module's package test and the Windows lane's signal report included; round 65 closed
+  with nothing found by CI after run 236.
+- The round's commits went up together after every suite ran green here (Core 795, Rendering 648,
+  Devices 7, Audio 9, Assistant 37, Audience 2, App 721; the module's nineteen). CI's verdict on
+  them — the Linux lanes, the module's package test and the Windows lane — is read at the
+  check-in after the push and, if anything is red, is the first item of the next round.
+
+### The review's items, answered
+
+The round-65 review left no open items; the roadmap's deferred rows (PLAN §83.14) stand. This
+round answers the field's request for one picture of the show with the picture in the core, on
+the desk, on the deck and in the brief, and records what it is not (§84.6): evidence, never
+authority; the desk's alone; the lights of now.
