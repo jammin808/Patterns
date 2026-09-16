@@ -71,8 +71,22 @@ public sealed record AudioSourceInfo(string Id, string Label, RoutedSourceKind K
 /// <summary>A destination as the matrix lists it: configured (a row in the show) or merely present on this machine.</summary>
 public sealed record AudioDestinationInfo(string Key, string Label, AudioDestinationKind Kind, bool Configured, bool Present);
 
-/// <summary>One lane of a destination's plan: a source at a gain, the VOG policy already applied.</summary>
-public readonly record struct AudioLane(string Source, double LevelDb, double Gain);
+/// <summary>One lane of a destination's plan: a source at a gain, the VOG policy already applied; <see cref="Followed"/> when the picture made the route rather than a row (round 69).</summary>
+public readonly record struct AudioLane(string Source, double LevelDb, double Gain, bool Followed = false);
+
+/// <summary>
+/// A route the picture makes (round 69): the sound of what a screen shows, on the output the screen
+/// names — the programme's while it shows the programme, its own picture's while it shows one of
+/// its own, the repeated target's while it repeats one. Derived, never stored; it moves with the take.
+/// </summary>
+public sealed record FollowedRoute(string ScreenId, string Source, string Destination);
+
+/// <summary>
+/// A crosspoint as the matrix reads it now: the operator's own row, or one the picture made where
+/// no row names that crosspoint. The operator's row wins — a level, a mute or a row switched off
+/// stands whatever the picture is doing.
+/// </summary>
+public sealed record EffectiveRoute(string Source, string Destination, double LevelDb, bool Enabled, bool Followed, string ScreenId = "");
 
 /// <summary>What one destination should be doing right now.</summary>
 public sealed record AudioDestinationPlan(string Key, string Label, AudioDestinationKind Kind, int DelayMs, bool Mute, AudioVogMode VogMode, IReadOnlyList<AudioLane> Lanes)
@@ -214,6 +228,118 @@ public static class AudioRouting
     public static string SourceLabel(ShowState state, string sourceId)
         => Sources(state).FirstOrDefault(s => s.Id == sourceId)?.Label ?? (sourceId.StartsWith(ScreenPrefix, StringComparison.Ordinal) ? AudioMonitorRule.LabelFor(state, sourceId[ScreenPrefix.Length..]) : sourceId);
 
+    // ---- the sound follows the picture (round 69) ------------------------------------------------
+
+    /// <summary>
+    /// The source a screen's picture makes right now: the programme while the screen shows the
+    /// programme; its own picture's soundtrack (<c>screen:&lt;id&gt;</c>) while it shows one of its own;
+    /// the joined canvas's while it is a member of a canvas with a picture of its own; and a
+    /// repeater's is the repeated target's, to the end of the mirror chain. Null for a screen the
+    /// rig has not got. The rule the matrix's derived routes and the Screens page's words share.
+    /// </summary>
+    public static string? SourceOfScreen(ShowState state, string screenId)
+    {
+        if (string.IsNullOrEmpty(screenId)) return null;
+        if (state.Output.Placements.All(p => p.ScreenId != screenId)) return null;
+        var target = ScreenRoles.ResolveMirror(state, screenId);
+        if (!ContentTargets.IsCanvasKey(target))
+        {
+            // A member of a joined canvas with a picture of its own shows the canvas's picture, not its own.
+            foreach (var c in state.Output.CanvasNames)
+            {
+                if (!c.UseCustomPattern) continue;
+                if (ContentTargets.Members(c.MemberKey).Contains(target, StringComparer.Ordinal)) return ScreenSource(c.MemberKey);
+            }
+        }
+        return ContentTargets.UsesOwnPattern(state, target) ? ScreenSource(target) : Programme;
+    }
+
+    /// <summary>
+    /// The routes the picture makes: one for every enabled screen that names a sound output, from
+    /// the source its picture makes now to that output — none while the show does not let the
+    /// sound follow the picture. Read at every plan, so a TAKE that changes what a screen shows
+    /// changes what its output carries without a row being touched.
+    /// </summary>
+    public static IReadOnlyList<FollowedRoute> FollowedRoutes(ShowState state)
+    {
+        var list = new List<FollowedRoute>();
+        if (!state.AudioRouting.FollowPicture) return list;
+        foreach (var p in state.Output.Placements)
+        {
+            if (!p.Enabled || p.AudioOutput.Length == 0) continue;
+            var source = SourceOfScreen(state, p.ScreenId);
+            if (source is null) continue;
+            list.Add(new FollowedRoute(p.ScreenId, source, p.AudioOutput));
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Every crosspoint the matrix reads now: the operator's rows first, in their order, then the
+    /// routes the picture makes where no row names the same crosspoint (at 0 dB — the row's trim
+    /// still applies). A row for the crosspoint, on or off, is the operator's word and wins.
+    /// </summary>
+    public static IReadOnlyList<EffectiveRoute> EffectiveRoutes(ShowState state)
+    {
+        var list = new List<EffectiveRoute>();
+        foreach (var r in state.AudioRouting.Routes)
+        {
+            if (r.Source.Length == 0 || r.Destination.Length == 0) continue;
+            list.Add(new EffectiveRoute(r.Source, r.Destination, r.LevelDb, r.Enabled, false));
+        }
+        foreach (var f in FollowedRoutes(state))
+        {
+            if (list.Any(e => string.Equals(e.Source, f.Source, StringComparison.OrdinalIgnoreCase) && string.Equals(e.Destination, f.Destination, StringComparison.OrdinalIgnoreCase))) continue;
+            list.Add(new EffectiveRoute(f.Source, f.Destination, 0, true, true, f.ScreenId));
+        }
+        return list;
+    }
+
+    /// <summary>The route the picture makes for a crosspoint, or null — the matrix's cell reads it to say "follows the picture".</summary>
+    public static FollowedRoute? FollowedRoute(ShowState state, string source, string destination)
+        => FollowedRoutes(state).FirstOrDefault(f => string.Equals(f.Source, source, StringComparison.OrdinalIgnoreCase) && string.Equals(f.Destination, destination, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A hash of the routes the picture makes now: the audio graph folds it into its topology signature, so a take rebuilds the lanes and a quiet tick does not.</summary>
+    public static long FollowSignature(ShowState state)
+    {
+        var h = new HashCode();
+        h.Add(state.AudioRouting.FollowPicture);
+        foreach (var f in FollowedRoutes(state))
+        {
+            h.Add(f.ScreenId);
+            h.Add(f.Source);
+            h.Add(f.Destination);
+        }
+        return h.ToHashCode();
+    }
+
+    /// <summary>"the programme" / "its own picture" / "the canvas Wall's picture" / "Main's picture (repeated)" — what a screen's sound is, for the desk's words.</summary>
+    public static string SourceOfScreenWords(ShowState state, string screenId)
+    {
+        var source = SourceOfScreen(state, screenId);
+        if (source is null) return "no such screen";
+        if (source == Programme) return "the programme";
+        var target = source[ScreenPrefix.Length..];
+        var repeated = ScreenRoles.ResolveMirror(state, screenId) != screenId;
+        if (target == screenId) return "its own picture";
+        var label = AudioMonitorRule.LabelFor(state, target);
+        return ContentTargets.IsCanvasKey(target) && !repeated ? $"the canvas {label}'s picture" : $"{label}'s picture{(repeated ? " (repeated)" : "")}";
+    }
+
+    /// <summary>
+    /// The Audio page's second line and the wire's word: "Sound follows the picture on 3 screens:
+    /// Main → Room desk (the programme), Info → Info HDMI (its own picture), Stage left → Stage HDMI
+    /// (Main's picture, repeated)." / "… — no screen names a sound output yet (Screens page → Sound out)." / "…: off — the rows alone."
+    /// </summary>
+    public static string FollowWords(ShowState state)
+    {
+        if (!state.AudioRouting.FollowPicture) return "Sound follows the picture: off — the matrix is the rows alone.";
+        var followed = FollowedRoutes(state);
+        if (followed.Count == 0) return "Sound follows the picture — no screen names a sound output yet (Screens page → Sound out, or SCREEN n AUDIO <output>).";
+        var parts = followed.Select(f => $"{AudioMonitorRule.LabelFor(state, f.ScreenId)} → {DestinationLabel(state, f.Destination)} ({SourceOfScreenWords(state, f.ScreenId)})");
+        return $"Sound follows the picture on {followed.Count} screen{(followed.Count == 1 ? "" : "s")}: {string.Join(", ", parts)}.";
+    }
+
     /// <summary>
     /// Every destination: the show's configured rows first, in their order, then every output this
     /// machine has and every NDI send the show runs that has no row yet — present but unrouted, so
@@ -346,9 +472,9 @@ public static class AudioRouting
 
     // ---- the plan ------------------------------------------------------------------------------
 
-    /// <summary>The duck level for a destination in dB: its own, else the show's.</summary>
-    public static double DuckDbFor(ShowState state, AudioDestinationConfig row)
-        => row.VogDuckDb ?? Db.FromPercent(state.Stingers.DuckPct);
+    /// <summary>The duck level for a destination in dB: its own, else the show's (a destination the picture alone routes to has no row and takes the show's).</summary>
+    public static double DuckDbFor(ShowState state, AudioDestinationConfig? row)
+        => row?.VogDuckDb ?? Db.FromPercent(state.Stingers.DuckPct);
 
     /// <summary>
     /// What every configured destination should carry right now. <paramref name="vogPlaying"/> is
@@ -360,21 +486,35 @@ public static class AudioRouting
     {
         var plans = new List<AudioDestinationPlan>();
         if (!state.AudioRouting.Enabled) return plans;
+        var routes = EffectiveRoutes(state);
+        // The destinations: the rows in their order, then the outputs the picture alone routes to (round 69) — no row, the defaults.
+        var keys = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in state.AudioRouting.Destinations)
         {
-            if (row.Key.Length == 0) continue;
+            if (row.Key.Length > 0 && seen.Add(row.Key)) keys.Add(row.Key);
+        }
+        foreach (var route in routes)
+        {
+            if (route.Followed && seen.Add(route.Destination)) keys.Add(route.Destination);
+        }
+        foreach (var key in keys)
+        {
+            var row = Row(state, key);
             var lanes = new List<AudioLane>();
-            var trim = row.TrimDb;
-            foreach (var route in state.AudioRouting.Routes)
+            var trim = row?.TrimDb ?? 0;
+            var mute = row?.Mute ?? false;
+            var vogMode = row?.VogMode ?? AudioVogMode.Duck;
+            foreach (var route in routes)
             {
-                if (!route.Enabled || !string.Equals(route.Destination, row.Key, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!route.Enabled || !string.Equals(route.Destination, key, StringComparison.OrdinalIgnoreCase)) continue;
                 if (lanes.Any(l => string.Equals(l.Source, route.Source, StringComparison.OrdinalIgnoreCase))) continue;
                 var db = route.LevelDb + trim;
-                var gain = row.Mute ? 0 : Db.ToGain(db);
+                var gain = mute ? 0 : Db.ToGain(db);
                 if (vogPlaying)
                 {
                     var isVog = string.Equals(route.Source, Vog, StringComparison.OrdinalIgnoreCase);
-                    switch (row.VogMode)
+                    switch (vogMode)
                     {
                         case AudioVogMode.Duck when !isVog:
                             gain *= Db.ToGain(DuckDbFor(state, row));
@@ -387,15 +527,15 @@ public static class AudioRouting
                             break;
                     }
                 }
-                lanes.Add(new AudioLane(route.Source, db, gain));
+                lanes.Add(new AudioLane(route.Source, db, gain, route.Followed));
             }
-            plans.Add(new AudioDestinationPlan(row.Key, DestinationLabel(state, row.Key), IsNdi(row.Key) ? AudioDestinationKind.Ndi : AudioDestinationKind.Device,
-                row.DelayMs, row.Mute, row.VogMode, lanes));
+            plans.Add(new AudioDestinationPlan(key, DestinationLabel(state, key), IsNdi(key) ? AudioDestinationKind.Ndi : AudioDestinationKind.Device,
+                row?.DelayMs ?? 0, mute, vogMode, lanes));
         }
         return plans;
     }
 
-    /// <summary>The plan for one destination, or null when it has no row (or the matrix is off).</summary>
+    /// <summary>The plan for one destination, or null when nothing routes to it (or the matrix is off).</summary>
     public static AudioDestinationPlan? PlanFor(ShowState state, string key, bool vogPlaying)
         => Resolve(state, vogPlaying).FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
 
@@ -498,7 +638,7 @@ public static class AudioRouting
         var cfg = state.AudioRouting;
         if (!cfg.Enabled) return "Routing off — the programme's outputs carry the show's sound and the monitor the operator's, as before. Switch it on to choose which soundtrack goes where.";
         var rows = cfg.Destinations.Where(d => d.Key.Length > 0).ToList();
-        if (rows.Count == 0) return "Routing on with nothing routed yet — everything is silent until a source is put on a destination (SEED DEFAULTS puts the show's sound on the programme's outputs).";
+        if (rows.Count == 0 && !EffectiveRoutes(state).Any(r => r.Followed)) return "Routing on with nothing routed yet — everything is silent until a source is put on a destination (SEED DEFAULTS puts the show's sound on the programme's outputs).";
         var routes = cfg.Routes.Count(r => r.Enabled);
         var parts = new List<string> { $"Routing on: {routes} route{(routes == 1 ? "" : "s")} on {rows.Count} destination{(rows.Count == 1 ? "" : "s")}." };
         var replace = rows.Where(r => r.VogMode == AudioVogMode.Replace).Select(r => DestinationLabel(state, r.Key)).ToList();
@@ -509,7 +649,10 @@ public static class AudioRouting
         if (replace.Count > 0) vog.Add("replaces on " + string.Join(", ", replace));
         if (leave.Count > 0) vog.Add("stays off " + string.Join(", ", leave));
         if (vog.Count > 0) parts.Add("A VOG " + string.Join(", ", vog) + ".");
-        var unrouted = Sources(state).Where(s => !cfg.Routes.Any(r => r.Enabled && string.Equals(r.Source, s.Id, StringComparison.OrdinalIgnoreCase))).Select(s => s.Label).ToList();
+        var effective = EffectiveRoutes(state);
+        var followed = effective.Count(r => r.Followed);
+        if (followed > 0) parts.Add($"The picture makes {followed} more.");
+        var unrouted = Sources(state).Where(s => !effective.Any(r => r.Enabled && string.Equals(r.Source, s.Id, StringComparison.OrdinalIgnoreCase))).Select(s => s.Label).ToList();
         if (unrouted.Count > 0) parts.Add("Silent: " + string.Join(", ", unrouted) + ".");
         return string.Join(" ", parts);
     }
@@ -527,8 +670,8 @@ public static class AudioRouting
             AudioVogMode.Leave => "VOG stays off it",
             _ => $"VOG ducks the rest to {Db.Text(DuckDbFor(state, row))}",
         });
-        var lanes = state.AudioRouting.Routes.Where(r => r.Enabled && string.Equals(r.Destination, row.Key, StringComparison.OrdinalIgnoreCase))
-            .Select(r => $"{SourceLabel(state, r.Source)} {Db.Text(r.LevelDb)}").ToList();
+        var lanes = EffectiveRoutes(state).Where(r => r.Enabled && string.Equals(r.Destination, row.Key, StringComparison.OrdinalIgnoreCase))
+            .Select(r => $"{SourceLabel(state, r.Source)} {Db.Text(r.LevelDb)}{(r.Followed ? " (follows the picture)" : "")}").ToList();
         parts.Add(lanes.Count == 0 ? "nothing routed" : string.Join(", ", lanes));
         return string.Join(" · ", parts);
     }

@@ -511,6 +511,7 @@ public sealed partial class MainViewModel
         // A join creates and destroys canvases, so the tile picker's targets move with the wall.
         RebuildMultiviewTargets();
         Screens.RebuildMirrorSources();
+        Screens.RebuildAudioOutputChoices();
     }
 
     /// <summary>
@@ -953,6 +954,16 @@ public sealed partial class MainViewModel
                     RebuildSwitcherTiles();
                     RefreshTakeScope();
                     Screens.RaiseSelection();
+                }
+                break;
+            case ShowActionKind.ScreenAudio:
+            case ShowActionKind.AudioFollow:
+                // Round 69: a screen's sound output or the follow switch moved — from the Screens page, a tile's menu, the
+                // wire, a cue or the deck: the Screens page's picker and words and the Audio page's matrix read it at once.
+                if (result.Ok)
+                {
+                    Screens.RaiseSelection();
+                    Audio.RefreshRouting(force: true);
                 }
                 break;
             case ShowActionKind.OutputsOn:

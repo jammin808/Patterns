@@ -10,7 +10,7 @@ import { configFields, connectionTarget, groupEnabled, groupOf } from './config.
 import { emptyState, showSignature, upcoming, variableValues } from './state.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.9.0'
+export const MODULE_VERSION = '3.10.0'
 
 /** What the state carries that a feedback reads: every boolean feedback is rechecked on every STATE. */
 class PatternsInstance extends InstanceBase {

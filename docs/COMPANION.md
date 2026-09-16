@@ -295,6 +295,26 @@ and no new colours: the presenter family's shades serve. A 3.8.0 deck ignores th
 The point on a show: a key that reads *smooth 2 (67 ms) · 30 → 30 fps* beside the page's name says the
 video is smooth before the room does, and a stall lights a key rather than being noticed on the wall.
 
+## 16. Round 69 additions
+
+**The sound follows the picture, version 3.10.0.** Each screen names the output its sound leaves by
+(`SCREEN n AUDIO <output>`; the new `screen_audio` action, blank or OFF for none), and the matrix derives
+the route from what the screen shows now — the programme's sound while it shows the programme, its own
+picture's while it shows one of its own, the repeated screen's while it repeats — moving with every take.
+`AUDIO FOLLOW ON|OFF|TOGGLE` (the `audio_follow` action; a FOLLOW key beside ROUTING on the Audio page)
+switches the derivation; the operator's own rows win where both name a crosspoint. STATE's `audioRouting`
+row gains `follow`, `followWords` and `followed` (screen, source, destination, label, what), each
+destination `row` (false for an output the picture alone routes to) and each lane `followed`; each
+screen's row gains `audioOut`, `audioOutLabel` and `audioSource`. Feedbacks `audio_follow_on` and
+`screen_sound_out` (screen *n* names an output); variables `audio_follow`, `audio_follow_words` and
+`screen_n_audio`. Two shades: the audio family's `follow` (sky) and the screen family's `sound` (blue),
+held equal on both sides by the palette test. A 3.9.0 deck ignores the rows.
+
+The point on a show: a video on the main screen and its repeaters and a playlist with a soundtrack of its
+own on the info screens — the room hears the video through the main's and the repeaters' outputs, the
+info screens' outputs carry the playlist, and the TAKE that puts the video on the info screens too moves
+their sound with it. The deck's screen key reads the output; nobody re-routes on a cue.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

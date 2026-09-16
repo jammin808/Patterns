@@ -21,6 +21,8 @@ export function buildFeedbacks(ctx) {
 			{ id: 'main', label: 'Main' }, { id: 'confidence', label: 'Confidence' }, { id: 'info', label: 'Info' }, { id: 'repeater', label: 'Repeater' },
 		] }], (fb) => s().screens?.some((x) => x.n === fb.options.n && norm(x.role) === norm(fb.options.group)) === true),
 		screen_ticked: bool('Screen is ticked on the wall (a TICKED take, a fade or SEND TO TICKED reads it)', style('screen', 'armed'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.ticked) === true),
+		// Round 69: the screen names a sound output — its picture's sound follows to it.
+		screen_sound_out: bool("Screen names a sound output — its picture's sound follows to it (round 69)", style('screen', 'sound'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && Boolean(x.audioOut)) === true),
 		take_next_set: bool('A one-shot is pending — the next TAKE arrives by a transition or a sting of its own', style('take', 'next'), [], () => s().take?.next?.set === true),
 		take_next_sting: bool('The next TAKE arrives under a video sting', style('take', 'sting'), [], () => s().take?.next?.set === true && Boolean(s().take?.next?.sting)),
 		// Faded to black on its own (FADE … SCREEN n / GROUP A / FOCUSED / TICKED) — the blackout is a separate feedback.
@@ -115,6 +117,7 @@ export function buildFeedbacks(ctx) {
 			return !word || String(w.url || '').toLowerCase().includes(word) || String(w.page || '').toLowerCase().includes(word)
 		}),
 		audio_routing_on: bool('The routing matrix is in charge of which soundtrack goes where', style('audio', 'playing'), [], () => !!(s().audioRouting && s().audioRouting.on)),
+		audio_follow_on: bool("The sound follows the picture — each screen's named output carries what its picture is (round 69)", style('audio', 'follow'), [], () => !!(s().audioRouting && s().audioRouting.follow)),
 		web_armed: bool("A web page's video is armed — held at its mark, to play when the page goes to air", style('presenter', 'on'), [], () => !!s().webArmed),
 		web_advert: bool('An advert is showing over the web page on air (Patterns skips it when the site allows)', style('presenter', 'out'), [], () => !!(s().web && s().web.player && s().web.player.ad)),
 		// Round 68: the page's picture on its way to the glass — buffered for a regular picture, or stalled.

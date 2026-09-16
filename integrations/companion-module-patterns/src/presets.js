@@ -226,6 +226,8 @@ export function buildPresets() {
 	add('audio_play', key('Audio', 'Audio play', '♪ PLAY', '14', press('audio', { mode: 'PLAY' }), [audioOn]))
 	add('audio_stop', key('Audio', 'Audio stop', '♪ STOP', '14', press('audio', { mode: 'STOP' })))
 	add('audio_routing', key('Audio', 'Audio routing — the matrix (which soundtrack goes where) on or off', 'ROUTING\n$(patterns:audio_routing)', '14', press('audio_routing', { mode: 'toggle' }), [litAs('audio_routing_on', {}, 'audio', 'playing')]))
+	// Round 69: the sound follows the picture — each screen's named output carries what its picture is.
+	add('audio_follow', key('Audio', "Audio routing — the sound follows the picture (each screen's named output carries what it shows) on or off", 'FOLLOW\n$(patterns:audio_follow)', '14', press('audio_follow', { mode: 'toggle' }), [litAs('audio_follow_on', {}, 'audio', 'follow')]))
 	add('audio_next', key('Audio', 'Audio playlist — next track', '♪ ⏭\n$(patterns:audio_next)', 'auto', press('audio', { mode: 'NEXT' }), [audioOn]))
 	add('audio_prev', key('Audio', 'Audio playlist — previous track', '♪ ⏮', '14', press('audio', { mode: 'PREV' }), [audioOn]))
 	add('audio_now', key('Audio', 'Audio playlist — what is on (press: play / resume)', '♪ $(patterns:audio_n)/$(patterns:audio_count)\n$(patterns:audio_track)\n$(patterns:audio_remaining)', 'auto', press('audio', { mode: 'PLAY' }), [audioOn]))

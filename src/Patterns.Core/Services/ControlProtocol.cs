@@ -370,6 +370,13 @@ public static class ControlProtocol
                 {
                     return Act(ShowActionKind.ScreenLabel, n, rest.Length > 6 ? rest[6..].Trim() : "");
                 }
+                // "SCREEN 2 AUDIO Info HDMI" / "SCREEN 2 SOUND NDI Stream" (round 69): the output that screen's sound leaves by — the
+                // route itself follows the picture; "SCREEN 2 AUDIO OFF" names none. Bare "SCREEN 2 AUDIO" is unknown: an output has a name.
+                if (rest.StartsWith("AUDIO ", StringComparison.OrdinalIgnoreCase) || rest.StartsWith("SOUND ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var output = rest[6..].Trim();
+                    return output.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenAudio, n, output);
+                }
                 // "SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR" (round 65): the link's contract in words; bare "SCREEN 2 SIGNAL" reads the signal truth as JSON.
                 if (rest.Equals("SIGNAL", StringComparison.OrdinalIgnoreCase))
                 {
@@ -423,7 +430,7 @@ public static class ControlProtocol
                     // "SCREEN 2 TAKE" / "SCREEN 2 CUT" (round 63): the desk's preview to that screen alone, as its own picture — the tile's own keys.
                     "TAKE" => Act(ShowActionKind.ScreenTake, n),
                     "CUT" => Act(ShowActionKind.ScreenCut, n),
-                    "LOOK" or "PRESET" or "ROLE" or "GROUP" or "PATTERN" => Unknown(s),
+                    "LOOK" or "PRESET" or "ROLE" or "GROUP" or "PATTERN" or "AUDIO" or "SOUND" => Unknown(s),
                     _ => Act(ShowActionKind.ScreenToggle, n),
                 };
             }
@@ -491,6 +498,10 @@ public static class ControlProtocol
                     case "ROUTING":
                     case "MATRIX":
                         return rest.ToUpperInvariant() is "ON" or "OFF" or "TOGGLE" ? Act(ShowActionKind.AudioRouting, "", rest.ToLowerInvariant()) : Unknown(s);
+                    // "AUDIO FOLLOW ON|OFF|TOGGLE" (round 69): the sound follows the picture — each screen's named output carries what its picture is.
+                    case "FOLLOW":
+                    case "FOLLOWS":
+                        return rest.ToUpperInvariant() is "ON" or "OFF" or "TOGGLE" ? Act(ShowActionKind.AudioFollow, "", rest.ToLowerInvariant()) : Unknown(s);
                     case "ROUTE":
                     {
                         var to = rest.IndexOf(" TO ", StringComparison.OrdinalIgnoreCase);

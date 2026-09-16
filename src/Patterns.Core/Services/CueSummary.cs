@@ -130,6 +130,11 @@ public static class CueSummary
             }
             case ShowActionKind.AudioUnroute: return $"Unroute {AudioRouting.SourceLabel(state, AudioRouting.FindSource(state, a.Target) ?? a.Target)} from {a.Value}";
             case ShowActionKind.AudioVogMode: return $"VOG on {a.Target}: {a.Value.ToLowerInvariant()}";
+            case ShowActionKind.AudioFollow: return $"Sound follows the picture {SwitchWords(a.Value)}";
+            case ShowActionKind.ScreenAudio:
+                return a.Value.Trim().Length == 0 || a.Value.Trim().Equals("off", StringComparison.OrdinalIgnoreCase) || a.Value.Trim().Equals("none", StringComparison.OrdinalIgnoreCase)
+                    ? $"Screen '{ScreenLabel(state, a.Target)}' sound out: none"
+                    : $"Screen '{ScreenLabel(state, a.Target)}' sound out → {a.Value.Trim()}";
             case ShowActionKind.SpotifyPlay:
             {
                 if (a.Target.Length == 0) return "Break music play";

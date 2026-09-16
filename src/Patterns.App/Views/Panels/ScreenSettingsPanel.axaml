@@ -49,6 +49,15 @@
                     SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
                     ToolTip.Tip="A repeater draws this target's picture wherever that picture goes — a duplicate of a main screen or a joined canvas" />
         </Grid>
+        <!-- Round 69: the output this screen's sound leaves by; the route itself follows the picture. -->
+        <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
+          <TextBlock Classes="label" Text="Sound out" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Screens.AudioOutputChoices}"
+                    SelectedValue="{Binding Screens.SelectedAudioOutput, Mode=TwoWay}"
+                    SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                    ToolTip.Tip="The output this screen's sound leaves by — an HDMI screen's own audio, a sound card, an NDI send. The route follows the picture: the programme's sound while the screen shows the programme, its own picture's soundtrack while it shows one of its own, the repeated screen's while it repeats — moving with every take, no row touched. Rows of your own on the Audio page win. SCREEN n AUDIO output on the wire; naming an output switches routing on" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding Screens.SelectedSoundWords}" TextWrapping="Wrap" />
         <TextBlock Classes="hint tip"
                    Text="Role is the screen's group — what it is for — and picks whether it follows cues: CONF and INFO screens are locked as you choose them, so a cue progression changes the main screens and leaves them alone (SEND on the tile, a cue's Screen unlock, or the remote's LOCK n OFF changes that). Mirror of makes the screen a repeater of another screen or canvas. The wall shows the badge and LOCK on every tile, and every tile's foot line reads the group — a click there brings you here." />
         <CheckBox Margin="0,4,0,0" Content="Direct output — bypass the desktop compositor"

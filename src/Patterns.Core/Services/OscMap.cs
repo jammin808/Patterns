@@ -38,6 +38,8 @@ public static class OscMap
         ("/patterns/audio/route \"source\" \"destination\" [dB]", "AUDIO ROUTE — a source (programme, screen 2, preview, music, vog, sting, tone) on a destination (an output's name, NDI <send>) at a level"),
         ("/patterns/audio/unroute \"source\" \"destination\"", "AUDIO UNROUTE"),
         ("/patterns/audio/vog \"destination\" duck|replace|leave", "AUDIO VOG — what a VOG does to the rest on that destination"),
+        ("/patterns/audio/follow on|off|toggle", "AUDIO FOLLOW — the sound follows the picture: each screen's named output carries what its picture is (round 69)"),
+        ("/patterns/screen/<n>/audio \"output\"", "SCREEN n AUDIO output — the output that screen's sound leaves by (\"off\" for none; also /sound)"),
         ("/patterns/music/play [n|name]", "MUSIC PLAY — break music (Spotify), an entry by number or name"),
         ("/patterns/music/pause, /patterns/music/next", "MUSIC PAUSE / NEXT"),
         ("/patterns/music/volume <level>", "MUSIC VOL: an integer is percent, a float from 0.0 to 1.0 is a fader"),
@@ -136,6 +138,12 @@ public static class OscMap
                 {
                     return $"SCREEN {back} PROGRAM";
                 }
+                // /patterns/screen/2/audio "Info HDMI" · /patterns/screen/2/sound "off" — the output that screen's sound leaves by (round 69).
+                if (seg2.ToLowerInvariant() is "audio" or "sound" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var sounded))
+                {
+                    var output = seg3.Length > 0 ? string.Join(" ", parts.Skip(3)) : m.Text() ?? "";
+                    return output.Length == 0 ? null : $"SCREEN {sounded} AUDIO {output}";
+                }
                 // /patterns/screen/2/take · /patterns/screen/2/cut — the preview to that screen alone, as its own picture (round 63).
                 if (seg2.ToLowerInvariant() is "take" or "cut" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var taken))
                 {
@@ -181,6 +189,8 @@ public static class OscMap
                     // /patterns/audio/routing on · /patterns/audio/route "music" "Info HDMI" [-6] · /patterns/audio/unroute "music" "Info HDMI" · /patterns/audio/vog "Info HDMI" replace
                     case "routing": case "matrix":
                         return "AUDIO ROUTING " + Switch(m, seg2, "ON", toggles: true);
+                    case "follow": case "follows":
+                        return "AUDIO FOLLOW " + Switch(m, seg2, "ON", toggles: true);
                     case "route":
                     {
                         var source = m.Text() ?? "";

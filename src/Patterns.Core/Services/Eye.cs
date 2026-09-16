@@ -180,7 +180,8 @@ public sealed record EyeAudioSource(string Id, string Label, string Kind);
 
 public sealed record EyeAudioOut(string Key, string Label, string Kind, bool Mute, double PeakDb, string Error);
 
-public sealed record EyeAudioRoute(string SourceId, string DestinationKey, double LevelDb, bool Muted);
+/// <summary>A crosspoint of the matrix; <see cref="Followed"/> when the picture made it rather than a row (round 69).</summary>
+public sealed record EyeAudioRoute(string SourceId, string DestinationKey, double LevelDb, bool Muted, bool Followed = false);
 
 public sealed record EyeStack(bool Armed, string Standby, string StandbyId, string Last, bool Hold, bool Executing, string Words, CheckLight Light);
 
@@ -702,7 +703,7 @@ public sealed class EyeGraph
             var to = "aout:" + r.DestinationKey;
             if (!ids.Contains(from) || !ids.Contains(to)) continue;
             var light = r.Muted ? CheckLight.Grey : outs.TryGetValue(r.DestinationKey, out var o) && o.Error.Length > 0 ? CheckLight.Red : CheckLight.Green;
-            Link(from, to, EyeEdgeKind.Routes, light, r.Muted ? "muted" : $"{r.LevelDb:+0.0;-0.0} dB");
+            Link(from, to, EyeEdgeKind.Routes, light, r.Muted ? "muted" : r.Followed ? $"follows the picture · {r.LevelDb:+0.0;-0.0} dB" : $"{r.LevelDb:+0.0;-0.0} dB");
         }
 
         // The room and the stream.

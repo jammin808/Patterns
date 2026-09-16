@@ -235,6 +235,16 @@ public sealed class ScreenPlacement : Observable
     public string MirrorOf { get => _mirrorOf; set => Set(ref _mirrorOf, value ?? ""); }
 
     /// <summary>
+    /// Round 69: where the sound of what this screen shows leaves — a destination key of the routing
+    /// matrix (dev:&lt;output&gt; or ndi:&lt;send&gt;), "" for none. With the matrix following the picture,
+    /// the programme's sound goes here while the screen shows the programme, its own picture's
+    /// soundtrack while it shows one of its own, and a repeater carries the sound of the screen it
+    /// repeats — the route moves with the picture, the operator names the wire once.
+    /// </summary>
+    public string AudioOutput { get => _audioOutput; set => Set(ref _audioOutput, value ?? ""); }
+    private string _audioOutput = "";
+
+    /// <summary>
     /// The dead strips inside this screen's picture — the gaps of an LED wall whose panels are
     /// packed side by side in the processor's raster, the bezels of a wall controller's
     /// displays — in the picture's own pixels as the room sees it (after rotation). Content is
@@ -1318,8 +1328,19 @@ public sealed class AudioRouteConfig : Observable
 public sealed class AudioRoutingConfig : Observable
 {
     private bool _enabled;
+    private bool _followPicture = true;
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    /// <summary>
+    /// Round 69: the sound follows the picture. Each screen that names a sound output
+    /// (<see cref="ScreenPlacement.AudioOutput"/>) gets the route its picture makes — the programme's
+    /// sound while it shows the programme, its own picture's soundtrack while it shows one of its own,
+    /// the repeated screen's while it repeats — derived at every reading and moving with every take;
+    /// the operator's own rows stand beside them and win where both name the same crosspoint. Off,
+    /// the matrix is the operator's rows alone.
+    /// </summary>
+    public bool FollowPicture { get => _followPicture; set => Set(ref _followPicture, value); }
 
     public ShowCollection<AudioDestinationConfig> Destinations { get; init; } = new();
 

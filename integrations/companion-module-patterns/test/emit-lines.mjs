@@ -7,7 +7,7 @@ const SAMPLES = {
 	name: 'Walk-in', look: 'Walk-in', cue: '01.020', letter: 'A', kind: 'Grid', page: '', address: 'https://example.com/deck', key: 'ArrowRight',
 	text: 'Hello there', what: 'Closing time', device: 'Projector', target: 'SCREEN 2', person: '2', design: '1', minutes: '5', time: '19:30', label: 'SHOW STARTS IN',
 	delta: '+2:00', game: 'pong', line: 'PING', word: '', show: 'results',
-	destination: 'Info HDMI', screen: 'INFO', time: '1:23',
+	destination: 'Info HDMI', screen: 'INFO', time: '1:23', output: 'Info HDMI',
 }
 
 function sample(field) {

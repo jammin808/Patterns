@@ -152,6 +152,8 @@
           <Button Classes="mini" Content="SEED — audio follows video" Command="{Binding Audio.RoutingSeedCommand}" Margin="0,0,8,6"
                   ToolTip.Tip="Only when the matrix is empty: the programme, the music, VOGs, stingers and the tone on every programme output, the programme with the music and VOGs on every NDI send" />
           <Button Classes="mini" Content="CLEAR" Command="{Binding Audio.RoutingClearCommand}" Margin="0,0,8,6" ToolTip.Tip="Every destination and route gone — nothing plays anywhere while the matrix is on until something is routed" />
+          <CheckBox Content="Sound follows the picture" IsChecked="{Binding Audio.RoutingFollow, Mode=TwoWay}" Margin="0,0,8,6" VerticalAlignment="Center"
+                    ToolTip.Tip="Round 69: every screen that names a sound output (Screens page → Sound out) gets the route its picture makes — the programme's sound while it shows the programme, its own picture's soundtrack while it shows one of its own, the repeated screen's while it repeats — and the route moves with every take. Your own rows win where both name the same crosspoint. Off, the rows alone rule. AUDIO FOLLOW ON / OFF on the wire" />
         </WrapPanel>
         <Grid ColumnDefinitions="130,*,8,Auto">
           <TextBlock Classes="label" Text="Add a destination" VerticalAlignment="Center" />
@@ -160,6 +162,7 @@
           <Button Grid.Column="3" Classes="chip" Content="ADD" Command="{Binding Audio.RoutingAddDestinationCommand}" />
         </Grid>
         <TextBlock Classes="hint" Text="{Binding Audio.RoutingWords}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint" Text="{Binding Audio.RoutingFollowWords}" TextWrapping="Wrap" />
         <TextBlock Classes="hint" Text="{Binding Audio.RoutingPagesWords}" TextWrapping="Wrap" IsVisible="{Binding Audio.RoutingPagesWords, Converter={StaticResource NotEmpty}}" />
         <ItemsControl ItemsSource="{Binding Audio.RoutingRows}">
           <ItemsControl.ItemTemplate>
@@ -182,9 +185,11 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:RoutingCellVm">
-                        <Border Classes="routeCell" Classes.on="{Binding IsOn}" CornerRadius="6" Padding="6,3" Margin="0,0,6,4">
+                        <Border Classes="routeCell" Classes.on="{Binding IsOn}" Classes.followed="{Binding Followed}" CornerRadius="6" Padding="6,3" Margin="0,0,6,4">
                           <StackPanel Orientation="Horizontal" Spacing="4">
                             <CheckBox Content="{Binding Label}" IsChecked="{Binding IsOn, Mode=TwoWay}" VerticalAlignment="Center" Padding="4,0,0,0" />
+                            <TextBlock Classes="label" Text="follows the picture" VerticalAlignment="Center" IsVisible="{Binding Followed}" Foreground="{StaticResource AccentBrush}"
+                                       ToolTip.Tip="The picture makes this route: a screen that names this output shows this source now, at 0 dB plus the row's trim, moving with every take. Tick it to make it a row of your own — a level, a mute — and the row wins" />
                             <TextBox Width="54" Text="{Binding LevelText, Mode=TwoWay}" Watermark="0 dB" IsVisible="{Binding IsOn}" VerticalAlignment="Center"
                                      ToolTip.Tip="The level in dB: 0 is unity, −60 is off, +12 the ceiling" />
                             <TextBlock Classes="label" Text="{Binding LiveText}" VerticalAlignment="Center" IsVisible="{Binding LiveText, Converter={StaticResource NotEmpty}}"

@@ -197,6 +197,23 @@ public sealed class AudioPage : Observable
 
     public string RoutingOnLabel => State.AudioRouting.Enabled ? "ROUTING ON — switch off" : "ROUTING OFF — switch on";
 
+    /// <summary>Round 69: the sound follows the picture — two-way, through the verb, so the wire, a cue and the deck agree.</summary>
+    public bool RoutingFollow
+    {
+        get => State.AudioRouting.FollowPicture;
+        set
+        {
+            if (State.AudioRouting.FollowPicture == value) return;
+            Report(_services.Actions.Execute(new ShowAction(ShowActionKind.AudioFollow, "", value ? "on" : "off"), ActionOrigin.Desk));
+            Raise(nameof(RoutingFollow));
+            RefreshRouting(force: true);
+        }
+    }
+
+    private string _routingFollowWords = "";
+    /// <summary>What the picture routes where, and why: "Sound follows the picture on 2 screens: Main wall → Main HDMI (the programme), …".</summary>
+    public string RoutingFollowWords { get => _routingFollowWords; private set => Set(ref _routingFollowWords, value); }
+
     private string _routingStamp = "";
 
     /// <summary>The outputs this machine has now (Windows), for the pickers and the lookups.</summary>
@@ -246,14 +263,18 @@ public sealed class AudioPage : Observable
     {
         var cfg = State.AudioRouting;
         var sources = AudioRouting.Sources(State);
+        var followedAll = AudioRouting.FollowedRoutes(State);
         var stamp = cfg.Enabled + "|" + string.Join(";", cfg.Destinations.Select(d => d.Key + "=" + d.Label)) + "|" + string.Join(";", sources.Select(s => s.Id)) + "|"
-                    + string.Join(";", cfg.Routes.Select(r => $"{r.Source}>{r.Destination}@{r.LevelDb:0.#}/{r.Enabled}"));
+                    + string.Join(";", cfg.Routes.Select(r => $"{r.Source}>{r.Destination}@{r.LevelDb:0.#}/{r.Enabled}")) + "|"
+                    + cfg.FollowPicture + "|" + string.Join(";", followedAll.Select(f => $"{f.ScreenId}:{f.Source}>{f.Destination}"));   // round 69: a take moves the followed cells
         var rebuild = force || stamp != _routingStamp;
         _routingStamp = stamp;
         Raise(nameof(RoutingOn));
         Raise(nameof(RoutingOnLabel));
+        Raise(nameof(RoutingFollow));
         var graph = _services.AudioGraph;
         RoutingWords = AudioRouting.Words(State) + (cfg.Enabled && graph is not null ? " " + graph.Status : "");
+        RoutingFollowWords = AudioRouting.FollowWords(State);
         var pages = _services.WebIn.AudioRouteNotes().Select(n => $"{State.InputLabel(n.Key, WebAddress.ShortName(n.Key[4..]))}: {(n.Device.Length == 0 ? "the machine's default output" : n.Device)}{(n.Note.Length > 0 ? " — " + n.Note : "")}").ToList();
         RoutingPagesWords = pages.Count == 0 ? "" : "Web pages: " + string.Join(" · ", pages);
         if (rebuild)
@@ -285,9 +306,10 @@ public sealed class AudioPage : Observable
                 {
                     var src = sources[c];
                     var route = AudioRouting.Route(State, src.Id, d.Key);
+                    var followed = followedAll.FirstOrDefault(f => string.Equals(f.Source, src.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(f.Destination, d.Key, StringComparison.OrdinalIgnoreCase));
                     var cell = existing.Cells.FirstOrDefault(x => x.Source.Id == src.Id);
-                    if (cell is null) existing.Cells.Insert(Math.Min(c, existing.Cells.Count), new RoutingCellVm(this, d.Key, src, route));
-                    else cell.Sync(route);
+                    if (cell is null) existing.Cells.Insert(Math.Min(c, existing.Cells.Count), new RoutingCellVm(this, d.Key, src, route, followed));
+                    else cell.Sync(route, followed);
                 }
             }
             // What could still be added.
@@ -311,7 +333,7 @@ public sealed class AudioPage : Observable
             foreach (var cell in row.Cells)
             {
                 var live = graph?.LiveDb(row.Row.Key, cell.Source.Id) ?? Db.Floor;
-                cell.LiveText = cell.IsOn && cfg.Enabled && live > Db.Floor ? Db.Text(live) : "";
+                cell.LiveText = (cell.IsOn || cell.Followed) && cfg.Enabled && live > Db.Floor ? Db.Text(live) : "";
             }
         }
     }

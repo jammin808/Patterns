@@ -67,6 +67,7 @@ export function bankVariables(s) {
 		vars[`screen_${n}_pattern`] = s.screens?.find((x) => x.n === n)?.pattern ?? ''
 		vars[`screen_${n}_signal`] = s.screens?.find((x) => x.n === n)?.signal?.result ?? ''
 		vars[`screen_${n}_group`] = s.screens?.find((x) => x.n === n)?.role ?? ''
+		vars[`screen_${n}_audio`] = s.screens?.find((x) => x.n === n)?.audioOutLabel ?? ''
 		const node = s.nodes?.[n - 1]
 		vars[`node_${n}`] = nodeLabel(node)
 		vars[`node_${n}_kind`] = node?.kind ?? ''
@@ -181,6 +182,8 @@ export function variableValues(s) {
 		web_capture: s.web?.path?.capture ?? '',
 		audio_routing: s.audioRouting?.on ? 'ON' : 'off',
 		audio_routing_words: s.audioRouting?.words ?? '',
+		audio_follow: s.audioRouting?.follow ? 'ON' : 'off',
+		audio_follow_words: s.audioRouting?.followWords ?? '',
 		web_vt: s.web?.arm?.words ?? (s.web?.player ? `${s.web.player.text}${s.web.player.paused ? ' · paused' : ' · playing'}${s.web.player.ad ? ' · ADVERT' : ''}` : ''),
 		web_armed: s.webArmed?.short ?? '',
 		web_armed_page: s.webArmed?.page ?? '',

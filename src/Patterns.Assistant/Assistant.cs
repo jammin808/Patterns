@@ -642,6 +642,12 @@ public static class ShowBrief
           .Append(s.AudioPlayer.Folders.Count > 0 ? $" and {s.AudioPlayer.Folders.Count} folder(s)" : "")
           .Append("; VOGs and stingers ").Append(s.Stingers.Items.Count)
           .Append("; break-music entries ").Append(s.Spotify.Items.Count).AppendLine(".");
+        // The routing matrix (round 55) and the sound that follows the picture (round 69): what is routed where, and
+        // which screens name an output — so a question about an info screen's soundtrack is answered from the rows.
+        if (s.AudioRouting.Enabled || s.Output.Placements.Any(p => p.AudioOutput.Length > 0))
+        {
+            sb.Append("Audio routing: ").Append(AudioRouting.Words(s)).Append(' ').AppendLine(AudioRouting.FollowWords(s));
+        }
         if (facts is not null)
         {
             var now = new List<string>();

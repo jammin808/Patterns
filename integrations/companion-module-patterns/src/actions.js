@@ -214,6 +214,12 @@ export function buildActions(ctx) {
 			] }],
 			callback: (a) => send(`SCREEN ${a.options.n} GROUP ${a.options.group}`),
 		},
+		// Round 69: the output a screen's sound leaves by — the route itself follows the picture (the programme, its own picture, the screen it repeats).
+		screen_audio: {
+			name: 'Screen sound out — the output its sound leaves by; the route follows the picture (blank or OFF = none)',
+			options: [screenN, text('output', "Output: its name as Windows shows it (or its label on the Audio page), NDI <send>, computer; blank = none")],
+			callback: (a) => { const out = clean(a.options.output); send(`SCREEN ${a.options.n} AUDIO ${out || 'OFF'}`) },
+		},
 		review: { name: 'Review — the preview on every multiview (toggle / on / off)', options: [onOff()], callback: (a) => send(`REVIEW ${a.options.mode}`) },
 		weather: {
 			name: 'Weather — the chip on air, off, or its view',
@@ -403,6 +409,12 @@ export function buildActions(ctx) {
 				{ type: 'dropdown', id: 'mode', label: 'A VOG', default: 'duck', choices: [{ id: 'duck', label: 'Ducks the rest' }, { id: 'replace', label: 'Replaces the rest' }, { id: 'leave', label: 'Stays off it' }] },
 			],
 			callback: (a) => { const to = clean(a.options.destination); if (to) send(`AUDIO VOG ${to} ${String(a.options.mode).toUpperCase()}`) },
+		},
+		// Round 69: the sound follows the picture — each screen's named output carries what its picture is, moving with every take.
+		audio_follow: {
+			name: 'Audio routing — the sound follows the picture (on, off or toggled)',
+			options: [{ type: 'dropdown', id: 'mode', label: 'Follow', default: 'toggle', choices: [{ id: 'on', label: "On — each screen's named output carries what its picture is" }, { id: 'off', label: 'Off — the rows alone' }, { id: 'toggle', label: 'Toggle' }] }],
+			callback: (a) => send(`AUDIO FOLLOW ${String(a.options.mode).toUpperCase()}`),
 		},
 		// The armed web VT: the page's video held at a point and played from it the moment the page goes to air.
 		web_vt: {

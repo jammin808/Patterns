@@ -644,6 +644,11 @@
     <Setter Property="Background" Value="#12281E" />
     <Setter Property="BorderBrush" Value="{StaticResource TallyPvwBrush}" />
   </Style>
+  <!-- Round 69: a cell the picture makes — a screen's named output carrying what the screen shows now; no row, so no tick. -->
+  <Style Selector="Border.routeCell.followed">
+    <Setter Property="Background" Value="#121E2A" />
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+  </Style>
   <Style Selector="Border.tallyChip">
     <Setter Property="Padding" Value="7,2" />
     <Setter Property="CornerRadius" Value="6" />

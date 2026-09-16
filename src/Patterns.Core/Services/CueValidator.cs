@@ -531,6 +531,7 @@ public static class CueValidator
                 case ShowActionKind.ClockSeconds:
                 case ShowActionKind.ClockDate:
                 case ShowActionKind.MessageScroll:
+                case ShowActionKind.AudioFollow:
                     if (!ActionSpec.IsSwitchWord(a.Value)) Hard($"{where}: on, off or toggle — not '{a.Value}'.");
                     break;
                 case ShowActionKind.CountdownTo:

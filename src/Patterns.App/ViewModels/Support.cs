@@ -558,17 +558,22 @@ public sealed class RoutingCellVm : Patterns.Core.Model.Observable
 {
     private readonly AudioPage _page;
     private bool _isOn;
+    private bool _followed;
     private string _levelText = "";
     private string _liveText = "";
 
-    public RoutingCellVm(AudioPage page, string destination, AudioSourceInfo source, AudioRouteConfig? route)
+    public RoutingCellVm(AudioPage page, string destination, AudioSourceInfo source, AudioRouteConfig? route, FollowedRoute? followed = null)
     {
         _page = page;
         Destination = destination;
         Source = source;
         _isOn = route is { Enabled: true };
+        _followed = route is null && followed is not null;
         _levelText = route is null ? "" : Db.Text(route.LevelDb);
     }
+
+    /// <summary>Round 69: the picture makes this route (a screen that names this output shows this source now) and no row of the operator's names the crosspoint.</summary>
+    public bool Followed { get => _followed; private set => Set(ref _followed, value); }
 
     public string Destination { get; }
     public AudioSourceInfo Source { get; }
@@ -611,7 +616,7 @@ public sealed class RoutingCellVm : Patterns.Core.Model.Observable
     /// <summary>The gain the lane runs at now, in dB — "−12 dB" under a VOG; "" while nothing plays there.</summary>
     public string LiveText { get => _liveText; set => Set(ref _liveText, value); }
 
-    internal void Sync(AudioRouteConfig? route)
+    internal void Sync(AudioRouteConfig? route, FollowedRoute? followed = null)
     {
         var on = route is { Enabled: true };
         if (on != _isOn)
@@ -619,6 +624,7 @@ public sealed class RoutingCellVm : Patterns.Core.Model.Observable
             _isOn = on;
             Raise(nameof(IsOn));
         }
+        Followed = route is null && followed is not null;
         var text = route is null ? "" : Db.Text(route.LevelDb);
         if (text != _levelText)
         {

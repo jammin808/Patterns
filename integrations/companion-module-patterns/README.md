@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.9.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.10.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / UNVERIFIED — never a pass by default), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.9.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.10.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,12 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.10.0** — the sound follows the picture (round 69): `screen_audio` names the output a screen's
+  sound leaves by (`SCREEN n AUDIO <output>`; the route follows the picture — the programme, its own
+  picture, the screen it repeats — moving with every take), `audio_follow` switches the following
+  (`AUDIO FOLLOW ON|OFF|TOGGLE`); the `audio_follow_on` and `screen_sound_out` feedbacks; the
+  `audio_follow`, `audio_follow_words` and `screen_n_audio` variables; a FOLLOW key on the Audio page.
+  Two shades: the audio family's `follow` (sky), the screen family's `sound` (blue).
 - **3.9.0** — the web page's picture on the deck (round 68): STATE's `web.path` row — the smoothing
   buffer and its depth, the delay it adds, the measured jitter, the decode time, the frames delivered
   and presented, the stalls, the frames dropped or skipped, the pool, and what the browser is asked to

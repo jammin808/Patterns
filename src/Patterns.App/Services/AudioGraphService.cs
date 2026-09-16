@@ -200,6 +200,7 @@ public sealed class AudioGraphService : IDisposable
     {
         var h = new HashCode();
         h.Add(vog);
+        h.Add(AudioRouting.FollowSignature(_services.State));     // round 69: a take that moves a screen's picture moves its output's lanes
         foreach (var (key, buses, _, preRoll) in _services.Video.Taps())
         {
             h.Add(key);

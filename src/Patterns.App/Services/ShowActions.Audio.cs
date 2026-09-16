@@ -99,6 +99,15 @@ public sealed partial class ShowActions
                 _s.AudioGraph?.Reconcile();
                 return ActionResult.Done($"A VOG on {AudioRouting.DestinationLabel(State, destination)}: {mode.ToString().ToLowerInvariant()}.");
             }
+            case ShowActionKind.AudioFollow:
+            {
+                // Round 69: the sound follows the picture — the matrix derives each screen's route from what it shows now.
+                if (!ActionSpec.IsSwitchWord(a.Value)) return ActionResult.Refused("AUDIO FOLLOW takes on, off or toggle.");
+                var on = OverlayControl.SwitchTo(a.Value, State.AudioRouting.FollowPicture);
+                State.AudioRouting.FollowPicture = on;
+                _s.AudioGraph?.Reconcile();
+                return ActionResult.Done(AudioRouting.FollowWords(State) + (on && !State.AudioRouting.Enabled ? " Routing is off — AUDIO ROUTING ON puts the matrix in charge." : ""));
+            }
 
             case ShowActionKind.SpotifyPlay:
             {

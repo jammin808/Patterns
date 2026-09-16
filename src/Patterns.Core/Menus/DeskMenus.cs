@@ -73,6 +73,7 @@ public static class DeskMenus
                 Because = s.Locked ? "A locked tile keeps its picture whatever is armed — unlock it first." : "",
             },
             GroupDrawer(s, target, W),
+            SoundDrawer(s, target, W),
             new("tile.out", s.Enabled ? "Output on" : "Output off", MenuScope.Live, MenuTone.Tile)
             {
                 Detail = "The screen's output window, live",
@@ -276,6 +277,35 @@ public static class DeskMenus
     /// on the Screens page. A canvas sets every screen in it. The lettered canvas (GROUP A) is geometry —
     /// read in the tile's title, never chosen here. The same verb as SCREEN n ROLE / GROUP on the wire.
     /// </summary>
+    /// <summary>
+    /// Round 69: the output the screen's sound leaves by — the route itself follows the picture (the programme's
+    /// sound while it shows the programme, its own picture's while it shows one of its own, the repeated screen's
+    /// while it repeats), so the drawer names the wire once. The same verb as the Screens page's Sound out.
+    /// </summary>
+    private static MenuEntry SoundDrawer(ScreenFacts s, string target, Func<string, string> W)
+    {
+        MenuEntry Choice(string key, string label, string detail) => new($"tile.sound:{(key.Length == 0 ? "off" : key)}", label, MenuScope.Live, MenuTone.Tile)
+        {
+            Detail = detail,
+            Wire = W($"AUDIO {(key.Length == 0 ? "OFF" : label)}"),
+            Action = new ShowAction(ShowActionKind.ScreenAudio, target, key.Length == 0 ? "OFF" : key),
+            IsOn = s.SoundOutKey.Equals(key, StringComparison.OrdinalIgnoreCase),
+        };
+        var children = new List<MenuEntry>
+        {
+            Choice("", "None — the Audio page's rows alone", "No output of its own: the picture's sound leaves only where a row of the matrix puts it"),
+        };
+        var carries = s.IsCanvas ? "Every screen of the canvas sends its sound here" : $"Carries {(s.SoundSource.Length > 0 ? s.SoundSource : "what the screen shows")}, moving with every take";
+        foreach (var (key, label) in s.SoundChoices) children.Add(Choice(key, label, carries));
+        return new MenuEntry("tile.sound", $"Sound out — {(s.SoundOut.Length > 0 ? s.SoundOut : "none")}", MenuScope.Live, MenuTone.Tile)
+        {
+            Detail = s.SoundOut.Length > 0
+                ? $"The sound follows the picture: {(s.SoundSource.Length > 0 ? s.SoundSource : "what each screen shows")} → {s.SoundOut}"
+                : "The output this screen's sound leaves by; the route follows the picture — the programme, its own picture, the screen it repeats",
+            Children = children,
+        };
+    }
+
     private static MenuEntry GroupDrawer(ScreenFacts s, string target, Func<string, string> W)
     {
         var current = s.Group;

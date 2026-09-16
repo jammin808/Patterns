@@ -110,6 +110,11 @@ public static class DeskMenuFacts
             GroupsMixed = placements.Count > 1 && !oneRole,
             MirrorSource = !isCanvas && first is { MirrorOf.Length: > 0 } && ContentTargets.IsInRig(state, first.MirrorOf) ? geo.LabelFor(state, first.MirrorOf) : "",
             ShowingKind = LookService.Shown(state, targetId).Kind.ToString(),
+            // Round 69: the output the sound leaves by (one for the whole canvas, or none), what the sound is now, and the outputs to choose from.
+            SoundOut = first is { AudioOutput.Length: > 0 } && placements.All(p => p.AudioOutput == first.AudioOutput) ? AudioRouting.DestinationLabel(state, first.AudioOutput) : "",
+            SoundOutKey = first is { AudioOutput.Length: > 0 } && placements.All(p => p.AudioOutput == first.AudioOutput) ? first.AudioOutput : "",
+            SoundSource = !isCanvas && first is not null ? AudioRouting.SourceOfScreenWords(state, first.ScreenId) : "",
+            SoundChoices = AudioRouting.Destinations(state, OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>()).Select(d => (d.Key, d.Label)).ToList(),
         };
     }
 

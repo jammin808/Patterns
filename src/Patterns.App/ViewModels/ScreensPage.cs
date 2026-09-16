@@ -1026,6 +1026,52 @@ public sealed class ScreensPage : Observable
         MainViewModel.ReplaceIfChanged(MirrorSources, wanted);
     }
 
+    // ---- the sound (round 69) -----------------------------------------------------
+
+    /// <summary>
+    /// Where the selected screen's sound leaves: a destination key of the routing matrix (dev:&lt;output&gt;,
+    /// ndi:&lt;send&gt;), "" for none. Through the verb: the route itself follows the picture, so this is set
+    /// once — the wire (SCREEN n AUDIO), the tile's menu and the deck have the same verb.
+    /// </summary>
+    public string SelectedAudioOutput
+    {
+        get => _selectedPlacement?.AudioOutput ?? "";
+        set
+        {
+            var wanted = value ?? "";
+            if (_selectedPlacement is null || _selectedPlacement.AudioOutput == wanted) return;
+            _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenAudio, _selectedPlacement.ScreenId, wanted.Length == 0 ? "OFF" : wanted), ActionOrigin.Desk);
+            RaiseSelection();
+        }
+    }
+
+    /// <summary>The outputs the selected screen's sound may leave by: none, then every destination the matrix knows — this machine's outputs, the show's NDI sends, the rows already made.</summary>
+    public ObservableCollection<EditTarget> AudioOutputChoices { get; } = new();
+
+    public void RebuildAudioOutputChoices()
+    {
+        var wanted = new List<EditTarget> { new("— none (the Audio page's rows alone)", "") };
+        var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+        foreach (var d in AudioRouting.Destinations(State, devices)) wanted.Add(new EditTarget(d.Label + (d.Present ? "" : " (not plugged in)"), d.Key));
+        var current = _selectedPlacement?.AudioOutput ?? "";
+        if (current.Length > 0 && wanted.All(w => w.ScreenId != current)) wanted.Add(new EditTarget(AudioRouting.DestinationLabel(State, current), current));
+        MainViewModel.ReplaceIfChanged(AudioOutputChoices, wanted);
+    }
+
+    /// <summary>"Sound out: the programme → Main HDMI — follows the picture." / "Sound out: none — …".</summary>
+    public string SelectedSoundWords
+    {
+        get
+        {
+            if (_selectedPlacement is not { } p) return "";
+            if (p.AudioOutput.Length == 0) return "Sound out: none — this screen's sound leaves only where the Audio page's rows put it.";
+            var follow = !State.AudioRouting.FollowPicture ? "follow is off (Audio page, or AUDIO FOLLOW ON) — the rows alone"
+                : !State.AudioRouting.Enabled ? "follows the picture once routing is on (Audio page → ROUTING)"
+                : "follows the picture, moving with every take";
+            return $"Sound out: {AudioRouting.SourceOfScreenWords(State, p.ScreenId)} → {AudioRouting.DestinationLabel(State, p.AudioOutput)} — {follow}.";
+        }
+    }
+
     // ---- custom labels ------------------------------------------------------
 
     /// <summary>The selected screen's operator label (Outputs page).</summary>
@@ -1202,6 +1248,9 @@ public sealed class ScreensPage : Observable
         Raise(nameof(SelectedFollowsCues));
         Raise(nameof(SelectedMirrorOf));
         RebuildMirrorSources();
+        Raise(nameof(SelectedAudioOutput));
+        Raise(nameof(SelectedSoundWords));
+        RebuildAudioOutputChoices();
         RaiseBlend();
         Raise(nameof(SelectedGaps));
         Raise(nameof(SelectedSeamGapX));

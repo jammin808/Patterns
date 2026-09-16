@@ -140,6 +140,35 @@ Facts as read on 14 September 2026; sources at the end.
   web page's sound is steered to a device through the page's own output picker where the browser
   allows it — with what could not be routed said on the Audio page rather than assumed.
 
+## 7. Round 69 — the sound follows the picture
+
+The gap the matrix left: a crosspoint is a fact about a source and a destination, and a screen's picture
+is not a fact — it moves on every take. A show where the main wall and its repeaters carry a video while
+the info screens run a playlist of their own, and the next cue puts the video everywhere, needs rows
+re-ticked on the cue, or an operator who never lets the info screens change. vMix answers it with *audio
+follows video* per input (an input's sound is live while the input is in the output), QLab with a patch
+per cue, a broadcast desk with a follow on the bus. Patterns has a fact the others lack: every screen
+knows what it shows — the programme, a picture of its own, the target it repeats, the canvas it belongs
+to (`ContentTargets`, `ScreenRoles.ResolveMirror`) — so the route can be derived rather than stored.
+
+What the round built: `ScreenPlacement.AudioOutput` names the output a screen's sound leaves by, once.
+`AudioRouting.SourceOfScreen` gives the source its picture makes now; `FollowedRoutes` one derived route
+per enabled screen with an output; `EffectiveRoutes` the rows first and the derived routes where no row
+names the crosspoint (a row wins, on or off — the operator's word); `Resolve` plans over the rows'
+destinations and the outputs the picture alone routes to (no row: trim 0, delay 0, a VOG ducks at the
+show's level), each lane carrying `Followed`; `FollowSignature` lets the audio graph rebuild its lanes on
+a take and not on a quiet tick (the rig's `Output` joined the graph's dirty domains for the same reason);
+`AudioRoutingConfig.FollowPicture` (on by default) turns the derivation off. The verbs: `SCREEN n AUDIO
+<output>|OFF` (desk-only — the rig's wiring; naming an output makes it a row and switches the matrix on),
+`AUDIO FOLLOW ON|OFF|TOGGLE` (a cue may carry it), both over OSC. The desk: Sound out on the Screens page,
+a Sound out drawer in every tile's menu, a FOLLOW switch and "follows the picture" cells on the Audio
+page's matrix, the Eye's followed edges, STATE's rows, Companion 3.10.0.
+
+What it does not do: a followed destination's own trim, delay and VOG mode need a row (naming an output
+makes one); a web page in the browser is still steered through its own output picker to the first device
+its picture is routed to (round 55's limit) — the native-player path follows fully, as any clip does; a
+screen inside a joined canvas without a picture of its own follows the programme, as the canvas does.
+
 ## Sources
 
 vMix: help29/Mixer.html, AudioOutputs.html, AudioBusManager.html, AudioSettings.html, Audio.html,

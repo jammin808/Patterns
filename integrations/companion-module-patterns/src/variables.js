@@ -20,6 +20,7 @@ export function variableDefinitions() {
 		v[`screen_${n}_pattern`] = `Screen ${n} — the kind of picture it is showing`
 		v[`screen_${n}_signal`] = `Screen ${n} — the signal result: MATCH, MISMATCH or UNVERIFIED (round 65)`
 		v[`screen_${n}_group`] = `Screen ${n} — its group: main, confidence, info or repeater (round 67)`
+		v[`screen_${n}_audio`] = `Screen ${n} — the output its sound leaves by, the route following the picture; empty for none (round 69)`
 		v[`node_${n}`] = `Node ${n} as the Nodes page lists it — its kind and its machine (or empty)`
 		v[`node_${n}_kind`] = `Node ${n} — desk, caller, arcade or timer`
 		v[`node_${n}_words`] = `Node ${n} — its own health line`
@@ -131,6 +132,8 @@ export function variableDefinitions() {
 		web_capture: "The web page on air — what the browser is asked to hand over: 'captured at 1280×720 · q60' (round 68)",
 		audio_routing: 'The routing matrix (which soundtrack goes where): ON or off',
 		audio_routing_words: 'The routing matrix in a line — what is routed where and how a VOG behaves',
+		audio_follow: "The sound follows the picture (ON/off): each screen's named output carries what its picture is (round 69)",
+		audio_follow_words: 'What the picture routes where — "Sound follows the picture on 2 screens: Main wall → Main HDMI (the programme), …" (round 69)',
 		web_vt: "The web page on air — its video: armed and where from, or its clock (1:23 / 4:56 · playing), ADVERT while one shows",
 		web_armed: 'The armed web VT anywhere on the desk — "VT armed at 1:23" — or empty',
 		web_armed_page: 'The page that armed VT is on (its nickname or host), or empty',

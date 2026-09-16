@@ -103,6 +103,15 @@ public sealed record ScreenFacts
     /// <summary>The kind of picture the target shows now (the enum's word), "" when unknown.</summary>
     public string ShowingKind { get; init; } = "";
 
+    /// <summary>Round 69: the output the screen's sound leaves by, as its label ("Info HDMI"); "" for none, or a canvas whose screens differ.</summary>
+    public string SoundOut { get; init; } = "";
+    /// <summary>The destination key behind <see cref="SoundOut"/> ("dev:Info HDMI"); "" for none.</summary>
+    public string SoundOutKey { get; init; } = "";
+    /// <summary>What the screen's sound is now, for the drawer's words ("the programme", "its own picture", "Main wall's picture (repeated)"); "" for a canvas.</summary>
+    public string SoundSource { get; init; } = "";
+    /// <summary>The outputs the sound may leave by — the matrix's destinations as (key, label): this machine's outputs, the show's NDI sends, the rows.</summary>
+    public IReadOnlyList<(string Key, string Label)> SoundChoices { get; init; } = Array.Empty<(string, string)>();
+
     public bool IsProgram => TargetId.Length == 0;
 
     /// <summary>The wire's target for this tile: the screen number, else the id (a canvas key rides the action, not the wire).</summary>

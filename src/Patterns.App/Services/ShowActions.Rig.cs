@@ -103,6 +103,50 @@ public sealed partial class ShowActions
                 var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, placement.ScreenId);
                 return ActionResult.Done($"{label} is {RoleWords(role)}.{held}");
             }
+            case ShowActionKind.ScreenAudio:
+            {
+                // Round 69: the output a screen's sound leaves by. The route itself follows the picture — the programme's
+                // sound while the screen shows the programme, its own picture's while it shows one of its own, the repeated
+                // screen's while it repeats — so this is set once, at the rig. OFF / NONE / CLEAR names no output.
+                var word = a.Value.Trim();
+                var none = word.Length == 0 || word.Equals("OFF", StringComparison.OrdinalIgnoreCase) || word.Equals("NONE", StringComparison.OrdinalIgnoreCase) || word.Equals("CLEAR", StringComparison.OrdinalIgnoreCase);
+                var destination = "";
+                if (!none)
+                {
+                    var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+                    destination = AudioRouting.FindDestination(State, devices, word) ?? "";
+                    if (destination.Length == 0) return ActionResult.Refused($"'{word}' is not an output this machine has (by its name), NDI <send>, or computer.");
+                }
+                // A canvas key (the tile's menu speaking for a joined canvas) sets every screen of it.
+                var ids = ContentTargets.IsCanvasKey(a.Target) && ContentTargets.IsInRig(State, a.Target)
+                    ? ContentTargets.Members(a.Target).Where(id => State.Output.Placements.Any(p => p.ScreenId == id)).ToList()
+                    : ResolveScreenTarget(a.Target) is { } one && State.Output.Placements.Any(p => p.ScreenId == one) ? new List<string> { one } : new List<string>();
+                if (ids.Count == 0) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var switchedOn = false;
+                _s.BulkEdit(() =>
+                {
+                    foreach (var id in ids) State.Output.Placements.First(p => p.ScreenId == id).AudioOutput = destination;
+                    if (destination.Length > 0)
+                    {
+                        if (!State.AudioRouting.Enabled)
+                        {
+                            // Naming an output is asking for the matrix: on, seeded as AUDIO ROUTING ON would (before the output's
+                            // own row is made — the seed only fills an empty table), so the room keeps hearing what it did.
+                            AudioRouting.SeedDefaults(State);
+                            State.AudioRouting.Enabled = true;
+                            switchedOn = true;
+                        }
+                        AudioRouting.EnsureRow(State, destination);          // the output takes a row: the matrix shows it, a trim, a delay and a VOG mode can be given
+                    }
+                });
+                if (_s.Sandbox.Active) _s.EditAir(program => { foreach (var id in ids) if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.AudioOutput = destination; });
+                _s.AudioGraph?.Reconcile();
+                var geo = Rig.Geometry(State, _s.Screens.All);
+                var names = string.Join(", ", ids.Select(id => geo.LabelFor(State, id)));
+                if (destination.Length == 0) return ActionResult.Done($"{names}: no sound output of its own — its sound leaves where the Audio page's rows put it.");
+                var what = ids.Count == 1 ? AudioRouting.SourceOfScreenWords(State, ids[0]) : "what each shows";
+                return ActionResult.Done($"{names} → {AudioRouting.DestinationLabel(State, destination)}: the sound follows the picture ({what} now).{(switchedOn ? " Audio routing switched on." : "")}{(State.AudioRouting.FollowPicture ? "" : " Follow is off — AUDIO FOLLOW ON lets the picture route it.")}");
+            }
             case ShowActionKind.ScreenSignal:
             {
                 // Round 65: the link's contract in words — each word sets its property, the rest stay; CLEAR empties it.
@@ -321,6 +365,9 @@ public sealed partial class ShowActions
                     pattern = LookService.Shown(State, target).Kind.ToString(),
                     off = _s.LookTally.IsOffLook(target),
                     signal = SignalSummary(x.Placement, x.Info, clockHz),                   // round 65: the contract against what Windows sends — design, observed, result
+                    audioOut = x.Placement.AudioOutput,                                       // round 69: the output its sound leaves by (a destination key), "" for none
+                    audioOutLabel = x.Placement.AudioOutput.Length > 0 ? AudioRouting.DestinationLabel(State, x.Placement.AudioOutput) : "",
+                    audioSource = x.Placement.AudioOutput.Length > 0 ? AudioRouting.SourceOfScreenWords(State, x.Placement.ScreenId) : "",   // what its picture's sound is now
                 };
             })
             .ToArray();

@@ -308,12 +308,13 @@ public sealed class EyeService
         {
             var graph = _s.AudioGraph;
             audioSources.AddRange(AudioRouting.Sources(state).Select(s => new EyeAudioSource(s.Id, s.Label, s.Kind.ToString().ToLowerInvariant())));
-            foreach (var d in state.AudioRouting.Destinations.Where(d => d.Key.Length > 0))
+            // Every destination the plan knows: the rows, and the outputs the picture alone routes to (round 69).
+            foreach (var p in AudioRouting.Resolve(state, vogPlaying: false))
             {
-                var peak = graph?.PeakDb(d.Key) ?? Db.Floor;
-                audioOuts.Add(new EyeAudioOut(d.Key, AudioRouting.DestinationLabel(state, d.Key), AudioRouting.IsNdi(d.Key) ? "ndi" : "device", d.Mute, Math.Round(peak / 3) * 3, graph?.LaneError(d.Key) ?? ""));
+                var peak = graph?.PeakDb(p.Key) ?? Db.Floor;
+                audioOuts.Add(new EyeAudioOut(p.Key, p.Label, p.Kind == AudioDestinationKind.Ndi ? "ndi" : "device", p.Mute, Math.Round(peak / 3) * 3, graph?.LaneError(p.Key) ?? ""));
             }
-            audioRoutes.AddRange(state.AudioRouting.Routes.Where(r => r.Source.Length > 0 && r.Destination.Length > 0).Select(r => new EyeAudioRoute(r.Source, r.Destination, r.LevelDb, !r.Enabled)));
+            audioRoutes.AddRange(AudioRouting.EffectiveRoutes(state).Select(r => new EyeAudioRoute(r.Source, r.Destination, r.LevelDb, !r.Enabled, r.Followed)));
         }
 
         var cues = _s.CueStack;

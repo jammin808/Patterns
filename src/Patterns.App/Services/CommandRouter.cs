@@ -285,33 +285,47 @@ public sealed class CommandRouter : IRouter
         var graph = _services.AudioGraph;
         var vog = _services.AudioPlayer.VogSoundPlaying;
         var plan = AudioRouting.Resolve(s, vog);
+        var effective = AudioRouting.EffectiveRoutes(s);
+        // The destinations: the rows in their order, then any output the picture alone routes to (round 69) — no row, the defaults.
+        var keys = s.AudioRouting.Destinations.Where(d => d.Key.Length > 0).Select(d => d.Key).ToList();
+        foreach (var p in plan)
+        {
+            if (!keys.Any(k => string.Equals(k, p.Key, StringComparison.OrdinalIgnoreCase))) keys.Add(p.Key);
+        }
         return new
         {
             on = s.AudioRouting.Enabled,
             words = AudioRouting.Words(s),
             status = graph?.Status ?? "",
             vog,
+            follow = s.AudioRouting.FollowPicture,                                          // round 69: the sound follows the picture
+            followWords = AudioRouting.FollowWords(s),
+            followed = AudioRouting.FollowedRoutes(s).Select(f => new { screen = f.ScreenId, source = f.Source, destination = f.Destination, label = AudioRouting.DestinationLabel(s, f.Destination), what = AudioRouting.SourceOfScreenWords(s, f.ScreenId) }).ToArray(),
             sources = AudioRouting.Sources(s).Select(src => new { id = src.Id, label = src.Label, kind = src.Kind.ToString().ToLowerInvariant() }).ToArray(),
-            destinations = s.AudioRouting.Destinations.Where(d => d.Key.Length > 0).Select(d =>
+            destinations = keys.Select(key =>
             {
-                var p = plan.FirstOrDefault(x => string.Equals(x.Key, d.Key, StringComparison.OrdinalIgnoreCase));
+                var d = AudioRouting.Row(s, key);
+                var p = plan.FirstOrDefault(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
                 return new
                 {
-                    key = d.Key,
-                    label = AudioRouting.DestinationLabel(s, d.Key),
-                    kind = AudioRouting.IsNdi(d.Key) ? "ndi" : "device",
-                    delayMs = d.DelayMs,
-                    trimDb = d.TrimDb,
-                    mute = d.Mute,
-                    vogMode = d.VogMode.ToString().ToLowerInvariant(),
-                    peakDb = Math.Round(graph?.PeakDb(d.Key) ?? Db.Floor, 1),
-                    error = graph?.LaneError(d.Key) ?? "",
-                    lanes = s.AudioRouting.Routes.Where(r => r.Enabled && string.Equals(r.Destination, d.Key, StringComparison.OrdinalIgnoreCase)).Select(r => new
+                    key,
+                    label = AudioRouting.DestinationLabel(s, key),
+                    kind = AudioRouting.IsNdi(key) ? "ndi" : "device",
+                    row = d is not null,                                                    // false: the picture alone routes here, with the defaults
+                    delayMs = d?.DelayMs ?? 0,
+                    trimDb = d?.TrimDb ?? 0,
+                    mute = d?.Mute ?? false,
+                    vogMode = (d?.VogMode ?? AudioVogMode.Duck).ToString().ToLowerInvariant(),
+                    peakDb = Math.Round(graph?.PeakDb(key) ?? Db.Floor, 1),
+                    error = graph?.LaneError(key) ?? "",
+                    lanes = effective.Where(r => r.Enabled && string.Equals(r.Destination, key, StringComparison.OrdinalIgnoreCase)).Select(r => new
                     {
                         source = r.Source,
                         db = r.LevelDb,
                         gain = Math.Round(p?.GainFor(r.Source) ?? 0, 4),   // the plan's gain now: the level, the trim, the mute and the VOG mode
-                        liveDb = Math.Round(graph?.LiveDb(d.Key, r.Source) ?? Db.Floor, 1),
+                        liveDb = Math.Round(graph?.LiveDb(key, r.Source) ?? Db.Floor, 1),
+                        followed = r.Followed,                            // the picture made this route; a row of the operator's would replace it
+                        screen = r.ScreenId,
                     }).ToArray(),
                 };
             }).ToArray(),

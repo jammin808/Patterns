@@ -114,7 +114,10 @@
         "design": "3840×2160 · 50 Hz · RGB 4:4:4 · 8-bit · SDR",
         "observed": "3840×2160 · 50 Hz (50/1) · RGB 4:4:4 · 8-bit · SDR",
         "result": "MATCH"
-      }
+      },
+      "audioOut": "dev:Main HDMI",
+      "audioOutLabel": "Main HDMI",
+      "audioSource": "the programme"
     },
     {
       "n": 2,
@@ -133,9 +136,42 @@
         "design": "",
         "observed": "1920×1080 · 60 Hz (60/1) · encoding unknown · bit depth unknown · HDR unknown",
         "result": "UNVERIFIED"
-      }
+      },
+      "audioOut": "",
+      "audioOutLabel": "",
+      "audioSource": ""
     }
   ],
+  "audioRouting": {
+    "on": true,
+    "words": "Routing on: 5 routes on 1 destination. The picture makes 1 more.",
+    "status": "",
+    "vog": false,
+    "follow": true,
+    "followWords": "Sound follows the picture on 1 screen: Main wall → Main HDMI (the programme).",
+    "followed": [
+      { "screen": "s1", "source": "programme", "destination": "dev:Main HDMI", "label": "Main HDMI", "what": "the programme" }
+    ],
+    "sources": [
+      { "id": "programme", "label": "Programme", "kind": "programme" },
+      { "id": "screen:s2", "label": "Side", "kind": "screen" }
+    ],
+    "destinations": [
+      {
+        "key": "dev:Main HDMI",
+        "label": "Main HDMI",
+        "kind": "device",
+        "row": false,
+        "delayMs": 0,
+        "trimDb": 0,
+        "mute": false,
+        "vogMode": "duck",
+        "peakDb": -60,
+        "error": "",
+        "lanes": [{ "source": "programme", "db": 0, "gain": 1, "liveDb": -60, "followed": true, "screen": "s1" }]
+      }
+    ]
+  },
   "audio": {
     "playing": true,
     "track": "Intro",

@@ -93,6 +93,10 @@ public enum ShowActionKind
     AudioUnroute,
     /// <summary>What a VOG does on a destination: Target = the destination, Value = duck / replace / leave.</summary>
     AudioVogMode,
+    /// <summary>Round 69: the sound follows the picture — the matrix derives each screen's route from what it shows (Value = on / off / toggle).</summary>
+    AudioFollow,
+    /// <summary>Round 69: where a screen's sound leaves: Target = the screen (a number, an id or a canvas key), Value = a destination's words (an output's name, NDI &lt;send&gt;, computer) or OFF for none.</summary>
+    ScreenAudio,
     /// <summary>Break music (Spotify): Target = library entry number (1-based, Audio-page order),
     /// name or id; empty resumes, or plays the first saved entry.</summary>
     SpotifyPlay,
