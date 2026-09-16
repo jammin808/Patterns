@@ -8,6 +8,37 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 69 — 2026-09-16 — memory with a reason, the GPU cache governed, the composition root answered, audio that follows the picture
+
+`round-69` · PLAN §87 · REVIEW round 69 · 2,308 tests · module 3.10.0
+
+- **The residency ledger.** Every held thing — a clip, a web page, a deck, an NDI receiver, a
+  picture — carries the reason it stays (on air, named by the show, preview, armed, pre-rolled,
+  retiring) or an idle clock with a grace by machine class (20 / 60 / 180 s, shortened as memory
+  presses); idle pictures go on their clock rather than waiting for pressure, never one drawn in the
+  last second and a half, never one the show names. An armed web page — the marker on the video —
+  is kept past its want and let go only at critical pressure. STATE's `memory.residency`, the Media
+  page's line, the Eye's *held: …* words and its desk node's memory line, the assistant's inputs,
+  Companion's `machine_memory_held`.
+- **The GPU cache governed.** Skia's resource cache is bounded from the card (an eighth of its
+  dedicated memory, no more than the class's 64 / 128 / 256 MB), shrunk as either memory presses —
+  the media ladder's rung or the card's own — purged at high and critical, applied through the
+  sinks' Skia lease once a second and read back rather than assumed; the collector's facts (gen 2,
+  the large-object heap, the last pause) are in the sample, STATE's `machine.gpuCache` and
+  `machine.gc`, the Machine page, the Eye's desk node and Companion's `machine_gpu_cache`, and the
+  large-object heap is compacted once each time the outputs go off air. Swapping textures between the card and the computer is declined with the
+  reason written down (`docs/MEMORY-RESEARCH.md` §12).
+- **The composition root, fenced.** ADR-012: no dependency-injection container — the services are
+  built once in the kernel's constructor order; MVVM as it stands, with `ArchitectureFenceTests`
+  naming the seams by file and count (the ambient service's reaches, the code-behind handlers, the
+  engines the kernel alone builds) and forbidding heavy work in code-behind.
+- **Audio follows the picture.** Each screen names its sound output; the matrix derives the routes
+  from what each screen shows — a repeater takes its source's sound, a canvas member its canvas's,
+  a screen on its own picture its own, the rest the programme — and the operator's own rows always
+  win. `SCREEN n AUDIO <output>`, `AUDIO FOLLOW`, the `AudioFollow` cue, OSC, Companion 3.10.0's
+  `screen_audio` and `audio_follow`, the Screens and Audio pages, the Eye's *(follows the picture)*
+  edges, STATE's `followed` routes; `docs/AUDIO-RESEARCH.md` §7.
+
 ## Round 68 — 2026-09-16 — web video smooth and cheap: a buffer on a locked clock, pooled decode, capture by policy, the browser out of the chain
 
 `round-68` · PLAN §86 · REVIEW round 68 · 2,283 tests · module 3.9.0

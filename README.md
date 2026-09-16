@@ -23,6 +23,15 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Memory with a reason, the GPU cache governed, audio that follows the picture** — every held
+  thing carries the reason it stays (on air, named, preview, armed, pre-rolled) or an idle clock
+  with a grace by machine, and STATE's `memory.residency` says which; Skia's GPU cache is bounded
+  from the card and shrunk under pressure, its fill read back into `machine.gpuCache` beside the
+  collector's facts; each screen names its sound output and the matrix routes what the screen
+  shows to it, the operator's own rows winning (`SCREEN n AUDIO`, `AUDIO FOLLOW`, Companion
+  3.10.0). No DI container, by decision — ADR-012 and a fence test with the numbers. The papers:
+  `docs/MEMORY-RESEARCH.md` §11–12, `docs/AUDIO-RESEARCH.md` §7, `docs/ADR.md`; the design:
+  `docs/PLAN.md` §87.
 - **Web video, smooth and cheap** — a page's frames are decoded into pooled buffers and shown
   on a regular schedule a few frames late (the depth sized by the machine and the measured
   lateness), faded and cut when the page leaves Program; the browser is asked for no more pixels

@@ -2367,3 +2367,80 @@ be smooth on a lower-spec machine and cheap on every machine: the buffer is size
 and the measured lateness, faded and cut when the page leaves Program; the pooled decode and the
 capture plan take the cost out of the chain; and the native player takes the browser out of it
 altogether where the operator chooses.
+
+## Round 69 review — memory with a reason, the GPU cache governed, the composition root answered, audio that follows the picture
+
+### 69.1 — research and design
+
+- **Done.** Memory as it stood read from the code (what is held, by whom, until what); the GPU/CPU
+  question answered from how the driver, Skia and Avalonia actually share the card; DI and MVVM
+  measured (handlers, ambient reaches, constructors) rather than argued; the audio matrix's gap
+  named. §87.1; `docs/MEMORY-RESEARCH.md` §11–12, `docs/AUDIO-RESEARCH.md` §7, `docs/ADR.md`
+  ADR-012.
+
+### 69.2 — the residency ledger
+
+- **Done.** `Residency` (reasons, the grace by class and rung, the named pictures, the words),
+  `ImageCache.SweepIdle` behind the fence with the drawn-within floor, `ResidencyService` on the
+  tick with the engines' holds, the web engine's `KeepArmed`, the ladder letting armed pages go at
+  critical; STATE's `memory.residency`, the Media page, the Eye, the assistant's inputs. §87.2.
+  Tests: ResidencyTests (4), ImageCacheResidencyTests, ResidencyAppTests (2).
+- **Found and fixed on the way:** the first sweep rule — *the newest picture is never swept* —
+  conflicted with a fixed idle age and would have kept a stale picture for ever on a still stage;
+  replaced by a floor of a second and a half since the last draw. The App test's first arm recipe
+  called the engine's `Arm` with the wrong shape and was refused because the page was on air; the
+  test now arms through the router as the desk does. `WebFrameSource.MemoryBytes` is a Windows
+  reading, so the engine's hold reports it behind an operating-system guard (CA1416).
+
+### 69.3 — the GPU cache governed, and the collector's facts
+
+- **Done.** `GpuGovernor` (the limit table, the card's rung, the worse of two, the purge line, the
+  words), `GpuCacheGovernor` through the sinks' Skia lease once a second, `ShowGc.Facts()` and the
+  off-air LOH compaction, the sample's new fields, STATE's `machine.gpuCache` and `machine.gc`, the
+  Machine page's lines, the qualification row and the soak gates. §87.3. Tests: GpuGovernorTests
+  (4), GpuGovernorAppTests (2), RuntimeAppTests unchanged and green.
+- **Found and fixed on the way:** the metric sample was taken before the governor ran, so the
+  first sample of every tick carried the previous second's limit (-1 on the first) — the tick is
+  now ordered the ladder, the governor, the sample, the ledger, and the App test asserts the sample
+  carries the limit decided on the same tick. The memory paper's round-69 section had landed ahead
+  of *Honest limits*; the sections are in order again.
+
+### 69.4 — DI and MVVM answered
+
+- **Done.** ADR-012 with the numbers; `ArchitectureFenceTests` — the ambient reaches by file and
+  count, the code-behind handlers by file and count, no heavy work in code-behind, the engines built
+  in the kernel alone. §87.4. Tests: ArchitectureFenceTests (3).
+- **Found on the way, kept by design:** every reach for `AppServices.Instance` is at a seam Avalonia
+  constructs itself (a tile's pipeline, the lazy page, a converter) or before the desk exists (the
+  crash note, a second launch); none was worth an interface, and the fence keeps the count where
+  it is.
+
+### 69.5 — audio follows the picture
+
+- **Done.** `AudioOutput` on the placement, `FollowPicture` on the matrix, `SourceOfScreen` /
+  `FollowedRoutes` / `EffectiveRoutes` in the routing, the follow signature in the graph's topology,
+  the `ScreenAudio` and `AudioFollow` actions, the wire and OSC verbs, the Screens and Audio pages,
+  the Eye's edges, STATE, Companion 3.10.0, the help and the papers. §87.5. Tests: AudioFollowTests
+  (7), AudioFollowAppTests, WireVocabularyTests, the module's round-69 cases.
+- **Found and fixed on the way:** naming a screen's output while the matrix was off made the
+  destination's row before seeding the defaults, and the seed — which fills an empty table only —
+  then left the programme's crosspoint unmade; the executor now seeds first, enables, then makes
+  sure of the row. A tooltip that named `<output>` in angle brackets did not compile as XAML.
+  The xUnit analysers asked for `Assert.DoesNotContain` over a negated `Contains`.
+
+### 69.6 — everything follows
+
+- **Done.** The Eye's desk node reads the memory line — counts by reason and the cache's bound and rung,
+  never the fill or the countdown, so a number that moves every second does not rebuild the picture every
+  second; Companion's `machine_memory_held` and `machine_gpu_cache` with the module's fixture and its
+  variables case; COMPANION.md §16. §87.6. Tests: EyeTests' desk-node case, EyeAppTests' desk node, the module's variables case.
+
+### The review's items, answered
+
+The round-68 review left no open items. This round answers the field's three questions with
+mechanisms and their evidence: every held thing has a reason or a clock, and STATE says which; the
+card's cache is bounded from the card and shrunk under pressure, with its fill read back rather than
+assumed, and the swap that was asked about is declined with the reason written down; the
+composition root stays, fenced by a test with the numbers in it; and a screen's sound follows its
+picture from the source through the matrix to the output the screen names, with the operator's own
+rows always winning.

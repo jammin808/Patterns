@@ -9012,3 +9012,135 @@ the native player's stream is a fact only when the tool answered, and until then
   small machine two frames; the 720p capture the policy chooses there gives the full depth.
 
 Counts at the end of the round: Core 834, Rendering 659, Devices 7, Audio 9, Assistant 37, Audience 2, App 735 — 2,283 in seven suites, the module's twenty-one beside them.
+
+## 87. Round 69 — memory with a reason for everything held, the GPU cache governed, the composition root answered, and audio that follows the picture
+
+The request, in three parts. Does Patterns have dynamic memory management — can it discard what is
+not needed or running unless it is set up (a marker on a video, the next cue's media pre-loaded),
+balance and swap memory between the card and the computer, likewise CPU and GPU, and dispose of
+old redundant memory better? Could it make more use of a dependency-injection framework (the risk
+of tight coupling) and of MVC/MVVM (the risk of UI logic in business logic — Button_Click handlers
+doing heavy work)? And audio should follow the source: a video on the main screen and its
+repeaters, a playlist with different audio on the info screens, each channelled from its playback
+source through to its output. The doctrine carried through: *attempts are not facts* — a hold is a
+reason read from the engine that holds the thing, not a guess; the GPU cache's fill is read back
+from Skia, not inferred from its limit; a followed audio route is a lane the graph built and STATE
+names as followed.
+
+### 87.1 Research and design (69.1)
+
+- Memory as it stood (rounds 57, 58, 64): pools behind the render fence, a picture cache with a
+  byte cap, a media budget by machine class, a pressure ladder with hysteresis, a census. What was
+  missing was a *reason*: everything held stayed until pressure or a cap moved it, so an idle
+  picture from an hour ago sat beside the one on air, an armed page had no standing of its own, and
+  nothing said why any of it was there. `docs/MEMORY-RESEARCH.md` §11.
+- GPU/CPU balance as it really is: the pixels live in system memory, the card holds an upload for
+  the frame in hand, and Windows' display driver pages the card's allocations against the budget it
+  grants — a second swap layer in the app would fight it with less information. What the app can
+  govern is Skia's resource cache — bounded from the card, shrunk under either pressure, purged when
+  it presses hard — and it can read the fill back, which §9 of the paper had asked for. The quality
+  ladder (round 56.8) is the CPU/GPU balance already. §12 of the paper.
+- DI and MVVM as they stand, measured rather than argued: the services built once in `AppServices`'
+  constructor order (the kernel, ADR-011); 18 code-behind handlers in 7 of 44 code-behind files, none
+  doing heavy work; 11 reaches for the ambient `AppServices.Instance` in 6 files, all at Avalonia's
+  own construction seams; every engine built in one file. `docs/ADR.md` ADR-012.
+- Audio as it stood (round 55): a matrix of sources × destinations with dB crosspoints and the VOG,
+  every route the operator's own; a screen's picture and its sound had nothing binding them, so a
+  repeater that changed picture kept the old sound. `docs/AUDIO-RESEARCH.md` §7.
+
+### 87.2 The residency ledger (69.2)
+
+- `Residency` (Core, pure): a hold reason for everything held — *on air*, *named* by the show (the
+  pattern's media, the layers' pictures, the independents, the brand, the sandbox, the standby
+  look), *preview*, *armed*, *pre-rolled*, *retiring*, *idle* — and a grace for what has none: 20 s
+  small, 60 s standard, 180 s big, halved at elevated pressure, quartered at high, none at critical.
+  `ForBuses` names a source's reason from the buses it sits on and the pre-roll; `NamedPictures`
+  gathers what the show names from the state; `Summary` is the words.
+- `ImageCache` (Rendering): every picture remembers when it was last drawn; `SweepIdle` lets the
+  idle ones past the grace go behind the render fence — never one drawn in the last second and a
+  half, never one the show still names, however short the grace.
+- `ResidencyService` (App), on the metrics tick: the engines report their holds — clips, web pages,
+  decks, NDI receivers — with a reason each and their bytes (a web page's from its browser process
+  on Windows); idle pictures are let go on their clock and counted; the words say what is held and
+  why. The web engine keeps an operator-armed page past its want (`KeepArmed`) — the marker on the
+  video — and lets it go only at critical pressure, where the ladder's steps say *armed pages let
+  go*. STATE's `memory.residency` (the grace, the words, what went, every hold with its reason), the
+  Media page's residency line, the Eye's source nodes (*held: on air*), the assistant's inputs list
+  with the reason beside each input.
+
+### 87.3 The GPU cache governed, and the collector's facts (69.3)
+
+- `GpuGovernor` (Core, pure): the limit is the class's number (64 / 128 / 256 MB, round 57's
+  table), never more than an eighth of the card's dedicated memory when the card is known (the
+  machine inventory's largest hardware adapter — the Basic Render Driver never counts), three
+  quarters at elevated pressure, half at high, a quarter at critical, never under 32 MB; the rung is
+  the worse of the media ladder's and the card's own (this process's video memory against the
+  budget the OS grants, on the same 70 / 85 / 100 % lines); the unlocked resources are purged at
+  high and critical.
+- `GpuCacheGovernor` (App): the metrics tick hands over the limit and the purge; the first sink
+  draw each second applies them through the Skia lease's `GRContext` — the one place the process
+  touches the card's context, which Avalonia owns — and reads the fill back; a lease without a
+  context (software rendering, the headless tests) is said, not pretended. The tick's order is the
+  tick's truth: the ladder's rung from the bytes, then the governor's limit from that rung, then the
+  sample that carries it, then the ledger.
+- `ShowGc`: each time the outputs go off air the large-object heap is asked to compact once at the
+  next full collection (never during a show — a blocking compaction is the pause sustained low
+  latency exists to avoid); `Facts()` reads the collections by generation, the large-object and
+  pinned heaps, the last collection's pause and the pause share. All of it in the sample (the CSV,
+  the history), STATE's `machine.gpuCache` and `machine.gc`, and the Machine page — the VRAM line
+  ends with the cache's words, the extras line with the collector's.
+
+### 87.4 DI and MVVM answered (69.4)
+
+- ADR-012: a composition root, not a container; MVVM as the desk's shape, with a fence rather than
+  a framework. `ArchitectureFenceTests` names the seams by file and count — where the ambient
+  service may be reached and how often, the code-behind handlers there are, the engines the kernel
+  alone builds — and forbids heavy work in a view's code-behind: files, threads, the network,
+  serialisation, an engine driven directly. A new reach, a new handler or a second constructor for
+  an engine fails the test, so each becomes a decision written in the list with its reason, as a
+  module's reference is in the module rules (round 59.8).
+
+### 87.5 Audio follows the picture (69.5)
+
+- Each screen placement names its sound output (`AudioOutput`: a device or an NDI sender's
+  destination key); `AudioRoutingConfig.FollowPicture`, on by default. `AudioRouting.SourceOfScreen`
+  reads what a screen shows — a repeater takes the screen it mirrors; a member of a canvas takes the
+  canvas's picture; a screen on its own picture takes `screen:<key>`; otherwise the programme — and
+  `FollowedRoutes` gives the crosspoints that follow: each screen's source to that screen's output
+  at 0 dB, wherever the operator has not placed a row of their own (on or off) for that crosspoint.
+  `EffectiveRoutes` is the operator's rows first, then the followed; `Resolve` builds the graph over
+  both, a followed-only destination with the show's duck level and no trim; the follow signature is
+  part of the audio graph's topology signature, so a screen changing its picture rebuilds the lanes
+  at once, and the output section is one of the graph's dirty domains.
+- On the wire and in cues: `SCREEN n AUDIO <output>` / `SCREEN n SOUND <output>` (OFF, NONE or CLEAR
+  to take it off), `AUDIO FOLLOW ON|OFF|TOGGLE`, the `AudioFollow` cue kind; OSC
+  `/patterns/screen/<n>/audio` and `/patterns/audio/follow`. Naming a canvas sets every member;
+  naming a screen's output while the matrix is off seeds the defaults, enables the matrix and makes
+  sure the destination has a row. The Screens page's placement panel has the output; the Audio page
+  says which lanes are followed; the Eye's audio edges read *(follows the picture)*; STATE's
+  `audio.routes[].followed`; Companion 3.10.0's `screen_audio` and `audio_follow` actions,
+  `audio_follow_on` and `screen_sound_out` feedbacks, `audio_follow` and `screen_n_audio` variables,
+  the FOLLOW preset; the help, REMOTE.md, COMPANION.md §16, AUDIO-RESEARCH §7.
+
+### 87.6 Everything follows (69.6)
+
+- The Eye's desk node carries one memory line (`EyeFacts.MemoryWords`): what is held and why, by count
+  and reason, and the GPU cache's bound and rung — *4 held: 2 on air, 1 armed, 1 idle · GPU cache limit
+  128 MB · rung none*. The line is stable from tick to tick on purpose: the Eye rebuilds its picture when
+  its facts move, so the fill and the idle countdown — numbers that change every second and that nobody
+  acts on from the Eye — stay on the Media and Machine pages and in STATE, where they belong.
+  Companion 3.10.0 gains `machine_memory_held` and `machine_gpu_cache` beside `machine_memory_pressure`,
+  reading the same words STATE carries; COMPANION.md §16.
+
+### 87.7 What the round did not do
+
+- No swap of textures between the card and the computer — by design; §12.1 of the memory paper
+  says why. The GPU context path (the limit set, the purge, the fill read) is written to SkiaSharp's
+  contract and compiled on the Windows lane; no GPU context ran here, so the qualification record
+  gains a row for it. The card's own rung needs the DXGI reading, so on a machine without it the
+  governor stands on the media ladder alone. A container was not adopted, and the reasons are
+  ADR-012's. The page's own sound through the mixer still waits for the bench (§86.5): a followed
+  route carries what the matrix carries today — the clip engine's sound, the native player's, tone,
+  music and the VOG.
+
+Counts at the end of the round: Core 850, Rendering 660, Devices 7, Audio 9, Assistant 37, Audience 2, App 743 — 2,308 in seven suites, the module's twenty-two beside them.
