@@ -117,6 +117,9 @@ export function buildFeedbacks(ctx) {
 		audio_routing_on: bool('The routing matrix is in charge of which soundtrack goes where', style('audio', 'playing'), [], () => !!(s().audioRouting && s().audioRouting.on)),
 		web_armed: bool("A web page's video is armed — held at its mark, to play when the page goes to air", style('presenter', 'on'), [], () => !!s().webArmed),
 		web_advert: bool('An advert is showing over the web page on air (Patterns skips it when the site allows)', style('presenter', 'out'), [], () => !!(s().web && s().web.player && s().web.player.ad)),
+		// Round 68: the page's picture on its way to the glass — buffered for a regular picture, or stalled.
+		web_smoothed: bool('The web page on air is buffered — a few frames of delay for a regular picture (round 68)', style('presenter', 'on'), [], () => (s().web?.path?.depth ?? 0) > 0),
+		web_stalled: bool("The web page on air has stalled — its buffer ran dry while a video played (round 68)", style('presenter', 'out'), [], () => (s().web?.path?.underruns ?? 0) > 0),
 		deck_on_air: bool('A deck (PDF) is on air — or on its last page', style('presenter', 'on'), [{ type: 'checkbox', id: 'ended', label: 'Only on its last page (the next click GOes the standby cue)', default: false }], (fb) => {
 			const d = s().deck
 			if (!d || !d.count) return false

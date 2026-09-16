@@ -358,3 +358,31 @@ test('round 67 — the next take and the group on the deck: TAKE NEXT and SCREEN
 	assert.ok(b.ctx.presets.screen_2_group_conf, 'a group key per screen')
 	assert.deepEqual(style('take', 'sting'), style('stinger', 'playing'))
 })
+
+test("round 68 — the web page's picture on the deck: the frame path as variables, buffered and stalled as feedbacks, nothing for a page without one", async () => {
+	const path = { words: 'smooth 2 (67 ms) · decode 6.2 ms · 30 → 30 fps', smoothing: 'smooth 2 (67 ms)', depth: 2, latencyMs: 66.7, jitterMs: 4.1, decodeMs: 6.2, deliveredFps: 30, presentedFps: 30, underruns: 1, dropped: 0, duplicates: 12, held: 2, poolStarved: 0, poolBytes: 58060800, capture: 'captured at 1280×720 · q60' }
+	const smooth = { ...sampleState(), web: { page: 'Sponsor', url: 'https://www.youtube.com/embed/abc', title: 'Sponsor', service: 'YouTube', fps: 30, actions: [], player: null, arm: null, path } }
+	const v = variableValues(smooth)
+	assert.equal(v.web_path, path.words)
+	assert.equal(v.web_smoothing, 'smooth 2 (67 ms)')
+	assert.equal(v.web_latency, '67 ms')
+	assert.equal(v.web_underruns, '1')
+	assert.equal(v.web_capture, 'captured at 1280×720 · q60')
+	const b = await boot({ state: smooth })
+	assert.equal(askFeedback(b, 'web_smoothed', {}), true)
+	assert.equal(askFeedback(b, 'web_stalled', {}), true)
+	const live = { ...smooth, web: { ...smooth.web, path: { ...path, smoothing: 'low latency', depth: 0, latencyMs: 0, underruns: 0 } } }
+	const q = await boot({ state: live })
+	assert.equal(askFeedback(q, 'web_smoothed', {}), false)
+	assert.equal(askFeedback(q, 'web_stalled', {}), false)
+	assert.equal(variableValues(live).web_latency, '0 ms')
+	const none = variableValues(emptyState())
+	assert.equal(none.web_path, '')
+	assert.equal(none.web_smoothing, '')
+	assert.equal(none.web_latency, '')
+	assert.equal(none.web_underruns, '0')
+	assert.equal(none.web_capture, '')
+	const quiet = await boot({ state: emptyState() })
+	assert.equal(askFeedback(quiet, 'web_smoothed', {}), false)
+	assert.equal(askFeedback(quiet, 'web_stalled', {}), false)
+})

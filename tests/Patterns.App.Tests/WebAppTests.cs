@@ -72,6 +72,11 @@ public sealed class FakeWebSource : IWebSource, IDisposable
 
     public void BeginLeaving(double fadeSeconds) => LeftAfter = fadeSeconds;
 
+    /// <summary>A stand-in report once a plan has been applied — what a real page's pipeline would say — so STATE's row can be read in a test.</summary>
+    public WebFrameReport FrameReport => Plan is null ? WebFrameReport.None : new WebFrameReport("smooth 2 (67 ms)", 2, 66.7, 4.1, 6.2, 30, 30, 1, 0, 2, 0, 58_060_800, 12);
+
+    public string CaptureWords => Plan is { } p ? p.Words : "";
+
     public void PointerMove(float nx, float ny)
     {
         PointerNorm = new SKPoint(nx, ny);

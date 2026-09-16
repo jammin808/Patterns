@@ -127,6 +127,11 @@ public class WebVtAppTests
             state = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement;
             var web = state.GetProperty("web");
             Assert.Equal("1:40 / 5:00", web.GetProperty("player").GetProperty("text").GetString());
+            var path = web.GetProperty("path");                                  // round 68: the frame path as the page's pipeline reports it (the stand-in's words once the desk's plan reached it)
+            Assert.Equal("smooth 2 (67 ms)", path.GetProperty("smoothing").GetString());
+            Assert.Equal(2, path.GetProperty("depth").GetInt32());
+            Assert.Equal(1, path.GetProperty("underruns").GetInt64());
+            Assert.StartsWith("captured at", path.GetProperty("capture").GetString());
             Assert.Contains("played from 1:35", web.GetProperty("arm").GetProperty("words").GetString());
             Assert.Contains("PLAYING (observed)", web.GetProperty("arm").GetProperty("words").GetString());
             Assert.Equal("PlayingObserved", web.GetProperty("arm").GetProperty("phase").GetString());

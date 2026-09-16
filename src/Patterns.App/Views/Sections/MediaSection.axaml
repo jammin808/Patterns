@@ -187,6 +187,14 @@
                  IsEnabled="{Binding ActivePattern.Media.WebAutoPlay}" ToolTip.Tip="1:23, 83 or 1m23s; empty for the top" />
         <TextBlock Grid.Column="4" Classes="label" Text="when it goes to air — the armed VT, carried by the look" VerticalAlignment="Center" TextWrapping="Wrap" />
       </Grid>
+      <!-- Round 68: how the page's frames reach the glass — a small buffer for a regular picture, or the newest frame at once -->
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Frames" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:Lists.WebSmoothings}" HorizontalAlignment="Stretch"
+                  SelectedValue="{Binding ActivePattern.Media.WebSmoothing, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                  ToolTip.Tip="How the page's frames reach the glass. Auto smooths a video (24 fps or more) through a small buffer sized for this machine — a couple of frames of delay the room never sees, a regular picture — and shows a slower, live page at once. Smooth and Low latency choose outright. The choice rides the look; the PAGE CONTROLS line reads what the buffer is doing" />
+      </Grid>
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Schedule (shown in the multiview and status)"

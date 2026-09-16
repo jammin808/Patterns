@@ -282,6 +282,19 @@ the wall, the key stays amber until the TAKE spends it, and the plan key says wh
 and why it would do nothing — before the press. The module never plans a take itself: the desk's row is
 the truth, latest-wins like every STATE push.
 
+## 15. Round 68 additions
+
+**The web page's picture on the deck, version 3.9.0.** STATE's `web` row gains `path` — how the page's
+picture reaches the glass: `words` (*smooth 2 (67 ms) · decode 6.2 ms · 30 → 30 fps*), `smoothing`,
+`depth`, `latencyMs`, `jitterMs`, `decodeMs`, `deliveredFps`, `presentedFps`, `underruns`, `dropped`,
+`duplicates`, `held`, `poolStarved`, `poolBytes` and `capture` (what the browser is asked to hand over).
+Variables `web_path`, `web_smoothing`, `web_latency`, `web_underruns` and `web_capture`; feedbacks
+`web_smoothed` (the page on air is buffered) and `web_stalled` (its buffer has run dry). No new actions
+and no new colours: the presenter family's shades serve. A 3.8.0 deck ignores the row.
+
+The point on a show: a key that reads *smooth 2 (67 ms) · 30 → 30 fps* beside the page's name says the
+video is smooth before the room does, and a stall lights a key rather than being noticed on the wall.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

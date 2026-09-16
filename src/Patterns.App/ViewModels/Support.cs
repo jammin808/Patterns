@@ -1033,6 +1033,14 @@ public static class Lists
         new(PageServicePick.Page, "A plain web page"),
     };
 
+    /// <summary>How a web page's frames reach the glass (round 68): the look's choice, applied live.</summary>
+    public static readonly EnumItem[] WebSmoothings =
+    {
+        new(Patterns.Core.Media.WebSmoothing.Auto, "Auto — a video smoothed, a live page at once"),
+        new(Patterns.Core.Media.WebSmoothing.Smooth, "Smooth — a few frames of buffer, a regular picture"),
+        new(Patterns.Core.Media.WebSmoothing.LowLatency, "Low latency — the newest frame at once"),
+    };
+
     public static readonly EnumItem[] AudioSources =
     {
         new(AudioSourceKind.None, "No sound — just the motion"),

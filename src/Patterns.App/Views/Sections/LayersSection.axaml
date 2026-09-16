@@ -87,6 +87,12 @@
                            Value="{Binding WebStartSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
             <TextBlock Grid.Column="4" Classes="label" Text="s when it goes to air" VerticalAlignment="Center" />
           </Grid>
+          <Grid ColumnDefinitions="Auto,8,*">
+            <TextBlock Classes="label" Text="Frames" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="2" ItemsSource="{x:Static vm:Lists.WebSmoothings}" HorizontalAlignment="Stretch"
+                      SelectedValue="{Binding WebSmoothing, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                      ToolTip.Tip="How this layer's page reaches the glass: Auto smooths a video and shows a live page at once; Smooth and Low latency choose outright (round 68)" />
+          </Grid>
         </StackPanel>
 
         <TextBlock Classes="label" Text="Box (% of the canvas — or drag it on the PREVIEW pane)" Margin="0,6,0,0" />

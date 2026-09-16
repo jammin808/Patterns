@@ -559,7 +559,7 @@ public static class HelpTopics
             },
             "WEB KEY <key|action> [ON <page>] · WEB NEXT / PREV / PRESENT / PLAY / PAUSE… · WEB CLICK <x> <y> · WEB TYPE <text> · WEB RELOAD · WEB OPEN <address> · WEB ARM [<time>] · WEB MARK [<time>] · WEB DISARM",
             new[] { "Media", "Cues", "Panel" },
-            new[] { "web", "page", "browser", "youtube", "vimeo", "google slides", "office", "powerpoint online", "key", "click", "type", "cursor", "url", "address", "present", "webview", "arm", "armed", "vt", "video", "start point", "mark", "advert", "adverts", "ads", "skip", "play from", "frame rate", "fps", "smooth", "jerky", "screencast", "pre-roll", "clicker" }),
+            new[] { "web", "page", "browser", "youtube", "vimeo", "google slides", "office", "powerpoint online", "key", "click", "type", "cursor", "url", "address", "present", "webview", "arm", "armed", "vt", "video", "start point", "mark", "advert", "adverts", "ads", "skip", "play from", "frame rate", "fps", "smooth", "jerky", "screencast", "pre-roll", "clicker", "buffer", "latency", "judder", "stutter", "low latency", "cpu", "webview2" }),
 
         new HelpTopic("pdf-decks", HelpGroup.Content,
             "PDF decks: full frame, the click-through, the cue stack resumes",

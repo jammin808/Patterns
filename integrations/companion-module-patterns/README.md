@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.8.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.9.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / UNVERIFIED — never a pass by default), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.8.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.9.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,11 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.9.0** — the web page's picture on the deck (round 68): STATE's `web.path` row — the smoothing
+  buffer and its depth, the delay it adds, the measured jitter, the decode time, the frames delivered
+  and presented, the stalls, the frames dropped or skipped, the pool, and what the browser is asked to
+  hand over — as the `web_path`, `web_smoothing`, `web_latency`, `web_underruns` and `web_capture`
+  variables and the `web_smoothed` and `web_stalled` feedbacks. No new actions; a 3.8.0 deck ignores the row.
 - **3.8.0** — the next take and the group on the deck (round 67): the `take_next` action (`TAKE NEXT
   <transition | STING name | CLEAR>` — the transition or video sting for the next TAKE alone; the show's
   own transition never moves) and `screen_group` (`SCREEN n GROUP main | confidence | info | repeater`);

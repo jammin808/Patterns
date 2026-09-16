@@ -221,6 +221,38 @@ public sealed class CommandRouter : IRouter
             actions = preset.Actions.Select(a => new { id = a.Id, label = a.Label }).ToArray(),
             player = PlayerRow(wanted.Key),                                   // the page's video: where it is, paused, an advert; null with no player
             arm = ArmRow(wanted.Key),                                         // the armed VT on this page; null with none
+            path = page is null ? null : PathRow(page),                       // round 68: how the picture reaches the glass — the buffer, the delay, the decode, the rates
+        };
+    }
+
+    /// <summary>
+    /// Round 68: a page's frame path as the desk's pipeline reports it — the smoothing and its
+    /// depth, the delay it adds, the measured jitter, the decode time, the frames delivered and
+    /// presented a second, the stalls, the frames dropped or skipped as duplicates, the pool — and
+    /// what the browser is asked to hand over. Null for a source with no pipeline (a test's stand-in).
+    /// </summary>
+    private static object? PathRow(Patterns.Rendering.Media.IWebSource page)
+    {
+        var r = page.FrameReport;
+        var capture = page.CaptureWords;
+        if (r.Smoothing.Length == 0 && capture.Length == 0) return null;
+        return new
+        {
+            words = r.Words,
+            smoothing = r.Smoothing,
+            depth = r.Depth,
+            latencyMs = Math.Round(r.LatencyMs, 1),
+            jitterMs = Math.Round(r.JitterMs, 1),
+            decodeMs = Math.Round(r.DecodeMs, 2),
+            deliveredFps = Math.Round(r.DeliveredFps, 1),
+            presentedFps = Math.Round(r.PresentedFps, 1),
+            underruns = r.Underruns,
+            dropped = r.Dropped,
+            duplicates = r.Duplicates,
+            held = r.Held,
+            poolStarved = r.PoolStarved,
+            poolBytes = r.PoolBytes,
+            capture,
         };
     }
 

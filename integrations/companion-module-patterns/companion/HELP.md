@@ -68,6 +68,16 @@ never moves. On the **Screens** page, **MAIN** and **CONF** put a screen in its 
 same verb as the tile's right-click menu and the Screens page — and light when it is in it; a confidence
 or info screen locks as it takes the group. `$(patterns:screen_n_group)` names the group.
 
+### The web page's picture
+
+Round 68 smooths a web page's video: the browser's frames are decoded into pooled buffers and shown on a
+regular schedule a couple of frames late, so a YouTube clip on a lower-spec machine no longer judders.
+`$(patterns:web_path)` reads what the path is doing — *smooth 2 (67 ms) · decode 6.2 ms · 30 → 30 fps* —
+`$(patterns:web_smoothing)`, `$(patterns:web_latency)` and `$(patterns:web_capture)` the parts, and
+`$(patterns:web_underruns)` the stalls. **web_smoothed** lights while the page on air is buffered and
+**web_stalled** when its buffer has run dry; the choice itself (Auto, Smooth, Low latency) is the look's,
+on the desk's Media page.
+
 No module? The same protocol works with Companion's built-in **Generic TCP** connection — one command per line,
 as `docs/REMOTE.md` in the Patterns repository lists them — without feedback.
 
