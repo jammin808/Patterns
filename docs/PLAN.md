@@ -8900,3 +8900,115 @@ preview lands.
 
 Counts at the end of the round: Core 808, Rendering 648, Devices 7, Audio 9, Assistant 37,
 Audience 2, App 731 — 2,242 in seven suites, the module's twenty beside them.
+
+## 86. Round 68 — web video smooth and cheap: a buffer on a locked clock, pooled decode, capture by policy, and the browser out of the chain
+
+The request: should YouTube and web videos be allowed a small but sensible buffer based on the
+host machine (faded and cut when they are taken off Program)? YouTube rendering is poor on
+lower-spec machines; WebView2 is CPU-heavy for web video and makes Patterns heavy with it — how do
+OBS, vMix and the others play web video so smoothly, and what would make Patterns' playback smooth
+and perfect? Every solution investigated, the worthwhile ones built, the rest recorded with their
+exact shapes. The doctrine carried through: *attempts are not facts* — the buffer reports what it
+presented, not what it was sent; the capture plan says what was asked and the restart is counted;
+the native player's stream is a fact only when the tool answered, and until then the browser is.
+
+### 86.1 Research and design (68.1) — `docs/WEB-VIDEO.md`
+
+- The chain as it stood: `Page.startScreencast` JPEG at the viewport, ~350 KB base64 to a
+  700 KB string per frame on the UI thread, a fresh 8 MB bitmap and a new image per decode, a
+  per-sink raster upload, the frame shown the moment it landed. Judder from the browser's uneven
+  delivery; allocator traffic by the hundred megabytes a second; WebView2 reported on the older,
+  dearer video decoder (WebView2Feedback #3751).
+- The field: OBS's browser source is CEF off-screen rendering with a shared D3D11 texture and an
+  audio handler; vMix's Smooth mode buffers a couple of frames (auto-picked at 30 fps and over)
+  against Low Latency; WebView2's composition controller with Windows.Graphics.Capture gives GPU
+  textures at vsync (DRM refused); yt-dlp hands a stream to a native player; Chromium's screencast
+  is ~30 fps in practice.
+- Eight options ranked by what they buy, cost and can be proven here (§3 of the paper). Built: the
+  smoothing buffer, pooled decode, capture by policy, the decoder flag, the native-player path.
+  Recorded: process-loopback audio, GPU capture. Declined: CEF beside WebView2.
+
+### 86.2 The pipeline's cost cut (68.2)
+
+- `WebFramePipeline` (Rendering): each JPEG decoded by `SKCodec.GetPixels` straight into a pooled
+  BGRA buffer — the clips' `FramePool`, fixed buffers behind the render fence, with a new
+  **Queued** slot state that a later publish never drops — and queued for its time; a sink's draw
+  picks, publishes (a pointer swap) and leases as it does a clip's. A frame whose bytes repeat the
+  last is skipped by a hash before any decode; a starved pool makes room by dropping the oldest
+  waiting frame; a size change remakes the pool and drops what waited; one decode at a time, a
+  dispose waits for the one in flight. The decode time, the rates delivered and presented, the
+  drops, the duplicates and the pool are the report STATE reads.
+- `WebCapturePolicy` (Core, pure): the screencast asked for no more pixels than the rig's largest
+  surface shows (the viewport's aspect fitted inside it, never above the viewport; on a small
+  machine below the ladder's full rung never above 1280×720), at a JPEG quality by machine class
+  (60 / 70 / 80), every second frame of a 45 fps-or-faster page when the ladder is at Economy. The
+  plan is applied live and restarts the screencast only when it changed, at most once every three
+  seconds, never while the page is leaving; the rig's *largest* surface rather than the page's
+  buses, so a routing change never restarts a capture on air.
+- `--enable-features=D3D11VideoDecoder` joins the browser's arguments while the desk decodes on
+  the GPU — a request the browser may decline, never a promise.
+
+### 86.3 The smoothing buffer (68.3)
+
+- `FrameSmoother` (Core, pure): not "arrival plus a constant" — the arrivals *are* the jitter. A
+  phase-locked clock gives each frame an ideal time (the previous ideal plus the cadence, nudged a
+  tenth of the way to the real arrival); the frame is due at the ideal plus a depth of frames at
+  the cadence. The cadence is the least-squares slope of the arrivals over a window of 32, locked
+  to a known rate within 4 % (the broadcast fractions left out on purpose: the browser composites
+  on vsync). The depth starts from the machine class (small 3, standard 2, big 2), follows the p95
+  *lateness* within the class's bounds and the pool's room, grows at once and shrinks a frame at a
+  time after a quiet window. Auto smooths at 24 fps and over, back to the newest frame below 20,
+  and only once eight intervals are measured. A stall counts once; a full ring drops the oldest.
+  Every sink reads the show clock: every output shows the same frame in the same slot.
+- Leaving Program: `BeginLeaving(fade)` with the show's transition time — the page's own media
+  elements fade to nothing over it (a YouTube embed's player included), the frames keep flowing
+  for the crossfade, and at the end the buffer is cut, the capture and the poll stop and the
+  browser is muted. A cut leaves at once.
+- Frames — Auto, Smooth, Low latency — per pattern and per layer (`WebSmoothing`), carried by the
+  look, applied live.
+
+### 86.4–86.5 Recorded, not built (68.4, 68.5)
+
+- GPU capture (`IWebFrameCapture`): the composition controller, `CreateFromVisual`, the
+  `Direct3D11CaptureFramePool`, the `-windows10.0.19041` target framework the App would need, the
+  DRM refusal and the audio prerequisite — §4.7 of the paper. The page's sound through the mixer:
+  WASAPI process loopback of the browser's process tree with its exact activation shape — §4.5.
+  Neither shipped blind: two hundred lines of COM and WinRT interop no machine here could run are
+  not something to put on a show machine behind a switch. The Windows bench is the next step.
+
+### 86.6 The native player (68.6)
+
+- Play via — Browser or Native player — on the Media page and a web layer (`WebPlayVia`). With
+  Native player, a YouTube or Vimeo page's stream address is found by yt-dlp (the operator's tool:
+  beside Patterns.exe, on PATH, or named under Play via — Admin `YtDlpPath`; never bundled) and
+  `MediaLocator.WebResolver`, the desk's hook on the locator, hands the page to the clip engine as
+  the clip input for that stream **under the page's own key**, the sound served apart as the
+  player's slave: libVLC plays it on the GPU, the routing matrix carries the sound, the browser is
+  not opened for it. The browser stands in until the stream is found and whenever it cannot be;
+  the words say why; a failure is not asked again for thirty seconds; an address is fetched again
+  when it lapses; a mount already playing keeps its address until the page leaves. The clip engine
+  opens a network address by its URI with a short buffer where it opened files alone.
+- The words are plain: the native player fetches the stream outside the site's own player, and
+  the site's terms and the content owner's permission for the show are the operator's call; the
+  browser is the default and the path for anything that is not a YouTube or Vimeo video.
+
+### 86.7 Everything follows (68.7)
+
+- STATE's `web` row: `path` (the smoothing words, depth, latency, jitter, decode ms, delivered and
+  presented fps, stalls, drops, duplicates, held, pool, capture), `via`, `native`. Companion 3.9.0:
+  `web_path`, `web_smoothing`, `web_latency`, `web_underruns`, `web_capture`; `web_smoothed`,
+  `web_stalled`; no new actions (the choices are the look's). The PAGE CONTROLS line and the Eye's
+  source node read the buffer's words through the page's status; the Media page's live-inputs line
+  and the words under Play via say what the native player is doing; the web page help topic, the
+  assistant's catalogue, REMOTE.md and COMPANION.md §15 say the same.
+
+### 86.8 What the round did not do
+
+- No Windows ran here: the decoder flag, the leaving fade's script, the screencast restart, the
+  network open in libVLC and yt-dlp's process are compiled and read on the Windows lane and wait
+  for the bench, as §6 of the paper says. The armed VT (a start point) is the browser's alone; the
+  cue-ahead pre-roll opens the browser for a native-player page; on a cold take the browser shows
+  for the second the tool takes. The buffer's depth is bounded by the pool's room — at 1080p on a
+  small machine two frames; the 720p capture the policy chooses there gives the full depth.
+
+Counts at the end of the round: Core 834, Rendering 659, Devices 7, Audio 9, Assistant 37, Audience 2, App 735 — 2,283 in seven suites, the module's twenty-one beside them.

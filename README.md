@@ -23,6 +23,13 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Web video, smooth and cheap** — a page's frames are decoded into pooled buffers and shown
+  on a regular schedule a few frames late (the depth sized by the machine and the measured
+  lateness), faded and cut when the page leaves Program; the browser is asked for no more pixels
+  than the rig shows; Frames (Auto / Smooth / Low latency) and Play via (Browser / Native player —
+  a YouTube or Vimeo stream through libVLC with yt-dlp, no browser in the chain) on the look.
+  STATE's `web.path`, Companion 3.9.0's `web_path`, the research and the roads not yet taken:
+  `docs/WEB-VIDEO.md`; the design: `docs/PLAN.md` §86.
 - **The switcher's rules, the tile, the next take, the group** — CUT / TAKE do what the picker says
   and nothing else: LOCKED is never taken (not by ALL ARMED, not by the tile's own TAKE), ARM counts
   inside every scope, FOCUSED is the edited tile alone, TICKED and TICKED GROUPS the ticked alone, a

@@ -2296,3 +2296,74 @@ authority; the desk's alone; the lights of now.
 The round-66 review left no open items. This round answers the field's request that the desk's
 words be the desk's facts: the plan under the picker is what the press does, a tile's menu and
 its switches read one truth, and a transition chosen for one take is spent by that take alone.
+
+## Round 68 review — web video smooth and cheap: a buffer on a locked clock, pooled decode, capture by policy, the browser out of the chain
+
+### 68.1 — research and design
+
+- **Done.** The chain and its per-stage costs read from the code; OBS, vMix, CEF, WebView2's
+  capture paths and yt-dlp surveyed from their sources; eight options ranked by what they buy and
+  what can be proven here; the design recorded and then realigned to what was built. §86.1,
+  `docs/WEB-VIDEO.md`.
+
+### 68.2 — the pipeline's cost cut
+
+- **Done.** `WebFramePipeline` over the clips' `FramePool` with a Queued slot state; duplicate
+  frames skipped before any decode; `WebCapturePolicy` by machine, ladder and the rig's largest
+  surface; the plan applied live with a restart only on a change; the decoder flag under the
+  desk's choice. §86.2. Tests: WebFramePipelineTests (11), WebCapturePolicyTests (4),
+  ScreencastFrameTests, WebSmoothingAppTests.
+- **Found and fixed on the way:** the first pool's creation reset the duplicate memory (the second
+  identical frame decoded) — the reset now belongs to a remake alone; the smoother's cap follows
+  the pool's room so a full buffer cannot starve the decoder; the App's plan lambda read `Screens`
+  before the constructor assigned it (a nullable-flow error), moved below the assignment.
+
+### 68.3 — the smoothing buffer
+
+- **Done.** `FrameSmoother`: a phase-locked ideal clock, the cadence as the least-squares slope of
+  the arrivals locked to a known rate, the depth from the p95 lateness within the class's bounds and
+  the pool's room with hysteresis, Auto's band, a stall counted once, drain, cut and resume;
+  `BeginLeaving` fades the page's sound over the transition and cuts at the end. §86.3. Tests:
+  FrameSmootherTests (12), WebLeavingTests (2), WebSmoothingConfigTests, WebSmoothingAppTests.
+- **Found and fixed on the way:** the first design's due time was `arrival + latency`, which
+  carries every stray straight through — the regularity test (a jittery 30 fps source against a
+  60 Hz sink) showed it, and the ideal clock replaced it; an exponential mean of the intervals
+  wobbled the cadence by the very jitter the buffer removes and un-snapped the rate lock, hence the
+  slope over a window and the lock; the broadcast fractions (29.97, 59.94, 23.976) made the lock
+  flap between two rates a tenth of a per cent apart and left the list; the lateness measure is
+  `max(0, error)` — an early frame waits, only a late one needs room; a sink that keeps asking after
+  the source stops counts a stall, rightly, so the test ends a tick after the last frame's time.
+
+### 68.4–68.5 — GPU capture and the page's sound through the mixer
+
+- **Recorded, not built.** The exact shapes are in the paper (§4.5, §4.7) with the reasons; the
+  browser path fades its own sound over the transition and the native-player path gives the
+  matrix the sound outright. §86.4. The Windows bench is the open item.
+
+### 68.6 — the native player
+
+- **Done.** `WebVideoResolver` (pure: what applies, the argument list, the parse with the address's
+  expiry, the complaint in one line, where the tool is looked for, the words) and `WebVideoService`
+  (the tool off the UI thread, the answers kept, the locator's rewrite, the desk reconciled when
+  an answer lands); the clip engine opens a network address with a slave; Play via on the look;
+  STATE's `via` and `native`; the Media page's words and path box; the help's plain words on the
+  site's terms. §86.6. Tests: WebVideoResolverTests (6), WebNativeAppTests (2).
+- **Found on the way, kept by design:** on a cold take the browser stands in for the first pass
+  and the clip takes over when the tool answers — the test first asserted no browser at all and
+  was wrong; the paper and the help say to set the page up in the preview first.
+
+### 68.7 — everything follows
+
+- **Done.** STATE's `web.path`, `via` and `native`; Companion 3.9.0's variables and feedbacks with
+  the module's tests; the Frames and Play via pickers; the help, the assistant's catalogue,
+  REMOTE.md, COMPANION.md §15. §86.7. Tests: the module's round-68 case, WebVtAppTests' STATE row.
+- **Found and fixed on the way:** the module's packaging test reads the version from the README's
+  first line and its HELLO example, which a bulk replace of the version sites had missed.
+
+### The review's items, answered
+
+The round-67 review left no open items. This round answers the field's request that a web video
+be smooth on a lower-spec machine and cheap on every machine: the buffer is sized by the machine
+and the measured lateness, faded and cut when the page leaves Program; the pooled decode and the
+capture plan take the cost out of the chain; and the native player takes the browser out of it
+altogether where the operator chooses.

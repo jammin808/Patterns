@@ -8,6 +8,32 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 68 — 2026-09-16 — web video smooth and cheap: a buffer on a locked clock, pooled decode, capture by policy, the browser out of the chain
+
+`round-68` · PLAN §86 · REVIEW round 68 · 2,283 tests · module 3.9.0
+
+- **The smoothing buffer.** A web page's frames are queued in a jitter buffer that gives each one
+  a regular time from a phase-locked clock and shows it a few frames late, so a YouTube clip that
+  arrived late, early and in bursts comes out even; the depth is sized by the machine and the
+  measured lateness within bounds; every output shows the same frame in the same slot. Frames —
+  Auto (a video smoothed, a live page at once), Smooth, Low latency — on the Media page and a web
+  layer, carried by the look. A page leaving Program fades its sound over the transition, then its
+  buffer is cut and its capture stops.
+- **The cost cut.** Each frame decodes straight into a pooled buffer (no allocation per frame), a
+  repeated picture is skipped before any decode, and the browser is asked for no more pixels than
+  the rig shows — 720p on a small machine once the quality ladder has stepped, every second frame of
+  a 60 fps page at Economy — at a JPEG quality by machine; the browser is asked for Chromium's D3D11
+  video decoder when the desk decodes on the GPU.
+- **The browser out of the chain.** Play via → Native player hands a YouTube or Vimeo page's stream
+  (found by yt-dlp, the operator's tool, never bundled) to libVLC under the page's own key — GPU
+  decode, the routing matrix's sound, no browser; the browser stands in until the stream is found
+  and whenever it cannot be, and the words say plainly whose call the site's terms are.
+- **Everything follows.** STATE's `web.path`, `via` and `native`; Companion 3.9.0's `web_path`,
+  `web_smoothing`, `web_latency`, `web_underruns`, `web_capture`, `web_smoothed`, `web_stalled`;
+  the PAGE CONTROLS line and the Eye read the buffer's words; the help and `docs/WEB-VIDEO.md`
+  (the research: how OBS, vMix, CEF and WebView2 do it; GPU capture and the process-loopback audio
+  tap recorded as the next bench).
+
 ## Round 67 — 2026-09-16 — the switcher's rules, the tile's isolation, the next take and the group
 
 `round-67` · PLAN §85 · REVIEW round 67 · 2,242 tests · module 3.8.0

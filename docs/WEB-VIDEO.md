@@ -97,108 +97,155 @@ windowed WebView2 offers without WinRT.
 | 7 | **GPU capture** — composition controller + Windows.Graphics.Capture | no encode, no decode, textures at the compositor's rate | WinRT in the App (a `-windows10.0` target or hand-written ABI), DRM video refused, the rate is vsync; the audio path of #6 is required | no — a Windows bench, and the App's target framework |
 | 8 | **CEF beside WebView2** (CefSharp.OffScreen) | OBS's exact path: shared textures, an audio handler | ~200 MB of Chromium in the bundle, a second browser to keep current, a second set of flags | no |
 
-The round builds 1, 2 and 3 in full with tests; 4 as a switch under the existing decoding choice;
-5 as an optional path with the honest words; 6 as a compiled, off-by-default path behind a seam
-that fails closed to today's; 7 as the seam and the recorded next step; 8 is declined — the cost
-in bundle and upkeep is the wrong trade while 7 is on the table.
+The round built 1, 2, 3 and 5 in full with tests, 4 as a flag under the existing decoding
+choice, and recorded 6 and 7 as designs with their exact shapes (§4.5, §4.7) rather than shipping
+COM and WinRT interop no bench here could run; 8 is declined — the cost in bundle and upkeep is
+the wrong trade while 7 is on the table.
 
-## 4. The design
+## 4. The design, as built
 
 ### 4.1 The smoothing buffer (`FrameSmoother`, Core)
 
-A jitter buffer for pictures, the same idea as an audio ring's latency: a frame arrives at
-`arrival` on the show clock and is due at `arrival + latency`, where `latency = depth × cadence`.
-`cadence` is estimated from the arrivals (an exponential mean of the intervals, clamped to a
-sane range); `depth` starts from the machine class — small 3, standard 2, big 2 frames — and
-adapts to the measured jitter (the p95 of `|interval − cadence|`): `depth = clamp(ceil(jitter /
-cadence) + 1, min, max)` with the class's bounds (small 2–5, standard 2–4, big 1–3). A sink
-asks `Pick(now)` and gets the newest frame whose due time has passed, never one ahead of its
-time, never one twice; nothing due is an **underrun** (the last frame stays up, counted) and a
-full ring on arrival is an **overrun** (the oldest waiting frame is dropped, counted). Every sink
-reads the same clock, so every output shows the same frame in the same slot — the outputs of one
-canvas cannot drift a frame apart, which the newest-frame slot let happen.
+A jitter buffer for pictures — but not "arrival plus a constant": the arrivals *are* the jitter, and
+a due time of `arrival + latency` would carry every stray straight through. Each frame gets an
+**ideal** time from a phase-locked clock: the previous ideal plus the page's cadence, nudged a tenth
+of the way to the real arrival (the rate is tracked, the jitter is not); the frame is due at
+`ideal + depth × cadence`. The cadence is the least-squares slope of the arrivals over a window of
+32 (a burst — a late frame and the catch-up after it — leaves the slope where a running mean of
+intervals would swing) and is **locked** to a known rate when within 4 % of one (120, 60, 50, 48,
+30, 25, 24, 20, 15, 12, 10 — not the broadcast fractions: the browser composites on vsync, so 29.97
+reaches the screencast as 30 with a repeat now and then, and 29.97 in the list only made the lock
+flap). A gap of more than 250 ms, or an interval past 200 ms, re-locks the clock on the arrival.
 
-**Leaving Program.** When the page stops being wanted the engine keeps the source briefly for the
-crossfade (as it does today). The smoother is told `Drain()`: it takes no new frames, keeps
-presenting what it holds at cadence through the fade, and `Cut()` at the end clears the ring —
-the buffered frames are shown, not leaked, and nothing of the page survives the cut. The sound
-follows: with the page's own output, a volume ramp over the page's media elements then mute; with
-the mixer tap (§4.5) the lane's own fade.
+The depth starts from the machine class — small 3, standard 2, big 2 — and follows the p95
+**lateness** (`max(0, arrival − predicted)`: an early frame waits, only a late one needs room):
+`depth = clamp(ceil(p95 / cadence) + 1, min, max)` within the class's bounds (small 2–5, standard
+2–4, big 1–3) and capped by the frame pool's room (`Count − 3`: the frame on show, the one retiring,
+the one decoding), growing at once and shrinking one frame at a time after a full quiet window.
+`Pick(now)` gives a sink the newest frame whose due time has passed, never one ahead of its time,
+never one twice; the older frames due together with it are dropped (the sink was slower than the
+cadence) and their slots handed back; nothing due while the frame on show is more than two cadences
+past its time is a **stall**, counted once per stall; a full ring on arrival drops the oldest frame,
+counted. Auto smooths at 24 fps or more and goes back to the newest frame at once below 20 (a band,
+so a 24 fps page does not flap), and only after eight measured intervals — a static page is never
+"smoothed". Every sink reads the show clock, so every output shows the same frame in the same slot.
+The tests run a jittery 30 fps source against a 60 Hz sink: shown as they arrive the frames land at
+1, 3, 2, 2, 3, 1 ticks; smoothed, every one lands two ticks after the one before, the whole way.
 
-**Low latency.** A page whose picture is the point rather than its motion — a dashboard, a
-scoreboard, a clock — can be set to Low latency (no buffer, the newest frame at once), the way
-the capture devices have their IMAG profile; Auto picks Smooth when the page's cadence is 24 fps
-or more and Low latency below, vMix's rule. Per pattern and per layer (`WebSmoothing`), carried
-by the look and the cue.
+**Leaving Program.** When the page stops being wanted the engine keeps the source for the crossfade
+as before, and tells it `BeginLeaving(fade)` with the show's transition time: the page's own media
+elements (a YouTube embed's player among them — the embed *is* the document) have their volume
+ramped to nothing over the fade, the frames keep flowing so the crossfade gets real motion, and at
+the end of the fade the buffer is **cut** (every waiting slot released, nothing more taken), the
+capture and the poll stop and the browser is muted. Nothing of the page runs on after the take but
+the browser the sweep closes a few seconds later. A cut (transition off) leaves at once.
+
+**Low latency.** Frames on the Media page and a web layer: Auto, Smooth, Low latency — per pattern
+and per layer (`WebSmoothing`), carried by the look, applied live to the buffer.
 
 ### 4.2 Pooled decode (`WebFramePipeline`, Rendering)
 
-The `FramePool` the clips use (round 58: fixed BGRA buffers behind the render fence, no
-allocation per frame) takes the page's frames: the JPEG is decoded by `SKCodec` straight into a
-pooled buffer, the slot is **queued** (a new slot state — a frame decoded and waiting for its due
-time; publishing one queued frame no longer drops the ones queued behind it, as it does a
-decoder's skipped frames), and `Pick` publishes it when its time comes: a pointer swap, the
-sinks lease the latest as they do a clip's. The screenshot fallback decodes into the same pool.
-The retire, the fence, the memory ledger and the census see one more pool per page and nothing
-new.
+The `FramePool` the clips use takes the page's frames: the JPEG is decoded by `SKCodec.GetPixels`
+straight into a pooled BGRA buffer, the slot is **queued** (a new slot state — decoded and waiting
+for its time; a publish of another frame never drops it, unlike a decoder's skipped frame), and a
+sink's draw picks the frame whose time has come, publishes it (a pointer swap) and leases it as it
+does a clip's. A starved pool makes room by dropping the oldest waiting frame; a frame whose bytes
+repeat the last (a still page the browser painted again) is skipped by a hash before any decode;
+the screenshot fallback decodes into the same pool; a size change remakes the pool and drops what
+waited at the old size. One decode at a time; a dispose waits for the decode in flight. The report
+— smoothing words, depth, latency, jitter, decode ms, delivered and presented fps, stalls, drops,
+duplicates, held, pool starvations and bytes — is STATE's `web.path`.
 
 ### 4.3 Capture by policy (`WebCapturePolicy`, Core)
 
-Pure: the machine class and cores, the quality ladder's level, the page's viewport and the
-largest size any sink draws it at, the page's measured cadence → the screencast's `maxWidth` /
-`maxHeight` (never above the drawn size; on a small machine at a ladder level below full, never
-above 1280×720), the JPEG quality (60 small, 70 standard, 80 big), `everyNthFrame` (2 when the
-ladder is at Economy and the page delivers more than 30 fps), the smoother's bounds, and the
-default smoothing. The page lays itself out at its own viewport as before — the site still sees
-1920×1080 and chooses its 1080p stream — only the picture handed over is the size it is drawn
-at. The status line says what was asked: "captured at 1280×720 · q60 · smooth 3 (100 ms)".
+Pure: the page's viewport, the largest surface in the rig (not the buses the page is on — a routing
+change must never restart the capture), the machine class, the quality ladder's level and the page's
+delivered rate → the screencast's `maxWidth` / `maxHeight` (the viewport's aspect fitted inside the
+drawn size, never above the viewport; on a small machine at a ladder level below full, never above
+1280×720), the JPEG quality (60 small, 70 standard, 80 big), `everyNthFrame` (2 when the ladder is at
+Economy or lower and the page delivers 45 fps or more — a 30 fps video's wobble never trips it), and
+the smoother's bounds. The plan is applied live: one the running screencast already follows changes
+nothing, another restarts it, at most once every three seconds and never while the page is leaving.
+The words: "captured at 1280×720 · q60 · every 2nd frame".
 
 ### 4.4 The browser's decoder
 
-`--enable-features=D3D11VideoDecoder` joins the browser arguments while the show's decoding
-choice is hardware (the same choice the clips read: software in the run after a native fault
-turns it off). The one `--enable-features` list is merged, since Chromium reads the last.
+`--enable-features=D3D11VideoDecoder` joins the browser arguments while the show's decoding choice
+is hardware (the same choice the clips read). A request the browser may decline, never a promise;
+the Windows bench says whether it changed the decoder.
 
-### 4.5 The page's sound through the mixer (`WebAudioTap`, Platform.Windows) — compiled, off by default
+### 4.5 The page's sound through the mixer (`WebAudioTap`, Platform.Windows) — recorded, not built
 
-`ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK)` with the browser process's
-id and `INCLUDE_TARGET_PROCESS_TREE`, initialised in shared mode with `LOOPBACK | EVENTCALLBACK |
-AUTOCONVERTPCM` at the mixer's own 48 kHz stereo float (the virtual device has no mix format of
-its own), read on a thread into an `AudioRing` the graph mixes as a clip's tap; the page's own
-output muted while tapped. Windows 10 build 20348 or later; anything else, or a failure to
-activate, keeps today's `setSinkId` route and says so. A switch on the Audio page, off until the
-bench has heard it.
+The design: `ActivateAudioInterfaceAsync` on `VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK` with an
+`AUDIOCLIENT_ACTIVATION_PARAMS { AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK, { TargetProcessId =
+the browser's, ProcessLoopbackMode = INCLUDE_TARGET_PROCESS_TREE } }` in the `PROPVARIANT` blob, the
+`IActivateAudioInterfaceCompletionHandler` answered on an MTA thread, the `IAudioClient` initialised
+in shared mode with `LOOPBACK | EVENTCALLBACK | AUTOCONVERTPCM | SRC_DEFAULT_QUALITY` at the mixer's
+own 48 kHz stereo float (the virtual device has no mix format of its own), the capture client read
+on the event into an `AudioRing` the graph mixes as a clip's tap, the page's own output muted while
+tapped; Windows 10 build 20348 or later, anything else or a failed activation keeping the `setSinkId`
+route. Not built this round: it is two hundred lines of COM interop with no machine here to hear it
+on, and an audio path that has never run is not something to put on a show machine behind a switch.
+Meanwhile the native-player path (§4.6) gives a page's video the matrix's sound outright, and the
+browser path fades its own sound over the transition (§4.1). Next: the Windows bench.
 
-### 4.6 A YouTube link as a clip (`WebVideoResolver`, Core + App)
+### 4.6 A YouTube or Vimeo page's video through the native player (`WebVideoResolver`, Core; `WebVideoService`, App) — built
 
-With `yt-dlp` on the machine (found on the path or named on the Media page) a YouTube or Vimeo
-address can be played as a clip: `yt-dlp -g -f "best[height<=1080][ext=mp4]/best" --no-playlist`
-resolves a direct stream URL, cached per address for the show, and the media engine mounts it as
-a video file — the card decodes, the matrix carries the sound, pre-roll and the armed start point
-apply as to any clip. The words are honest: the site's player, chapters, adverts and live chat are
-not there; muxed formats stop at 720p; the operator answers for the site's terms. Off by default;
-a per-item choice (`WebPlayVia`: Browser | Clip when available).
+Play via on the Media page and a web layer (`WebPlayVia`: Browser | Native player), carried by the
+look. With Native player, a YouTube or Vimeo page (the services that are videos; a dashboard, a deck
+or a plain page stays in the browser whatever the look asks) has its stream address found by yt-dlp:
+`-g -f "best[height<=1080][ext=mp4][acodec!=none]/best[acodec!=none]/bestvideo[height<=1080]+bestaudio/best"
+--no-playlist --no-warnings --no-progress -- <url>` — one argument at a time, the address after
+`--`, one file with sound at 1080p or under first, else the best picture and the best sound apart.
+The answer (one address per line, the picture then the sound; the expiry read from the address's
+`expire=` stamp or assumed an hour) is kept per page, and `MediaLocator.WebResolver` — the desk's
+hook on the locator — hands the page to the clip engine as the clip input for the stream **under the
+page's own key**, with the sound as the player's `input-slave`, so every engine and renderer sees one
+input: libVLC plays it (decoding on the GPU, `network-caching` 1.5 s), the routing matrix carries the
+sound, and the browser is not opened for it. The browser stands in until the stream is found and
+whenever it cannot be — no tool (the words say where to put it), the site refused (the tool's ERROR
+line), a timeout (25 s) — a failure is not asked again for thirty seconds, an address is fetched again
+when it lapses, and a mount already playing keeps its address until the page leaves. On a cold take
+the browser shows for the second or so the tool takes and the clip then takes over; set the page up in
+the preview first and the stream is ready before the take. The tool is looked for at the path the
+operator named (Admin `YtDlpPath`, the box under Play via), beside Patterns.exe, then on PATH; it is
+never bundled. The words are plain: the native player fetches the stream outside the site's own
+player — the site's terms and the content owner's permission for the show are the operator's call;
+the site's chapters, adverts and chat are not there; the armed VT (a start point) is the browser's
+alone. STATE's `web` row says `via` (browser or native player) and `native` (phase, words, the
+stream's host, whether its sound comes apart).
 
-### 4.7 GPU capture (`IWebFrameCapture`) — the seam and the next step
+### 4.7 GPU capture (`IWebFrameCapture`) — the seam and the next step, recorded
 
-The capture is peeled out of the source behind a seam with the screencast as its one
-implementation. The Windows.Graphics.Capture path needs the App on a `-windows10.0.19041`
-target framework (or hand-written WinRT ABI), a composition controller in place of the windowed
-one, and a bench to prove the rate, the DRM refusal and the audio route (§4.5 is its
-prerequisite). Recorded, not built blind.
+The Windows.Graphics.Capture path needs the App on a `-windows10.0.19041` target framework (or a
+hand-written WinRT ABI), a `CoreWebView2CompositionController` in place of the windowed one with a
+`Visual` to capture (`GraphicsCaptureItem.CreateFromVisual`, `Direct3D11CaptureFramePool` at the
+compositor's rate, the texture handed to the sinks' GPU context rather than read back), and a bench
+to prove the rate, the DRM refusal (a protected video captures black) and the audio route (§4.5 is
+its prerequisite, since the composition controller has no `setSinkId` story of its own). The seam
+would sit where `WebFrameSource` offers bytes to the pipeline today: a capture that hands textures
+publishes into the same pool's slot states with no decode. Recorded, not built blind.
 
-## 5. What follows
+## 5. What followed (68.7)
 
-STATE's `web` row carries the path (screencast, screenshot, clip), the buffer's depth and
-latency, the jitter, the decode cost, the frames delivered and presented, underruns and drops;
-the Eye's source node says the same in words; Companion 3.9.0 reads them as variables and a
-Smooth / Low latency action; the Media page's PAGE CONTROLS show the path and the buffer with the
-switch; the assistant's brief reads the web facts; REMOTE.md, COMPANION.md and the help say it.
+STATE's `web` row carries `path` (the smoothing words, depth, latency, jitter, decode ms, delivered
+and presented fps, stalls, drops, duplicates, held, pool), `via` and `native`; the Eye's source node
+and the PAGE CONTROLS line read the buffer's words through the page's status; Companion 3.9.0 reads
+the path as `web_path`, `web_smoothing`, `web_latency`, `web_underruns` and `web_capture` and lights
+`web_smoothed` and `web_stalled` (no new actions: the choices are the look's); the Media page has
+Frames and Play via with the tool's words and its path box; the assistant's catalogue, the web page
+help topic, REMOTE.md and COMPANION.md say the same.
 
 ## 6. Honest limits
 
-No Windows, no WebView2 and no browser ran here. The smoother, the policy, the pool's queued
-state and the pipeline are proven with synthetic frames through the real Skia decode; the
-decoder flag, the process-loopback tap and the clip path are compiled and read on the Windows
-lane, and wait for the bench. The numbers in §1 are the platform's documentation and the
+No Windows, no WebView2, no browser and no yt-dlp ran here. The smoother, the policy, the pool's
+queued state, the pipeline and the resolver are proven with synthetic frames through the real Skia
+decode and with stand-ins for the browser and the tool; the decoder flag, the leaving fade's script,
+the screencast restart on a plan change, the network open in libVLC and the tool's process are
+compiled and read on the Windows lane, and wait for the bench. The buffer's depth is bounded by the
+pool: at 1080p on a small machine (48 MB, five buffers) it is two frames; the 720p capture the policy
+chooses there gives eight buffers and the full depth. The leaving fade reaches the media elements of
+the page's own document — a video inside a cross-origin frame fades only by the browser's mute at the
+end. The cue-ahead pre-roll opens the browser for a native-player page; the stream begins when the
+page is wanted on air or in the preview. The numbers in §1 are the platform's documentation and the
 round-55 measurements, not this desk's.
