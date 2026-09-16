@@ -2134,6 +2134,10 @@ public sealed class AdminConfig : Observable
 
     /// <summary>Where LibreOffice is on this machine when Patterns cannot find it by itself (soffice.exe, or its folder) — PowerPoint decks convert through it.</summary>
     public string LibreOfficePath { get => _libreOfficePath; set => Set(ref _libreOfficePath, value ?? ""); }
+
+    /// <summary>Where yt-dlp is, when it is not beside Patterns.exe or on PATH (round 68.6): the file, or the folder holding it; "" to search.</summary>
+    public string YtDlpPath { get => _ytDlpPath; set => Set(ref _ytDlpPath, value ?? ""); }
+    private string _ytDlpPath = "";
 }
 
 /// <summary>

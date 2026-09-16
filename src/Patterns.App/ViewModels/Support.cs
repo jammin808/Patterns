@@ -1041,6 +1041,13 @@ public static class Lists
         new(Patterns.Core.Media.WebSmoothing.LowLatency, "Low latency — the newest frame at once"),
     };
 
+    /// <summary>How a page's video is played (round 68.6): the browser, or its stream through the native player.</summary>
+    public static readonly EnumItem[] WebPlayVias =
+    {
+        new(Patterns.Core.Media.WebPlayVia.Browser, "Browser — the page as the site drew it"),
+        new(Patterns.Core.Media.WebPlayVia.NativePlayer, "Native player — the stream through libVLC (YouTube, Vimeo; needs yt-dlp)"),
+    };
+
     public static readonly EnumItem[] AudioSources =
     {
         new(AudioSourceKind.None, "No sound — just the motion"),

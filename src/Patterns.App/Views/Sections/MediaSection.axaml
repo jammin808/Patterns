@@ -3,6 +3,7 @@
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:c="using:Patterns.App.Views.Controls"
              xmlns:m="using:Patterns.Core.Model"
+             xmlns:media="using:Patterns.Core.Media"
              x:Class="Patterns.App.Views.Sections.MediaSection"
              Classes="hue-media"
              x:DataType="vm:MainViewModel">
@@ -195,6 +196,22 @@
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
                   ToolTip.Tip="How the page's frames reach the glass. Auto smooths a video (24 fps or more) through a small buffer sized for this machine — a couple of frames of delay the room never sees, a regular picture — and shows a slower, live page at once. Smooth and Low latency choose outright. The choice rides the look; the PAGE CONTROLS line reads what the buffer is doing" />
       </Grid>
+      <!-- Round 68.6: the page's video through the native player — its stream (found by yt-dlp) played by libVLC, no browser in the chain -->
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Play via" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:Lists.WebPlayVias}" HorizontalAlignment="Stretch"
+                  SelectedValue="{Binding ActivePattern.Media.WebPlayVia, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                  ToolTip.Tip="Browser: the page as the site drew it, its picture smoothed on the way. Native player: a YouTube or Vimeo page's stream is found by yt-dlp (a tool you put on the machine — Patterns never bundles it) and played by libVLC, decoding on the GPU: no browser, no screencast — the smoothest and cheapest path. The browser stands in until the stream is found and whenever it cannot be. The native player fetches the stream outside the site's own player: the site's terms and the content owner's permission for the show are your call" />
+      </Grid>
+      <StackPanel Spacing="4" IsVisible="{Binding ActivePattern.Media.WebPlayVia, Converter={StaticResource EnumEq}, ConverterParameter={x:Static media:WebPlayVia.NativePlayer}}">
+        <TextBlock Classes="label" Text="{Binding Media.WebNativeText}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="130,*">
+          <TextBlock Classes="label" Text="yt-dlp path" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Watermark="beside Patterns.exe or on PATH — or name yt-dlp.exe (or its folder) here" Text="{Binding Media.YtDlpPath, Mode=TwoWay}"
+                   ToolTip.Tip="Where yt-dlp is on this machine when Patterns cannot find it by itself; kept in Admin" />
+        </Grid>
+      </StackPanel>
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Schedule (shown in the multiview and status)"

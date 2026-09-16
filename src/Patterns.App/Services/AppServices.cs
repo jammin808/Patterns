@@ -43,6 +43,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Web pages inside the engine — one browser per page the show references. Nothing opens outside Patterns.</summary>
     public WebEngine WebIn { get; }
 
+    /// <summary>Round 68.6: a YouTube or Vimeo page's stream through the clip player, when the look asks and yt-dlp is on the machine.</summary>
+    public WebVideoService WebVideo { get; }
+
     /// <summary>The audio graph: the routing matrix applied to the players, the mixer lanes and the NDI sends (Windows; a no-op elsewhere).</summary>
     public AudioGraphService? AudioGraph { get; private set; }
 
@@ -519,6 +522,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             return Patterns.Core.Media.WebCapturePolicy.Plan(vw, vh, dw, dh,
                 Patterns.Core.Services.MemoryBudget.ClassOf(Patterns.Core.Services.MemoryBudget.MachineMB), Patterns.Core.Services.QualityLadder.Shared.Level, fps);
         };
+        // The native-player path: the tool's answers land on a worker; the inputs reconcile on the UI thread, and the
+        // locator hands a resolved page to the clip engine under the page's own key.
+        WebVideo = new WebVideoService { ConfiguredPath = () => State.Admin.YtDlpPath };
+        WebVideo.Changed = () => UiThread.Post(() =>
+        {
+            if (WebVideo.IsDisposed) return;
+            ReconcileInputs();
+        });
+        MediaLocator.WebResolver = WebVideo.Rewrite;
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
         Feeds = new FeedService(this);
@@ -2031,6 +2043,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Step("machine", "show lock", ShowLock.Dispose);
         // 4. The workers: the inputs, the decoders, the audio, the files, the metrics.
         Step("workers", "ndi in", NdiIn.Dispose);
+        Step("workers", "web video", () =>
+        {
+            if (ReferenceEquals(MediaLocator.WebResolver?.Target, WebVideo)) MediaLocator.WebResolver = null;   // this desk's hook, never another's (the tests boot several)
+            WebVideo.Dispose();
+        });
         Step("workers", "web in", WebIn.Dispose);
         Step("workers", "audio graph", () => AudioGraph?.Dispose());
         Step("workers", "deck in", DeckIn.Dispose);

@@ -93,6 +93,12 @@
                       SelectedValue="{Binding WebSmoothing, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
                       ToolTip.Tip="How this layer's page reaches the glass: Auto smooths a video and shows a live page at once; Smooth and Low latency choose outright (round 68)" />
           </Grid>
+          <Grid ColumnDefinitions="Auto,8,*">
+            <TextBlock Classes="label" Text="Play via" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="2" ItemsSource="{x:Static vm:Lists.WebPlayVias}" HorizontalAlignment="Stretch"
+                      SelectedValue="{Binding WebPlayVia, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                      ToolTip.Tip="Browser: the page as the site drew it. Native player: a YouTube or Vimeo page's stream found by yt-dlp (a tool you put on the machine) and played by libVLC — no browser in the chain; the browser stands in until the stream is found. The Media page has the tool's path and the words (round 68.6)" />
+          </Grid>
         </StackPanel>
 
         <TextBlock Classes="label" Text="Box (% of the canvas — or drag it on the PREVIEW pane)" Margin="0,6,0,0" />

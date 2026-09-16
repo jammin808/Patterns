@@ -786,8 +786,10 @@ public sealed class MediaPage : Observable
                     : State.InputLabel(key, bare);
             rows.Add($"{label} — {status}");
         }
+        var native = _services.WebVideo.Note;
         var notes = string.Join("  ",
-            new[] { _services.Video.LimitNote, _services.Video.PendingNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote }.Where(s => s.Length > 0));
+            new[] { _services.Video.LimitNote, _services.Video.PendingNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote, native }.Where(s => s.Length > 0));
+        WebNativeText = native.Length > 0 ? $"{_services.WebVideo.ToolWords}  {native}" : _services.WebVideo.ToolWords;
         var text = rows.Count == 0
             ? "No live inputs mounted."
             : $"Live inputs ({rows.Count}): {string.Join("  ·  ", rows)}";
@@ -829,6 +831,23 @@ public sealed class MediaPage : Observable
             RefreshDeck();
         }
     }
+
+    /// <summary>Admin → the operator's own path to yt-dlp (the file or its folder) for the native player (round 68.6); read on the next reconcile.</summary>
+    public string YtDlpPath
+    {
+        get => State.Admin.YtDlpPath;
+        set
+        {
+            if (State.Admin.YtDlpPath == (value ?? "")) return;
+            State.Admin.YtDlpPath = value ?? "";
+            Raise(nameof(YtDlpPath));
+            RefreshActiveInputs();
+        }
+    }
+
+    /// <summary>The native player's words under Play via: where yt-dlp is (or that it is not), and what it is doing for the pages that asked.</summary>
+    public string WebNativeText { get => _webNativeText; private set => Set(ref _webNativeText, value); }
+    private string _webNativeText = "";
 
     /// <summary>The deck the pattern on the desk shows — the one the page buttons turn — or null.</summary>
     private IDeckSource? DeskDeck()

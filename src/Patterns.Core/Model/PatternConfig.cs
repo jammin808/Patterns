@@ -420,6 +420,7 @@ public sealed class MediaOptions : Observable
     private bool _webClean;
     private bool _webAutoPlay;
     private Media.WebSmoothing _webSmoothing;
+    private Media.WebPlayVia _webPlayVia;
     private double _webStartSeconds;
     private double _cropLeftPct;
     private double _cropTopPct;
@@ -489,6 +490,14 @@ public sealed class MediaOptions : Observable
     /// running at 24 fps or more and Low latency below.
     /// </summary>
     [TransitionNeutral] public Media.WebSmoothing WebSmoothing { get => _webSmoothing; set => Set(ref _webSmoothing, value); }
+
+    /// <summary>
+    /// How the page's video is played (round 68.6): in the browser as the site drew it (the default),
+    /// or — for a YouTube or Vimeo page, when yt-dlp is on the machine — its stream handed to the
+    /// native player, decoding on the GPU, with no browser in the chain; the browser stands in until
+    /// the stream is found and whenever it cannot be.
+    /// </summary>
+    [TransitionNeutral] public Media.WebPlayVia WebPlayVia { get => _webPlayVia; set => Set(ref _webPlayVia, value); }
 
     /// <summary>
     /// The area of interest: what to cut away on each side of the input's picture (0–90 % each;
@@ -680,6 +689,7 @@ public sealed class LayerConfig : Observable
     private bool _webClean;
     private bool _webAutoPlay;
     private Media.WebSmoothing _webSmoothing;
+    private Media.WebPlayVia _webPlayVia;
     private double _webStartSeconds;
     private double _xPct = 5;
     private double _yPct = 5;
@@ -723,6 +733,8 @@ public sealed class LayerConfig : Observable
     [TransitionNeutral] public double WebStartSeconds { get => _webStartSeconds; set => Set(ref _webStartSeconds, double.IsFinite(value) ? Math.Clamp(value, 0, 86400) : 0); }
     /// <summary>How the page's frames reach the glass. See <see cref="MediaConfig.WebSmoothing"/>.</summary>
     [TransitionNeutral] public Media.WebSmoothing WebSmoothing { get => _webSmoothing; set => Set(ref _webSmoothing, value); }
+    /// <summary>How the page's video is played. See <see cref="MediaConfig.WebPlayVia"/>.</summary>
+    [TransitionNeutral] public Media.WebPlayVia WebPlayVia { get => _webPlayVia; set => Set(ref _webPlayVia, value); }
 
     /// <summary>The box, as a share of the canvas: its top-left (may sit partly off the canvas) and its size.</summary>
     [TransitionNeutral] public double XPct { get => _xPct; set => Set(ref _xPct, Math.Clamp(value, -100, 100)); }

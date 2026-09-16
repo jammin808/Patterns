@@ -206,10 +206,12 @@ public sealed class CommandRouter : IRouter
     /// <summary>The web page the program shows — what WEB KEY / CLICK / TYPE reach with no page named — with its service's actions; null when none.</summary>
     private object? WebRow()
     {
-        var wanted = MediaLocator.FindWantedInputs(_services.Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Web);
+        // The page on air: the browser's, or (round 68.6) the stream that stands in for it under the page's own key.
+        var wanted = MediaLocator.FindWantedInputs(_services.Bus.Current).FirstOrDefault(w => w.Key.StartsWith("web:", StringComparison.Ordinal));
         if (wanted is null) return null;
+        var pageUrl = wanted.Origin.Length > 0 ? wanted.Origin : wanted.Target;
         var page = Patterns.Rendering.Media.InputBus.For(wanted.Key) as Patterns.Rendering.Media.IWebSource;
-        var url = page?.CurrentUrl is { Length: > 0 } current ? current : wanted.Target;
+        var url = page?.CurrentUrl is { Length: > 0 } current ? current : pageUrl;
         var preset = WebPresets.For(url);
         return new
         {
@@ -222,6 +224,22 @@ public sealed class CommandRouter : IRouter
             player = PlayerRow(wanted.Key),                                   // the page's video: where it is, paused, an advert; null with no player
             arm = ArmRow(wanted.Key),                                         // the armed VT on this page; null with none
             path = page is null ? null : PathRow(page),                       // round 68: how the picture reaches the glass — the buffer, the delay, the decode, the rates
+            via = wanted.Kind == MediaLocator.WantedKind.Web ? "browser" : "native player",   // round 68.6: who plays the page's video
+            native = NativeRow(pageUrl),                                      // the native player's story for this page, or null when it was never asked
+        };
+    }
+
+    /// <summary>Round 68.6: what the native player is doing for a page — resolving, ready (with the stream's host), failed, no tool — and its words; null for a page that never asked.</summary>
+    private object? NativeRow(string pageUrl)
+    {
+        var e = _services.WebVideo.EntryFor(pageUrl);
+        if (e is null) return null;
+        return new
+        {
+            phase = e.Phase.ToString().ToLowerInvariant(),
+            words = e.Words,
+            stream = e.Phase == WebVideoService.Phase.Ready && Uri.TryCreate(e.Stream.VideoUrl, UriKind.Absolute, out var u) ? u.Host : "",
+            separateAudio = e.Phase == WebVideoService.Phase.Ready && e.Stream.HasSeparateAudio,
         };
     }
 

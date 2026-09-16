@@ -108,7 +108,25 @@ public static class MediaLocator
 
         /// <summary>How the page's frames reach the glass (round 68): buffered smooth, newest-at-once, or judged from the page's rate.</summary>
         public Media.WebSmoothing Smoothing { get; init; }
+
+        /// <summary>How the page's video is played (round 68.6): the browser, or its stream through the native player where the look asks and the desk can.</summary>
+        public Media.WebPlayVia PlayVia { get; init; }
+
+        /// <summary>A second stream the player plays with the first — a video's sound served apart (the native-player path); "" for none.</summary>
+        public string Slave { get; init; } = "";
+
+        /// <summary>The page's own address when a stream stands in for it (the native-player path): the desk's words name the page, not the stream; "" otherwise.</summary>
+        public string Origin { get; init; } = "";
     }
+
+    /// <summary>
+    /// Round 68.6: the desk's native-player resolution for a page, applied to every web input the
+    /// locator finds whose look asks for it. A page whose stream the desk has found comes back as the
+    /// clip input for that stream — its key kept, so every engine and renderer sees one input and the
+    /// browser is not opened for it; a page still resolving, or one that cannot be, comes back as it
+    /// was. Null (the default, and the tests') leaves every page to the browser.
+    /// </summary>
+    public static Func<WantedInput, WantedInput>? WebResolver { get; set; }
 
     /// <summary>
     /// Every input the snapshot references — the program pattern, each enabled custom-pattern
@@ -126,7 +144,8 @@ public static class MediaLocator
         var bus = MediaBus.Program;
 
         void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100, string clean = "",
-            bool autoPlay = false, double start = 0, PageServicePick pick = PageServicePick.Auto, Media.WebSmoothing smoothing = Media.WebSmoothing.Auto)
+            bool autoPlay = false, double start = 0, PageServicePick pick = PageServicePick.Auto, Media.WebSmoothing smoothing = Media.WebSmoothing.Auto,
+            Media.WebPlayVia playVia = Media.WebPlayVia.Browser)
         {
             if (string.IsNullOrWhiteSpace(target)) return;
             if (kind == WantedKind.Web) target = WebAddress.Normalize(target);
@@ -155,7 +174,7 @@ public static class MediaLocator
             at[key] = list.Count;
             buses.Add(new List<MediaBus> { bus });
             list.Add(kind == WantedKind.Web
-                ? new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { AutoPlay = autoPlay, StartSeconds = start, Service = WebPresets.Resolve(target, pick), Smoothing = smoothing }
+                ? new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { AutoPlay = autoPlay, StartSeconds = start, Service = WebPresets.Resolve(target, pick), Smoothing = smoothing, PlayVia = playVia }
                 : new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { LowLatency = lowLatency });
         }
 
@@ -180,7 +199,7 @@ public static class MediaLocator
                         break;
                     case LayerSource.Web:
                         Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct,
-                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean), l.WebAutoPlay, l.WebStartSeconds, l.WebService, l.WebSmoothing);
+                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean), l.WebAutoPlay, l.WebStartSeconds, l.WebService, l.WebSmoothing, l.WebPlayVia);
                         break;
                     case LayerSource.Arcade:
                         Add(WantedKind.Arcade, ArcadeTarget, false, true, 0);
@@ -208,7 +227,7 @@ public static class MediaLocator
                         break;
                     case MediaSource.Web:
                         Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct,
-                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean), m.WebAutoPlay, m.WebStartSeconds, m.WebService, m.WebSmoothing);
+                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean), m.WebAutoPlay, m.WebStartSeconds, m.WebService, m.WebSmoothing, m.WebPlayVia);
                         break;
                     case MediaSource.Deck:
                         Add(WantedKind.Deck, m.DeckPath, false, true, 0, m.DeckStartPage.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -287,7 +306,17 @@ public static class MediaLocator
             }
         }
 
-        for (var i = 0; i < list.Count; i++) list[i] = list[i] with { Buses = buses[i] };
+        var resolve = WebResolver;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var w = list[i] with { Buses = buses[i] };
+            if (resolve is not null && w.Kind == WantedKind.Web && w.PlayVia == Media.WebPlayVia.NativePlayer)
+            {
+                var r = resolve(w);
+                if (r.Key == w.Key) w = r;                                                      // the stream stands in for the page under the page's own key, or the page stays
+            }
+            list[i] = w;
+        }
         return list;
     }
 }

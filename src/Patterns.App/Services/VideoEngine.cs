@@ -290,7 +290,7 @@ public sealed class VideoEngine : IDisposable
             var source = SourceFactory is { } open
                 ? open(w)
                 : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll, audioTap: tap, lowLatency: w.LowLatency);
+                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll, audioTap: tap, lowLatency: w.LowLatency, slave: w.Slave);
             if (source is null) return;
             if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
             if (!tap) Route(source, w);
@@ -681,7 +681,17 @@ public sealed class VlcFrameSource : IMountedSource
         return options.ToArray();
     }
 
-    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false, bool audioTap = false, bool lowLatency = false)
+    /// <summary>Whether a target is a stream's address rather than a file: http or https.</summary>
+    public static bool IsNetworkAddress(string target, out Uri? uri)
+    {
+        uri = null;
+        if (!Uri.TryCreate(target, UriKind.Absolute, out var u)) return false;
+        if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps) return false;
+        uri = u;
+        return true;
+    }
+
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false, bool audioTap = false, bool lowLatency = false, string slave = "")
     {
         _isCapture = isCapture;
         if (isCapture)
@@ -694,7 +704,15 @@ public sealed class VlcFrameSource : IMountedSource
         }
         else
         {
-            _media = new Media(vlc, new Uri(Path.GetFullPath(target)));
+            // A stream off the network (round 68.6: a page's video through the native player) opens by its
+            // address with a short buffer, and its sound served apart plays as the picture's slave; a file as before.
+            var network = IsNetworkAddress(target, out var uri);
+            _media = new Media(vlc, network ? uri! : new Uri(Path.GetFullPath(target)));
+            if (network)
+            {
+                _media.AddOption(":network-caching=1500");
+                if (slave.Length > 0) _media.AddOption(":input-slave=" + slave);
+            }
             if (loop) _media.AddOption("input-repeat=65535");
             // A pre-rolled clip opens, decodes its first frame and waits there: libVLC's own
             // start-paused, so the file, the codec and the card's decoder are all up before GO.
