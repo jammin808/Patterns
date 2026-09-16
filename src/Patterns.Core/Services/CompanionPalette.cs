@@ -59,12 +59,12 @@ public static class CompanionPalette
         ["presenter"] = Row(("on", "steel"), ("ended", "amber"), ("out", "red")),
         ["install"] = Row(("schedule", "green"), ("announcement", "amber"), ("advert", "steel")),
         // Round 65.10: signal truth and the rig on the keys — MATCH green, MISMATCH red; the known-good rig unchanged green, moved amber, commissioned green.
-        ["signal"] = Row(("match", "green"), ("mismatch", "red")),
+        ["signal"] = Row(("match", "green"), ("mismatch", "red"), ("partial", "amber")),
         ["rig"] = Row(("same", "green"), ("drift", "amber"), ("commissioned", "green")),
         // Round 66: the God's Eye's worst light on a key — red is wrong now, amber needs a look, green is all green.
         ["eye"] = Row(("red", "red"), ("amber", "amber"), ("green", "green")),
         // Round 67: a one-shot pending on the next TAKE — amber armed-but-not-spent; a video sting in the stinger's brown.
-        ["take"] = Row(("next", "amber"), ("sting", "stingerBrown")),
+        ["take"] = Row(("next", "amber"), ("sting", "stingerBrown"), ("landing", "stingerBrown")),
         ["stream"] = Row(("active", "red"), ("trouble", "amber")),
         ["device"] = Row(("open", "green"), ("fault", "red")),
         ["tone"] = Row(("on", "amber")),

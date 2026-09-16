@@ -302,6 +302,6 @@ public sealed class SignalContract : Observable
     public static SignalContract Diagnostic() => new()
     {
         Width = 1920, Height = 1080, RateNumerator = 50, RateDenominator = 1,
-        Encoding = PixelEncoding.RGB, BitDepth = 8, Dynamic = DynamicRange.SDR, Audio = AudioPolicy.Stereo,
+        Encoding = PixelEncoding.RGB, BitDepth = 8, Dynamic = DynamicRange.SDR,   // round 72: no audio word — nothing on the machine observes the audio a link carries, and the test route proves what the path states
     };
 }

@@ -46,6 +46,11 @@ public enum SignalVerdict
     Unverified,
     Match,
     Mismatch,
+    /// <summary>
+    /// Round 72: everything the path states agrees with the contract, and a property the contract names was
+    /// never stated by Windows or the far end — a pass on the evidence there is, not on all of it. Never green.
+    /// </summary>
+    Partial,
 }
 
 /// <summary>One line of a screen's signal view — an item, its light, its value, a note with the fix.</summary>
@@ -60,13 +65,17 @@ public sealed record SignalReport(string Label, SignalVerdict Verdict, string De
 {
     public string Result => Words(Verdict);
 
-    /// <summary>The verdict's word: MATCH, MISMATCH, UNVERIFIED.</summary>
+    /// <summary>The verdict's word: MATCH, MISMATCH, PARTIAL, UNVERIFIED.</summary>
     public static string Words(SignalVerdict verdict) => verdict switch
     {
         SignalVerdict.Match => "MATCH",
         SignalVerdict.Mismatch => "MISMATCH",
+        SignalVerdict.Partial => "PARTIAL",
         _ => "UNVERIFIED",
     };
+
+    /// <summary>Round 72: a verdict that stands as a pass — MATCH alone; PARTIAL and UNVERIFIED never are, MISMATCH is a fail.</summary>
+    public static bool IsPass(SignalVerdict verdict) => verdict == SignalVerdict.Match;
 
     /// <summary>The technical view as text, for the Screens page and the wire: DESIGN, ADVERTISED (the EDID, when read), REQUESTED, OBSERVED, RESULT, the lines.</summary>
     public string Text => $"DESIGN\n{Design}\n\n"
@@ -196,7 +205,7 @@ public static class SignalTruth
         var lines = new List<SignalLine>();
         var design = DesignWords(contract);
         // Round 65.10: on the test route the diagnostic profile is the contract held against — said first, so no one reads a proven route as a commissioned design.
-        if (testRoute) lines.Add(new SignalLine("Test route", CheckLight.Amber, "the diagnostic profile stands in for the contract", "1080p50 RGB 8-bit SDR stereo tells a capability problem from a path problem; TESTROUTE OFF when the path is proven"));
+        if (testRoute) lines.Add(new SignalLine("Test route", CheckLight.Amber, "the diagnostic profile stands in for the contract", "1080p50 RGB 8-bit SDR tells a capability problem from a path problem; TESTROUTE OFF when the path is proven"));
         var requested = RequestedWords(screenWidth, screenHeight, presentFps, displayHz);
         var observedWords = ObservedWords(observed);
         var advertisedWords = advertised?.AdvertisedWords ?? "";
@@ -237,6 +246,10 @@ public static class SignalTruth
         var mismatch = false;
         var rasterKnown = false;
         var rateKnown = false;
+        // Round 72: the contracted properties nobody stated — Windows never, and the far end not either. Everything
+        // stated may agree and the verdict is still PARTIAL while one of these stands: a property nobody observed
+        // is not verified, and a grey line is not a pass.
+        var unobserved = new List<string>();
 
         // The raster: the contract's, else the screen's own pixels.
         var wantW = contract!.Width > 0 ? contract.Width : screenWidth;
@@ -290,6 +303,7 @@ public static class SignalTruth
             else
             {
                 lines.Add(new SignalLine("Encoding", CheckLight.Grey, $"{EncodingWords(contract.Encoding)} asked · observed unknown", NotAvailable));
+                if (received is not { Encoding: not PixelEncoding.Any }) unobserved.Add("encoding");
             }
         }
         if (contract.BitDepth > 0)
@@ -304,6 +318,7 @@ public static class SignalTruth
             else
             {
                 lines.Add(new SignalLine("Bit depth", CheckLight.Grey, $"{contract.BitDepth}-bit asked · observed unknown", NotAvailable));
+                if (received is not { BitDepth: > 0 }) unobserved.Add("bit depth");
             }
         }
         if (contract.Dynamic != DynamicRange.Any)
@@ -320,6 +335,7 @@ public static class SignalTruth
             else
             {
                 lines.Add(new SignalLine("Dynamic range", CheckLight.Grey, $"{contract.Dynamic} asked · observed unknown", NotAvailable));
+                if (received is not { Dynamic: not DynamicRange.Any }) unobserved.Add("dynamic range");
             }
             if (observed.HdrCapable == true && !wantsHdr && observed.HdrActive != true)
             {
@@ -331,6 +347,7 @@ public static class SignalTruth
         {
             // Windows does not report the active colorimetry: the contract's word stands, the EDID's advertisement joins in 65.7.
             lines.Add(new SignalLine("Colour space", CheckLight.Grey, $"{ColourWords(contract.Colour)} asked · observed unknown", NotAvailable));
+            if (received is not { Colour: not ColourSpace.Any }) unobserved.Add("colour space");
         }
         if (contract.Transport != SignalTransport.Any)
         {
@@ -346,7 +363,14 @@ public static class SignalTruth
             else
             {
                 lines.Add(new SignalLine("Transport", CheckLight.Grey, $"{TransportWords(contract.Transport)} asked · observed unknown", NotAvailable));
+                if (received is not { Transport: not SignalTransport.Any }) unobserved.Add("transport");
             }
+        }
+        if (contract.Audio != AudioPolicy.Any && received is not { Audio: not AudioPolicy.Any })
+        {
+            // The EDID advertises what the display can take; nothing on this machine observes the audio the link carries — the far end alone can.
+            lines.Add(new SignalLine("Audio", CheckLight.Grey, $"{AudioWords(contract.Audio)} asked · observed unknown", NotAvailable));
+            unobserved.Add("audio");
         }
 
         // The render clock against the rate the output needs (round 64's rule, from the observed rate when it is known).
@@ -363,8 +387,28 @@ public static class SignalTruth
         // itself says the link carries something other than the contract, whatever Windows believes it sends.
         ReceivedLines(contract, screenWidth, screenHeight, received, receivedBy, lines, ref mismatch);
 
-        var verdict = mismatch ? SignalVerdict.Mismatch : rasterKnown && rateKnown ? SignalVerdict.Match : SignalVerdict.Unverified;
+        var verdict = mismatch ? SignalVerdict.Mismatch
+            : !(rasterKnown && rateKnown) ? SignalVerdict.Unverified
+            : unobserved.Count > 0 ? SignalVerdict.Partial
+            : SignalVerdict.Match;
+        if (verdict == SignalVerdict.Partial)
+        {
+            // Round 72: the verdict names what nobody stated, so PARTIAL is never read as a pass and the fix is the witness that is missing.
+            lines.Add(new SignalLine("Verified", CheckLight.Amber, $"PARTIAL — {string.Join(", ", unobserved)} never stated by the path",
+                "everything the path states agrees with the contract; a property nobody states is not verified — the far end's own word (a processor's input status) settles it, or drop it from the contract"));
+        }
         return new SignalReport(label, verdict, design, requested, observedWords, lines, advertisedWords, receivedWords);
+    }
+
+    /// <summary>Round 72: the contracted properties the report says nobody stated, from its PARTIAL line; empty for any other verdict.</summary>
+    public static string Unobserved(SignalReport report)
+    {
+        var line = report.Lines.FirstOrDefault(l => l.Item == "Verified");
+        if (line is null) return "";
+        const string head = "PARTIAL — ";
+        const string tail = " never stated by the path";
+        var v = line.Value;
+        return v.StartsWith(head, StringComparison.Ordinal) && v.EndsWith(tail, StringComparison.Ordinal) ? v[head.Length..^tail.Length] : "";
     }
 
     /// <summary>
@@ -405,6 +449,35 @@ public static class SignalTruth
             mismatch |= !same;
             lines.Add(new SignalLine("Received bit depth", same ? CheckLight.Green : CheckLight.Red, same ? $"{received.BitDepth}-bit — {who}" : $"{contract.BitDepth}-bit asked · {who} receives {received.BitDepth}-bit",
                 same ? "" : "FIX: the box receives another depth — the GPU's output depth, or a link without the bandwidth"));
+        }
+        // Round 72: the properties Windows never states — the far end is their only witness, and its word settles them.
+        if (received.Dynamic != DynamicRange.Any && contract.Dynamic != DynamicRange.Any)
+        {
+            var same = received.Dynamic == contract.Dynamic;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received dynamic range", same ? CheckLight.Green : CheckLight.Red, same ? $"{received.Dynamic} — {who}" : $"{contract.Dynamic} asked · {who} receives {received.Dynamic}",
+                same ? "" : "FIX: the box receives another dynamic range — Windows' HDR switch for this display, or the processor's input preset"));
+        }
+        if (received.Colour != ColourSpace.Any && contract.Colour != ColourSpace.Any)
+        {
+            var same = received.Colour == contract.Colour;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received colour space", same ? CheckLight.Green : CheckLight.Red, same ? $"{ColourWords(received.Colour)} — {who}" : $"{ColourWords(contract.Colour)} asked · {who} receives {ColourWords(received.Colour)}",
+                same ? "" : "FIX: the box receives another colour space — the GPU's output colorimetry, or the processor's input preset"));
+        }
+        if (received.Transport != SignalTransport.Any && contract.Transport != SignalTransport.Any)
+        {
+            var same = received.Transport == contract.Transport;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received transport", same ? CheckLight.Green : CheckLight.Red, same ? $"{TransportWords(received.Transport)} — {who}" : $"{TransportWords(contract.Transport)} asked · {who} receives {TransportWords(received.Transport)}",
+                same ? "" : "FIX: the box receives on another connector than the contract names"));
+        }
+        if (received.Audio != AudioPolicy.Any && contract.Audio != AudioPolicy.Any)
+        {
+            var same = received.Audio == contract.Audio;
+            mismatch |= !same;
+            lines.Add(new SignalLine("Received audio", same ? CheckLight.Green : CheckLight.Red, same ? $"{AudioWords(received.Audio)} — {who}" : $"{AudioWords(contract.Audio)} asked · {who} receives {AudioWords(received.Audio)}",
+                same ? "" : "FIX: the box receives other audio than the contract names — the GPU's audio output for this display, or the processor's input"));
         }
     }
 

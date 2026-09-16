@@ -531,6 +531,7 @@ public sealed class EyeGraph
             else if (verdict == "MISMATCH") { light = CheckLight.Red; sub = s.SignalWords.Length > 0 ? s.SignalWords : "MISMATCH"; }
             else if (s.TestRoute) { light = CheckLight.Amber; sub = "on the test route" + (s.SignalWords.Length > 0 ? " · " + s.SignalWords : ""); }
             else if (verdict == "MATCH") { light = CheckLight.Green; sub = s.SignalWords.Length > 0 ? s.SignalWords : "MATCH"; }
+            else if (verdict == "PARTIAL") { light = CheckLight.Amber; sub = s.SignalWords.Length > 0 ? s.SignalWords : "PARTIAL — a contracted property was never stated"; }   // round 72: never green
             else if (s.Contract.Length > 0) { light = CheckLight.Grey; sub = "not verified · " + s.Contract; }
             else if (f.OutputsLive && displayPresent) { light = CheckLight.Green; sub = s.OnAir ? "on air · no contract" : "showing · no contract"; }
             else { light = CheckLight.Grey; sub = displayPresent ? "outputs closed" : "planned, no display"; }
@@ -577,7 +578,7 @@ public sealed class EyeGraph
             // The display it drives.
             if (hasDisplay)
             {
-                var driveLight = displayMissing ? CheckLight.Red : verdict == "MISMATCH" ? CheckLight.Red : s.TestRoute ? CheckLight.Amber : verdict == "MATCH" ? CheckLight.Green : CheckLight.Grey;
+                var driveLight = displayMissing ? CheckLight.Red : verdict == "MISMATCH" ? CheckLight.Red : s.TestRoute || verdict == "PARTIAL" ? CheckLight.Amber : verdict == "MATCH" ? CheckLight.Green : CheckLight.Grey;
                 Link(id, "display:" + s.DisplayId, EyeEdgeKind.Drives, driveLight, displayMissing ? "the display is missing" : s.SignalWords.Length > 0 ? s.SignalWords : s.Contract.Length > 0 ? "not verified" : "");
             }
         }

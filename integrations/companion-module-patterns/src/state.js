@@ -224,6 +224,7 @@ export function variableValues(s) {
 		take_next: s.take?.next?.set ? (s.take.next.words ?? '') : '',
 		take_scope: s.take?.scopeLabel ?? '',
 		take_words: s.take?.refusal ? s.take.refusal : (s.take?.words ?? ''),
+		take_landing: s.take?.landing?.words ?? '',
 		inputs_pending: s.inputs?.pendingNote ?? '',
 		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
 		device_last_reply: (() => {

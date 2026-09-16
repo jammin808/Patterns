@@ -18,7 +18,7 @@ export function variableDefinitions() {
 		v[`screen_${n}`] = `Screen ${n} (its label, or empty)`
 		v[`track_${n}`] = `Audio playlist track ${n} (name, or empty)`
 		v[`screen_${n}_pattern`] = `Screen ${n} — the kind of picture it is showing`
-		v[`screen_${n}_signal`] = `Screen ${n} — the signal result: MATCH, MISMATCH or UNVERIFIED (round 65)`
+		v[`screen_${n}_signal`] = `Screen ${n} — the signal result: MATCH, MISMATCH, PARTIAL (a contracted property nobody stated, round 72) or UNVERIFIED (round 65)`
 		v[`screen_${n}_group`] = `Screen ${n} — its group: main, confidence, info or repeater (round 67)`
 		v[`screen_${n}_audio`] = `Screen ${n} — the output its sound leaves by, the route following the picture; empty for none (round 69)`
 		v[`node_${n}`] = `Node ${n} as the Nodes page lists it — its kind and its machine (or empty)`
@@ -116,6 +116,7 @@ export function variableDefinitions() {
 		take_next: "The one-shot the next TAKE arrives by — 'WIPE LEFT 800 ms', 'STING Whoosh' — or empty for the show's own transition (round 67)",
 		take_scope: "The wall's take scope as the desk's picker has it — every screen, the focused screen, the ticked screens, the ticked groups (round 67)",
 		take_words: "What the next TAKE will do — '→ 1 · Left, 2 · Right · 1 outside the scope keeps its picture' — or why it is refused (round 67)",
+		take_landing: "A TAKE waiting under a video sting — the ticket the press froze: '→ 1 · Left, 2 · Right when \'Whoosh\' ends' while the clip runs, else empty (round 72)",
 		machine_memory_pressure: 'Media memory pressure: none / elevated / high / critical — the rung the desk\'s memory ladder stands on (pictures, frame pools, retiring frames and decks against their budget)',
 		machine_memory_held: "What the desk holds in memory and why — '4 held (312 MB): 2 on air, 1 armed, 1 idle — the first lets go in 43 s' (round 69)",
 		machine_gpu_cache: "Skia's GPU cache as governed — 'GPU cache 48 MB of 128 MB (212 resources)', or 'GPU cache: no GPU context (software rendering)' (round 69)",

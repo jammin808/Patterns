@@ -95,7 +95,8 @@ public class SignalTruthTests
         Assert.Equal("none — the display's own", SignalTruth.DesignWords(c));
 
         var diagnostic = SignalContract.Diagnostic();
-        Assert.Equal("1920×1080 · 50 Hz · RGB 4:4:4 · 8-bit · SDR · stereo", SignalTruth.DesignWords(diagnostic));
+        Assert.Equal("1920×1080 · 50 Hz · RGB 4:4:4 · 8-bit · SDR", SignalTruth.DesignWords(diagnostic));   // round 72: no audio word — nothing observes it
+        Assert.Equal(AudioPolicy.Any, diagnostic.Audio);
     }
 
     [Fact]
@@ -164,7 +165,16 @@ public class SignalTruthTests
     {
         var contract = Contract("3840x2160 50 RGB 8 SDR");
         var blind = SignalTruth.Compare("Main", contract, 3840, 2160, 0, 50, Observed(SignalRate.Of(50, 1), encoding: null, bits: 0, hdr: null, hdrCapable: null), 50.0);
-        Assert.Equal(SignalVerdict.Match, blind.Verdict);              // the raster and the rate are evidence enough for MATCH
+        Assert.Equal(SignalVerdict.Partial, blind.Verdict);            // round 72: the raster and the rate agree, and three contracted properties were never stated — a pass on the evidence there is, never MATCH
+        Assert.Equal("PARTIAL", blind.Result);
+        Assert.Equal("encoding, bit depth, dynamic range", SignalTruth.Unobserved(blind));
+        var verified = blind.Lines.Single(l => l.Item == "Verified");
+        Assert.Equal(CheckLight.Amber, verified.Light);
+        Assert.Equal("PARTIAL — encoding, bit depth, dynamic range never stated by the path", verified.Value);
+        Assert.Contains("the far end's own word", verified.Note);
+        Assert.False(SignalReport.IsPass(SignalVerdict.Partial));
+        Assert.False(SignalReport.IsPass(SignalVerdict.Unverified));
+        Assert.True(SignalReport.IsPass(SignalVerdict.Match));
         foreach (var item in new[] { "Encoding", "Bit depth", "Dynamic range" })
         {
             var line = blind.Lines.Single(l => l.Item == item);
@@ -199,8 +209,10 @@ public class SignalTruthTests
         Assert.Contains(onDp.Lines, l => l.Item == "Colour space" && l.Light == CheckLight.Grey && l.Note == SignalTruth.NotAvailable);
         Assert.EndsWith("over DisplayPort", onDp.Observed);
         var onHdmi = SignalTruth.Compare("Main", wired, 3840, 2160, 0, 50, Observed(SignalRate.Of(50, 1)) with { Connector = "HDMI" }, 50.0);
-        Assert.Equal(SignalVerdict.Match, onHdmi.Verdict);
+        Assert.Equal(SignalVerdict.Partial, onHdmi.Verdict);          // round 72: the connector agrees, and the colour space the contract names is one Windows never states
+        Assert.Equal("colour space", SignalTruth.Unobserved(onHdmi));
         Assert.Contains(onHdmi.Lines, l => l.Item == "Transport" && l.Light == CheckLight.Green);
+        Assert.Empty(SignalTruth.Unobserved(SignalTruth.Compare("Main", contract, 3840, 2160, 0, 50, Observed(SignalRate.Of(50, 1)), 50.0)));
         Assert.Equal(SignalTransport.UsbC, SignalTruth.TransportOf("DisplayPort over USB"));
         Assert.Equal(SignalTransport.Any, SignalTruth.TransportOf(""));
 
@@ -230,7 +242,8 @@ public class SignalTruthTests
         var edid = Edid.Parse(EdidSamples.PatternsLed());
         var contract = Contract("1920x1080 50 RGB 8 SDR STEREO");
         var report = SignalTruth.Compare("Main", contract, 1920, 1080, 0, 50, Observed(SignalRate.Of(50, 1), w: 1920, h: 1080), 50.0, edid);
-        Assert.Equal(SignalVerdict.Match, report.Verdict);
+        Assert.Equal(SignalVerdict.Partial, report.Verdict);         // round 72: the EDID advertises audio, nothing observes it — PARTIAL, naming it
+        Assert.Equal("audio", SignalTruth.Unobserved(report));
         Assert.Contains("7680×2160 / 3840×2160 / 1920×1080", report.Advertised);
         Assert.Contains("DESIGN\n", report.Text);
         Assert.Contains("\nADVERTISED\n", report.Text);
@@ -246,10 +259,13 @@ public class SignalTruthTests
         }
         Assert.Contains(report.Lines, l => l.Item == "Advertised HDR" && l.Light == CheckLight.Grey && l.Value.Contains("advertises PQ (HDR10), HLG") && l.Value.EndsWith("the contract is SDR"));
 
-        // What the display does not advertise reads amber — a risk, never a verdict: the observation still decides MATCH.
+        // What the display does not advertise reads amber — a risk, never a verdict: the observation still decides. Round 72: it decides
+        // PARTIAL here — the colour space and the audio the contract names are ones nothing on this machine observes.
         var asking = Contract("2560x1440 25 420 10 HDR10 P3 8CH");
         var risky = SignalTruth.Compare("Main", asking, 2560, 1440, 0, 25, Observed(SignalRate.Of(25, 1), encoding: PixelEncoding.YCbCr420, bits: 10, hdr: true, w: 2560, h: 1440), 50.0, edid);
-        Assert.Equal(SignalVerdict.Match, risky.Verdict);
+        Assert.Equal(SignalVerdict.Partial, risky.Verdict);
+        Assert.Equal("colour space, audio", SignalTruth.Unobserved(risky));
+        Assert.Contains(risky.Lines, l => l.Item == "Audio" && l.Light == CheckLight.Grey && l.Value == "multichannel audio asked · observed unknown");
         Assert.Contains(risky.Lines, l => l.Item == "Advertised raster" && l.Light == CheckLight.Amber && l.Value.StartsWith("2560×1440 not advertised"));
         Assert.Contains(risky.Lines, l => l.Item == "Advertised rate" && l.Light == CheckLight.Amber && l.Value.StartsWith("25 Hz not advertised — the display offers 29.97 / 30 / 50 / 59.94 / 60"));
         Assert.Contains(risky.Lines, l => l.Item == "Advertised encoding" && l.Light == CheckLight.Green);                // 4:2:0 is offered (VIC 97)
@@ -303,5 +319,47 @@ public class SignalTruthTests
         Assert.Equal(RemoteCommandKind.ScreenSignal, ControlProtocol.Parse("screen 2 signal").Kind);
         Assert.Equal((TargetKind.Screen, ValueKind.Text), ActionSpec.For(ShowActionKind.ScreenSignal));
         Assert.NotNull(ActionSpec.DeskOnly(ShowActionKind.ScreenSignal));
+    }
+
+    /// <summary>
+    /// Round 72: PARTIAL is the verdict when everything stated agrees and a contracted property was never stated by
+    /// anyone; the far end's word is the witness that settles the properties Windows never states, and a far end
+    /// that disagrees is a MISMATCH like any other.
+    /// </summary>
+    [Fact]
+    public void TheFarEndsWordSettlesWhatWindowsNeverStates()
+    {
+        var wired = Contract("3840x2160 50 RGB 8 SDR 709 HDMI");
+        var windows = Observed(SignalRate.Of(50, 1)) with { Connector = "HDMI" };
+
+        // Nobody states the colour space: PARTIAL, naming it.
+        var alone = SignalTruth.Compare("Main", wired, 3840, 2160, 0, 50, windows, 50.0);
+        Assert.Equal(SignalVerdict.Partial, alone.Verdict);
+        Assert.Equal("colour space", SignalTruth.Unobserved(alone));
+
+        // The processor's input status says 709: everything the contract names is stated by someone — MATCH.
+        var agrees = SignalTruth.Compare("Main", wired, 3840, 2160, 0, 50, windows, 50.0, received: Contract("709"), receivedBy: "the LED processor");
+        Assert.Equal(SignalVerdict.Match, agrees.Verdict);
+        Assert.Empty(SignalTruth.Unobserved(agrees));
+        Assert.Contains(agrees.Lines, l => l.Item == "Received colour space" && l.Light == CheckLight.Green && l.Value == "Rec. 709 — the LED processor");
+
+        // The processor says 2020: the third witness disagrees — MISMATCH, red, with the fix.
+        var differs = SignalTruth.Compare("Main", wired, 3840, 2160, 0, 50, windows, 50.0, received: Contract("2020"), receivedBy: "the LED processor");
+        Assert.Equal(SignalVerdict.Mismatch, differs.Verdict);
+        Assert.Contains(differs.Lines, l => l.Item == "Received colour space" && l.Light == CheckLight.Red && l.Note.StartsWith("FIX:"));
+
+        // The far end states the encoding and the depth Windows left blank: PARTIAL becomes MATCH on its word alone.
+        var contract = Contract("3840x2160 50 RGB 8 SDR");
+        var blind = Observed(SignalRate.Of(50, 1), encoding: null, bits: 0, hdr: null, hdrCapable: null);
+        var settled = SignalTruth.Compare("Main", contract, 3840, 2160, 0, 50, blind, 50.0, received: Contract("RGB 8 SDR"), receivedBy: "the LED processor");
+        Assert.Equal(SignalVerdict.Match, settled.Verdict);
+        Assert.Contains(settled.Lines, l => l.Item == "Received dynamic range" && l.Light == CheckLight.Green);
+        var half = SignalTruth.Compare("Main", contract, 3840, 2160, 0, 50, blind, 50.0, received: Contract("RGB"), receivedBy: "the LED processor");
+        Assert.Equal(SignalVerdict.Partial, half.Verdict);
+        Assert.Equal("bit depth, dynamic range", SignalTruth.Unobserved(half));
+
+        // The words are the desk's everywhere: the result, the text, and never a pass.
+        Assert.Contains("RESULT\nPARTIAL", half.Text);
+        Assert.Equal("PARTIAL", SignalReport.Words(SignalVerdict.Partial));
     }
 }

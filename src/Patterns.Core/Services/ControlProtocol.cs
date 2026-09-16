@@ -404,7 +404,7 @@ public static class ControlProtocol
                     return said.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenReceived, n, said);
                 }
                 // "SCREEN 2 TESTROUTE ON" / "SCREEN 2 TEST ROUTE OFF" / bare "SCREEN 2 TESTROUTE" toggles (round 65.10): the
-                // diagnostic profile (1080p50 RGB 8-bit SDR stereo) stands in for the contract while the path is proven.
+                // diagnostic profile (1080p50 RGB 8-bit SDR) stands in for the contract while the path is proven.
                 {
                     var route = rest.Replace("TEST ROUTE", "TESTROUTE", StringComparison.OrdinalIgnoreCase);
                     if (route.Equals("TESTROUTE", StringComparison.OrdinalIgnoreCase)) return Act(ShowActionKind.ScreenTestRoute, n, "");

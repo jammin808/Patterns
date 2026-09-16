@@ -246,8 +246,8 @@ export function buildPresets() {
 
 	// ---- the rig (round 65.10): the signal verdicts, the test route, the known-good rig, the flow ------------
 	for (let n = 1; n <= 8; n++) {
-		add(`rig_signal_${n}`, key('Rig', `Screen ${n} — signal result: green MATCH, red MISMATCH (press: TEST ROUTE toggles)`, `S${n} SIGNAL\n$(patterns:screen_${n}_signal)`, 'auto', press('screen_testroute', { n, mode: 'TOGGLE' }),
-			[litAs('screen_signal_is', { n, result: 'MATCH' }, 'signal', 'match'), litAs('screen_signal_is', { n, result: 'MISMATCH' }, 'signal', 'mismatch'), empty('screen', n)]))
+		add(`rig_signal_${n}`, key('Rig', `Screen ${n} — signal result: green MATCH, amber PARTIAL, red MISMATCH (press: TEST ROUTE toggles)`, `S${n} SIGNAL\n$(patterns:screen_${n}_signal)`, 'auto', press('screen_testroute', { n, mode: 'TOGGLE' }),
+			[litAs('screen_signal_is', { n, result: 'MATCH' }, 'signal', 'match'), litAs('screen_signal_is', { n, result: 'PARTIAL' }, 'signal', 'partial'), litAs('screen_signal_is', { n, result: 'MISMATCH' }, 'signal', 'mismatch'), empty('screen', n)]))
 	}
 	add('rig_known_good', key('Rig', 'KNOWN GOOD — green while the rig is the one saved, amber when it moved; press: RIG SAVE first show', 'KNOWN\nGOOD\n$(patterns:machine_rig)', 'auto', press('rig_save', { note: 'first show' }),
 		[litAs('rig_known_good', {}, 'rig', 'same'), litAs('rig_drift', {}, 'rig', 'drift')]))

@@ -621,7 +621,7 @@ public sealed partial class ShowActions
             var report = SignalReportFor(placement, info, clock);
             var edid = EdidFor(info);
             var advertises = edid is not null && !report.Lines.Any(l => l.Item.StartsWith("Advertised", StringComparison.Ordinal) && l.Light == CheckLight.Amber);
-            screens.Add(new CommissionScreen(n, report.Label, placement.Signal.IsSet, placement.TestRoute, edid is not null, advertises, report.Verdict, report.Observed));
+            screens.Add(new CommissionScreen(n, report.Label, placement.Signal.IsSet, placement.TestRoute, edid is not null, advertises, report.Verdict, report.Observed, SignalTruth.Unobserved(report)));
         }
         _outputsWereLive |= _s.Outputs.IsLive;
         var known = _s.Kernel.KnownGood;
@@ -733,7 +733,9 @@ public sealed partial class ShowActions
         _signalVerdicts[screenId] = report.Verdict;
         if (!placementHasContract(screenId)) return;
         var moved = report.Lines.Where(l => l.Light is CheckLight.Red or CheckLight.Amber).Select(l => $"{l.Item.ToLowerInvariant()}: {l.Value}").ToList();
-        var words = report.Verdict == SignalVerdict.Match ? $"{report.Design} — as observed" : moved.Count > 0 ? string.Join("; ", moved) : report.Observed;
+        var words = report.Verdict == SignalVerdict.Match ? $"{report.Design} — as observed"
+            : report.Verdict == SignalVerdict.Partial ? $"{report.Design} — as observed where the path states it; {SignalTruth.Unobserved(report)} never stated"   // round 72
+            : moved.Count > 0 ? string.Join("; ", moved) : report.Observed;
         _s.Journal.Record("signal", "SignalVerdict", report.Label, report.Result, (had ? $"{SignalReport.Words(previous)} → {report.Result}: " : "") + words);
 
         bool placementHasContract(string id) => State.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { Signal.IsSet: true };

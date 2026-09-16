@@ -52,11 +52,15 @@ export function buildFeedbacks(ctx) {
 		look_f_on_air: bool('The look on an F-key is on air', style('look', 'air'), [{ type: 'number', id: 'slot', label: 'F-key (1–12)', default: 1, min: 1, max: 12 }], (fb) => !!s().looks?.find((l) => l.slot === fb.options.slot)?.air),
 		// Round 65.10: signal truth and the rig on the keys — the verdict Windows gives a screen's link, the
 		// known-good rig's drift, the commissioning flow's end. Evidence only: UNVERIFIED is not a pass.
-		screen_signal_is: bool('Screen signal result is (MATCH / MISMATCH / UNVERIFIED)', style('signal', 'match'), [screenN, {
+		screen_signal_is: bool('Screen signal result is (MATCH / MISMATCH / PARTIAL / UNVERIFIED)', style('signal', 'match'), [screenN, {
 			type: 'dropdown', id: 'result', label: 'Result', default: 'MATCH',
-			choices: [{ id: 'MATCH', label: 'MATCH — Windows reports the link carrying its contract' }, { id: 'MISMATCH', label: 'MISMATCH — the observation differs from the contract' }, { id: 'UNVERIFIED', label: 'UNVERIFIED — no contract, or nothing observed' }],
+			choices: [{ id: 'MATCH', label: 'MATCH — Windows reports the link carrying its contract' }, { id: 'MISMATCH', label: 'MISMATCH — the observation differs from the contract' }, { id: 'PARTIAL', label: 'PARTIAL — everything stated agrees; a contracted property was never stated (round 72)' }, { id: 'UNVERIFIED', label: 'UNVERIFIED — no contract, or nothing observed' }],
 		}], (fb) => norm(s().screens?.find((x) => x.n === fb.options.n)?.signal?.result) === norm(fb.options.result)),
 		signal_mismatch_any: bool('Any screen reads MISMATCH against its contract', style('signal', 'mismatch'), [], () => (s().screens ?? []).some((x) => norm(x.signal?.result) === 'mismatch')),
+		// Round 72: PARTIAL is never a pass — a key that lights amber while any contracted screen has a property nobody stated.
+		signal_partial_any: bool('Any screen reads PARTIAL — a contracted property was never stated', style('signal', 'partial'), [], () => (s().screens ?? []).some((x) => norm(x.signal?.result) === 'partial')),
+		// Round 72: a TAKE waiting under a video sting — the ticket the press froze lands when the clip ends.
+		take_landing_pending: bool('A TAKE is waiting under a video sting (the press froze what lands)', style('take', 'landing'), [], () => Boolean(s().take?.landing)),
 		rig_known_good: bool('The rig is the one saved as known good (unchanged)', style('rig', 'same'), [], () => String(s().machine?.rig ?? '').startsWith('unchanged')),
 		rig_drift: bool('The rig moved since it was saved as known good', style('rig', 'drift'), [], () => /^\d+ change/.test(String(s().machine?.rig ?? ''))),
 		commissioned: bool('The rig is commissioned — every stage of the flow green', style('rig', 'commissioned'), [], () => s().commissioning?.complete === true),

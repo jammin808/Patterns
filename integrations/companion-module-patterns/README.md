@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.10.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.11.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -64,10 +64,10 @@ show a deck is on; `$(patterns:last_error)` carries the last refusal. `$(pattern
 trouble, and the `render_faulting` and `device_failing` feedbacks light a key red for it;
 `$(patterns:cue_last_pending)` counts the device receipts the last cue still waits for. From 3.6.0 the
 rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a screen's link carrying
-against its contract (MATCH / MISMATCH / UNVERIFIED — never a pass by default), `$(patterns:machine_rig)`
+against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.10.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.11.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,12 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.11.0** — signal truth's PARTIAL and the take ticket (round 72): `screen_n_signal` reads PARTIAL when
+  everything the path states agrees with the contract and a contracted property was never stated (a
+  colour space Windows never reports, a bit depth the driver did not say) — amber on the `rig_signal_n`
+  keys and a choice of `screen_signal_is`; the `signal_partial_any` feedback; `$(patterns:take_landing)`
+  is the ticket a TAKE under a video sting froze at the press ("→ 1 · Left, 2 · Right when 'Whoosh' ends")
+  while the clip runs, with the `take_landing_pending` feedback. A 3.10.0 deck reads PARTIAL as its words.
 - **3.10.0** — the sound follows the picture (round 69): `screen_audio` names the output a screen's
   sound leaves by (`SCREEN n AUDIO <output>`; the route follows the picture — the programme, its own
   picture, the screen it repeats — moving with every take), `audio_follow` switches the following

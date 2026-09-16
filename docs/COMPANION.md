@@ -334,3 +334,23 @@ their sound with it. The deck's screen key reads the output; nobody re-routes on
   `webui/src/Components/BonjourDeviceInputField.tsx`, and CHANGELOG.md (4.0 → 5.0.5).
 - github.com/bitfocus/companion-module-template-js — `companion/manifest.json`, `package.json`.
 - RFC 6762 (multicast DNS) and RFC 6763 (DNS-based service discovery).
+
+## 17. Round 72 additions
+
+**Signal truth's PARTIAL, version 3.11.0.** A screen's result reads PARTIAL when everything the path
+states agrees with its contract and a property the contract names was never stated by anyone — the
+colour space Windows never reports, a bit depth or an encoding the driver left blank — and the far
+end's own word (a processor's input status) is the witness that settles it: with it, MATCH; against
+it, MISMATCH. `$(patterns:screen_n_signal)` carries the word; `screen_signal_is` gains the PARTIAL
+choice; `signal_partial_any` lights amber while any contracted screen reads it; the `rig_signal_n`
+keys are green MATCH, amber PARTIAL, red MISMATCH. MATCH alone is a pass — a key built on
+`screen_signal_is` MATCH goes dark on PARTIAL, which is the point. The desk's Verify stage of the
+commissioning flow reads amber with the property named; the Eye's screen node and its link to the
+display read amber.
+
+**The take ticket, still 3.11.0.** `$(patterns:take_landing)` is the ticket a TAKE under a video sting
+froze at the press — "→ 1 · Left, 2 · Right when 'Whoosh' ends" — while the clip runs, empty
+otherwise; `take_landing_pending` lights the sting's brown while one waits. What lands is what the
+press promised, less only a screen locked since or gone from the rig, never more (ADR-015). A 3.10.0
+deck reads PARTIAL as a word it does not colour and ignores the row.
+

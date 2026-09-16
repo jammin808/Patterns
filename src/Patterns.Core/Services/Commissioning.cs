@@ -20,7 +20,7 @@ public enum CommissionStage
 }
 
 /// <summary>One screen as the commissioning flow sees it.</summary>
-public sealed record CommissionScreen(int Number, string Label, bool HasContract, bool TestRoute, bool EdidRead, bool Advertises, SignalVerdict Verdict, string Observed = "");
+public sealed record CommissionScreen(int Number, string Label, bool HasContract, bool TestRoute, bool EdidRead, bool Advertises, SignalVerdict Verdict, string Observed = "", string Unobserved = "");
 
 /// <summary>
 /// What the desk knows for the commissioning flow (round 65.10). The App gathers it — the screens
@@ -153,10 +153,14 @@ public static class Commissioning
         {
             var mismatched = contracted.Where(s => s.Verdict == SignalVerdict.Mismatch).ToList();
             var unverified = contracted.Where(s => s.Verdict == SignalVerdict.Unverified).ToList();
+            var partial = contracted.Where(s => s.Verdict == SignalVerdict.Partial).ToList();
             if (mismatched.Count > 0)
                 lines.Add(new(CommissionStage.Verify, "Verify", CheckLight.Red, $"MISMATCH on {Names(mismatched)}", string.Join("; ", mismatched.Select(s => $"{s.Label}: {s.Observed}")) + $" — SCREEN {mismatched[0].Number} SIGNAL reads the lines; SCREEN {mismatched[0].Number} TESTROUTE ON tells a capability problem from a path problem"));
             else if (unverified.Count > 0)
                 lines.Add(new(CommissionStage.Verify, "Verify", CheckLight.Grey, $"{Names(unverified)} unverified", "Windows has not stated the path — the outputs on, the display awake; a property it never states stays unknown"));
+            else if (partial.Count > 0)
+                // Round 72: everything stated agrees, and a contracted property was never stated — amber, never the green a pass would be.
+                lines.Add(new(CommissionStage.Verify, "Verify", CheckLight.Amber, $"PARTIAL on {Names(partial)}", string.Join("; ", partial.Select(s => $"{s.Label}: {(s.Unobserved.Length > 0 ? s.Unobserved : "a contracted property")} never stated")) + " — the far end's own word (a processor's input status) settles it, or drop the property from the contract; PARTIAL is not a pass"));
             else
                 lines.Add(new(CommissionStage.Verify, "Verify", CheckLight.Green, $"MATCH on every contracted screen ({contracted.Count})"));
         }
