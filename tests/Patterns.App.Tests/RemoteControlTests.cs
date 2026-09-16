@@ -263,6 +263,7 @@ public class RemoteControlTests
             vm.State.Pattern.FlatField.ShowLabel = false;
             vm.State.Pattern.Canvas.FollowOutput = true;
             vm.State.Transition.Enabled = false;
+            vm.State.Overlays.Badge.Enabled = false;   // round 73: the badge sits centred just above the lower thirds — right where this reads the field
             Dispatcher.UIThread.RunJobs();
 
             var viewport = new PipelineViewport(SinkKind.Output, SKSizeI.Empty, default, null, 1, "warp")

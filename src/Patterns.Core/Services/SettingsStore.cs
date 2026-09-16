@@ -184,6 +184,21 @@ public sealed class SettingsStore
             state.Overlays.Badge.Line = BadgeOverlay.DefaultLine;
         }
 
+        // v11: the badge's default place and size changed (round 73) — centred just above the
+        // lower thirds' band and a size up, where it opened in the middle of the band at 9 %. The
+        // same shape as v10: a badge still exactly at the old defaults, on the anchor they were
+        // written for, was never placed by hand and follows; one dragged, nudged or resized
+        // anywhere else is the operator's and stays. Gated on the version for the v10 reason.
+        if (state.SchemaVersion < 11
+            && state.Overlays.Badge.Anchor == Anchor9.BottomCenter
+            && state.Overlays.Badge.HeightPct == BadgeOverlay.LegacyHeightPct
+            && state.Overlays.Badge.OffsetXPct == 0
+            && state.Overlays.Badge.OffsetYPct == BadgeOverlay.LegacyOffsetYPct)
+        {
+            state.Overlays.Badge.HeightPct = BadgeOverlay.DefaultHeightPct;
+            state.Overlays.Badge.OffsetYPct = BadgeOverlay.DefaultOffsetYPct;
+        }
+
         // Break music: hand-edited or hand-copied entries get an id and a canonical URI, like
         // stingers. Unconditional and idempotent — no schema step, because there is nothing to
         // convert: a file written before break music existed simply has no block and defaults off.

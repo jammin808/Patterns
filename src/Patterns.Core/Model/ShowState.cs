@@ -479,13 +479,38 @@ public sealed class LogoOverlay : Observable, IAnchored
 /// <summary>
 /// The Patterns badge: the app's own mark — the test-card icon, the PATTERNS wordmark and a line
 /// under it, in the app's neon colours — drawn by the engine on every sink over a test pattern,
-/// so a test card carries its maker's name at an expo or on a rig day. On by default, centred in
-/// the lower third; it travels with looks like every overlay and drags on the PREVIEW pane. Off
-/// for a client's media (video, images, decks, web pages) and the multiview unless asked.
+/// so a test card carries its maker's name at an expo or on a rig day. On by default, centred
+/// just above the lower thirds — clear of the band a lower third comes into, so the mark and a
+/// name never share the same pixels; it travels with looks like every overlay and drags on the
+/// PREVIEW pane. Off for a client's media (video, images, decks, web pages) and the multiview
+/// unless asked.
 /// </summary>
 public sealed class BadgeOverlay : Observable, IAnchored
 {
     public const string DefaultLine = "rig · playback · show control";
+
+    /// <summary>
+    /// The badge's default height, as a share of the canvas height: 11 % — 119 lines at 1080p.
+    /// A size up from the 9 % it opened at, so the wordmark reads from the back of a room.
+    /// </summary>
+    public const double DefaultHeightPct = 11;
+
+    /// <summary>
+    /// The default nudge up from the bottom edge, as a share of the canvas height: −25 %. From the
+    /// bottom-centre anchor the card's base is the edge margin (3 % of the height) up; this lifts
+    /// it to a bottom edge at 72 % of the height. The lower third's own design box — 220 lines
+    /// tall and 60 up at 1080 (<see cref="Patterns.Core.LowerThirds.LowerThirdDesign"/>), scaled
+    /// with the canvas — starts at 74.1 %, so the badge sits just above the band with a breath
+    /// between them, at every canvas size the same arithmetic applies to. Held as a constant so
+    /// the migration and the tests read the one number.
+    /// </summary>
+    public const double DefaultOffsetYPct = -25;
+
+    /// <summary>The height the badge opened at until round 73 (9 %); <see cref="SettingsStore.Migrate"/> moves a badge still at it to <see cref="DefaultHeightPct"/>.</summary>
+    public const double LegacyHeightPct = 9;
+
+    /// <summary>The nudge the badge opened at until round 73 (−12 %, the middle of the lower third); <see cref="SettingsStore.Migrate"/> moves a badge still at it to <see cref="DefaultOffsetYPct"/>.</summary>
+    public const double LegacyOffsetYPct = -12;
 
     /// <summary>
     /// What the line said before. A settings file already carries the words it was written with,
@@ -498,10 +523,10 @@ public sealed class BadgeOverlay : Observable, IAnchored
 
     private bool _enabled = true;
     private Anchor9 _anchor = Anchor9.BottomCenter;
-    private double _heightPct = 9;
+    private double _heightPct = DefaultHeightPct;
     private double _opacity = 0.95;
     private double _offsetXPct;
-    private double _offsetYPct = -12;
+    private double _offsetYPct = DefaultOffsetYPct;
     private bool _onMediaToo;
     private bool _showLine = true;
     private string _line = DefaultLine;
@@ -513,7 +538,7 @@ public sealed class BadgeOverlay : Observable, IAnchored
     public double HeightPct { get => _heightPct; set => Set(ref _heightPct, Math.Clamp(value, 3, 40)); }
     public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0.05, 1)); }
 
-    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it. The default lifts it off the bottom edge into the middle of the lower third.</summary>
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it. The default (<see cref="DefaultOffsetYPct"/>) lifts it off the bottom edge to just above the lower thirds' band.</summary>
     public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
     public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
 
@@ -2703,7 +2728,7 @@ public sealed class CaptureFormatConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 10;
+    public const int CurrentSchemaVersion = 11;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run

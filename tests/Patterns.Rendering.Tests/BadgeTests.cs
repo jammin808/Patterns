@@ -1,5 +1,7 @@
+using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;
 using Patterns.Rendering;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
@@ -23,7 +25,11 @@ public class BadgeTests
         var badge = state.Overlays.Badge;
         Assert.True(badge.Enabled);
         Assert.Equal(Anchor9.BottomCenter, badge.Anchor);
-        Assert.True(badge.OffsetYPct < 0, "lifted off the bottom edge into the lower third");
+        Assert.True(badge.OffsetYPct < 0, "lifted off the bottom edge to just above the lower thirds");
+        Assert.Equal(BadgeOverlay.DefaultHeightPct, badge.HeightPct);
+        Assert.Equal(BadgeOverlay.DefaultOffsetYPct, badge.OffsetYPct);
+        Assert.Equal(11, badge.HeightPct);      // round 73: a size up from 9
+        Assert.Equal(-25, badge.OffsetYPct);    // round 73: the bottom edge at 72 % of the height, above the band at 74.1 %
         Assert.True(badge.ShowLine);
         Assert.Equal(BadgeOverlay.DefaultLine, badge.Line);
         Assert.Equal("rig · playback · show control", badge.Line);   // the maker's own words, pinned
@@ -78,7 +84,7 @@ public class BadgeTests
     }
 
     [Fact]
-    public void TheBadgeDrawsOverATestPatternCentredInTheLowerThirdInTheAppsColours()
+    public void TheBadgeDrawsOverATestPatternCentredJustAboveTheLowerThirdsInTheAppsColours()
     {
         var state = Black();
         var (bmp, hits) = Render(state);
@@ -87,9 +93,12 @@ public class BadgeTests
             var box = LitBox(bmp);
             Assert.NotNull(box);
             var r = box!.Value;
+            var band = LowerThirdRenderer.BoxOf(new LowerThirdDesign(), new SKSizeI(1920, 1080), out _);
             Assert.InRange(r.MidX, 940, 980);                 // centred
-            Assert.InRange(r.MidY, 740, 900);                 // the middle of the lower third
-            Assert.InRange(r.Height, 80, 115);                // 9 % of 1080, give or take the antialiased edge
+            Assert.InRange(r.MidY, 690, 750);                 // just above the lower thirds' band …
+            Assert.True(r.Bottom < band.Top, $"the card ends above the band: {r.Bottom} vs {band.Top}");   // … and never in it
+            Assert.InRange(band.Top - r.Bottom, 4, 60);       // a breath, not a gulf
+            Assert.InRange(r.Height, 105, 135);               // 11 % of 1080, give or take the antialiased edge
             Assert.True(r.Width > r.Height * 3, $"a wide card: {r}");
             Assert.True(HasColourNear(bmp, r, Cyan), "the cyan of the icon's cross and the card's edge");
             Assert.True(HasColourNear(bmp, r, SKColors.White), "the white of the name");
@@ -117,9 +126,85 @@ public class BadgeTests
         using (bare)
         {
             var r = LitBox(bare)!.Value;
-            Assert.InRange(r.Height, 80, 115);
+            Assert.InRange(r.Height, 105, 135);
             Assert.True(HasColourNear(bare, r, SKColors.White));
         }
+    }
+
+    /// <summary>
+    /// Round 73: the default place is arithmetic on the canvas height, and so is the lower third's
+    /// band — so the badge sits just above the band on an HD monitor, a 4K wall, a 32:9 wall and a
+    /// desk tile alike, with nothing measured from a picture. The one input the sizes do not
+    /// share is the edge margin's 10-pixel floor, which is why the tile is in the list.
+    /// </summary>
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(3840, 2160)]
+    [InlineData(1280, 720)]
+    [InlineData(5760, 1080)]
+    [InlineData(1080, 1920)]
+    [InlineData(320, 180)]
+    public void TheDefaultBadgeSitsJustAboveTheDefaultLowerThirdAtEverySize(int w, int h)
+    {
+        var badge = new ShowState().Overlays.Badge;
+        var canvas = new SKSizeI(w, h);
+        var height = (float)(h * badge.HeightPct / 100);
+        var card = DrawUtil.Anchored(canvas, height * 4, height, badge.Anchor, OverlayPlace.MarginFor(canvas), badge.OffsetXPct, badge.OffsetYPct);
+        var band = LowerThirdRenderer.BoxOf(new LowerThirdDesign(), canvas, out _);
+
+        Assert.Equal(w / 2f, card.MidX, 0.5);                                   // centred
+        Assert.True(card.Bottom < band.Top, $"above the band on {w}×{h}: {card.Bottom} vs {band.Top}");
+        Assert.InRange((band.Top - card.Bottom) / h, 0.005, 0.06);               // just above: a breath of the height, not a gulf
+        Assert.True(card.Top > h * 0.5f, $"in the lower half on {w}×{h}: top {card.Top}");
+        Assert.True(height >= h * 0.10f, "a size up from the 9 % it opened at");
+    }
+
+    /// <summary>
+    /// The default moved in the source (round 73); a settings file carries every property, so a
+    /// badge saved at the old place would stay there for ever. One still exactly where the old
+    /// build put it follows the new default once; one an operator dragged, nudged, resized or
+    /// re-anchored is theirs and stays — and the step never runs twice.
+    /// </summary>
+    [Fact]
+    public void TheBadgeStillAtItsOldPlaceMovesUpOnceAndAHandPlacedOneStays()
+    {
+        static ShowState OldBuild(Action<BadgeOverlay>? touch = null)
+        {
+            var state = new ShowState { SchemaVersion = 10 };
+            state.Overlays.Badge.HeightPct = BadgeOverlay.LegacyHeightPct;
+            state.Overlays.Badge.OffsetYPct = BadgeOverlay.LegacyOffsetYPct;
+            touch?.Invoke(state.Overlays.Badge);
+            return state;
+        }
+
+        var untouched = OldBuild();
+        SettingsStore.Migrate(untouched);
+        Assert.Equal(BadgeOverlay.DefaultHeightPct, untouched.Overlays.Badge.HeightPct);
+        Assert.Equal(BadgeOverlay.DefaultOffsetYPct, untouched.Overlays.Badge.OffsetYPct);
+        Assert.Equal(ShowState.CurrentSchemaVersion, untouched.SchemaVersion);
+
+        var dragged = OldBuild(b => b.OffsetYPct = -30);
+        SettingsStore.Migrate(dragged);
+        Assert.Equal(BadgeOverlay.LegacyHeightPct, dragged.Overlays.Badge.HeightPct);
+        Assert.Equal(-30, dragged.Overlays.Badge.OffsetYPct);
+
+        var resized = OldBuild(b => b.HeightPct = 14);
+        SettingsStore.Migrate(resized);
+        Assert.Equal(14, resized.Overlays.Badge.HeightPct);
+        Assert.Equal(BadgeOverlay.LegacyOffsetYPct, resized.Overlays.Badge.OffsetYPct);
+
+        var cornered = OldBuild(b => b.Anchor = Anchor9.TopRight);
+        SettingsStore.Migrate(cornered);
+        Assert.Equal(BadgeOverlay.LegacyHeightPct, cornered.Overlays.Badge.HeightPct);
+        Assert.Equal(BadgeOverlay.LegacyOffsetYPct, cornered.Overlays.Badge.OffsetYPct);
+
+        // Once: an operator who puts it back where the old build had it keeps it there.
+        var deliberate = untouched;
+        deliberate.Overlays.Badge.HeightPct = BadgeOverlay.LegacyHeightPct;
+        deliberate.Overlays.Badge.OffsetYPct = BadgeOverlay.LegacyOffsetYPct;
+        SettingsStore.Migrate(deliberate);
+        Assert.Equal(BadgeOverlay.LegacyHeightPct, deliberate.Overlays.Badge.HeightPct);
+        Assert.Equal(BadgeOverlay.LegacyOffsetYPct, deliberate.Overlays.Badge.OffsetYPct);
     }
 
     [Fact]

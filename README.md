@@ -516,7 +516,7 @@ fault containment, and settings that can never brick startup.
   canvases, and the tooltips and Help say which is which.
 - **The Patterns badge** — a branded test card: the app's own mark (the test-card icon, PATTERNS
   and a line under it, in its neon colours) drawn by the engine over every test pattern on every
-  output, NDI send and the stream, on by default in the middle of the lower third, in every look
+  output, NDI send and the stream, on by default centred just above the lower thirds, in every look
   like the clock. It keeps off a client's media unless asked, drags on the PREVIEW pane, and
   OVERLAYS OFF takes it with the rest. Branding → PATTERNS BADGE.
 - **Any screen into the preview** — → PVW on a wall tile loads the picture that target shows on

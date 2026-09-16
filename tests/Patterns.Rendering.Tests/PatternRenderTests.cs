@@ -239,6 +239,7 @@ public class PatternRenderTests
     [Fact]
     public void SpanViewportsStitchSeamlessly()
     {
+        // The pattern alone: every pixel of the two halves is the full canvas's pixel, exactly.
         var state = RenderTestHarness.State(s =>
         {
             s.Pattern.Kind = PatternKind.LedWall;
@@ -247,22 +248,41 @@ public class PatternRenderTests
             s.Pattern.LedWall.DefineByCanvas = true;
             s.Pattern.LedWall.CanvasWidth = 200;
             s.Pattern.LedWall.CanvasHeight = 100;
+            s.Overlays.Badge.Enabled = false;
         });
-        var snap = RenderTestHarness.Snap(state);
+        Assert.Empty(SeamDifferences(state, tolerance: 0));
 
+        // The badge across the seam (round 73: centred just above the lower thirds, it straddles
+        // the join of a two-output wall). An antialiased card and 4-pixel letters clipped at the
+        // join come out within one count per channel of the unclipped draw — Skia's analytic
+        // coverage at a clip edge, not a seam an eye can see — and never more.
+        state.Overlays.Badge.Enabled = true;
+        Assert.Empty(SeamDifferences(state, tolerance: 1));
+    }
+
+    /// <summary>The sampled pixels of two 100×100 halves that differ from the 200×100 whole by more than <paramref name="tolerance"/> in any channel.</summary>
+    private static List<string> SeamDifferences(ShowState state, int tolerance)
+    {
+        var snap = RenderTestHarness.Snap(state);
         using var full = RenderTestHarness.Render(snap, 200, 100, reference: new SKSizeI(200, 100));
         using var left = RenderTestHarness.Render(snap, 100, 100, reference: new SKSizeI(200, 100), origin: new SKPointI(0, 0));
         using var right = RenderTestHarness.Render(snap, 100, 100, reference: new SKSizeI(200, 100), origin: new SKPointI(100, 0));
 
+        var seams = new List<string>();
         for (var y = 0; y < 100; y += 3)
         {
             for (var x = 0; x < 100; x += 3)
             {
-                Assert.Equal(full.GetPixel(x, y), left.GetPixel(x, y));
-                Assert.Equal(full.GetPixel(x + 100, y), right.GetPixel(x, y));
+                if (!Within(full.GetPixel(x, y), left.GetPixel(x, y), tolerance)) seams.Add($"left ({x},{y}) full {full.GetPixel(x, y)} vs {left.GetPixel(x, y)}");
+                if (!Within(full.GetPixel(x + 100, y), right.GetPixel(x, y), tolerance)) seams.Add($"right ({x + 100},{y}) full {full.GetPixel(x + 100, y)} vs {right.GetPixel(x, y)}");
             }
         }
+        return seams;
     }
+
+    private static bool Within(SKColor a, SKColor b, int tolerance)
+        => Math.Abs(a.Red - b.Red) <= tolerance && Math.Abs(a.Green - b.Green) <= tolerance
+           && Math.Abs(a.Blue - b.Blue) <= tolerance && Math.Abs(a.Alpha - b.Alpha) <= tolerance;
 
     [Fact]
     public void EveryPatternKindRendersWithoutFaulting()

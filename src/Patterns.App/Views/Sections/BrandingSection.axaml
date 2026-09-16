@@ -68,7 +68,7 @@
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,*">
-        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the badge on the PREVIEW pane. The default lifts it off the bottom into the middle of the lower third" />
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the badge on the PREVIEW pane. The default lifts it off the bottom to just above the lower thirds' band" />
         <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Badge.OffsetXPct, Mode=TwoWay}" />
         <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Badge.OffsetYPct, Mode=TwoWay}" />
       </Grid>

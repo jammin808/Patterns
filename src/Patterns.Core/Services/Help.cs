@@ -660,11 +660,11 @@ public static class HelpTopics
 
         new HelpTopic("badge", HelpGroup.Content,
             "The Patterns badge: a branded test card",
-            "Branding → PATTERNS BADGE: the app's own mark — the test-card icon, PATTERNS and a line under it, in its neon colours — drawn by the engine over every test pattern, on by default in the middle of the lower third, so a test card names its maker at an expo or on a rig day; it travels with looks and keeps off a client's media unless asked.",
+            "Branding → PATTERNS BADGE: the app's own mark — the test-card icon, PATTERNS and a line under it, in its neon colours — drawn by the engine over every test pattern, on by default centred just above the lower thirds, so a test card names its maker at an expo or on a rig day; it travels with looks and keeps off a client's media unless asked.",
             HelpBodies.Badge,
             new[]
             {
-                "Leave it on: every test pattern — the grid, the bars, the walls, the ramps, particles and fractals too — carries the badge in the middle of the lower third on every output, NDI send and the stream.",
+                "Leave it on: every test pattern — the grid, the bars, the walls, the ramps, particles and fractals too — carries the badge centred just above the lower thirds on every output, NDI send and the stream.",
                 "The Patterns test card is the exception that needs no setting: it carries the mark inside itself, as part of the picture, so the badge stays off it rather than making a second one.",
                 "Branding → PATTERNS BADGE: move it (nine anchors and a nudge, or drag it on the PREVIEW pane), size it as a share of the screen, set its opacity, put a venue's address or a stand number on the line under the name, or turn the line off.",
                 "Tick 'On media too' only when a client's video, image, deck or web page should carry it; the multiview never does.",
