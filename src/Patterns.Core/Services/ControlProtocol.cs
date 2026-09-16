@@ -317,12 +317,15 @@ public static class ControlProtocol
                 }
             }
 
+            // Round 72: a latch toggles on the bare verb or TOGGLE alone — any other word is refused as unknown, so a
+            // misspelt ON or OFF from a deck or a script never flips the latch the other way.
             case "BLACKOUT":
                 return arg.ToUpperInvariant() switch
                 {
                     "ON" => Act(ShowActionKind.BlackoutOn),
                     "OFF" => Act(ShowActionKind.BlackoutOff),
-                    _ => Act(ShowActionKind.BlackoutToggle),
+                    "" or "TOGGLE" => Act(ShowActionKind.BlackoutToggle),
+                    _ => Unknown(s),
                 };
 
             case "LOOK":
@@ -431,7 +434,8 @@ public static class ControlProtocol
                     "TAKE" => Act(ShowActionKind.ScreenTake, n),
                     "CUT" => Act(ShowActionKind.ScreenCut, n),
                     "LOOK" or "PRESET" or "ROLE" or "GROUP" or "PATTERN" or "AUDIO" or "SOUND" => Unknown(s),
-                    _ => Act(ShowActionKind.ScreenToggle, n),
+                    "" or "TOGGLE" => Act(ShowActionKind.ScreenToggle, n),
+                    _ => Unknown(s),                                                                  // round 72: no other word toggles
                 };
             }
 
@@ -444,7 +448,8 @@ public static class ControlProtocol
                 {
                     "ON" => Act(ShowActionKind.ScreenLock, n),
                     "OFF" => Act(ShowActionKind.ScreenUnlock, n),
-                    _ => Act(ShowActionKind.ScreenLockToggle, n),
+                    "TOGGLE" => Act(ShowActionKind.ScreenLockToggle, n),
+                    _ => Unknown(s),                                                                  // round 72: no other word toggles
                 };
             }
 
@@ -541,13 +546,14 @@ public static class ControlProtocol
                     _ => Unknown(s),
                 };
 
-            // The live duck is a latch like BLACKOUT: ON / OFF are explicit, anything else toggles.
+            // The live duck is a latch like BLACKOUT: ON / OFF are explicit, the bare verb or TOGGLE toggles, any other word is refused (round 72).
             case "DUCK":
                 return arg.ToUpperInvariant() switch
                 {
                     "ON" => Act(ShowActionKind.DuckOn),
                     "OFF" => Act(ShowActionKind.DuckOff),
-                    _ => Act(ShowActionKind.DuckToggle),
+                    "" or "TOGGLE" => Act(ShowActionKind.DuckToggle),
+                    _ => Unknown(s),
                 };
 
             // A lower third by number (Lower thirds page order) or name; OFF / HIDE takes the one on air off;
@@ -910,13 +916,14 @@ public static class ControlProtocol
                 };
             }
 
-            // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
+            // The review latch: the preview full-frame on every multiview. ON / OFF explicit, the bare verb or TOGGLE toggles, any other word is refused (round 72).
             case "REVIEW":
                 return arg.ToUpperInvariant() switch
                 {
                     "ON" => Act(ShowActionKind.ReviewOn),
                     "OFF" => Act(ShowActionKind.ReviewOff),
-                    _ => Act(ShowActionKind.ReviewToggle),
+                    "" or "TOGGLE" => Act(ShowActionKind.ReviewToggle),
+                    _ => Unknown(s),
                 };
 
             // The twin: the standby's own verbs, and the link's state.
@@ -1169,7 +1176,8 @@ public static class ControlProtocol
                 {
                     "ON" => Act(ShowActionKind.FreezeOn),
                     "OFF" => Act(ShowActionKind.FreezeOff),
-                    _ => Act(ShowActionKind.FreezeToggle),
+                    "" or "TOGGLE" => Act(ShowActionKind.FreezeToggle),
+                    _ => Unknown(s),                                                                  // round 72: no other word toggles
                 };
 
             // "FADE", "FADE 2", "FADE 2.5", "FADE UP", "FADE UP 3", "FADEUP 3", "FADE DOWN 1": seconds, or the show's own time.

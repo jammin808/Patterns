@@ -301,4 +301,51 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("CUT").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 GROUP").Kind);  // a group needs its word
     }
+
+    /// <summary>
+    /// Round 72: a latch toggles on its bare verb or TOGGLE alone. Any other word after BLACKOUT, SCREEN n,
+    /// LOCK n, DUCK, REVIEW or FREEZE is refused as unknown — a misspelt ON or OFF from a deck or a script
+    /// used to fall through to the toggle and flip the latch the other way.
+    /// </summary>
+    [Fact]
+    public void ALatchTogglesOnItsBareVerbOrToggleAloneAndRefusesAnyOtherWord()
+    {
+        var toggles = new (string Line, ShowActionKind Kind, string Target)[]
+        {
+            ("BLACKOUT", ShowActionKind.BlackoutToggle, ""), ("BLACKOUT TOGGLE", ShowActionKind.BlackoutToggle, ""), ("blackout toggle", ShowActionKind.BlackoutToggle, ""),
+            ("SCREEN 1", ShowActionKind.ScreenToggle, "1"), ("SCREEN 1 TOGGLE", ShowActionKind.ScreenToggle, "1"),
+            ("LOCK 1", ShowActionKind.ScreenLockToggle, "1"), ("LOCK 1 TOGGLE", ShowActionKind.ScreenLockToggle, "1"),
+            ("DUCK", ShowActionKind.DuckToggle, ""), ("DUCK TOGGLE", ShowActionKind.DuckToggle, ""),
+            ("REVIEW", ShowActionKind.ReviewToggle, ""), ("REVIEW TOGGLE", ShowActionKind.ReviewToggle, ""),
+            ("FREEZE", ShowActionKind.FreezeToggle, ""), ("FREEZE TOGGLE", ShowActionKind.FreezeToggle, ""),
+        };
+        foreach (var (line, kind, target) in toggles)
+        {
+            var cmd = ControlProtocol.Parse(line);
+            Assert.True(cmd.IsAction, line);
+            Assert.Equal(kind, cmd.Action.Kind);
+            Assert.Equal(target, cmd.Action.Target);
+        }
+
+        var refused = new[]
+        {
+            "BLACKOUT ONN", "BLACKOUT TOGLE", "BLACKOUT MAYBE", "BLACKOUT 1",
+            "SCREEN 1 ONN", "SCREEN 1 TOGLE", "SCREEN 1 FLIP", "SCREEN 1 OF",
+            "LOCK 1 ONN", "LOCK 1 TOGLE", "LOCK 1 PLEASE",
+            "DUCK LOUD", "DUCK TOGLE", "DUCK 50",
+            "REVIEW NOW", "REVIEW TOGLE", "REVIEW PGM",
+            "FREEZE ALL", "FREEZE TOGLE", "FREEZE OFFF",
+        };
+        foreach (var line in refused)
+        {
+            var cmd = ControlProtocol.Parse(line);
+            Assert.False(cmd.IsAction, $"{line} must not be an action");
+            Assert.Equal(RemoteCommandKind.Unknown, cmd.Kind);
+        }
+
+        // ON and OFF stay explicit, whatever the case.
+        Assert.Equal(ShowActionKind.BlackoutOn, ControlProtocol.Parse("blackout on").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenUnlock, ControlProtocol.Parse("LOCK 2 off").Action.Kind);
+        Assert.Equal(ShowActionKind.FreezeOff, ControlProtocol.Parse("FREEZE OFF").Action.Kind);
+    }
 }
