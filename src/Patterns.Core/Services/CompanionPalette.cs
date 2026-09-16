@@ -48,7 +48,7 @@ public static class CompanionPalette
         ["look"] = Row(("air", "green"), ("preview", "amber"), ("edited", "amber"), ("screensOff", "orange")),
         ["cue"] = Row(("armed", "green"), ("hold", "amber"), ("confirm", "amber"), ("failed", "red"), ("standby", "brightGreen"), ("late", "orange")),
         ["transport"] = Row(("blackout", "blackout"), ("outputsOn", "outputsOn"), ("off", "off"), ("frozen", "cyan"), ("review", "brightGreen"), ("editSafe", "steel"), ("black", "red")),
-        ["screen"] = Row(("enabled", "screenOn"), ("locked", "lock"), ("armed", "green"), ("own", "steel"), ("black", "red"), ("offLook", "orange"), ("pattern", "green"), ("fault", "red")),
+        ["screen"] = Row(("enabled", "screenOn"), ("locked", "lock"), ("armed", "green"), ("own", "steel"), ("black", "red"), ("offLook", "orange"), ("pattern", "green"), ("fault", "red"), ("group", "sky")),
         ["stinger"] = Row(("playing", "stingerBrown"), ("hold", "amber")),
         ["vog"] = Row(("playing", "blue")),
         ["lowerThird"] = Row(("on", "red"), ("preview", "amber"), ("edited", "amber"), ("person", "red")),
@@ -63,6 +63,8 @@ public static class CompanionPalette
         ["rig"] = Row(("same", "green"), ("drift", "amber"), ("commissioned", "green")),
         // Round 66: the God's Eye's worst light on a key — red is wrong now, amber needs a look, green is all green.
         ["eye"] = Row(("red", "red"), ("amber", "amber"), ("green", "green")),
+        // Round 67: a one-shot pending on the next TAKE — amber armed-but-not-spent; a video sting in the stinger's brown.
+        ["take"] = Row(("next", "amber"), ("sting", "stingerBrown")),
         ["stream"] = Row(("active", "red"), ("trouble", "amber")),
         ["device"] = Row(("open", "green"), ("fault", "red")),
         ["tone"] = Row(("on", "amber")),

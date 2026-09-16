@@ -105,6 +105,7 @@
       "locked": false,
       "role": "main",
       "armed": false,
+      "ticked": true,
       "own": false,
       "black": false,
       "pattern": "Grid",
@@ -123,6 +124,7 @@
       "locked": true,
       "role": "info",
       "armed": false,
+      "ticked": false,
       "own": true,
       "black": true,
       "pattern": "TestCard",
@@ -443,6 +445,17 @@
     "pendingSpeaker": "Wrap up",
     "pendingCrew": "",
     "flash": false
+  },
+  "take": {
+    "scope": "",
+    "scopeLabel": "every screen",
+    "words": "→ 1 · Main wall · 1 held (locked)",
+    "where": "on 1 · Main wall",
+    "taken": ["s1"],
+    "held": [{ "id": "s2", "label": "2 · Side", "reason": "locked — it keeps its picture" }],
+    "outside": 0,
+    "refusal": "",
+    "next": { "set": true, "words": "STING Whoosh", "wire": "TAKE NEXT STING Whoosh", "sting": "st1" }
   },
   "eye": {
     "headline": "Main LED: MISMATCH — Rate: 50 Hz asked · 59.94 Hz observed",

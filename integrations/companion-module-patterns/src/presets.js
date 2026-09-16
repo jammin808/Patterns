@@ -24,7 +24,7 @@ const empty = (kind, n) => ({ feedbackId: 'slot_empty', options: { kind, n }, st
 
 /** The section order — the order a person reads the list in. */
 export const CATEGORY_ORDER = [
-	'Cue stack', 'Cue bank (labels itself)', 'Upcoming cues — this show', 'Transport', 'Stream',
+	'Cue stack', 'Cue bank (labels itself)', 'Upcoming cues — this show', 'Transport', 'Take', 'Stream',
 	'Look bank (labels itself)', 'Looks', 'Looks — this show', 'Patterns — every kind',
 	'Screens', 'Screens — this show', 'Presenter', 'Web page',
 	'Lower thirds', 'Lower thirds — this show', 'People', 'People — this show',
@@ -84,6 +84,13 @@ export function buildPresets() {
 	}
 
 	add('go', key('Transport', 'Outputs on', 'OUTPUTS\nON', '14', press('go'), [], { bgcolor: rgb(COLOURS.outputsOn) }))
+	// Round 67 — the next TAKE: what it will do (the desk's plan, or why it is refused) and the one-shot it arrives by.
+	add('take_plan', key('Take', "NEXT TAKE — the desk's plan for the next take (the scope and what it changes), or why it is refused", '$(patterns:take_scope)\n$(patterns:take_words)', 'auto', [], []))
+	add('take_next_clear', key('Take', "NEXT: the show's own transition again (CLEAR)", 'NEXT\n$(patterns:take_next)', 'auto', press('take_next', { kind: 'CLEAR', ms: 0, sting: '' }), [litAs('take_next_set', {}, 'take', 'next')]))
+	for (const [kind, label] of [['cut', 'CUT'], ['dissolve', 'DISSOLVE'], ['dip', 'DIP'], ['wipe', 'WIPE'], ['push', 'PUSH'], ['brand', 'BRAND\nSTINGER']]) {
+		add(`take_next_${slug(kind)}`, key('Take', `NEXT: ${label.replace('\n', ' ')} — the next TAKE alone arrives this way`, `NEXT\n${label}`, 'auto', press('take_next', { kind, ms: 0, sting: '' }), [litAs('take_next_set', {}, 'take', 'next')]))
+	}
+	add('take_next_sting_1', key('Take', 'NEXT: STING 1 — the next TAKE arrives under the first video sting of the library', 'NEXT\nSTING 1', 'auto', press('take_next', { kind: 'STING', ms: 0, sting: '1' }), [litAs('take_next_sting', {}, 'take', 'sting')]))
 	add('stop', key('Transport', 'Outputs off', 'OUTPUTS\nOFF', '14', press('stop'), [], { bgcolor: rgb(COLOURS.off) }))
 	add('blackout', key('Transport', 'Blackout toggle', 'BLACK\nOUT', '18', press('blackout', { mode: 'TOGGLE' }), [litAs('blackout', {}, 'transport', 'blackout')]))
 	add('cue_go', key('Cue stack', 'GO', 'GO\n$(patterns:cue_standby_number)\n$(patterns:cue_standby_name)', '14', press('cue_go'), [
@@ -198,6 +205,9 @@ export function buildPresets() {
 		add(`screen_${n}_take`, key('Screens', `Screen ${n} — TAKE the preview to it alone`, `TAKE\n$(patterns:screen_${n})`, 'auto', press('screen_take', { n, mode: 'TAKE' }), [litAs('screen_own', { n }, 'screen', 'own'), empty('screen', n)]))
 		add(`screen_${n}_fade_down`, key('Screens', `Screen ${n} fade to black — 2 s`, `FADE ▼\n$(patterns:screen_${n})`, 'auto', fade('DOWN', 2, `SCREEN ${n}`), [litAs('screen_black', { n }, 'screen', 'black'), empty('screen', n)]))
 		add(`screen_${n}_fade_up`, key('Screens', `Screen ${n} fade up — 2 s`, `FADE ▲\n$(patterns:screen_${n})`, 'auto', fade('UP', 2, `SCREEN ${n}`), [empty('screen', n)]))
+		// Round 67 — the screen's group: MAIN follows the programme; CONF is a stage monitor that locks as it takes the group. The key reads the group and lights when the screen is in it.
+		add(`screen_${n}_group_main`, key('Screens', `Screen ${n} — group MAIN (the audience's picture)`, `MAIN\n$(patterns:screen_${n})`, 'auto', press('screen_group', { n, group: 'main' }), [litAs('screen_group_is', { n, group: 'main' }, 'screen', 'group'), empty('screen', n)]))
+		add(`screen_${n}_group_conf`, key('Screens', `Screen ${n} — group CONFIDENCE (a stage monitor; locks)`, `CONF\n$(patterns:screen_${n})`, 'auto', press('screen_group', { n, group: 'confidence' }), [litAs('screen_group_is', { n, group: 'confidence' }, 'screen', 'group'), empty('screen', n)]))
 	}
 	for (const letter of ['A', 'B', 'C', 'D']) {
 		add(`group_${letter}_on`, key('Screens', `Canvas ${letter} on`, `${letter}\nON`, '14', press('group', { letter, mode: 'ON' })))

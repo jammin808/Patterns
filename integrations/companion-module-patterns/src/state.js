@@ -66,6 +66,7 @@ export function bankVariables(s) {
 		vars[`track_${n}`] = bankName(s, 'track', n)
 		vars[`screen_${n}_pattern`] = s.screens?.find((x) => x.n === n)?.pattern ?? ''
 		vars[`screen_${n}_signal`] = s.screens?.find((x) => x.n === n)?.signal?.result ?? ''
+		vars[`screen_${n}_group`] = s.screens?.find((x) => x.n === n)?.role ?? ''
 		const node = s.nodes?.[n - 1]
 		vars[`node_${n}`] = nodeLabel(node)
 		vars[`node_${n}_kind`] = node?.kind ?? ''
@@ -210,6 +211,9 @@ export function variableValues(s) {
 		eye_worst: s.eye?.worstWords ?? '',
 		eye_problems: String(s.eye?.problems ?? 0),
 		eye_focus: s.eye?.focus ?? '',
+		take_next: s.take?.next?.set ? (s.take.next.words ?? '') : '',
+		take_scope: s.take?.scopeLabel ?? '',
+		take_words: s.take?.refusal ? s.take.refusal : (s.take?.words ?? ''),
 		inputs_pending: s.inputs?.pendingNote ?? '',
 		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
 		device_last_reply: (() => {

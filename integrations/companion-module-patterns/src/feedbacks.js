@@ -16,6 +16,13 @@ export function buildFeedbacks(ctx) {
 		screen_locked: bool('Screen is locked (keeps its picture through looks, cues and TAKE)', style('screen', 'locked'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.locked) === true),
 		screen_armed: bool('Screen is armed — the next CUT / TAKE changes it', style('screen', 'armed'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.armed) === true),
 		screen_own: bool("Screen shows a picture of its own, not the program's", style('screen', 'own'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.own) === true),
+		// Round 67: the screen's group (its role), the tick at the top of its tile, and the one-shot the next TAKE arrives by.
+		screen_group_is: bool('Screen is in the group … (main, confidence, info, repeater)', style('screen', 'group'), [screenN, { type: 'dropdown', id: 'group', label: 'Group', default: 'confidence', choices: [
+			{ id: 'main', label: 'Main' }, { id: 'confidence', label: 'Confidence' }, { id: 'info', label: 'Info' }, { id: 'repeater', label: 'Repeater' },
+		] }], (fb) => s().screens?.some((x) => x.n === fb.options.n && norm(x.role) === norm(fb.options.group)) === true),
+		screen_ticked: bool('Screen is ticked on the wall (a TICKED take, a fade or SEND TO TICKED reads it)', style('screen', 'armed'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.ticked) === true),
+		take_next_set: bool('A one-shot is pending — the next TAKE arrives by a transition or a sting of its own', style('take', 'next'), [], () => s().take?.next?.set === true),
+		take_next_sting: bool('The next TAKE arrives under a video sting', style('take', 'sting'), [], () => s().take?.next?.set === true && Boolean(s().take?.next?.sting)),
 		// Faded to black on its own (FADE … SCREEN n / GROUP A / FOCUSED / TICKED) — the blackout is a separate feedback.
 		screen_black: bool('Screen is faded to black on its own', style('screen', 'black'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.black) === true),
 		black_any: bool('Any screen is faded to black on its own', style('transport', 'black'), [], () => (s().black?.count ?? 0) > 0),

@@ -260,6 +260,28 @@ The point on a show: a key that is red before anyone looks at the desk, and NEXT
 operator's thumb — the desk's picture is already on the thing that is wrong when they turn to it. The
 module never reads the picture itself: the desk's row is the truth, latest-wins like every STATE push.
 
+## 14. Round 67 additions
+
+**The next take and the groups on the deck, version 3.8.0.** STATE gains a `take` row — the wall's take
+plan as the desk's picker has it (`scope`, `scopeLabel`, `words`, `where`, `taken`, `held` with reasons,
+`outside`, `refusal`, and `next{set,words,wire,sting}`, the one-shot pending on the next TAKE) — and
+`screens[].ticked`. Two actions: `take_next` (`TAKE NEXT <transition | STING name | CLEAR>` — a dropdown
+of the ways to arrive, a rate in ms, a sting's name or number; the transition or video sting for the
+next TAKE alone, the show's own transition never moved) and `screen_group` (`SCREEN n GROUP main |
+confidence | info | repeater` — the screen's group, the same verb as the tile's right-click menu and the
+Screens page's picker). Four feedbacks: `take_next_set` (a one-shot is pending), `take_next_sting` (it is
+a video sting), `screen_group_is` (the screen is in the group named) and `screen_ticked`. Variables
+`take_next` (the pending words, or empty), `take_scope` (the picker's label), `take_words` (the plan's
+words, or the refusal) and `screen_n_group`. A **Take** preset page — NEXT TAKE (the plan), NEXT: CUT /
+DISSOLVE / DIP / WIPE / PUSH / BRAND STINGER, NEXT: STING 1, CLEAR — and MAIN / CONF group keys per screen
+on the Screens page. The `take` colour family (next amber, sting the stinger's brown) and `screen.group`
+(sky) are held equal on both sides like every other. A 3.7.0 deck ignores the rows.
+
+The point on a show: the operator arms a sting or a wipe for the next take from a key without leaving
+the wall, the key stays amber until the TAKE spends it, and the plan key says what that TAKE will do —
+and why it would do nothing — before the press. The module never plans a take itself: the desk's row is
+the truth, latest-wins like every STATE push.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

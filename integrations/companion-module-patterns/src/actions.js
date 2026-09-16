@@ -186,6 +186,34 @@ export function buildActions(ctx) {
 			options: [screenN, { type: 'dropdown', id: 'mode', label: 'How', default: 'TAKE', choices: [{ id: 'TAKE', label: 'TAKE — with the transition' }, { id: 'CUT', label: 'CUT — instantly' }] }],
 			callback: (a) => send(`SCREEN ${a.options.n} ${a.options.mode === 'CUT' ? 'CUT' : 'TAKE'}`),
 		},
+		// Round 67 — the one-shot: the transition or the video sting the next TAKE alone arrives by (the show's own transition never moves),
+		// and a screen's group (its role) on the same verb the desk's tile menu and Screens page use.
+		take_next: {
+			name: 'Next TAKE — the transition or video sting for the next take alone (the show\'s own transition never moves)',
+			options: [
+				{ type: 'dropdown', id: 'kind', label: 'Arrive by', default: 'dissolve', choices: [
+					{ id: 'CLEAR', label: "The show's own transition again (CLEAR)" }, { id: 'cut', label: 'Cut' }, { id: 'dissolve', label: 'Dissolve' }, { id: 'dip', label: 'Dip' },
+					{ id: 'wipe', label: 'Wipe' }, { id: 'wipe left', label: 'Wipe left' }, { id: 'wipe right', label: 'Wipe right' }, { id: 'push', label: 'Push' },
+					{ id: 'brand', label: 'Brand stinger' }, { id: 'reactive', label: 'Reactive' }, { id: 'STING', label: 'A video sting of the library (name it below)' },
+				] },
+				{ type: 'number', id: 'ms', label: 'Rate in ms (0 = the show\'s rate; not for a cut or a sting)', default: 0, min: 0, max: 60000, step: 100 },
+				text('sting', 'Sting name or number (with "A video sting")', ''),
+			],
+			callback: (a) => {
+				const kind = String(a.options.kind ?? '')
+				if (kind === 'CLEAR') return send('TAKE NEXT CLEAR')
+				if (kind === 'STING') { const s = clean(a.options.sting); if (s) send(`TAKE NEXT STING ${s}`); return }
+				const ms = Number(a.options.ms) || 0
+				send(`TAKE NEXT ${kind}${ms > 0 && kind !== 'cut' ? ' ' + ms : ''}`)
+			},
+		},
+		screen_group: {
+			name: 'Screen group — Main, Confidence, Info or Repeater (the role; a confidence or info screen locks as it takes the group)',
+			options: [screenN, { type: 'dropdown', id: 'group', label: 'Group', default: 'main', choices: [
+				{ id: 'main', label: "Main — the audience's picture" }, { id: 'confidence', label: 'Confidence — a stage monitor' }, { id: 'info', label: 'Info — a foyer or info screen' }, { id: 'repeater', label: 'Repeater — a copy of another screen (Mirror of on the Screens page)' },
+			] }],
+			callback: (a) => send(`SCREEN ${a.options.n} GROUP ${a.options.group}`),
+		},
 		review: { name: 'Review — the preview on every multiview (toggle / on / off)', options: [onOff()], callback: (a) => send(`REVIEW ${a.options.mode}`) },
 		weather: {
 			name: 'Weather — the chip on air, off, or its view',

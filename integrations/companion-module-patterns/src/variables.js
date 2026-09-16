@@ -19,6 +19,7 @@ export function variableDefinitions() {
 		v[`track_${n}`] = `Audio playlist track ${n} (name, or empty)`
 		v[`screen_${n}_pattern`] = `Screen ${n} — the kind of picture it is showing`
 		v[`screen_${n}_signal`] = `Screen ${n} — the signal result: MATCH, MISMATCH or UNVERIFIED (round 65)`
+		v[`screen_${n}_group`] = `Screen ${n} — its group: main, confidence, info or repeater (round 67)`
 		v[`node_${n}`] = `Node ${n} as the Nodes page lists it — its kind and its machine (or empty)`
 		v[`node_${n}_kind`] = `Node ${n} — desk, caller, arcade or timer`
 		v[`node_${n}_words`] = `Node ${n} — its own health line`
@@ -111,6 +112,9 @@ export function variableDefinitions() {
 		eye_worst: "God's Eye — the worst thing by name and what is wrong, or empty when nothing is red or amber (round 66)",
 		eye_problems: "God's Eye — how many things in the picture are red or amber (round 66)",
 		eye_focus: "God's Eye — the id the operator's eye is on, or empty for the whole picture (round 66)",
+		take_next: "The one-shot the next TAKE arrives by — 'WIPE LEFT 800 ms', 'STING Whoosh' — or empty for the show's own transition (round 67)",
+		take_scope: "The wall's take scope as the desk's picker has it — every screen, the focused screen, the ticked screens, the ticked groups (round 67)",
+		take_words: "What the next TAKE will do — '→ 1 · Left, 2 · Right · 1 outside the scope keeps its picture' — or why it is refused (round 67)",
 		machine_memory_pressure: 'Media memory pressure: none / elevated / high / critical — the rung the desk\'s memory ladder stands on (pictures, frame pools, retiring frames and decks against their budget)',
 		inputs_pending: "A reopen staged under a source on air ('Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.'), or empty",
 		devices_failing: 'Interactive devices whose last word was a failure (count)',

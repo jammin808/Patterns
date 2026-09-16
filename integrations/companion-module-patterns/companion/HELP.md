@@ -55,6 +55,19 @@ PROBLEM** walk everything red or amber, reds first; a **LENS** key keeps one ban
 from any key puts the desk's eye on a screen. The keys move the picture on the desk's Eye page;
 they change nothing on the wall.
 
+### The next take and the groups
+
+The **Take** page reads the desk's plan for the next TAKE — the scope the wall's picker has (every
+screen, the focused screen, the ticked screens, the ticked groups) and what the press will change, or
+why it is refused (a locked screen is never taken, an un-armed one is held, nothing armed is a refusal) —
+and sets the one-shot the next TAKE alone arrives by: **NEXT: CUT / DISSOLVE / DIP / WIPE / PUSH / BRAND
+STINGER**, **NEXT: STING 1** (the first video sting of the library covers the take's screens and the
+preview lands when the clip ends), and **CLEAR** for the show's own transition again. The key is amber
+while a one-shot is pending and brown while it is a sting; the show's transition on the Outputs page
+never moves. On the **Screens** page, **MAIN** and **CONF** put a screen in its group — the role, the
+same verb as the tile's right-click menu and the Screens page — and light when it is in it; a confidence
+or info screen locks as it takes the group. `$(patterns:screen_n_group)` names the group.
+
 No module? The same protocol works with Companion's built-in **Generic TCP** connection — one command per line,
 as `docs/REMOTE.md` in the Patterns repository lists them — without feedback.
 
