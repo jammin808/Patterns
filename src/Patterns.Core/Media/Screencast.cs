@@ -84,13 +84,19 @@ public static class ScreencastFrame
     /// <summary>The DevTools event the frames arrive on.</summary>
     public const string EventName = "Page.screencastFrame";
 
-    /// <summary>The start parameters for a page of this size: JPEG at <see cref="Quality"/>, never scaled below the page, every frame.</summary>
-    public static string StartParameters(int width, int height, int quality = Quality)
+    /// <summary>
+    /// The start parameters for a page: JPEG at <paramref name="quality"/> (default <see cref="Quality"/>), scaled
+    /// by the browser to fit <paramref name="width"/> × <paramref name="height"/> (the page's own size by default;
+    /// round 68's capture plan hands a smaller box on a small machine), and every frame unless
+    /// <paramref name="everyNthFrame"/> asks the browser to send only every nth (2 halves a 60 fps page).
+    /// </summary>
+    public static string StartParameters(int width, int height, int quality = Quality, int everyNthFrame = 1)
     {
         var w = Math.Max(1, width).ToString(CultureInfo.InvariantCulture);
         var h = Math.Max(1, height).ToString(CultureInfo.InvariantCulture);
         var q = Math.Clamp(quality, 1, 100).ToString(CultureInfo.InvariantCulture);
-        return "{\"format\":\"jpeg\",\"quality\":" + q + ",\"maxWidth\":" + w + ",\"maxHeight\":" + h + ",\"everyNthFrame\":1}";
+        var n = Math.Clamp(everyNthFrame, 1, 10).ToString(CultureInfo.InvariantCulture);
+        return "{\"format\":\"jpeg\",\"quality\":" + q + ",\"maxWidth\":" + w + ",\"maxHeight\":" + h + ",\"everyNthFrame\":" + n + "}";
     }
 
     /// <summary>The ack for a frame — the browser sends the next one only after it.</summary>

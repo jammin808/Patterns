@@ -26,7 +26,7 @@ public sealed class FramePool : IDisposable
     public const int MinBuffers = 4;
     public const int MaxBuffers = 8;
 
-    private enum Slot : byte { Free, Locked, Decoded, Latest, Retired }
+    private enum Slot : byte { Free, Locked, Decoded, Queued, Latest, Retired }
 
     private readonly object _gate = new();
     private readonly IntPtr[] _memory;
@@ -188,12 +188,39 @@ public sealed class FramePool : IDisposable
         }
     }
 
-    /// <summary>The writer dropped the frame: the buffer is free again.</summary>
+    /// <summary>
+    /// The writer finished the frame and it waits for its time (round 68's smoothing buffer): kept
+    /// until published or released — a publish of another frame never drops it, unlike a decoded
+    /// frame a decoder skipped.
+    /// </summary>
+    public void Queue(int slot)
+    {
+        lock (_gate)
+        {
+            if (_slot[slot] is Slot.Locked or Slot.Decoded) _slot[slot] = Slot.Queued;
+        }
+    }
+
+    /// <summary>Frames decoded and waiting for their time.</summary>
+    public int Queued
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var n = 0;
+                for (var i = 0; i < Count; i++) if (_slot[i] == Slot.Queued) n++;
+                return n;
+            }
+        }
+    }
+
+    /// <summary>The writer dropped the frame — or the buffer let a queued one go: the buffer is free again.</summary>
     public void Release(int slot)
     {
         lock (_gate)
         {
-            if (_slot[slot] is Slot.Locked or Slot.Decoded) _slot[slot] = Slot.Free;
+            if (_slot[slot] is Slot.Locked or Slot.Decoded or Slot.Queued) _slot[slot] = Slot.Free;
         }
     }
 
@@ -201,13 +228,15 @@ public sealed class FramePool : IDisposable
     /// The frame in the buffer goes on show, stamped with the show clock it arrived at (the clock
     /// now when the caller does not say): the previous frame retires behind a fence mark, the
     /// slot's generation moves on, and a frame decoded but never shown is dropped — a decoder
-    /// shows in order, so an older one it skipped will not be shown later.
+    /// shows in order, so an older one it skipped will not be shown later. A queued frame is not
+    /// dropped: it waits for its own time.
     /// </summary>
     public SKImage? Publish(int slot, double arrivalClock = -1)
     {
         lock (_gate)
         {
             if (_disposed) return null;
+            if (_slot[slot] is Slot.Free or Slot.Retired) return null;                              // a slot the buffer let go, or the pool's own fence holds: nothing to show
             for (var i = 0; i < Count; i++)
             {
                 if (i != slot && _slot[i] == Slot.Decoded) _slot[i] = Slot.Free;

@@ -491,6 +491,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
         WebIn = new WebEngine(Store.BaseDirectory);
+        WebIn.HardwareDecoding = () => HardwareDecoding;
         AudioGraph = new AudioGraphService(this);
         DeckIn = new DeckEngine(Store.BaseDirectory);
         DeckIn.Converter.ConfiguredPath = () => State.Admin.LibreOfficePath;
@@ -502,6 +503,22 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             PublishRuntime();
         });
         Screens = new ScreenService();
+        WebIn.PlanFor = (w, fps) =>
+        {
+            // A page is captured no larger than the largest surface in the rig — so a routing change never
+            // restarts its capture — and smaller still on a small machine once the ladder has stepped.
+            var (vw, vh) = WebEngine.ParseSize(w.Format);
+            var geo = Rig.Geometry(State, Screens.All);
+            int dw = 0, dh = 0;
+            foreach (var target in geo.Targets)
+            {
+                var size = geo.SizeOf(target);
+                dw = Math.Max(dw, size.Width);
+                dh = Math.Max(dh, size.Height);
+            }
+            return Patterns.Core.Media.WebCapturePolicy.Plan(vw, vh, dw, dh,
+                Patterns.Core.Services.MemoryBudget.ClassOf(Patterns.Core.Services.MemoryBudget.MachineMB), Patterns.Core.Services.QualityLadder.Shared.Level, fps);
+        };
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
         Feeds = new FeedService(this);

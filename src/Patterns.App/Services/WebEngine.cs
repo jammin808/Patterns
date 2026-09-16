@@ -80,6 +80,16 @@ public sealed class WebEngine : IDisposable
     /// <summary>Tests (and any other browser) stand in for WebView2 here: a wanted page → a source, or null to skip it.</summary>
     public Func<MediaLocator.WantedInput, IWebSource?>? SourceFactory { get; set; }
 
+    /// <summary>
+    /// What the browser is asked to hand over for a page (round 68), given the wanted page and the
+    /// rate it delivers now: the desk supplies the rig's surfaces, the machine class and the quality
+    /// ladder. Null: the page's own size at the default quality for this machine.
+    /// </summary>
+    public Func<MediaLocator.WantedInput, double, WebCapturePlan>? PlanFor { get; set; }
+
+    /// <summary>Whether the browser is asked to decode video on the GPU — the desk's video-decoding choice. Null: yes.</summary>
+    public Func<bool>? HardwareDecoding { get; set; }
+
     /// <summary>Non-empty when more pages are wanted than the cap allows.</summary>
     public string LimitNote { get; private set; } = "";
 
@@ -159,7 +169,7 @@ public sealed class WebEngine : IDisposable
                 }
                 if (sweep - page.UnwantedUtc.Value < PreRollGrace) continue;
             }
-            if (want is null || want.Format != page.Format) Retire(key);
+            if (want is null || want.Format != page.Format) Retire(key, LeaveFadeOf(snap.State));
             else if (page.UnwantedUtc is not null) _pages[key] = page with { UnwantedUtc = null };
         }
 
@@ -184,10 +194,12 @@ public sealed class WebEngine : IDisposable
             var onAir = !isEarly && OnAir(w);
             if (_pages.TryGetValue(w.Key, out var page))
             {
-                // Zoom, sound and the CLEAN style apply live — the page never reloads for them.
+                // Zoom, sound, the CLEAN style, the smoothing and the capture plan apply live — the page never reloads for them.
                 page.Source.ZoomPct = w.Zoom;
                 page.Source.IsMuted = w.Mute;
                 page.Source.CleanCss = w.Clean;
+                page.Source.Smoothing = w.Smoothing;
+                page.Source.ApplyCapture(PlanOf(w, page.Source.FrameRate));
                 if (page.PreRoll != isEarly || page.UnwantedUtc is not null) _pages[w.Key] = page with { PreRoll = isEarly, UnwantedUtc = null };
                 RouteSound(page.Source, w, snap.State);
                 Track(w, page.Source, onAir, mounted: false, now);
@@ -205,6 +217,7 @@ public sealed class WebEngine : IDisposable
                 source.ZoomPct = w.Zoom;
                 source.IsMuted = w.Mute;
                 source.CleanCss = w.Clean;
+                source.Smoothing = w.Smoothing;
                 _pages[w.Key] = new Page(source, w.Format, isEarly);
                 InputBus.Mount(w.Key, source);
                 RouteSound(source, w, snap.State);
@@ -599,14 +612,57 @@ public sealed class WebEngine : IDisposable
         return "";
     }
 
-    private void Retire(string key)
+    /// <summary>
+    /// A page leaves the programme: kept for the crossfade's frames, its sound fading over the
+    /// transition, its buffer cut and its capture stopped at the end of it — nothing of the page
+    /// outlives the take but the browser, which the sweep closes a few seconds on.
+    /// </summary>
+    private void Retire(string key, double fadeSeconds)
     {
         var page = _pages[key];
         _pages.Remove(key);
         _vts.Remove(key);   // the arm was on this browser; the next one starts clean
         InputBus.Unmount(key);
         InputBus.SetPrevious(key, page.Source);
+        try
+        {
+            page.Source.BeginLeaving(fadeSeconds);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Web page leaving issue.", ex);
+        }
         _retired.Add((key, page.Source, DateTime.UtcNow));
+    }
+
+    /// <summary>How long a page leaving the programme fades for: the show's transition when it is on, a cut otherwise.</summary>
+    public static double LeaveFadeOf(ShowState state) => state.Transition.Enabled ? Math.Clamp(state.Transition.DurationMs, 0, 3000) / 1000.0 : 0;
+
+    /// <summary>The capture plan for a page delivering at this rate: the desk's policy, or the page's own size on this machine.</summary>
+    private WebCapturePlan PlanOf(MediaLocator.WantedInput w, double fps)
+    {
+        if (PlanFor is { } plan)
+        {
+            try
+            {
+                return plan(w, fps);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Web capture plan failed; the page's own size stands.", ex);
+            }
+        }
+        var (vw, vh) = ParseSize(w.Format);
+        return WebCapturePolicy.Plan(vw, vh, 0, 0, MemoryBudget.ClassOf(MemoryBudget.MachineMB), 0, fps);
+    }
+
+    /// <summary>Every mounted page's frame path — the buffer, the capture and the status — for STATE, the Eye and the Media page.</summary>
+    public IEnumerable<(string Key, WebFrameReport Report, string Capture, string Status)> FrameReports()
+    {
+        foreach (var (key, page) in _pages)
+        {
+            yield return (key, page.Source.FrameReport, page.Source.CaptureWords, page.Source.StatusText);
+        }
     }
 
     private static bool Supported(out string note)
@@ -625,7 +681,8 @@ public sealed class WebEngine : IDisposable
         // A page opening straight onto the air with a start point takes it in the address where the
         // service allows, so the first frame is the right one; the mount key stays the pattern's own.
         var address = w.AutoPlay && OnAir(w) ? WebVt.AddressWithStart(w.Target, w.Service, w.StartSeconds) : w.Target;
-        return WebFrameSource.Create(address == w.Target ? w : w with { Target = address }, _userDataFolder);
+        return WebFrameSource.Create(address == w.Target ? w : w with { Target = address }, _userDataFolder,
+            PlanOf(w, 0), MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB), HardwareDecoding?.Invoke() ?? true);
     }
 
     private static void Dispose(IWebSource source)

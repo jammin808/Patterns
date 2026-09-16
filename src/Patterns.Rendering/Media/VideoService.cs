@@ -111,6 +111,25 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>"routed to HDMI 3", or why the page could not be — the Audio page's line; "" when nothing was asked.</summary>
     string AudioRouteNote => "";
 
+    /// <summary>How the page's frames are buffered on their way to the glass (round 68): the look's choice, applied live.</summary>
+    Patterns.Core.Media.WebSmoothing Smoothing
+    {
+        get => Patterns.Core.Media.WebSmoothing.Auto;
+        set { }
+    }
+
+    /// <summary>What the browser is asked to hand over — size, quality, every nth frame — for the page as the rig draws it; applied live, the capture restarted only when it changed.</summary>
+    void ApplyCapture(Patterns.Core.Media.WebCapturePlan plan) { }
+
+    /// <summary>The page is leaving the programme: its sound fades over the transition, and at the end of it the frame buffer is cut and the capture stops.</summary>
+    void BeginLeaving(double fadeSeconds) { }
+
+    /// <summary>What the frame path is doing — buffer, latency, jitter, decode, rates — for STATE, the Eye and the words; <see cref="WebFrameReport.None"/> for a source without one.</summary>
+    WebFrameReport FrameReport => WebFrameReport.None;
+
+    /// <summary>The capture plan in force ("captured at 1280×720 · q60"), "" before one.</summary>
+    string CaptureWords => "";
+
     void PointerMove(float nx, float ny);
     void PointerDown(float nx, float ny);
     void PointerUp(float nx, float ny);

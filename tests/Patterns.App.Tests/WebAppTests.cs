@@ -58,6 +58,20 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public double ZoomPct { get; set; } = 100;
     public bool IsMuted { get; set; }
 
+    // Round 68: the look's smoothing, the desk's capture plan and the leaving fade, as the engine hands them over.
+    public Patterns.Core.Media.WebSmoothing Smoothing { get; set; } = Patterns.Core.Media.WebSmoothing.Auto;
+    public Patterns.Core.Media.WebCapturePlan? Plan { get; private set; }
+    public int PlansApplied;
+    public double LeftAfter = -1;
+
+    public void ApplyCapture(Patterns.Core.Media.WebCapturePlan plan)
+    {
+        Plan = plan;
+        PlansApplied++;
+    }
+
+    public void BeginLeaving(double fadeSeconds) => LeftAfter = fadeSeconds;
+
     public void PointerMove(float nx, float ny)
     {
         PointerNorm = new SKPoint(nx, ny);

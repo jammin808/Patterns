@@ -16,7 +16,7 @@ namespace Patterns.App.Services;
 /// A web page as an engine input. WebView2 — the browser engine Windows 10 and 11 ship — renders
 /// into a window of its own kept off every screen; the browser's own screencast hands over every
 /// frame its compositor draws (<see cref="ScreencastFrame"/>), decoded off the UI thread and
-/// published through a <see cref="FrameSlot"/> for any sink to draw, with a screenshot poll as the
+/// decoded into pooled buffers and smoothed by the <see cref="WebFramePipeline"/> (round 68) for any sink to draw, with a screenshot poll as the
 /// fallback when the screencast will not start. The desk's pointer, wheel,
 /// clicks and keys go in through the browser's own input protocol (the DevTools Input domain —
 /// what every browser automation tool uses), so they are trusted events that reach links,
@@ -53,7 +53,26 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         "--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling --disable-renderer-backgrounding " +
         "--disable-backgrounding-occluded-windows --disable-background-timer-throttling --autoplay-policy=no-user-gesture-required";
 
-    private readonly FrameSlot _slot = new();
+    /// <summary>
+    /// With the desk's video decoding on the GPU: Chromium's D3D11 video decoder asked for by name.
+    /// WebView2 has been seen decoding on the older, dearer path where Chrome takes this one
+    /// (WebView2Feedback #3751); the flag is a request the browser may decline, never a promise.
+    /// </summary>
+    public const string HardwareDecodeArguments = " --enable-features=D3D11VideoDecoder";
+
+    /// <summary>The browser's arguments for this machine's decoding choice.</summary>
+    public static string ArgumentsFor(bool hardwareDecoding) => hardwareDecoding ? BrowserArguments + HardwareDecodeArguments : BrowserArguments;
+
+    /// <summary>A change of capture plan restarts the screencast at most this often — a plan that wobbles (the ladder stepping back and forth) costs one restart, not one a second.</summary>
+    public const double CaptureChangeMs = 3000;
+
+    private readonly WebFramePipeline _pipeline;
+    private readonly bool _hardwareDecoding;
+    private WebCapturePlan _plan;                            // what the next start asks for
+    private WebCapturePlan _planApplied;                     // what the running screencast was started with
+    private volatile bool _planStarted;
+    private long _captureChangedTicks;
+    private volatile bool _leaving;
     private readonly string _userDataFolder;
     private readonly int _width;
     private readonly int _height;
@@ -95,28 +114,37 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private volatile bool _browserSaysHidden;
     private long _screencastStartTicks;
     private long _screencastFrames;
-    private string? _pendingFrame;
+    private PendingFrame? _pendingFrame;
     private int _decoding;
     private int _screencastFailures;
-    private readonly FrameRateMeter _meter = new();
+
+    /// <summary>A frame as it arrived: the browser's event JSON and the show clock it landed on (the buffer's timestamp).</summary>
+    private sealed record PendingFrame(string Json, double Clock);
     private bool _pressed;
     private int _clickCount;
     private long _lastPressTicks;
     private (int X, int Y) _lastPress;
 
-    private WebFrameSource(string url, int width, int height, string userDataFolder)
+    private WebFrameSource(string url, int width, int height, string userDataFolder, WebCapturePlan plan, long poolBudgetBytes, WebSmoothing smoothing, bool hardwareDecoding)
     {
         _currentUrl = url;
         _width = width;
         _height = height;
         _userDataFolder = userDataFolder;
+        _plan = plan;
+        _hardwareDecoding = hardwareDecoding;
+        _pipeline = new WebFramePipeline(plan.Smoothing, smoothing, poolBudgetBytes);
     }
 
-    /// <summary>Opens a page for a wanted input ("1920x1080" in its Format; a bad format falls back to 1080p).</summary>
-    public static WebFrameSource Create(MediaLocator.WantedInput wanted, string userDataFolder)
+    /// <summary>
+    /// Opens a page for a wanted input ("1920x1080" in its Format; a bad format falls back to 1080p)
+    /// with the capture plan the desk chose for it, the frame pool budget for a source on this
+    /// machine, and the decoding choice for the browser.
+    /// </summary>
+    public static WebFrameSource Create(MediaLocator.WantedInput wanted, string userDataFolder, WebCapturePlan plan, long poolBudgetBytes, bool hardwareDecoding)
     {
         var (w, h) = WebEngine.ParseSize(wanted.Format);
-        var source = new WebFrameSource(wanted.Target, w, h, userDataFolder) { _zoomPct = wanted.Zoom, _muted = wanted.Mute };
+        var source = new WebFrameSource(wanted.Target, w, h, userDataFolder, plan, poolBudgetBytes, wanted.Smoothing, hardwareDecoding) { _zoomPct = wanted.Zoom, _muted = wanted.Mute };
         _ = source.StartAsync();
         return source;
     }
@@ -167,7 +195,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             }
             ShowWindow(_hwnd, SW_SHOWNOACTIVATE);
 
-            var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments };
+            var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = ArgumentsFor(_hardwareDecoding) };
             Directory.CreateDirectory(_userDataFolder);
             var environment = await CoreWebView2Environment.CreateAsync(null, _userDataFolder, options);
             if (_disposed) return;
@@ -371,7 +399,10 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             Interlocked.Exchange(ref _screencastFrames, 0);
             Interlocked.Exchange(ref _lastFrameTicks, 0);
             Volatile.Write(ref _ackFailures, 0);
-            await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ScreencastFrame.StartParameters(_width, _height));
+            var plan = _plan;
+            await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ScreencastFrame.StartParameters(plan.MaxWidth, plan.MaxHeight, plan.JpegQuality, plan.EveryNthFrame));
+            _planApplied = plan;
+            _planStarted = true;
             _screencastOn = true;
             _liveness = ScreencastLiveness.Starting;
         }
@@ -396,7 +427,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         Interlocked.Increment(ref _screencastFrames);
         Interlocked.Exchange(ref _lastFrameTicks, Stopwatch.GetTimestamp());
         if (_liveness is ScreencastLiveness.Starting or ScreencastLiveness.Static) _liveness = ScreencastLiveness.Delivering;
-        Interlocked.Exchange(ref _pendingFrame, json);
+        Interlocked.Exchange(ref _pendingFrame, new PendingFrame(json, ShowClock.Seconds));
         if (Interlocked.CompareExchange(ref _decoding, 1, 0) == 0) _ = Task.Run(DecodePending);
     }
 
@@ -417,15 +448,15 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
-    /// <summary>Decodes whatever is newest until nothing waits (a worker thread); the pool's bytes go back when the picture is made.</summary>
+    /// <summary>Decodes whatever is newest until nothing waits (a worker thread): each frame straight into a pooled buffer, queued for its time; the rented bytes go back at once.</summary>
     private void DecodePending()
     {
         try
         {
             while (true)
             {
-                var json = Interlocked.Exchange(ref _pendingFrame, null);
-                if (json is null)
+                var pending = Interlocked.Exchange(ref _pendingFrame, null);
+                if (pending is null)
                 {
                     Interlocked.Exchange(ref _decoding, 0);
                     // A frame that arrived between the last exchange and the release is nobody's: take it.
@@ -433,13 +464,12 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                     continue;
                 }
                 if (_disposed) continue;
-                if (!ScreencastFrame.TryParse(json, out _, out var base64)) continue;
-                var bytes = ScreencastFrame.Rent(json, base64, out var length);
+                if (!ScreencastFrame.TryParse(pending.Json, out _, out var base64)) continue;
+                var bytes = ScreencastFrame.Rent(pending.Json, base64, out var length);
                 if (bytes is null) continue;
-                SKImage? image = null;
                 try
                 {
-                    image = Decode(bytes.AsSpan(0, length));
+                    _pipeline.Offer(bytes.AsSpan(0, length), pending.Clock);
                 }
                 catch (Exception ex)
                 {
@@ -449,14 +479,6 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 {
                     System.Buffers.ArrayPool<byte>.Shared.Return(bytes);
                 }
-                if (image is null) continue;
-                if (_disposed)
-                {
-                    image.Dispose();
-                    continue;
-                }
-                _slot.Publish(image);
-                _meter.Tick(DateTime.UtcNow.Ticks);
             }
         }
         catch (Exception ex)
@@ -478,15 +500,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             await _core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Jpeg, stream);
             if (_disposed) return;
             var bytes = stream.ToArray();
-            var image = await Task.Run(() => Decode(bytes));
-            if (image is null) return;
-            if (_disposed)
-            {
-                image.Dispose();
-                return;
-            }
-            _slot.Publish(image);
-            _meter.Tick(DateTime.UtcNow.Ticks);
+            var clock = ShowClock.Seconds;
+            await Task.Run(() => _pipeline.Offer(bytes, clock));
         }
         catch (Exception ex)
         {
@@ -498,27 +513,122 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
-    private static SKImage? Decode(ReadOnlySpan<byte> bytes)
-    {
-        using var bitmap = SKBitmap.Decode(bytes);
-        if (bitmap is null) return null;
-        bitmap.SetImmutable();
-        return SKImage.FromBitmap(bitmap);
-    }
-
     // ---- the frame source ----------------------------------------------------------------------
 
-    public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint) => _slot.Draw(canvas, dest, paint, FrameCrop.None);
+    public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint) => _pipeline.Draw(canvas, dest, paint, in FrameCrop.None).Drew;
 
-    public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop) => _slot.Draw(canvas, dest, paint, in crop);
+    public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop) => _pipeline.Draw(canvas, dest, paint, in crop).Drew;
 
-    public SKSizeI? FrameSize => _slot.Size;
+    public SKSizeI? FrameSize => _pipeline.Size;
+
+    // ---- the frame path (round 68) -------------------------------------------------------------
+
+    /// <summary>The look's smoothing choice, applied live to the buffer.</summary>
+    public WebSmoothing Smoothing
+    {
+        get => _pipeline.Mode;
+        set => _pipeline.Mode = value;
+    }
+
+    public WebFrameReport FrameReport => _pipeline.Report;
+
+    public string CaptureWords => _planStarted ? _planApplied.Words : "";
+
+    /// <summary>The plan the next start asks for (the running one is <see cref="CaptureWords"/>) — the tests read it.</summary>
+    public WebCapturePlan CapturePlan => _plan;
+
+    /// <summary>
+    /// The desk's capture plan for the page as the rig draws it now: a plan the running screencast
+    /// already follows changes nothing; another restarts the capture — at most once every few seconds,
+    /// never while the page is leaving — so the browser encodes and Patterns decodes only the pixels
+    /// the room can see.
+    /// </summary>
+    public void ApplyCapture(WebCapturePlan plan)
+    {
+        _plan = plan;
+        if (_leaving || _disposed || !_screencastOn || !_planStarted || plan == _planApplied) return;
+        if (MsSince(_captureChangedTicks) < CaptureChangeMs) return;                    // the next reconcile asks again
+        _captureChangedTicks = Stopwatch.GetTimestamp();
+        OnUi(() => _ = RestartScreencastAsync("the capture plan changed to " + plan.Words));
+    }
+
+    /// <summary>The screencast stopped and started again with the plan of the moment.</summary>
+    private async Task RestartScreencastAsync(string why)
+    {
+        if (_disposed || _core is null || _leaving) return;
+        try
+        {
+            await _core.CallDevToolsProtocolMethodAsync("Page.stopScreencast", "{}");
+        }
+        catch (Exception)
+        {
+            // A session that is gone cannot be stopped; the start below makes a new one.
+        }
+        if (_disposed || _core is null || _leaving) return;
+        Log.Info($"Web page screencast restarted: {why}.");
+        await StartScreencastAsync();
+    }
+
+    /// <summary>
+    /// The page leaves the programme: its sound fades over the transition (the document's own media
+    /// elements — a YouTube embed's player among them), and at the end of it the frame buffer is cut,
+    /// the capture and the poll stop and the browser is muted. The crossfade got real frames the whole
+    /// way; nothing of the page runs on after it but the browser the sweep closes a few seconds on.
+    /// </summary>
+    public void BeginLeaving(double fadeSeconds)
+    {
+        if (_leaving || _disposed) return;
+        _leaving = true;
+        var fade = Math.Clamp(double.IsFinite(fadeSeconds) ? fadeSeconds : 0, 0, WebLeaving.MaxFadeSeconds);
+        OnUi(() =>
+        {
+            if (_disposed) return;
+            if (fade > 0 && !_muted) RunScript(WebLeaving.FadeScript(fade));
+            _ = LeaveAsync(fade);
+        });
+    }
+
+    private async Task LeaveAsync(double fade)
+    {
+        try
+        {
+            if (fade > 0) await Task.Delay(TimeSpan.FromSeconds(fade));
+            if (_disposed) return;
+            _pipeline.Cut();
+            _screencastOn = false;
+            _liveness = ScreencastLiveness.Off;
+            _timer?.Stop();
+            if (_core is { } core)
+            {
+                try
+                {
+                    core.IsMuted = true;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("Web page mute at leaving not applied.", ex);
+                }
+                try
+                {
+                    await core.CallDevToolsProtocolMethodAsync("Page.stopScreencast", "{}");
+                }
+                catch (Exception)
+                {
+                    // A session already gone has nothing to stop.
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Web page leaving issue.", ex);
+        }
+    }
 
     /// <summary>
     /// The page is up and has a picture. Not "a frame arrived lately": the screencast sends
     /// nothing for a still page, and a dashboard that has not changed in a minute is still showing.
     /// </summary>
-    public bool IsPlaying => _slot.HasFrame && _status == "Showing";
+    public bool IsPlaying => _pipeline.HasFrame && _status == "Showing";
 
     public bool IsEnded => false;
 
@@ -529,16 +639,16 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     {
         get
         {
-            if (!_slot.HasFrame) return _status + " (no picture yet)";
+            if (!_pipeline.HasFrame) return _status + " (no picture yet)";
             var fps = FrameRate;
-            var text = fps > 0 ? $"{_status} · {fps:0} fps" : _status;
+            var text = fps > 0 ? $"{_status} · {fps:0} fps · {_pipeline.Smoother.Words}" : _status;
             if (_screencastRestarts > 0) text += _screencastOn ? $" · screencast restarted ({_screencastRestarts})" : " · screenshot poll (the screencast stalled)";
             if (_routeHeld) text += " · sound held: not routed";
             return _browserSaysHidden ? text + " · the browser thinks its window is hidden" : text;
         }
     }
 
-    public double FrameRate => _meter.Rate(DateTime.UtcNow.Ticks);
+    public double FrameRate => _pipeline.DeliveredFps;
 
     /// <summary>Whether the browser's screencast carries the picture (else the screenshot poll does) — the Media page's line.</summary>
     public bool ScreencastActive => ScreencastDelivering;
@@ -1122,7 +1232,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         {
             Log.Warn("Web page close issue.", ex);
         }
-        _slot.Dispose();
+        _pipeline.Dispose();
     }
 
     // ---- Win32 ---------------------------------------------------------------------------------

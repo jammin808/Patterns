@@ -105,6 +105,9 @@ public static class MediaLocator
 
         /// <summary>What the page is treated as — the look's choice, or the address read.</summary>
         public PageService Service { get; init; } = PageService.Page;
+
+        /// <summary>How the page's frames reach the glass (round 68): buffered smooth, newest-at-once, or judged from the page's rate.</summary>
+        public Media.WebSmoothing Smoothing { get; init; }
     }
 
     /// <summary>
@@ -123,7 +126,7 @@ public static class MediaLocator
         var bus = MediaBus.Program;
 
         void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100, string clean = "",
-            bool autoPlay = false, double start = 0, PageServicePick pick = PageServicePick.Auto)
+            bool autoPlay = false, double start = 0, PageServicePick pick = PageServicePick.Auto, Media.WebSmoothing smoothing = Media.WebSmoothing.Auto)
         {
             if (string.IsNullOrWhiteSpace(target)) return;
             if (kind == WantedKind.Web) target = WebAddress.Normalize(target);
@@ -152,7 +155,7 @@ public static class MediaLocator
             at[key] = list.Count;
             buses.Add(new List<MediaBus> { bus });
             list.Add(kind == WantedKind.Web
-                ? new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { AutoPlay = autoPlay, StartSeconds = start, Service = WebPresets.Resolve(target, pick) }
+                ? new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { AutoPlay = autoPlay, StartSeconds = start, Service = WebPresets.Resolve(target, pick), Smoothing = smoothing }
                 : new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { LowLatency = lowLatency });
         }
 
@@ -177,7 +180,7 @@ public static class MediaLocator
                         break;
                     case LayerSource.Web:
                         Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct,
-                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean), l.WebAutoPlay, l.WebStartSeconds, l.WebService);
+                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean), l.WebAutoPlay, l.WebStartSeconds, l.WebService, l.WebSmoothing);
                         break;
                     case LayerSource.Arcade:
                         Add(WantedKind.Arcade, ArcadeTarget, false, true, 0);
@@ -205,7 +208,7 @@ public static class MediaLocator
                         break;
                     case MediaSource.Web:
                         Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct,
-                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean), m.WebAutoPlay, m.WebStartSeconds, m.WebService);
+                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean), m.WebAutoPlay, m.WebStartSeconds, m.WebService, m.WebSmoothing);
                         break;
                     case MediaSource.Deck:
                         Add(WantedKind.Deck, m.DeckPath, false, true, 0, m.DeckStartPage.ToString(System.Globalization.CultureInfo.InvariantCulture));

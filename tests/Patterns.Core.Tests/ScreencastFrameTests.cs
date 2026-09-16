@@ -37,6 +37,10 @@ public class ScreencastFrameTests
         Assert.Contains("\"everyNthFrame\":1", start);
         // A quality outside the protocol's range is clamped, never sent as-is.
         Assert.Contains("\"quality\":100", ScreencastFrame.StartParameters(100, 100, quality: 250));
+        // Round 68's capture plan: a smaller box and every second frame when the policy asks; the nth is clamped too.
+        Assert.Contains("\"everyNthFrame\":2", ScreencastFrame.StartParameters(1280, 720, 60, everyNthFrame: 2));
+        Assert.Contains("\"everyNthFrame\":1", ScreencastFrame.StartParameters(1280, 720, 60, everyNthFrame: 0));
+        Assert.Contains("\"everyNthFrame\":10", ScreencastFrame.StartParameters(1280, 720, 60, everyNthFrame: 99));
     }
 
     [Theory]
