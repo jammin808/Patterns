@@ -118,7 +118,7 @@ public static class DeskMenus
         return new DeskMenu("screen", target, s.Title, subtitle, s.OffLook ? MenuTone.Warn : s.OnAir ? MenuTone.Live : MenuTone.Plain, new[]
         {
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, preview) { Note = PreviewNote },
-            new MenuGroup("TO AIR", MenuTone.Live, ScreenTakeEntries(d, s, target, W)) { Note = "This screen alone: it becomes its own picture (OWN lights up) and every other screen stays." },
+            new MenuGroup("TO AIR", MenuTone.Live, ScreenTakeEntries(d, s, target, W).Append(NextTransitionDrawer(d)).ToList()) { Note = "This screen alone: it becomes its own picture (OWN lights up) and every other screen stays." },
             new MenuGroup("THIS TILE", MenuTone.Tile, tile) { Note = "The tile's own switches — live, as its buttons are." },
             new MenuGroup("GO TO", MenuTone.Go, go),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.screen", "Ask the assistant about this screen", question, d) }),
@@ -134,7 +134,7 @@ public static class DeskMenus
         return new DeskMenu("program", "", s?.Title ?? "PGM · the programme", subtitle, MenuTone.Live, new[]
         {
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, ProgramPreview(d)) { Note = PreviewNote },
-            new MenuGroup("TO AIR", MenuTone.Live, TakeEntries(d)) { Note = "The operator's own press — the same as the TAKE and CUT keys." },
+            new MenuGroup("TO AIR", MenuTone.Live, TakeEntries(d).Append(NextTransitionDrawer(d)).ToList()) { Note = "The operator's own press — the same as the TAKE and CUT keys." },
             new MenuGroup("THIS TILE", MenuTone.Tile, new[]
             {
                 new MenuEntry("tile.mon", "Draw its miniatures (MON)", MenuScope.Live, MenuTone.Tile) { Detail = "Off saves GPU on a big rig; changes nothing on air", Edit = "tile.mon", IsOn = s?.Monitored ?? true },
@@ -169,7 +169,7 @@ public static class DeskMenus
         {
             SourceGroup(d),
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, entries) { Note = PreviewNote },
-            new MenuGroup("TO AIR", MenuTone.Live, TakeEntries(d)) { Note = "The operator's own press — the same as the TAKE and CUT keys." },
+            new MenuGroup("TO AIR", MenuTone.Live, TakeEntries(d).Append(NextTransitionDrawer(d)).ToList()) { Note = "The operator's own press — the same as the TAKE and CUT keys." },
             new MenuGroup("GO TO", MenuTone.Go, new[]
             {
                 Go("go.pattern", "Pattern page — the editors", "Pattern"),
@@ -265,6 +265,62 @@ public static class DeskMenus
                 Action = new ShowAction(ShowActionKind.ScreenCut, target),
                 Because = because,
             },
+        };
+    }
+
+    /// <summary>
+    /// NEXT TRANSITION (round 67.6): what the next TAKE alone arrives by — a kind, a rate, a video sting
+    /// of the library, or the show's own again. One shot: the show's transition never moves. The same
+    /// drawer on every TAKE the desk has — the wall's, a tile's, the PGM and PREVIEW strips' — and TAKE NEXT on the wire.
+    /// </summary>
+    private static MenuEntry NextTransitionDrawer(DeskFacts d)
+    {
+        // The pending wire words split into the kind ("wipe left", "cut", "STING Whoosh") and the rate ("800"):
+        // a kind row is on when the kind matches whatever the rate, a rate row when the rate matches whatever the kind.
+        var current = d.NextTakeWire;
+        var isSting = current.StartsWith("STING", StringComparison.OrdinalIgnoreCase);
+        var tokens = current.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var currentKind = isSting ? current : string.Join(' ', tokens.Where(t => !t.All(char.IsDigit)));
+        var currentRate = isSting ? "" : tokens.FirstOrDefault(t => t.All(char.IsDigit)) ?? "";
+        bool KindOn(string words) => currentKind.Length > 0 && words.Equals(currentKind, StringComparison.OrdinalIgnoreCase);
+        bool RateOn(int ms) => currentRate == ms.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        MenuEntry Choice(string id, string text, string words, string detail = "", bool on = false) => new($"take.next:{id}", text, MenuScope.Live, MenuTone.Live)
+        {
+            Detail = detail,
+            Wire = "TAKE NEXT " + words,
+            Action = new ShowAction(ShowActionKind.NextTransition, "", words),
+            IsOn = on,
+        };
+        // A rate keeps the kind that is on — "wipe left" pending and 0.5 s pressed is "wipe left 500", never a bare rate.
+        var rateKind = !isSting && !currentKind.Equals("cut", StringComparison.OrdinalIgnoreCase) ? currentKind : "";
+        string Rate(int ms) => (rateKind.Length > 0 ? rateKind + " " : "") + ms.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        MenuEntry Kind(string id, string text, string words, string detail = "") => Choice(id, text, words, detail, KindOn(words));
+        var children = new List<MenuEntry>
+        {
+            Choice("default", "The show's own transition", "CLEAR", $"As set on the Outputs page — {d.TransitionDefault}", on: current.Length == 0),
+            Kind("dissolve", "Dissolve", "dissolve", "A crossfade at the show's rate"),
+            Kind("dip", "Dip", "dip", "Through the dip colour"),
+            Kind("wipe", "Wipe", "wipe", "The show's direction"),
+            Kind("wipe-left", "Wipe left", "wipe left"),
+            Kind("wipe-right", "Wipe right", "wipe right"),
+            Kind("push", "Push", "push", "The new picture pushes the old one off"),
+            Kind("brand", "Brand stinger", "brand", "The brand kit sweeps over the cut, the logo at its peak"),
+            Kind("reactive", "Reactive", "reactive", "The show's reactive scene wipes"),
+            Kind("cut", "Cut", "cut", "No transition — the TAKE key cuts this once"),
+            Choice("rate-200", "0.2 s", Rate(200), "The rate for the next take alone", RateOn(200)),
+            Choice("rate-500", "0.5 s", Rate(500), on: RateOn(500)),
+            Choice("rate-1000", "1 s", Rate(1000), on: RateOn(1000)),
+            Choice("rate-2000", "2 s", Rate(2000), on: RateOn(2000)),
+        };
+        foreach (var sting in d.Stings)
+        {
+            var words = $"STING {sting.Name}";
+            children.Add(Choice($"sting:{sting.Id}", $"Sting — {sting.Name}", words, "The clip covers the screens and the preview lands when it ends", KindOn(words)));
+        }
+        return new MenuEntry("take.next", d.NextTake.Length > 0 ? $"Next take — {d.NextTake} (one shot)" : "Next take — the show's transition", MenuScope.Live, MenuTone.Live)
+        {
+            Detail = "How the next TAKE alone arrives; the show's transition on the Outputs page never moves",
+            Children = children,
         };
     }
 

@@ -292,6 +292,12 @@ public sealed partial class MainViewModel
 
     public string TakeScopeText => HeldCount is var n && n > 0 ? $"{n} held" : "";
 
+    /// <summary>The TAKE key's face: "TAKE", or "TAKE · WIPE LEFT 800 ms" while a one-shot waits (round 67.6).</summary>
+    public string TakeButtonText => _services.NextTake.Pending is { } next ? $"TAKE · {next.Words}" : "TAKE";
+
+    /// <summary>The one-shot in a sentence, "" with none.</summary>
+    public string NextTakeWords => _services.NextTake.Pending is { } next ? $"Next take: {next.Words} — one shot; the show's transition is unchanged." : "";
+
     /// <summary>What the next CUT / TAKE with the picker's scope changes and holds — the one rule the verbs run (round 67).</summary>
     public TakePlan CurrentTakePlan => _services.Actions.PlanTake(FadeScope.Parse(SelectedTakeScope.Words) ?? FadeScope.Everything);
 
@@ -927,7 +933,9 @@ public sealed partial class MainViewModel
                 break;
             case ShowActionKind.Take:
             case ShowActionKind.Cut:
-                if (result.Ok)
+                // Done, not Requested: a take under a video sting lands when the clip ends and comes back
+                // through here then — the ticks it reads are spent as it lands, never at the press.
+                if (result.Status == ActionStatus.Done)
                 {
                     // The ticks were the scope only when the take read them: an ALL ARMED or FOCUSED take
                     // leaves a tick set the operator prepared for a fade exactly as it was (round 67).

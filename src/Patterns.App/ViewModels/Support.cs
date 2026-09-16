@@ -855,6 +855,7 @@ public static class Lists
         new(StingerAfter.Manual, "Hold — I'll TAKE or GO"),
         new(StingerAfter.Next, "GO the next cue"),
         new(StingerAfter.Custom, "A look or cue I name…"),
+        new(StingerAfter.Take, "TAKE the preview — the sting is the transition"),
     };
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();

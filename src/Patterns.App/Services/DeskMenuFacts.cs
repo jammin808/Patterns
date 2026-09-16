@@ -37,6 +37,9 @@ public static class DeskMenuFacts
             Media = Media(state),
             TransitionDefault = TransitionWords(state.Transition),
             PreviewSource = state.Pattern.Kind == PatternKind.Media ? state.Pattern.Media.Source.ToString() : "",
+            NextTake = s.NextTake.Pending?.Words ?? "",
+            NextTakeWire = s.NextTake.Pending?.WireWords ?? "",
+            Stings = state.Stingers.Items.Where(i => i.Kind == StingerKind.Sting && i.Source == StingerSource.File).Select(i => new MenuSting(i.Id, i.DisplayName)).ToList(),
         };
     }
 

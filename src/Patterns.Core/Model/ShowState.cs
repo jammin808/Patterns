@@ -1432,6 +1432,9 @@ public enum StingerAfter
 
     /// <summary>Apply a named look, or fire a named cue — <see cref="StingerItemConfig.AfterTarget"/> is its id.</summary>
     Custom,
+
+    /// <summary>Round 67.6: TAKE the preview when the clip ends — the sting is the transition; <see cref="StingerItemConfig.AfterTarget"/> carries the take's scope words (blank = the wall's).</summary>
+    Take,
 }
 
 /// <summary>One library item: a sound or clip fired over the show with a single press — a VOG or a stinger.</summary>

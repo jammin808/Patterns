@@ -166,6 +166,7 @@ public static class ActionSpec
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         ShowActionKind.Take or ShowActionKind.Cut => (TargetKind.Place, ValueKind.Transition),
+        ShowActionKind.NextTransition => (TargetKind.None, ValueKind.Transition),
         ShowActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
         _ => (TargetKind.None, ValueKind.None),
     };
@@ -261,6 +262,7 @@ public static class ActionSpec
         ShowActionKind.EyePrev => "God's Eye — the previous problem",
         ShowActionKind.EyeLens => "God's Eye — a lens (all, video, control, audio, room, problems)",
         ShowActionKind.EyeReset => "God's Eye — the whole picture",
+        ShowActionKind.NextTransition => "Next take — the transition or video sting for the next TAKE alone (one shot)",
         ShowActionKind.RigDayOn => "Rig day games — on",
         ShowActionKind.RigDayOff => "Rig day games — off",
         ShowActionKind.AlignStart => "Alignment game — start on a projector",
@@ -451,6 +453,7 @@ public static class ActionSpec
         ShowActionKind.RigSaveKnownGood => "the engineer's word that the rig is right, at commissioning — a running order never declares the rig commissioned",
         ShowActionKind.EyeFocus or ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeLens or ShowActionKind.EyeReset
             => "the operator's own eye — a running order never moves what the desk is looking at",
+        ShowActionKind.NextTransition => "the operator's next press — a cue names the transition it arrives by on the recall itself",
         ShowActionKind.ScreenTestRoute => "a commissioning tool — the diagnostic profile stands in for a contract while a path is proven; a running order never puts a screen on the test route",
         ShowActionKind.ScreenReceived => "the engineer's own reading of a processor's input status, at commissioning — a running order never claims what a box receives",
         ShowActionKind.TwinTakeOver or ShowActionKind.TwinStandBy or ShowActionKind.TwinTakeBack => "the standby twin's own decision to run the show, or to follow again, or the main's to take it back — a cue never decides which machine is the main",

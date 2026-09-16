@@ -256,6 +256,13 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         FadeUpCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeUp, ActionOrigin.Desk, SelectedFadeScope.Words, FadeSecondsText()).Message);
         // A scoped FADE reads the wall's focus and ticks through the services, never the other way round.
         _services.FocusedTarget = () => _selectedTargetId;
+        _services.TakeScopeWords = () => SelectedTakeScope.Words;
+        _services.NextTake.Changed += () =>
+        {
+            Raise(nameof(TakeButtonText));
+            Raise(nameof(NextTakeWords));
+            _services.Eye.Refresh();
+        };
         _services.TickedTargets = () => SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null).Select(t => t.TargetId!).ToList();
         LookBackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.LookBack, ActionOrigin.Desk).Message);
         WalkRoles = Enum.GetValues<DeskRole>().Select(r => new WalkRoleChip(this, r)).ToList();

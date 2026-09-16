@@ -327,6 +327,7 @@ public sealed class EyeService
             Health = report?.Overall ?? CheckLight.Grey,
             HealthWords = report?.Headline ?? "",
             Attention = attention,
+            NextTake = _s.NextTake.Pending?.Words ?? "",
             Displays = displays,
             Screens = screens,
             Sources = sources,

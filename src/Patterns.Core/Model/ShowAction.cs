@@ -417,6 +417,8 @@ public enum ShowActionKind
     EyePrev,
     EyeLens,
     EyeReset,
+    /// <summary>Round 67.6: the transition or video sting the next TAKE alone arrives by — Value the words (a transition, STING name, CLEAR); one shot, the show's own transition untouched.</summary>
+    NextTransition,
     RigDayOn,
     RigDayOff,
     AlignStart,

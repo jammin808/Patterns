@@ -30,6 +30,14 @@ public sealed class StingerService : IDisposable
 
     private string? _savedLook;                                   // pre-clip content
     private List<(string ScreenId, bool WasCustom)>? _savedCustom; // per-screen pattern flags
+    private IReadOnlyList<string>? _cover;                         // round 67.6: the screens a scoped cover holds; null = the whole rig
+    private List<ScopedSave>? _savedScoped;                        // their own pictures before the clip, to put back
+    private IReadOnlyList<string>? _coverTargets;                  // this firing's cover, while Fire runs
+    private StingerAfter? _afterOverride;
+    private string _takeScope = "";
+
+    /// <summary>One covered screen before a scoped cover: no own picture (Before null), or the picture, the flag and the pin it had.</summary>
+    private readonly record struct ScopedSave(string Target, PatternConfig? Before, bool WasCustom, bool WasPinned);
     private string _overrideKey = "";                              // content identity we set
     private string _clipPath = "";
     private DateTime _firedUtc;
@@ -263,17 +271,32 @@ public sealed class StingerService : IDisposable
 
     // ---- firing -----------------------------------------------------------------------
 
-    public bool Fire(StingerItemConfig item, DateTime? nowUtc = null)
+    /// <param name="afterOverride">Round 67.6: this firing's after-policy instead of the item's own — TAKE the preview when the clip ends, for a sting used as the next take's transition.</param>
+    /// <param name="takeScope">With <see cref="StingerAfter.Take"/>: the take's scope words ("" the wall's, "ID a" one screen, "TICKED", "TILE &lt;id&gt;" a tile's own).</param>
+    /// <param name="coverTargets">The screens the take will change: a clip covers those alone when they are not the whole rig — the programme and every other screen are untouched. Null: the whole rig, as a sting fired from the library.</param>
+    public bool Fire(StingerItemConfig item, DateTime? nowUtc = null, StingerAfter? afterOverride = null, string takeScope = "", IReadOnlyList<string>? coverTargets = null)
     {
         try
         {
+            _afterOverride = afterOverride;
+            _takeScope = takeScope;
+            _coverTargets = coverTargets;
             return FireCore(item, nowUtc ?? NowUtc());
         }
         finally
         {
+            _afterOverride = null;
+            _takeScope = "";
+            _coverTargets = null;
             NotifyChanged();
         }
     }
+
+    /// <summary>The open session's after-policy (the override when the firing carried one), null with no session.</summary>
+    public StingerAfter? SessionAfter => _after?.After;
+
+    /// <summary>The take scope the open session will run its TAKE with, "" for the wall's.</summary>
+    public string SessionTakeScope => _after is { After: StingerAfter.Take } plan ? plan.Target : "";
 
     private bool FireCore(StingerItemConfig item, DateTime now)
     {
@@ -384,9 +407,33 @@ public sealed class StingerService : IDisposable
             if (ms > 0) _services.Bus.FadeOnNextPublish(ms);
             else _services.Bus.CutOnNextPublish();
         }
+        var scoped = ScopedCover(state, _coverTargets);
         _services.EditAir(air =>
         {
             air.Blackout = false;
+            if (scoped is not null)
+            {
+                // Round 67.6: a sting that is one take's transition covers that take's screens alone. The clip
+                // becomes each one's own picture — pinned as a take pins, so a full send lifts it — and the
+                // programme and every other screen are untouched; what each showed before is kept to put back.
+                _savedScoped = new List<ScopedSave>(scoped.Count);
+                foreach (var target in scoped)
+                {
+                    var had = air.Independent.FirstOrDefault(x => x.ScreenId == target);
+                    _savedScoped.Add(new ScopedSave(target, had is null ? null : JsonUtil.ClonePattern(had.Pattern), ContentTargets.UsesOwnPattern(air, target), had?.PinnedByTake ?? false));
+                    var assignment = ContentTargets.EnsureAssignment(air, target);
+                    assignment.Pattern.Kind = PatternKind.Media;
+                    var own = assignment.Pattern.Media;
+                    own.Source = MediaSource.Video;
+                    own.VideoPath = item.Path;
+                    own.Loop = false;
+                    own.Mute = false;
+                    own.VolumePct = item.VolumePct;
+                    assignment.PinnedByTake = true;
+                    ContentTargets.SetOwnPattern(air, target, true);
+                }
+                return;
+            }
             air.Pattern.Kind = PatternKind.Media;
             var media = air.Pattern.Media;
             media.Source = MediaSource.Video;
@@ -405,6 +452,7 @@ public sealed class StingerService : IDisposable
                 c.UseCustomPattern = false;     // and every joined canvas
             }
         });
+        _cover = scoped;
         _overrideKey = ContentKey(_services.AirState);
         _clipPath = item.Path;
         _firedUtc = now;
@@ -498,7 +546,7 @@ public sealed class StingerService : IDisposable
     {
         StartGain(item.Kind == StingerKind.Sting ? 0 : 1, now);
         _after = item.Kind == StingerKind.Sting
-            ? new AfterPlan(item.DisplayName, item.After, item.AfterTarget, item.MusicReturns)
+            ? new AfterPlan(item.DisplayName, _afterOverride ?? item.After, _afterOverride == StingerAfter.Take ? _takeScope : item.AfterTarget, item.MusicReturns)
             : null;
         _sessionName = item.DisplayName;
         _sessionId = item.Id;
@@ -594,7 +642,7 @@ public sealed class StingerService : IDisposable
             // 2. A held stinger: only the operator, the hold limit or STOP moves it.
             if (_holding)
             {
-                if (ContentKey(_services.AirState) != _overrideKey)
+                if (CoverMoved(_services.AirState))
                 {
                     // Their TAKE / GO / look recall is the release. Their choice stands, no revert.
                     Abandon("Operator took over — the sting hold is released.", now);
@@ -607,7 +655,7 @@ public sealed class StingerService : IDisposable
             if (!ClipActive) return;
 
             var state = _services.AirState;
-            if (ContentKey(state) != _overrideKey)
+            if (CoverMoved(state))
             {
                 // The operator changed the content mid-clip — their choice stands.
                 // (Knob tweaks like fit or volume don't count, only what is on screen.)
@@ -615,7 +663,7 @@ public sealed class StingerService : IDisposable
                 return;
             }
 
-            var video = InputBus.For(InputKeys.Video(state.Pattern.Media.VideoPath));
+            var video = InputBus.For(InputKeys.Video(_clipPath));
             if (video is { IsEnded: true })
             {
                 // A leftover decoder was ended at the press and told to play again: until it rolls
@@ -710,6 +758,30 @@ public sealed class StingerService : IDisposable
                 return;
             }
 
+            case StingerAfter.Take:
+            {
+                // Round 67.6: the sting was a take's transition. The pictures before the clip come back first —
+                // inside the one edit, never on a frame — so the take reads the screens as they were, lands its
+                // preview on its scope and keeps everything outside it; the label goes back first too, so the take
+                // names the air after the show it was fired over. A take that cannot run leaves the show back.
+                var moved = false;
+                var detail = "";
+                _services.BulkEdit(() =>
+                {
+                    StopClipIfAny(restore: true);
+                    GiveLabelBack();
+                    moved = RunAfter(plan, out _, out detail);
+                });
+                _status = moved
+                    ? "Sting done — the show moved on."
+                    : "Sting could not move the show on — previous content back.";
+                Journal(moved ? ActionStatus.Done : ActionStatus.Failed,
+                        detail.Length > 0 ? $"{_status} {detail}" : _status);
+                SettleMusic(plan, now);
+                CloseSession(giveLabelBack: false);
+                return;
+            }
+
             case StingerAfter.Next:
             case StingerAfter.Custom:
             {
@@ -721,7 +793,7 @@ public sealed class StingerService : IDisposable
                     // The follow-on runs while the saved content is still held, so a follow-on
                     // that cannot run — or that changes nothing on the screens — is a Return.
                     moved = RunAfter(plan, out afterLabel, out detail);
-                    var pictureMoved = ContentKey(_services.AirState) != _overrideKey;
+                    var pictureMoved = CoverMoved(_services.AirState);
                     StopClipIfAny(restore: !moved || !pictureMoved);
                 });
                 _status = moved
@@ -762,6 +834,21 @@ public sealed class StingerService : IDisposable
         _resolving = true;
         try
         {
+            if (plan.After == StingerAfter.Take)
+            {
+                // Round 67.6: the sting was the next take's transition — the preview lands as the clip ends,
+                // through the same verb the key runs (the wall's scope, or one tile's own take).
+                var take = plan.Target.StartsWith("TILE ", StringComparison.Ordinal)
+                    ? _services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Stinger, plan.Target[5..])
+                    : _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Stinger, plan.Target);
+                if (!take.Ok)
+                {
+                    detail = take.Message;
+                    return false;
+                }
+                afterLabel = "";
+                return true;
+            }
             if (plan.After == StingerAfter.Next)
             {
                 var caller = CueStacks.Caller(_services.State);
@@ -898,16 +985,68 @@ public sealed class StingerService : IDisposable
     private static string ContentKey(ShowState state)
         => $"{state.Pattern.Kind}|{state.Pattern.Media.Source}|{state.Pattern.Media.VideoPath}";
 
+    /// <summary>
+    /// The screens a scoped cover holds (round 67.6): the take's targets that are in the rig — or null when
+    /// they are every unlocked screen the whole cover takes anyway, so a full take under a sting is the
+    /// sting as it always was.
+    /// </summary>
+    private IReadOnlyList<string>? ScopedCover(ShowState state, IReadOnlyList<string>? targets)
+    {
+        if (targets is null) return null;
+        var rig = Rig.Targets(state, _services.Screens.All).Where(t => !ScreenRoles.IsLocked(state, t)).ToList();
+        var set = new HashSet<string>(targets, StringComparer.Ordinal);
+        return rig.All(set.Contains) ? null : rig.Where(set.Contains).ToList();
+    }
+
+    /// <summary>The operator moved what the clip covers: the programme under a whole cover; any covered screen's own picture under a scoped one.</summary>
+    private bool CoverMoved(ShowState state)
+    {
+        if (_cover is null) return ContentKey(state) != _overrideKey;
+        foreach (var target in _cover)
+        {
+            var shown = LookService.Shown(state, target);
+            if (shown.Kind != PatternKind.Media || shown.Media.Source != MediaSource.Video || shown.Media.VideoPath != _clipPath) return true;
+        }
+        return false;
+    }
+
     private void StopClipIfAny(bool restore)
     {
         if (!ClipActive) return;
         var saved = _savedLook;
         var savedCustom = _savedCustom;
+        var scoped = _savedScoped;
         _clipPath = "";
         _savedLook = null;
         _savedCustom = null;
+        _savedScoped = null;
+        _cover = null;
         _overrideKey = "";
-        if (!restore || saved is null) return;
+        if (!restore) return;
+        if (scoped is not null)
+        {
+            // A scoped cover touched its screens alone: their own pictures before the clip come back — the
+            // picture, the flag and the pin each had, or no own picture at all — and nothing else moves.
+            _services.EditAir(air =>
+            {
+                foreach (var s in scoped)
+                {
+                    var assignment = air.Independent.FirstOrDefault(x => x.ScreenId == s.Target);
+                    if (s.Before is null)
+                    {
+                        if (assignment is not null) air.Independent.Remove(assignment);
+                    }
+                    else if (assignment is not null)
+                    {
+                        ModelCopier.Copy(s.Before, assignment.Pattern);
+                        assignment.PinnedByTake = s.WasPinned;
+                    }
+                    ContentTargets.SetOwnPattern(air, s.Target, s.WasCustom);
+                }
+            });
+            return;
+        }
+        if (saved is null) return;
 
         var blackoutNow = _services.State.Blackout; // an operator blackout during the clip stands (live flag)
         _services.EditAir(air =>
@@ -927,6 +1066,8 @@ public sealed class StingerService : IDisposable
         _clipPath = "";
         _savedLook = null;
         _savedCustom = null;
+        _savedScoped = null;
+        _cover = null;
         _overrideKey = "";
         _holding = false;
         _holdUntilUtc = null;

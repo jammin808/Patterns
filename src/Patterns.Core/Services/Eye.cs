@@ -80,6 +80,8 @@ public sealed class EyeFacts
     public string HealthWords { get; init; } = "";
     /// <summary>The super-check's rows that are not green, as words.</summary>
     public IReadOnlyList<string> Attention { get; init; } = Array.Empty<string>();
+    /// <summary>Round 67.6: what the next TAKE alone arrives by, in words; "" for the show's own.</summary>
+    public string NextTake { get; init; } = "";
     public IReadOnlyList<EyeDisplay> Displays { get; init; } = Array.Empty<EyeDisplay>();
     public IReadOnlyList<EyeScreen> Screens { get; init; } = Array.Empty<EyeScreen>();
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
@@ -457,6 +459,7 @@ public sealed class EyeGraph
         var deskWords = new List<string>();
         if (f.Build.Length > 0) deskWords.Add($"Build {f.Build}");
         if (f.HealthWords.Length > 0) deskWords.Add(f.HealthWords);
+        if (f.NextTake.Length > 0) deskWords.Add($"Next take: {f.NextTake} (one shot)");
         deskWords.AddRange(f.Attention);
         Add(new EyeNode(DeskId, EyeKind.Desk, EyePlane.Video, 1, f.MachineName.Length > 0 ? f.MachineName : "This desk", f.OutputsLive ? "outputs live" : "outputs closed", f.Health)
         {

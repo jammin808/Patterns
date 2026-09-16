@@ -148,6 +148,18 @@ public sealed partial class ShowActions
                 return ActionResult.Done(on ? "Review: the preview fills every multiview." : "Review off: the multiviews show their tiles.");
             }
 
+            case ShowActionKind.NextTransition:
+            {
+                // Round 67.6: the next TAKE alone arrives this way; the show's transition never moves.
+                if (!NextTransition.TryParse(a.Value, name => StingerLibrary.Find(State, name) is { Kind: StingerKind.Sting, Source: StingerSource.File } item ? (item.Id, item.DisplayName) : null, out var next, out var problem))
+                {
+                    return ActionResult.Refused(problem ?? $"'{a.Value}' is not a transition.");
+                }
+                _s.NextTake.Set(next);
+                return ActionResult.Done(next is null
+                    ? "Next take: the show's own transition."
+                    : $"Next take: {next.Words} — one shot; the show's transition is unchanged.");
+            }
             case ShowActionKind.Take:
             case ShowActionKind.Cut:
             {
@@ -169,12 +181,24 @@ public sealed partial class ShowActions
                 // and a take that would move nothing is refused with the reason, never reported as done.
                 var plan = PlanTake(scope);
                 if (plan.IsRefused) return ActionResult.Refused(plan.Refusal!);
+                // The one-shot (round 67.6): a CUT is a cut and leaves it for the TAKE it was given to; a video
+                // sting covers the screens first and the take lands when the clip ends — requested now, done then.
+                // The take a sting lands at its end is the press's own landing: it never spends a one-shot set meanwhile.
+                var next = cut || origin == ActionOrigin.Stinger ? null : _s.NextTake.Consume();
+                if (next is { IsSting: true })
+                {
+                    if (StingerLibrary.Find(State, next.StingId) is not { } sting) return ActionResult.Refused($"The sting '{next.StingName}' is not in the library any more.");
+                    if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, takeScope: StingTakeScope(scope, plan), coverTargets: plan.Taken)) return ActionResult.Failed(_s.Stingers.Status);
+                    return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands {plan.Where} when the clip ends; the show's transition is unchanged.");
+                }
+                ArmNextTransition(next);
                 _s.Sandbox.SendAll(cut, plan.Kept);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
                 var kept = plan.Kept.Count == 0 ? "" : $" ({plan.Kept.Count} kept their picture)";
+                var arrived = next is null ? "" : $" Arrived by {next.Words} (one shot).";
                 return ActionResult.Done((cut
                     ? $"CUT — sandbox is now the program {plan.Where}{kept}."
-                    : $"TAKE — sandbox faded up {plan.Where}{kept}.") + rearmed);
+                    : $"TAKE — sandbox faded up {plan.Where}{kept}.") + arrived + rearmed);
             }
             case ShowActionKind.ScreenTake:
             case ShowActionKind.ScreenCut:
@@ -202,11 +226,20 @@ public sealed partial class ShowActions
                     return ActionResult.Refused($"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
                 }
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
+                var nextOne = cutOne || origin == ActionOrigin.Stinger ? null : _s.NextTake.Consume();
+                if (nextOne is { IsSting: true })
+                {
+                    if (StingerLibrary.Find(State, nextOne.StingId) is not { } sting) return ActionResult.Refused($"The sting '{nextOne.StingName}' is not in the library any more.");
+                    if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, takeScope: "TILE " + target, coverTargets: new[] { target })) return ActionResult.Failed(_s.Stingers.Status);
+                    return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands on {where} alone when the clip ends.");
+                }
+                ArmNextTransition(nextOne);
                 // What this tile's PVW shows (round 67): its own picture when one was edited or staged there, else the programme's preview.
                 _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne, ownPicture: true);
-                return ActionResult.Done(cutOne
+                var arrivedOne = nextOne is null ? "" : $" Arrived by {nextOne.Words} (one shot).";
+                return ActionResult.Done((cutOne
                     ? $"CUT — the preview is on {where} alone, as its own picture; every other screen stays."
-                    : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.");
+                    : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.") + arrivedOne);
             }
             default:
                 return null;
@@ -268,6 +301,19 @@ public sealed partial class ShowActions
     /// locks. The wall's keys, their words, the PGM tile's menu, the multiview's NEXT TAKE line and
     /// STATE all read it here, so none of them can disagree about what a press will do.
     /// </summary>
+    /// <summary>
+    /// The scope words a sting-driven take runs with when the clip ends (round 67.6). FOCUSED is pinned to
+    /// the tile focused at the press — a click on another tile during the clip must not move where the
+    /// preview lands, and the words the press answered stay facts; the PGM tile focused means every armed
+    /// screen. Every other scope keeps its words: arming and ticks are visible state, read as the take lands.
+    /// </summary>
+    private string StingTakeScope(FadeScope scope, TakePlan plan)
+    {
+        if (scope.Kind != FadeScopeKind.Focused) return scope.Words;
+        var focused = _s.FocusedTarget?.Invoke();
+        return focused is { Length: > 0 } && plan.Taken.Count == 1 && plan.Taken[0] == focused ? new FadeScope(FadeScopeKind.Target, focused).Words : "";
+    }
+
     public TakePlan PlanTake(FadeScope scope)
     {
         var geometry = Rig.Geometry(State, _s.Screens.All);
@@ -289,6 +335,38 @@ public sealed partial class ShowActions
             named = targets;
         }
         return TakePlan.Resolve(rig, scope, _s.FocusedTarget?.Invoke(), named);
+    }
+
+    /// <summary>The one-shot onto the publish about to happen: a cut, a rate, a kind with its scene and direction — the bus's own overrides, as a look's recall uses them.</summary>
+    private void ArmNextTransition(NextTransition? next)
+    {
+        if (next is null || next.IsSting) return;
+        if (next.Cut)
+        {
+            _s.Bus.CutOnNextPublish();
+            return;
+        }
+        if (next.FadeMs >= 0) _s.Bus.FadeOnNextPublish(next.FadeMs);
+        if (next.Kind is not null || next.Scene is not null || next.Direction is not null) _s.Bus.TransitionOnNextPublish(next.Kind, next.Scene, next.Direction);
+    }
+
+    /// <summary>STATE's take row (round 67): the wall's scope, the plan it makes, and the next take's one-shot.</summary>
+    public object TakeRow()
+    {
+        var words = _s.TakeScopeWords?.Invoke() ?? "";
+        var plan = PlanTake(FadeScope.Parse(words) ?? FadeScope.Everything);
+        return new
+        {
+            scope = words,
+            scopeLabel = plan.Scope.Label,
+            words = plan.Words,
+            where = plan.Where,
+            taken = plan.Taken,
+            held = plan.Held.Select(h => new { id = h.Id, label = h.Label, reason = h.Reason }).ToArray(),
+            outside = plan.Outside.Count,
+            refusal = plan.Refusal ?? "",
+            next = _s.NextTake.Row(),
+        };
     }
 
     /// <summary>"Screen 2 · Group A" — the targets as the wall names them.</summary>

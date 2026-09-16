@@ -165,6 +165,8 @@ public static class StingerLibrary
         {
             case StingerAfter.Manual:
                 return "hold for a take";
+            case StingerAfter.Take:
+                return "TAKE the preview";
             case StingerAfter.Next:
             {
                 if (item.AfterTarget.Length == 0) return "the next cue on the caller's list";

@@ -530,6 +530,7 @@ public sealed class CommandRouter : IRouter
             machine = MachineRow(),
             commissioning = _services.Actions.CommissioningRow(),                                 // round 65.10: where the commissioning flow is
             eye = _services.Eye.Row(),                                                            // round 66: the God's Eye's headline, worst light and counts
+            take = _services.Actions.TakeRow(),                                                   // round 67: the wall's scope, its plan, the next take's one-shot
             modules = Modules.Rows().Select(r => new { name = r.Name, version = r.Version, native = r.Native, loaded = r.Loaded }).ToArray(),   // the build's assemblies, and which this process loaded
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
             // The room around the desk, for a deck's keys: every node heard, the callers linked, the twin, the stage.

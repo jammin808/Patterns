@@ -51,6 +51,9 @@ public class WireVocabularyTests
         ("SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR", new(ShowActionKind.ScreenSignal, "2", "3840x2160 50 RGB 8 SDR")),
         ("RIG SAVE first show", new(ShowActionKind.RigSaveKnownGood, "", "first show")),
         ("EYE FOCUS screen 2", new(ShowActionKind.EyeFocus, "", "screen 2")),
+        ("TAKE NEXT wipe left 800", new(ShowActionKind.NextTransition, "", "wipe left 800")),
+        ("TAKE NEXT STING Whoosh", new(ShowActionKind.NextTransition, "", "STING Whoosh")),
+        ("TAKE NEXT", new(ShowActionKind.NextTransition, "", "CLEAR")),
         ("EYE NEXT", new(ShowActionKind.EyeNext)),
         ("EYE PREV", new(ShowActionKind.EyePrev)),
         ("EYE LENS control", new(ShowActionKind.EyeLens, "", "control")),
@@ -290,6 +293,7 @@ public class WireVocabularyTests
 
         // The desk's keys that never left the desk have no verb: a wire cannot TAKE or CUT a half-built preview.
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("TAKE").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("TAKE ALL").Kind);        // round 67: only TAKE NEXT is a wire verb
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("CUT").Kind);
     }
 }

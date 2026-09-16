@@ -1039,6 +1039,19 @@ public static class ControlProtocol
                 };
             }
 
+            case "TAKE":
+            {
+                // Round 67.6: TAKE NEXT <transition | STING name | CLEAR> — what the next TAKE alone arrives by.
+                // Bare TAKE stays off the wire: a wire cannot take a half-built preview.
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                if (sub[0].Equals("NEXT", StringComparison.OrdinalIgnoreCase))
+                {
+                    var words = sub.Length > 1 ? sub[1].Trim() : "";
+                    return Act(ShowActionKind.NextTransition, "", words.Length == 0 ? "CLEAR" : words);
+                }
+                return Unknown(s);
+            }
+
             // "EYE" (round 66): the God's Eye — bare or STATUS reads the whole picture as JSON; FOCUS <words>, NEXT,
             // PREV, LENS <name> and RESET move the operator's eye (desk-only: a cue never moves what the desk looks at).
             case "EYE":

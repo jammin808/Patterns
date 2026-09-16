@@ -50,6 +50,15 @@ public sealed record DeskFacts
     /// <summary>The preview picture's media source by its enum word ("Web") when the picture is a media picture; "" otherwise (round 63).</summary>
     public string PreviewSource { get; init; } = "";
 
+    /// <summary>Round 67.6: what the next TAKE alone arrives by, in the operator's words ("WIPE LEFT 800 ms", "STING Whoosh"); "" for the show's own.</summary>
+    public string NextTake { get; init; } = "";
+
+    /// <summary>The same as the words after TAKE NEXT that set it, for the menu to mark the choice that is on.</summary>
+    public string NextTakeWire { get; init; } = "";
+
+    /// <summary>The video stings of the library, for the NEXT TRANSITION drawer.</summary>
+    public IReadOnlyList<MenuSting> Stings { get; init; } = Array.Empty<MenuSting>();
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;
@@ -181,3 +190,6 @@ public sealed record MonitorFacts
         : IsMain ? (MainTitle.Length > 0 ? $"the main screen — {MainTitle}" : "the main screen")
         : Choices.FirstOrDefault(c => c.TargetId == Current)?.Title ?? Current;
 }
+
+/// <summary>A video sting of the library as the NEXT TRANSITION drawer lists it (round 67.6).</summary>
+public sealed record MenuSting(string Id, string Name);

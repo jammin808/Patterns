@@ -179,14 +179,15 @@
   </StackPanel>
   <!-- CUT and TAKE, and under them where they land: every armed screen, the focused tile, the ticked tiles or the ticked groups.
        Stacked, so the pair is no wider than it was and TAKE stays on the window with the screens column at its narrowest -->
-  <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
+  <!-- Right-click on CUT / TAKE (round 67.6): the programme's menu — TO AIR with NEXT TRANSITION, the one-shot for the next take -->
+  <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center" ctl:Menus.Kind="program">
     <StackPanel Orientation="Horizontal" Spacing="6">
       <Button Classes="chip" Content="CUT" FontWeight="Bold" Focusable="False"
               Command="{Binding CutCommand}" IsEnabled="{Binding IsSandboxActive}"
-              ToolTip.Tip="Preview becomes program instantly (no fade) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups" />
-      <Button Classes="go" Content="TAKE" FontWeight="Bold" Padding="16,6" Focusable="False"
+              ToolTip.Tip="Preview becomes program instantly (no fade) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups. A CUT is a cut: a NEXT TRANSITION waits for the TAKE" />
+      <Button Classes="go" Content="{Binding TakeButtonText}" FontWeight="Bold" Padding="16,6" Focusable="False"
               Command="{Binding TakeCommand}" IsEnabled="{Binding IsSandboxActive}"
-              ToolTip.Tip="Preview fades up as the program (uses the transition time) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups" />
+              ToolTip.Tip="Preview fades up as the program (uses the transition time) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups. Right-click: NEXT TRANSITION — the transition or video sting for the next take alone; the show's transition on the Outputs page never moves" />
     </StackPanel>
     <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
               ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"

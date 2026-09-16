@@ -188,6 +188,12 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Which targets the next CUT / TAKE touches (all, unless un-armed on the wall).</summary>
     public TransitionArming Arming { get; } = new();
 
+    /// <summary>Round 67.6: the transition or video sting the next TAKE alone arrives by.</summary>
+    public NextTakeService NextTake { get; } = new();
+
+    /// <summary>The wall's CUT / TAKE scope words as the picker has them (the desk sets it; a node has none), for STATE's take row.</summary>
+    public Func<string>? TakeScopeWords { get; set; }
+
     /// <summary>
     /// The wall's focus — the tile clicked, by target id; null for the program tile — read by a
     /// scoped FADE (FOCUSED). Set by the desk's view model; unset (no desk) FOCUSED means the rig.
