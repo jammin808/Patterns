@@ -9,7 +9,7 @@ namespace Patterns.App.Services;
 /// never blocks the desk: the engine mounts a pending deck meanwhile and the PDF takes its place
 /// when it lands. One conversion runs at a time; LibreOffice is heavy and a show machine is busy.
 /// </summary>
-public sealed class DeckConverter
+public sealed class DeckConverter : IDisposable
 {
     /// <summary>What a conversion came to: the cached PDF, or why there is none.</summary>
     public readonly record struct Result(bool Ok, string PdfPath, string Message);
@@ -219,8 +219,8 @@ public sealed class DeckConverter
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var process = new Process { StartInfo = psi };
         if (!process.Start()) return (false, "LibreOffice did not start.");
-        var stdout = process.StandardOutput.ReadToEndAsync();
-        var stderr = process.StandardError.ReadToEndAsync();
+        var stdout = process.StandardOutput.ReadToEndAsync(ct);
+        var stderr = process.StandardError.ReadToEndAsync(ct);
         try
         {
             await process.WaitForExitAsync(ct).ConfigureAwait(false);
@@ -248,4 +248,6 @@ public sealed class DeckConverter
         var message = error ?? (ok ? "" : lines.LastOrDefault() ?? $"exit code {process.ExitCode}");
         return (ok, message);
     }
+
+    public void Dispose() => _oneAtATime.Dispose();
 }

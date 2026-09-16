@@ -365,12 +365,15 @@ public static class MachineProbe
         return key?.GetValue(name) is int v ? v : null;
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("powrprof.dll")]
     private static extern uint PowerGetActiveScheme(IntPtr userRootPowerKey, out IntPtr activePolicyGuid);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("powrprof.dll", CharSet = CharSet.Unicode)]
     private static extern uint PowerReadFriendlyName(IntPtr rootPowerKey, ref Guid schemeGuid, IntPtr subGroupOfPowerSettingsGuid, IntPtr powerSettingGuid, IntPtr buffer, ref uint bufferSize);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("kernel32.dll")]
     private static extern IntPtr LocalFree(IntPtr hMem);
 }

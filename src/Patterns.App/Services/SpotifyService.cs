@@ -811,5 +811,6 @@ public sealed class SpotifyService : IDisposable
         {
             Log.Warn("Break music shutdown issue.", ex);
         }
+        _life.Dispose();
     }
 }

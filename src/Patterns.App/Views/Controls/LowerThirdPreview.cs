@@ -24,6 +24,7 @@ namespace Patterns.App.Views.Controls;
 /// at 0 on the timeline and hidden after its hold (its own, or 1.5 s when it waits to be told),
 /// so the scrubber runs the way in, the hold and the way out.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "An Avalonia control: the guard opens on attach and closes on detach; the visual tree owns the lifetime.")]
 public sealed class LowerThirdPreview : Control
 {
     public static readonly StyledProperty<LowerThirdDesign?> DesignProperty =

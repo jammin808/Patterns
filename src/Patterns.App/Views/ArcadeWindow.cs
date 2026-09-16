@@ -119,7 +119,9 @@ public sealed class ArcadeWindowHost
 
     public string? Handle(ArcadeWindowMode mode, int display)
     {
+        #pragma warning disable VSTHRD002 // off the UI thread by the check above: the wait is on the UI thread's work, never from it
         if (!UiThread.CheckAccess()) return UiThread.InvokeAsync(() => Handle(mode, display)).GetTask().GetAwaiter().GetResult();
+        #pragma warning restore VSTHRD002
         try
         {
             if (mode == ArcadeWindowMode.Off)

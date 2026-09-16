@@ -70,7 +70,9 @@ public static class AudioPlaylist
 
     private static void Shuffle(List<string> order, int seed)
     {
+        #pragma warning disable S2245 // a playlist shuffle with a seed the operator can repeat — not a secret
         var rng = new Random(seed);
+        #pragma warning restore S2245
         for (var i = order.Count - 1; i > 0; i--)
         {
             var j = rng.Next(i + 1);

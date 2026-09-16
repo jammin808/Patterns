@@ -19,6 +19,7 @@ public sealed class ParticleSimCache : IDisposable
     /// <summary>Fields a sink keeps at once: a crossfade needs two, a monitor wall a few; the least recently drawn goes.</summary>
     public const int Capacity = 6;
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "The cache disposes an entry's simulation when it evicts it and when it is disposed itself.")]
     private sealed class Entry
     {
         public ParticleSim Sim = new();

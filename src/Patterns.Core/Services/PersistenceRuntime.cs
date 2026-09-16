@@ -69,7 +69,9 @@ public sealed class PersistenceRuntime
         if (pending.IsCompleted) return;
         try
         {
+            #pragma warning disable VSTHRD002 // the exit's bounded wait for the persistence lane (ADR-008)
             if (!pending.Wait(wait ?? TimeSpan.FromSeconds(10))) Log.Warn("An autosave is still writing after ten seconds — saving over it.");
+            #pragma warning restore VSTHRD002
         }
         catch
         {
@@ -149,7 +151,9 @@ public sealed class PersistenceRuntime
                 done.TrySetResult(false);
             }
         });
+        #pragma warning disable VSTHRD002 // the exit's bounded wait for the final save (ADR-008)
         if (done.Task.Wait(wait)) return done.Task.Result;
+        #pragma warning restore VSTHRD002
         Log.Warn($"The final save did not reach the disk in {wait.TotalSeconds:0} s — an autosave ahead of it is still writing; the exit goes on and the recovery record is kept.");
         return false;
     }

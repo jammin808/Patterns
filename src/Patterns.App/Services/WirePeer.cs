@@ -42,7 +42,7 @@ public sealed class WirePeer : IDisposable
     {
         _stream = stream;
         _owner = owner;
-        _ = Task.Run(() => WriteLoop(_cts.Token));
+        _ = Task.Run(() => WriteLoop(_cts.Token), _cts.Token);
     }
 
     /// <summary>Lines written so far — replies and states.</summary>
@@ -103,7 +103,7 @@ public sealed class WirePeer : IDisposable
         {
             if (Closed) return false;
             if (Pending == 0 && !_writing) return true;
-            await Task.Delay(5);
+            await Task.Delay(5, _cts.Token);
         }
         return false;
     }
@@ -117,9 +117,9 @@ public sealed class WirePeer : IDisposable
         {
             _wake.Release();
         }
-        catch (SemaphoreFullException)
+        catch (Exception ex) when (ex is SemaphoreFullException or ObjectDisposedException)
         {
-            // The writer has a wake-up waiting already.
+            // The writer has a wake-up waiting already, or the peer closed under this call.
         }
         catch (ObjectDisposedException)
         {
@@ -208,5 +208,7 @@ public sealed class WirePeer : IDisposable
         try { _cts.Cancel(); } catch (Exception) { /* gone */ }
         try { _stream.Dispose(); } catch (Exception) { /* gone */ }
         try { _owner?.Dispose(); } catch (Exception) { /* gone */ }
+        try { _wake.Dispose(); } catch (Exception) { /* a waiter left already */ }
+        _cts.Dispose();
     }
 }

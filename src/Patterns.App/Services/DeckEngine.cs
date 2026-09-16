@@ -121,7 +121,9 @@ public sealed class DeckEngine : IDisposable
                     have = have with { Buses = w.Buses };
                     _decks[w.Key] = have;
                 }
+                #pragma warning disable VSTHRD002 // the pattern match says the conversion is complete
                 if (have.Conversion is { IsCompleted: true } done) Land(w, have, done.Result, ceiling);
+                #pragma warning restore VSTHRD002
                 continue;
             }
             try
@@ -192,7 +194,7 @@ public sealed class DeckEngine : IDisposable
         }
         var pending = new PendingDeckSource(w.Target, $"Converting {name} with LibreOffice Impress…");
         conversion = Converter.ConvertAsync(w.Target);
-        conversion.ContinueWith(_ => Changed?.Invoke(), TaskScheduler.Default);
+        _ = conversion.ContinueWith(_ => Changed?.Invoke(), TaskScheduler.Default);
         return pending;
     }
 
@@ -236,6 +238,7 @@ public sealed class DeckEngine : IDisposable
             Dispose(deck.Source);
         }
         _decks.Clear();
+        Converter.Dispose();
         foreach (var (key, source, _) in _retired)
         {
             InputBus.SetPrevious(key, null);

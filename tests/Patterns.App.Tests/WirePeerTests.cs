@@ -16,6 +16,7 @@ public class WirePeerTests
     {
         private readonly SemaphoreSlim _gate = new(0);
         public readonly MemoryStream Written = new();
+        private readonly object _writtenGate = new();
         public volatile bool Disposed;
         public int Writes;
 
@@ -25,7 +26,7 @@ public class WirePeerTests
         {
             Interlocked.Increment(ref Writes);
             await _gate.WaitAsync(ct);
-            lock (Written)
+            lock (_writtenGate)
             {
                 Written.Write(buffer.Span);
             }
@@ -45,7 +46,7 @@ public class WirePeerTests
 
         public string[] Lines()
         {
-            lock (Written)
+            lock (_writtenGate)
             {
                 return Encoding.UTF8.GetString(Written.ToArray()).Split('\n', StringSplitOptions.RemoveEmptyEntries);
             }

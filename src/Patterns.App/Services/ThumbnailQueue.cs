@@ -26,6 +26,7 @@ public sealed class ThumbnailQueue : IDisposable
     // itself could be the first to ask after a headless test session reset it, and would mint one
     // with no run loop for the next test to trip over.
     private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "The worker sets it after Dispose returned when it overran the wait; disposing it under the worker would throw there.")]
     private readonly ManualResetEventSlim _stopped = new(true);
     private readonly Dictionary<string, string> _drawn = new(StringComparer.Ordinal);
     private List<Job> _queue = new();

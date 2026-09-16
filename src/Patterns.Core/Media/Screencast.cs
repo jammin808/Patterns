@@ -157,6 +157,7 @@ public sealed class FrameRateMeter
 {
     private const int Capacity = 256;
     private readonly long[] _ticks = new long[Capacity];
+    private readonly object _tickGate = new();
     private int _next;
     private int _count;
 
@@ -166,7 +167,7 @@ public sealed class FrameRateMeter
     /// <summary>A frame arrived at this instant (UTC ticks).</summary>
     public void Tick(long utcTicks)
     {
-        lock (_ticks)
+        lock (_tickGate)
         {
             _ticks[_next] = utcTicks;
             _next = (_next + 1) % Capacity;
@@ -177,7 +178,7 @@ public sealed class FrameRateMeter
     /// <summary>Frames in the second before <paramref name="nowUtcTicks"/>; 0 when nothing moved.</summary>
     public double Rate(long nowUtcTicks)
     {
-        lock (_ticks)
+        lock (_tickGate)
         {
             var since = nowUtcTicks - WindowTicks;
             var n = 0;
@@ -196,7 +197,7 @@ public sealed class FrameRateMeter
     {
         get
         {
-            lock (_ticks)
+            lock (_tickGate)
             {
                 return _count == 0 ? 0 : _ticks[(_next - 1 + Capacity) % Capacity];
             }

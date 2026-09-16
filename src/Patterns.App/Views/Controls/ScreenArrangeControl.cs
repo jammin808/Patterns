@@ -24,6 +24,7 @@ namespace Patterns.App.Views.Controls;
 /// Drag a screen flush against another to join them into one canvas; drag it away to split.
 /// Click selects; the detail strip below the control edits the selection.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "An Avalonia control: the guard opens on attach and closes on detach; the visual tree owns the lifetime.")]
 public sealed class ScreenArrangeControl : Control
 {
     private const double MaxViewScale = 0.22;

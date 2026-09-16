@@ -920,6 +920,21 @@ public sealed class RenderPipeline : IDisposable
             foreach (var s in _blendShaders.Values) s.Dispose();
             _blendShaders.Clear();
             _blendPaint.Dispose();
+            _maskPaint.Dispose();
+            _patternPaint.Dispose();
+            _maskImage?.Dispose();
+            _maskImage = null;
+            _latticeLine.Dispose();
+            _latticeDot.Dispose();
+            _latticePick.Dispose();
+            _latticeRing.Dispose();
+            _latticeTarget.Dispose();
+            _latticeLocked.Dispose();
+            _sweep.Dispose();
+            _sweepText.Dispose();
+            _sweepFont.Dispose();
+            _patchPaint.Dispose();
+            _pedestalPaint.Dispose();
             _offscreen?.Dispose();
             _sink.Dispose();
         }

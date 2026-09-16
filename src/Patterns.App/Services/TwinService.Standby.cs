@@ -77,7 +77,7 @@ public sealed partial class TwinService
                     if (ReferenceEquals(_client, client)) CloseLink();
                 });
             }
-        });
+        }, CancellationToken.None);
     }
 
     private async Task ReadLoop(TcpClient client, NetworkStream stream, CancellationToken ct)
@@ -203,7 +203,7 @@ public sealed partial class TwinService
                                 _myPlanJson = null;
                                 _planOffered = true;
                                 var offer = TwinMessage.Format(TwinWord.Plan, plan);
-                                _ = Task.Run(() => TryWriteToMain(offer));
+                                _ = Task.Run(() => TryWriteToMain(offer), CancellationToken.None);
                             }
                         }
                         else
@@ -279,7 +279,7 @@ public sealed partial class TwinService
         {
             TryWriteToMain(show);
             TryWriteToMain(air);
-        });
+        }, CancellationToken.None);
     }
 
     /// <summary>The main took the show back: the outputs close and are held again, the marker goes, the show that follows the word puts this desk in step.</summary>

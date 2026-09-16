@@ -441,7 +441,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         if (!OperatingSystem.IsWindows()) return;
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", dir) { UseShellExecute = true });
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), dir) { UseShellExecute = true });
         }
         catch (Exception ex)
         {

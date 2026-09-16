@@ -114,7 +114,7 @@ public sealed partial class TwinService
                     break;
                 }
             }
-        });
+        }, CancellationToken.None);
     }
 
     private string AirLine() => TwinMessage.Format(TwinWord.Air, _air is null ? "null" : JsonUtil.SerializeCompact(_air));

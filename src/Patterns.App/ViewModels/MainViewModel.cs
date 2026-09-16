@@ -763,7 +763,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
             });
             var path = file?.TryGetLocalPath();
             if (path is null) return;
-            File.WriteAllText(path, text, new System.Text.UTF8Encoding(false)); // the text carries its own BOM for Excel
+            await File.WriteAllTextAsync(path, text, new System.Text.UTF8Encoding(false)); // the text carries its own BOM for Excel
             StatusMessage = $"{doneWord}: {Path.GetFileName(path)}";
         }
         catch (Exception ex)

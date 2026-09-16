@@ -64,6 +64,7 @@ public sealed class EncoderHost : IDisposable
 {
     public const string Role = "encoder";
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "The host's own standard output: the runtime closes it with the process.")]
     private readonly TextWriter _out;
     private readonly object _say = new();
     private readonly object _gate = new();

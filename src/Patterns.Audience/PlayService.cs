@@ -123,7 +123,7 @@ public sealed class PlayService : IDisposable
             using var both = CancellationTokenSource.CreateLinkedTokenSource(timer.Token, ct);
             var delay = Task.Delay(Timeout.InfiniteTimeSpan, both.Token);
             var done = await Task.WhenAny(waiter, delay);
-            both.Cancel();
+            await both.CancelAsync();
             return done == waiter;
         }
         finally

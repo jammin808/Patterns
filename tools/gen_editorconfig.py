@@ -83,7 +83,6 @@ FENCES = {
   ("CA1829", "the Count property beats the Count method"),
   ("CA1860", "Count > 0 beats Any on a collection"),
   ("CA1859", "a concrete type beats an interface call in a hot path"),
-  ("CA1861", "a constant array in an argument is rebuilt on every call"),
   ("CA1815", "a struct compared without Equals boxes; the maths structs implement equality"),
   ("S1155", "Any beats Count() for emptiness"),
  ],
@@ -134,6 +133,7 @@ OFF = [
 # rules kept as suggestions: seen, judged worth a look, not a stop
 SUGGEST = [
  ("CA2000", "dispose before losing scope: many false positives where the object is handed on; reviewed by hand"),
+ ("CA1861", "a constant array in an argument: 27 sites in the source, all cold; reviewed by hand where a path is hot"),
  ("CA1508", "dead conditional code: the flow analysis is wrong about volatile fields and loops here"),
  ("CA2216", "finalizers for handle owners: the services dispose deterministically and the census counts them"),
  ("CA1063", "the dispose pattern in full is not the house shape for sealed classes"),
@@ -179,7 +179,7 @@ def lines():
     out.append("")
     out.append("[tests/**/*.cs]")
     out.append("# The tests: culture-sensitive formatting, blocking waits, a plain HttpClient against a fake server, a forced collection in a lifecycle test and a sleep for a worker are the test's own business; constant arrays in asserts are fine.")
-    for rule in ("CA1305", "CA1310", "S6580", "CA1861", "VSTHRD002", "S1481", "S6444", "CA1812", "CA5399", "CA2000", "CA2213", "S2925", "S1215"):
+    for rule in ("CA1305", "CA1310", "S6580", "CA1861", "VSTHRD002", "S1481", "S6444", "CA1812", "CA5399", "CA2000", "CA2213", "S2925", "S1215", "S3881", "CA5351", "S4790", "CA1849", "VSTHRD103", "VSTHRD105", "CA2008"):
         out.append(f"dotnet_diagnostic.{rule}.severity = suggestion")
     out.append("")
     return "\n".join(out) + "\n"

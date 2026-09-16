@@ -158,7 +158,7 @@ public sealed class OscService : IDisposable
             {
                 Dispatch.Post(() => { if (_udp is not null && ReferenceEquals(_udp, socket)) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
             }
-        });
+        }, _cts?.Token ?? CancellationToken.None);
         return $"looking up feedback host '{host}'";
     }
 
@@ -262,12 +262,13 @@ public sealed class OscService : IDisposable
             {
                 Log.Warn("OSC feedback failed.", ex);
             }
-        });
+        }, _cts?.Token ?? CancellationToken.None);
     }
 
     private void Stop()
     {
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = null;
         _feedback = null;
         var udp = _udp;
@@ -281,6 +282,7 @@ public sealed class OscService : IDisposable
         _services.SnapshotPublished -= MarkChanged;
         _services.RuntimeChanged -= MarkChanged;
         Stop();
+        _pushTimer.Dispose();
     }
 
     private static string Shorten(string s) => s.Length <= 72 ? s : s[..70] + "…";

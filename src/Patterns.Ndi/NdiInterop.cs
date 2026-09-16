@@ -198,46 +198,59 @@ public static class NdiInterop
 
     // ---- native entry points ------------------------------------------------
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.U1)]
     private static extern bool NDIlib_initialize();
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern IntPtr NDIlib_send_create(ref SendCreate createSettings);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern void NDIlib_send_destroy(IntPtr instance);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern void NDIlib_send_send_video_v2(IntPtr instance, ref VideoFrameV2 frame);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern int NDIlib_send_get_no_connections(IntPtr instance, uint timeoutMs);
 
     /// <summary>Embedded audio on a sender; asynchronous — the runtime copies the samples before it returns — and safe beside the video send.</summary>
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern void NDIlib_send_send_audio_v3(IntPtr instance, ref AudioFrameV3 frame);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern IntPtr NDIlib_find_create_v2(ref FindCreate createSettings);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern void NDIlib_find_destroy(IntPtr instance);
 
     /// <summary>Returns a native array of <see cref="Source"/>; valid until the next find call.</summary>
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern IntPtr NDIlib_find_get_current_sources(IntPtr instance, out uint count);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern IntPtr NDIlib_recv_create_v3(ref RecvCreateV3 createSettings);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern void NDIlib_recv_destroy(IntPtr instance);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern int NDIlib_recv_capture_v2(
         IntPtr instance, ref VideoFrameV2 video, IntPtr audio, IntPtr metadata, uint timeoutMs);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport(LibName, ExactSpelling = true)]
     public static extern void NDIlib_recv_free_video_v2(IntPtr instance, ref VideoFrameV2 video);
 

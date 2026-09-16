@@ -52,6 +52,7 @@ public sealed class ChildProcess : IDisposable
     private readonly Action<string> _log;
     private readonly Func<DateTime> _clock;
     private SupervisorPolicy _policy = new(maxCrashesInWindow: 5, crashWindowMinutes: 10, stableRunMinutes: 2);
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Stop hands the handle to End, which quits the child and lets the handle go off the caller's thread.")]
     private IChildHandle? _handle;
     private string _payload = "";
     private DateTime _startedUtc;

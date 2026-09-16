@@ -578,12 +578,16 @@ public sealed class WebEngine : IDisposable
             if (!reading.Ok) return;
             if (reading.AdShowing)
             {
+                #pragma warning disable VSTHRD103, CA1849 // fire-and-forget by design: the observer never waits on the page
                 source.RunScript(WebVt.SkipAdScript(vt.Service));
+                #pragma warning restore VSTHRD103, CA1849
                 vt.AdSkips++;
             }
             if (vt.PendingPlay)
             {
+                #pragma warning disable VSTHRD103, CA1849 // fire-and-forget by design: the observer never waits on the page
                 source.RunScript(WebVt.PlayFromScript(vt.Service, vt.PendingFrom));
+                #pragma warning restore VSTHRD103, CA1849
                 vt.PendingPlay = false;
                 return;
             }

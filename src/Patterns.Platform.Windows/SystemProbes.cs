@@ -127,6 +127,7 @@ public static class Dxgi
         _vramLuid = 0;
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("dxgi.dll")]
     private static extern int CreateDXGIFactory1(ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object factory);
 
@@ -269,21 +270,26 @@ public static class WinRegistry
         }
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
     private static extern int RegCreateKeyExW(IntPtr hKey, string subKey, uint reserved, string? cls,
         uint options, uint samDesired, IntPtr securityAttributes, out IntPtr result, out uint disposition);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
     private static extern int RegSetValueExW(IntPtr hKey, string valueName, uint reserved, uint type,
         byte[] data, uint cbData);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
     private static extern int RegDeleteKeyValueW(IntPtr hKey, string subKey, string valueName);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
     private static extern int RegGetValueW(IntPtr hKey, string subKey, string value, uint flags,
         out uint type, byte[] data, ref uint cbData);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("advapi32.dll")]
     private static extern int RegCloseKey(IntPtr hKey);
 }
@@ -341,12 +347,15 @@ public static class Win32Perf
         }
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("kernel32.dll")]
     private static extern bool GetSystemTimes(out ulong idleTime, out ulong kernelTime, out ulong userTime);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
     private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX buffer);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("kernel32.dll")]
     private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS status);
 

@@ -164,7 +164,9 @@ public sealed class PlaylistSequencer
 
         if (options.Shuffle && entries.Count > 1)
         {
+            #pragma warning disable S2245 // a playlist shuffle with a seed the operator can repeat — not a secret
             var rng = new Random(options.ShuffleSeed);
+            #pragma warning restore S2245
             for (var i = entries.Count - 1; i > 0; i--)
             {
                 var j = rng.Next(i + 1);

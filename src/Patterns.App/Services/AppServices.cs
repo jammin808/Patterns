@@ -21,6 +21,7 @@ namespace Patterns.App.Services;
 /// services see of the desk, through the capabilities it implements (<see cref="IAirReport"/>,
 /// <see cref="ITwinHost"/>, <see cref="IWireHost"/>, <see cref="IStageHost"/>, <see cref="IPlayHost"/>).
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "The kernel ends in named shutdown phases (ADR-011); the instance mutex goes in the process phase.")]
 public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, IPlayHost, IRunHost, IMachineHost, IDeviceHost, IOscHost
 {
     public static AppServices Instance { get; set; } = null!;

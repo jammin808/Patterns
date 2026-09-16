@@ -18,61 +18,61 @@ dotnet_diagnostic.CA1310.severity = error
 # S6580: a Parse without a provider reads 0.5 as 5 on a machine whose decimal mark is a comma
 dotnet_diagnostic.S6580.severity = error
 
-# ---- disposal: not landed yet — suggestions until its instances are fixed ----
+# ---- disposal: landed — errors ----
 # CA2213: a disposable field the owner never disposes leaks for the length of the show: paints, listeners, tokens, timers
-dotnet_diagnostic.CA2213.severity = suggestion
+dotnet_diagnostic.CA2213.severity = error
 # CA1001: a type that owns a disposable field is disposable itself
-dotnet_diagnostic.CA1001.severity = suggestion
+dotnet_diagnostic.CA1001.severity = error
 # S2930: an IDisposable made and dropped is a leak
-dotnet_diagnostic.S2930.severity = suggestion
+dotnet_diagnostic.S2930.severity = error
 # S3881: the dispose pattern done by halves double-frees or never frees
-dotnet_diagnostic.S3881.severity = suggestion
+dotnet_diagnostic.S3881.severity = error
 # S1215: GC.Collect is a pause on the show; ShowGc governs the collector
-dotnet_diagnostic.S1215.severity = suggestion
+dotnet_diagnostic.S1215.severity = error
 
-# ---- threading: not landed yet — suggestions until its instances are fixed ----
+# ---- threading: landed — errors ----
 # CA2008: a task started without a scheduler runs on whatever scheduler is current: the desk's UI thread, when a tick started it
-dotnet_diagnostic.CA2008.severity = suggestion
+dotnet_diagnostic.CA2008.severity = error
 # VSTHRD105: a ContinueWith without a scheduler runs on whatever scheduler is current
-dotnet_diagnostic.VSTHRD105.severity = suggestion
+dotnet_diagnostic.VSTHRD105.severity = error
 # CA1849: a blocking call inside an async method holds the thread the method was meant to free
-dotnet_diagnostic.CA1849.severity = suggestion
+dotnet_diagnostic.CA1849.severity = error
 # VSTHRD103: a blocking call inside an async method holds the thread the method was meant to free
-dotnet_diagnostic.VSTHRD103.severity = suggestion
+dotnet_diagnostic.VSTHRD103.severity = error
 # VSTHRD002: Result, Wait and GetResult on the UI thread are a hang when the task needs that thread to finish
-dotnet_diagnostic.VSTHRD002.severity = suggestion
+dotnet_diagnostic.VSTHRD002.severity = error
 # VSTHRD100: an async void method drops its exceptions on the floor and cannot be awaited
-dotnet_diagnostic.VSTHRD100.severity = suggestion
+dotnet_diagnostic.VSTHRD100.severity = error
 # VSTHRD101: an async void lambda drops its exceptions on the floor and cannot be awaited
-dotnet_diagnostic.VSTHRD101.severity = suggestion
+dotnet_diagnostic.VSTHRD101.severity = error
 # VSTHRD110: an async result nobody observes is an attempt, not a fact
-dotnet_diagnostic.VSTHRD110.severity = suggestion
+dotnet_diagnostic.VSTHRD110.severity = error
 # CA2002: a lock on a string, a type or a member is shared with strangers across the process
-dotnet_diagnostic.CA2002.severity = suggestion
+dotnet_diagnostic.CA2002.severity = error
 # S3998: a lock on a string, a type or a member is shared with strangers across the process
-dotnet_diagnostic.S3998.severity = suggestion
+dotnet_diagnostic.S3998.severity = error
 # CA2016: a cancellation token not forwarded leaves the cancelled work running
-dotnet_diagnostic.CA2016.severity = suggestion
+dotnet_diagnostic.CA2016.severity = error
 # S8949: a cancellation token not forwarded leaves the cancelled work running
-dotnet_diagnostic.S8949.severity = suggestion
+dotnet_diagnostic.S8949.severity = error
 # CA2012: a ValueTask consumed twice or stored is undefined behaviour
-dotnet_diagnostic.CA2012.severity = suggestion
+dotnet_diagnostic.CA2012.severity = error
 
-# ---- security: not landed yet — suggestions until its instances are fixed ----
+# ---- security: landed — errors ----
 # CA5392: a P/Invoke without a search path takes a DLL planted beside a portable exe: the system's libraries come from System32 by name
-dotnet_diagnostic.CA5392.severity = suggestion
+dotnet_diagnostic.CA5392.severity = error
 # CA5351: MD5 and DES are broken; where a protocol demands one (PJLink's digest) the site says so
-dotnet_diagnostic.CA5351.severity = suggestion
+dotnet_diagnostic.CA5351.severity = error
 # CA5399: an HttpClient that skips certificate revocation trusts a revoked certificate
-dotnet_diagnostic.CA5399.severity = suggestion
+dotnet_diagnostic.CA5399.severity = error
 # S4036: a command run by name is resolved through PATH: the shell that opens a folder is named by its full path
-dotnet_diagnostic.S4036.severity = suggestion
+dotnet_diagnostic.S4036.severity = error
 # S5443: a shared temp directory is writable by every process on the machine
-dotnet_diagnostic.S5443.severity = suggestion
+dotnet_diagnostic.S5443.severity = error
 # S2245: randomness that stands in for a secret comes from the cryptographic generator; a shuffle says it is a shuffle
-dotnet_diagnostic.S2245.severity = suggestion
+dotnet_diagnostic.S2245.severity = error
 # S4790: a weak hash used as a secret; where a protocol demands one the site says so
-dotnet_diagnostic.S4790.severity = suggestion
+dotnet_diagnostic.S4790.severity = error
 
 # ---- correctness: not landed yet — suggestions until its instances are fixed ----
 # CA1806: a result ignored is an attempt taken for a fact: a keep-awake that failed, a registry write that failed
@@ -335,7 +335,7 @@ dotnet_diagnostic.VSTHRD011.severity = none
 dotnet_diagnostic.VSTHRD111.severity = none
 
 [tests/**/*.cs]
-# The tests: culture-sensitive formatting and blocking waits are the test's own business; constant arrays in asserts are fine.
+# The tests: culture-sensitive formatting, blocking waits, a plain HttpClient against a fake server, a forced collection in a lifecycle test and a sleep for a worker are the test's own business; constant arrays in asserts are fine.
 dotnet_diagnostic.CA1305.severity = suggestion
 dotnet_diagnostic.CA1310.severity = suggestion
 dotnet_diagnostic.S6580.severity = suggestion
@@ -344,4 +344,16 @@ dotnet_diagnostic.VSTHRD002.severity = suggestion
 dotnet_diagnostic.S1481.severity = suggestion
 dotnet_diagnostic.S6444.severity = suggestion
 dotnet_diagnostic.CA1812.severity = suggestion
+dotnet_diagnostic.CA5399.severity = suggestion
+dotnet_diagnostic.CA2000.severity = suggestion
+dotnet_diagnostic.CA2213.severity = suggestion
+dotnet_diagnostic.S2925.severity = suggestion
+dotnet_diagnostic.S1215.severity = suggestion
+dotnet_diagnostic.S3881.severity = suggestion
+dotnet_diagnostic.CA5351.severity = suggestion
+dotnet_diagnostic.S4790.severity = suggestion
+dotnet_diagnostic.CA1849.severity = suggestion
+dotnet_diagnostic.VSTHRD103.severity = suggestion
+dotnet_diagnostic.VSTHRD105.severity = suggestion
+dotnet_diagnostic.CA2008.severity = suggestion
 

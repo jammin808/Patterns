@@ -43,8 +43,8 @@ public sealed class MusicPage : Observable
             RefreshDevices();
             RefreshPlaylists();
         });
-        RefreshDevicesCommand = new RelayCommand(() => _ = RefreshDevicesAsync());
-        RefreshPlaylistsCommand = new RelayCommand(() => _ = RefreshPlaylistsAsync());
+        RefreshDevicesCommand = new RelayCommand(() => _ = FetchDevicesAsync());
+        RefreshPlaylistsCommand = new RelayCommand(() => _ = FetchPlaylistsAsync());
         AddLinkCommand = new RelayCommand(() =>
         {
             if (!SpotifyLibrary.TryAddLink(State, LinkDraft, out _, out var problem))
@@ -342,7 +342,7 @@ public sealed class MusicPage : Observable
         }
     }
 
-    private async Task RefreshDevicesAsync()
+    private async Task FetchDevicesAsync()
     {
         try
         {
@@ -355,7 +355,7 @@ public sealed class MusicPage : Observable
         }
     }
 
-    private async Task RefreshPlaylistsAsync()
+    private async Task FetchPlaylistsAsync()
     {
         try
         {

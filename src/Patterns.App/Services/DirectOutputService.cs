@@ -208,6 +208,7 @@ public static class DirectOutputService
         _ = DwmSetWindowAttribute(handle, attribute, ref v, sizeof(int));
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 

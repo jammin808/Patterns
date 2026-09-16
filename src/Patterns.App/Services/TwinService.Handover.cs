@@ -213,7 +213,7 @@ public sealed partial class TwinService
                 var instance = holder.Instance;
                 var name = holder.Name;
                 var handover = holder.Handover;
-                receipts.ContinueWith(t => UiThread.Post(() =>
+                _ = receipts.ContinueWith(t => UiThread.Post(() =>
                 {
                     _handoverBusy = false;
                     if (tx.Stopped || tx.IsComplete) return;
@@ -495,7 +495,9 @@ public sealed partial class TwinService
     private static (bool Ok, string Words) ReadReceipts(Task<IReadOnlyList<DeviceReceipt>> task)
     {
         if (!task.IsCompletedSuccessfully) return (false, "the receipts could not be read");
+        #pragma warning disable VSTHRD002 // IsCompletedSuccessfully was checked the line above
         var receipts = task.Result;
+        #pragma warning restore VSTHRD002
         var bad = receipts.FirstOrDefault(r => !r.Ok);
         if (bad is not null) return (false, bad.Line);
         if (!receipts.Any(r => r.Reached >= ConfirmLevel.Accepted))
@@ -618,7 +620,7 @@ public sealed partial class TwinService
             // press goes on and carries the answer in its words.
             _handoverBusy = true;
             var wallWords = wall.Words;
-            receipts.ContinueWith(t => UiThread.Post(() =>
+            _ = receipts.ContinueWith(t => UiThread.Post(() =>
             {
                 _handoverBusy = false;
                 if (_phase == TwinPhase.TookOver || _role != TwinRole.Standby) return;

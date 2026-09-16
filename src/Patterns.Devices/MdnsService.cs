@@ -193,6 +193,7 @@ public sealed class MdnsService : IDisposable
             // The socket may already be gone.
         }
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = null;
         _socket = null;
         try { socket.Dispose(); } catch (Exception) { }
@@ -313,5 +314,9 @@ public sealed class MdnsService : IDisposable
         }
     }
 
-    public void Dispose() => Close(goodbye: true);
+    public void Dispose()
+    {
+        Close(goodbye: true);
+        _timer.Dispose();
+    }
 }

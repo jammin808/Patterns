@@ -302,7 +302,9 @@ public sealed class PjLinkSession : ProfileSession
     /// <summary>The MD5 of the seed and the password, lowercase hex — what the projector expects in front of the first command.</summary>
     public static string Digest(string seed, string password)
     {
+#pragma warning disable CA5351, S4790 // PJLink (JBMIA) specifies MD5 for its authentication digest — the projector's protocol, not a secret store
         var hash = MD5.HashData(Encoding.ASCII.GetBytes(seed + password));
+#pragma warning restore CA5351, S4790
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 

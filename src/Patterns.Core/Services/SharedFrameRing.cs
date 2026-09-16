@@ -138,9 +138,16 @@ public sealed unsafe class SharedFrameRing : IDisposable
         }
     }
 
-    /// <summary>Where a file-backed ring lives: shared memory when the system has it, the temp folder otherwise.</summary>
+    /// <summary>Where a file-backed ring lives: shared memory when the system has it (Linux — the same user's processes, by design), the user's own local data otherwise, never a folder every process can write.</summary>
     public static string FilePathFor(string name)
-        => Path.Combine(Directory.Exists("/dev/shm") ? "/dev/shm" : Path.GetTempPath(), name);
+    {
+#pragma warning disable S5443 // /dev/shm is the same-user shared memory the ring is for on Linux; the file name carries the process id and the reader checks the header
+        if (Directory.Exists("/dev/shm")) return Path.Combine("/dev/shm", name);
+#pragma warning restore S5443
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create), "Patterns", "rings");
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, name);
+    }
 
     /// <summary>A name no other ring on this machine has: the role, the process, a counter.</summary>
     public static string NameFor(string role) => $"patterns-{role}-{Environment.ProcessId}-{Interlocked.Increment(ref _counter)}";

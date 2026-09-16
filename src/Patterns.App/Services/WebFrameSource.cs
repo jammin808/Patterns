@@ -250,7 +250,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
                 _screencastRestarts = 0;
                 _ = StartScreencastAsync();
-                if (_audioDevice.Length > 0 || _permittedOrigin.Length > 0) ApplyAudioDevice();   // a new origin: the route applied again, the old origin's grant taken back
+                if (_audioDevice.Length > 0 || _permittedOrigin.Length > 0) _ = ApplyAudioDeviceAsync();   // a new origin: the route applied again, the old origin's grant taken back
             };
             _core.DocumentTitleChanged += (_, _) => _title = _core.DocumentTitle ?? "";
             _core.NewWindowRequested += (_, e) =>
@@ -726,7 +726,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             // Fail closed from the first instant: a route asked for holds the sound until the page says it is routed.
             _routeHeld = WebAudioRoute.HoldSound(WebAudioRoute.Classify("", name));
             OnUi(ApplyMute);
-            OnUi(ApplyAudioDevice);
+            OnUi(() => _ = ApplyAudioDeviceAsync());
         }
     }
 
@@ -742,7 +742,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     /// origin changed. The page's answer decides: routed lifts the hold; anything else keeps the
     /// sound held, never on the default output.
     /// </summary>
-    private async void ApplyAudioDevice()
+    private async Task ApplyAudioDeviceAsync()
     {
         if (_core is null || _disposed) return;
         var generation = Volatile.Read(ref _routeGeneration);
@@ -867,7 +867,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             if (css == _cleanCss) return;
             _cleanCss = css;
             Interlocked.Increment(ref _cleanGeneration);
-            OnUi(ApplyClean);
+            OnUi(() => _ = ApplyCleanAsync());
         }
     }
 
@@ -877,7 +877,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     /// open, so ticking CLEAN on a page that is on air changes the picture at once rather than at
     /// the next reload.
     /// </summary>
-    private async void ApplyClean()
+    private async Task ApplyCleanAsync()
     {
         if (_core is null || _disposed) return;
         var generation = Volatile.Read(ref _cleanGeneration);   // latest wins: a style asked later makes this one moot at every await
@@ -1006,18 +1006,20 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     public void RunScript(string script)
     {
         if (string.IsNullOrWhiteSpace(script)) return;
-        OnUi(async () =>
+        OnUi(() => _ = RunScriptOnUiAsync(script));
+    }
+
+    private async Task RunScriptOnUiAsync(string script)
+    {
+        if (_core is null || _disposed) return;
+        try
         {
-            if (_core is null || _disposed) return;
-            try
-            {
-                await _core.ExecuteScriptAsync(script);
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("Web page script failed.", ex);
-            }
-        });
+            await _core.ExecuteScriptAsync(script);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Web page script failed.", ex);
+        }
     }
 
     /// <summary>The script's result as the browser's JSON text — how the page's player is read for the armed VT. "" when nothing came back.</summary>
@@ -1027,7 +1029,10 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         if (!UiThread.CheckAccess())
         {
             var tcs = new TaskCompletionSource<string>();
-            UiThread.Post(async () =>
+            UiThread.Post(() => _ = ForwardAsync());
+            return await tcs.Task;
+
+            async Task ForwardAsync()
             {
                 try
                 {
@@ -1037,8 +1042,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 {
                     tcs.TrySetException(ex);
                 }
-            });
-            return await tcs.Task;
+            }
         }
         try
         {
@@ -1245,13 +1249,16 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const int SW_SHOWNOACTIVATE = 4;
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern IntPtr CreateWindowExW(uint exStyle, string className, string windowName, uint style,
         int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("user32.dll")]
     private static extern bool DestroyWindow(IntPtr hwnd);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hwnd, int command);
 }

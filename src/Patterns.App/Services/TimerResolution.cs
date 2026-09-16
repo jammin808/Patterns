@@ -26,6 +26,7 @@ internal static class TimerResolution
         }
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("winmm.dll")]
     private static extern uint timeBeginPeriod(uint milliseconds);
 }

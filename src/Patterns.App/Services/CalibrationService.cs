@@ -358,7 +358,9 @@ public sealed class CalibrationService
         using var camera = new FolderCalibrationCamera(folder);
         for (var i = 0; i < plan.Count; i++)
         {
+            #pragma warning disable VSTHRD002 // a folder camera answers from disk; the folder run is a diagnostic on a worker thread
             var frame = camera.GrabAsync(CancellationToken.None).Result;
+            #pragma warning restore VSTHRD002
             if (frame is null) return ActionResult.Refused($"{FolderCalibrationCamera.FileFor(folder, i + 1)} is missing or unreadable ({plan[i].Pattern.Name} on {NameOf(plan[i].Placement)}).");
             var factor = Math.Max(1, frame.Width / Math.Max(160, MaxCameraWidth));
             if (!frames.TryGetValue(plan[i].Placement.ScreenId, out var list)) frames[plan[i].Placement.ScreenId] = list = new List<GreyFrame>();

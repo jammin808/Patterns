@@ -74,6 +74,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private readonly Thread _thread;
     private volatile bool _stop;
     private IntPtr _recv;
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "A frame is retired behind the render fence (RetireLatest), never disposed while a sink may still draw it.")]
     private SKImage? _latest;
     private double _latestClock = -1;
     private Patterns.Rendering.Media.FramePool? _pool;

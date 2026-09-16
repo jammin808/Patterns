@@ -29,6 +29,7 @@ internal static class XInputPads
         public Gamepad Pad;
     }
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
     private static extern uint GetState(uint index, out State state);
 

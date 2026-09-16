@@ -598,7 +598,7 @@ public sealed partial class ControlService : IDisposable
                 return null;                                    // quiet past the head's seconds, or the port closing: nothing to answer
             }
             if (n <= 0) return null;
-            head.Write(chunk, 0, n);
+            await head.WriteAsync(chunk.AsMemory(0, n), ct);
             var bytes = head.ToArray();
             var (at, length) = HttpHead.EndOfHead(bytes);
             if (at >= 0) return (bytes[..at], bytes[(at + length)..], "");
@@ -947,7 +947,7 @@ public sealed partial class ControlService : IDisposable
                     payload = "";
                     // The words come off the UI thread with the show they describe; the zip is built off it.
                     var info = await UiThread.InvokeAsync(SupportBundleInfo);
-                    binary = await Task.Run(() => BuildSupportBundle(info));
+                    binary = await Task.Run(() => BuildSupportBundle(info), ct);
                 }
             }
             else if (method == "GET" && path.StartsWith("/api/screens/", StringComparison.Ordinal) && (path.EndsWith("/edid.bin", StringComparison.Ordinal) || path.EndsWith("/edid.hex", StringComparison.Ordinal) || path.EndsWith("/edid.txt", StringComparison.Ordinal)))
@@ -1143,10 +1143,11 @@ public sealed partial class ControlService : IDisposable
     private void StopListeners()
     {
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = null;
-        try { _tcp?.Stop(); } catch { /* already down */ }
-        try { _http?.Stop(); } catch { /* already down */ }
-        try { _audience?.Stop(); } catch { /* already down */ }
+        try { _tcp?.Dispose(); } catch { /* already down */ }
+        try { _http?.Dispose(); } catch { /* already down */ }
+        try { _audience?.Dispose(); } catch { /* already down */ }
         _tcp = null;
         _http = null;
         _audience = null;

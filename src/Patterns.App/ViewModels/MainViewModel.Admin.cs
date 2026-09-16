@@ -609,7 +609,7 @@ public sealed partial class MainViewModel
         if (!OperatingSystem.IsWindows()) return;
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{dir}\"")
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), $"\"{dir}\"")
             {
                 UseShellExecute = true,
             });

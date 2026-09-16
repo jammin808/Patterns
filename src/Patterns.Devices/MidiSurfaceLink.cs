@@ -52,6 +52,7 @@ public sealed class MidiSurfaceLink : IDeviceLink
     private readonly Dictionary<int, long> _written = new();
     private readonly Dictionary<int, long> _touched = new();
     private readonly Dictionary<int, int> _held = new();
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Disposed with a wait handle (Dispose(WaitHandle)) so a tick in flight lands before the port closes.")]
     private readonly System.Threading.Timer _sampler;
     private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
 

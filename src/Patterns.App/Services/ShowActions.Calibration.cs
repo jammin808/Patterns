@@ -14,8 +14,10 @@ public sealed partial class ShowActions
             {
                 if (a.Value.Length == 0) return ActionResult.Refused("CALIBRATE RUN <camera>: name the NDI source the camera is.");
                 var task = _s.Calibration.RunAsync(a.Value);
+                #pragma warning disable VSTHRD002 // the task is complete: the run refused before it began
                 if (task.IsCompleted) return task.Result;                                 // refused before it began: no projector, no camera
-                _ = task.ContinueWith(t => Log.Error("The calibration run faulted.", t.Exception!), TaskContinuationOptions.OnlyOnFaulted);
+                #pragma warning restore VSTHRD002
+                _ = task.ContinueWith(t => Log.Error("The calibration run faulted.", t.Exception!), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
                 return ActionResult.Requested($"Calibration started through '{a.Value}' — CALIBRATE STATUS follows it; CALIBRATE APPLY once it has solved.");
             }
             case ShowActionKind.CalibrateCancel:

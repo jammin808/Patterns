@@ -30,6 +30,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
 
     // ---- the main's side ----
     private TcpListener? _listener;
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "End decides the standby process's fate at exit; Dispose would end it whatever the show's state.")]
     private readonly TwinLauncher _launcher;
     private string _holder = "";            // the standby that has the show — on the link, or marked on disk
     private bool _holderLinked;             // …and on the link: its SHOW and AIR can land here
@@ -178,7 +179,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             {
                 if (!ct.IsCancellationRequested) Log.Warn("Twin beat loop ended.", ex);
             }
-        });
+        }, CancellationToken.None);                                                          // the loop reads cts itself; a cancelled source ends it at once, as before
     }
 
     /// <summary>The pending lines go after a trailing 200 ms, edits inside it riding the same flush — the remote's own cadence.</summary>
@@ -188,7 +189,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         _flushScheduled = true;
         _ = Task.Run(async () =>
         {
-            await Task.Delay(200);
+            await Task.Delay(200, CancellationToken.None);
             try
             {
                 await UiThread.InvokeAsync(() =>
@@ -202,7 +203,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 _flushScheduled = false;
                 Log.Warn("Twin flush failed.", ex);
             }
-        });
+        }, CancellationToken.None);
     }
 
     /// <summary>A random id per process, so a standby never joins itself through its own beacon.</summary>
@@ -535,6 +536,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     private void Stop(bool sayGoodbye)
     {
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = null;
         List<Standby> standbys;
         lock (_gate)
@@ -547,7 +549,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             if (sayGoodbye) s.TryWrite(TwinMessage.Format(TwinWord.Bye));
             s.Dispose();
         }
-        try { _listener?.Stop(); } catch { /* already down */ }
+        try { _listener?.Dispose(); } catch { /* already down */ }
         _listener = null;
         _pendingSections.Clear();
         _pendingWhole = false;
@@ -600,7 +602,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 {
                     callers = _standbys.ToList();
                 }
-                if (callers.Count > 0) _ = Task.Run(() => { foreach (var s in callers) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); });
+                if (callers.Count > 0) _ = Task.Run(() => { foreach (var s in callers) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); }, CancellationToken.None);
                 SendLive();
                 return;
             }
@@ -615,7 +617,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     {
                         standbys = _standbys.ToList();
                     }
-                    if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); });
+                    if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); }, CancellationToken.None);
                     SendLive();
                     _launcher.Tick(standbyHoldsShow: _holder.Length > 0);
                     CheckMarker(force: false);
@@ -648,7 +650,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     if (_stream is not null)
                     {
                         var seq = Interlocked.Increment(ref _beat);
-                        _ = Task.Run(() => TryWriteToMain(TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, Clock().Ticks, Interlocked.Read(ref _lastMainSentTicks), Interlocked.Read(ref _lastMainReceivedTicks)).Format())));
+                        _ = Task.Run(() => TryWriteToMain(TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, Clock().Ticks, Interlocked.Read(ref _lastMainSentTicks), Interlocked.Read(ref _lastMainReceivedTicks)).Format())), CancellationToken.None);
                     }
                     else if (_phase is TwinPhase.Connecting or TwinPhase.MainSilent or TwinPhase.TookOver)
                     {

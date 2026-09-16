@@ -39,7 +39,7 @@ public sealed partial class TwinService
             if (_lastLanded.TryGetValue(section, out var landed) && landed == json) continue;
             _lastLanded[section] = json;
             var line = TwinMessage.Format(TwinWord.Section, json, section);
-            _ = Task.Run(() => TryWriteToMain(line));
+            _ = Task.Run(() => TryWriteToMain(line), CancellationToken.None);
         }
     }
 
@@ -200,7 +200,7 @@ public sealed partial class TwinService
             Log.Warn("Twin: the live word could not be written.", ex);
             return;
         }
-        _ = Task.Run(() => { foreach (var c in callers) if (!c.TryWrite(line)) Drop(c); });
+        _ = Task.Run(() => { foreach (var c in callers) if (!c.TryWrite(line)) Drop(c); }, CancellationToken.None);
     }
 
     /// <summary>A line from a caller on the link (UI thread): its edit lands, its verb runs, its plan is kept for APPLY.</summary>

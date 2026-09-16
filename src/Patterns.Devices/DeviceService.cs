@@ -184,7 +184,7 @@ public sealed class DeviceService : IDisposable
             waits = _pendings.Where(p => p.Seq > mark).Select(p => p.Done.Task).ToList();
             landed = _settled.Where(r => r.Seq > mark).ToList();
         }
-        return Task.WhenAll(waits).ContinueWith(t => (IReadOnlyList<DeviceReceipt>)landed.Select(r => r.Receipt).Concat(t.Result).ToList(), TaskContinuationOptions.ExecuteSynchronously);
+        return Task.WhenAll(waits).ContinueWith(t => (IReadOnlyList<DeviceReceipt>)landed.Select(r => r.Receipt).Concat(t.Result).ToList(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     /// <summary>The links open now, by device id.</summary>
@@ -772,6 +772,7 @@ public sealed class DeviceService : IDisposable
     {
         _disposed = true;
         _pushTimer.Stop();
+        _pushTimer.Dispose();
         _services.SnapshotPublished -= MarkChanged;
         _services.RuntimeChanged -= MarkChanged;
         foreach (var id in _open.Keys.ToList()) Close(id);
@@ -796,7 +797,7 @@ public sealed class SerialDeviceLink : IDeviceLink
     {
         _port = port;
         _baud = baud;
-        _ = Task.Run(LoopAsync);
+        _ = Task.Run(LoopAsync, _cts.Token);
     }
 
     public string Status => _status;
@@ -901,6 +902,7 @@ public sealed class SerialDeviceLink : IDeviceLink
         {
             // already gone
         }
+        _cts.Dispose();
     }
 }
 
@@ -922,7 +924,7 @@ public sealed class TcpDeviceLink : IDeviceLink
         _host = host;
         _port = port;
         _split = split ?? DeviceLines.Split;
-        _ = Task.Run(LoopAsync);
+        _ = Task.Run(LoopAsync, _cts.Token);
     }
 
     public string Status => _status;
@@ -1007,6 +1009,7 @@ public sealed class TcpDeviceLink : IDeviceLink
         {
             // already gone
         }
+        _cts.Dispose();
     }
 }
 
@@ -1030,7 +1033,7 @@ public sealed class UdpDeviceLink : IDeviceLink
         _udp = new UdpClient(AddressFamily.InterNetwork);
         _to = IPAddress.TryParse(host, out var ip) ? new IPEndPoint(ip, port) : null;
         _status = $"open ({host}:{port}, UDP)";
-        _ = Task.Run(ReceiveAsync);
+        _ = Task.Run(ReceiveAsync, _cts.Token);
     }
 
     public string Status => _status;
@@ -1110,5 +1113,6 @@ public sealed class UdpDeviceLink : IDeviceLink
         {
             // already closed
         }
+        _cts.Dispose();
     }
 }

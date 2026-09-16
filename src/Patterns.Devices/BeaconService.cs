@@ -147,7 +147,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
                 _target = new IPEndPoint(pick, port);
                 _status = _status.Replace($"looking up '{host}'", $"beacon to {pick}:{port} ({host}) as {MachineName}");
             });
-        });
+        }, _cts?.Token ?? CancellationToken.None);
         return $"looking up '{host}'";
     }
 
@@ -169,7 +169,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
                 {
                     Log.Warn("Beacon send failed.", ex);
                 }
-            });
+            }, _cts?.Token ?? CancellationToken.None);
         }
     }
 
@@ -313,6 +313,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     {
         _timer.Stop();
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = null;
         var sender = _sender;
         var listener = _listener;
@@ -326,5 +327,9 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
         _lastSeenUtc = null;
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        Stop();
+        _timer.Dispose();
+    }
 }
