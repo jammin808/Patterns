@@ -219,6 +219,7 @@ public sealed class MediaPage : Observable
         // The area of interest
         ClearCropCommand = new RelayCommand(ClearCrop);
         CropPresetCommand = new RelayCommand<string>(p => ApplyCropPreset(p ?? ""));
+        ResetAdjustmentsCommand = new RelayCommand(ResetAdjustments);
     }
 
     public RelayCommand BrowseImageCommand { get; }
@@ -256,6 +257,8 @@ public sealed class MediaPage : Observable
     public RelayCommand WebDisarmCommand { get; }
     public RelayCommand ClearCropCommand { get; }
     public RelayCommand<string> CropPresetCommand { get; }
+    /// <summary>Round 77: RESET ADJUSTMENTS — no crop, no mirror, the right way up, upright.</summary>
+    public RelayCommand ResetAdjustmentsCommand { get; }
 
     // ---- the area of interest: a crop picked on the PREVIEW pane ----------------------------
 
@@ -312,6 +315,26 @@ public sealed class MediaPage : Observable
         _desk.StatusMessage = "The whole picture again.";
     }
 
+    /// <summary>
+    /// Round 77: the picture as it came — every adjustment off at once. A mirror ticked on a preset
+    /// long ago made every web page's writing read backwards on the wall, and the one tick that
+    /// caused it sat three sections down the Media page; this is the one press that puts a picture
+    /// right whatever was done to it.
+    /// </summary>
+    public void ResetAdjustments()
+    {
+        var m = ActivePattern.Media;
+        if (!m.HasAdjustments)
+        {
+            _desk.StatusMessage = "The picture is as it came — nothing to reset.";
+            return;
+        }
+        var was = m.AdjustmentWords();
+        _services.BulkEdit(m.ResetAdjustments);
+        RefreshCropSummary();
+        _desk.StatusMessage = $"Adjustments reset — the picture was {was}; it is as it came now. {(_desk.IsSandboxActive ? "In the preview; CUT or TAKE puts it on air." : "On air.")}";
+    }
+
     /// <summary>A starting point to refine with a pick: "top:8", "right:25", "bottom:12", "left:20" cut one side; "centre:80" keeps the middle share.</summary>
     public void ApplyCropPreset(string preset)
     {
@@ -350,7 +373,9 @@ public sealed class MediaPage : Observable
         var flip = m.FlipHorizontal && m.FlipVertical ? " Mirrored and upside down."
             : m.FlipHorizontal ? " Mirrored."
             : m.FlipVertical ? " Upside down." : "";
-        CropSummary = words + turn + flip;
+        // Round 77: a mirrored page or deck is writing read backwards on the wall — said beside the tick that did it.
+        var backwards = m.FlipHorizontal && m.Source is MediaSource.Web or MediaSource.Deck ? " Its writing reads backwards on the wall — RESET ADJUSTMENTS puts it right." : "";
+        CropSummary = words + turn + flip + backwards;
     }
 
     // ---- web pages inside the engine -----------------------------------------------

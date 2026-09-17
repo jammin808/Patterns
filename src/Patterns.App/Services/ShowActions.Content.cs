@@ -80,7 +80,8 @@ public sealed partial class ShowActions
                 // lands in the preview and waits for the TAKE, which is what an operator building a
                 // show expects of a recall. Onto one screen is ScreenPreset, and that one is live.
                 _s.BulkEdit(() => ModelCopier.Copy(preset, State.Pattern));
-                return ActionResult.Done($"Preset '{a.Value.Trim()}' recalled into {(_s.Sandbox.Active ? "the preview" : "the picture")}.");
+                // Round 77: a mirror or a turn saved with the preset reads backwards on the wall with no other trace — said here.
+                return ActionResult.Done($"Preset '{a.Value.Trim()}' recalled into {(_s.Sandbox.Active ? "the preview" : "the picture")}.{AdjustmentNote(State.Pattern)}");
             }
             case ShowActionKind.ScreenPreset:
             {
@@ -451,5 +452,13 @@ public sealed partial class ShowActions
         if (!source.Seek(target)) return ActionResult.Failed($"'{reading.Name}' would not move.");
         if (reading.Role == VideoRole.Playlist) _s.Playlist.EndCurrentIn(Math.Min(before, reading.LengthSeconds));
         return ActionResult.Done($"'{reading.Name}' to its last {before:0.#} s — {VideoClock.Format(target)} of {VideoClock.Format(reading.LengthSeconds)}.");
+    }
+
+    /// <summary>Round 77: " The picture is mirrored, turned 90°." for a media picture with adjustments; "" otherwise — a recall's and a take's words carry it, so a saved mirror never surprises the wall.</summary>
+    internal static string AdjustmentNote(PatternConfig? picture)
+    {
+        if (picture is not { Kind: PatternKind.Media }) return "";
+        var words = picture.Media.AdjustmentWords();
+        return words.Length > 0 ? $" The picture is {words}." : "";
     }
 }

@@ -528,6 +528,39 @@ public sealed class MediaOptions : Observable
     [JsonIgnore]
     public bool HasAdjustments => Crop.Any || _flipHorizontal || _flipVertical || _rotateQuarters != 0;
 
+    /// <summary>
+    /// Round 77: what has been done to the picture, in a phrase — "mirrored", "upside down",
+    /// "turned 90°", "cropped: keeps 60% × 70% of the picture" — joined with commas; "" when
+    /// nothing. A mirror ticked on a preset months ago reads backwards on the wall with no other
+    /// trace, so every recall, every take and STATE say it.
+    /// </summary>
+    public string AdjustmentWords()
+    {
+        if (!HasAdjustments) return "";
+        var parts = new List<string>(4);
+        if (_flipHorizontal) parts.Add("mirrored");
+        if (_flipVertical) parts.Add("upside down");
+        if (_rotateQuarters != 0) parts.Add($"turned {_rotateQuarters * 90}°");
+        if (Crop.Any)
+        {
+            var summary = Crop.Summary().TrimEnd('.');
+            parts.Add("cropped: " + char.ToLowerInvariant(summary[0]) + summary[1..]);
+        }
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>Round 77: the picture as it came — no crop, no mirror, the right way up, upright.</summary>
+    public void ResetAdjustments()
+    {
+        CropLeftPct = 0;
+        CropTopPct = 0;
+        CropRightPct = 0;
+        CropBottomPct = 0;
+        FlipHorizontal = false;
+        FlipVertical = false;
+        RotateQuarters = 0;
+    }
+
     public PlaylistOptions Playlist { get; init; } = new();
 }
 

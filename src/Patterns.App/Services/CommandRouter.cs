@@ -502,6 +502,7 @@ public sealed class CommandRouter : IRouter
             previewLook = previewLook,                                     // the look loaded into the preview, by name
             pattern = _services.AirState.Pattern.Kind.ToString(),          // what kind of picture is on air: Media, LedWall, ProjectionBlend…
             patternKinds = Enum.GetNames<PatternKind>(),                    // every kind a PATTERN key can ask for, in the desk's order
+            adjustments = _services.AirState.Pattern is { Kind: PatternKind.Media } airPicture ? airPicture.Media.AdjustmentWords() : "",   // round 77: "mirrored, turned 90°" — "" for a picture as it came
 
             // The show's looks in order — a bank of keys labels itself from these: n, the name, the F-key, on air, in the preview.
             // The show's looks in order — a bank of keys labels itself from these: n, the name, the

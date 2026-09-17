@@ -423,6 +423,7 @@ public sealed partial class ShowActions
                     // key lit from "own" cannot tell an instruction from a divergence.
                     pattern = LookService.Shown(State, target).Kind.ToString(),
                     off = _s.LookTally.IsOffLook(target),
+                    adjustments = LookService.Shown(State, target) is { Kind: PatternKind.Media } shown ? shown.Media.AdjustmentWords() : "",   // round 77: what this screen's picture has done to it
                     signal = SignalSummary(x.Placement, x.Info, clockHz),                   // round 65: the contract against what Windows sends — design, observed, result
                     audioOut = x.Placement.AudioOutput,                                       // round 69: the output its sound leaves by (a destination key), "" for none
                     audioOutLabel = x.Placement.AudioOutput.Length > 0 ? AudioRouting.DestinationLabel(State, x.Placement.AudioOutput) : "",

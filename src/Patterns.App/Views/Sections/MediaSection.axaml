@@ -404,7 +404,7 @@
       <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding ActivePattern.Media.CropBottomPct, Mode=TwoWay}" />
       <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ActivePattern.Media.CropBottomPct, StringFormat={}{0:0}%}" />
     </Grid>
-    <Grid ColumnDefinitions="130,*,8,Auto,8,Auto" Margin="0,4,0,0">
+    <Grid ColumnDefinitions="130,*,8,Auto,8,Auto,8,Auto" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Turn" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{Binding ActivePattern.Media.RotateQuarters, Mode=TwoWay}"
                 ToolTip.Tip="A portrait feed on a landscape screen, a camera on its side">
@@ -417,6 +417,8 @@
                 ToolTip.Tip="Left and right swapped — a confidence monitor read in a mirror, a camera that flips" />
       <CheckBox Grid.Column="5" Content="Upside down" IsChecked="{Binding ActivePattern.Media.FlipVertical, Mode=TwoWay}"
                 ToolTip.Tip="Top and bottom swapped — a camera mounted the wrong way up" />
+      <Button Grid.Column="7" Classes="mini" Content="RESET ADJUSTMENTS" VerticalAlignment="Center" Command="{Binding Media.ResetAdjustmentsCommand}"
+              ToolTip.Tip="The picture as it came: no crop, no mirror, the right way up, upright — one press, whatever was done to it" />
     </Grid>
     <TextBlock Classes="hint tip"
                Text="An input rarely arrives clean: a Teams call keeps its participants strip beside the shared screen, Google Slides in a browser keeps its filmstrip and notes, a presenter view keeps its toolbar. The area of interest cuts all of that away before the picture is fitted, so the room sees the slide alone, edge to edge — on every screen, NDI send and the stream, and in every look and cue that carries this pattern. PICK ON PREVIEW is the quick way: drag a box on the PREVIEW pane around the part to keep; a second pick refines it, and the sliders fine-tune to the percent (each side up to 90%; a twentieth of the picture always survives). Turn and the flips put a sideways or mirrored feed the right way up. The same crop sits on the PiP inset and on a layer in their own settings; a web page keeps its clicks through the crop while it is upright." />

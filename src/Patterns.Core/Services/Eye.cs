@@ -151,6 +151,8 @@ public sealed class EyeScreen
     public CheckLight ReceivedLight { get; init; } = CheckLight.Grey;
     /// <summary>The input keys its picture draws from ("ndi:Cam 1", "cap:…", "web:…", "media:…").</summary>
     public IReadOnlyList<string> Sources { get; init; } = Array.Empty<string>();
+    /// <summary>Round 77: what its picture has done to it — "mirrored, turned 90°" — or "" for a picture as it came.</summary>
+    public string Adjustments { get; init; } = "";
     public string Role { get; init; } = "";
     /// <summary>Round 67.8: LOCKED — it keeps its picture through looks, cues, every take and a sting.</summary>
     public bool Locked { get; init; }
@@ -560,6 +562,7 @@ public sealed class EyeGraph
             if (s.Verdict.Length > 0) words.Add("Result " + s.Verdict);
             if (s.Received.Length > 0) words.Add("Received " + s.Received);
             if (s.Own) words.Add("its own picture");
+            if (s.Adjustments.Length > 0) words.Add("picture " + s.Adjustments);   // round 77: a mirror or a turn is never a surprise on the wall
             if (s.Staged) words.Add("its own picture in the preview — not taken yet");
             if (s.Canvas.Length > 0) words.Add("in canvas " + s.Canvas);
             if (s.Locked) words.Add("LOCKED — keeps its picture through looks, cues, every take and a sting");

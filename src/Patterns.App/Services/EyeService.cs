@@ -217,6 +217,7 @@ public sealed class EyeService
                 Received = placement.Received.IsSet ? SignalTruth.DesignWords(placement.Received) : "",
                 ReceivedLight = receivedLight,
                 Sources = SourcesOf(picture),
+                Adjustments = picture is { Kind: PatternKind.Media } ? picture.Media.AdjustmentWords() : "",   // round 77
                 Role = placement.Role.ToString(),
                 // Round 67.8: the tile's switches and the canvas, read from the same facts the wall and the take plan read.
                 Locked = ScreenRoles.IsLocked(state, target),

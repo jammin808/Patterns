@@ -283,9 +283,10 @@ public sealed partial class ShowActions
                 // What this tile's PVW shows (round 67): its own picture when one was edited or staged there, else the programme's preview.
                 _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne, ownPicture: true);
                 var arrivedOne = nextOne is null ? "" : $" Arrived by {nextOne.Words} (one shot).";
+                var adjustedOne = AdjustmentNote(_s.AirState.Independent.FirstOrDefault(x => x.ScreenId == target)?.Pattern);   // round 77
                 return ActionResult.Done((cutOne
                     ? $"CUT — the preview is on {where} alone, as its own picture; every other screen stays."
-                    : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.") + arrivedOne);
+                    : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.") + arrivedOne + adjustedOne);
             }
             default:
                 return null;
