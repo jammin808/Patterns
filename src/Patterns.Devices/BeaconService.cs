@@ -40,6 +40,10 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     public string Instance { get; } = Guid.NewGuid().ToString("N")[..8];
 
     public string Status => _status;
+
+    /// <summary>Round 77: the listener's last bind failed (the port held by the desk this one replaces, usually); the poll asks again.</summary>
+    public bool BindFailed { get; private set; }
+
     public bool Sending => _sender is not null && _target is not null;
     public bool Listening => _listener is not null;
     public long Sent => Interlocked.Read(ref _sent);
@@ -67,6 +71,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
         var key = $"{send}|{cfg.BeaconHost}|{cfg.BeaconPort}|{listen}|{cfg.BeaconListenPort}";
         if (key == _activeKey) return;
         _activeKey = key;
+        BindFailed = false;
         Stop();
         var notes = new List<string>();
         if (send)
@@ -96,6 +101,8 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
                 notes.Add($"could not listen on port {cfg.BeaconListenPort}: {ex.Message}");
                 Log.Warn("Beacon listener failed.", ex);
                 _listener = null;
+                BindFailed = true;
+                _activeKey = "";   // round 77: asked again on the next change, and from the desk's poll
             }
         }
         _status = notes.Count == 0 ? "Beacon off." : string.Join(" · ", notes) + ".";

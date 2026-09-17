@@ -191,4 +191,69 @@ public class ShowLockAppTests
             b.Dispose();
         }
     }
+
+    /// <summary>Round 77.4: a handover leaves the machine held for the replacement; a replacement that never came takes the lock back; a start over a live run puts nothing back.</summary>
+    [AvaloniaFact]
+    public void AHandedOverLockStaysHeldWhenThisDesksOutputsCloseAndAtExitAndComesBackIfNoReplacementCame()
+    {
+        var b = TestApp.Boot("patterns-lock-handover-");
+        var disposed = false;
+        try
+        {
+            var (services, vm, _) = b;
+            var machine = new FakeMachineLock();
+            var lockService = services.ShowLock;
+            lockService.Machine = machine;
+            vm.State.Lock.AutoWithOutputs = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(lockService.Locked);
+            machine.Calls.Clear();
+
+            // Handed over: the tick mutes nothing more here, and the outputs closing leaves the machine held.
+            lockService.HandOver();
+            Assert.True(lockService.HandedOver);
+            Assert.Contains("\"handedOver\":true", lockService.StatusJson());
+            lockService.Clock = () => DateTime.UtcNow.AddSeconds(5);
+            lockService.Tick();
+            Assert.DoesNotContain("audio:True", machine.Calls);
+            services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.Outputs.IsLive);
+            Assert.True(lockService.Locked, "the lock is the replacement's now");
+            Assert.DoesNotContain(machine.Calls, c => c.EndsWith(":False", StringComparison.Ordinal));
+
+            // The replacement never came: the lock is this desk's again and goes off with its outputs as before.
+            lockService.TakeBack();
+            Assert.False(lockService.HandedOver);
+            Assert.True(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+            Dispatcher.UIThread.RunJobs();
+            services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(lockService.Locked);
+            Assert.Contains("notifications:False", machine.Calls);
+
+            // A replacement's start over a run still playing: the receipt is that run's live lock, nothing put back.
+            var stillPlaying = new FakeMachineLock { Receipt = "The previous run ended with the show lock on: the sounds put back." };
+            lockService.Machine = stillPlaying;
+            lockService.ContinueAnotherRunsLock();
+            Assert.DoesNotContain("receipt", stillPlaying.Calls);
+
+            // Handed over at exit: the machine is left held for the replacement.
+            lockService.Machine = machine;
+            Assert.True(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(lockService.Locked);
+            lockService.HandOver();
+            machine.Calls.Clear();
+            b.Dispose();
+            disposed = true;
+            Assert.DoesNotContain(machine.Calls, c => c.EndsWith(":False", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (!disposed) b.Dispose();
+        }
+    }
 }

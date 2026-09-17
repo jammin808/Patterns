@@ -32,6 +32,7 @@ public sealed class HotPlugService
 {
     private readonly AppServices _s;
     private bool _applying;
+    private bool _sawDisplays;
     private string _lastNote = "";
     private (ScreenPlacement Lost, string Label, (int Width, int Height, int Hz) Mode)? _pendingSubstitute;
 
@@ -114,6 +115,12 @@ public sealed class HotPlugService
     {
         var state = _s.State;
         var now = _s.Screens.Real.Select(Fact).ToList();
+        // Round 77: before any display has been seen at all — the boot's first refresh, before the window
+        // is attached — an empty list says nothing about the rig, and deciding on it marked every
+        // screen unplugged and then back again a moment later (journaled, notified, the outputs' windows
+        // re-planned) at every start. Once a display has been seen, an empty list is every display gone.
+        if (now.Count == 0 && !_sawDisplays) return false;
+        if (now.Count > 0) _sawDisplays = true;
         var plan = HotPlugWatch.Decide(state.Output.Placements.ToList(), now);
         var when = Clock();
         var programTouched = false;

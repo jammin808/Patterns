@@ -28,6 +28,9 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     private CancellationTokenSource? _cts;
     private TwinRole _role;
 
+    /// <summary>Round 77: the last attempt to open the twin's port failed (held by the desk this one replaces, usually); the poll asks again.</summary>
+    public bool BindFailed { get; private set; }
+
     // ---- the main's side ----
     private TcpListener? _listener;
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "End decides the standby process's fate at exit; Dispose would end it whatever the show's state.")]
@@ -452,6 +455,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}|{hostsCallers}|{_kernel.Profile}";
         if (key == _activeKey) return;
         _activeKey = key;
+        BindFailed = false;
         Stop(sayGoodbye: true);
         _role = cfg.Role;
         _note = "";
@@ -492,6 +496,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 _note = $"Twin: the desk could not open port {cfg.Port} for callers — {ex.Message}";
                 Log.Warn(_note, ex);
                 _activeKey = "";
+                BindFailed = true;
             }
             StartBeating(_cts);
             return;
@@ -514,7 +519,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     _listener = null;
                     _note = $"Twin: the main could not open port {cfg.Port} — {ex.Message}";
                     Log.Warn(_note, ex);
-                    _activeKey = ""; // retried on the next change
+                    _activeKey = ""; // retried on the next change, and from the poll (round 77)
+                    BindFailed = true;
                 }
                 StartBeating(_cts);
                 break;

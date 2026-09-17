@@ -27,6 +27,7 @@ public sealed class ShowLockService : IDisposable
     private bool _updatePending;
     private string _foreground = "";
     private int _muted;
+    private bool _handedOver;
 
     public ShowLockService(AppServices services, IMachineLock? machine = null)
     {
@@ -47,6 +48,9 @@ public sealed class ShowLockService : IDisposable
 
     /// <summary>Locked by the outputs opening (released when they close), not by hand.</summary>
     public bool Auto => _auto;
+
+    /// <summary>Round 77: this desk's lock has passed to a replacement desk — nothing here is put back when this desk's outputs close or it exits.</summary>
+    public bool HandedOver => _handedOver;
 
     private LockConfig Config => _s.State.Lock;
 
@@ -69,8 +73,42 @@ public sealed class ShowLockService : IDisposable
             since = r.SinceUtc,
             words = r.Summary,
             updateRestartPending = r.UpdateRestartPending,
+            handedOver = _handedOver,
             items = r.Items.Select(i => new { key = i.Key, title = i.Title, state = i.State.ToString().ToLowerInvariant(), words = i.Words }),
         });
+    }
+
+    /// <summary>
+    /// Round 77: a handover restart. The machine stays held for the show throughout, so the lock
+    /// is not this desk's to put back any more — the replacement, booting with the receipt this
+    /// lock wrote, continues it when its own outputs go live and puts everything back when its
+    /// show ends. Toggling it twice (this desk's stand-down unlocking, the replacement locking
+    /// again) left the machine unlocked under the new desk once, and the receipt it needed deleted.
+    /// </summary>
+    public void HandOver()
+    {
+        if (_handedOver) return;
+        _handedOver = true;
+        if (_locked) Log.Info("Show lock: handed to the replacement desk — the machine stays held; its receipt is the replacement's to keep and to put back.");
+    }
+
+    /// <summary>The replacement never came: the lock is this desk's own again, put back with its outputs as before.</summary>
+    public void TakeBack()
+    {
+        if (!_handedOver) return;
+        _handedOver = false;
+        Log.Info("Show lock: the replacement never came — the lock is this desk's own again.");
+    }
+
+    /// <summary>
+    /// At the start of a replacement (a takeover of a run still playing): the receipt on disk is
+    /// that run's live lock, not a crash's leavings — nothing is put back, and this desk continues
+    /// the lock when its outputs go live, remembering the originals that receipt already holds.
+    /// </summary>
+    public void ContinueAnotherRunsLock()
+    {
+        _updatePending = SafeUpdatePending();
+        Log.Info("Show lock: the receipt is a run's still playing — nothing put back; this desk continues its lock with the outputs.");
     }
 
     /// <summary>At start: what a previous run's lock left changed goes back, and the desk is told.</summary>
@@ -100,7 +138,7 @@ public sealed class ShowLockService : IDisposable
         {
             if (!_locked) Lock(ActionOrigin.Desk, auto: true);
         }
-        else if (_locked && _auto)
+        else if (_locked && _auto && !_handedOver)
         {
             Unlock(ActionOrigin.Desk);
         }
@@ -225,7 +263,7 @@ public sealed class ShowLockService : IDisposable
                 }
             }
         }
-        if (!_locked || (now >= _lastTickUtc && now - _lastTickUtc < TimeSpan.FromSeconds(2))) return;
+        if (!_locked || _handedOver || (now >= _lastTickUtc && now - _lastTickUtc < TimeSpan.FromSeconds(2))) return;   // handed over: the replacement mutes what starts, from the shared receipt
         _lastTickUtc = now;
         if (Machine.Available && Config.OtherAudio && _items.Any(i => i.Key == ShowLockWords.Audio && i.State == LockItemState.Done))
         {
@@ -265,6 +303,11 @@ public sealed class ShowLockService : IDisposable
 
     public void Dispose()
     {
+        if (_locked && _handedOver)
+        {
+            Log.Info("Show lock: left held for the replacement desk at exit.");
+            return;
+        }
         if (_locked)
         {
             try { Unlock(ActionOrigin.Desk); } catch (Exception ex) { Log.Warn("The show lock could not be released on exit.", ex); }

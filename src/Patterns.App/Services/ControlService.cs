@@ -199,6 +199,7 @@ public sealed partial class ControlService : IDisposable
         var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}@{cfg.Bind}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
+        StartFailed = false;
         ForgetRemoteUrls();
 
         StopListeners();
@@ -232,16 +233,27 @@ public sealed partial class ControlService : IDisposable
                 _ = AcceptLoop(_audience, HandleAudienceClient, _cts.Token);
                 _status += $" Audience on port {cfg.AudiencePort}{(bind.Equals(IPAddress.Any) ? "" : $" at {bind}")} — the play pages only.";
             }
-            Log.Info(_status);
+            if (_startFailures > 0) Log.Info($"{_status} (after {_startFailures} failed {(_startFailures == 1 ? "try" : "tries")})");
+            else Log.Info(_status);
+            _startFailures = 0;
         }
         catch (Exception ex)
         {
             _status = $"Remote control failed to start: {ex.Message}";
-            Log.Error("Control server start failed.", ex);
+            // Round 77: the ports are usually held by the desk this one replaces, gone within seconds — the poll asks again
+            // (AppServices.RetryListeners); the first failure is the error, the rest a line a minute.
+            if (_startFailures++ == 0) Log.Error("Control server start failed.", ex);
+            else if (_startFailures % 12 == 0) Log.Warn($"Control server still cannot start ({_startFailures} tries): {ex.Message}");
             StopListeners();
-            _activeKey = ""; // retry on the next change
+            StartFailed = true;
+            _activeKey = ""; // retry on the next change, and from the poll
         }
     }
+
+    private int _startFailures;
+
+    /// <summary>Round 77: the last start failed (a port held by another process); the desk's poll asks again.</summary>
+    public bool StartFailed { get; private set; }
 
     private static async Task AcceptLoop(TcpListener listener, Func<TcpClient, CancellationToken, Task> handler, CancellationToken ct)
     {

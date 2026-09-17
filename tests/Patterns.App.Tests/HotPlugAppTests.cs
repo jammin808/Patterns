@@ -313,4 +313,70 @@ public class HotPlugAppTests
             b.Dispose();
         }
     }
+
+    private static void Settings(string dir, Action<ShowState> edit)
+    {
+        var s = SettingsStore.Fresh();
+        edit(s);
+        File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
+    }
+
+    /// <summary>
+    /// Round 77.4: the boot's first refresh runs before the window is attached, with no display in the
+    /// list — and the replacement's boot (every boot) marked every screen unplugged and then back a
+    /// moment later, journaled and notified. Before a display has been seen an empty list decides
+    /// nothing; once one has, every display gone is every screen unplugged, as before.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheBootsFirstLookAtAnEmptyDisplayListUnplugsNothing()
+    {
+        ScreenInfo display;
+        var first = TestApp.Boot("patterns-hotplug-boot-a-");
+        try
+        {
+            display = first.Services.Screens.Real[0];
+        }
+        finally
+        {
+            first.Dispose();
+        }
+
+        var b = TestApp.Boot("patterns-hotplug-boot-b-", dir => Settings(dir, s =>
+        {
+            s.Output.Placements.Clear();
+            s.Output.Placements.Add(new ScreenPlacement
+            {
+                ScreenId = display.Id,
+                Enabled = true,
+                CustomLabel = "Main",
+                DisplayKey = $"{display.Label}|{display.Bounds.Width}x{display.Bounds.Height}",
+                DisplayOrigin = $"{display.Bounds.X},{display.Bounds.Y}",
+                DisplayHz = display.Hz,
+            });
+        }));
+        try
+        {
+            var services = b.Services;
+            var placement = Assert.Single(b.Vm.State.Output.Placements, p => p.CustomLabel == "Main");
+            Assert.Equal(display.Id, placement.ScreenId);
+            Assert.True(placement.Enabled);
+            Assert.Null(placement.LostAtUtc);
+            var journal = services.Journal.Tail(50);
+            Assert.DoesNotContain(journal, e => e.Kind == "ScreenLost");
+            Assert.DoesNotContain(journal, e => e.Kind == "ScreenBack");
+            Assert.Equal("", services.HotPlug.HealthWords);
+
+            // A display has been seen: every display gone is every screen unplugged — the guard is the boot's alone.
+            services.HotPlug.Clock = () => new DateTime(2026, 9, 17, 21, 0, 0, DateTimeKind.Utc);
+            services.Screens.Source = () => Array.Empty<ScreenInfo>();
+            services.Screens.Refresh();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(services.Journal.Tail(50), e => e.Kind == "ScreenLost");
+            Assert.StartsWith(HotPlugWatch.LostIdPrefix, placement.ScreenId);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 }

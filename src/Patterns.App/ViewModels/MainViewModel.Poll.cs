@@ -318,6 +318,7 @@ public sealed partial class MainViewModel
     {
         _services.Ownership.Tick();
         _services.PollHandover();   // round 76: a replacement that never asked is given up on, and the desk says so
+        _services.RetryListeners(); // round 77: a wire, twin or beacon port held at the start is asked for again
         var live = _services.Outputs.IsLive;
         var took = _services.Takeover;
         var trouble = _services.Ownership.Trouble;

@@ -752,7 +752,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     public void AttachMainWindow(MainWindow window)
     {
-        ShowLock.RestoreAfterCrash();
+        // Round 77: a start over a run still playing (a handover's replacement, a hung desk) finds that run's live
+        // lock on disk, not a crash's leavings — nothing is put back; this desk continues the lock with its outputs.
+        if (Takeover.Deferred) ShowLock.ContinueAnotherRunsLock();
+        else ShowLock.RestoreAfterCrash();
         MainWindow = window;
         Startup.Mark(StartupBudget.Pages);   // the window's XAML is built by now
         window.Opened += (_, _) =>
@@ -1096,6 +1099,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (_handingOver) return words;
         Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
         _handingOver = true;
+        ShowLock.HandOver();            // round 77: the machine stays held through the handover; the replacement continues the lock
         _handoverAskedUtc = HandoverClock();
         _recoveryWritten = null;        // the next record says Deliberate
         UpdateRecovery();
@@ -1116,6 +1120,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (!_handingOver) return;
         if (HandoverClock() - _handoverAskedUtc < HandoverPatience) return;
         _handingOver = false;
+        ShowLock.TakeBack();            // round 77: no replacement came — the lock is this desk's own again
         WatchdogBeat.Value = SupervisorPolicy.AliveBeat;
         var words = "The restart did not come — this desk carries on with the show as it is. RESTART again, or close and reopen Patterns.";
         Log.Warn(words);
@@ -2005,11 +2010,6 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     }
 
     /// <summary>
-    /// Mounts/unmounts decoders and NDI receivers to match the current program snapshot —
-    /// and the sandbox snapshot while one is open, so the detached preview shows its inputs.
-    /// Also called directly on playlist item changes (runtime publishes skip side effects).
-    /// </summary>
-    /// <summary>
     /// Round 77: which pictures are on a live output right now, read from the open output windows
     /// against the on-air show — a canvas member names its canvas, a repeater the screen it repeats
     /// — with the NDI sends and the stream counting as the programme leaving the machine. The rule
@@ -2061,6 +2061,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
     }
 
+    /// <summary>
+    /// Mounts/unmounts decoders and NDI receivers to match the current program snapshot —
+    /// and the sandbox snapshot while one is open, so the detached preview shows its inputs.
+    /// Also called directly on playlist item changes (runtime publishes skip side effects).
+    /// </summary>
     public void ReconcileInputs()
     {
         // The standby cue's clips ride behind the live wants: opened before GO, held on their first frame.
