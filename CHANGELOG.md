@@ -8,6 +8,28 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 73 — 2026-09-17 — the operator's list: the badge above the band, a tile one press from its editor, the chip's intent, lower thirds that leave by themselves, MIDI learn from any button, the column that drags
+
+`round-73` · PLAN §91 · REVIEW round 73 · 2,371 tests · module 3.13.0
+
+- **The badge** sits centred just above the lower thirds, a size up — its bottom at 72 % of the
+  height, clear of the band a design comes into; a settings migration moves an untouched badge once.
+- **A Library tile** is the editing target's preview at once and one press from its editor: the
+  strip with OPEN <editor>, CUT and TAKE; the press a journaled verb — `LIBRARY <name>` on the wire,
+  OSC and the cue sheet; STATE's `editing` row, the Eye; Companion 3.12.0.
+- **The tech info chip** says what Patterns is trying to push down the link — the raster, its shape,
+  the rate asked, the show's master rate — beside what the display answers.
+- **Timed lower thirds.** A design comes on, holds (5 s by default, editable on its row) and leaves
+  by itself; `LT n FOR 8`, `STAY`, `LT n HOLD 8`; the countdown on the desk, the Run strip, STATE,
+  the Eye and the deck.
+- **MIDI learn from any button.** Right-click a look, a cue, a tile, a lower third, a layer, an
+  overlay or the RUN surface's GO, choose MIDI LEARN ▸ and the line, press the control on any open
+  surface, and it is bound — saved with the show; the field's practice in `docs/MIDI-LEARN.md`;
+  `MIDI`, `MIDI LEARN <line>`, `MIDI LEARN OFF`, `MIDI FORGET <line>`; STATE, the Eye, Companion 3.13.0.
+- **The settings column drags** to a width the show remembers (300–720 px, 420 by default), and the
+  Machine and Audio pages keep their settings groups in it, so the pages stay their health lines
+  and lists.
+
 ## Round 72 — 2026-09-16 — the critique answered: attempts are not facts, in the audio, the take, the session, the wire and the signal
 
 `round-72` · PLAN §90 · REVIEW round 72 · 2,332 tests · module 3.11.0

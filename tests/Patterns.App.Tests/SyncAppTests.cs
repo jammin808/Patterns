@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NAudio.Wave;
 using Patterns.App.Services;
+using Patterns.App.Views.Panels;
 using Patterns.App.Views.Sections;
 using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
@@ -119,13 +120,13 @@ public class SyncAppTests
             Assert.All(fakes.Sources, s => Assert.Equal(80, s.AudioDelayMs));
             Assert.Equal(80, b.Services.Video.AudioDelayMs);
 
-            // The Audio page shows the master-clock block; the check toggles the channel and the sinks flash.
+            // The Audio page's settings column (round 73) shows the master-clock block; the check toggles the channel and the sinks flash.
             vm.PollNow();
             Assert.StartsWith("Locked to the master clock.", vm.Audio.SyncStatus);
             vm.State.AudioPlayer.SyncLock = false;
             vm.PollNow();
             Assert.StartsWith("Outputs free-run", vm.Audio.SyncStatus);
-            var host = new Window { DataContext = vm, Width = 900, Height = 1800, Content = new ScrollViewer { Content = new AudioSection() } };
+            var host = new Window { DataContext = vm, Width = 900, Height = 1800, Content = new ScrollViewer { Content = new StackPanel { Children = { new AudioSection(), new AudioSettingsPanel() } } } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();

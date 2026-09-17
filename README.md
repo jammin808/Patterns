@@ -23,6 +23,14 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The operator's list (round 73)** — the badge sits just above the lower thirds, clear of the
+  band; a Library tile is the editing target's preview at once and one press from its editor
+  (OPEN <editor>, CUT, TAKE; `LIBRARY <name>` on the wire and in cues); the tech info chip says
+  what Patterns is trying to push down the link beside what the display answers; a lower third
+  leaves by itself after its hold (5 s by default; `LT n FOR 8`, `STAY`, `HOLD`); MIDI learn from
+  any right-click menu binds the next control moved on any surface to that line; and the settings
+  column drags to a width the show remembers, with the Machine and Audio pages' settings in it.
+  The design: `docs/PLAN.md` §91.
 - **Attempts are not facts, in six more places** — a critique from the field read claim by claim against
   the code, every claim found real and answered: the sound follows the picture the audience has, never the
   preview's edit; a TAKE under a video sting lands what the press promised (a ticket frozen at the press) and

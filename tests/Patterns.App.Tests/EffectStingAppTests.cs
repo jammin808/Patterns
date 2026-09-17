@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Patterns.App.Services;
+using Patterns.App.Views.Panels;
 using Patterns.App.Views.Sections;
 using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
@@ -140,7 +141,8 @@ public class EffectStingAppTests
             var vm = b.Vm;
             var item = new StingerItemConfig { Source = StingerSource.EffectPulse, PulsePreset = PulsePreset.Vortex, PulseMs = 900, Kind = StingerKind.Sting };
             vm.State.Stingers.Items.Add(item);
-            var host = new Window { DataContext = vm, Width = 900, Height = 1600, Content = new ScrollViewer { Content = new AudioSection() } };
+            // The page and its settings column (round 73: the video sound delay lives in the column).
+            var host = new Window { DataContext = vm, Width = 900, Height = 1600, Content = new ScrollViewer { Content = new StackPanel { Children = { new AudioSection(), new AudioSettingsPanel() } } } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
             var sliders = host.GetVisualDescendants().OfType<Slider>().ToList();

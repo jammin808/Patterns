@@ -2627,3 +2627,57 @@ desk with a Fractal on it: zero.
 The round-71 review left no open items. This round answers a critique with every claim verified before
 anything was built, and one item recorded as seen and not done (72.3's lock during a clip).
 
+
+## Round 73 review — the operator's list
+
+### 73.1 — the badge
+
+- **Done.** The default geometry above the band; the schema-11 migration that moves only an
+  untouched badge. §91.1.
+- **Found on the way.** The span-stitch test compared a whole frame and said "differs"; it names
+  every differing pixel now, which is how the one-count antialiasing difference at a clip edge was
+  told from a real stitch fault.
+
+### 73.2 — the Library tile
+
+- **Done.** The strip, OPEN <editor>, CUT and TAKE; the press as a journaled verb on the desk, the
+  wire, OSC and the cue sheet; `LibraryItems`; STATE, the Eye, Companion 3.12.0. §91.2.
+- **Found on the way.** The click on a tile was not a verb — it landed a picture and left no line
+  in the journal; it runs through the action layer now, so a deck's key and a click are one press.
+
+### 73.3 — the chip
+
+- **Done.** The intent clause beside the answer. §91.3. It stays with FPS off because it is not a
+  measurement.
+
+### 73.4 — timed lower thirds
+
+- **Done.** The design's own hold, the run's override, the clock's one rule, every reader. §91.4.
+- **Found on the way.** `HOLD` and `FOR` stay names a design may be called: the parser takes the
+  number after them, and a design called "Hold" is still `LT Hold`.
+
+### 73.5 — MIDI learn
+
+- **Done.** The research, the menus' MIDI group, the transport menu, `LearnAny`, the wire, STATE,
+  the Eye, Companion 3.13.0. §91.5.
+- **Found on the way.** The Interactive page's own LEARN wrote the one velocity the pad was pressed
+  at; it writes the trigger form now (the pad at any velocity), so a row learned either way reads
+  the same.
+- **Seen, not done.** Soft takeover, relative encoders and a mapped-controls overlay — left out on
+  purpose and said so in the paper; round 74's encoders step an absolute level from STATE instead.
+
+### 73.6 — the column
+
+- **Done.** The width in the desk layout, the handle, the Machine and Audio columns. §91.6. The
+  settings that moved live in panels of their own, so the pages' own markup is the lines and the
+  lists.
+
+### 73.7 — the papers
+
+- **Done.** PLAN §91, this review, CHANGELOG round 73, README, the tag table row 72.
+
+### The review's items, answered
+
+Round 72 left one item seen and not done — a LOCK pressed during a running clip pins the clip's
+own picture in the edited state (72.3). It is still open; nothing in this round touched the lock's
+read of the air, and the qualification row in §10 is where it will show.

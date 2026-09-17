@@ -9471,3 +9471,145 @@ at the landing, or a property nobody stated.
   the room has), §12 (a display topology change under the evidence); this section; REVIEW round 72; CHANGELOG;
   README; ADR-015; the tag table to round 71.
 
+
+## 91. Round 73 — the operator's list: the badge above the band, a tile one press from its editor, the chip's intent, lower thirds that leave by themselves, MIDI learn from any button, and the column that drags
+
+Round 73 is the operator's list — six requests from the desk, each answered through the seams the
+earlier rounds built: a press is a verb through the action layer, every reader (the desk, the Run
+strip, STATE, the Eye, the wire, the deck, the assistant) reads the one fact, and the papers say
+what is left out. One of the six brought research with it (73.5, `docs/MIDI-LEARN.md`), and one
+(73.6) prepared the ground for round 74's navigator, whose `NAV SETTINGS` opens the same column
+from a deck.
+
+### 91.1 The badge above the band (73.1)
+
+- **The claim.** The badge opened in the middle of the lower third — 9 % of the height, lifted
+  12 % — exactly where a lower third's own box arrives; the mark and a name shared the same pixels.
+- **The design.** `BadgeOverlay.DefaultHeightPct = 11` and `DefaultOffsetYPct = −25`: from the
+  bottom-centre anchor the card's bottom lands at 72 % of the height on every canvas, and the
+  default design (220 lines tall, 60 up, at 1080) starts at 74.1 %, so the two never meet.
+  `SettingsStore.Migrate` (schema 11) moves a badge still exactly at the old place to the new one
+  once; a badge dragged, nudged, resized or re-anchored stays the operator's — the same shape as
+  the v10 line migration.
+- **Proof.** `BadgeTests`: the default rect sits above the default band with a breath between
+  them on 1080p, 2160p, 720p, a 32:9 wall, a portrait screen and a desk tile; the pixel test reads
+  the card just above the band; the migration moves the untouched, keeps the hand-placed and runs
+  once. `PatternRenderTests`: the pattern stitches exactly with the badge off, and the antialiased
+  card clipped at the join of a two-output wall comes out within one count per channel of the
+  unclipped draw — Skia's analytic coverage at a clip edge — and never more; the assertion names
+  every differing pixel.
+
+### 91.2 A Library tile is the target's preview, one press from its editor (73.2)
+
+- **The claim.** A tile clicked landed on the editing target's preview (round 67.4); what was
+  missing was the way onward — which page edits this kind of picture, and the take.
+- **The design.** The Library page's strip above the tiles: the tile's name and group, where it
+  landed and what kind of picture it made, an OPEN <editor> key that opens the page that edits
+  that kind (Fractals for a fractal scene, Particles, Reactive, Media for a file or a page,
+  Branding for a brand kit, Pattern for the rest) with the same target under the editors, and CUT
+  and TAKE. `PictureEditors` is the one table behind the key; the screen's menu reads it too (GO TO
+  gains "Fractals page — this picture's own editor"). The press is a verb: `ScreenStageLibrary`
+  through the action layer, journaled, named by the tile's id; the same verb on the wire —
+  `LIBRARY <name>` on the editing target, `PVW LIBRARY <name>` on the programme, `SCREEN n PVW
+  LIBRARY <name>` — on OSC (`/patterns/library`, `/pvw/library`) and as a cue step; staged like
+  every PVW verb (EDIT SAFE opens by itself; a brand kit applies its colours and stages no picture;
+  a name the library lacks is refused with the words). The catalogue is peeled into `LibraryItems`
+  — facts with no desk in them, found by id, by name or by section — and the page's tiles are built
+  from the same list. STATE's `editing` row (target, label, own, kind, editor, library, words); the
+  Eye's desk node "Editing …"; Companion 3.12.0's `library` action, LIBRARY in `screen_stage` and
+  `pvw`, the `editing_*` variables and the `library_selected` feedback.
+- **Proof.** `PictureEditorsTests`, `StagedVerbsTests`, `DeskMenuTests`, `EyeTests`,
+  `WireVocabularyTests`; `LibraryFlowAppTests` — a fractal tile names its editor, OPEN goes there
+  with the target kept, STATE and the Eye say so, the three wire forms land where they say and the
+  air never moves, a stranger is refused, the page's tiles and the wire's catalogue are one list.
+
+### 91.3 The chip says what Patterns pushes (73.3)
+
+- **The claim.** The tech info chip told the truth about the answer (round 63: the frames drawn
+  against the rate presented and the display's refresh) and nothing about the intent.
+- **The design.** Between the sink's own pixels and the frames the chip reads "pushing 3840×2160
+  16:9 @ 50 · master 60": the contract's raster and rate when the engineer named one, else the
+  output's own pixels at the rate the sink is asked for (the screen's own, or the master's; "the
+  display's own" when nothing is asked), and the master rate ("no master rate" when every display
+  keeps its own). The viewport carries `PushSize`, `PushHz` and `MasterFps` from the output window
+  manager; the clause is intent, not a measurement, so it stays with FPS off; a pane pushes nothing
+  down any link and says nothing.
+- **Proof.** `InfoChipTests`: a contract's 4K at 50 on a 1080-line window under a master 60; no
+  contract at the master's rate; a screen's own rate over the master; the display's own with no
+  master; a fractional contract rate as the engineer writes it, with FPS off; a pane says nothing.
+
+### 91.4 Timed lower thirds (73.4)
+
+- **The claim.** A lower third was two presses — on, and off when someone remembered.
+- **The design.** A new design leaves by itself five seconds after it has arrived. The design's
+  row on the Lower thirds page carries "Leaves by itself after" and the seconds (unticked, it stays
+  until hidden and keeps its number); a saved design keeps its hold. The clock reads one hold — the
+  run's when a run named one, else the design's own when it is timed, else none — and the departure
+  it schedules is the design's own way out. The run overrides the design without touching it: `LT n
+  FOR 8` for this run (`FOR 0` or `STAY` keeps it), `LT n HOLD 8` sets the design's own hold and
+  retimes the one on air (`HOLD STAY`); OSC `/lowerthird/<n>/for`, `/stay`, `/hold`; the cue steps
+  LOWERTHIRDFOR and LOWERTHIRDHOLD, checked by the validator. Everything that shows a lower third
+  says when it goes: the panel's chip and the Run strip count "ON AIR · 3 s" down; STATE's
+  `lowerThirdTimed`, `lowerThirdLeavesIn` and `lowerThirdHoldMs`; the Eye's "leaves in 3 s";
+  Companion 3.12.0's `lower_third_for` and `lower_third_hold`, the variables and the feedback; the
+  designer's preview scrubs the same timeline.
+- **Proof.** `LowerThirdControlTests` (the default, the switch, the run override, the hold rule,
+  the seconds left, the parse rows, the cue steps), `LowerThirdTests` (Rendering),
+  `WireVocabularyTests`, `EyeTests`; `LowerThirdTimedAppTests` — a timed design counting down on
+  its chip, in STATE and in the Eye; STAY, FOR, HOLD and HOLD STAY over a run; the ERR cases.
+
+### 91.5 MIDI learn from any button (73.5)
+
+- **The claim.** The map a surface rides was there (round 27: the surface's own trigger table),
+  and the only way into it was the surface's card — LEARN, press the pad, then type what it does.
+- **The research.** `docs/MIDI-LEARN.md`: Ableton's map mode and takeover modes, Resolume's
+  shortcuts editor, QLab's Capture, vMix's Find, obs-midi, grandMA3's remotes, ProPresenter's
+  fixed table, Companion's Learn — the rules the field agrees on: target first and control second;
+  a visible armed state and a way out; a release never binds; a press binds the pad at any velocity
+  and a sweep the fader anywhere; the last mapping of a control wins and says what it replaced.
+- **The design.** Every right-click menu ends with a MIDI group whose MIDI LEARN ▸ drawer lists
+  the menu's own wire lines (the drawers' choices included); choosing one arms the desk, and the
+  next control moved on any open surface (`LearnAny`, waiting past a NOTEOFF) is bound to that line,
+  into the surface's table, saved with the show; a level verb's trailing number becomes `*` so a
+  fader sets the level while the same line on a pad sets one value. The RUN surface's GO, HOLD,
+  BLACKOUT and STOP ALL have a transport menu of their own, every entry its wire line parsed. The
+  learn is refused with the reason when the line is not a wire verb, is a question, or no surface
+  is in the show or open. One table, every reader: the menus tick a bound line, name its control and
+  offer FORGET; the Interactive page's MAPPED CONTROLS lists every binding with a ✕; `MIDI`, `MIDI
+  LEARN <line>`, `MIDI LEARN OFF` and `MIDI FORGET <line>` on the wire (a bare LEARN fails closed);
+  STATE's `midi` row; the Eye's "MIDI learning LOOK Walk-in — press a control" and a surface's node
+  counting its controls; `MENU …` carries the group with scope `learn`; Companion 3.13.0's
+  `midi_learn`, `midi_learn_off` and `midi_forget`, the variables and the `midi_learning` feedback.
+  Soft takeover, relative encoders and a mapped-controls overlay are left out on purpose.
+- **Proof.** `MidiLineTests`, `MidiBindingsTests`, `DeskMenuTests` (every menu's MIDI group, each
+  line parsing to its action, the bound line ticked and named, FORGET, the transport menu, no
+  surface / none open / a node), `WireVocabularyTests`, `EyeTests`; `MidiLearnAppTests` — the whole
+  flow on the desk: the menu arms it, a release is waited past, the press writes the row, a fader
+  learns a level with `*`, a re-learn replaces, `MIDI` reads the map, OFF, FORGET, the page's ✕, the
+  refusals, CANCEL, the page's own LEARN.
+
+### 91.6 The column that drags, and the long pages tidied (73.6)
+
+- **The claim.** The pop-out settings column (round 60's column for a cue's, a screen's or an
+  element's settings) was one width, and the Machine and Audio pages ran to screens of settings
+  the operator scrolled past to read the health lines.
+- **The design.** `DeskLayoutConfig.PopOutWidth` — 420 px by default, 300 to 720, clamped,
+  serialised with the show's desk layout (absent in an older file). `PopOutHost` wears a handle on
+  its left edge (a `Thumb` with the west-east cursor): dragging left widens the column, the page
+  column grows with it and the page keeps its own width; the window writes the width into the show
+  and lays the desk out again, so every show opens its column where it was left. The long pages
+  use it: the Machine page keeps show lock, rig day games, the watchdog's settings (RESTART APP
+  included), the beacon, the twin and the earlier versions in `MachineSettingsPanel` and stays the
+  health and performance lines with a SETTINGS ▸ row; the Audio page keeps the master clock and
+  sync check and the tone generator in `AudioSettingsPanel` and stays the lists and the routing.
+  The same ◀ CLOSE and SETTINGS ▸ manners as a selection's column; round 74's `NAV SETTINGS` opens
+  and closes it from a deck, and the refusal on a page without a column names the five that have one.
+- **Proof.** `PopOutWidthTests`: the handle drags the width, the bounds hold, the show remembers;
+  the Machine and Audio pages open their columns and keep their lines, and `NAV SETTINGS OFF` / `ON`
+  from the wire closes and opens them.
+
+### 91.7 The papers (73.7)
+
+- This section; REVIEW round 73; CHANGELOG; README; the tag table row 72. The round's papers
+  landed after round 74's code (74.2 and 74.3 were committed between 73.5 and 73.7), so the suite's
+  count in the changelog is the one at the round's last commit, round 74's tests included.
