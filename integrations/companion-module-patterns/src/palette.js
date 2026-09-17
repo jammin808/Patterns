@@ -83,6 +83,7 @@ export const STATES = {
 	take: { next: 'amber', sting: 'stingerBrown', landing: 'stingerBrown' },
 	library: { selected: 'amber' },
 	midi: { learning: 'amber' },
+	nav: { on: 'green', live: 'red', preview: 'amber', stack: 'blue', go: 'steel', ask: 'music', warn: 'orange', tile: 'lock', plain: 'dark', drawer: 'sky', level: 'steel', run: 'red', follow: 'green', desk: 'green', settings: 'amber', recording: 'red' },
 	stream: { active: 'red', trouble: 'amber' },
 	device: { open: 'green', fault: 'red' },
 	tone: { on: 'amber' },

@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.13.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.14.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.13.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.14.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,7 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.14.0** — the Navigator (round 74): the desk's rails, pages, menus and drawers on 24 slot keys (`nav_slot`, `nav_home`, `nav_back`, `nav_prev`, `nav_next`, `nav_rail`, `nav_page`, `nav_menu`, `nav_mode`, `nav_follow`, `nav_text`, `nav_refresh`), the desk's own pages turned (`nav_desk`, `nav_desk_page`), every line sent matched to its reply so a key can ask the desk a question (NAV, MENU PAGE Looks, MENU LOOK Walk-in), the build verbs (a look saved, a cue added, a preset saved, a design made) from the keys with `nav_text` for the words, Companion's Action Recorder fed by the desk (RECORD ON / OFF — what the desk does comes back as the line that reproduces it), LEARN on the raw line (the desk's next action becomes the key's line), Stream Deck + knobs stepping the audio and break-music levels (`audio_level_step`, `music_level_step`), `nav_*` and `desk_*` variables and feedbacks, a Navigator section with the rails and pages from the desk's own table.
 - **3.13.0** — MIDI learn on the deck (round 73): `midi_learn` arms the desk for a wire line (the next control moved on any open surface is bound to it, saved with the show), `midi_learn_off` cancels, `midi_forget` unbinds every control bound to a line; `midi_learning`, `midi_bindings`, `midi_surfaces` and `midi_words` variables; a `midi_learning` feedback (amber while a learn waits, for any line or one carrying a word).
 - **3.12.0** — the Library on the deck (round 73): a `library` action puts a tile (a factory pattern, a file, a
   saved page, a preset, a brand kit) on the desk's editing target's preview, the programme's, or a screen's —

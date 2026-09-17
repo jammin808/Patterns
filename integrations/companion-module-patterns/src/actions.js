@@ -2,7 +2,7 @@
 // carry since 1.0 — 'go' and 'stop' are still the outputs' transport, GO is the cue stack's — and
 // the lines are the ones docs/REMOTE.md lists, which a test on the desk's side parses one by one.
 //
-// ctx: { send(line), log(level, text), state(), standbyId(), upcoming() }
+// ctx: { send(line), ask(line), log(level, text), state(), standbyId(), upcoming(), nav(), recording(), nextAction(signal) }
 
 const onOff = (id = 'mode', def = 'TOGGLE') => ({
 	type: 'dropdown', id, label: 'Mode', default: def,
@@ -651,11 +651,79 @@ export function buildActions(ctx) {
 			],
 			callback: (a) => send(a.options.mode === 'SHOW' ? `PLAY SHOW ${a.options.show}` : `PLAY ${a.options.mode}`),
 		},
-		// The escape hatch: a line as docs/REMOTE.md spells it, for a verb the module has no key for yet.
+		// The escape hatch: a line as docs/REMOTE.md spells it, for a verb the module has no key for yet. Round 74: LEARN
+		// fills it from what the desk does next — press the look, the cue, the pad on the desk, and the line is here.
 		raw: {
-			name: 'A line of your own on the wire (docs/REMOTE.md)',
+			name: 'A line of your own on the wire (docs/REMOTE.md) — LEARN takes the desk\'s next action as the line',
 			options: [text('line', 'The line — SCREEN 3 ROLE confidence, CALIBRATE STATUS, ALIGN NUDGE 2 0', 'PING')],
 			callback: (a) => { const l = clean(a.options.line); if (l) send(l) },
+			learn: async (a, c) => { const line = await ctx.nextAction?.(c?.signal); return line ? { line } : undefined },
+			learnTimeout: 30_000,
+		},
+		// ---- round 74: the Navigator — the desk's rails, pages, menus and drawers on the slot keys ----------------------
+		nav_slot: {
+			name: 'Navigator — the slot key n: a rail, a page, a thing (its menu, or its line in RUN mode), a drawer, a build verb',
+			options: [{ type: 'number', id: 'n', label: 'Slot (1–24)', default: 1, min: 1, max: 24 }],
+			callback: async (a) => { try { await ctx.nav().press(a.options.n) } catch (e) { ctx.log('warn', `Navigator: ${e.message}`) } },
+		},
+		nav_home: { name: 'Navigator — HOME: the rails', options: [], callback: () => ctx.nav().home() },
+		nav_back: { name: 'Navigator — BACK: the level before', options: [], callback: async () => { try { await ctx.nav().back() } catch (e) { ctx.log('warn', `Navigator: ${e.message}`) } } },
+		nav_next: { name: 'Navigator — NEXT: the next keys of this level', options: [], callback: () => ctx.nav().next() },
+		nav_prev: { name: 'Navigator — PREV: the keys before', options: [], callback: () => ctx.nav().prev() },
+		nav_rail: {
+			name: 'Navigator — a rail\'s pages on the keys',
+			options: [{ type: 'dropdown', id: 'rail', label: 'Rail', default: 'PLAN', choices: ['SHOW', 'PLAN', 'BUILD', 'SETUP', 'ADMIN'].map((r) => ({ id: r, label: r })) }],
+			callback: (a) => ctx.nav().openRail(a.options.rail),
+		},
+		nav_page: {
+			name: 'Navigator — a page\'s own menu on the keys (its looks, cues, designs, screens, its build verbs)',
+			options: [text('page', 'The page — Cues, Looks, Lower thirds, Screens, Pattern, Audio…', 'Looks')],
+			callback: async (a) => { const pg = clean(a.options.page); if (!pg) return; try { await ctx.nav().openPage(pg) } catch (e) { ctx.log('warn', `Navigator: ${e.message}`) } },
+		},
+		nav_menu: {
+			name: 'Navigator — a thing\'s own menu on the keys (MENU LOOK Walk-in, MENU CUE 03.020, MENU SCREEN 2, MENU LT Neon…)',
+			options: [text('words', 'The words after MENU', 'LOOK Walk-in')],
+			callback: async (a) => { const w = clean(a.options.words); if (!w) return; try { await ctx.nav().openMenu(w) } catch (e) { ctx.log('warn', `Navigator: ${e.message}`) } },
+		},
+		nav_mode: {
+			name: 'Navigator — MENU mode (a thing\'s key opens its menu) or RUN mode (a thing\'s key fires its line)',
+			options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'MENU', label: 'Menu' }, { id: 'RUN', label: 'Run' }] }],
+			callback: (a) => ctx.nav().setMode(a.options.mode),
+		},
+		nav_follow: {
+			name: 'Navigator — FOLLOW: the deck turns the desk\'s pages and the desk\'s page turns the deck',
+			options: [onOff('mode', 'TOGGLE')],
+			callback: (a) => ctx.nav().setFollow(a.options.mode),
+		},
+		nav_text: {
+			name: 'Navigator — the words a text-taking key uses (LOOK SAVE …, CUE ADD …, PRESET SAVE …, LT NEW …)',
+			options: [text('words', 'The words', '')],
+			callback: (a) => ctx.nav().setText(a.options.words),
+		},
+		nav_refresh: { name: 'Navigator — ask the desk for this level again', options: [], callback: async () => { try { await ctx.nav().refresh() } catch (e) { ctx.log('warn', `Navigator: ${e.message}`) } } },
+		nav_desk: {
+			name: 'The desk\'s own pages — HOME (the panel), BACK, the settings column beside the page',
+			options: [{ type: 'dropdown', id: 'mode', label: 'Do', default: 'BACK', choices: [
+				{ id: 'HOME', label: 'HOME — the show panel' }, { id: 'BACK', label: 'BACK — the page before' },
+				{ id: 'SETTINGS TOGGLE', label: 'Settings column — open or close' }, { id: 'SETTINGS ON', label: 'Settings column — open' }, { id: 'SETTINGS OFF', label: 'Settings column — close' },
+			] }],
+			callback: (a) => send(`NAV ${a.options.mode}`),
+		},
+		nav_desk_page: {
+			name: 'The desk\'s own pages — go to a page, and select a thing there (a cue by number, a look, a screen, a design)',
+			options: [text('page', 'The page — Cues, Looks, Screens, Lower thirds, Pattern…', 'Cues'), text('item', 'The thing to select there (or empty)', '')],
+			callback: (a) => { const pg = clean(a.options.page); if (!pg) return; const it = clean(a.options.item); send(it ? `NAV ${pg} ${it}` : `NAV ${pg}`) },
+		},
+		// ---- round 74: the encoders — a Stream Deck + knob steps a level from where the desk has it ----------------
+		audio_level_step: {
+			name: 'Audio playlist level — a step up or down from where it is (a knob)',
+			options: [{ type: 'number', id: 'delta', label: 'Step (percent, negative down)', default: 5, min: -50, max: 50 }],
+			callback: (a) => { const now = Number(ctx.state().audio?.level ?? 100); const next = Math.max(0, Math.min(125, Math.round(now + Number(a.options.delta)))); send(`AUDIO VOL ${next}`) },
+		},
+		music_level_step: {
+			name: 'Break music level — a step up or down from where it is (a knob)',
+			options: [{ type: 'number', id: 'delta', label: 'Step (percent, negative down)', default: 5, min: -50, max: 50 }],
+			callback: (a) => { const now = Number(ctx.state().music?.level ?? 60); const next = Math.max(0, Math.min(100, Math.round(now + Number(a.options.delta)))); send(`MUSIC VOL ${next}`) },
 		},
 	}
 }

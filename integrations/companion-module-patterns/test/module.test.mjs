@@ -11,6 +11,7 @@ import { variableValues, emptyState } from '../src/state.js'
 import { connectionTarget, configFields, GROUPS } from '../src/config.js'
 import { COLOURS, STATES, style } from '../src/palette.js'
 import { MODULE_VERSION, pairingToken, trustProblem } from '../src/main.js'
+import { NAV_SLOTS } from '../src/nav.js'
 
 const manifest = JSON.parse(readFileSync(new URL('../companion/manifest.json', import.meta.url), 'utf8'))
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -82,7 +83,7 @@ test('every variable a key can read is declared, and every declared variable is 
 	const declared = new Set(Object.keys(variableDefinitions()))
 	const written = new Set(Object.keys(variableValues(sampleState())))
 	for (const id of written) assert.ok(declared.has(id), `${id} is written but not declared`)
-	for (const id of declared) assert.ok(written.has(id) || id === 'last_error', `${id} is declared but never written`)
+	for (const id of declared) assert.ok(written.has(id) || id === 'last_error' || id === 'last_action', `${id} is declared but never written`)   // the two written on their own lines, not from a STATE
 	const empty = Object.keys(variableValues(emptyState()))
 	assert.deepEqual(empty.sort(), [...written].sort(), 'an empty state writes the same ids as a full one')
 })
@@ -413,4 +414,138 @@ test("round 69 — the sound follows the picture on the deck: SCREEN n AUDIO and
 	assert.ok(b.ctx.presets.audio_follow, 'the Audio page has the FOLLOW key')
 	assert.deepEqual(style('audio', 'follow'), style('overlay', 'on'))
 	assert.deepEqual(style('screen', 'sound'), style('audio', 'playing'))
+})
+
+const tick = () => new Promise((resolve) => setImmediate(resolve))
+
+test('round 74 — the Navigator on the deck: every line matched to its reply, NAV asked on connect, the rails and pages laid on the keys and turned into presets, a page asked of the desk and laid out, the deck saying where it is', async () => {
+	const b = await boot()
+	// HELLO and NAV go out on connect; the desk answers every line in order, and the FIFO hands each reply to the line that asked.
+	assert.deepEqual(b.lines().slice(0, 2), [`HELLO FOH deck module=${MODULE_VERSION}`, 'NAV'])
+	assert.equal(b.ctx.variables.nav_level, 'rails')
+	assert.equal(b.ctx.variables.nav_slot_1, 'SHOW') // the built-in rails until the desk answers
+	const navReply = { rails: [{ id: 'Plan', label: 'PLAN', hue: '#6E9BFF', pages: ['Cues', 'Looks'] }], pages: [{ header: 'Cues', rail: 'Plan', hue: '#6E9BFF', settings: true }, { header: 'Looks', rail: 'Plan', hue: '#6E9BFF', settings: false }], desk: { page: 'Cues', rail: 'PLAN', run: false } }
+	b.socket.receive('OK\nOK ' + JSON.stringify(navReply) + '\n') // HELLO's reply, then NAV's
+	await tick()
+	assert.equal(b.lines().at(-1), 'NAV DECK RAILS') // the deck says where it is as soon as it knows the desk's table
+	b.socket.receive('OK at RAILS\n')
+	assert.deepEqual(b.inst.navInfo.rails.map((r) => r.label), ['PLAN'])
+	assert.equal(b.ctx.variables.nav_slot_1, 'PLAN') // the desk's own table replaced the built-in one
+	assert.ok(b.ctx.presets.nav_rail_Plan, 'a rail key from the desk\'s table')
+	assert.ok(b.ctx.presets.nav_page_Looks, 'a page key from the desk\'s table')
+	assert.ok(!b.ctx.presets.nav_page_Panel, 'no key for a page the desk did not list')
+	assert.equal(b.ctx.presets.nav_page_Looks.style.bgcolor, 0x6e9bff)
+	// A rail's pages on the keys, and the deck tells the desk where it is (the desk answers every line, in order).
+	assert.deepEqual(pressAction(b, 'nav_rail', { rail: 'PLAN' }), ['NAV DECK PLAN'])
+	b.socket.receive('OK at PLAN\n')
+	assert.deepEqual([b.ctx.variables.nav_slot_1, b.ctx.variables.nav_slot_2, b.ctx.variables.nav_slot_3], ['Cues', 'Looks', ''])
+	assert.equal(askFeedback(b, 'nav_slot_on', { n: 1 }), true) // the desk is on Cues
+	assert.equal(askFeedback(b, 'nav_slot_empty', { n: 3 }), true)
+	assert.equal(askFeedback(b, 'nav_level_is', { level: 'pages' }), true)
+	// A page asks the desk for its menu; the reply lays the keys out with tones and ticks; the desk hears where the deck is.
+	assert.deepEqual(pressAction(b, 'nav_page', { page: 'Looks' }), ['MENU PAGE Looks'])
+	const looks = { kind: 'page', subject: 'Looks', title: 'LOOKS', subtitle: '', tone: 'go', hue: '', groups: [
+		{ heading: 'LOOKS', tone: 'live', note: '', entries: [
+			{ id: 'look:L1', text: 'Walk-in', detail: '', scope: 'live', tone: 'live', wire: 'LOOK Walk-in', menu: 'LOOK Walk-in', takesText: false, because: '', on: true, enabled: true, page: '', item: '', question: '', children: [] },
+			{ id: 'look:L2', text: 'Keynote', detail: '', scope: 'live', tone: 'live', wire: 'LOOK Keynote', menu: 'LOOK Keynote', takesText: false, because: '', on: false, enabled: true, page: '', item: '', question: '', children: [] },
+		] },
+		{ heading: 'BUILD', tone: 'stack', note: '', entries: [{ id: 'build.look.save', text: 'Save the preview as a look…', detail: 'A name', scope: 'stack', tone: 'stack', wire: 'LOOK SAVE *', menu: '', takesText: true, because: '', on: false, enabled: true, page: '', item: '', question: '', children: [] }] },
+	] }
+	b.socket.receive('OK ' + JSON.stringify(looks) + '\n')
+	await tick()
+	b.socket.receive('OK at PLAN › Looks\n')
+	assert.equal(b.ctx.variables.nav_level, 'page')
+	assert.equal(b.ctx.variables.nav_title, 'LOOKS')
+	assert.equal(b.ctx.variables.nav_where, 'PLAN › Looks')
+	assert.equal(b.ctx.variables.nav_slot_1, 'Walk-in')
+	assert.equal(b.ctx.variables.nav_slot_3, 'Save the preview as a look… …')
+	assert.equal(b.lines().at(-1), 'NAV DECK PLAN › Looks')
+	assert.equal(askFeedback(b, 'nav_slot_on', { n: 1 }), true)
+	assert.equal(askFeedback(b, 'nav_slot_tone_is', { n: 1, tone: 'live' }), true)
+	assert.equal(askFeedback(b, 'nav_slot_tone_is', { n: 3, tone: 'stack' }), true)
+	// In MENU mode a look's key asks for the look's own menu; in RUN mode it fires the line and the page is asked again.
+	assert.deepEqual(pressAction(b, 'nav_slot', { n: 1 }), ['MENU LOOK Walk-in'])
+	b.socket.receive('ERR no look\n') // refused: the keys stay on the page
+	await tick()
+	assert.equal(b.ctx.variables.nav_level, 'page')
+	pressAction(b, 'nav_mode', { mode: 'RUN' })
+	assert.equal(b.ctx.variables.nav_mode, 'RUN')
+	assert.equal(askFeedback(b, 'nav_mode_run', {}), true)
+	assert.deepEqual(pressAction(b, 'nav_slot', { n: 2 }), ['LOOK Keynote'])
+	b.socket.receive('OK\n')
+	await tick()
+	assert.equal(b.lines().at(-1), 'MENU PAGE Looks')
+	b.socket.receive('OK ' + JSON.stringify(looks) + '\n')
+	await tick()
+	// A text-taking key: the words first, then the line with them, and the desk's answer on the title key.
+	assert.deepEqual(pressAction(b, 'nav_slot', { n: 3 }), [])
+	assert.equal(b.ctx.variables.nav_reply, 'Type the words first (NAV TEXT)')
+	pressAction(b, 'nav_text', { words: 'Doors' })
+	assert.deepEqual(pressAction(b, 'nav_slot', { n: 3 }), ['LOOK SAVE Doors'])
+	b.socket.receive("OK Look 'Doors' saved from the preview — 3 in the show.\n")
+	await tick()
+	assert.match(b.ctx.variables.nav_reply, /Doors/)
+	b.socket.receive('OK ' + JSON.stringify(looks) + '\n') // the page asked again after the save
+	await tick()
+	// The desk's own pages from a plain key, spelt as the desk parses them.
+	assert.deepEqual(pressAction(b, 'nav_desk', { mode: 'SETTINGS TOGGLE' }), ['NAV SETTINGS TOGGLE'])
+	assert.deepEqual(pressAction(b, 'nav_desk', { mode: 'HOME' }), ['NAV HOME'])
+	assert.deepEqual(pressAction(b, 'nav_desk_page', { page: 'Cues', item: '03.020' }), ['NAV Cues 03.020'])
+	assert.deepEqual(pressAction(b, 'nav_desk_page', { page: ' Looks ', item: '' }), ['NAV Looks'])
+	// Where the desk is, from STATE: variables and feedbacks.
+	const v = variableValues(sampleState())
+	assert.equal(v.desk_page, 'Cues')
+	assert.equal(v.desk_rail, 'PLAN')
+	assert.equal(v.desk_settings, 'SELECTED CUE · 01.020 Keynote')
+	assert.equal(v.desk_back, 'Panel')
+	assert.equal(v.desk_decks, 'FOH deck — PLAN › Cues')
+	assert.equal(v.audio_level, '100')
+	assert.equal(askFeedback(b, 'nav_page_is', { page: 'cues' }), true)
+	assert.equal(askFeedback(b, 'nav_rail_is', { rail: 'PLAN' }), true)
+	assert.equal(askFeedback(b, 'nav_settings_open', {}), true)
+	// The Navigator's keys are presets, all 24 slots and the eight around them.
+	for (let n = 1; n <= NAV_SLOTS; n++) assert.ok(b.ctx.presets[`nav_slot_${n}`], `slot ${n}`)
+	for (const id of ['nav_home', 'nav_back', 'nav_prev', 'nav_next', 'nav_mode', 'nav_follow', 'nav_settings', 'nav_title']) assert.ok(b.ctx.presets[id], id)
+})
+
+test('round 74 — the recorder and learn: RECORD ON / OFF as Companion opens and closes its recorder, every ACTION line into the button being recorded, a raw key learning its line from the desk\'s next action; the knobs step the levels from where the desk has them', async () => {
+	const b = await boot()
+	b.inst.handleStartStopRecordActions(true)
+	assert.equal(b.lines().at(-1), 'RECORD ON')
+	assert.equal(askFeedback(b, 'nav_recording', {}), true)
+	b.socket.receive('OK recording\nACTION LOOK Walk-in\nACTION CUE HOLD ON\n')
+	await tick()
+	assert.deepEqual(b.ctx.recorded.map((r) => [r.actionId, r.options.line, r.uniquenessId]), [['raw', 'LOOK Walk-in', 'LOOK Walk-in'], ['raw', 'CUE HOLD ON', 'CUE HOLD ON']])
+	assert.equal(b.ctx.variables.last_action, 'CUE HOLD ON')
+	b.inst.handleStartStopRecordActions(false)
+	assert.equal(b.lines().at(-1), 'RECORD OFF')
+	assert.equal(askFeedback(b, 'nav_recording', {}), false)
+	b.socket.receive('ACTION LOOK Keynote\n') // not recording: nothing goes into a button
+	await tick()
+	assert.equal(b.ctx.recorded.length, 2)
+	// LEARN on a raw key: the desk records for the moment, the next action is the key's line, and the recording stops again.
+	const before = b.lines().length
+	const learned = b.ctx.actions.raw.learn({ id: 'a', controlId: 'c', actionId: 'raw', options: { line: 'PING' } }, { signal: new AbortController().signal })
+	assert.equal(b.lines().at(-1), 'RECORD ON')
+	b.socket.receive('ACTION STING Whoosh\n')
+	assert.deepEqual(await learned, { line: 'STING Whoosh' })
+	assert.deepEqual(b.lines().slice(before), ['RECORD ON', 'RECORD OFF'])
+	// An abandoned learn stops the recording too and learns nothing.
+	const abort = new AbortController()
+	const abandoned = b.ctx.actions.raw.learn({ id: 'a', controlId: 'c', actionId: 'raw', options: { line: 'PING' } }, { signal: abort.signal })
+	abort.abort()
+	assert.equal(await abandoned, undefined)
+	assert.equal(b.lines().at(-1), 'RECORD OFF')
+	// The knobs: a step from the level the desk reports, clamped to the verb's range.
+	assert.deepEqual(pressAction(b, 'audio_level_step', { delta: 5 }), ['AUDIO VOL 105'])
+	assert.deepEqual(pressAction(b, 'audio_level_step', { delta: 50 }), ['AUDIO VOL 125'])
+	assert.deepEqual(pressAction(b, 'music_level_step', { delta: -5 }), ['MUSIC VOL 55'])
+	assert.deepEqual(pressAction(b, 'music_level_step', { delta: 50 }), ['MUSIC VOL 100'])
+	assert.ok(b.ctx.presets.audio_level_knob.steps[0].rotate_left, 'the knob preset turns')
+	assert.equal(b.ctx.presets.audio_level_knob.steps[0].rotate_right[0].actionId, 'audio_level_step')
+	// A dropped link rejects what was waiting and forgets where the deck was.
+	pressAction(b, 'nav_page', { page: 'Looks' })
+	b.socket.emit('status_change', InstanceStatus.Disconnected, 'gone')
+	await tick()
+	assert.equal(b.inst.pending.length, 0)
 })

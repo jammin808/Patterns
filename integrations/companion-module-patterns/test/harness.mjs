@@ -27,7 +27,7 @@ export function fakeContext(label = 'FOH deck') {
 		id: 'patterns-1',
 		label,
 		_isInstanceContext: true,
-		actions: {}, feedbacks: {}, variableDefs: {}, variables: {}, structure: [], presets: {}, statuses: [], checks: 0, checked: [],
+		actions: {}, feedbacks: {}, variableDefs: {}, variables: {}, structure: [], presets: {}, statuses: [], checks: 0, checked: [], recorded: [],
 		setActionDefinitions(a) { ctx.actions = a },
 		setFeedbackDefinitions(f) { ctx.feedbacks = f },
 		setVariableDefinitions(v) { ctx.variableDefs = v },
@@ -39,7 +39,7 @@ export function fakeContext(label = 'FOH deck') {
 		checkFeedbacksById() {},
 		getVariableValue(id) { return ctx.variables[id] },
 		updateStatus(status, message) { ctx.statuses.push({ status, message }) },
-		saveConfig() {}, oscSend() {}, recordAction() {}, subscribeActions() {}, unsubscribeActions() {}, unsubscribeFeedbacks() {},
+		saveConfig() {}, oscSend() {}, recordAction(action, uniquenessId) { ctx.recorded.push({ ...action, uniquenessId }) }, subscribeActions() {}, unsubscribeActions() {}, unsubscribeFeedbacks() {},
 	}
 	return ctx
 }

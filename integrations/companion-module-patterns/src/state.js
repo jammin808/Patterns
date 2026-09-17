@@ -4,6 +4,8 @@
 // Companion — it is the part the tests read straight.
 
 /** A pattern kind as typed by a person against a pattern kind as the desk names it: "colour bars", "color_bars" and "ColorBars" are one key. */
+import { navVariableDefaults } from './nav.js'
+
 export const norm = (v) => String(v ?? '').replace(/[\s_-]/g, '').toLowerCase()
 
 /** The state before the desk has said anything, and after the link drops: no key stays lit. */
@@ -106,6 +108,7 @@ export function stagePhase(s) {
 
 /** Every variable value from one STATE. Missing blocks read as their defaults, so an older desk never breaks a key. */
 export function variableValues(s) {
+	const navDefaults = navVariableDefaults()
 	const p = s.presenter ?? { index: -1, count: 0 }
 	const c = s.cuestack ?? {}
 	const ov = s.overlays ?? {}
@@ -113,6 +116,7 @@ export function variableValues(s) {
 	const stage = s.stage ?? {}
 	const nodes = s.nodes ?? []
 	return {
+		...navDefaults,
 		program: s.airLabel ?? '',
 		cue_armed: c.armed ? 'ARMED' : 'off',
 		cue_hold: c.hold ? 'HOLD' : 'off',
@@ -146,6 +150,13 @@ export function variableValues(s) {
 		midi_bindings: String(s.midi?.count ?? 0),
 		midi_surfaces: (s.midi?.surfaces ?? []).map((x) => (x.open ? `${x.name} (open)` : x.name)).join(' · '),
 		midi_words: s.midi?.words ?? '',
+		desk_page: s.nav?.run ? 'Run' : s.nav?.page ?? '',
+		desk_rail: s.nav?.rail ?? '',
+		desk_settings: s.nav?.settings?.open ? s.nav.settings.title ?? '' : '',
+		desk_back: s.nav?.back ?? '',
+		desk_selection: s.nav?.selection ?? '',
+		desk_where: s.nav?.words ?? '',
+		desk_decks: (s.decks ?? []).map((d) => (d.where ? `${d.name} — ${d.where}` : d.name)).join(' · '),
 		look_state: (s.airLook ?? '') === '' ? 'off' : s.lookEdited ? 'EDITED' : 'LIVE',
 		look_screens_off: String(s.lookScreensOff ?? 0),
 		stream_status: s.stream?.status ?? '',
@@ -177,6 +188,7 @@ export function variableValues(s) {
 		audio_position: s.audio?.positionText ?? '',
 		audio_remaining: s.audio?.remainingText ?? '',
 		audio_state: s.audio?.playing ? 'PLAYING' : 'stopped',
+		audio_level: String(s.audio?.level ?? 100),
 		web_page: s.web?.page ?? '',
 		web_title: s.web?.title ?? '',
 		web_service: s.web?.service ?? '',

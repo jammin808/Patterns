@@ -85,6 +85,7 @@ export function variableDefinitions() {
 		audio_position: 'Audio playlist — where the track is (m:ss)',
 		audio_remaining: 'Audio playlist — what is left of the track (m:ss)',
 		audio_state: 'Audio playlist (PLAYING / stopped)',
+		audio_level: 'Audio playlist — the level (0–125 %), what the knob steps from (round 74)',
 		program: 'What is on air, by name',
 		cue_armed: 'Cue stack armed (ARMED/off)',
 		cue_hold: 'Cue stack HOLD (HOLD/off)',
@@ -202,7 +203,35 @@ export function variableDefinitions() {
 		stage_next: 'The running order — the cue next',
 		stage_pending: "The speaker's stage page — a message waiting for its ACK, or empty",
 		stage_pending_crew: "The crew's stage page — a message waiting for its ACK, or empty",
+		// Round 74: where the desk is, and the Navigator's keys.
+		desk_page: "The desk — the page it is on (Run while the Run surface is up)",
+		desk_rail: 'The desk — the rail of its page (SHOW, PLAN, BUILD, SETUP, ADMIN)',
+		desk_settings: "The desk — the settings column's title while it is open, or empty",
+		desk_back: 'The desk — the page BACK returns to, or empty',
+		desk_selection: 'The desk — the thing selected on its page, in words, or empty',
+		desk_where: 'The desk — where it is, in one line',
+		desk_decks: "The decks — each deck's name and where its navigator is",
+		last_action: 'The last action the desk did while this connection was recording, as the line that reproduces it',
+		nav_level: 'Navigator — rails, pages, page, menu or drawer',
+		nav_rail: 'Navigator — the rail on the keys',
+		nav_page: 'Navigator — the page on the keys',
+		nav_menu: "Navigator — the thing's menu on the keys (the words after MENU)",
+		nav_title: 'Navigator — the title of this level',
+		nav_where: 'Navigator — where the keys are, as crumbs (what the desk\'s Remote page shows for this deck)',
+		nav_range: 'Navigator — "1–24 of 40" when the level has more entries than keys, or empty',
+		nav_count: 'Navigator — how many entries this level has',
+		nav_mode: 'Navigator — MENU or RUN',
+		nav_follow: 'Navigator — FOLLOW or off',
+		nav_text: 'Navigator — the words the next text-taking key uses',
+		nav_reply: "Navigator — the desk's answer to the last key pressed",
+		nav_pages: "Navigator — the rail's pages, in one line",
 	})
+	for (let n = 1; n <= 24; n++) {
+		v[`nav_slot_${n}`] = `Navigator — slot ${n}: its words (▸ a drawer, … takes a text; empty with nothing on it)`
+		v[`nav_slot_${n}_wire`] = `Navigator — slot ${n}: the line it sends`
+		v[`nav_slot_${n}_detail`] = `Navigator — slot ${n}: its detail, or why it cannot be chosen`
+		v[`nav_slot_${n}_group`] = `Navigator — slot ${n}: the group it sits in`
+	}
 	const out = {}
 	for (const [id, name] of Object.entries(v)) out[id] = { name }
 	return out

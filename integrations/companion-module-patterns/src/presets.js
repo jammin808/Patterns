@@ -7,6 +7,7 @@
 // (the section it sits in). structure(categories, enabled) turns the categories into the sections.
 import { COLOURS, rgb, idle, on, style, empty as emptyStyle } from './palette.js'
 import { upcoming } from './state.js'
+import { DEFAULT_RAILS, NAV_SLOTS } from './nav.js'
 
 const white = rgb(COLOURS.white)
 const dark = rgb(COLOURS.dark)
@@ -31,6 +32,7 @@ export const CATEGORY_ORDER = [
 	'Stingers', 'Stingers — this show', 'VOG', 'VOGs — this show',
 	'Audio', 'Audio playlist — this show', 'Break music', 'Break music — this show', 'Playlist parts', 'Playlist parts — this show',
 	'Clock', 'Countdown', 'Message', 'Overlays', 'Stage', 'Nodes', 'Twin', 'Install', 'Eye',
+	'Navigator', 'Navigator — rails', 'Navigator — pages', 'Encoders',
 ]
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
@@ -326,6 +328,71 @@ export function buildPresets() {
 	} }
 	add('showlock', key('Transport', 'SHOW LOCK — the machine held for the show (notifications, sounds, sleep, the Windows key)', 'SHOW\nLOCK', '14', press('showlock', { mode: 'ON' })))
 
+	buildNavigatorPresets(add)   // round 74
+
+	const presets = {}
+	const categories = {}
+	for (const [id, { category, preset }] of Object.entries(out)) {
+		presets[id] = preset
+		categories[id] = category
+	}
+	return { presets, categories }
+}
+
+/** Round 74: the Navigator's fixed keys — the eight around the slots, the slots themselves, and the encoders. */
+export function buildNavigatorPresets(add) {
+	add('nav_home', key('Navigator', 'HOME — the rails on the keys', 'HOME\n$(patterns:nav_level)', '14', press('nav_home'), [litAs('nav_level_is', { level: 'rails' }, 'nav', 'level')]))
+	add('nav_back', key('Navigator', 'BACK — the level before', '◀ BACK', '14', press('nav_back')))
+	add('nav_prev', key('Navigator', 'PREV — the keys before, when a level has more entries than keys', 'PREV\n$(patterns:nav_range)', 'auto', press('nav_prev')))
+	add('nav_next', key('Navigator', 'NEXT — the next keys of this level', 'NEXT ▶\n$(patterns:nav_range)', 'auto', press('nav_next')))
+	add('nav_mode', key('Navigator', "MODE — MENU (a thing's key opens its menu) or RUN (it fires its line)", 'MODE\n$(patterns:nav_mode)', 'auto', press('nav_mode', { mode: 'TOGGLE' }), [litAs('nav_mode_run', {}, 'nav', 'run')]))
+	add('nav_follow', key('Navigator', "FOLLOW — the deck and the desk turn each other's pages", 'FOLLOW\n$(patterns:nav_follow)', 'auto', press('nav_follow', { mode: 'TOGGLE' }), [litAs('nav_follow_on', {}, 'nav', 'follow')]))
+	add('nav_settings', key('Navigator', "SETTINGS — the column beside the desk's page, open or closed", 'SETTINGS\nCOLUMN', 'auto', press('nav_desk', { mode: 'SETTINGS TOGGLE' }), [litAs('nav_settings_open', {}, 'nav', 'settings')]))
+	add('nav_title', key('Navigator', "The title of this level — where the keys are, and the desk's last answer; press to ask again", '$(patterns:nav_title)\n$(patterns:nav_reply)', 'auto', press('nav_refresh'), [litAs('nav_recording', {}, 'nav', 'recording')]))
+	add('nav_desk_where', key('Navigator', 'Where the desk is — its page, its column, its selection; press: the desk goes BACK a page', 'DESK\n$(patterns:desk_page)\n$(patterns:desk_selection)', 'auto', press('nav_desk', { mode: 'BACK' }), [litAs('nav_settings_open', {}, 'nav', 'settings')]))
+	for (let n = 1; n <= NAV_SLOTS; n++) {
+		add(`nav_slot_${n}`, key('Navigator', `Slot ${n} — a rail, a page, a thing, a drawer or a build verb, as the level lays it out`, `$(patterns:nav_slot_${n})`, 'auto', press('nav_slot', { n }), [
+			// The tones first, the tick after (it wins when both hold), the drawer, then the dims.
+			litAs('nav_slot_tone_is', { n, tone: 'live' }, 'nav', 'live'), litAs('nav_slot_tone_is', { n, tone: 'preview' }, 'nav', 'preview'),
+			litAs('nav_slot_tone_is', { n, tone: 'stack' }, 'nav', 'stack'), litAs('nav_slot_tone_is', { n, tone: 'go' }, 'nav', 'go'),
+			litAs('nav_slot_tone_is', { n, tone: 'ask' }, 'nav', 'ask'), litAs('nav_slot_tone_is', { n, tone: 'warn' }, 'nav', 'warn'), litAs('nav_slot_tone_is', { n, tone: 'tile' }, 'nav', 'tile'),
+			litAs('nav_slot_on', { n }, 'nav', 'on'), litAs('nav_slot_drawer', { n }, 'nav', 'drawer'),
+			{ feedbackId: 'nav_slot_disabled', options: { n }, style: emptyStyle() }, { feedbackId: 'nav_slot_empty', options: { n }, style: emptyStyle() },
+		]))
+	}
+	add('audio_level_knob', {
+		category: 'Encoders',
+		preset: {
+			type: 'simple', name: 'Audio playlist level — turn the knob (a Stream Deck +); press: STOP ALL',
+			style: { text: 'AUDIO\n$(patterns:audio_level) %', size: 'auto', ...idle() },
+			steps: [{ down: press('stop_all'), up: [], rotate_left: press('audio_level_step', { delta: -5 }), rotate_right: press('audio_level_step', { delta: 5 }) }],
+			feedbacks: [litAs('audio_playing', {}, 'audio', 'playing')],
+		},
+	})
+	add('music_level_knob', {
+		category: 'Encoders',
+		preset: {
+			type: 'simple', name: 'Break music level — turn the knob (a Stream Deck +); press: STOP ALL',
+			style: { text: 'MUSIC\n$(patterns:music_level) %', size: 'auto', ...idle() },
+			steps: [{ down: press('stop_all'), up: [], rotate_left: press('music_level_step', { delta: -5 }), rotate_right: press('music_level_step', { delta: 5 }) }],
+			feedbacks: [litAs('music_playing', {}, 'music', 'playing')],
+		},
+	})
+}
+
+/** Round 74: the rails and the pages as keys, from the desk's own table (the reply to NAV); the built-in table until it comes. */
+export function buildNavPresets(nav) {
+	const out = {}
+	const add = (id, built) => { out[id] = built }
+	const safe = (text) => String(text ?? '').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40)
+	const rails = Array.isArray(nav?.rails) && nav.rails.length > 0 ? nav.rails : DEFAULT_RAILS
+	const hex = (hue) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hue ?? '')); return m ? parseInt(m[1], 16) : rgb(COLOURS.dark) }
+	for (const r of rails) {
+		add(`nav_rail_${safe(r.id)}`, key('Navigator — rails', `${r.label} — the rail's pages on the keys`, r.label, '14', press('nav_rail', { rail: r.label }), [litAs('nav_rail_is', { rail: r.label }, 'nav', 'desk')], { bgcolor: hex(r.hue), color: ink }))
+		for (const header of r.pages ?? []) {
+			add(`nav_page_${safe(header)}`, key('Navigator — pages', `${header} — the page's own menu on the keys`, header, 'auto', press('nav_page', { page: header }), [litAs('nav_page_is', { page: header }, 'nav', 'desk')], { bgcolor: hex(r.hue), color: ink }))
+		}
+	}
 	const presets = {}
 	const categories = {}
 	for (const [id, { category, preset }] of Object.entries(out)) {

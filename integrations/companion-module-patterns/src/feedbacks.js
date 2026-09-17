@@ -2,7 +2,7 @@
 // so a look on air is the same green on every key that says so, and a thing in its preview state
 // the same amber. ctx: { state() }
 import { norm, bankName } from './state.js'
-import { style, empty } from './palette.js'
+import { style, empty as emptyStyle } from './palette.js'
 
 const screenN = { type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }
 const named = (id, label, def = '') => ({ type: 'textinput', id, label, default: def })
@@ -89,7 +89,7 @@ export function buildFeedbacks(ctx) {
 			return on !== '' && (!fb.options.name || on === fb.options.name)
 		}),
 		// A bank key with nothing behind it dims, so a page of sixteen look keys shows only the looks the show has.
-		slot_empty: bool('Bank key has nothing behind it (dim the key)', empty(), [
+		slot_empty: bool('Bank key has nothing behind it (dim the key)', emptyStyle(), [
 			{ type: 'dropdown', id: 'kind', label: 'Bank', default: 'look', choices: [
 				{ id: 'look', label: 'Looks by place' }, { id: 'look_f', label: 'Looks by F-key' }, { id: 'lt', label: 'Lower thirds' }, { id: 'person', label: 'People' },
 				{ id: 'stinger', label: 'VOGs and stingers' }, { id: 'music', label: 'Break music' }, { id: 'track', label: 'Audio playlist' }, { id: 'section', label: 'Playlist parts' },
@@ -230,5 +230,21 @@ export function buildFeedbacks(ctx) {
 			const cr = (st.pendingCrew ?? '') !== ''
 			return fb.options.channel === 'speaker' ? sp : fb.options.channel === 'crew' ? cr : sp || cr
 		}),
+		// ---- round 74: the Navigator's keys and the desk's whereabouts ----------------------------------------------
+		nav_slot_on: bool('Navigator — slot n is ticked (the look on air, the standby cue, a switch that is on)', style('nav', 'on'), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => ctx.nav().slots[fb.options.n - 1]?.on === true),
+		nav_slot_empty: bool('Navigator — slot n has nothing on it', emptyStyle(), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => !ctx.nav().slots[fb.options.n - 1]),
+		nav_slot_drawer: bool('Navigator — slot n opens a drawer of choices', style('nav', 'drawer'), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => ctx.nav().slots[fb.options.n - 1]?.drawer === true),
+		nav_slot_disabled: bool('Navigator — slot n cannot be chosen now (the desk says why on its detail)', emptyStyle(), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => { const sl = ctx.nav().slots[fb.options.n - 1]; return !!sl && !sl.enabled }),
+		nav_slot_tone_is: bool('Navigator — slot n wears a tone: live (the air), preview, stack (the cue stack), go (a page), ask, warn, tile (a switch)', style('nav', 'live'), [
+			{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 },
+			{ type: 'dropdown', id: 'tone', label: 'Tone', default: 'live', choices: ['live', 'preview', 'stack', 'go', 'ask', 'warn', 'tile', 'plain'].map((t) => ({ id: t, label: t })) },
+		], (fb) => ctx.nav().slots[fb.options.n - 1]?.tone === fb.options.tone),
+		nav_level_is: bool('Navigator — the keys show the rails, a rail\'s pages, a page\'s menu, a thing\'s menu, or a drawer', style('nav', 'level'), [{ type: 'dropdown', id: 'level', label: 'Level', default: 'rails', choices: ['rails', 'pages', 'page', 'menu', 'drawer'].map((l) => ({ id: l, label: l })) }], (fb) => ctx.nav().level === fb.options.level),
+		nav_mode_run: bool('Navigator — RUN mode (a thing\'s key fires its line rather than opening its menu)', style('nav', 'run'), [], () => ctx.nav().mode === 'run'),
+		nav_follow_on: bool('Navigator — FOLLOW is on (the deck and the desk turn each other\'s pages)', style('nav', 'follow'), [], () => ctx.nav().follow === true),
+		nav_rail_is: bool('The desk is on a page of this rail', style('nav', 'desk'), [{ type: 'dropdown', id: 'rail', label: 'Rail', default: 'PLAN', choices: ['SHOW', 'PLAN', 'BUILD', 'SETUP', 'ADMIN'].map((r) => ({ id: r, label: r })) }], (fb) => (s().nav?.rail ?? '') === fb.options.rail),
+		nav_page_is: bool('The desk is on this page', style('nav', 'desk'), [named('page', 'The page', 'Cues')], (fb) => norm(s().nav?.page ?? '') === norm(fb.options.page)),
+		nav_settings_open: bool('The desk\'s settings column beside its page is open', style('nav', 'settings'), [], () => s().nav?.settings?.open === true),
+		nav_recording: bool('Companion is recording a button from what the desk does (the desk feeds ACTION lines)', style('nav', 'recording'), [], () => ctx.recording?.() === true),
 	}
 }
