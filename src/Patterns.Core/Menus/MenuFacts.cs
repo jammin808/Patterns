@@ -60,6 +60,18 @@ public sealed record DeskFacts
     /// <summary>The video stings of the library, for the NEXT TRANSITION drawer.</summary>
     public IReadOnlyList<MenuSting> Stings { get; init; } = Array.Empty<MenuSting>();
 
+    /// <summary>Round 73: the controls bound on the show's MIDI surfaces (the Interactive area's trigger rows read as bindings), for the MIDI drawer's ticks and words.</summary>
+    public IReadOnlyList<MidiBinding> MidiBindings { get; init; } = Array.Empty<MidiBinding>();
+
+    /// <summary>Round 73: a MIDI control surface is in the show (the Interactive page), so a learn has somewhere to listen.</summary>
+    public bool HasMidiSurface { get; init; }
+
+    /// <summary>Round 73: one of the surfaces is open now — a press will arrive.</summary>
+    public bool MidiSurfaceOpen { get; init; }
+
+    /// <summary>Round 73: the wire line MIDI learn is armed for now, "" when it is not.</summary>
+    public string MidiLearning { get; init; } = "";
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;

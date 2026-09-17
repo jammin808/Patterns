@@ -217,6 +217,8 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         AddIpDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Tcp));
         AddMidiDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Midi));
         LearnMidiCommand = new RelayCommand<DeviceConfig>(LearnMidi);
+        CancelMidiLearnCommand = new RelayCommand(CancelMidiLearn);
+        ForgetMidiBindingCommand = new RelayCommand<MidiBinding>(ForgetMidiBinding);
         SeedMidiCommand = new RelayCommand<DeviceConfig>(SeedMidi);
         RemoveDeviceCommand = new RelayCommand<DeviceConfig>(RemoveDevice);
         TestDeviceCommand = new RelayCommand<DeviceConfig>(TestDevice);
@@ -263,6 +265,13 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         {
             Raise(nameof(TakeButtonText));
             Raise(nameof(NextTakeWords));
+            _services.Eye.Refresh();
+        };
+        // Round 73: MIDI learn armed, bound, cancelled or forgotten — the page's banner and map, the status line, the Eye.
+        _services.MidiLearn.Changed += () =>
+        {
+            RefreshMidi();
+            if (_services.MidiLearn.LastLearned.Length > 0 && !_services.MidiLearn.Armed) StatusMessage = _services.MidiLearn.LastLearned;
             _services.Eye.Refresh();
         };
         _services.TickedTargets = () => SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null).Select(t => t.TargetId!).ToList();
@@ -564,6 +573,12 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
 
     /// <summary>Press a control on the surface and the row writes itself — the desk asks rather than assuming.</summary>
     public RelayCommand<DeviceConfig> LearnMidiCommand { get; }
+
+    /// <summary>Round 73: a learn waiting for a control stops, nothing bound.</summary>
+    public RelayCommand CancelMidiLearnCommand { get; }
+
+    /// <summary>Round 73: one mapped control forgotten.</summary>
+    public RelayCommand<MidiBinding> ForgetMidiBindingCommand { get; }
 
     /// <summary>The published numbers for a known surface, as rows the operator can read and edit.</summary>
     public RelayCommand<DeviceConfig> SeedMidiCommand { get; }

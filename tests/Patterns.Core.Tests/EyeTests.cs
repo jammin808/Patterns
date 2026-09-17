@@ -37,6 +37,7 @@ public class EyeTests
         TakeWords = "→ 1 · Main wall, 2 · Projector 1 · 1 held (locked)",
         Editing = "Projector 1's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot (Fractals)",
         LowerThird = "'Keynote' — Jane Doe · leaves in 3 s",
+        Midi = "learning LOOK Walk-in — press a control",
         Sources = new[]
         {
             new EyeSource("ndi:Cam 1", "Cam 1", "ndi", true, "receiving 50 fps", CheckLight.Green),
@@ -193,6 +194,7 @@ public class EyeTests
         Assert.Contains("Next TAKE (every screen) → 1 · Main wall, 2 · Projector 1 · 1 held (locked)", g.Find("desk")!.Words);
         // Round 73: what the desk's editors are on, and the Library tile last put there.
         Assert.Contains("Editing Projector 1's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot (Fractals)", g.Find("desk")!.Words);
+        Assert.Contains("MIDI learning LOOK Walk-in — press a control", g.Find("desk")!.Words);            // round 73: learn armed, or the surfaces' map
         Assert.Contains("Lower third 'Keynote' — Jane Doe · leaves in 3 s", g.Find("desk")!.Words);
         var held = g.Find("screen:s3")!.Words;
         Assert.Contains(held, w => w.StartsWith("LOCKED", StringComparison.Ordinal));
@@ -400,5 +402,23 @@ public class EyeTests
         Assert.Equal("GPU cache limit 128 MB · rung none", GpuGovernor.EyeWords(true, 128L * 1024 * 1024, MemoryPressure.None));
         Assert.Equal("GPU cache limit 64 MB · rung high", GpuGovernor.EyeWords(true, 64L * 1024 * 1024, MemoryPressure.High));
         Assert.Equal("GPU cache: no GPU context (software rendering)", GpuGovernor.EyeWords(false, 128L * 1024 * 1024, MemoryPressure.None));
+    }
+
+    [Fact]
+    public void ASurfaceWithControlsMappedSaysHowManyOnItsNode()
+    {
+        // Round 73: a MIDI surface is a device the desk drives; its node counts the controls bound to it.
+        var g = EyeGraph.Build(new EyeFacts
+        {
+            Devices = new[]
+            {
+                new EyeDevice("apc", "APC40", "Lines", "MIDI: APC40 mkII", true, true, "open", CheckLight.Green, "", Mapped: 3),
+                new EyeDevice("pad", "Launchpad", "Lines", "MIDI: Launchpad", true, true, "open", CheckLight.Green, "", Mapped: 1),
+                new EyeDevice("nano", "nanoKONTROL", "Lines", "MIDI: nanoKONTROL2", true, false, "not open", CheckLight.Red, ""),
+            },
+        });
+        Assert.Contains("3 controls mapped", g.Find("device:apc")!.Words);
+        Assert.Contains("1 control mapped", g.Find("device:pad")!.Words);
+        Assert.DoesNotContain(g.Find("device:nano")!.Words, w => w.Contains("mapped", StringComparison.Ordinal));
     }
 }

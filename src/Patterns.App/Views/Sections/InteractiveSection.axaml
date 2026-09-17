@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
+             xmlns:svc="using:Patterns.Core.Services"
              x:Class="Patterns.App.Views.Sections.InteractiveSection"
              Classes="hue-interactive"
              x:DataType="vm:MainViewModel">
@@ -181,14 +182,39 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <TextBlock Classes="label" Foreground="{StaticResource TallyHoldBrush}" TextWrapping="Wrap"
-               Text="{Binding MidiLearnText}" IsVisible="{Binding MidiLearnText, Converter={StaticResource NotEmpty}}" />
+    <!-- Round 73: a learn waits for a control — the page's LEARN, or MIDI LEARN from any right-click — with the way out beside it -->
+    <Border Classes="runRow" Name="MidiLearnBanner" Padding="10,8" Margin="0,4,0,4" IsVisible="{Binding IsMidiLearning}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="label" Foreground="{StaticResource TallyHoldBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding MidiLearnText}" />
+        <Button Grid.Column="1" Name="MidiLearnCancel" Classes="mini" Content="CANCEL" Margin="10,0,0,0" VerticalAlignment="Center" Command="{Binding CancelMidiLearnCommand}"
+                ToolTip.Tip="Stop waiting — nothing is bound (Esc does the same anywhere on the desk; MIDI LEARN OFF on the wire)" />
+      </Grid>
+    </Border>
+    <TextBlock Classes="label" Text="{Binding MidiLastLearned}" IsVisible="{Binding MidiLastLearned, Converter={StaticResource NotEmpty}}" TextWrapping="Wrap" />
 
     <TextBlock Classes="h2" Text="A MIDI CONTROL SURFACE" />
     <TextBlock Classes="hint tip"
                Text="An APC40, a Launchpad, a nanoKONTROL, an X-Touch — a control surface is a device like any other here, because its messages arrive as the same text lines an Arduino sends: NOTE 1 53 127 when a pad goes down, NOTEOFF 1 53 when it comes up, CC 1 7 50 as a fader passes halfway. So the trigger table above is the map, and the action layer, the journal and the arm fence are the ones the desk already had. A release is its own word so a pad fires once, not again on the way up; a fader reads 0 to 100 rather than 0 to 127 because the desk's level verbs refuse anything higher, and a control that silently dies in the top of its travel is worse than one that never worked. Rows read both ways in the one table: NOTE 1 53 * → LOOK 3 is the pad firing the look, and LOOK Walk-in → LAMP 1 53 21 is the look lighting the pad (21 is a colour in that surface's own palette; % on the right takes the show's own 0–100 reading and stretches it onto an LED ring). LEARN is the fastest way to any of it: press it, press the control, and the row writes itself — nobody can state a controller's note numbers with confidence without the hardware in front of them, so the desk asks instead of guessing. + STARTER ROWS puts a known surface's published numbers into your table where you can read and change them; every set says on the button that it has not been run against hardware here." />
     <TextBlock Classes="hint tip"
                Text="Honest limits. MIDI is Windows only on this build, and Windows' MIDI ports are single-client: if Ableton or the vendor's own utility is holding the surface, Patterns cannot open it and says so rather than sitting silent. A fader's moves reach the show fifty times a second rather than on every message — a hand cannot tell, and it is what keeps a sweep from becoming hundreds of journal lines on the thread that draws the desk; a press is never delayed or merged. Only two things in the whole show take a level (the audio playlist and break music), so the other faders on a surface can fire and step but cannot mix — there is no master fader here to give them. Endless encoders send a nudge rather than a position and are not supported. SysEx is not sent or received, so a Launchpad needs putting into programmer mode by its own tool, and there is still no MIDI Show Control or timecode chase. A Korg nanoKONTROL2 lights nothing until its own editor is used to hand its lamps over — the desk will say so rather than looking connected and doing nothing. Answers do not go back to a surface; there is nowhere on a pad to put a sentence, so watch this card's status line." />
+
+    <!-- Round 73: every control bound on every surface, from the page's LEARN or any right-click — one table, read here as a map -->
+    <TextBlock Classes="h2" Text="MAPPED CONTROLS" />
+    <TextBlock Classes="hint tip"
+               Text="Learn from any button (round 73): right-click a look, a cue, a tile of the wall, a lower third, a layer, an overlay or the RUN surface's GO, HOLD, BLACKOUT and STOP ALL, choose MIDI LEARN ▸ and the line, then press the pad, turn the knob or move the fader on any open surface — the row writes itself into that surface's table above and appears here. A pad is learned at any velocity, a fader anywhere in its travel, and a fader learning a level verb (AUDIO LEVEL 50) takes the level as * so it sets it. A control learned twice keeps the last line and the status line says what it replaced; ✕ forgets one; Esc cancels a learn that is waiting. MIDI on the wire reads this map; MIDI LEARN &lt;line&gt; and MIDI FORGET &lt;line&gt; do the same from a deck; STATE's midi row and the Eye's desk node say what is bound. The bindings travel with the show file." />
+    <TextBlock Classes="label" Text="No control is bound yet — right-click anything with a wire line and choose MIDI LEARN." IsVisible="{Binding !HasMidiBindings}" />
+    <ItemsControl Name="MidiBindingList" ItemsSource="{Binding MidiBindingRows}" IsVisible="{Binding HasMidiBindings}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="svc:MidiBinding">
+          <Grid ColumnDefinitions="Auto,8,*,8,Auto" Margin="0,2">
+            <TextBlock Grid.Column="0" Classes="label" Text="{Binding Words}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{Binding Command}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <Button Grid.Column="4" Classes="mini" Content="✕" Padding="4,0" ToolTip.Tip="Forget this control — it does nothing until it is learned again"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ForgetMidiBindingCommand}" CommandParameter="{Binding}" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
 
     <TextBlock Classes="h2" Text="WHAT A DEVICE HEARS" />
     <TextBlock Classes="hint tip"

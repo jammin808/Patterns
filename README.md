@@ -213,7 +213,13 @@ fault containment, and settings that can never brick startup.
   the top of its travel; presses are instant while faders are sampled fifty times a second, which is
   what keeps a sweep from becoming hundreds of journal writes on the thread that draws the desk.
   Starter rows for four researched surfaces land in your own table, editable, each saying it has not
-  been run against hardware. Windows only, one program per port, and the page says so.
+  been run against hardware. Windows only, one program per port, and the page says so. Round 73:
+  learn from any button — right-click a look, a cue, a tile, a lower third, a layer, an overlay or
+  the RUN surface's GO, choose MIDI LEARN ▸ and the line, press the control on any open surface, and
+  the row writes itself into that surface's table (a pad at any velocity, a fader anywhere, a level
+  verb's number as `*` on a fader; the last mapping wins and says what it replaced); the map is on
+  the page, on the wire (`MIDI`, `MIDI LEARN <line>`, `MIDI FORGET <line>`), in STATE, in the Eye
+  and on a Companion key — the field's practice is in `docs/MIDI-LEARN.md`.
 - **A picture or a short clip imported into a lower third** — `+ PICTURE` and `+ CLIP` ask for
   the file as you press them, offering only what that element can draw, and the file is copied
   into `media/` beside the show with the design pointing at the copy: the folder is the show, so

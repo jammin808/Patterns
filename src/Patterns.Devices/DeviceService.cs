@@ -599,6 +599,29 @@ public sealed class DeviceService : IDisposable
     }
 
     private readonly Dictionary<string, Action<string>> _learning = new(StringComparer.OrdinalIgnoreCase);
+    private Action<DeviceConfig, string>? _learnAny;
+
+    /// <summary>
+    /// Round 73: the next line ANY open MIDI surface sends goes to the caller instead of being
+    /// run — MIDI learn from a right-click, where the operator has said what the control should
+    /// do and not which surface they are about to touch. One press disarms every surface; a
+    /// release (NOTEOFF) is waited past, so a binding is always a press. The per-device learn
+    /// above (the Interactive page's LEARN button) is untouched and takes the line first.
+    /// </summary>
+    public void LearnAny(Action<DeviceConfig, string> onLine) => _learnAny = onLine;
+
+    /// <summary>Learn disarmed — the page's and the desk's alike; nothing is written.</summary>
+    public void CancelLearn()
+    {
+        _learnAny = null;
+        _learning.Clear();
+    }
+
+    /// <summary>True while a learn from the desk waits for a control.</summary>
+    public bool LearningAny => _learnAny is not null;
+
+    /// <summary>The MIDI surfaces open now — where a learn can hear a press.</summary>
+    public IReadOnlyList<DeviceConfig> OpenMidiSurfaces => _open.Values.Where(o => o.Config.Link == DeviceLink.Midi && o.Link.IsOpen).Select(o => o.Config).ToList();
 
     /// <summary>
     /// The next line this device sends goes to the caller instead of being run.
@@ -681,6 +704,14 @@ public sealed class DeviceService : IDisposable
             {
                 Log.Info($"Device '{open.Config.Name}' learned '{line}'.");
                 learner(line);
+                return;
+            }
+            // Round 73: the desk's learn, armed from a right-click — any surface, the first press.
+            if (_learnAny is { } any && open.Config.Link == DeviceLink.Midi && MidiLines.IsSurfaceLine(line) && !MidiLines.IsReleaseLine(line))
+            {
+                _learnAny = null;
+                Log.Info($"Device '{open.Config.Name}' learned '{line}' for the desk.");
+                any(open.Config, line);
                 return;
             }
 

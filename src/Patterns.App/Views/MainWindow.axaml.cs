@@ -804,6 +804,14 @@ public partial class MainWindow : Window
 
         var typing = FocusManager?.GetFocusedElement() is TextBox or NumericUpDown or ComboBox or AutoCompleteBox;
 
+        // Round 73: Esc while MIDI learn waits for a control cancels it, wherever the desk is looking — nothing is bound.
+        if (e.Key == Key.Escape && !typing && vm.Services.MidiLearn.Armed)
+        {
+            e.Handled = true;
+            vm.StatusMessage = vm.Services.MidiLearn.Cancel().Message;
+            return;
+        }
+
         // An arcade node's window is the game, and a desk's Arcade page is while it shows: the pads'
         // keys go to the engine and nowhere else; a number picks a game for the house to show.
         // The alignment game on the Screens page: the arrows drive the lit node, Tab and Backspace walk the nodes, S snaps, Esc stops.

@@ -94,6 +94,7 @@ public class DeskMenuTests
         yield return DeskMenus.Layer(d, new LayerFacts { Index = 1, Enabled = true, Source = LayerSource.Image, Words = "foyer.png" });
         yield return DeskMenus.Monitor(d, Monitor());
         yield return DeskMenus.Monitor(d, Monitor("OFF"));
+        yield return DeskMenus.Transport(d);
         foreach (var (kind, _) in PreviewEdits.OverlayKinds)
         {
             yield return DeskMenus.Overlay(d, new OverlayFacts { Kind = kind, AirOn = kind == "clock", PreviewOn = kind is "clock" or "logo", Anchor = kind == "info" ? null : Anchor9.TopRight, Words = kind == "message" ? "Welcome" : "" });
@@ -142,6 +143,113 @@ public class DeskMenuTests
                 Assert.Equal(menu.Kind, doc.RootElement.GetProperty("kind").GetString());
             }
         }
+    }
+
+    [Fact]
+    public void EveryMenuEndsWithAMidiGroupWhoseLinesArmLearnAndTickWhatIsBound()
+    {
+        // Round 73: a desk with a surface open, one control bound to the look on air, and a learn waiting for CUE GO.
+        var d = Facts() with
+        {
+            HasMidiSurface = true,
+            MidiSurfaceOpen = true,
+            MidiBindings = new[] { new MidiBinding("APC40", "NOTE 1 53 *", "LOOK Walk-in") },
+            MidiLearning = "CUE GO",
+        };
+        foreach (var menu in Every(d))
+        {
+            // One line per wire line the menu carries — the drawers' choices included, each once; a menu the wire has no words for has no MIDI group.
+            var wires = menu.Flatten().Where(e => e.Scope != MenuScope.Learn && e.HasWire).Select(e => MidiBindings.Normalise(e.Wire)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (wires.Count == 0)
+            {
+                Assert.DoesNotContain(menu.Groups, g => g.Heading == "MIDI");
+                continue;
+            }
+            var group = menu.Groups[^1];
+            Assert.Equal("MIDI", group.Heading);
+            Assert.Equal(MenuTone.Tile, group.Tone);
+            Assert.Equal(DeskMenus.MidiNote, group.Note);
+            var drawer = menu.Find("midi.learn")!;
+            Assert.True(drawer.IsEnabled, $"{menu.Kind}: {drawer.Because}");
+            Assert.True(drawer.HasChildren);
+            Assert.True(drawer.IsOn);                                                   // a learn waits
+            Assert.Contains("CUE GO", drawer.Text);
+            Assert.Equal(wires.Count, drawer.Children.Count);
+            foreach (var child in drawer.Children)
+            {
+                Assert.Equal(MenuScope.Learn, child.Scope);
+                Assert.StartsWith("MIDI LEARN ", child.Wire, StringComparison.Ordinal);
+                var cmd = ControlProtocol.Parse(child.Wire);
+                Assert.Equal(child.Action, cmd.Action);
+                Assert.Equal(ShowActionKind.MidiLearn, cmd.Action.Kind);
+                Assert.Contains(cmd.Action.Value, wires);
+                Assert.True(ControlProtocol.Parse(cmd.Action.Value).IsAction, $"{menu.Kind}: '{cmd.Action.Value}' is a line a control can do");
+            }
+            var off = menu.Find("midi.learn.off")!;
+            Assert.Equal(ShowActionKind.MidiLearnOff, ControlProtocol.Parse(off.Wire).Action.Kind);
+            Assert.Equal(off.Action, ControlProtocol.Parse(off.Wire).Action);
+        }
+
+        // The look's menu: its "on air" line is bound — ticked, its control named, a FORGET beside it; the preview line is not.
+        var look = DeskMenus.Look(d, d.Looks[0]);
+        var bound = look.Find("midi.learn:look.air")!;
+        Assert.True(bound.IsOn);
+        Assert.Contains("NOTE 1 53 (APC40)", bound.Detail);
+        Assert.False(look.Find("midi.learn:look.preview")!.IsOn);
+        Assert.Contains("then press the control", look.Find("midi.learn:look.preview")!.Detail);
+        var forget = look.Find("midi.forget:look.air")!;
+        Assert.Equal(new ShowAction(ShowActionKind.MidiForget, "", "LOOK Walk-in"), ControlProtocol.Parse(forget.Wire).Action);
+        Assert.Equal(forget.Action, ControlProtocol.Parse(forget.Wire).Action);
+        Assert.Null(look.Find("midi.forget:look.preview"));
+        // The wire's JSON carries the group with scope "learn".
+        using var doc = JsonDocument.Parse(MenuJson.Write(look));
+        var midi = doc.RootElement.GetProperty("groups").EnumerateArray().Last();
+        Assert.Equal("MIDI", midi.GetProperty("heading").GetString());
+        Assert.Equal("learn", midi.GetProperty("entries")[0].GetProperty("scope").GetString());
+        Assert.Equal("MIDI LEARN LOOK Walk-in", midi.GetProperty("entries")[0].GetProperty("children").EnumerateArray().First(c => c.GetProperty("id").GetString() == "midi.learn:look.air").GetProperty("wire").GetString());
+
+        // The line learn waits for says so in every menu that carries it.
+        var transport = DeskMenus.Transport(d);
+        Assert.Contains("LEARNING", transport.Find("midi.learn:go")!.Detail);
+        Assert.True(transport.Find("midi.learn:go")!.IsOn);
+
+        // No surface: the drawer says where to add one; none open: says so; no learn waiting: no cancel line; a node has no group.
+        var bare = DeskMenus.Look(Facts(), Facts().Looks[0]);
+        Assert.False(bare.Find("midi.learn")!.IsEnabled);
+        Assert.Contains("Interactive page", bare.Find("midi.learn")!.Because);
+        Assert.Null(bare.Find("midi.learn.off"));
+        var closed = DeskMenus.Look(Facts() with { HasMidiSurface = true }, Facts().Looks[0]);
+        Assert.Contains("No surface is open", closed.Find("midi.learn")!.Because);
+        var node = DeskMenus.Look(Facts() with { IsNode = true }, Facts().Looks[0]);
+        Assert.DoesNotContain(node.Groups, g => g.Heading == "MIDI");
+        Assert.Null(node.Find("midi.learn"));
+    }
+
+    [Fact]
+    public void TheTransportMenuIsTheRunSurfacesButtonsAndEveryLineIsItsOwnWire()
+    {
+        // Round 73: GO, standby, HOLD, BLACKOUT, STOP ALL, the clicker — learnable like everything else; TAKE and CUT are not on a wire.
+        var menu = DeskMenus.Transport(Facts() with { HasMidiSurface = true, MidiSurfaceOpen = true });
+        Assert.Equal("transport", menu.Kind);
+        var live = menu.Groups[0];
+        Assert.Equal("LIVE", live.Heading);
+        Assert.Equal(DeskMenus.LiveNote, live.Note);
+        foreach (var e in live.Entries)
+        {
+            Assert.Equal(MenuScope.Live, e.Scope);
+            var cmd = ControlProtocol.Parse(e.Wire);
+            Assert.True(cmd.IsAction, e.Wire);
+            Assert.Equal(cmd.Action, e.Action);
+        }
+        Assert.Equal(new ShowAction(ShowActionKind.CueGo), menu.Find("go")!.Action);
+        Assert.Equal(ShowActionKind.CueStandby, menu.Find("standby.next")!.Action!.Value.Kind);
+        Assert.Equal(ShowActionKind.CueHoldOn, menu.Find("hold.on")!.Action!.Value.Kind);
+        Assert.Equal(ShowActionKind.BlackoutToggle, menu.Find("blackout")!.Action!.Value.Kind);
+        Assert.Equal(ShowActionKind.StopAll, menu.Find("stopall")!.Action!.Value.Kind);
+        Assert.Equal(ShowActionKind.PresenterNext, menu.Find("next")!.Action!.Value.Kind);
+        Assert.Null(menu.Find("take"));
+        Assert.Null(menu.Find("cut"));
+        Assert.Equal(live.Entries.Count, menu.Find("midi.learn")!.Children.Count);
     }
 
     [Fact]

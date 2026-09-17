@@ -53,6 +53,8 @@ public enum RemoteCommandKind
     CommissionStatus,
     /// <summary>EYE / EYE STATUS (round 66): the God's Eye — every thing of the show with its place, light and words, every link with its light, the headline, the counts, the problems, the focus and the lens — as JSON.</summary>
     EyeStatus,
+    /// <summary>MIDI / MIDI STATUS (round 73): the MIDI surfaces, every control bound and the line learn waits for, as JSON.</summary>
+    MidiStatus,
 }
 
 /// <summary>
@@ -1171,6 +1173,26 @@ public static class ControlProtocol
             // each entry with the line that does it — a tablet or a script offers the desk's own choices.
             case "MENU":
                 return Query(RemoteCommandKind.Menu, arg.Trim());
+
+            // "MIDI" (round 73): bare or STATUS reads the surfaces, every control bound and what learn waits
+            // for, as JSON; LEARN <line> arms learn for a wire line (the next control moved on any open surface
+            // is bound to it, saved with the show); LEARN OFF disarms; FORGET <line> unbinds every control bound
+            // to the line. Desk-only: a running order never binds a control. A bare LEARN fails closed.
+            case "MIDI":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1].Trim() : "";
+                return what switch
+                {
+                    "" or "STATUS" or "BINDINGS" or "MAP" => Query(RemoteCommandKind.MidiStatus),
+                    "LEARN" when rest.Length == 0 => Unknown(s),
+                    "LEARN" when rest.ToUpperInvariant() is "OFF" or "CANCEL" or "STOP" => Act(ShowActionKind.MidiLearnOff),
+                    "LEARN" => Act(ShowActionKind.MidiLearn, "", rest),
+                    "FORGET" or "UNBIND" or "UNLEARN" => rest.Length > 0 ? Act(ShowActionKind.MidiForget, "", rest) : Unknown(s),
+                    _ => Unknown(s),
+                };
+            }
 
             case "NODES":
             case "NODE":

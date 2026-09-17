@@ -250,13 +250,13 @@
         </StackPanel>
         <Button Grid.Column="4" Classes="runStep" Content="▲" Command="{Binding Run.StandbyUpCommand}" Focusable="False" ToolTip.Tip="Standby up (↑) — no output change" />
         <Button Grid.Column="5" Classes="runStep" Content="▼" Command="{Binding Run.StandbyDownCommand}" Focusable="False" ToolTip.Tip="Standby down (↓) — no output change" />
-        <Button Grid.Column="6" Classes="runGo" Classes.confirm="{Binding Run.IsConfirming}" Content="{Binding Run.GoText}" Command="{Binding Run.GoCommand}" Focusable="False"
+        <Button Grid.Column="6" Classes="runGo" Classes.confirm="{Binding Run.IsConfirming}" Content="{Binding Run.GoText}" Command="{Binding Run.GoCommand}" Focusable="False" ctl:Menus.Kind="transport"
                 ToolTip.Tip="GO (Enter while armed): runs the standby cue and moves standby to the next. A cue that asks for confirmation needs a second GO within four seconds." />
-        <ToggleButton Grid.Column="7" Classes="runHold" Content="HOLD" IsChecked="{Binding Run.IsHold, Mode=OneWay}" Command="{Binding Run.HoldCommand}" Focusable="False"
+        <ToggleButton Grid.Column="7" Classes="runHold" Content="HOLD" IsChecked="{Binding Run.IsHold, Mode=OneWay}" Command="{Binding Run.HoldCommand}" Focusable="False" ctl:Menus.Kind="transport"
                       ToolTip.Tip="A latched GO inhibit and nothing else: GO from any origin is refused until released" />
-        <ToggleButton Grid.Column="9" Classes="runBlackout" Content="BLACKOUT" IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False"
+        <ToggleButton Grid.Column="9" Classes="runBlackout" Content="BLACKOUT" IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False" ctl:Menus.Kind="transport"
                       ToolTip.Tip="Immediate black on every output (Space). While on, GO is refused rather than executing under black." />
-        <Button Grid.Column="10" Classes="runStop" Content="STOP ALL" Command="{Binding Run.StopAllCommand}" Focusable="False"
+        <Button Grid.Column="10" Classes="runStop" Content="STOP ALL" Command="{Binding Run.StopAllCommand}" Focusable="False" ctl:Menus.Kind="transport"
                 ToolTip.Tip="Stops the audio track, break music, any VOG or stinger (the previous content comes back — it never runs the stinger's ending) and the tone. Never outputs, blackout or the stream. Esc twice does the same." />
       </Grid>
     </Border>

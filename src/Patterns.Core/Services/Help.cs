@@ -236,6 +236,7 @@ public static class HelpTopics
                 "A look: into the preview, on air (with the transition or cut), update it from the preview, its F-key. A lower third: into the preview, with a person, on air, take, update, off, the default. A person: into the preview or on air with the default design, or with a design.",
                 "A layer: on or off, its source, a picture from the library, a file, the fit — in the preview. An overlay or the countdown: on or off in the preview, its position, a countdown's length, label and follow-the-plan; on air now in red, as SHOW CONTROLS' SEND would.",
                 "Escape or a click elsewhere closes a menu; a choice closes it and the status line says what happened. A drawer (Look ▸, Pattern ▸, a timing ▸) opens beside the menu, never over it.",
+                "MIDI (round 73): every menu ends with a MIDI group — MIDI LEARN ▸ lists the menu's own wire lines; choose one, press the pad, turn the knob or move the fader on any surface, and that control is bound to the line (saved with the show). A bound line is ticked and names its control; FORGET unbinds it; Esc cancels a learn. The RUN surface's GO, HOLD, BLACKOUT and STOP ALL buttons have the same menu.",
                 "The RUN surface's monitor — one screen drawn large between the wall and the history, the main screen by default: right-click it to show any screen or canvas, the programme, or to hide it (RUN MONITOR <n|PGM|MAIN|OFF> on the wire; the show remembers). The desk's own eye: nothing there changes the air.",
             },
             "SCREEN <n> PVW LOOK <name> · SCREEN <n> PVW PRESET <name> · SCREEN <n> PVW PATTERN <kind> · SCREEN <n> PVW PROGRAM · SCREEN <n> PVW RESET · PVW LOOK <name> · PVW PATTERN <kind> · PVW RESET · SCREEN <n> PATTERN <kind> · RUN MONITOR <n|PGM|MAIN|OFF> · MENU SCREEN <n> · MENU CUE <number> · MENU LOOK <name> · MENU MONITOR",
@@ -904,6 +905,7 @@ public static class HelpTopics
             {
                 "+ MIDI CONTROL SURFACE, pick its port, then LEARN and press the control — the row writes itself, because nobody can state a controller's note numbers without the hardware in front of them.",
                 "+ STARTER ROWS puts a known controller's published numbers into your own table, where you can read and change them; every set says it has not been run against hardware here.",
+                "Learn from any button (round 73): right-click a look, a cue, a tile, a lower third, a layer, an overlay, the GO button — anything with a wire line — and choose MIDI LEARN ▸ then the line; press the control on any surface and the row writes itself into that surface's table, saved with the show. A fader learns a level verb with * (AUDIO LEVEL *), a pad keeps the number. The status line and the Interactive page say what was bound; MAPPED CONTROLS lists every binding with a FORGET; MIDI on the wire reads the map and MIDI LEARN <line> arms it from a deck.",
                 "One table, both ways: NOTE 1 53 * → LOOK 3 is the pad firing the look, LOOK Walk-in → LAMP 1 53 21 is the look lighting the pad, and VOL * → CC 1 48 % drives an LED ring from the show's own level.",
                 "A release is its own word, so a pad fires once and not again on the way up; a fader reads 0 to 100, because the level verbs refuse anything higher and a fader that dies in the top of its travel is worse than none.",
                 "Presses are instant; faders are read fifty times a second, which is finer than a hand moves and is what keeps a sweep from becoming hundreds of journal lines on the thread that draws the desk.",
@@ -911,7 +913,7 @@ public static class HelpTopics
             },
             "The trigger rows are the map; a surface's commands are journalled 'from device <name>' like any other.",
             new[] { "Interactive" },
-            new[] { "midi", "controller", "control surface", "apc40", "apc", "akai", "launchpad", "novation", "nanokontrol", "korg", "x-touch", "behringer", "pad", "fader", "knob", "encoder", "lamp", "led", "learn", "note", "cc", "sysex", "msc", "show control", "timecode" }),
+            new[] { "midi", "controller", "control surface", "apc40", "apc", "akai", "launchpad", "novation", "nanokontrol", "korg", "x-touch", "behringer", "pad", "fader", "knob", "encoder", "lamp", "led", "learn", "midi learn", "map", "mapping", "bind", "binding", "right-click", "note", "cc", "sysex", "msc", "show control", "timecode" }),
 
         new HelpTopic("look-state", HelpGroup.Control,
             "Is the look still what is on the screens — and which screen is not",

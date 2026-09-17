@@ -379,3 +379,14 @@ HOLD 8`, `LT n HOLD STAY`). `$(patterns:lower_third_timed)` reads TIMED while th
 screen will leave by itself and `$(patterns:lower_third_leaves_in)` counts the seconds down to a
 tenth (empty when it stays); `lower_third_timed` lights amber for the same. The desk's chips
 read "ON AIR · 3 s" and the Eye's desk node says when it goes.
+
+**MIDI learn on the deck, version 3.13.0.** A key can arm the desk's MIDI learn for a wire line
+(`midi_learn` — `MIDI LEARN LOOK Walk-in`; the next control moved on any open surface is bound
+to the line, saved with the show), cancel it (`midi_learn_off`) or forget every control bound to
+a line (`midi_forget`). `$(patterns:midi_learning)` reads the line a learn waits for,
+`$(patterns:midi_bindings)` how many controls are bound, `$(patterns:midi_surfaces)` the
+surfaces in the show with the open ones marked, and `$(patterns:midi_words)` the Eye's own line
+("12 controls bound on APC40"); the `midi_learning` feedback lights amber while a learn waits —
+for any line, or one carrying a word. The desk's right-click menus carry the same lines in their
+MIDI group (`MENU …` answers them with scope `learn`), so a deck page can offer exactly what the
+desk offers. A 3.12.0 deck ignores the row.

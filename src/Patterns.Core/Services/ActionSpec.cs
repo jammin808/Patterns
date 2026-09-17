@@ -114,6 +114,8 @@ public static class ActionSpec
         ShowActionKind.RigSaveKnownGood => (TargetKind.None, ValueKind.Text),
         ShowActionKind.EyeFocus or ShowActionKind.EyeLens => (TargetKind.None, ValueKind.Text),
         ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeReset => (TargetKind.None, ValueKind.None),
+        ShowActionKind.MidiLearn or ShowActionKind.MidiForget => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.MidiLearnOff => (TargetKind.None, ValueKind.None),
         ShowActionKind.CanvasOn or ShowActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         ShowActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         ShowActionKind.TimerAdd => (TargetKind.None, ValueKind.Text),
@@ -271,6 +273,9 @@ public static class ActionSpec
         ShowActionKind.EyePrev => "God's Eye — the previous problem",
         ShowActionKind.EyeLens => "God's Eye — a lens (all, video, control, audio, room, problems)",
         ShowActionKind.EyeReset => "God's Eye — the whole picture",
+        ShowActionKind.MidiLearn => "MIDI learn — the next control moved on a surface is bound to a wire line",
+        ShowActionKind.MidiLearnOff => "MIDI learn — cancel",
+        ShowActionKind.MidiForget => "MIDI — forget every control bound to a wire line",
         ShowActionKind.NextTransition => "Next take — the transition or video sting for the next TAKE alone (one shot)",
         ShowActionKind.RigDayOn => "Rig day games — on",
         ShowActionKind.RigDayOff => "Rig day games — off",
@@ -467,6 +472,8 @@ public static class ActionSpec
         ShowActionKind.RigSaveKnownGood => "the engineer's word that the rig is right, at commissioning — a running order never declares the rig commissioned",
         ShowActionKind.EyeFocus or ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeLens or ShowActionKind.EyeReset
             => "the operator's own eye — a running order never moves what the desk is looking at",
+        ShowActionKind.MidiLearn or ShowActionKind.MidiLearnOff or ShowActionKind.MidiForget
+            => "the operator's own mapping of a control surface — a running order never binds or unbinds a control",
         ShowActionKind.NextTransition => "the operator's next press — a cue names the transition it arrives by on the recall itself",
         ShowActionKind.ScreenTestRoute => "a commissioning tool — the diagnostic profile stands in for a contract while a path is proven; a running order never puts a screen on the test route",
         ShowActionKind.ScreenReceived => "the engineer's own reading of a processor's input status, at commissioning — a running order never claims what a box receives",

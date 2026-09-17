@@ -100,7 +100,7 @@ public static class EyeMenus
         if (linked.Count > 0) groups.Add(new MenuGroup("LINKED TO", MenuTone.Tile, linked) { Note = "Each is a focus of its own." });
         if (go.Count > 0) groups.Add(new MenuGroup("GO TO", MenuTone.Go, go));
         groups.Add(new MenuGroup("ASK", MenuTone.Ask, ask) { Note = "The assistant answers from the facts; the desk runs nothing." });
-        return new DeskMenu("eye", n.Id, n.Label, n.Sub, tone, groups);
+        return DeskMenus.WithMidi(d, new DeskMenu("eye", n.Id, n.Label, n.Sub, tone, groups));
 
         static string verbWord(EyeEdge e) => e.Kind switch
         {

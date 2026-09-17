@@ -442,6 +442,16 @@ public enum ShowActionKind
     EyePrev,
     EyeLens,
     EyeReset,
+    /// <summary>
+    /// Round 73: MIDI learn armed for a wire line (Value) — the next control moved on any open
+    /// surface is bound to it, into the Interactive area's own table, saved with the show.
+    /// Desk-only: a running order never binds a control.
+    /// </summary>
+    MidiLearn,
+    /// <summary>Round 73: MIDI learn disarmed; nothing is bound.</summary>
+    MidiLearnOff,
+    /// <summary>Round 73: every control bound to a wire line (Value) forgotten, on every surface.</summary>
+    MidiForget,
     /// <summary>Round 67.6: the transition or video sting the next TAKE alone arrives by — Value the words (a transition, STING name, CLEAR); one shot, the show's own transition untouched.</summary>
     NextTransition,
     RigDayOn,

@@ -102,10 +102,47 @@ public sealed partial class MainViewModel
 
     private string _midiLearnFor = "";
 
-    /// <summary>"Press a control on Surface…" while a row is waiting to be learned, else empty.</summary>
-    public string MidiLearnText => _midiLearnFor.Length == 0
-        ? ""
+    /// <summary>"Press a control on Surface…" while a row is waiting to be learned — the page's own LEARN, or the desk's learn from a right-click (round 73) — else empty.</summary>
+    public string MidiLearnText => _services.MidiLearn.Armed ? _services.MidiLearn.Words
+        : _midiLearnFor.Length == 0 ? ""
         : $"Press a control on {_midiLearnFor} — the next thing it sends fills the row in.";
+
+    /// <summary>Round 73: a learn waits for a control — the page's banner shows, with CANCEL.</summary>
+    public bool IsMidiLearning => _services.MidiLearn.Armed || _midiLearnFor.Length > 0;
+
+    /// <summary>Round 73: every control bound on every surface — the Interactive page's MAPPED CONTROLS, each with a FORGET.</summary>
+    public IReadOnlyList<MidiBinding> MidiBindingRows => _services.MidiLearn.Bindings;
+
+    public bool HasMidiBindings => _services.MidiLearn.Bindings.Count > 0;
+
+    /// <summary>Round 73: the last thing learn bound, for the page ("⌁ NOTE 1 53 on APC40 → LOOK Walk-in").</summary>
+    public string MidiLastLearned => _services.MidiLearn.LastLearned;
+
+    private void RefreshMidi()
+    {
+        Raise(nameof(MidiLearnText));
+        Raise(nameof(IsMidiLearning));
+        Raise(nameof(MidiBindingRows));
+        Raise(nameof(HasMidiBindings));
+        Raise(nameof(MidiLastLearned));
+    }
+
+    /// <summary>The banner's CANCEL: the desk's learn and the page's alike, nothing bound.</summary>
+    private void CancelMidiLearn()
+    {
+        _midiLearnFor = "";
+        StatusMessage = _services.MidiLearn.Cancel().Message;
+        _services.Devices.CancelLearn();
+        RefreshMidi();
+    }
+
+    /// <summary>The ✕ beside a mapped control: that one row forgotten.</summary>
+    private void ForgetMidiBinding(MidiBinding? binding)
+    {
+        if (binding is null) return;
+        StatusMessage = _services.MidiLearn.ForgetRow(binding);
+        RefreshMidi();
+    }
 
     /// <summary>
     /// LEARN: the next line this surface sends becomes a row. Nobody can state a controller's note
@@ -117,14 +154,21 @@ public sealed partial class MainViewModel
     {
         if (device is null) return;
         _midiLearnFor = device.Name;
-        Raise(nameof(MidiLearnText));
+        RefreshMidi();
         _services.Devices.Learn(device.Name, line =>
         {
             _midiLearnFor = "";
-            Raise(nameof(MidiLearnText));
-            if (line.Length == 0) return;
-            BulkEdit(() => device.Triggers.Add(new DeviceTriggerConfig { Match = line, Command = "" }));
-            StatusMessage = $"Learned {line} — now choose what it does.";
+            if (line.Length == 0)
+            {
+                RefreshMidi();
+                return;
+            }
+            // Round 73: the row in its trigger form — the pad at any velocity, the fader anywhere in
+            // its travel — not the one line at the one velocity it was pressed at.
+            var match = MidiLines.TriggerOf(line);
+            BulkEdit(() => device.Triggers.Add(new DeviceTriggerConfig { Match = match, Command = "" }));
+            StatusMessage = $"Learned {match} — now choose what it does.";
+            RefreshMidi();
         });
         StatusMessage = MidiLearnText;
     }

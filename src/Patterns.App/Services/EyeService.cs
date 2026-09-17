@@ -245,7 +245,7 @@ public sealed class EyeService
         {
             var open = _s.Devices.LinkFor(d.Id)?.IsOpen ?? false;
             var light = !d.Enabled ? CheckLight.Grey : d.Runtime.Failing ? CheckLight.Red : open ? CheckLight.Green : CheckLight.Red;
-            return new EyeDevice(d.Id, d.Name, d.Profile.ToString(), DeviceAddress.Describe(d), d.Enabled, open, d.Status, light, d.Runtime.Words(now), d.InputScreen);
+            return new EyeDevice(d.Id, d.Name, d.Profile.ToString(), DeviceAddress.Describe(d), d.Enabled, open, d.Status, light, d.Runtime.Words(now), d.InputScreen, Mapped: MidiBindings.Count(d));
         }).ToList();
 
         var token = state.Control.Token;
@@ -345,6 +345,7 @@ public sealed class EyeService
             Landing = _s.Stingers.SessionTicket?.Words ?? "",                                          // round 72: the ticket a sting will land
             Editing = _s.EditingFacts?.Invoke()?.Words ?? "",                                           // round 73: what the desk's editors are on
             LowerThird = LowerThirdWords(air, now),                                                       // round 73: the name on screen and when it leaves
+            Midi = _s.MidiLearn.EyeWords,                                                                // round 73: learn armed, or the surfaces' map
             Displays = displays,
             Screens = screens,
             Sources = sources,

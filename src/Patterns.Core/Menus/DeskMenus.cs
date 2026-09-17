@@ -122,14 +122,14 @@ public static class DeskMenus
             s.RoleBadge,
         }.Where(w => w.Length > 0));
 
-        return new DeskMenu("screen", target, s.Title, subtitle, s.OffLook ? MenuTone.Warn : s.OnAir ? MenuTone.Live : MenuTone.Plain, new[]
+        return WithMidi(d, new DeskMenu("screen", target, s.Title, subtitle, s.OffLook ? MenuTone.Warn : s.OnAir ? MenuTone.Live : MenuTone.Plain, new[]
         {
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, preview) { Note = PreviewNote },
             new MenuGroup("TO AIR", MenuTone.Live, ScreenTakeEntries(d, s, target, W).Append(NextTransitionDrawer(d)).ToList()) { Note = "This screen alone: it becomes its own picture (OWN lights up) and every other screen stays." },
             new MenuGroup("THIS TILE", MenuTone.Tile, tile) { Note = "The tile's own switches — live, as its buttons are." },
             new MenuGroup("GO TO", MenuTone.Go, go),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.screen", "Ask the assistant about this screen", question, d) }),
-        });
+        }));
     }
 
     /// <summary>The PGM tile and the PROGRAM strip: what is on air, what the preview can take from it, TAKE and CUT.</summary>
@@ -138,7 +138,7 @@ public static class DeskMenus
         var look = d.LookOnAirName;
         var subtitle = d.HasLookOnAir ? $"On air: '{look}'{(d.LookEdited ? " — changed since it was recalled" : "")}" : "On air: a picture nobody saved as a look";
         var question = $"What is on air is {(d.HasLookOnAir ? $"the look '{look}'{(d.LookEdited ? ", changed since it was recalled" : "")}" : "a picture that is not a saved look")}. {(d.SandboxOpen ? "EDIT SAFE is open, so the preview holds an edit waiting for a TAKE." : "EDIT SAFE is off, so edits go straight to the screens.")} What would you check before the next TAKE?";
-        return new DeskMenu("program", "", s?.Title ?? "PGM · the programme", subtitle, MenuTone.Live, new[]
+        return WithMidi(d, new DeskMenu("program", "", s?.Title ?? "PGM · the programme", subtitle, MenuTone.Live, new[]
         {
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, ProgramPreview(d)) { Note = PreviewNote },
             new MenuGroup("TO AIR", MenuTone.Live, TakeEntries(d).Append(NextTransitionDrawer(d)).ToList()) { Note = "The operator's own press — the same as the TAKE and CUT keys." },
@@ -155,7 +155,7 @@ public static class DeskMenus
                 Go("go.overlays", "Overlays page", "Overlays"),
             }),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.program", "Ask the assistant what is on air and what is waiting", question, d) }),
-        });
+        }));
     }
 
     /// <summary>The PREVIEW strip: the picture being built, EDIT SAFE, and what the next TAKE puts up.</summary>
@@ -172,7 +172,7 @@ public static class DeskMenus
         var question = d.SandboxOpen
             ? $"EDIT SAFE is open and the preview holds an edit; the look on air is {(d.HasLookOnAir ? $"'{d.LookOnAirName}'" : "not a saved look")}. What should I check in the preview before I TAKE?"
             : "EDIT SAFE is off, so every edit goes straight to the screens. When should I open it, and what does a safe workflow look like from here?";
-        return new DeskMenu("preview", "", "PREVIEW", d.SandboxOpen ? "EDIT SAFE — edits stay here until CUT or TAKE" : "LIVE — every edit goes straight to the screens", MenuTone.Preview, new[]
+        return WithMidi(d, new DeskMenu("preview", "", "PREVIEW", d.SandboxOpen ? "EDIT SAFE — edits stay here until CUT or TAKE" : "LIVE — every edit goes straight to the screens", MenuTone.Preview, new[]
         {
             SourceGroup(d),
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, entries) { Note = PreviewNote },
@@ -186,7 +186,7 @@ public static class DeskMenus
                 Go("go.lowerthirds", "Lower thirds page", "Lower thirds"),
             }),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.preview", "Ask the assistant about the preview", question, d) }),
-        });
+        }));
     }
 
     /// <summary>
@@ -554,13 +554,13 @@ public static class DeskMenus
 
         var question = $"Cue {c.Number} '{c.Name}' does: {(c.Summary.Length > 0 ? c.Summary : "nothing yet")}.{(c.IsBroken ? $" It reads as broken: {c.Problem}." : "")}{(c.FollowSeconds is { } fs ? $" The next cue auto-follows {(fs == 0 ? "at once" : $"after {fs} s")}." : "")} Is anything missing for this moment of the show, and what would you add to it?";
         var subtitle = Join(c.IsStandby ? "STANDBY" : "", c.Enabled ? "" : "SKIPPED", c.IsBroken ? "BROKEN — " + c.Problem : c.Summary);
-        return new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTone.Live : c.IsStandby ? MenuTone.Preview : MenuTone.Stack, new[]
+        return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTone.Live : c.IsStandby ? MenuTone.Preview : MenuTone.Stack, new[]
         {
             new MenuGroup("RUN", MenuTone.Plain, run) { Note = "The row's own verbs." },
             new MenuGroup("THE CUE", MenuTone.Stack, stack) { Note = StackNote },
             new MenuGroup("GO TO", MenuTone.Go, go),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.cue", "Ask the assistant about this cue", question, d) }),
-        });
+        }));
     }
 
     // ---- a look -----------------------------------------------------------------------
@@ -624,7 +624,7 @@ public static class DeskMenus
             }),
         };
         var subtitle = Join(l.OnAir ? "ON AIR" : "", l.InPreview ? "in the preview" : "", l.Hotkey > 0 ? $"F{l.Hotkey}" : "", l.UsedBy.Count > 0 ? $"used by {string.Join(", ", l.UsedBy)}" : "no cue recalls it");
-        return new DeskMenu("look", l.Id, l.Name, subtitle, l.OnAir ? MenuTone.Live : l.InPreview ? MenuTone.Preview : MenuTone.Stack, groups);
+        return WithMidi(d, new DeskMenu("look", l.Id, l.Name, subtitle, l.OnAir ? MenuTone.Live : l.InPreview ? MenuTone.Preview : MenuTone.Stack, groups));
     }
 
     // ---- a lower third, a person -----------------------------------------------------
@@ -707,7 +707,7 @@ public static class DeskMenus
             }),
         };
         var subtitle = Join(design.OnAir ? "ON AIR" : "", design.InPreview ? "in the preview" : "", design.IsDefault ? "★ the default" : "");
-        return new DeskMenu("lowerthird", design.Id, design.Name, subtitle, design.OnAir ? MenuTone.Live : design.InPreview ? MenuTone.Preview : MenuTone.Plain, groups);
+        return WithMidi(d, new DeskMenu("lowerthird", design.Id, design.Name, subtitle, design.OnAir ? MenuTone.Live : design.InPreview ? MenuTone.Preview : MenuTone.Plain, groups));
     }
 
     public static DeskMenu Person(DeskFacts d, MenuPerson p)
@@ -751,7 +751,7 @@ public static class DeskMenus
                 Ask("ask.person", "Ask the assistant about this name", $"The lower-thirds library has '{p.Name}'{(p.Summary.Length > 0 ? $" — {p.Summary}" : "")}. Which cues should name them, and what would you check on the card?", d),
             }),
         };
-        return new DeskMenu("person", p.Id, p.Name, p.Summary, MenuTone.Plain, groups);
+        return WithMidi(d, new DeskMenu("person", p.Id, p.Name, p.Summary, MenuTone.Plain, groups));
     }
 
     // ---- a layer, an overlay, the countdown -------------------------------------------
@@ -802,7 +802,7 @@ public static class DeskMenus
                 Ask("ask.layer", "Ask the assistant about this layer", $"Layer {i} is {(l.Enabled ? "on" : "off")} and shows {PreviewEdits.SourceWords(l.Source)}{(l.Words.Length > 0 ? $" ('{l.Words}')" : "")}, fitted as {l.Fit.ToString().ToLowerInvariant()}. What would you put on it for this show, and what should I check?", d),
             }),
         };
-        return new DeskMenu("layer", $"layer{i}", $"Layer {i}", Join(l.Enabled ? "ON" : "off", PreviewEdits.SourceWords(l.Source), l.Words), l.Enabled ? MenuTone.Preview : MenuTone.Plain, groups);
+        return WithMidi(d, new DeskMenu("layer", $"layer{i}", $"Layer {i}", Join(l.Enabled ? "ON" : "off", PreviewEdits.SourceWords(l.Source), l.Words), l.Enabled ? MenuTone.Preview : MenuTone.Plain, groups));
     }
 
     public static DeskMenu Overlay(DeskFacts d, OverlayFacts o)
@@ -864,7 +864,7 @@ public static class DeskMenus
             Ask($"ask.{o.Kind}", $"Ask the assistant about the {label.ToLowerInvariant()}", $"The {label.ToLowerInvariant()} is {(o.AirOn ? "on air" : "off air")}{(o.PreviewOn != o.AirOn ? $" and {(o.PreviewOn ? "on" : "off")} in the preview" : "")}{(o.Words.Length > 0 ? $", with the words '{o.Words}'" : "")}. When should it be on for this show, and what would you check?", d),
         }));
         var subtitle = Join(o.AirOn ? "ON AIR" : "off air", o.PreviewOn != o.AirOn ? (o.PreviewOn ? "on in the preview" : "off in the preview") : "", o.Words);
-        return new DeskMenu("overlay", o.Kind, label, subtitle, o.AirOn ? MenuTone.Live : o.PreviewOn ? MenuTone.Preview : MenuTone.Plain, groups);
+        return WithMidi(d, new DeskMenu("overlay", o.Kind, label, subtitle, o.AirOn ? MenuTone.Live : o.PreviewOn ? MenuTone.Preview : MenuTone.Plain, groups));
     }
 
     // ---- the pieces --------------------------------------------------------------------
@@ -969,12 +969,119 @@ public static class DeskMenus
         };
         var question = $"The RUN surface's monitor shows {m.ShowingWords}. What should the caller be watching during this show, and why?";
 
-        return new DeskMenu("monitor", m.Current, "MONITOR", $"showing {m.ShowingWords}", m.IsOff ? MenuTone.Plain : MenuTone.Tile, new[]
+        return WithMidi(d, new DeskMenu("monitor", m.Current, "MONITOR", $"showing {m.ShowingWords}", m.IsOff ? MenuTone.Plain : MenuTone.Tile, new[]
         {
             new MenuGroup("SHOW ON THE MONITOR", MenuTone.Tile, show) { Note = "The desk's own eye — nothing here changes the air. The show remembers the choice." },
             new MenuGroup("GO TO", MenuTone.Go, go),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.monitor", "Ask the assistant what to watch", question, d) }),
-        });
+        }));
+    }
+
+    // ---- MIDI learn (round 73) ----------------------------------------------------------
+
+    public const string MidiNote = "Choose a line, then press the control on the surface: the next thing it sends is bound to that line, saved with the show.";
+
+    /// <summary>
+    /// Round 73: the MIDI group on every menu. A drawer of the menu's own wire lines — every
+    /// entry the wire can say, the drawers' choices included — and choosing one arms learn for it:
+    /// the next control moved on any open surface is bound to that line, into the Interactive
+    /// area's own table. A line already bound is ticked and names its control (press another to
+    /// replace it); the line learn waits for now says so; a bound line has a FORGET entry. A node
+    /// has no surface and no group; a desk with no surface, or none open, says where to look. The
+    /// same on the wire (MENU … carries scope "learn" with MIDI LEARN lines) and on the deck.
+    /// </summary>
+    public static DeskMenu WithMidi(DeskFacts d, DeskMenu menu)
+    {
+        if (d.IsNode) return menu;
+        var lines = new List<MenuEntry>();
+        var forget = new List<MenuEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in menu.Flatten())
+        {
+            if (!e.HasWire || e.Scope == MenuScope.Learn) continue;
+            var wire = MidiBindings.Normalise(e.Wire);
+            if (!seen.Add(wire)) continue;
+            var bound = MidiBindings.For(d.MidiBindings, wire);
+            var armed = d.MidiLearning.Length > 0 && MidiBindings.SameLine(d.MidiLearning, wire);
+            var controls = string.Join(" · ", bound.Select(b => b.Words));
+            lines.Add(new MenuEntry("midi.learn:" + e.Id, e.Text, MenuScope.Learn, MenuTone.Tile)
+            {
+                Detail = armed ? "LEARNING — press the control now"
+                    : bound.Count > 0 ? $"⌁ {controls} — press another control to replace it"
+                    : "then press the control — " + wire,
+                Wire = "MIDI LEARN " + wire,
+                Action = new ShowAction(ShowActionKind.MidiLearn, "", wire),
+                IsOn = armed || bound.Count > 0,
+            });
+            if (bound.Count > 0)
+            {
+                forget.Add(new MenuEntry("midi.forget:" + e.Id, $"Forget ⌁ {controls} → {wire}", MenuScope.Learn, MenuTone.Tile)
+                {
+                    Detail = "The control does nothing until it is learned again",
+                    Wire = "MIDI FORGET " + wire,
+                    Action = new ShowAction(ShowActionKind.MidiForget, "", wire),
+                });
+            }
+        }
+        if (lines.Count == 0) return menu;
+        var because = !d.HasMidiSurface ? "Add a MIDI control surface on the Interactive page first (+ MIDI CONTROL SURFACE)."
+            : !d.MidiSurfaceOpen ? "No surface is open — switch the Interactive area on and check the surface's port." : "";
+        var entries = new List<MenuEntry>
+        {
+            new("midi.learn", d.MidiLearning.Length > 0 ? $"MIDI LEARN — waiting for a control for {d.MidiLearning}" : "MIDI LEARN — bind a control to…", MenuScope.Learn, MenuTone.Tile)
+            {
+                Detail = d.MidiLearning.Length > 0 ? "Press the pad, turn the knob, move the fader: the row writes itself" : "Choose the line, then press the pad, turn the knob or move the fader",
+                Because = because,
+                Children = lines,
+                IsOn = d.MidiLearning.Length > 0,
+            },
+        };
+        entries.AddRange(forget);
+        if (d.MidiLearning.Length > 0)
+        {
+            entries.Add(new MenuEntry("midi.learn.off", "Cancel MIDI learn", MenuScope.Learn, MenuTone.Tile)
+            {
+                Detail = "Nothing is bound (Esc does the same)",
+                Wire = "MIDI LEARN OFF",
+                Action = new ShowAction(ShowActionKind.MidiLearnOff),
+            });
+        }
+        var groups = menu.Groups.ToList();
+        groups.Add(new MenuGroup("MIDI", MenuTone.Tile, entries) { Note = MidiNote });
+        return menu with { Groups = groups };
+    }
+
+    /// <summary>
+    /// Round 73: the RUN surface's own buttons — GO, standby, HOLD, BLACKOUT, STOP ALL, the
+    /// clicker — as a menu, so a control can be learned for any of them by the same right-click
+    /// as everything else. Every entry is its wire line parsed, so the line and the action can
+    /// never disagree. TAKE and CUT are not here: a wire cannot take a half-built preview, and a
+    /// surface is a wire.
+    /// </summary>
+    public static DeskMenu Transport(DeskFacts d)
+    {
+        static MenuEntry Live(string id, string text, string wire, string detail) => new(id, text, MenuScope.Live, MenuTone.Live)
+        {
+            Detail = detail,
+            Wire = wire,
+            Action = ControlProtocol.Parse(wire).Action,
+        };
+        var live = new[]
+        {
+            Live("go", "GO — the standby cue", "CUE GO", "Runs the standby cue and moves standby to the next; refused unarmed, under HOLD or under BLACKOUT"),
+            Live("standby.next", "Standby down", "CUE STANDBY NEXT", "Moves standby to the next cue — no output change"),
+            Live("standby.prev", "Standby up", "CUE STANDBY BACK", "Moves standby to the cue before — no output change"),
+            Live("hold.on", "HOLD on", "CUE HOLD ON", "A latched GO inhibit: GO from any origin is refused until released"),
+            Live("hold.off", "HOLD off", "CUE HOLD OFF", "GO is allowed again"),
+            Live("blackout", "BLACKOUT — toggle", "BLACKOUT", "Immediate black on every output, and back"),
+            Live("stopall", "STOP ALL", "STOPALL", "Stops the audio track, break music, any VOG or stinger and the tone — never the outputs"),
+            Live("next", "NEXT — the clicker's forward", "NEXT", "The deck or the armed list one step on"),
+            Live("back", "BACK — the clicker's back", "BACK", "The deck or the armed list one step back"),
+        };
+        return WithMidi(d, new DeskMenu("transport", "", "TRANSPORT", "the RUN surface's buttons", MenuTone.Live, new[]
+        {
+            new MenuGroup("LIVE", MenuTone.Live, live) { Note = LiveNote },
+        }));
     }
 
     private static MenuEntry Go(string id, string text, string page, string item = "")

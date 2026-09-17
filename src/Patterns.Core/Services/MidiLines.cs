@@ -103,6 +103,38 @@ public static class MidiLines
     };
 
     /// <summary>
+    /// A line already written as text (<see cref="Format"/>) back to the row a learn writes
+    /// (<see cref="Trigger"/>): "NOTE 1 53 127" → "NOTE 1 53 *", "CC 1 7 50" → "CC 1 7 *",
+    /// "BEND 1 40" → "BEND 1 *"; a NOTEOFF and a PROGRAM are exact already. Round 73: MIDI learn
+    /// hears the surface's line as text, after the link has formatted it, and this is what it
+    /// writes — a row that matches the pad at any velocity and the fader anywhere in its travel.
+    /// A line that is not a surface's own comes back as it was, its spaces tidied.
+    /// </summary>
+    public static string TriggerOf(string? line)
+    {
+        var parts = (line ?? "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "";
+        var verb = parts[0].ToUpperInvariant();
+        return verb switch
+        {
+            "NOTE" or "CC" or "MIDI" when parts.Length >= 3 => $"{verb} {parts[1]} {parts[2]} *",
+            "BEND" when parts.Length >= 2 => $"BEND {parts[1]} *",
+            "NOTEOFF" or "PROGRAM" when parts.Length >= 3 => $"{verb} {parts[1]} {parts[2]}",
+            _ => string.Join(' ', parts),
+        };
+    }
+
+    /// <summary>True for a line a fader, a knob or a wheel sends (CC, BEND) — a control an operator sweeps, whose value should ride into a level verb as *.</summary>
+    public static bool IsContinuousLine(string? line)
+    {
+        var text = (line ?? "").TrimStart();
+        return text.StartsWith("CC ", StringComparison.OrdinalIgnoreCase) || text.StartsWith("BEND ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>True for a pad or key let go (NOTEOFF) — the line a learn waits past, so a binding fires on the press and never on the release.</summary>
+    public static bool IsReleaseLine(string? line) => (line ?? "").TrimStart().StartsWith("NOTEOFF ", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// True when this line is a surface's own, rather than one of the show's plain-text facts. It is
     /// what lets one trigger table carry both directions: a row whose left-hand side is a surface
     /// line is a control doing something, and a row whose left-hand side is a fact is the show

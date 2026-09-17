@@ -294,6 +294,19 @@ export function buildActions(ctx) {
 			options: [{ type: 'number', id: 'n', label: 'Design number', default: 1, min: 1, max: 64 }, text('seconds', 'Seconds, or STAY', '5')],
 			callback: (a) => { const s = clean(a.options.seconds); if (s) send(`LT ${a.options.n} HOLD ${s}`) },
 		},
+		// Round 73: MIDI learn from the deck — arm learn for a wire line (the next control moved on any open surface
+		// is bound to it, saved with the show), cancel it, or forget every control bound to a line.
+		midi_learn: {
+			name: 'MIDI learn — the next control moved on a surface is bound to a wire line',
+			options: [text('line', 'Wire line (LOOK Walk-in · CUE GO · LT 1 · SCREEN 2 PVW PATTERN Grid)')],
+			callback: (a) => { const l = clean(a.options.line); if (l) send(`MIDI LEARN ${l}`) },
+		},
+		midi_learn_off: { name: 'MIDI learn — cancel (nothing is bound)', options: [], callback: () => send('MIDI LEARN OFF') },
+		midi_forget: {
+			name: 'MIDI forget — unbind every control bound to a wire line',
+			options: [text('line', 'Wire line')],
+			callback: (a) => { const l = clean(a.options.line); if (l) send(`MIDI FORGET ${l}`) },
+		},
 		// The library: a person by number (Lower thirds page order) or name into a design — the one on air when
 		// blank (else the first) — and on air. A name that is not in the library is refused: it never reaches the screen.
 		lower_third_person: {

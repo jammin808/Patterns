@@ -67,6 +67,7 @@ public static class CompanionPalette
         ["take"] = Row(("next", "amber"), ("sting", "stingerBrown"), ("landing", "stingerBrown")),
         // Round 73: a Library tile on the editing target — amber, the preview's colour: chosen, not yet taken.
         ["library"] = Row(("selected", "amber")),
+        ["midi"] = Row(("learning", "amber")),                                             // round 73: learn waits for a control
         ["stream"] = Row(("active", "red"), ("trouble", "amber")),
         ["device"] = Row(("open", "green"), ("fault", "red")),
         ["tone"] = Row(("on", "amber")),

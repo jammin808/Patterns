@@ -138,6 +138,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>The God's Eye (round 66): the whole show as one graph, gathered from the services once a second.</summary>
     public EyeService Eye { get; }
 
+    /// <summary>Round 73: MIDI learn from any button — what line the desk waits for a control for, and the surfaces' map.</summary>
+    public MidiLearnService MidiLearn { get; }
+
     /// <summary>
     /// Why the outputs must stay closed whatever asks for them — "" when nothing holds them. A
     /// standby twin sets it: its screens open only when it takes the show. Runtime only, never
@@ -586,6 +589,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // would find nothing at all, which is the one failure the record exists for.
         _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
+        MidiLearn = new MidiLearnService(this);
         // Round 65.11: a box that carries a screen says what its input receives — held against the screen's contract on the desk's thread.
         Devices.InputReported += report => UiThread.Post(() => Actions.ReceiveFromDevice(report));
         RigEditor = new RigEditor(this);

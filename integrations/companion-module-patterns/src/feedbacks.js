@@ -121,6 +121,13 @@ export function buildFeedbacks(ctx) {
 		lower_third_edited: bool('The lower third on air was edited after it went there (UPDATE pushes the edit)', style('lowerThird', 'edited'), [], () => !!s().lowerThirdEdited),
 		// Round 73: a timed lower third is on screen and will leave by itself.
 		lower_third_timed: bool('A lower third is on screen and leaves by itself (timed)', style('lowerThird', 'timed'), [], () => !!s().lowerThirdTimed),
+		// Round 73: MIDI learn waits for a control — any line, or the one this key names.
+		midi_learning: bool('MIDI learn is waiting for a control (any line, or one that carries a word)', style('midi', 'learning'), [named('word', 'A word of the line (blank = any)')], (fb) => {
+			const m = s().midi
+			if (!m || !m.learning) return false
+			const word = String(fb.options.word || '').trim().toLowerCase()
+			return !word || String(m.wire || '').toLowerCase().includes(word)
+		}),
 		web_on_air: bool('A web page is on air (any, or one whose address carries a word)', style('presenter', 'on'), [named('word', 'A word of the address (blank = any page)')], (fb) => {
 			const w = s().web
 			if (!w || !w.page) return false

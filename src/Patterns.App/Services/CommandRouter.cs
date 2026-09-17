@@ -103,6 +103,8 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Actions.CommissionJson());
             case RemoteCommandKind.EyeStatus:
                 return ControlProtocol.Ok(_services.Eye.Json());
+            case RemoteCommandKind.MidiStatus:
+                return ControlProtocol.Ok(_services.MidiLearn.Json());
         }
 
         var action = cmd.Action;
@@ -631,6 +633,7 @@ public sealed class CommandRouter : IRouter
             eye = _services.Eye.Row(),                                                            // round 66: the God's Eye's headline, worst light and counts
             take = _services.Actions.TakeRow(),                                                   // round 67: the wall's scope, its plan, the next take's one-shot
             editing = _services.Actions.EditingRow(),                                             // round 73: what the desk's editors are on, and the Library tile last put there
+            midi = _services.MidiLearn.Row(),                                                    // round 73: MIDI learn — the line it waits for, the surfaces, every control bound
             modules = Modules.Rows().Select(r => new { name = r.Name, version = r.Version, native = r.Native, loaded = r.Loaded }).ToArray(),   // the build's assemblies, and which this process loaded
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
             // The room around the desk, for a deck's keys: every node heard, the callers linked, the twin, the stage.

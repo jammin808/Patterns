@@ -82,6 +82,7 @@ export const STATES = {
 	eye: { red: 'red', amber: 'amber', green: 'green' },
 	take: { next: 'amber', sting: 'stingerBrown', landing: 'stingerBrown' },
 	library: { selected: 'amber' },
+	midi: { learning: 'amber' },
 	stream: { active: 'red', trouble: 'amber' },
 	device: { open: 'green', fault: 'red' },
 	tone: { on: 'amber' },

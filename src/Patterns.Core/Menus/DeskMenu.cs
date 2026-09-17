@@ -22,6 +22,8 @@ public enum MenuScope
     Go,
     /// <summary>A question to the assistant with the facts already in it.</summary>
     Ask,
+    /// <summary>Round 73: MIDI learn — arms the desk for a wire line; the next control moved on a surface is bound to it (saved with the show). Nothing changes on air.</summary>
+    Learn,
 }
 
 /// <summary>
@@ -64,6 +66,7 @@ public static class MenuTones
         MenuScope.Stack => "CUE STACK",
         MenuScope.Go => "GO TO",
         MenuScope.Ask => "ASK",
+        MenuScope.Learn => "MIDI",
         _ => "",
     };
 }

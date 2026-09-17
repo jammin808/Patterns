@@ -151,4 +151,37 @@ public class MidiLineTests
         Assert.Equal("AUDIO LEVEL 100", DeviceMap.Resolve(device, MidiLines.Format(MidiLines.Read(0xB0, 7, 127))));
         Assert.Equal("AUDIO LEVEL 0", DeviceMap.Resolve(device, MidiLines.Format(MidiLines.Read(0xB0, 7, 0))));
     }
+
+    [Fact]
+    public void ALineAlreadyWrittenReadsBackAsTheRowALearnWrites()
+    {
+        // Round 73: MIDI learn hears the surface's line as text; the row it writes is the pad at
+        // any velocity and the fader anywhere in its travel — the same row the message itself gives.
+        Assert.Equal("NOTE 1 53 *", MidiLines.TriggerOf("NOTE 1 53 127"));
+        Assert.Equal("NOTE 1 53 *", MidiLines.TriggerOf("  note 1  53 1 "));
+        Assert.Equal("CC 1 7 *", MidiLines.TriggerOf("CC 1 7 50"));
+        Assert.Equal("BEND 1 *", MidiLines.TriggerOf("BEND 1 40"));
+        Assert.Equal("NOTEOFF 1 53", MidiLines.TriggerOf("NOTEOFF 1 53"));
+        Assert.Equal("PROGRAM 1 5", MidiLines.TriggerOf("PROGRAM 1 5"));
+        Assert.Equal("MIDI 1 9 *", MidiLines.TriggerOf("MIDI 1 9 3"));
+        Assert.Equal("BTN1", MidiLines.TriggerOf("BTN1"));
+        Assert.Equal("", MidiLines.TriggerOf("   "));
+        Assert.Equal("", MidiLines.TriggerOf(null));
+        var pad = MidiLines.Read(0x90, 53, 127);
+        Assert.Equal(MidiLines.Trigger(pad), MidiLines.TriggerOf(MidiLines.Format(pad)));
+        var fader = MidiLines.Read(0xB0, 7, 64);
+        Assert.Equal(MidiLines.Trigger(fader), MidiLines.TriggerOf(MidiLines.Format(fader)));
+        var wheel = MidiLines.Read(0xE0, 0, 64);
+        Assert.Equal(MidiLines.Trigger(wheel), MidiLines.TriggerOf(MidiLines.Format(wheel)));
+
+        // A sweep and a release, told apart by their words: a sweep's value rides into a level verb,
+        // a release never binds (the velocity-0 note is already written as NOTEOFF).
+        Assert.True(MidiLines.IsContinuousLine("CC 1 7 50"));
+        Assert.True(MidiLines.IsContinuousLine("bend 1 40"));
+        Assert.False(MidiLines.IsContinuousLine("NOTE 1 53 127"));
+        Assert.False(MidiLines.IsContinuousLine(""));
+        Assert.True(MidiLines.IsReleaseLine("NOTEOFF 1 53"));
+        Assert.True(MidiLines.IsReleaseLine(MidiLines.Format(MidiLines.Read(0x90, 53, 0))));
+        Assert.False(MidiLines.IsReleaseLine("NOTE 1 53 127"));
+    }
 }

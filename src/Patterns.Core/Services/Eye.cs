@@ -94,6 +94,8 @@ public sealed class EyeFacts
     public string Editing { get; init; } = "";
     /// <summary>Round 73: the lower third on screen, in words ("'Keynote' — Jane Doe · leaves in 3 s", "… · until hidden"); "" with none.</summary>
     public string LowerThird { get; init; } = "";
+    /// <summary>Round 73: MIDI learn and the surfaces' map in words — "learning LOOK Walk-in — press a control", "12 controls bound on APC40"; "" with no surface in the show.</summary>
+    public string Midi { get; init; } = "";
     public IReadOnlyList<EyeDisplay> Displays { get; init; } = Array.Empty<EyeDisplay>();
     public IReadOnlyList<EyeScreen> Screens { get; init; } = Array.Empty<EyeScreen>();
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
@@ -162,7 +164,7 @@ public sealed class EyeScreen
 public sealed record EyeSource(string Key, string Label, string Kind, bool Mounted, string Status, CheckLight Light, string Page = "", string Held = "");
 
 /// <summary>A box the desk drives; one with an InputScreen carries that screen and is the far end of its link.</summary>
-public sealed record EyeDevice(string Id, string Name, string Profile, string Address, bool Enabled, bool Open, string Status, CheckLight Light, string Words, string InputScreen = "", string Received = "");
+public sealed record EyeDevice(string Id, string Name, string Profile, string Address, bool Enabled, bool Open, string Status, CheckLight Light, string Words, string InputScreen = "", string Received = "", int Mapped = 0);
 
 /// <summary>A controller that said HELLO on the wire; Paired when it presented the show's token (or none is asked).</summary>
 public sealed record EyeDeck(string Name, string Module, string Address, bool Paired);
@@ -486,6 +488,7 @@ public sealed class EyeGraph
         if (f.Landing.Length > 0) deskWords.Add($"Landing {f.Landing}");                             // round 72: the ticket a sting will land
         if (f.Editing.Length > 0) deskWords.Add($"Editing {f.Editing}");                             // round 73: what the desk's editors are on
         if (f.LowerThird.Length > 0) deskWords.Add($"Lower third {f.LowerThird}");                    // round 73: the name on screen and when it leaves
+        if (f.Midi.Length > 0) deskWords.Add($"MIDI {f.Midi}");                                        // round 73: learn armed, or the surfaces' map
         deskWords.AddRange(f.Attention);
         Add(new EyeNode(DeskId, EyeKind.Desk, EyePlane.Video, 1, f.MachineName.Length > 0 ? f.MachineName : "This desk", f.OutputsLive ? "outputs live" : "outputs closed", f.Health)
         {
@@ -602,7 +605,7 @@ public sealed class EyeGraph
         // Devices: the far end of a screen's link, or a box the desk drives.
         foreach (var d in f.Devices.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var words = new[] { d.Profile, d.Address, d.Status, d.Words, d.Received.Length > 0 ? "Receives " + d.Received : "" }.Where(w => w.Length > 0).ToList();
+            var words = new[] { d.Profile, d.Address, d.Status, d.Words, d.Received.Length > 0 ? "Receives " + d.Received : "", d.Mapped > 0 ? $"{d.Mapped} control{(d.Mapped == 1 ? "" : "s")} mapped" : "" }.Where(w => w.Length > 0).ToList();
             var light = d.Enabled ? d.Light : CheckLight.Grey;
             var sub = !d.Enabled ? "disabled" : d.Status.Length > 0 ? d.Status : d.Open ? "answering" : "not open";
             if (d.InputScreen.Length > 0 && screenIds.TryGetValue(d.InputScreen, out var carried))

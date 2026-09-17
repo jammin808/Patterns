@@ -40,6 +40,11 @@ public static class DeskMenuFacts
             NextTake = s.NextTake.Pending?.Words ?? "",
             NextTakeWire = s.NextTake.Pending?.WireWords ?? "",
             Stings = state.Stingers.Items.Where(i => i.Kind == StingerKind.Sting && i.Source == StingerSource.File).Select(i => new MenuSting(i.Id, i.DisplayName)).ToList(),
+            // Round 73: the MIDI group's facts — the map, whether a press can come, what learn waits for.
+            MidiBindings = s.MidiLearn.Bindings,
+            HasMidiSurface = s.MidiLearn.HasSurface,
+            MidiSurfaceOpen = s.MidiLearn.SurfaceOpen,
+            MidiLearning = s.MidiLearn.Wire,
         };
     }
 

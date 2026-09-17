@@ -75,6 +75,8 @@ public sealed partial class MainViewModel : IDeskMenuHost
             }
             case "monitor":
                 return new DeskMenuVm(DeskMenus.Monitor(facts, DeskMenuFacts.Monitor(_services)), e => RunMenuEntry(e, null));
+            case "transport":
+                return new DeskMenuVm(DeskMenus.Transport(facts), e => RunMenuEntry(e, null));   // round 73: GO, HOLD, BLACKOUT, STOP ALL — learnable like everything else
             case "eye":
                 return subject is EyeNode node ? EyeMenu(node, facts) : null;
             default:
@@ -240,6 +242,11 @@ public sealed partial class MainViewModel : IDeskMenuHost
 
             case MenuScope.Ask:
                 words = AskAssistant(entry.Question);
+                break;
+
+            case MenuScope.Learn:
+                // Round 73: MIDI learn armed (or cancelled, or a binding forgotten) through the action layer — journaled like a key; the air is never touched.
+                if (entry.Action is { } learn) words = _services.Actions.Execute(learn, ActionOrigin.Desk).Message;
                 break;
         }
         if (words is { Length: > 0 }) StatusMessage = words;
