@@ -99,6 +99,31 @@ public static class ScreencastFrame
         return "{\"format\":\"jpeg\",\"quality\":" + q + ",\"maxWidth\":" + w + ",\"maxHeight\":" + h + ",\"everyNthFrame\":" + n + "}";
     }
 
+    /// <summary>The bare start (round 77): JPEG at <paramref name="quality"/> and nothing else asked — the page's own size, every frame.</summary>
+    public static string MinimalParameters(int quality = Quality)
+        => "{\"format\":\"jpeg\",\"quality\":" + Math.Clamp(quality, 1, 100).ToString(CultureInfo.InvariantCulture) + "}";
+
+    /// <summary>The barest start there is: the format alone.</summary>
+    public const string BareParameters = "{\"format\":\"jpeg\"}";
+
+    /// <summary>
+    /// Round 77: what a start tries, in order, when the browser refuses. The field saw
+    /// Page.startScreencast answered with E_INVALIDARG two to five seconds after a YouTube page
+    /// opened, every time, and never asked again — the screenshot poll carried a 20 fps ceiling for
+    /// the rest of the page's life. A refusal of the full ask (size, quality, every nth frame) is
+    /// followed by the ask without the size, then the format alone; a browser that refuses all
+    /// three is asked again later (<see cref="ScreencastRetry"/>). Distinct: a ladder whose rungs
+    /// are the same text is one rung.
+    /// </summary>
+    public static IReadOnlyList<string> StartLadder(int width, int height, int quality = Quality, int everyNthFrame = 1)
+    {
+        var rungs = new List<string>(3) { StartParameters(width, height, quality, everyNthFrame) };
+        var minimal = MinimalParameters(quality);
+        if (!rungs.Contains(minimal)) rungs.Add(minimal);
+        if (!rungs.Contains(BareParameters)) rungs.Add(BareParameters);
+        return rungs;
+    }
+
     /// <summary>The ack for a frame — the browser sends the next one only after it.</summary>
     public static string AckParameters(int sessionId)
         => "{\"sessionId\":" + sessionId.ToString(CultureInfo.InvariantCulture) + "}";
@@ -202,5 +227,39 @@ public sealed class FrameRateMeter
                 return _count == 0 ? 0 : _ticks[(_next - 1 + Capacity) % Capacity];
             }
         }
+    }
+}
+
+/// <summary>
+/// Round 77: when a refused screencast is asked for again. A refusal is not the page's last word —
+/// the compositor it belongs to may not be ready, the video element may not exist yet — so the
+/// source asks again on a backoff: a second, two, four, eight, fifteen, then every thirty seconds
+/// for as long as the page is up. The clock and the words are here, pure; the capture tick reads them.
+/// </summary>
+public static class ScreencastRetry
+{
+    /// <summary>The waits between asks, by how many times the browser has refused so far.</summary>
+    public static readonly int[] DelaysMs = { 1000, 2000, 4000, 8000, 15000, 30000 };
+
+    /// <summary>How long after the <paramref name="refusals"/>th refusal the next ask comes (capped at the last delay).</summary>
+    public static int DelayMs(int refusals)
+        => refusals <= 1 ? DelaysMs[0] : DelaysMs[Math.Min(refusals - 1, DelaysMs.Length - 1)];
+
+    /// <summary>Whether an ask is due: the refusal's tick plus its delay is behind now (UTC ticks); never before a first refusal.</summary>
+    public static bool Due(int refusals, long refusedAtTicks, long nowTicks)
+        => refusals > 0 && refusedAtTicks > 0 && nowTicks - refusedAtTicks >= DelayMs(refusals) * TimeSpan.TicksPerMillisecond;
+
+    /// <summary>
+    /// The status line's clause: "screenshot poll (the screencast was refused ×3; asking again)"
+    /// while the poll stands in, "screencast (after 3 refusals)" once a later ask was taken; ""
+    /// when nothing was ever refused.
+    /// </summary>
+    public static string StatusWords(bool screencastOn, int refusals)
+    {
+        if (refusals <= 0) return "";
+        var times = refusals == 1 ? "once" : "×" + refusals.ToString(CultureInfo.InvariantCulture);
+        return screencastOn
+            ? $"screencast (after {(refusals == 1 ? "1 refusal" : refusals.ToString(CultureInfo.InvariantCulture) + " refusals")})"
+            : $"screenshot poll (the screencast was refused {times}; asking again)";
     }
 }

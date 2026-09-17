@@ -51,7 +51,12 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     /// </summary>
     public const string BrowserArguments =
         "--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling --disable-renderer-backgrounding " +
-        "--disable-backgrounding-occluded-windows --disable-background-timer-throttling --autoplay-policy=no-user-gesture-required";
+        "--disable-backgrounding-occluded-windows --disable-background-timer-throttling --autoplay-policy=no-user-gesture-required " +
+        // Round 77: a hardware-decoded video that Chromium hands to a DirectComposition overlay is composed by the
+        // display engine, outside the page's surface — a screenshot or screencast of the page then sees black where
+        // the video is. Composed by the browser instead, every capture path sees the video; the cost is the
+        // overlay's zero-copy, which an off-screen page was never able to spend on the glass anyway.
+        "--disable-direct-composition-video-overlays";
 
     /// <summary>
     /// With the desk's video decoding on the GPU: Chromium's D3D11 video decoder asked for by name.
@@ -120,6 +125,9 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private PendingFrame? _pendingFrame;
     private int _decoding;
     private int _screencastFailures;
+    private int _screencastRefusals;                         // round 77: how many times the browser refused every rung of the start (per document)
+    private long _screencastRefusedTicks;                    // when it last did (UTC ticks); the retry clock
+    private int _screencastStarting;                         // one start in flight at a time
 
     /// <summary>A frame as it arrived: the browser's event JSON and the show clock it landed on (the buffer's timestamp).</summary>
     private sealed record PendingFrame(string Json, double Clock);
@@ -249,6 +257,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _status = e.IsSuccess ? "Showing" : $"The page failed: {e.WebErrorStatus}";
                 // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
                 _screencastRestarts = 0;
+                Interlocked.Exchange(ref _screencastRefusals, 0);
+                Interlocked.Exchange(ref _screencastRefusedTicks, 0);
                 _ = StartScreencastAsync();
                 if (_audioDevice.Length > 0 || _permittedOrigin.Length > 0) _ = ApplyAudioDeviceAsync();   // a new origin: the route applied again, the old origin's grant taken back
             };
@@ -292,6 +302,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             {
                 _ = GrabAsync();
                 _ = JudgeLivenessAsync();
+                _ = RetryScreencastAsync();
             };
             _timer.Start();
             Log.Info($"Web page opened in the engine: {_currentUrl} ({_width}×{_height}, {(_screencastOn ? "screencast" : "screenshot poll")}).");
@@ -411,11 +422,45 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             Interlocked.Exchange(ref _lastFrameTicks, 0);
             Volatile.Write(ref _ackFailures, 0);
             var plan = _plan;
-            await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ScreencastFrame.StartParameters(plan.MaxWidth, plan.MaxHeight, plan.JpegQuality, plan.EveryNthFrame));
+            // Round 77: the field saw the full ask refused (E_INVALIDARG) a few seconds after every YouTube page
+            // opened, and never asked again — the screenshot poll's 20 fps ceiling for the page's whole life. The
+            // ask climbs down a ladder (the size dropped, then the quality), and a browser that refuses every rung
+            // is asked again on a backoff from the capture tick (RetryScreencastAsync).
+            var ladder = ScreencastFrame.StartLadder(plan.MaxWidth, plan.MaxHeight, plan.JpegQuality, plan.EveryNthFrame);
+            Exception? refusal = null;
+            var started = false;
+            for (var rung = 0; rung < ladder.Count && !started; rung++)
+            {
+                try
+                {
+                    await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ladder[rung]);
+                    started = true;
+                    if (rung > 0) Log.Info($"The page's screencast started on rung {rung + 1} of the ask ({ladder[rung]}) after the fuller ask was refused.");
+                }
+                catch (Exception ex)
+                {
+                    refusal = ex;
+                    if (_disposed || _core is null) return;
+                }
+            }
+            if (!started)
+            {
+                _screencastOn = false;
+                _liveness = ScreencastLiveness.Off;
+                var refusals = Interlocked.Increment(ref _screencastRefusals);
+                Interlocked.Exchange(ref _screencastRefusedTicks, DateTime.UtcNow.Ticks);
+                if (refusals <= 3 || refusals % 10 == 0)
+                {
+                    Log.Warn($"The page's screencast would not start (refused {refusals}×, every rung of the ask) — the screenshot poll stands in; asked again in {ScreencastRetry.DelayMs(refusals) / 1000.0:0.#} s.", refusal);
+                }
+                return;
+            }
             _planApplied = plan;
             _planStarted = true;
             _screencastOn = true;
             _liveness = ScreencastLiveness.Starting;
+            var after = Volatile.Read(ref _screencastRefusals);
+            if (after > 0) Log.Info($"The page's screencast started after {after} refusal{(after == 1 ? "" : "s")} — the screenshot poll stands down.");
         }
         catch (Exception ex)
         {
@@ -423,6 +468,25 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             if (_screencastFailures++ == 0) Log.Warn("The page's screencast would not start — the screenshot poll stands in.", ex);
         }
     }
+
+    /// <summary>Round 77: a refused screencast is asked for again on the backoff, from the capture tick — one ask in flight at a time, none while the page is leaving.</summary>
+    private async Task RetryScreencastAsync()
+    {
+        if (_disposed || _core is null || _screencastOn || _leaving) return;
+        if (!ScreencastRetry.Due(Volatile.Read(ref _screencastRefusals), Interlocked.Read(ref _screencastRefusedTicks), DateTime.UtcNow.Ticks)) return;
+        if (Interlocked.CompareExchange(ref _screencastStarting, 1, 0) != 0) return;
+        try
+        {
+            await StartScreencastAsync();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _screencastStarting, 0);
+        }
+    }
+
+    /// <summary>How many times this document's screencast was refused outright (STATE, the Media page's line).</summary>
+    public int ScreencastRefusals => Volatile.Read(ref _screencastRefusals);
 
     /// <summary>
     /// A frame from the browser (UI thread). Acked at once so the next one is already on its way,
@@ -653,7 +717,9 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             if (!_pipeline.HasFrame) return _status + " (no picture yet)";
             var fps = FrameRate;
             var text = fps > 0 ? $"{_status} · {fps:0} fps · {_pipeline.Smoother.Words}" : _status;
-            if (_screencastRestarts > 0) text += _screencastOn ? $" · screencast restarted ({_screencastRestarts})" : " · screenshot poll (the screencast stalled)";
+            var refusals = Volatile.Read(ref _screencastRefusals);
+            if (refusals > 0) text += " · " + ScreencastRetry.StatusWords(_screencastOn, refusals);
+            else if (_screencastRestarts > 0) text += _screencastOn ? $" · screencast restarted ({_screencastRestarts})" : " · screenshot poll (the screencast stalled)";
             if (_routeHeld) text += " · sound held: not routed";
             if (_preferH264) text += " · " + WebPlayback.PreferH264Words;
             return _browserSaysHidden ? text + " · the browser thinks its window is hidden" : text;

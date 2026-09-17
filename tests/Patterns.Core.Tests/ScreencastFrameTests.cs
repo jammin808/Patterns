@@ -88,4 +88,45 @@ public class ScreencastFrameTests
         var rate = meter.Rate(t0 + 2000 * TimeSpan.TicksPerMillisecond);
         Assert.True(rate is > 200 and <= 256, $"rate {rate}");                           // the ring's capacity bounds it
     }
+
+    // ---- round 77: a refused start climbs down a ladder and is asked again ---------------------
+
+    [Fact]
+    public void ARefusedStartClimbsDownToTheBareAskAndEveryRungIsDistinct()
+    {
+        var ladder = ScreencastFrame.StartLadder(1280, 720, quality: 60, everyNthFrame: 2);
+        Assert.Equal(3, ladder.Count);
+        Assert.Equal(ScreencastFrame.StartParameters(1280, 720, 60, 2), ladder[0]);
+        Assert.Equal("{\"format\":\"jpeg\",\"quality\":60}", ladder[1]);
+        Assert.Equal("{\"format\":\"jpeg\"}", ladder[2]);
+        Assert.Equal(ladder.Count, ladder.Distinct().Count());
+        Assert.Equal("{\"format\":\"jpeg\",\"quality\":70}", ScreencastFrame.MinimalParameters());
+        Assert.Equal("{\"format\":\"jpeg\",\"quality\":100}", ScreencastFrame.MinimalParameters(250));
+    }
+
+    [Fact]
+    public void TheRetryBacksOffToHalfAMinuteAndSaysWhereItStands()
+    {
+        Assert.Equal(1000, ScreencastRetry.DelayMs(0));
+        Assert.Equal(1000, ScreencastRetry.DelayMs(1));
+        Assert.Equal(2000, ScreencastRetry.DelayMs(2));
+        Assert.Equal(4000, ScreencastRetry.DelayMs(3));
+        Assert.Equal(8000, ScreencastRetry.DelayMs(4));
+        Assert.Equal(15000, ScreencastRetry.DelayMs(5));
+        Assert.Equal(30000, ScreencastRetry.DelayMs(6));
+        Assert.Equal(30000, ScreencastRetry.DelayMs(600));
+
+        var refused = new DateTime(2026, 9, 17, 21, 0, 0, DateTimeKind.Utc).Ticks;
+        Assert.False(ScreencastRetry.Due(0, refused, refused + TimeSpan.TicksPerMinute), "never before a refusal");
+        Assert.False(ScreencastRetry.Due(3, 0, refused), "a refusal without a clock is not due");
+        Assert.False(ScreencastRetry.Due(3, refused, refused + 3999 * TimeSpan.TicksPerMillisecond));
+        Assert.True(ScreencastRetry.Due(3, refused, refused + 4000 * TimeSpan.TicksPerMillisecond));
+        Assert.True(ScreencastRetry.Due(9, refused, refused + 30 * TimeSpan.TicksPerSecond));
+
+        Assert.Equal("", ScreencastRetry.StatusWords(screencastOn: true, refusals: 0));
+        Assert.Equal("screenshot poll (the screencast was refused once; asking again)", ScreencastRetry.StatusWords(false, 1));
+        Assert.Equal("screenshot poll (the screencast was refused ×3; asking again)", ScreencastRetry.StatusWords(false, 3));
+        Assert.Equal("screencast (after 1 refusal)", ScreencastRetry.StatusWords(true, 1));
+        Assert.Equal("screencast (after 4 refusals)", ScreencastRetry.StatusWords(true, 4));
+    }
 }
