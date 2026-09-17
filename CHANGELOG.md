@@ -8,6 +8,24 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 75 — 2026-09-17 — the small round: the recorder behind pairing and no secret on any feed, a landing that never takes what the press did not see, a lock that never pins the transition, the descriptor versioned
+
+`round-75` · PLAN §93 · REVIEW round 75 · 2,376 tests · module 3.14.0
+
+- **The roadmap assessed.** A cross-industry generalisation roadmap read against the code: its P0/P1 items
+  real, its phases mostly already true of the code, its renames and project split declined with reasons,
+  render nodes and a tablet Navigator postponed. `docs/GENERALISATION.md`.
+- **The recorder behind pairing.** `RECORD ON` and `NAV DECK` wait for the pairing token like a verb; the
+  wire writer, the action feed and the journal never carry an admin passcode (UPDATE APPLY, RESTART); MIDI
+  learn refuses to bind a line that carries one.
+- **A landing never takes what the press did not see.** A screen made a repeater, a canvas whose members
+  moved or a screen that joined a canvas between the press and the landing is held, with what it is now:
+  "changed since the press — now a repeater of 1 · Left".
+- **A lock never pins the transition.** LOCK during a running clip pins the picture beneath the clip in the
+  edited state, and the sting's end puts it under the lock on the air; the screen ends locked on the show,
+  never on a frozen frame of the clip. Closes 72.3's open item.
+- **The descriptor versioned.** `protocol` on every NAV and MENU reply; REMOTE.md names what a client lays out.
+
 ## Round 74 — 2026-09-17 — the deck as a programming surface: the desk's menus on the keys, the desk turned from the deck and the deck from the desk, the recorder
 
 `round-74` · PLAN §92 · REVIEW round 74 · 2,371 tests · module 3.14.0

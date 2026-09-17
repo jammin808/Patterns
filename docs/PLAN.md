@@ -9752,3 +9752,106 @@ The slots re-render on a real surface within a STATE push; the recorder's lines 
 as `raw` actions; the encoder presets draw on a Stream Deck+; `NAV DECK` shows on the Remote page
 while a deck navigates. A connection setting for the slot count (8, 16, 32) waits for a surface
 that needs it.
+
+## 93. Round 75 — the small round: the recorder behind pairing and no secret on any feed, a landing that never takes what the press did not see, a lock that never pins the transition, the descriptor versioned
+
+A generalisation roadmap arrived after round 74, proposing to make the Switcher, the take ticket, the
+walls, the evidence, the Eye and the Navigator reusable beyond live AV in eight phases. Its strategic advice
+— do not fork, do not rename the AV product, prove the architecture under real shows first — is taken; its
+phases were read against the code (`docs/GENERALISATION.md`), and most describe boundaries the code already
+has. What the round takes from it is the P0/P1 list it opens with — two of its items real defects on
+inspection, one of them made worse by round 74 — and the one protocol item that costs a line. Everything
+else is postponed or declined with its reason in the paper. Every claim was checked at a named line before
+anything was built.
+
+### 93.1 The roadmap assessed (75.0)
+
+- `docs/GENERALISATION.md`: the P0/P1 claims checked in the code — RECORD unpaired (real), the passcode in
+  the feed and the journal (real; the journal part older than round 74), the ticket's landing blind to a role
+  or canvas change (real), LOCK under a clip (open since 72.3), the qualification and the soak (the rig's);
+  the phases — 1, 2 and 6 already true (Core has no Avalonia reference; the plan and the ticket are plain
+  records tested with no renderer; the Eye takes facts in and gives a graph out), 4 nothing to do, 5 and 8
+  postponed with their reasons, 3 and 7 taken minimally; what is declined — the renames, the project split,
+  interfaces ahead of a second implementation, a second vertical, the Ops Wall as a product.
+
+### 93.2 The recorder behind pairing, and no secret on any feed (75.1)
+
+- **The claim.** `RECORD ON` and `NAV DECK` passed the wire's pairing gate, because the gate let every kind
+  but an action through as a question; and the wire writer spelt `UPDATE APPLY <passcode>` and `RESTART
+  <passcode>` — the passcode rides those actions' target — so a successful admin verb from the desk reached
+  every recording deck as an ACTION line (and Companion's recorder stored it in a button), while the journal
+  had written the same target into its row on disk since the admin verbs exist.
+- **The design.** `ControlProtocol.IsQuery` is false for RECORD and NAV DECK — a subscription to the desk's
+  actions and a deck's whereabouts are a connection's standing, not a question — and the port refuses both
+  unpaired with the wire's own words (a desk with no token set stays open, as ever).
+  `ActionSpec.CarriesSecret(kind)` names the kinds whose target is a secret (UPDATE APPLY, RESTART); the wire
+  writer writes "" for them, so the feed skips them (a deck could not replay them without the passcode
+  anyway); the journal's row keeps the kind and the outcome and blanks the target; MIDI learn refuses to bind
+  them, without repeating the line (a bound line sits in the show file in clear, and the show file travels).
+  The Companion module already presents the token on connect before it sends RECORD ON, so a paired deck
+  records as before; an unpaired one reads the refusal in `last_error`.
+- **Proof.** `PairingTokenTests` (the queries and the verbs, RECORD and NAV DECK among the verbs);
+  `WireWriterTests` (the round trip skips the secret kinds, which write nothing; no line carries the
+  passcode); `NavAppTests.AnUnpairedDeckCannotRecordOrSayWhereItIsAndNoFeedOrJournalRowCarriesTheAdminPasscode`
+  — over a real socket with a token set: RECORD ON and NAV DECK refused unpaired, NAV answered, AUTH then
+  both accepted; a successful admin verb never fed while the next action is; the journal's rows blank
+  whatever the outcome; MIDI LEARN of an admin line refused without repeating it; the journal file on disk
+  carries no passcode.
+
+### 93.3 A landing never takes what the press did not see (75.2)
+
+- **The claim.** A ticket's landing asked two questions of each promised target — still in the rig, locked
+  since — and landed a screen made a repeater, a canvas whose members had moved or a screen that had joined
+  a canvas as if nothing had changed, contradicting the hold the same rule applies at press time.
+- **The design.** `TakeTarget.Shape` — what a target is, in the wall's words ("a screen of its own", "a
+  repeater of 1 · Left", "Canvas A of 2 · Right, 3 · Rear") — filled by the switcher's one rig builder
+  (`RigTargets`, read by the press's plan and the landing alike, where the plan and the landing used to build
+  the rig two different ways); the plan keeps `TakenShapes`, the ticket `Shapes`; `TakeTicket.Land` takes
+  the rig's targets as they are now and holds a promised target whose shape differs with
+  `TakeHeld.ChangedSince(now)` — "changed since the press — now a repeater of 1 · Left"; a promised id that is
+  no longer a target of its own asks `whereNow` ("in Canvas A") before it is called gone from the rig. A caller
+  that keeps no shapes compares none. The reason reaches the journal's TAKE row, the status line and the
+  landing's words like the lock-since reason does; STATE's take row and the Eye's desk node carry the ticket
+  as before.
+- **Proof.** `TakeTicketTests` (the repeater, the joined screen, the grown canvas as a refusal, a change on a
+  locked target, a shapeless rig, plain gone); `TakeTicketAppTests.AScreenMadeARepeaterDuringTheClipIsHeldAsChangedSinceThePress`.
+
+### 93.4 A lock never pins the transition (75.3)
+
+- **The claim.** (72.3's open item.) LOCK reads the air's picture for the screen and pins it as the screen's
+  own; during a running clip the air's picture is the clip, so with EDIT SAFE open the edited state kept a
+  Media picture the operator never chose — reproduced first: with the fix switched off, the new test reads
+  Media where it should read the show. A second hole was suspected in the whole-cover restore (the locked
+  screen's kept picture read as the clip) and tested with a guard in place and then without it: the closed
+  case already comes back to the show, so no guard was added and the test pins the fact.
+- **The design.** `StingerService.PictureUnder(target)`: the picture the clip covers — a scoped cover's saved
+  own picture for the target, or the programme it followed (which a scoped cover leaves alone); a whole
+  cover's saved look for it (`LookService.PictureFor`); null when no clip covers the target — a target outside
+  the rig, one a scoped cover does not hold, one locked at the fire that kept its own picture — and the air is
+  the truth as ever. LOCK pins that in the edited state while the audience's clip plays on under the lock; the
+  sting's own restore puts the show back on the air when the clip ends, and the screen ends locked on the
+  show, never on a frozen transition.
+- **Proof.** `TakeTicketAppTests.ALockDuringTheClipPinsThePictureBeneathTheClipNeverTheClip` — EDIT SAFE open
+  (the edited state pins the show beneath while the air shows the clip; the landing keeps it) and closed (the
+  lock holds the show beneath when the clip ends); `PictureUnder` null for a target outside the rig and after
+  the clip.
+
+### 93.5 The descriptor versioned (75.4)
+
+- `ControlProtocol.DescriptorVersion` (1) as `protocol` on every NAV and MENU reply; REMOTE.md names the
+  descriptor a client lays out — page, entry, wire, tick, tone, reason, route, menu, drawer — so Companion
+  stays one client of it and a tablet or the assistant reads the same JSON. It moves only when a field
+  changes meaning or goes; a field added keeps it.
+- **Proof.** `DeskMenuTests` (a menu's JSON), `NavAppTests` (the NAV reply).
+
+### 93.6 The papers (75.5)
+
+- `docs/GENERALISATION.md`; this section; REVIEW round 75; CHANGELOG; README; REMOTE.md (RECORD and NAV DECK
+  paired, `protocol`, the descriptor named); COMPANION.md and COMPANION-NAVIGATOR.md (pairing before
+  recording); the tag table row 74.
+
+### What the round did not do
+
+- The rig qualification and the soak (the roadmap's items 4 and 5) need the rig; `docs/QUALIFICATION.md`
+  and `docs/SOAK.md` are the records to fill. Render nodes, a tablet Navigator and a common evidence type
+  wait, with their reasons in `docs/GENERALISATION.md` §3 and §5.

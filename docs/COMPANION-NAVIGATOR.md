@@ -154,7 +154,9 @@ line that reproduces it, written by a writer that round-trips the wire's vocabul
 module records each as a `raw` action on the button being recorded. Press RECORD in Companion,
 do the thing on the desk, stop: the button now does it. `RECORD OFF` ends it; a deck that
 disconnects ends it. Presses from the wire itself are not fed back (a deck recording its own
-presses would loop), and a cue's steps and the schedule are not the operator's hand.
+presses would loop), and a cue's steps and the schedule are not the operator's hand. Round 75: RECORD
+waits for the pairing token like a verb (the module presents it on connect), and an admin verb is never
+fed — the passcode rides it.
 
 ### Encoders
 

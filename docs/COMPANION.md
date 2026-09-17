@@ -429,7 +429,10 @@ that reproduces it, in the operator's words (`LOOK Walk-in`, `CUE GO`, `SCREEN 2
 Grid`) — recorded as a `raw` action on the button; stop, and the button does it. A cue's own
 steps, the schedule, the playlist, a sting and the recovery are not fed, nor are the deck's own
 presses. `$(patterns:last_action)` reads the last line; the `raw` action's LEARN takes the desk's
-next action as the key's line (30 s).
+next action as the key's line (30 s). Round 75: the desk accepts `RECORD ON` from a paired connection
+only — the module presents the show's token on connect, so a deck given the token records as before, and
+one without reads `not paired` in `$(patterns:last_error)`; an admin verb (`UPDATE APPLY`, `RESTART`) is
+never fed, since the passcode rides it.
 
 **Presets.** A Navigator section (HOME, BACK, PREV, NEXT, RUN / MENU, FOLLOW, SETTINGS, the
 title, the deck's where, the 24 slots with their tone feedbacks), *Navigator — rails* (a key per

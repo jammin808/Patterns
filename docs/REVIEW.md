@@ -2729,3 +2729,52 @@ Round 73's review carried 72.3's lock-during-a-clip item; it is still open — n
 round touched the lock's read of the air. New from this round, seen and not done: a connection
 setting for the slot count; a generated Companion page export; pictures on keys — each with its
 reason in `docs/COMPANION-NAVIGATOR.md` §6.
+
+## Round 75 review — the small round
+
+### 75.0 — the roadmap assessed
+
+- **Done.** Every P0/P1 claim checked in the code before anything was built; the eight phases read against
+  what exists; the decisions with their reasons. `docs/GENERALISATION.md`, §93.1.
+
+### 75.1 — the recorder behind pairing, and no secret on any feed
+
+- **Done.** RECORD and NAV DECK wait for the token; the writer, the feed and the journal never carry an admin
+  passcode; MIDI learn refuses the line. §93.2.
+- **Found on the way.** The journal had written the admin passcode as a row's target since the admin verbs
+  exist — round 74 did not introduce that; it added a second path (the feed). One predicate closes both.
+  Rows are redacted at the source from now on; an older journal file keeps what it had, so a desk that has
+  run `UPDATE APPLY` or `RESTART` from the wire before this round should rotate its journal (the file beside
+  the settings) if the passcode matters. The test's deck connects from loopback, which a desk trusts by
+  default; the test switches that trust off, as the trust tests do.
+- **Seen, not done.** Whether the support bundle copies the journal file was not confirmed here.
+
+### 75.2 — a landing never takes what the press did not see
+
+- **Done.** §93.3.
+- **Found on the way.** The press's plan and the landing built the rig two different ways (the plan with
+  every flag, the landing with bare ids); they read one builder now, which is what made the shape comparison
+  a few lines.
+
+### 75.3 — a lock never pins the transition
+
+- **Done.** §93.4. Reproduced first: with the fix switched off, the new test reads Media in the edited state
+  where it should read the show.
+- **Found on the way.** A second hole was suspected — with EDIT SAFE closed, the whole-cover restore reading
+  a locked screen's kept picture as the clip. A guard was written, then the case was run with only the guard
+  and with neither: the closed case already comes back to the show. The guard was not kept; the test pins
+  the fact instead of a fix nobody could observe.
+
+### 75.4 — the descriptor versioned
+
+- **Done.** §93.5. Two tests that pinned the first field of a MENU reply moved to the versioned shape.
+
+### 75.5 — the papers
+
+- **Done.** PLAN §93, this review, CHANGELOG round 75, README, REMOTE.md, COMPANION.md, COMPANION-NAVIGATOR.md,
+  `docs/GENERALISATION.md`, the tag table row 74.
+
+### The review's items, answered
+
+72.3's lock-during-a-clip item is closed (75.3). Open: the rig qualification and the soak, which need the
+rig; round 74's slot-count setting and page export; the items postponed in `docs/GENERALISATION.md` §5.
