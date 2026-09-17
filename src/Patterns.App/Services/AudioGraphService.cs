@@ -62,6 +62,13 @@ public sealed class AudioGraphService : IDisposable
         public double Target;
         public int AttackMs = 40;
         public int ReleaseMs = 600;
+        /// <summary>Round 76: the plan no longer routes this input here — it is fading to silence over <see cref="ReleaseMs"/> and closes when it gets there, never cut mid-word.</summary>
+        public bool Leaving;
+        public DateTime LeavingSinceUtc;
+
+        /// <summary>The fade has landed (the envelope at the floor), or overran its time twice over — either way the input goes.</summary>
+        public bool LeaveDone(DateTime nowUtc)
+            => Leaving && (Env.Value <= 0.002 || (nowUtc - LeavingSinceUtc).TotalMilliseconds > ReleaseMs * 2 + 250);
     }
 
     private sealed class Lane : IDisposable
@@ -176,6 +183,31 @@ public sealed class AudioGraphService : IDisposable
         Run();
     }
 
+    /// <summary>Round 76: every input on every lane — the destination, the tag, the source, whether it is fading out, its live gain — for STATE, the Eye and the tests.</summary>
+    public IReadOnlyList<(string Lane, string Tag, string Source, bool Leaving, double Gain)> InputRows()
+    {
+        var rows = new List<(string, string, string, bool, double)>();
+        foreach (var lane in _lanes.Values)
+        {
+            foreach (var (tag, input) in lane.Inputs) rows.Add((lane.Key, tag, input.Source, input.Leaving, input.Env.Value));
+        }
+        return rows;
+    }
+
+    /// <summary>One tick at a given clock (the tests' seam): the plan resolved when the topology moved, the envelopes advanced, a fade that landed closed.</summary>
+    public void TickAt(DateTime nowUtc)
+    {
+        try
+        {
+            Apply(nowUtc);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Audio graph tick failed.", ex);
+            _status = "Audio graph error: " + ex.Message;
+        }
+    }
+
     /// <summary>The desk's poll: the timer is up while the matrix is on; nothing is rebuilt unless the topology's signature moved.</summary>
     public void Poll()
     {
@@ -262,7 +294,7 @@ public sealed class AudioGraphService : IDisposable
         if (!_topologyDirty && signature == _lastSignature && _plan.Count > 0)
         {
             // Nothing in the topology moved: the envelopes and the meters advance, and that is all.
-            Advance(dt);
+            Advance(dt, nowUtc);
             QuietTicks++;
             return;
         }
@@ -273,19 +305,20 @@ public sealed class AudioGraphService : IDisposable
         _plan = plan;
 
         // The taps: every tapped clip by the source its pictures make it, then the show's own sound.
-        var clipTaps = new List<(string Tag, string Source, AudioRing Ring)>();
+        var clipTaps = new List<(string Tag, IReadOnlyList<string> Sources, AudioRing Ring)>();
         foreach (var (key, buses, tap, preRoll) in _services.Video.Taps())
         {
             if (preRoll) continue;
-            clipTaps.Add(("clip:" + key, AudioRouting.SourceForBuses(buses), tap));
+            clipTaps.Add(("clip:" + key, AudioRouting.SourcesForBuses(buses), tap));
         }
-        var showTaps = new List<(string Tag, string Source, AudioRing Ring)>();
-        if (_services.AudioPlayer.MusicTap is { } music) showTaps.Add(("music", AudioRouting.Music, music));
-        foreach (var (tag, kind, ring) in _services.AudioPlayer.VoiceTaps()) showTaps.Add((tag, kind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting, ring));
-        if (_services.Audio?.ToneTap is { } tone) showTaps.Add(("tone", AudioRouting.Tone, tone));
+        var showTaps = new List<(string Tag, IReadOnlyList<string> Sources, AudioRing Ring)>();
+        if (_services.AudioPlayer.MusicTap is { } music) showTaps.Add(("music", new[] { AudioRouting.Music }, music));
+        foreach (var (tag, kind, ring) in _services.AudioPlayer.VoiceTaps()) showTaps.Add((tag, new[] { kind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting }, ring));
+        if (_services.Audio?.ToneTap is { } tone) showTaps.Add(("tone", new[] { AudioRouting.Tone }, tone));
 
         // Lanes for the plan's destinations; one the plan no longer names closes.
         var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var leaveMs = AudioRouting.LeaveFadeMs(state);
         foreach (var p in plan)
         {
             wanted.Add(p.Key);
@@ -295,11 +328,25 @@ public sealed class AudioGraphService : IDisposable
             // The inputs this lane should carry: clip taps on a device lane; everything routed on an NDI lane.
             var taps = p.Kind == AudioDestinationKind.Ndi ? clipTaps.Concat(showTaps) : clipTaps;
             var keep = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var (tag, source, ring) in taps)
+            foreach (var (tag, sources, ring) in taps)
             {
-                if (!p.Carries(source)) continue;
+                // Round 76: a tap is carried for every source its pictures make it (the programme and a screen's own
+                // picture at once), at the loudest of them — the screen's output never falls silent for a clip that
+                // is also the programme.
+                string? source = null;
+                double target = 0;
+                foreach (var candidate in sources)
+                {
+                    if (!p.Carries(candidate)) continue;
+                    var gain = p.GainFor(candidate);
+                    if (source is null || gain > target)
+                    {
+                        source = candidate;
+                        target = gain;
+                    }
+                }
+                if (source is null) continue;
                 keep.Add(tag);
-                var target = p.GainFor(source);
                 if (!lane.Inputs.TryGetValue(tag, out var input))
                 {
                     // A new input starts at its gain — a clip's first words are never faded in; only a change moves the envelope.
@@ -309,6 +356,8 @@ public sealed class AudioGraphService : IDisposable
                     lane.Inputs[tag] = input;
                     lane.Mixer.AddMixerInput(provider);
                 }
+                input.Source = source;      // a take moved the picture: the source it is now, so the matrix's cell reads it
+                input.Leaving = false;      // routed here again before its fade landed: it stays, and rises to its gain
                 input.Target = target;
                 input.AttackMs = row?.AttackMs ?? 40;
                 input.ReleaseMs = row?.ReleaseMs ?? 600;
@@ -318,7 +367,22 @@ public sealed class AudioGraphService : IDisposable
             foreach (var tag in lane.Inputs.Keys.ToList())
             {
                 if (keep.Contains(tag)) continue;
-                lane.Mixer.RemoveMixerInput(lane.Inputs[tag].Provider);
+                var input = lane.Inputs[tag];
+                // Round 76: an input the plan no longer routes here fades to silence over the show's transition (a
+                // picture leaving the programme takes its sound with it, the way it took its frames) and closes when
+                // the fade lands — where it used to be cut from the mixer mid-word.
+                if (!input.Leaving)
+                {
+                    input.Leaving = true;
+                    input.LeavingSinceUtc = nowUtc;
+                    input.Target = 0;
+                    input.AttackMs = leaveMs;    // the envelope falls at its attack time: the fade is the transition's length
+                    input.ReleaseMs = leaveMs;
+                }
+                input.Env.Advance(0, dt, input.AttackMs, input.ReleaseMs);
+                input.Provider.Target = (float)input.Env.Value;
+                if (!input.LeaveDone(nowUtc)) continue;
+                lane.Mixer.RemoveMixerInput(input.Provider);
                 lane.Inputs.Remove(tag);
             }
             var peak = lane.Meter.TakePeak();
@@ -331,20 +395,41 @@ public sealed class AudioGraphService : IDisposable
             _lanes[key].Dispose();
             _lanes.Remove(key);
         }
-        var carrying = _lanes.Values.Sum(l => l.Inputs.Count);
-        var errors = _lanes.Values.Count(l => l.Error.Length > 0);
-        _status = $"Routing on: {_lanes.Count} lane{(_lanes.Count == 1 ? "" : "s")}, {carrying} input{(carrying == 1 ? "" : "s")} playing{(vog ? " · VOG on air" : "")}{(errors > 0 ? $" · {errors} could not open" : "")}.";
+        _lastVog = vog;
+        RefreshStatus();
     }
 
-    /// <summary>The quiet tick: every input's envelope towards its cached target, every meter's fall — no plan resolved, nothing allocated.</summary>
-    private void Advance(double dt)
+    private bool _lastVog;
+
+    /// <summary>The status line from the lanes as they stand: the inputs playing, the ones fading out, the VOG, the lanes that could not open.</summary>
+    private void RefreshStatus()
+    {
+        var carrying = _lanes.Values.Sum(l => l.Inputs.Values.Count(i => !i.Leaving));
+        var fading = _lanes.Values.Sum(l => l.Inputs.Values.Count(i => i.Leaving));
+        var errors = _lanes.Values.Count(l => l.Error.Length > 0);
+        _status = $"Routing on: {_lanes.Count} lane{(_lanes.Count == 1 ? "" : "s")}, {carrying} input{(carrying == 1 ? "" : "s")} playing{(fading > 0 ? $", {fading} fading out" : "")}{(_lastVog ? " · VOG on air" : "")}{(errors > 0 ? $" · {errors} could not open" : "")}.";
+    }
+
+    /// <summary>The quiet tick: every input's envelope towards its cached target, every meter's fall, a fade that landed closed — no plan resolved, nothing allocated on the steady path.</summary>
+    private void Advance(double dt, DateTime nowUtc)
     {
         foreach (var lane in _lanes.Values)
         {
-            foreach (var input in lane.Inputs.Values)
+            List<string>? done = null;
+            foreach (var (tag, input) in lane.Inputs)
             {
                 input.Env.Advance(input.Target, dt, input.AttackMs, input.ReleaseMs);
                 input.Provider.Target = (float)input.Env.Value;
+                if (input.LeaveDone(nowUtc)) (done ??= new List<string>()).Add(tag);
+            }
+            if (done is not null)
+            {
+                foreach (var tag in done)
+                {
+                    lane.Mixer.RemoveMixerInput(lane.Inputs[tag].Provider);
+                    lane.Inputs.Remove(tag);
+                }
+                RefreshStatus();   // a fade landed on the quiet tick: the words follow
             }
             var peak = lane.Meter.TakePeak();
             var db = peak <= 0 ? Db.Floor : Math.Max(Db.Floor, 20 * Math.Log10(peak));

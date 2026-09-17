@@ -629,6 +629,42 @@ public static class AudioRouting
     }
 
     /// <summary>
+    /// Round 76: every source a mounted picture's sound is at once — the programme when one of its
+    /// buses is the programme, and each screen of its own it plays on — so a clip that is the
+    /// programme and a screen's own picture together is carried by both destinations' lanes rather
+    /// than the screen's output falling silent; the preview when it is nowhere else. The first is
+    /// <see cref="SourceForBuses"/>'s answer, so the words and the signature stay the same.
+    /// </summary>
+    public static IReadOnlyList<string> SourcesForBuses(IReadOnlyList<MediaBus>? buses)
+    {
+        if (buses is null || buses.Count == 0) return new[] { Programme };
+        var list = new List<string>();
+        foreach (var bus in buses)
+        {
+            if (bus.IsProgram && !list.Contains(Programme)) list.Add(Programme);
+        }
+        foreach (var bus in buses)
+        {
+            if (bus.Preview || bus.OutputId.Length == 0) continue;
+            var source = ScreenSource(bus.OutputId);
+            if (!list.Contains(source)) list.Add(source);
+        }
+        if (list.Count == 0) list.Add(Preview);
+        return list;
+    }
+
+    /// <summary>
+    /// Round 76: how long a picture's sound takes to leave a destination it is no longer routed to — the
+    /// show's transition when it is on (the picture crossfades over it, and its sound with it), a short
+    /// click-free release otherwise. A sound that leaves the programme leaves the room's outputs with it.
+    /// </summary>
+    public static int LeaveFadeMs(ShowState state)
+        => state.Transition.Enabled ? Math.Max(LeaveFloorMs, (int)Math.Round(Math.Clamp(state.Transition.DurationMs, 0, 3000))) : LeaveFloorMs;
+
+    /// <summary>The shortest leave: a cut still releases over this, so no click is heard.</summary>
+    public const int LeaveFloorMs = 120;
+
+    /// <summary>
     /// Where a clip's soundtrack goes, as a decoder can honour it: the classic two wires with the
     /// matrix off; the one device that wants it, played by the decoder itself; the mixer when
     /// several destinations or an NDI send want it; silence when nothing does.

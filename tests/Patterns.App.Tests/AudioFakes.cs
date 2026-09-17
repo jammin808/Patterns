@@ -97,6 +97,9 @@ internal sealed class FakeSource : IMountedSource
 
     public void SetAudioDelay(int ms) => AudioDelayMs = ms;
 
+    /// <summary>Round 76: the ring the desk's mixer taps, when a test gives the clip one — the audio graph's input for it.</summary>
+    public Patterns.Audio.AudioRing? AudioTap { get; set; }
+
     /// <summary>The pre-roll: how often the pool held this clip at its start and let it go, and whether it is held now.</summary>
     public int Holds;
     public int Releases;
@@ -139,12 +142,15 @@ internal sealed class AudioFakes
         };
         b.Services.Video.SourceFactory = w =>
         {
-            var s = new FakeSource(w);
+            var s = new FakeSource(w) { AudioTap = fakes.Taps?.Invoke(w) };
             fakes.Sources.Add(s);
             return s;
         };
         return fakes;
     }
+
+    /// <summary>Round 76: the tap a new fake clip carries, when a test wants the audio graph to hear it.</summary>
+    public Func<MediaLocator.WantedInput, Patterns.Audio.AudioRing?>? Taps { get; set; }
 
     public static string TempFile(string name)
     {

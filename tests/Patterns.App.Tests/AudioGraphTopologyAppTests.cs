@@ -60,4 +60,65 @@ public class AudioGraphTopologyAppTests
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         }
     }
+
+    /// <summary>
+    /// Round 76: a picture that leaves the programme takes its sound with it the way it took its frames — the
+    /// lane's input fades to silence over the show's transition and closes when the fade lands, where it used to
+    /// be cut from the mixer mid-word — and the status says so while it fades.
+    /// </summary>
+    [AvaloniaFact]
+    public void ALeavingClipsSoundFadesOutOverTheTransitionAndClosesWhenItLands()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, window) = b;
+            var fakes = AudioFakes.Install(b);
+            var ring = new Patterns.Audio.AudioRing(2, 48000);
+            fakes.Taps = _ => ring;
+            var graph = services.AudioGraph!;
+            vm.IsSandboxActive = false;
+            vm.State.AudioRouting.Enabled = true;
+            AudioRouting.SetRoute(vm.State, "programme", "dev:(computer output)");
+            vm.State.Transition.Enabled = true;
+            vm.State.Transition.DurationMs = 500;
+            Assert.Equal(500, AudioRouting.LeaveFadeMs(vm.State));
+
+            // A clip on the programme: its tap is an input on the programme's lane, at its gain, not fading.
+            vm.State.Pattern.Kind = PatternKind.Media;
+            vm.State.Pattern.Media.Source = MediaSource.Video;
+            vm.State.Pattern.Media.VideoPath = AudioFakes.TempFile("leaving.mp4");
+            Settle(window);
+            services.ReconcileInputs();
+            graph.Reconcile();
+            var playing = Assert.Single(graph.InputRows(), r => r.Tag.StartsWith("clip:", StringComparison.Ordinal));
+            Assert.Equal("dev:(computer output)", playing.Lane);
+            Assert.Equal("programme", playing.Source);
+            Assert.False(playing.Leaving);
+            Assert.Equal(1.0, playing.Gain, 3);
+            Assert.Contains("1 input playing", graph.Status);
+
+            // The clip leaves the programme: the input stays, fading, and the status says so.
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            Settle(window);
+            services.ReconcileInputs();
+            var at = ShowClock.UtcNow;
+            graph.Reconcile();
+            var leaving = Assert.Single(graph.InputRows(), r => r.Tag.StartsWith("clip:", StringComparison.Ordinal));
+            Assert.True(leaving.Leaving);
+            Assert.Contains("fading out", graph.Status);
+
+            // The fade lands over the transition's length: the input closes by itself.
+            for (var i = 1; i <= 4; i++)
+            {
+                graph.TickAt(at.AddMilliseconds(500 * i));
+            }
+            Assert.DoesNotContain(graph.InputRows(), r => r.Tag.StartsWith("clip:", StringComparison.Ordinal));
+            Assert.DoesNotContain("fading out", graph.Status);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 }

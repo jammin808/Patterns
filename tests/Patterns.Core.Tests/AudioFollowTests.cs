@@ -305,4 +305,54 @@ public class AudioFollowTests
         Assert.Equal(AudioRouting.FollowedRoutes(air).Count, AudioRouting.FollowedRoutes(air, air).Count);
         Assert.Equal(AudioRouting.FollowWords(air), AudioRouting.FollowWords(air, air));
     }
+
+    /// <summary>
+    /// Round 76: a picture's sound is on the output of the screen showing it and nowhere the picture is not;
+    /// a clip that is the programme and a screen's own picture at once is carried for both; a monitor row
+    /// puts any source on any other output beside its own; the leave fade follows the show's transition.
+    /// </summary>
+    [Fact]
+    public void ASoundIsOnItsOwnScreensOutputAloneAndAMonitorRowAddsAnotherOutputWithoutMovingIt()
+    {
+        var state = new ShowState();
+        state.AudioRouting.Enabled = true;
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "A", CustomLabel = "Main", AudioOutput = "dev:Main HDMI" });
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "B", CustomLabel = "Side", UseCustomPattern = true, AudioOutput = "dev:Side HDMI" });
+        Assert.True(state.AudioRouting.FollowPicture);
+
+        var plan = AudioRouting.Resolve(state, vogPlaying: false);
+        var main = Assert.Single(plan, p => p.Key == "dev:Main HDMI");
+        var side = Assert.Single(plan, p => p.Key == "dev:Side HDMI");
+        Assert.Equal(new[] { "programme" }, main.Lanes.Select(l => l.Source));             // the programme's picture: the programme's sound, and nothing of the side screen's
+        Assert.Equal(new[] { "screen:B" }, side.Lanes.Select(l => l.Source));              // its own picture: its own sound alone
+        Assert.DoesNotContain(plan, p => p.Key != "dev:Main HDMI" && p.Carries("programme"));
+        Assert.DoesNotContain(plan, p => p.Key != "dev:Side HDMI" && p.Carries("screen:B"));
+
+        // The operator monitors the side screen's sound on the desk's own output: another destination carries it, the side screen keeps it.
+        AudioRouting.SetRoute(state, "screen:B", "dev:Desk", -6);
+        plan = AudioRouting.Resolve(state, vogPlaying: false);
+        var desk = Assert.Single(plan, p => p.Key == "dev:Desk");
+        Assert.Equal(new[] { "screen:B" }, desk.Lanes.Select(l => l.Source));
+        Assert.Equal(-6, desk.Lanes[0].LevelDb);
+        Assert.True(Assert.Single(plan, p => p.Key == "dev:Side HDMI").Carries("screen:B"));
+        Assert.False(Assert.Single(plan, p => p.Key == "dev:Main HDMI").Carries("screen:B"));
+
+        // The sources a mounted picture's sound is: every screen of its own it plays on, the programme first when it is that too.
+        Assert.Equal(new[] { "programme" }, AudioRouting.SourcesForBuses(null));
+        Assert.Equal(new[] { "programme" }, AudioRouting.SourcesForBuses(new[] { MediaBus.Program }));
+        Assert.Equal(new[] { "screen:B" }, AudioRouting.SourcesForBuses(new[] { MediaBus.Output("B") }));
+        Assert.Equal(new[] { "programme", "screen:B" }, AudioRouting.SourcesForBuses(new[] { MediaBus.Output("B"), MediaBus.Program }));
+        Assert.Equal(new[] { "screen:B", "screen:C" }, AudioRouting.SourcesForBuses(new[] { MediaBus.Output("B"), MediaBus.Sandbox, MediaBus.Output("C"), MediaBus.Output("B") }));
+        Assert.Equal(new[] { "preview" }, AudioRouting.SourcesForBuses(new[] { MediaBus.Sandbox }));
+        Assert.Equal(AudioRouting.SourceForBuses(new[] { MediaBus.Output("B"), MediaBus.Program }), AudioRouting.SourcesForBuses(new[] { MediaBus.Output("B"), MediaBus.Program })[0]);
+
+        // The leave fade: the show's transition when it is on, a click-free floor otherwise.
+        state.Transition.Enabled = true;
+        state.Transition.DurationMs = 800;
+        Assert.Equal(800, AudioRouting.LeaveFadeMs(state));
+        state.Transition.DurationMs = 100;
+        Assert.Equal(AudioRouting.LeaveFloorMs, AudioRouting.LeaveFadeMs(state));
+        state.Transition.Enabled = false;
+        Assert.Equal(AudioRouting.LeaveFloorMs, AudioRouting.LeaveFadeMs(state));
+    }
 }
