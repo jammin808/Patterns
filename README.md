@@ -23,6 +23,14 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The field's second report answered (round 77)** — the room hears what it sees: a picture's sound plays
+  while some live output shows it and fades with the transition when none does (a programme clip falls silent
+  when the only live screen shows its own picture; a screen's own picture is heard on its screen); the show
+  lock never mutes the desk's own browser and puts back exactly what it muted after a crash or a handover; a
+  refused screencast is asked with less and asked again, and the status line says so; a boot unplugs no
+  screen, a handover keeps the machine held once, and a port held at the start is bound again; a mirrored or
+  turned picture is said on every recall and take, in STATE and the Eye, with RESET ADJUSTMENTS one press
+  away. The design: `docs/PLAN.md` §95.
 - **Real-world faults answered (round 76)** — a restart asked for with the outputs live is a handover the room
   never sees (the replacement boots beside the desk and takes the screens once its own picture is over them;
   clips and the music resume where they would be by now); a hot-plug carries the other outputs' windows over

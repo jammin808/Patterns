@@ -2847,3 +2847,55 @@ rig; round 74's slot-count setting and page export; the items postponed in `docs
 Round 75's open items stand: the rig qualification and the soak need the rig (four new matrices wait with
 them); round 74's slot-count setting and page export; `docs/GENERALISATION.md` §5. New: the handover's
 mute-first ask, and the crash gap's measurement on the rig.
+
+## Round 77 review — the field's second report
+
+### 77.0 — the files read
+
+- **Done.** The log, the show log, the recovery record, the quality profile and the Super Check read
+  against the code; every sentence of the report traced to a cause with evidence. §95.1.
+- **Found on the way.** The "22/23 fps" and the "11 fps" are two ceilings, not one: the screenshot poll's
+  20 fps after the screencast was refused, and the desk's render clock at 12 Hz when the machine
+  saturates. The user's later observation — smooth when the CPU is free — confirmed the second.
+
+### 77.1 — the lock and the desk's own browser
+
+- **Done.** §95.2.
+- **Found on the way.** The muted sessions' originals lived in this process's memory alone: a crash left
+  every muted app muted with nothing to put it back from, and a handover's replacement would have recorded
+  "muted" as the original of everything the old desk had muted. The receipt carries them now.
+
+### 77.2 — a refused screencast asked again
+
+- **Done.** §95.3.
+- **Found on the way.** The refusal was final by construction: one try, one warning, the poll for the
+  page's life. The status line said "screenshot poll" only after a stall, never after a refusal, so the
+  field could not tell which it was.
+
+### 77.3 — the room hears what it sees
+
+- **Done.** §95.4.
+- **Found on the way.** A screen's own picture starts as a copy of the programme's (`EnsureAssignment`),
+  so a caller that publishes the copy and then the clip shows the programme's clip on that screen for a
+  publish — the desk's own take lands it in one `BulkEdit`, and the test now does too. The engine asked
+  the off-air fade on every reconcile; asked once, at the transition, by the mount's last mute. The page
+  source refuses a second fade while one is ramping, and the engine asks it only at a change.
+
+### 77.4 — the handover's side-effects
+
+- **Done.** §95.5.
+- **Found on the way.** The boot's first hot-plug pass runs with no display at every start, not only a
+  replacement's — the SCREEN UNPLUGGED / SCREEN BACK pair was in every boot's journal. The beacon reset
+  nothing on a failed bind, so a retry never came even on the next change.
+
+### 77.5 — the mirror made visible
+
+- **Done.** §95.6.
+- **Found on the way.** No code path flips a picture but the operator's tick and a preset's copy of it;
+  the fault was silence. The Media page's crop summary did say "Mirrored." — three sections down.
+
+### The suites
+
+- Core 909, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 782 — 2,419; the module's
+  31 node tests. One analyzer fence tripped on the way (CA1826 on an indexable list in a new test) and
+  was fixed before the push.

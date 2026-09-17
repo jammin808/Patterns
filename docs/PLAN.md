@@ -10035,3 +10035,177 @@ the notes (94.2, 94.3), the web (94.4), the sound (94.5), the hot-plug (94.6), t
   measures the gap. The web page's sound through the mixer (docs/WEB-VIDEO.md §4.5) still waits for a bench.
   The handover's second of doubled sound could be closed by the replacement asking the old desk to mute first;
   not done until the rig says it matters.
+
+## 95. Round 77 — the field's second report: the room hears what it sees, the lock spares the desk's own browser, a refused screencast asked again, the handover's side-effects, the mirror made visible
+
+The maintainer ran the round-76 build on the show laptop (an i5-1145G7 with Iris Xe, one LG TV on
+HDMI beside the laptop's own display) and sent the log, the show log, the recovery record, the quality
+profile and a Super Check, with three sentences: the YouTube video is still low-rate and stuttery
+and "not being passed through"; a clip that has transitioned out should fade and stop, but its sound
+carried on out of the TV while the TV showed something else — "the video is still in PGM and a
+'Display 1' (the laptop screen with its outputs off); this doesn't mean the audio should still be
+going to another destination"; and every web page came up as a mirror image, its writing backwards.
+Later, watching the rate: "maybe not super smooth, but 22/23 fps; sometimes it dropped to 11 fps"
+and "it looks quite smooth if it doesn't need as much CPU". This section is what the files said,
+what each sentence turned out to be, and what was built.
+
+### 95.1 What the files said
+
+- **The YouTube page's frames.** Two to five seconds after every YouTube page opened, the browser
+  answered `Page.startScreencast` with E_INVALIDARG (WebView2 surfaces every DevTools refusal as an
+  `ArgumentException`), and the source never asked again: the 20 fps screenshot poll — a compositor
+  pause, a readback and an encode on every frame — carried the page for the rest of its life. That is
+  the "22/23 fps". The Super Check from the same minute read the render clock at 12.4 Hz with the CPU
+  at 87 % and memory at 88 %, the preview's p95 at 32 ms and the outputs at 11.5 fps, the quality
+  ladder already at level 3, four steps down (`patterns.quality.json`). That is the "11 fps": not the
+  page's rate but the desk's, when the machine saturates. The capture plan of round 68 was already
+  doing what it should on that machine (720p, the class's quality, every second frame of a fast page).
+- **The YouTube page's sound.** The show lock's audio item read "another app started playing — 3 other
+  apps' audio muted" the moment the page opened. WebView2 is a tree of `msedgewebview2.exe` processes
+  under the desk; the lock muted every session whose pid was not the desk's own, and the page's sound
+  is theirs. And the page was a screen's own picture with no monitor device named, which the round-55
+  rule read as "nobody's audition" and muted. Two silences, one heard as "the sound cut off".
+- **The clip heard out of the TV.** The recovery record: the laptop's display `Enabled: false`; the LG
+  TV `Enabled: true, UseCustomPattern: true` with a web page as its own picture; the programme a clip.
+  The programme was on no live output — and the rule said the programme's sound is the room's, whatever
+  the room can see, so the clip played to the default device, which is the TV's HDMI. The user's
+  sentence is the rule this round writes: a picture's sound is heard while some live output shows it.
+- **The handover's side-effects.** Around 150 ms into the replacement's boot every placement was
+  journaled SCREEN UNPLUGGED and, a moment later, SCREEN BACK — the boot's first refresh runs before the
+  window is attached, with no display in the list, and the pass decided on it (every boot, not only the
+  replacement's). The replacement's `RestoreAfterCrash` put the live lock's receipt back while the old
+  desk still held the machine, the old desk's stand-down said SHOW LOCK OFF and deleted the receipt the
+  new desk's lock had just written — the machine unlocked under the new desk. And "Control server start
+  failed" (the ports the old desk still held) was never retried: the wire, the twin port and the beacon
+  were dead for that desk's life.
+- **The mirror.** The TV's own picture in the record: `FlipHorizontal: true`. The only writers of that
+  flag are the Media page's Mirror tick and JSON — a preset or a look saved with the tick on. Nothing
+  else in the build flips a picture. The fault was not that the flag was set but that nothing said so:
+  the tick sits three sections down the Media page, and a recall, a take, STATE and the Eye were silent.
+
+### 95.2 The lock never mutes the desk's own browser; the receipt carries the originals (77.1)
+
+- **Claim.** A YouTube page's sound survives LOCK THE MACHINE, and every app the lock did mute is put
+  back after a crash or a handover with the mute it had, not the mute it was found with.
+- **Design.** `ProcessTree.IsDescendant(pid, rootPid, parentOf)` in Core walks the parent pids up to
+  eight hops, bounded against a reused pid's loop; `WindowsMachineLock.OtherAudio` skips every session
+  whose process descends from the desk (`OpenProcess` + `NtQueryInformationProcess`'s
+  `InheritedFromUniqueProcessId`, memoised per pass). The sessions muted and whether each was muted
+  before move from this process's memory into the receipt (`AudioMuted`, session id → original), written
+  when a new session is seen; `OtherAudio(false)` and `RestoreFromReceipt` put them back from there, and
+  the receipt is cleared with the rest. A handover's replacement, continuing the lock, reads the originals
+  the desk before it saw.
+- **Proof.** `ShowLockTests` (the walk: a child, a grandchild, a utility three below; another app under
+  the shell not ours; the root itself, an unplaced pid, a chain past the hop limit, a loop, a reader that
+  throws — none ours); the Windows path is compile-checked here and qualified on the rig (§17–§18 of
+  QUALIFICATION.md).
+
+### 95.3 A refused screencast is asked again (77.2)
+
+- **Claim.** A browser that refuses the screencast is asked with less, then asked again later; the poll
+  is a stand-in with a clock on it, never the page's fate.
+- **Design.** `ScreencastFrame.StartLadder` — the full ask, then JPEG at the quality alone, then the format
+  alone — climbed on a refusal; a browser that refuses every rung sets `ScreencastRetry` going: one, two,
+  four, eight, fifteen, then every thirty seconds, from the capture tick (`RetryScreencastAsync`, one
+  ask in flight, none while the page is leaving; the count per document). The status line and the Media
+  page say "screenshot poll (the screencast was refused ×3; asking again)" and "screencast (after 3
+  refusals)"; the log says which rung took. And `--disable-direct-composition-video-overlays`: a
+  hardware-decoded video Chromium hands to a DirectComposition overlay is composed by the display engine
+  outside the page's surface, so a screenshot or a screencast of the page sees black where the video is;
+  composed by the browser, every capture path sees it — the overlay's zero-copy was never spent on the
+  glass by an off-screen page anyway.
+- **Efficiency.** The user's observation — smooth when the CPU is free — is the field's confirmation
+  that the web path is CPU-bound on that machine: the poll costs a compositor pause and a full readback
+  twenty times a second, the screencast a JPEG the browser encodes on its own thread. Getting the
+  screencast back is the efficiency fix; the 12 Hz render clock under saturation is the next design item
+  (§95.8).
+- **Proof.** `ScreencastFrameTests` (the ladder's three distinct rungs, the backoff table, the due
+  clock, the words); the WebView2 path is compile-checked here and qualified on the rig (§19).
+
+### 95.4 The room hears what it sees (77.3)
+
+- **Claim.** A picture's sound is heard while some live output shows that picture, and fades over the
+  show's transition when none does; with no output open the desk hears the programme as it always did;
+  an output of the operator's own carries the programme they are building; the preview is never a live
+  output.
+- **Design.** `LiveOutputs(OwnTargets, ProgrammeLive, AnyLive)` in Core, read from the open output
+  windows against the on-air show (`AppServices.ShownLive`: a canvas member names its canvas, a repeater
+  the screen it repeats, the NDI sends and the stream counting as the programme leaving the machine);
+  `AudioMonitorRule.Where(pick, buses, hasMonitorDevice, live)` — shown live → the programme's outputs;
+  the programme with no output open → the programme's outputs; a monitor device with the pick (or the
+  programme itself) → the monitor; else silent — with the old three-argument rule kept as
+  `LiveOutputs.AssumeAll`, which is the old rule exactly. A mute the rule adds is marked
+  (`WantedInput.RuleMuted`): the decoder ramps down over `AudioRouting.LeaveFadeMs` (the transition's
+  length, a short release on a CUT) — `IMountedSource.BeginOffAirFade`, reversible, pumped on the engine's
+  50 ms pump, `SetAudio(false, …)` lifting it the moment the picture is shown again — asked once at the
+  transition, not on every reconcile; a page's elements ramp down by script and the browser is muted when
+  the ramp lands (`IWebSource.SetMuted(muted, fadeMs)`; `WebLeaving.FadeScript` keeps each element's
+  original volume on it and marks what it muted, `RestoreScript` puts exactly that back and cancels a
+  ramp still running). On the matrix path a tap is carried for the buses a live output shows
+  (`AudioMonitorRule.LiveBuses`) and its lane inputs fade out as round 76 made them. The outputs opening
+  or closing reconcile the inputs at once (`Outputs.LiveChanged`), and the graph's topology signature
+  carries the live facts.
+- **Proof.** `AudioMonitorTests` (the live outputs read against the air, the words and the signature; the
+  programme on no live output silent, on a monitor device with the pick, heard with no output open; an own
+  picture heard on its screen and silent off it; the preview never shown; the rule's mute marked and the
+  operator's not; the matrix's buses filtered); `LiveOutputsAudioAppTests` (a programme clip on the desk
+  fades once with the transition's length when the one live screen takes a picture of its own, is heard
+  again at once when the screen comes back and when the outputs close, the own clip heard on its screen;
+  a programme page muted with the transition's fade and unmuted at once, the operator's own mute at once);
+  `AudioMonitorAppTests` and `AudioFollowAppTests` unchanged and green.
+
+### 95.5 The handover's side-effects (77.4)
+
+- **Claim.** A replacement's boot unplugs nothing; the machine stays held through a handover and is
+  put back once, by the desk that ends the show; a port held at a desk's start is bound within seconds
+  of being freed.
+- **Design.** `HotPlugService` decides nothing on an empty display list before any display has been seen
+  (once one has, an empty list is every display gone, as before). `ShowLockService.HandOver` (from
+  `TryHandoverRestart`) leaves the lock to the replacement — no unlock when this desk's outputs close or
+  at exit, no mute pass on the tick — `TakeBack` (from the give-up) makes it this desk's again, and a
+  start over a run still playing (`Takeover.Deferred`) calls `ContinueAnotherRunsLock` in place of
+  `RestoreAfterCrash`; the receipt, with the audio originals of §95.2, is what makes the replacement's
+  lock put back what the old desk saw. `ControlService.StartFailed`, `TwinService.BindFailed` and
+  `BeaconService.BindFailed` say a bind failed (the beacon's key reset like the others'), and
+  `AppServices.RetryListeners`, from the desk's second poll, asks each failed one again every five
+  seconds — the first failure an error in the log, then a line a minute. STATE's `showlock` payload gains
+  `handedOver`.
+- **Proof.** `HotPlugAppTests` (a second desk booted with a placement on the headless display: no
+  ScreenLost or ScreenBack in its journal, the screen enabled and unlost; every display gone afterwards is
+  every screen unplugged); `ShowLockAppTests` (handed over: the tick mutes nothing more, the outputs
+  closing leaves the lock, exit puts nothing back; taken back: off with the outputs as before; a start
+  over a live run reads no receipt); `RestartHandoverAppTests` unchanged and green.
+
+### 95.6 The mirror made visible (77.5)
+
+- **Claim.** What has been done to a picture — mirrored, upside down, turned, cropped — is said wherever
+  the picture is named, and one press puts it right.
+- **Design.** `MediaOptions.AdjustmentWords()` ("mirrored, turned 90°, cropped: keeps 60% × 70% of the
+  picture") and `ResetAdjustments()` in Core; a preset recall's and a tile CUT/TAKE's words carry "The
+  picture is mirrored."; STATE's `adjustments` on the programme and on every screen row; the Eye's screen
+  node's words ("picture mirrored"); the Media page's summary warns that a mirrored page or deck reads
+  backwards on the wall, and RESET ADJUSTMENTS sits beside the Turn, Mirror and Upside down controls.
+- **Proof.** `MediaAdjustmentsAppTests` (a preset saved with Mirror recalled — the words, STATE, the
+  page's warning; one press resets and says what it was, a second has nothing to do; a screen's own
+  picture upside down and cropped in its STATE row and the Eye's node; a tile CUT of a mirrored preview
+  says it).
+
+### 95.7 The papers (77.6)
+
+- This section; REVIEW round 77; CHANGELOG; README; QUALIFICATION.md §17–§19; the tag table row 76.
+
+### 95.8 What the round did not do, and what is next
+
+- **Monitors degrade before outputs.** The Super Check's render clock at 12.4 Hz with the CPU at 87 %
+  is the desk's own load — the preview, the wall's tiles, the RUN monitor and the outputs share one clock
+  — and the ladder was already four steps down. The next design item is a scheduler that gives the
+  desk's monitor sinks (the tiles, the preview at rest, the RUN monitor) their frames last: their rate
+  falls first, the outputs' and the web capture's last, and STATE says which sink is being starved. Not
+  built blind; it wants the rig's numbers with this round's fixes in.
+- **The matrix path on the desk.** `LiveBuses` is proved in Core; the graph's lane fade for a tap no longer
+  carried is round 76's and unchanged; a desk test with real lanes waits for a fake lane.
+- **The WebView2 changes** — the ladder, the retry, the overlay flag, the fade and restore scripts — run
+  only on Windows and are qualified there (§19). The cause of the E_INVALIDARG itself is not known; the
+  ladder tests the parameter hypothesis and the log's rung line will say.
+- **A screen's own picture with no named output** in the non-matrix path plays to the default device
+  beside the programme's when both are live; the matrix, or naming the screen's output, is the answer.

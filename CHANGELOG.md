@@ -8,6 +8,26 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 77 — 2026-09-17 — the field's second report: the room hears what it sees, the lock spares the desk's own browser, a refused screencast asked again, the handover's side-effects, the mirror made visible
+
+`round-77` · PLAN §95 · REVIEW round 77 · 2,419 tests · module 3.14.0
+
+- **The room hears what it sees.** A picture's sound plays while some live output shows that picture and
+  fades over the transition when none does — a programme clip falls silent when the only live screen shows
+  its own picture, a screen's own picture is heard on its screen, the desk still hears the programme with no
+  output open, a monitor device keeps the operator's ear; the same for a web page (its elements ramp down and
+  come back at their level) and for the matrix's taps. `LiveOutputs`, `AudioMonitorRule.Where(…, live)`.
+- **The lock spares the desk's own browser.** WebView2's processes descend from the desk and are never muted;
+  the sessions the lock did mute are in the receipt with their originals, so a crash or a handover puts them
+  back.
+- **A refused screencast is asked again.** The ask climbs a ladder (size, quality, format), a browser that
+  refuses every rung is asked again on a backoff from the capture tick, the status line says where the capture
+  stands, and the browser composes its video itself so no capture path sees it black.
+- **The handover's side-effects.** No false SCREEN UNPLUGGED at any boot; the lock handed over rather than
+  toggled twice; the wire, the twin port and the beacon bound again once the old desk has left.
+- **The mirror made visible.** "The picture is mirrored, turned 90°" on a recall and a tile take, in STATE
+  and the Eye, a warning on the Media page, and RESET ADJUSTMENTS.
+
 ## Round 76 — 2026-09-17 — real-world tests and faults: a restart the room never sees, a hot-plug that blacks nothing, a picture's sound on its own screen, YouTube's frames and its sound, the notes closed
 
 `round-76` · PLAN §94 · REVIEW round 76 · 2,407 tests · module 3.14.0

@@ -406,6 +406,62 @@ frame of the clip.
 |------|---------|-----------------------|---------------------------------------|---------------|-------------|-------------|------------------------|--------|
 |      |         |                       |                                       |               |             |             |                        |        |
 
+## 17. The room hears what it sees (round 77)
+
+**Set up.** Two screens on their own outputs (the desk's monitor with a named sound output, a TV on HDMI);
+a clip with an obvious soundtrack on the programme; a YouTube page as the TV's own picture; the transition
+on at one second; the matrix off, then on.
+
+**Do.** With both screens following the programme: hear the clip. TAKE the page onto the TV alone. Turn the
+desk monitor's outputs off. Take the TV back to the programme. Close every output. Repeat with the matrix on
+and a monitor device named with the pick on the programme.
+
+**Pass.** With the TV on its own picture and the desk monitor off, the clip fades out over the transition
+and stays silent — on every output — and the page's sound is heard from the TV; the clip comes back at once
+when the TV returns to the programme; with every output closed the desk hears the clip; with a monitor
+device named and the pick on the programme, the clip is in the operator's ear and nowhere else while it is
+on no live output. STATE's `audio` words and the Audio page agree at each step.
+
+| date | machine | build / manifest hash | matrix | step | what sounded where | fade heard | STATE agrees | result |
+|------|---------|-----------------------|--------|------|--------------------|------------|--------------|--------|
+|      |         |                       |        |      |                    |            |              |        |
+
+## 18. The show lock and the desk's own browser (round 77)
+
+**Set up.** A YouTube page on a live screen with sound; Spotify (or another app) playing; the lock's audio
+item on with no allowed list.
+
+**Do.** LOCK THE MACHINE. Read the audio item's words. Unlock. Lock again and kill the desk (Task Manager);
+start it. Lock, RESTART with the outputs live (the handover), and watch the lock's words on the new desk;
+end the show on the new desk.
+
+**Pass.** The page's sound survives the lock and the other app is muted ("1 other app's audio muted"); the
+crash's next start says "other apps' audio put back" and the app is unmuted; through the handover the machine
+stays held (no SHOW LOCK OFF from the old desk, no "previous run ended with the show lock on" from the new),
+and the new desk's unlock puts the other app back to how it was before the first lock.
+
+| date | machine | build / manifest hash | page's sound under lock | other app muted / put back | crash start words | handover words (old / new) | result |
+|------|---------|-----------------------|-------------------------|----------------------------|-------------------|----------------------------|--------|
+|      |         |                       |                         |                            |                   |                            |        |
+
+## 19. A refused screencast asked again (round 77)
+
+**Set up.** A YouTube page in the Library; the Media page's status line in view; `patterns.log` tailed.
+
+**Do.** Put the page on a live screen; read the status line every few seconds for a minute; note the log's
+screencast lines (the rung that took, "started after N refusal(s)", or the refusals with their next ask).
+Read the frame rate on the status line before and after the screencast takes. Take a screenshot of the page
+from the Media page's preview while the video plays.
+
+**Pass.** A refused start is asked again within the backoff and the status line moves from "screenshot poll
+(the screencast was refused …; asking again)" to "… fps · screencast (after N refusals)" or to the plain
+rate; the rate after the screencast takes is the page's (24–30 fps for a video), not 20; the screenshot
+shows the video, not black. A page whose screencast is never accepted is a row with the log's lines.
+
+| date | machine | build / manifest hash | refusals | rung that took | fps before / after | screenshot shows video | result |
+|------|---------|-----------------------|----------|----------------|--------------------|------------------------|--------|
+|      |         |                       |          |                |                    |                        |        |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute
