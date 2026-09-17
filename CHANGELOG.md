@@ -8,6 +8,31 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 76 — 2026-09-17 — real-world tests and faults: a restart the room never sees, a hot-plug that blacks nothing, a picture's sound on its own screen, YouTube's frames and its sound, the notes closed
+
+`round-76` · PLAN §94 · REVIEW round 76 · 2,407 tests · module 3.14.0
+
+- **A restart the room never sees.** A restart asked for with the outputs live is a handover: the desk asks the
+  watchdog for a replacement through its heartbeat and keeps its windows and its sound up; the replacement
+  boots with the record, opens its own windows over the old ones with the show put back, then asks for the
+  screens; the old desk leaves with exit code 84 and the watchdog starts nothing. A start that finds a run
+  still playing (a hung desk) opens its own picture first and takes the screens after. A deliberate restart
+  puts the show back whatever AutoRestore says. Every clip's position and the music's track and bar are written
+  each second (`patterns.playhead.json`) and resumed where they would be by now. STATE's `continuity` row.
+- **A hot-plug blacks nothing.** The output windows of every display the unplugged one had nothing to do with
+  are carried over to their re-identified ids rather than closed and reopened; and the rig editor's "primary
+  off when other screens exist" default no longer turns a live output off (or a desk monitor on) when Windows
+  promotes another display to primary.
+- **A picture's sound on its own screen alone.** A clip is heard on the outputs of the screens that show it and
+  on a monitor row's output, never on every routed output; a picture leaving the programme fades its sound over
+  the transition and closes it.
+- **A page's sound answered, YouTube's frames.** The page's audio route is asked for up to ten seconds until it
+  answers, never read once; YouTube pages are steered to H.264 (`WebConfig.PreferH264`), which every card
+  decodes in hardware.
+- **The notes closed.** One safe representation of an action (`Restart [redacted]`), legacy secret rows scrubbed
+  on load, the support bundle masking known secret values; one landing validator for the wall, the tile and the
+  canvas with a structural shape key apart from the words.
+
 ## Round 75 — 2026-09-17 — the small round: the recorder behind pairing and no secret on any feed, a landing that never takes what the press did not see, a lock that never pins the transition, the descriptor versioned
 
 `round-75` · PLAN §93 · REVIEW round 75 · 2,376 tests · module 3.14.0

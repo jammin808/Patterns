@@ -2778,3 +2778,72 @@ reason in `docs/COMPANION-NAVIGATOR.md` §6.
 
 72.3's lock-during-a-clip item is closed (75.3). Open: the rig qualification and the soak, which need the
 rig; round 74's slot-count setting and page export; the items postponed in `docs/GENERALISATION.md` §5.
+
+## Round 76 review — real-world tests and faults
+
+### 76.0 — the notes read against the code
+
+- **Done.** Every note's claim checked in the code; taken, declined and deferred with reasons. §94.1.
+
+### 76.6 — one safe representation of an action
+
+- **Done.** §94.2.
+- **Found on the way.** The journal's rotated half (`.1`) carried the same rows as the live file and is scrubbed
+  with it; a trigger row whose passcode comes from the device's line (`RESTART *`) carries no secret and stays.
+
+### 76.7 — one landing validator for the wall, the tile and the canvas
+
+- **Done.** §94.3.
+- **Found on the way.** The structural key and the words disagree exactly where a rename happens during the
+  clip: comparing words held a landing nothing had changed. The key decides; the words explain.
+
+### 76.2 — a page's sound answered, and YouTube's frames
+
+- **Done.** §94.4.
+- **Found on the way.** The one read after a second and a half was the whole of the fault the field described
+  as "audio didn't play, came back after a few takes": a fresh browser happened to answer in time. The
+  patience is a fact-driven wait, not a longer timer.
+
+### 76.3 — a picture's sound on its own screen's output alone, and a leaving sound that fades
+
+- **Done.** §94.5.
+- **Found on the way.** The graph's status line went stale when a leaving input was removed on a quiet tick
+  (no publish followed); the status is refreshed from the advance itself now.
+
+### 76.4 — a hot-plug that blacks nothing
+
+- **Done.** §94.6.
+- **Found on the way.** The carry-over test failed first with the boot display's window closing fifty
+  milliseconds after the hot-plug, on a second apply pass — the rig editor's primary rule, re-evaluated on
+  every topology change, had turned the placement off. On a rig that is Windows promoting a projector to
+  primary when the desk's monitor is pulled, and the projector going dark: a real fault the test found, and
+  the reverse (a desk monitor turned on under the operator) with it.
+- **Seen, not done.** Two identical displays unplugged together may come back with their placements swapped
+  (matched by coinciding id first); the qualification row reads for it.
+
+### 76.1 — a restart the room never sees
+
+- **Done.** §94.7. The supervisor's loop restructured around a per-child run to hold two children through a
+  handover; the hung-owner takeover deferred until the new desk's own picture is up; the record flagged
+  deliberate; the playheads in a sidecar of their own.
+- **Found on the way.** A clean exit cleared the ownership record whatever it held — after a handover that is
+  the replacement's record. A record that reads as unreadable once is now read again before it counts as a
+  fence, because a live owner renames it every second and the replacement reads it while the old desk beats.
+  The recovery's OUTPUTS ON is refused in PREP mode like any other; the mode is saved with the show, so a show
+  live at the crash reopens in SHOW.
+- **Seen, not done.** The handover's second of doubled sound; UPDATE APPLY's gap; the crash gap, which only
+  the twin covers.
+
+### 76.5 — the papers
+
+- **Done.** PLAN §94, this review, CHANGELOG round 76, README, REMOTE.md, QUALIFICATION.md §13–§16, the tag
+  table row 75. All seven suites and the module's tests green; the full App run failed once on
+  `AudienceFuzzTests.TheControlWiresLinesAndTheTwinsFirstLineAreBoundedToo` (a real-socket wait inside a
+  ten-minute run) and passed alone and in the class straight after — nothing in the round touched the wire
+  or the twin's door; noted so a second sighting is a pattern and not a surprise.
+
+### The review's items, answered
+
+Round 75's open items stand: the rig qualification and the soak need the rig (four new matrices wait with
+them); round 74's slot-count setting and page export; `docs/GENERALISATION.md` §5. New: the handover's
+mute-first ask, and the crash gap's measurement on the rig.

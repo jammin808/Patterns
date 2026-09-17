@@ -315,6 +315,97 @@ PARTIAL with `colour space never stated` and a processor's input status turns it
 |------|---------|-----------------------|-------------|---------------------------|------------------------------|-----------------------------|----------------------------|--------------------|--------|
 |      |         |                       |             |                           |                              |                             |                            |                    |        |
 
+## 13. A restart the room never sees (round 76)
+
+**Set up.** The show machine under the watchdog (Machine → Stability, the default), two or more outputs on
+with a clip playing on one screen (a VT with sound) and the music playlist playing; a phone on the wire
+reading `STATE` every second; a camera on the room's screens.
+
+**Do.** Press RESTART on the Machine page (or `RESTART <passcode>` on the wire). Then, in another run, end the
+desk's process from Task Manager while a clip plays (a crash) and let the watchdog relaunch it. Then, in a
+third, hang the desk (a debugger's pause on the UI thread, or a stress tool) and start a second `Patterns.exe`
+on the same folder by hand.
+
+**Read.** The camera's recording of the screens across each restart; `patterns.watchdog.log` ("asked to be
+replaced", "handed its screens to the replacement", exit 84); the new desk's status line ("Restarted — the
+show was put back on", the takeover's words); STATE's `continuity` row (`handingOver`, `claimDeferred`,
+`pendingResumes` back to 0); the clip's clock on the Run strip against the wall clock; the playlist's track
+and position; `patterns.outputs.json` naming the new desk's pid and no other.
+
+**Pass.** The RESTART shows one picture become the next on every screen and never the desktop; the clip
+carries on within a second of where it would have been (not from its first frame) and the music in the same
+track; the sound stays on the same outputs; two desks may sound the clip together for under a second and no
+longer; the old desk's exit is 84 and the watchdog logs no new start. The crash shows the desktop for the
+relaunch's boot only, then the same show with the clip resumed where it would be by now — note the gap's
+seconds. The hung desk's screens keep their picture until the second desk's own windows are up over them,
+and the hung process is ended only after the grace.
+
+| date | machine | build / manifest hash | case (RESTART / crash / hung) | desktop seen (s) | clip resumed at ≈ where it would be | music same track | sound on the same outputs | doubled sound (s) | exit 84 and no new start | result |
+|------|---------|-----------------------|-------------------------------|------------------|--------------------------------------|------------------|---------------------------|-------------------|--------------------------|--------|
+|      |         |                       |                               |                  |                                      |                  |                           |                   |                          |        |
+
+## 14. A hot-plug that blacks nothing, with identical displays (round 76)
+
+**Set up.** The desk's monitor as the primary display, two identical projectors (the same model and mode) and
+one different display, all on, each showing its own picture with a clip on one.
+
+**Do.** Pull the desk monitor's cable (Windows promotes another display to primary); plug it back. Pull one
+projector; plug it back. Pull both identical projectors together; plug them back in the other order. After
+each, read the Screens page, STATE's `continuity.carriedOver` and the log's "carried over" lines.
+
+**Read.** Which outputs went black and for how long; the log's "Display re-identified", "carried over",
+"SCREEN UNPLUGGED", "SCREEN BACK" lines; each screen's picture against its placement's name.
+
+**Pass.** No output the unplugged display had nothing to do with goes black or shows a first frame again;
+the promoted primary stays on with its picture; the returned display comes back on with its own picture; the
+identical pair comes back with each picture on its own glass — or, if they came back swapped, the row says so
+(the model matches identical displays by coinciding id first) and the operator's swap on the Screens page is
+one drag.
+
+| date | machine | build / manifest hash | change made | other outputs stayed lit | primary promotion left the output on | returned display back on | identical pair swapped? | carriedOver moved | result |
+|------|---------|-----------------------|-------------|--------------------------|--------------------------------------|--------------------------|-------------------------|-------------------|--------|
+|      |         |                       |             |                          |                                      |                          |                         |                   |        |
+
+## 15. A picture's sound on its own screen's output, and the leaving fade (round 76)
+
+**Set up.** The matrix on (Audio page, ROUTING), three screens each with a named output (a multichannel or
+USB card), a clip with sound as one screen's own picture, the programme on the others; a monitor row from
+that screen's sound to the desk's own output.
+
+**Do.** Listen at each output. Take the clip's screen back to the programme with a 1 s fade, then with a cut;
+take a fresh clip onto the same screen while the first still plays; add and remove the monitor row.
+
+**Read.** Which outputs carry the clip's sound (the Audio page's input rows: their lane and source, "N inputs
+playing, M fading out"); the level meters across the take; STATE's audio rows.
+
+**Pass.** The clip is heard on its own screen's output and the monitor output only; the fade take fades the
+sound over the second and the cut take fades it over 120 ms — no click, no sound left playing under the
+new picture; the fresh clip's sound starts once and the old one leaves; the monitor row adds and removes its
+output without moving the sound.
+
+| date | machine | build / manifest hash | outputs carrying the clip | fade take (ms heard) | cut take (click?) | fresh clip once | monitor row add/remove | result |
+|------|---------|-----------------------|---------------------------|----------------------|-------------------|-----------------|------------------------|--------|
+|      |         |                       |                           |                      |                   |                 |                        |        |
+
+## 16. The take under a sting on tiles and canvases, with a LOCK (round 76)
+
+**Set up.** Three screens, two joined as a canvas, a sting clip of a few seconds set as the next transition;
+a look different from the air on the preview.
+
+**Do.** TAKE from the canvas's wall tile with the sting; during the clip, drag the third screen flush into the
+canvas. Repeat with the wall's TAKE and, during the clip, rename a screen. Repeat and, during the clip, LOCK
+one of the promised screens. Read the landing each time (the status line, the journal's TAKE row, STATE's
+take row, the Eye's desk node).
+
+**Pass.** The canvas take is held with "changed since the press — now Canvas … of 1, 2, 3"; the renamed
+screen's take lands; the locked screen is left as it was with "locked since the press" and the others land;
+the sting's end puts the show back on every screen and a locked screen ends locked on the show, never on a
+frame of the clip.
+
+| date | machine | build / manifest hash | case (canvas grew / renamed / locked) | landing words | journal row | Eye's words | screens after the clip | result |
+|------|---------|-----------------------|---------------------------------------|---------------|-------------|-------------|------------------------|--------|
+|      |         |                       |                                       |               |             |             |                        |        |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute

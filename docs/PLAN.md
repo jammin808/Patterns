@@ -9855,3 +9855,183 @@ anything was built.
 - The rig qualification and the soak (the roadmap's items 4 and 5) need the rig; `docs/QUALIFICATION.md`
   and `docs/SOAK.md` are the records to fill. Render nodes, a tablet Navigator and a common evidence type
   wait, with their reasons in `docs/GENERALISATION.md` §3 and §5.
+
+## 94. Round 76 — real-world tests and faults: a restart the room never sees, a hot-plug that blacks nothing, a picture's sound on its own screen, YouTube's frames and its sound, and the notes closed
+
+The field came back with five faults from a real show, in its own words: a restart (a crash's, or the Machine
+page's) no longer kept the screens playing and the audience saw it; YouTube was better but not smooth, and its
+sound cut off early and left the following clips silent for a few takes; after a restart the sound had to come
+back to the same screens, whole; a clip's sound reached outputs other than its own screen's, a take
+occasionally did not carry the sound, and a picture leaving the programme did not take its sound with it; a
+display unplugged and plugged back blacked the other outputs as Windows adapted. Beside them, the round 75.5
+notes proposed the last exits of a secret and one landing validator for every kind of TAKE. Every claim was
+checked at a named line before anything was built; the notes' verdicts are in 94.1. The order built:
+the notes (94.2, 94.3), the web (94.4), the sound (94.5), the hot-plug (94.6), the restart (94.7).
+
+### 94.1 The notes read against the code (76.0)
+
+- Taken: one safe representation of an action (94.2) — the redaction belonged in `ShowAction.ToString`, not in
+  each writer, and the legacy rows on disk (a trigger's command, an old journal's target) needed scrubbing
+  once; the tile's TAKE under a sting landing through the wall's validator, with a structural key apart from
+  the words (94.3). Declined, with the notes' own reasoning agreed: the renames, an `IDestination`
+  abstraction and a plugin SDK (no second implementation to shape them); an `ActionSensitivity` metadata
+  table (one predicate, `ActionSpec.CarriesSecret`, has one case; a table waits for a second). Deferred to
+  the rig: the qualification gates, written as matrices in 94.8.
+
+### 94.2 One safe representation of an action, and the secret's last exits closed (76.6)
+
+- **The claim.** `ShowAction.ToString` rendered the target, so the executor's exception log, a cue's or a
+  node's failure line and a test's own failure words could carry the admin passcode; a trigger row saved
+  with `RESTART <passcode>` as its command sat in the show file in clear; a journal an older build wrote
+  kept the target of RESTART and UPDATE APPLY rows; the support bundle masked secrets by property name
+  in the settings and the recovery record, and nowhere else.
+- **The design.** `ShowAction.ToString` renders "Restart [redacted]" for the kinds `ActionSpec.CarriesSecret`
+  names; `SecretRows` removes a trigger row whose command carries a passcode in clear when the show loads
+  (a row whose passcode comes from the device's line, `RESTART *`, stays), the file is written back and the
+  health line and the log say a binding was removed without repeating it; `ShowLog.ScrubSecrets` blanks the
+  old rows once at boot, in the journal file and its rotated half; the bundle masks the show's own secret
+  values (`Secrets.ValuesOf`: every named credential and the twin's key, four characters or longer) in every
+  text entry, the log and the journal included.
+- **Proof.** `SafeActionTextTests`: the formatter's words, the migration's removals and its note, the journal
+  scrub and its idempotence, a bundle built with sentinel secrets in the log, the watchdog log, the journal,
+  the settings and the update note carrying none of them.
+
+### 94.3 One landing validator for the wall, the tile and the canvas (76.7)
+
+- **The claim.** A tile's TAKE under a sting landed without the wall's landing validator, so a canvas that
+  grew or shrank around its members during the clip, or a screen made a repeater, landed as promised; and
+  the shape was compared by its words, so a screen renamed during the clip held a landing that should have
+  gone ahead.
+- **The design.** `TakeTarget.ShapeKey` — `own`, `mirror:<source>`, `canvas:<members sorted>` (`TakeShapes`)
+  — is what a landing compares; `Shape` is what it says. The tile's ticket freezes its target's shape and
+  key and lands through `TakeTicket.Land` against the rig as it is now; `WhereNow` answers for a promised
+  canvas what its members are now; the words fall back to deciding when a side carries no key.
+- **Proof.** `TakeTicketTests` (order-blind canvas keys; a rename lands; a grown canvas, a repeater and a
+  member swap hold with the words now; words decide without keys); `TakeTicketAppTests` (a canvas tile's TAKE
+  under a sting held when a third screen joined the canvas during the clip; a wall TAKE landing after a screen
+  was renamed during the clip).
+
+### 94.4 A page's sound answered, not assumed, and YouTube's frames (76.2)
+
+- **The claim.** The route of a page's sound was read once, a second and a half after the page loaded, and
+  that one read decided for the page's life: a busy 1080p page that had not answered yet read as pending,
+  its sound stayed held (fail closed, rightly) and the next TAKE to it was silent until a fresh browser
+  happened to answer in time — the field's "audio didn't play, came back after a few takes". For the
+  picture: YouTube served VP9 or AV1, which most show machines decode in software, so the screencast's
+  frames arrived late and uneven.
+- **The design.** The page is asked every quarter second for up to ten seconds (`WebAudioRoute.AnswerPatience`,
+  `AskEvery`, `KeepAsking`); an early failure — the outputs' names not yet visible because the grant had not
+  landed — asks the page to apply again (`IsEarlyFailure`); the grant and the sink script are put in place
+  before the first document (`PrepareRouteAsync`), so the player's first frames already play on the output
+  asked for; a hold that stands at the end is logged with its reason. `WebPlayback.PreferH264Script` tells a
+  YouTube page, before its scripts run, that the browser cannot play VP9 or AV1 (`MediaSource.isTypeSupported`
+  and `canPlayType` answer no — the h264ify trick), so the player picks H.264, which every card decodes in
+  hardware; `WebConfig.PreferH264` (on by default; off for a wall that needs YouTube's above-1080p streams),
+  set per page by the engine for YouTube only, said on the page's status line.
+- **Proof.** `WebPlaybackTests` (the patience rules, the script's shape); `WebAppTests` (a YouTube page gets
+  the preference, loses it when the show says off, a plain page never has it).
+
+### 94.5 A picture's sound on its own screen's output alone, and a leaving sound that fades (76.3)
+
+- **The claim.** The audio graph's inputs took every lane the plan named for the programme, so a clip on one
+  screen was heard on every output with a route; a clip that left the programme was cut dead on the frame of
+  the take, or — when a fresh input for the same clip opened first — left playing beside the new one.
+- **The design.** `AudioRouting.SourcesForBuses` answers, for what a mount is drawn on, the programme first
+  and then `screen:X` for each bus whose screen shows its own picture, so the sound follows exactly the
+  outputs that show the picture and a monitor row on the Audio page adds another output without moving it;
+  an input the plan no longer keeps is marked Leaving and its envelope released to zero over
+  `AudioRouting.LeaveFadeMs` (the transition's duration clamped to 0–3000 ms with a 120 ms floor, so a cut is
+  a short fade and never a click), removed once the envelope has landed (`LeaveDone`); the status line counts
+  "N inputs playing, M fading out"; the source carried across a topology change is the one with the most
+  gain, so a take never restarts a sound that is already playing.
+- **Proof.** `AudioFollowTests` (a screen's own picture heard on its output alone; a monitor row adds an
+  output without moving the sound); `AudioGraphTopologyAppTests` (a clip leaving the programme fades over the
+  transition and closes when it lands).
+
+### 94.6 A hot-plug that blacks nothing (76.4)
+
+- **The claim.** Windows re-identifies every display to the right of an unplugged one (the id embeds the
+  index and the origin), and the window manager, keyed by id, closed those windows and opened new ones:
+  black, a new swapchain and a first frame on every projector for one monitor pulled at the desk. Under it a
+  second cause no carry-over could mend: Windows always names one display primary, so unplugging the desk's
+  monitor promotes a projector to primary, and the rig editor's "the primary defaults to off when other
+  screens exist", re-evaluated on every topology change for unpinned placements, turned that live output
+  off — and, the other way, a desk monitor no longer primary was turned on under the operator.
+- **The design.** `HotPlugService` publishes what each pass decided — `RecentRenames` (old id → new id, a
+  swap's step-aside followed through by `HotPlugWatch.Resolved`), `RecentLost` and a `Pass` counter — and
+  `OutputWindowManager.Apply`, once per pass, closes the lost screens' windows first (a lost screen's old id
+  may be the very id a re-indexed display now carries) and carries each existing window over to its screen's
+  new id (`OutputWindow.Retarget` moves the window only when its display's origin moved, and re-keys its
+  viewport, pipeline and title), counting `CarriedOver` for STATE. `RigEditor.ReconcilePlacements` settles
+  new placements only while the outputs are live; a change of mind is the operator's.
+- **Proof.** `HotPlugWatchTests` (the rename chains); `HotPlugAppTests` (two identical projectors and the
+  desk monitor unplugged with a projector promoted to primary: every live screen keeps the very window it
+  had, moved to its display's place, the unplugged display's window alone closes, no live output is turned
+  off, a later re-apply carries nothing again).
+- **For the rig.** Two identical displays (the same name and size) are matched by coinciding id first, so
+  a pair of identical projectors unplugged together may come back with their placements swapped; the
+  qualification row in 94.8 reads for it.
+
+### 94.7 A restart the room never sees (76.1)
+
+- **The claim.** A restart from the Machine page or the wire wrote the record, then shut the desk down — and
+  the shutdown's first phase closes the outputs, so the room saw the desktop for the whole of the old desk's
+  exit and the new desk's boot, ten seconds or more on a show machine. A crash's windows die with the
+  process, and the relaunch reopened them only when its window had opened, then put the air back but never
+  a clip's position or the music's track, and only when AutoRestore said so — a choice about a crash the
+  operator did not ask for, applied to a restart they did. A start that found a run still playing (a hung
+  desk) asked it for the screens before a single window of its own existed, so that run's windows closed
+  seconds before the new ones opened.
+- **The design.** *The handover.* A restart asked for with the outputs live is a handover, not a gap.
+  `AppServices.TryHandoverRestart` freezes nothing: it writes the record with `Deliberate` (94.7's flag on
+  `RecoverySnapshot`) and the playheads, and asks the supervisor for a replacement through the heartbeat
+  (`WatchdogBeat`: `SupervisorPolicy.HandoverBeat` instead of `AliveBeat`). The supervisor
+  (`Supervisor.Run`, now a loop over `ChildRun`s) starts the replacement beside the running desk with
+  `--recover`; when the old desk leaves with `SupervisorPolicy.ReplacedExitCode` (84) and the replacement is
+  up, nothing is started — the replacement is the child it watches; a replacement that dies before it took
+  the screens leaves the old desk running, and the old desk gives up on a replacement that never asks after
+  `HandoverPatience` (90 s, inside the replacement's startup deadline) and says so. *The deferred claim.*
+  `OutputTakeover.ClaimAtStart(defer: true)` finds the record of a run still playing and returns
+  `TakeoverResult.Deferred` — nothing asked, nothing ended — so the replacement boots, opens its own topmost
+  windows over the old ones with the show put back from the record, and only then `FinishClaim`s on a worker:
+  the ask, the grace, the ending of a run that never answers. The old desk's `AnswerAsk` closes its outputs
+  and `StoodDown` leaves through the supervisor's door with 84, its record kept for the replacement;
+  `OutputOwnershipService.HoldWrites` keeps the replacement off the ownership record until the claim is
+  finished (and lifts by itself once the record is nobody's), and a clean exit never clears a record that is
+  another run's. The record on disk is read again before it counts as a fence, because a live owner renames
+  it every second. *The positions.* `PlayheadStore` (`patterns.playhead.json`, a few hundred bytes a second
+  from the desk's poll, on the file lane) carries every clip's key, position and loop flag and the music's
+  track and bar; a restart of any kind resumes each where it would be by now (`PlayheadResume.Target`: the
+  recorded position plus the time since — a hung desk decodes on; a loop wraps; a clip that would have ended
+  starts again; a record older than two minutes is not a position): `VideoEngine.ResumeAt` / `ApplyResumes`
+  once the mount plays, `AudioPlayerService.ResumeAt` at the track's open. *The words.* A deliberate record
+  puts the show back whatever AutoRestore says and reads "Restarted — the show was put back on", never "by
+  the watchdog"; STATE's `continuity` row carries `handingOver`, `claimDeferred`, `takeover`, `carriedOver`
+  and `pendingResumes`; the health line carries the handover's and the takeover's words as before.
+- **Proof.** `RestartContinuityTests` (the policy's answer to 84, the beats, the flag's round trip, the
+  sidecar, the resume maths); `RestartHandoverAppTests` (a live desk's RESTART is a handover that closes
+  nothing until the replacement's ask and then leaves with 84, its record kept and the replacement's
+  ownership record left alone; a replacement that never asks is given up on with the outputs still lit; a
+  start over a run still playing opens its own picture first, then asks, ends the run that never answers and
+  takes the record; a deliberate record puts the show back with AutoRestore off while a crash's does not; the
+  clip's playhead written and resumed five seconds on, an ended clip not moved, a loop wrapped, the sidecar
+  cleared when nothing plays; the music back in the same track); `OutputTakeoverAppTests` and
+  `RestartAndSwitcherTests` unchanged and green.
+- **What remains true.** A crash's windows die with the process: the room sees the desktop for the relaunch's
+  boot, and only a standby twin covers that. For a second or less after a handover both desks may sound the
+  same clip a fraction apart. UPDATE APPLY stays on the classic path (the files swap between two starts). A
+  show saved in PREP refuses OUTPUTS ON, the recovery's included — the mode is saved with the show, so a show
+  live at the crash was in SHOW.
+
+### 94.8 The papers (76.5)
+
+- This section; REVIEW round 76; CHANGELOG; README; REMOTE.md (the RESTART row's handover); QUALIFICATION.md
+  §13–§16 (the restart handover, the hot-plug with identical displays, the sound on its own screen and the
+  leaving fade, the take under a sting with tiles and canvases and a LOCK); the tag table row 75.
+
+### What the round did not do
+
+- The crash gap itself (the boot time of the relaunch) — the twin is the answer, and the rig qualification
+  measures the gap. The web page's sound through the mixer (docs/WEB-VIDEO.md §4.5) still waits for a bench.
+  The handover's second of doubled sound could be closed by the replacement asking the old desk to mute first;
+  not done until the rig says it matters.

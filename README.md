@@ -23,6 +23,13 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Real-world faults answered (round 76)** — a restart asked for with the outputs live is a handover the room
+  never sees (the replacement boots beside the desk and takes the screens once its own picture is over them;
+  clips and the music resume where they would be by now); a hot-plug carries the other outputs' windows over
+  instead of blacking them, and Windows promoting a projector to primary no longer turns it off; a clip's
+  sound plays on its own screen's output alone and fades out with the transition; a page's sound route is
+  asked until it answers and YouTube is steered to H.264; the last exits of a secret closed and one landing
+  validator for every kind of TAKE. The design: `docs/PLAN.md` §94.
 - **The small round (round 75)** — a generalisation roadmap read against the code and answered
   (`docs/GENERALISATION.md`); the recorder behind pairing, and no admin passcode on any feed, in the journal
   or in a MIDI binding; a sting's landing holds a screen that is not what the press saw, with what it is now;
