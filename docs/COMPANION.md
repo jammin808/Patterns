@@ -390,3 +390,51 @@ surfaces in the show with the open ones marked, and `$(patterns:midi_words)` the
 for any line, or one carrying a word. The desk's right-click menus carry the same lines in their
 MIDI group (`MENU …` answers them with scope `learn`), so a deck page can offer exactly what the
 desk offers. A 3.12.0 deck ignores the row.
+
+## 19. Round 74 additions
+
+**The Navigator, version 3.14.0.** One page of keys that reads the desk itself. `nav_slot` (1–24)
+is the grid: the Navigator lays a level on it — the rails (`NAV`), a rail's pages, a page's own
+menu (`MENU PAGE Looks`: its looks, cues, designs, people, kinds, presets, media, screens,
+overlays, tracks, games and its build verbs), a thing's right-click menu exactly as the desk shows
+it (`MENU LOOK Walk-in`), a drawer's choices — and a press descends when the entry opens something
+and sends the entry's line when it is one. `nav_home`, `nav_back`, `nav_prev` and `nav_next` are
+the fixed keys; `nav_mode` (RUN: a thing's key fires its line; MENU: it opens the thing's menu),
+`nav_follow` (the deck's page turns the desk's — `NAV <page>` — and the desk's page turns the
+deck's, from STATE's `nav` row), `nav_text` (the words a build verb takes: `LOOK SAVE *` sends
+`LOOK SAVE <text>`), `nav_rail` (straight to a rail), `nav_page` and `nav_menu` (straight to a
+page's menu or a thing's), `nav_refresh`. `nav_desk` turns the desk itself — HOME, BACK, SETTINGS
+TOGGLE / ON / OFF (`NAV HOME`, `NAV BACK`, `NAV SETTINGS …`) — and `nav_desk_page` goes to a page
+with an item (`NAV Cues 03.020`, which opens the cue's settings column).
+
+Every line the module sends is matched to its reply in order (a 5 s clock on each ask), so a
+refusal lands on the key that asked: `$(patterns:nav_reply)` reads the last reply,
+`$(patterns:nav_title)` the breadcrumb the desk answered (`PLAN › Looks › Walk-in`),
+`$(patterns:nav_level)`, `nav_rail`, `nav_page`, `nav_menu`, `nav_where`, `nav_range` and
+`nav_count` (the page of a level longer than the grid), `nav_mode`, `nav_follow`, `nav_text` and
+`nav_pages`; per slot `$(patterns:nav_slot_n)` (the words), `nav_slot_n_wire` (the line),
+`nav_slot_n_detail` and `nav_slot_n_group`. The feedbacks are the desk's own promises:
+`nav_slot_on` (the entry's tick), `nav_slot_tone_is` (its tone — amber a preview, red live, blue
+the stack, steel a go-to, orange a warning, sky a drawer, a rail's own hue on the rails and pages
+levels), `nav_slot_drawer`, `nav_slot_disabled` (dimmed, the reason in its detail),
+`nav_slot_empty`; `nav_level_is`, `nav_mode_run`, `nav_follow_on`, `nav_rail_is`, `nav_page_is`,
+`nav_settings_open`, `nav_recording`. The desk's whereabouts are variables too —
+`$(patterns:desk_page)`, `desk_rail`, `desk_settings`, `desk_back`, `desk_selection`,
+`desk_where`, `desk_decks` — from STATE's `nav` row, and the deck tells the desk where it is
+(`NAV DECK PLAN › Looks`), so the Remote page and the Eye read it.
+
+**The recorder.** Press RECORD in Companion's action recorder: the module sends `RECORD ON`, and
+every action the operator does on the desk itself comes back as `ACTION <line>` — the wire line
+that reproduces it, in the operator's words (`LOOK Walk-in`, `CUE GO`, `SCREEN 2 PVW PATTERN
+Grid`) — recorded as a `raw` action on the button; stop, and the button does it. A cue's own
+steps, the schedule, the playlist, a sting and the recovery are not fed, nor are the deck's own
+presses. `$(patterns:last_action)` reads the last line; the `raw` action's LEARN takes the desk's
+next action as the key's line (30 s).
+
+**Presets.** A Navigator section (HOME, BACK, PREV, NEXT, RUN / MENU, FOLLOW, SETTINGS, the
+title, the deck's where, the 24 slots with their tone feedbacks), *Navigator — rails* (a key per
+rail) and *Navigator — pages* (a key per page) from the desk's own table, coloured by the rail's
+hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a Stream Deck+ —
+`rotate_left` / `rotate_right` step the level the desk reported (`audio_level_step`,
+`music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
+**Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.

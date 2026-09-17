@@ -83,8 +83,9 @@ the wire as JSON with each entry's line (round 60: `MENU LOOK Walk-in`).
 
 **One Companion page, always the same keys; what they say comes from the desk.** A row of
 fixed keys — **HOME**, **BACK**, **◀ PREV**, **NEXT ▶**, **RUN / MENU** mode, **DESK ⇄ DECK**
-follow, **SETTINGS ▸** — and a grid of **slot keys** (24 by default; 8, 16 or 32 in the
-connection's settings, whatever the surface has). The module keeps one small state machine
+follow, **SETTINGS ▸** — and a grid of **slot keys** (24 — a Stream Deck XL's 32 less the
+eight fixed keys; the navigator takes the count as an option, and a connection setting for a
+smaller surface is the next step). The module keeps one small state machine
 per connection:
 
 ```
@@ -101,7 +102,7 @@ level 4  DRAWER     a drawer's choices (Look ▸, Pattern ▸, MIDI LEARN ▸ �
   fastest path — and open their own menu in **MENU** mode, the map-mode idea from the MIDI
   research, so the same key builds or fires depending on one visible toggle.
 - Every level renders into the slots with paging (PREV/NEXT) when it is longer than the grid;
-  the title key reads the breadcrumbs (`SHOW › Looks › Walk-in`) and the page count.
+  the title key reads the breadcrumbs (`PLAN › Looks › Walk-in`) and the page count.
 - **Colours are the desk's**: a slot wears its entry's tone (amber preview, red live, blue
   cue stack, grey go-to, mint ask, violet MIDI, a rail's own hue on the rails and pages level),
   its tick (`on`) lights it, and a disabled entry (`because`) is dimmed with the reason in its
@@ -110,7 +111,7 @@ level 4  DRAWER     a drawer's choices (Look ▸, Pattern ▸, MIDI LEARN ▸ �
   page (`NAV <page>`), a thing chosen selects it there (`NAV <page> <item>`, which opens the
   settings column for a cue, a screen or an element — the "sub-menu that needs the collapsible
   column"); and when the desk's page or selection changes (STATE's `nav` row), the deck's
-  navigator follows to the same level. The deck says where it is (`NAV DECK SHOW › Looks`), so
+  navigator follows to the same level. The deck says where it is (`NAV DECK PLAN › Looks`), so
   the desk's Remote page and the Eye's deck node read it — the desk and the deck are never out
   of step, and a caller can see which page each deck is on.
 - **Instant.** A level is one line and one reply (the desk answers a `MENU` in microseconds from
@@ -118,9 +119,10 @@ level 4  DRAWER     a drawer's choices (Look ▸, Pattern ▸, MIDI LEARN ▸ �
   feedback check; nothing polls. STATE pushes re-render the level in place when the show changes
   (a look saved on the desk appears on the deck's Looks level at once).
 - **Resilient.** Replies are matched to requests in order (every line the module sends gets
-  exactly one reply from the desk); a reply that does not come in time re-syncs the queue; a
-  disconnect empties the navigator and its keys go dark; an `ERR` lands in `last_error` and the
-  navigator stays where it was.
+  exactly one reply from the desk, and a press takes a place in the queue too); an ask with no
+  reply in 5 s is dropped with the reason, and a connection closed, reopened or dropped empties
+  the queue; a disconnect empties the navigator and its keys go dark; an `ERR` lands in
+  `nav_reply` and `last_error` and the navigator stays where it was.
 - **Attempts are not facts.** A slot's light is the desk's STATE, never the deck's press; the
   breadcrumb is what the desk answered, not what the deck asked for.
 
@@ -159,16 +161,15 @@ presses would loop), and a cue's steps and the schedule are not the operator's h
 A Stream Deck+ encoder turns a level: `audio_level_step` and `music_level_step` read the level
 the desk reported in STATE and send the absolute level ± a step — never a relative nudge the
 wire does not have — so the digits on the LCD strip are the desk's and a turn while
-disconnected does nothing. The presets carry `rotate_left` / `rotate_right` and a press that
-mutes to 0 / restores.
+disconnected does nothing. The presets carry `rotate_left` / `rotate_right` and a press that is STOP ALL.
 
 ## 4. The desk side
 
-- `NAV` — the rails and pages as JSON (`groups[]{id,label,hue,pages[]}`, `pages[]{header,group,hue,room}`), the desk's page, its rail, whether the Run surface is up, the settings column (`settings{open,key,title,identity}`), the last selection.
+- `NAV` — the rails and pages as JSON (`rails[]{id,label,hue,hint,pages[]}`, `pages[]{header,rail,hue,room,settings}`), the desk's page, its rail, whether the Run surface is up, the settings column (`settings{open,key,title,identity}`), the last selection.
 - `NAV <page> [item]` — the desk goes to a page (a rail's name goes to its first page) and, with an item, selects it there through the same route the menus' GO TO entries use — a cue by number, name or id, a look by name, a design or a person, a screen by number or id; the settings column opens for what has one. `NAV HOME` is the panel, `NAV BACK` the page before, `NAV SETTINGS ON|OFF|TOGGLE` the column. Desk-only — a running order never turns the desk's pages.
 - `NAV DECK <words>` — the deck says where its navigator is; the Remote page's deck line and the Eye's deck node carry it.
 - `MENU PAGE <name>` — the page's own menu: a group per kind of thing on it (looks, cues, designs, people, library tiles, screens, overlays, stingers, tracks, games, nodes, lenses…), each entry with its line, its tick and its GO TO route; a group of build verbs; a MIDI group like every menu.
-- STATE's `nav` row: `{ page, group, hue, run, settings{open,key,title}, back, decks[]{name,where} }`; the Eye's desk node says "Desk on Looks · settings column: SELECTED CUE · 03.020"; a deck node says where its navigator is.
+- STATE's `nav` row: `{ page, rail, hue, run, settings{open,key,title,identity}, back, selection, words, decks[]{name,where,recording} }`; the Eye's desk node says "Desk on Looks · settings column: SELECTED CUE · 03.020"; a deck node says where its navigator is.
 - `RECORD ON|OFF` — the action feed for the recorder; `WireWriter.Line(action)` is the writer (tested by round-tripping the wire vocabulary table).
 
 ## 5. AI

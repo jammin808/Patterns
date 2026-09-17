@@ -2681,3 +2681,51 @@ anything was built, and one item recorded as seen and not done (72.3's lock duri
 Round 72 left one item seen and not done — a LOCK pressed during a running clip pins the clip's
 own picture in the edited state (72.3). It is still open; nothing in this round touched the lock's
 read of the air, and the qualification row in §10 is where it will show.
+
+## Round 74 review — the deck as a programming surface
+
+### 74.1 — the research and the design
+
+- **Done.** `docs/COMPANION-NAVIGATOR.md`: the dynamic-key answer from the code, the field's
+  practice with sources, Companion's features against the module, the Navigator, what is left out
+  and why. §92.1.
+
+### 74.2 — the desk side
+
+- **Done.** `DeskPages`, the NAV family, `MENU PAGE`, the build verbs, `RECORD`, `WireWriter`,
+  STATE, the Eye, the Remote page, the shell's pages from the one table. §92.2.
+- **Found on the way.** The router answered a bare `OK` for the navigator and build verbs, so a
+  deck could not tell a look saved from a look updated — it answers `OK <what happened>` for those
+  kinds now. The recorder's first lines read `ACTION LOOK 8f3a…`: the desk's own buttons name
+  looks, designs, people and cues by id (stable across a rename), so `ShowActions.Readable` turns
+  the ids into the operator's words before the writer sees them. A bare `LOOK UPDATE` right after
+  `LOOK SAVE` updates the saved look rather than refusing — the tally matches the look on air by
+  its fingerprint, and the saved look is that fingerprint — which is correct, and the test's order
+  says so. `TargetKind` had no row for a page or a preset; `DeskPage` and `Preset` were added with
+  their hint words in the cue editor and the assistant.
+
+### 74.3 — the module
+
+- **Done.** The Navigator, the reply matching, the recorder and LEARN, the presets and feedbacks,
+  the encoders, the palette row; 31 node tests; `lines.txt`; README; 3.14.0. §92.3.
+- **Found on the way.** A knob preset referenced an action that does not exist (`stopall` for
+  `stop_all`) and a variable the module had not declared (`audio_level`) — Companion's own preset
+  sanitiser in the test harness caught the first, the symmetry test the second. The navigator's
+  variables were empty until the first `NAV` reply; they are laid at rest from the built-in rails
+  by every STATE. `back()` restored a trail and then let the reopened menu push onto it, so two
+  BACKs returned to the wrong level; the trail is copied before it is restored. A reply's words were
+  not visible until the level's refresh finished; the navigator settles its variables on the reply
+  and refreshes after. The module base answers lines in order, so every test that asks feeds the
+  replies in that order (`OK at RAILS`, then the page menu, then the thing's).
+
+### 74.4 — the papers
+
+- **Done.** PLAN §92, this review, CHANGELOG round 74, README, REMOTE.md, COMPANION.md §19,
+  `docs/COMPANION-NAVIGATOR.md`, the help words, the tag table row 73.
+
+### The review's items, answered
+
+Round 73's review carried 72.3's lock-during-a-clip item; it is still open — nothing in this
+round touched the lock's read of the air. New from this round, seen and not done: a connection
+setting for the slot count; a generated Companion page export; pictures on keys — each with its
+reason in `docs/COMPANION-NAVIGATOR.md` §6.

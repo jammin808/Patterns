@@ -8,6 +8,32 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 74 — 2026-09-17 — the deck as a programming surface: the desk's menus on the keys, the desk turned from the deck and the deck from the desk, the recorder
+
+`round-74` · PLAN §92 · REVIEW round 74 · 2,371 tests · module 3.14.0
+
+- **The question answered.** Does Patterns use Companion's dynamic key generation? Yes — keys that
+  label themselves, presets built from the show, layered keys, and now the Navigator: slot keys
+  whose words, colours, ticks and presses are generated live from the desk's own menus. The
+  research and the design: `docs/COMPANION-NAVIGATOR.md`.
+- **NAV on the wire.** `NAV` answers the desk's own table of rails and pages as JSON;
+  `NAV <page> [item]` turns the desk's page and selects the thing (a cue, a screen or an element
+  opens its settings column); `NAV BACK`, `NAV HOME`, `NAV SETTINGS ON|OFF|TOGGLE`;
+  `NAV DECK <words>` — the deck says where it is, on the Remote page, in STATE's `nav` row and in
+  the Eye.
+- **A page's own menu and the build verbs.** `MENU PAGE <name>` — the page's things with their
+  lines, ticks and menu words, and its build verbs with `*` for the deck's text; `LOOK SAVE`,
+  `LOOK UPDATE`, `LOOK DELETE`, `CUE ADD`, `CUE DELETE`, `PRESET SAVE`, `LT NEW … FROM <preset>`
+  through the action layer, answered with what happened; Delete on the cue and look menus.
+- **The recorder.** `RECORD ON` — the desk's actions reach the deck as `ACTION <line>` in the
+  operator's words (`ACTION LOOK Walk-in`), written by a wire writer that round-trips the whole
+  vocabulary; automation and the deck's own presses are never fed.
+- **The module 3.14.0.** The Navigator on 24 slot keys (rails → pages → a page's menu → a thing's
+  menu → drawers; HOME, BACK, PREV / NEXT, RUN / MENU, FOLLOW both ways, TEXT), every line matched
+  to its reply, the rails and pages as presets from the desk's table, Companion's action recorder
+  and a key's LEARN fed by the desk, Stream Deck + knobs for the levels, `nav_*` and `desk_*`
+  variables and feedbacks.
+
 ## Round 73 — 2026-09-17 — the operator's list: the badge above the band, a tile one press from its editor, the chip's intent, lower thirds that leave by themselves, MIDI learn from any button, the column that drags
 
 `round-73` · PLAN §91 · REVIEW round 73 · 2,371 tests · module 3.13.0

@@ -9613,3 +9613,142 @@ from a deck.
 - This section; REVIEW round 73; CHANGELOG; README; the tag table row 72. The round's papers
   landed after round 74's code (74.2 and 74.3 were committed between 73.5 and 73.7), so the suite's
   count in the changelog is the one at the round's last commit, round 74's tests included.
+
+## 92. Round 74 — the deck as a programming surface: the desk's menus on the keys, the desk turned from the deck and the deck from the desk, the recorder
+
+The request: could Companion, or a MIDI, OSC or other controller, help an operator *program*
+Patterns — a key per rail, the surface changing to the rail's pages and menus, HOME and BACK, full
+feedback, the saved looks, cues, videos, pages, arcade and audience things reachable and buildable
+from the surface, straight to a menu or to a sub-menu that needs the settings column — and does
+Patterns use Companion's dynamic key generation? The answer is in `docs/COMPANION-NAVIGATOR.md`
+(the research, the design, the sources) and in the three units below. The principle held
+throughout: **the deck carries no list of its own** — every level it shows is asked of the desk
+(`NAV`, `MENU PAGE <name>`, `MENU <words>`) and laid out from the reply by the same builders the
+desk's own right-click menus use, so a page, a thing or a verb added on the desk is on the deck at
+once, in the desk's colours, with the desk's ticks and refusals; and attempts are not facts — a
+slot's light is STATE's, and the breadcrumb is what the desk answered, not what the deck asked for.
+
+### 92.1 The research and the design (74.1)
+
+- **Dynamic keys — yes, three ways since round 54, and a fourth now.** Keys that label themselves
+  (`$(patterns:look_3)`-style variables on the look, cue, person, stinger, track, part, screen and
+  node banks); presets built from the show itself (`buildShowPresets`, rebuilt when the show's
+  lists change — `showSignature`); layered and alternatives presets (the stage timer drawn with
+  Companion 5's graphics, with a plain variant); and this round's Navigator — a fixed set of slot
+  keys whose words, colours, ticks and presses are generated live from the desk's own menus.
+- **The field.** Companion's own pages and dynamic presets; ProPresenter's Stream Deck flows;
+  vMix, Resolume, QLab and disguise's surface navigation — what each hands a surface, and what
+  none does: a surface that reads the application's own menus rather than a table typed for it.
+- **Companion's advanced features against the module** (the paper's table): variables that label
+  banks, presets from the show and layered keys were used before; the action recorder, `learn` on
+  an action, rotary actions, pages that follow the desk and the deck saying where it is are new.
+- **Left out, with reasons.** A generated Companion page export (the schema is versioned and no
+  Companion ran here to confirm it); pictures on keys (a poll per key for a 72-pixel picture);
+  satellite; soft takeover on encoders (the level is absolute from STATE, so a turn never jumps).
+
+### 92.2 The desk side (74.2)
+
+- **One table of pages.** `DeskPages` — the five rails (SHOW, PLAN, BUILD, SETUP, ADMIN) with
+  their hues and hints, and every page on one of them; the shell's groups and pages are built from
+  it, and `DeskPages.Resolve` takes the longest page header off the front of a line and leaves the
+  item. `NavFacts` — where the desk is, in one line.
+- **NAV on the wire.** `NAV` (`STATUS`, `PAGES`, `RAILS`) answers the table as JSON
+  (`rails[]{id,label,hue,hint,pages[]}`, `pages[]{header,rail,hue,room,settings}`) with `desk`, the
+  nav row; `NAV <page|rail> [item]` turns the desk to the page (a rail's name to its first page;
+  `DESK` and `PANEL` are the Show panel) and selects the item through the same route the menus'
+  GO TO entries use (`MenuQuery.ResolveTarget` — a cue by number, name or id, a look, a design or a
+  person, a screen by number), so a cue, a screen or an element opens its settings column; a
+  switch the desk refuses is answered with the desk's own status words; `NAV BACK` walks a history
+  of 32 pages; `NAV HOME`; `NAV SETTINGS ON|OFF|TOGGLE` opens or closes the column and refuses,
+  naming the five pages that have one; `NAV DECK <words>` — the deck says where its navigator is.
+  The verbs are `ShowAction` kinds through the action layer (`RemoteCommandKind` rows,
+  `TargetKind.DeskPage`), so a deck's key, a MIDI pad and a menu line are one journaled path;
+  `IDeskNavigator` is the desk's side (`MainViewModel.Nav`), and a node without pages refuses.
+- **Every reader.** STATE's `nav` row (`page`, `rail`, `hue`, `run`,
+  `settings{open,key,title,identity}`, `back`, `selection`, `words`,
+  `decks[]{name,where,recording}`) and each deck row's `where` and `recording`; the Remote page's
+  deck line ("— navigator at PLAN › Looks — recording"); the Eye's desk node ("navigator: …") and
+  its deck nodes; the assistant's facts through the Eye.
+- **A page's own menu.** `MENU PAGE <header|rail>` → `DeskMenus.Page` over `PageFacts`: the
+  Panel and Run pages' TRANSPORT and LOOKS; Looks' LOOKS and BUILD; Cues' THE STACK and BUILD;
+  Lower thirds' DESIGNS, PEOPLE and BUILD (with an `LT NEW * FROM <preset>` drawer); Pattern's
+  KINDS, PRESETS and BUILD; Library and Media; Overlays and Countdown; Layers; Screens and
+  Multiview; Audio; Arcade; the Eye; the Assistant — every entry with its line, its tick and `menu`
+  (the MENU words that open the thing's own menu), and every page a GO TO group (`NAV <header>`,
+  and `NAV SETTINGS TOGGLE` where the page has a column). `MenuEntry.TakesText` — a `*` in the line
+  where the deck's text goes; MenuJson writes `menu` and `takesText`; `WithMidi` skips a text
+  entry (a pad has no words). The cue menu gains "Delete this cue" and the look menu "Delete this
+  look" (refused with who still uses it).
+- **The build verbs.** `LOOK SAVE|STORE <name>` (the preview while EDIT SAFE is open, the air
+  otherwise — a new look, or the look of that name updated), `LOOK UPDATE [name]` (the look on air
+  without a name), `LOOK DELETE|REMOVE|FORGET <name>` (refused while a cue uses it), `CUE ADD|NEW
+  [name]` (after the standby, or at the end, numbered between its neighbours; the Cues page
+  selects it), `CUE DELETE|REMOVE <number|name>` (refused while the stack is armed; the standby
+  moves to a neighbour), `PRESET SAVE <name>` (the editing target's picture — "what I am looking
+  at"), `LT NEW <name> [FROM <preset>]` (Clean without FROM; Blank and the designer's presets by
+  name). Each answers `OK <what happened>`; the pages follow (`OnActionPerformed` refreshes the
+  looks, the cues and the preset chips).
+- **The recorder.** `RECORD ON|OFF` marks the connection; from then `ControlService.Feed` pushes
+  `ACTION <line>` to it for every action that succeeded from another origin — not a cue's own
+  steps, a follow, the schedule, the playlist, a sting or the recovery (automation is not the
+  operator's hand), and not the recording connection's own presses (a loop). The line is written
+  by `WireWriter.Line` over `ShowActions.Readable` — the look's name, the screen's number, the
+  cue's number, never the desk's ids — and the writer round-trips the whole wire vocabulary.
+- **Proof.** `DeskPagesTests` (five rails, every page on one, the case-blind find, Resolve, the
+  facts' line); `WireVocabularyTests` (the rows, the kinds, fail-closed); `WireWriterTests` (every
+  verb of the wire round-trips; the kinds a wire cannot say write nothing; the navigator and build
+  verbs spelt); `DeskMenuTests` (every page's menu — its things with their menu words, its build
+  verbs taking a text, MIDI skipping them; Delete on the cue and look menus); `EyeTests`;
+  `CompanionWordsTests`; `NavAppTests` — a real TCP deck: NAV turns the pages, selects the thing,
+  opens the column and every reader says where the desk is; the build verbs edit the show file and
+  the pages follow; `MENU PAGE` lays a page out with the desk's own facts; a deck says where it is
+  and records what the desk does as ACTION lines in the operator's words, never its own press.
+
+### 92.3 The module 3.14.0 (74.3)
+
+- **The Navigator** (`src/nav.js`, pure, tested on a fake wire): five levels — rails, pages, a
+  page's menu, a thing's menu, a drawer — on 24 slot keys (a Stream Deck XL's 32 less the eight
+  fixed keys; the count is the navigator's option). A press descends when the entry opens something
+  and runs when it is a line (`*` replaced by the deck's TEXT); RUN mode fires a thing's line and
+  MENU mode opens its menu; BACK restores the trail, HOME lays the rails, PREV / NEXT page a level
+  longer than the grid; FOLLOW both ways — a page chosen on the deck says `NAV <page>`, and
+  STATE's `nav` row moves the deck to the desk's page; the deck says `NAV DECK <where>` whenever
+  its place changes. Its variables (`nav_level`, `nav_rail`, `nav_page`, `nav_menu`, `nav_title`,
+  `nav_where`, `nav_range`, `nav_count`, `nav_mode`, `nav_follow`, `nav_text`, `nav_reply`,
+  `nav_pages` and `nav_slot_n` with `_wire`, `_detail` and `_group`) are laid at rest by every
+  STATE, so a key reads the rails before the first `NAV` reply.
+- **Every line matched to its reply.** `main.js` keeps a FIFO of asks: a press takes a place in
+  the queue, an ask a resolver with a 5 s clock; the desk's OK or ERR answers the head, so a `NAV`,
+  a `MENU PAGE` or a build verb's reply lands on the key that asked (`nav_reply`); a connection
+  closed, reopened or dropped drops the pending asks with the reason.
+- **The recorder and LEARN.** `ACTION <line>` from the desk → `last_action`, the action waiters,
+  and while Companion records, `recordAction` writes a `raw` action with the line on the button
+  being recorded (`handleStartStopRecordActions` sends `RECORD ON|OFF`; a reconnect re-sends it);
+  `raw` gains `learn` — the desk's next action becomes the key's line (30 s).
+- **Presets, feedbacks, encoders.** A Navigator section (HOME, BACK, PREV, NEXT, RUN / MENU,
+  FOLLOW, SETTINGS, the title, the deck's where, 24 slots with their tone feedbacks); a rail key per
+  rail and a page key per page from the `NAV` reply, coloured by the rail's hue (rebuilt with the
+  show's presets); `nav_slot_on`, `_empty`, `_drawer`, `_disabled`, `_tone_is`, `nav_level_is`,
+  `nav_mode_run`, `nav_follow_on`, `nav_rail_is`, `nav_page_is`, `nav_settings_open`,
+  `nav_recording`; `nav_desk` (HOME, BACK, SETTINGS) and `nav_desk_page`; `audio_level_step` and
+  `music_level_step` from STATE's levels, clamped, on `rotate_left` / `rotate_right` presets whose
+  press is STOP ALL; the navigator palette row mirrored in `CompanionPalette.cs`.
+- **Proof.** `test/nav.test.mjs` (the state machine: rails → pages → menu → thing → drawer, BACK,
+  paging, RUN and MENU, FOLLOW, TEXT, the variables); `test/module.test.mjs` (the recorder and the
+  reply matching through the real module base, the replies fed in order); `lines.txt` regenerated
+  (296 lines) and parsed by the desk's `CompanionModuleContractTests`; `CompanionPaletteTests`;
+  the versions held equal by the package test.
+
+### 92.4 The papers (74.4)
+
+- `docs/COMPANION-NAVIGATOR.md` refined to the code; this section; REVIEW round 74; CHANGELOG;
+  README; REMOTE.md (the NAV, RECORD, MENU PAGE and build-verb rows, STATE's `nav` row and the
+  decks' `where` and `recording`, the Companion section); COMPANION.md §19; the help topics'
+  words; the tag table row 73.
+
+### What a Companion in the room will confirm
+
+The slots re-render on a real surface within a STATE push; the recorder's lines land in a button
+as `raw` actions; the encoder presets draw on a Stream Deck+; `NAV DECK` shows on the Remote page
+while a deck navigates. A connection setting for the slot count (8, 16, 32) waits for a surface
+that needs it.
