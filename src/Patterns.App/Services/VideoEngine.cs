@@ -165,12 +165,12 @@ public sealed class VideoEngine : IDisposable
     /// programming, the sandbox — references (UI thread). Highest-priority reference wins a
     /// shared mount's loop/audio settings.
     /// </summary>
-    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, DateTime? nowUtc = null, IReadOnlyList<MediaLocator.WantedInput>? preRoll = null)
+    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, DateTime? nowUtc = null, IReadOnlyList<MediaLocator.WantedInput>? preRoll = null, LiveOutputs? live = null)
     {
         var now = nowUtc ?? ShowClock.UtcNow;
         SweepRetired(now);
 
-        var wanted = WantedVideoInputs(snap, sandbox);
+        var wanted = WantedVideoInputs(snap, sandbox, live ?? LiveOutputs.AssumeAll);
         var wantedKeys = wanted.Select(w => w.Key).ToHashSet();
 
         // The standby cue's clips ride behind the live wants: opened and held on their first frame,
@@ -197,6 +197,8 @@ public sealed class VideoEngine : IDisposable
         var fadeMs = snap.State.Stingers.StopFadeMs;
         var transitionMs = snap.FadesEnabled ? (int)Math.Round(snap.FadeSecondsFor(snap.Version) * 1000) : 0;
         var holdMs = AudioFade.RetireHoldMs(transitionMs, fadeMs);
+        // Round 77: a mount whose picture left every live output fades over the show's transition (a CUT's short release otherwise) and is muted until it is shown again.
+        var leaveMs = AudioRouting.LeaveFadeMs(snap.State);
 
         foreach (var key in _mounts.Keys.Where(k => !wantedKeys.Contains(k)).ToList())
         {
@@ -238,7 +240,22 @@ public sealed class VideoEngine : IDisposable
                     // reopen (the mode, the profile, the loop, the routing mode) landing under a source
                     // on air is staged: the room keeps its picture, the words say so, and the reopen
                     // happens when the source leaves the air or the outputs go off (TopologyPolicy).
-                    existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+                    if (w.RuleMuted && !tap)
+                    {
+                        // The rule's mute, not the operator's: the picture is on no live output (or is not what the desk
+                        // listens to). The sound ramps down rather than cutting mid-word, and the decoder lifts the mute
+                        // itself when the picture is shown again. A tapped mount's lane fades in the mixer instead. Asked
+                        // once, at the transition: a reconcile while it is already muted leaves the ramp alone.
+                        if (!existing.Mute)
+                        {
+                            existing.Source.BeginOffAirFade(now, leaveMs);
+                            if (existing.Source.IsOffAirFading) StartPump();
+                        }
+                    }
+                    else
+                    {
+                        existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+                    }
                     if (!tap) Route(existing.Source, w);
                     _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct, Buses = w.Buses };
                     if (edit is { } staged)
@@ -375,10 +392,14 @@ public sealed class VideoEngine : IDisposable
     /// rig with one interface taking it away at the desk takes it away in the room.
     /// </summary>
     public static List<MediaLocator.WantedInput> WantedVideoInputs(ShowSnapshot snap, ShowSnapshot? sandbox)
+        => WantedVideoInputs(snap, sandbox, LiveOutputs.AssumeAll);
+
+    /// <summary>Round 77: the same, routed against what the room can see — a picture on no live output is nobody's to hear.</summary>
+    public static List<MediaLocator.WantedInput> WantedVideoInputs(ShowSnapshot snap, ShowSnapshot? sandbox, LiveOutputs live)
     {
         var list = MergeWithSandbox(MediaLocator.FindWantedInputs(snap), sandbox);
         list.RemoveAll(w => w.Kind is MediaLocator.WantedKind.Ndi or MediaLocator.WantedKind.Web);
-        return AudioMonitorRule.Apply(snap.State, list);
+        return AudioMonitorRule.Apply(snap.State, list, live);
     }
 
     /// <summary>
@@ -447,6 +468,19 @@ public sealed class VideoEngine : IDisposable
             catch (Exception ex)
             {
                 Log.Warn("Retired video source pump failed.", ex);
+            }
+        }
+        foreach (var mount in _mounts.Values)
+        {
+            // Round 77: a mounted source fading off air rides the same 50 ms pump as the retired ones.
+            if (!mount.Source.IsOffAirFading) continue;
+            try
+            {
+                mount.Source.Pump(now);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Off-air fade pump failed.", ex);
             }
         }
         SweepRetired(now);
@@ -547,7 +581,16 @@ public sealed class VideoEngine : IDisposable
             _retired[i].Source.Dispose();
             _retired.RemoveAt(i);
         }
-        if (_retired.Count == 0) _pump?.Stop();
+        if (_retired.Count == 0 && !AnyOffAirFading()) _pump?.Stop();
+    }
+
+    private bool AnyOffAirFading()
+    {
+        foreach (var mount in _mounts.Values)
+        {
+            if (mount.Source.IsOffAirFading) return true;
+        }
+        return false;
     }
 
     /// <summary>Retired sources are kept alive for a few hundred milliseconds only.</summary>
@@ -632,6 +675,17 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
     /// <summary>Advances the fade and, once silent, keeps asserting silence — a dropped write must not become a sound.</summary>
     void Pump(DateTime nowUtc);
 
+    /// <summary>
+    /// Round 77: the picture left every live output — the sound ramps to silence over <paramref name="ms"/>
+    /// and stays muted until <see cref="SetAudio"/> unmutes it (the picture shown again). Reversible,
+    /// unlike <see cref="BeginFadeOut"/>; the engine pumps it while <see cref="IsOffAirFading"/>.
+    /// A source without a ramp of its own simply mutes.
+    /// </summary>
+    void BeginOffAirFade(DateTime nowUtc, int ms) => SetAudio(true, 0);
+
+    /// <summary>An off-air fade is ramping (the engine pumps it).</summary>
+    bool IsOffAirFading => false;
+
     /// <summary>The lip-sync offset of the soundtrack, ms (negative = earlier). A source with no sound ignores it.</summary>
     void SetAudioDelay(int ms)
     {
@@ -681,6 +735,9 @@ public sealed class VlcFrameSource : IMountedSource
     private int _fadeMs = -1;        // -1 = not retiring
     private float _fadeFrom;
     private bool _silenced;
+    private DateTime _offAirStartUtc;
+    private int _offAirMs = -1;      // -1 = not fading off air (round 77)
+    private float _offAirFrom;
 
     // Keep delegate instances alive for the lifetime of the callbacks.
     private readonly MediaPlayer.LibVLCVideoFormatCb _formatCb;
@@ -899,10 +956,63 @@ public sealed class VlcFrameSource : IMountedSource
     public void SetAudio(bool mute, double volumePct)
     {
         if (_fadeMs >= 0) return;
-        if (_mute == mute && Math.Abs(_volumePct - volumePct) < 0.5) return;
+        if (_offAirMs >= 0)
+        {
+            if (mute) return;          // still off air, or the operator muted it meanwhile: the ramp runs on and lands muted
+            _offAirMs = -1;            // shown again mid-ramp: back to its level at once
+        }
+        else if (_mute == mute && Math.Abs(_volumePct - volumePct) < 0.5)
+        {
+            return;
+        }
         _mute = mute;
         _volumePct = (float)volumePct;
         ApplyAudio();
+    }
+
+    public bool IsOffAirFading => _offAirMs >= 0 && !_disposed;
+
+    /// <summary>
+    /// Round 77: the picture is on no live output. The level ramps from where it is to nothing over
+    /// <paramref name="ms"/> (a pure function of the clock, pumped by the engine) and the source is
+    /// then muted until <see cref="SetAudio"/> lifts it. A source already silent, already ramping or
+    /// retiring is left as it is; a tapped one is muted outright — its lane fades in the mixer.
+    /// </summary>
+    public void BeginOffAirFade(DateTime nowUtc, int ms)
+    {
+        if (_fadeMs >= 0 || _disposed || _offAirMs >= 0) return;
+        if (_mute || _silenced) return;
+        if (_tap is not null || _volumePct <= 0)
+        {
+            _mute = true;
+            ApplyAudio();
+            return;
+        }
+        _offAirStartUtc = nowUtc;
+        _offAirMs = Math.Max(0, ms);
+        _offAirFrom = _volumePct;
+        PumpOffAir(nowUtc);
+    }
+
+    private void PumpOffAir(DateTime nowUtc)
+    {
+        if (_offAirMs < 0 || _disposed) return;
+        if (AudioFade.Done(_offAirStartUtc, nowUtc, _offAirMs) || _offAirFrom <= 0)
+        {
+            _offAirMs = -1;
+            _mute = true;              // muted, at its level, until the picture is shown again
+            ApplyAudio();
+            return;
+        }
+        var volume = _offAirFrom * (float)AudioFade.GainAt(_offAirStartUtc, nowUtc, _offAirMs);
+        try
+        {
+            _player.Volume = (int)Math.Clamp(volume, 0, 125);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Fading an off-air source failed.", ex);
+        }
     }
 
     /// <summary>Held on the first frame with that frame decoded: the pre-roll is ready for GO.</summary>
@@ -963,7 +1073,9 @@ public sealed class VlcFrameSource : IMountedSource
         if (_fadeMs >= 0) return;
         _fadeStartUtc = nowUtc;
         _fadeMs = Math.Max(0, ms);
-        _fadeFrom = _mute ? 0 : _volumePct;
+        // Retired mid-way through an off-air ramp: the leaving fade starts from where the ramp had got to, not from full.
+        _fadeFrom = _mute ? 0 : _offAirMs >= 0 ? _offAirFrom * (float)AudioFade.GainAt(_offAirStartUtc, nowUtc, _offAirMs) : _volumePct;
+        _offAirMs = -1;
         Pump(nowUtc);
     }
 
@@ -976,7 +1088,12 @@ public sealed class VlcFrameSource : IMountedSource
     /// </summary>
     public void Pump(DateTime nowUtc)
     {
-        if (_fadeMs < 0 || _disposed) return;
+        if (_disposed) return;
+        if (_fadeMs < 0)
+        {
+            PumpOffAir(nowUtc);
+            return;
+        }
         if (_silenced || AudioFade.Done(_fadeStartUtc, nowUtc, _fadeMs) || _fadeFrom <= 0)
         {
             Silence();

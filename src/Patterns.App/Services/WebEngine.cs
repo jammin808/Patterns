@@ -26,7 +26,7 @@ public sealed class WebEngine : IDisposable
     /// <summary>How often a page's player is read while something is pending — an arm to prepare, a play to land, an advert to skip.</summary>
     public static readonly TimeSpan FastPoll = TimeSpan.FromMilliseconds(250);
 
-    private sealed record Page(IWebSource Source, string Format, bool PreRoll, DateTime? UnwantedUtc = null);
+    private sealed record Page(IWebSource Source, string Format, bool PreRoll, DateTime? UnwantedUtc = null, bool Mute = false);
 
     /// <summary>
     /// A page opened for a cue ahead stays this long after the cue stops being ahead: the moment
@@ -154,7 +154,7 @@ public sealed class WebEngine : IDisposable
     /// Reconciles the page pool with the program (and sandbox) snapshot (UI thread). The pages the
     /// cues ahead ask to play from a point (<paramref name="preRoll"/>) are opened too, off air.
     /// </summary>
-    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, IReadOnlyList<PreRoll.WebWant>? preRoll = null)
+    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, IReadOnlyList<PreRoll.WebWant>? preRoll = null, LiveOutputs? live = null)
     {
         SweepRetired();
 
@@ -162,7 +162,8 @@ public sealed class WebEngine : IDisposable
         // too, and a video playing on a page in the preview is one more thing in the mix.
         var wanted = VideoEngine.MergeWithSandbox(MediaLocator.FindWantedInputs(snap), sandbox);
         wanted.RemoveAll(w => w.Kind != MediaLocator.WantedKind.Web);
-        wanted = AudioMonitorRule.Apply(snap.State, wanted);
+        wanted = AudioMonitorRule.Apply(snap.State, wanted, live ?? LiveOutputs.AssumeAll);   // round 77: a page on no live output is nobody's to hear
+        var leaveMs = AudioRouting.LeaveFadeMs(snap.State);
 
         // A page a cue ahead asks for that no picture wants yet: opened muted and off air, prepared
         // at its mark by the poll. One the show already shows is left to the show.
@@ -230,12 +231,12 @@ public sealed class WebEngine : IDisposable
             {
                 // Zoom, sound, the CLEAN style, the smoothing and the capture plan apply live — the page never reloads for them.
                 page.Source.ZoomPct = w.Zoom;
-                page.Source.IsMuted = w.Mute;
+                if (page.Mute != w.Mute) page.Source.SetMuted(w.Mute, w.RuleMuted ? leaveMs : 0);   // round 77: the rule's mute fades over the transition, the operator's is at once; asked at the change, not every reconcile
                 page.Source.CleanCss = w.Clean;
                 page.Source.Smoothing = w.Smoothing;
                 page.Source.PreferH264 = PrefersH264(w, snap.State);
                 page.Source.ApplyCapture(PlanOf(w, page.Source.FrameRate));
-                if (page.PreRoll != isEarly || page.UnwantedUtc is not null) _pages[w.Key] = page with { PreRoll = isEarly, UnwantedUtc = null };
+                if (page.PreRoll != isEarly || page.UnwantedUtc is not null || page.Mute != w.Mute) _pages[w.Key] = page with { PreRoll = isEarly, UnwantedUtc = null, Mute = w.Mute };
                 RouteSound(page.Source, w, snap.State);
                 Track(w, page.Source, onAir, mounted: false, now);
                 continue;
@@ -254,7 +255,7 @@ public sealed class WebEngine : IDisposable
                 source.CleanCss = w.Clean;
                 source.Smoothing = w.Smoothing;
                 source.PreferH264 = PrefersH264(w, snap.State);
-                _pages[w.Key] = new Page(source, w.Format, isEarly);
+                _pages[w.Key] = new Page(source, w.Format, isEarly, Mute: w.Mute);
                 InputBus.Mount(w.Key, source);
                 RouteSound(source, w, snap.State);
                 Track(w, source, onAir, mounted: true, now);

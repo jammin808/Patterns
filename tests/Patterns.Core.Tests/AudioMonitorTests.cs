@@ -214,4 +214,123 @@ public class AudioMonitorTests
         Assert.Equal("a", AudioMonitorRule.LabelFor(state, "a"));
         Assert.Equal("the programme", AudioMonitorRule.LabelFor(state, ""));
     }
+
+    // ---- round 77: the room hears what it sees --------------------------------------------------
+
+    private static LiveOutputs Live(ShowState state, params string[] targets) => LiveOutputs.Of(state, targets);
+
+    [Fact]
+    public void TheLiveOutputsAreReadAgainstTheAirAndTheProgrammeCountsAsShownWhenItLeavesAnotherWay()
+    {
+        var state = Show();
+        OwnClip(state, "b", "/clips/confidence.mp4");
+
+        var both = Live(state, "a", "b");
+        Assert.True(both.AnyLive);
+        Assert.True(both.ProgrammeLive, "screen a follows the programme");
+        Assert.Equal(new[] { "b" }, both.OwnTargets.OrderBy(t => t));
+        Assert.True(both.Shows(MediaBus.Program));
+        Assert.True(both.Shows(MediaBus.Output("b")));
+        Assert.False(both.Shows(MediaBus.Output("a")), "a shows the programme, not a picture of its own");
+        Assert.False(both.Shows(MediaBus.Sandbox), "the preview is never a live output");
+        Assert.Equal("the programme and 1 screen's own picture are on live outputs", both.Words());
+
+        var onlyOwn = Live(state, "b");
+        Assert.False(onlyOwn.ProgrammeLive);
+        Assert.True(onlyOwn.AnyLive);
+        Assert.Equal("1 screen's own picture on the live outputs; the programme is on none", onlyOwn.Words());
+        Assert.Equal("-|live|b", onlyOwn.Signature);
+
+        Assert.Equal("no output is open", LiveOutputs.Of(state, Array.Empty<string>()).Words());
+        Assert.False(LiveOutputs.None.AnyLive);
+        var ndi = LiveOutputs.Of(state, Array.Empty<string>(), programmeLeavesOtherwise: true);
+        Assert.True(ndi.ProgrammeLive);
+        Assert.True(ndi.AnyLive);
+
+        // The old callers' assumption is the old rule: the programme shown, no own picture.
+        Assert.True(LiveOutputs.AssumeAll.Shows(MediaBus.Program));
+        Assert.False(LiveOutputs.AssumeAll.Shows(MediaBus.Output("b")));
+    }
+
+    [Fact]
+    public void AProgrammeClipOnNoLiveOutputFallsSilentAndAnOwnPictureOnItsScreenIsHeard()
+    {
+        var state = Show();
+        OwnClip(state, "b", "/clips/confidence.mp4");
+        var pick = AudioMonitorRule.Effective(state);
+        var programme = new[] { MediaBus.Program };
+        var own = new[] { MediaBus.Output("b") };
+
+        // The field: screen a's outputs off, screen b live with its own picture — the programme's clip is nobody's to hear.
+        var onlyOwn = Live(state, "b");
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pick, programme, hasMonitorDevice: false, onlyOwn));
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, own, hasMonitorDevice: false, onlyOwn));
+        // With an output of the operator's own, the programme they are building is in their ear, not in the room.
+        Assert.Equal(AudioDestination.Monitor, AudioMonitorRule.Where(pick, programme, hasMonitorDevice: true, onlyOwn));
+
+        // Both live: both heard, where they are shown.
+        var both = Live(state, "a", "b");
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, programme, false, both));
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, own, false, both));
+        // Screen b back on the programme: its own picture is no longer shown anywhere.
+        ContentTargets.SetOwnPattern(state, "b", false);
+        var followers = Live(state, "a", "b");
+        Assert.True(followers.ProgrammeLive);
+        Assert.Empty(followers.OwnTargets);
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pick, own, false, followers));
+
+        // No output open: the desk still hears the programme (a rehearsal is not silent), and nothing else.
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, programme, false, LiveOutputs.None));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pick, own, false, LiveOutputs.None));
+        // The preview is never shown live; a clip on the programme and in the preview is heard for the programme.
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pick, new[] { MediaBus.Sandbox }, false, both));
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, new[] { MediaBus.Program, MediaBus.Sandbox }, false, both));
+        // Nothing said about the buses: the programme's.
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, null, false, both));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pick, Array.Empty<MediaBus>(), false, onlyOwn));
+
+        // The three-argument rule is the old one exactly: the programme heard, an own picture not.
+        Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, programme, false));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pick, own, false));
+    }
+
+    [Fact]
+    public void TheRulesMuteIsMarkedAsItsOwnAndTheMatrixCarriesOnlyTheBusesTheRoomSees()
+    {
+        var state = Show();
+        OwnClip(state, "b", "/clips/confidence.mp4");
+        var wanted = MediaLocator.FindWantedInputs(Snap(state));
+        var onlyOwn = Live(state, "b");
+
+        var routed = AudioMonitorRule.Apply(state, wanted.ToList(), onlyOwn);
+        var programme = Of(routed, "/clips/programme.mp4");
+        Assert.True(programme.Mute);
+        Assert.True(programme.RuleMuted, "the rule muted it — the decoder fades and lifts it itself");
+        Assert.Equal(AudioDestination.Silent, programme.Destination);
+        var own = Of(routed, "/clips/confidence.mp4");
+        Assert.False(own.Mute);
+        Assert.False(own.RuleMuted);
+        Assert.Equal(AudioDestination.Program, own.Destination);
+
+        // The operator's own mute is not the rule's: a muted clip that falls silent is not marked.
+        state.Pattern.Media.Mute = true;
+        var muted = Of(AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)).ToList(), onlyOwn), "/clips/programme.mp4");
+        Assert.True(muted.Mute);
+        Assert.False(muted.RuleMuted);
+
+        // Shown again: no mute, no mark.
+        state.Pattern.Media.Mute = false;
+        var back = Of(AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)).ToList(), Live(state, "a", "b")), "/clips/programme.mp4");
+        Assert.False(back.Mute);
+        Assert.False(back.RuleMuted);
+
+        // The matrix path: a tap is carried for the buses a live output shows — none when none does, every one with no output open.
+        var buses = new[] { MediaBus.Program, MediaBus.Output("b"), MediaBus.Sandbox };
+        Assert.Equal(new[] { MediaBus.Output("b") }, AudioMonitorRule.LiveBuses(buses, onlyOwn));
+        Assert.Equal(new[] { MediaBus.Program, MediaBus.Output("b") }, AudioMonitorRule.LiveBuses(buses, Live(state, "a", "b")));
+        Assert.Empty(AudioMonitorRule.LiveBuses(new[] { MediaBus.Program }, onlyOwn));
+        Assert.Equal(buses, AudioMonitorRule.LiveBuses(buses, LiveOutputs.None));
+        Assert.Equal(new[] { MediaBus.Program }, AudioMonitorRule.LiveBuses(null, LiveOutputs.None));
+        Assert.Empty(AudioMonitorRule.LiveBuses(null, onlyOwn));
+    }
 }

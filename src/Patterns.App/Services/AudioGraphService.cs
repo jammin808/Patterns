@@ -243,6 +243,7 @@ public sealed class AudioGraphService : IDisposable
         var h = new HashCode();
         h.Add(vog);
         h.Add(AudioRouting.FollowSignature(_services.State, _services.AirState));   // round 72: the picture the audience has, never the preview's     // round 69: a take that moves a screen's picture moves its output's lanes
+        h.Add(_services.ShownLive().Signature);                                      // round 77: which pictures are on a live output — a tap is carried only for those
         foreach (var (key, buses, _, preRoll) in _services.Video.Taps())
         {
             h.Add(key);
@@ -306,10 +307,15 @@ public sealed class AudioGraphService : IDisposable
 
         // The taps: every tapped clip by the source its pictures make it, then the show's own sound.
         var clipTaps = new List<(string Tag, IReadOnlyList<string> Sources, AudioRing Ring)>();
+        var live = _services.ShownLive();
         foreach (var (key, buses, tap, preRoll) in _services.Video.Taps())
         {
             if (preRoll) continue;
-            clipTaps.Add(("clip:" + key, AudioRouting.SourcesForBuses(buses), tap));
+            // Round 77: a tap is carried for the buses a live output shows. A clip on no live output is on no lane —
+            // its inputs, no longer kept below, fade out over the transition — and comes back when the picture does.
+            var shown = AudioMonitorRule.LiveBuses(buses, live);
+            if (shown.Count == 0) continue;
+            clipTaps.Add(("clip:" + key, AudioRouting.SourcesForBuses(shown), tap));
         }
         var showTaps = new List<(string Tag, IReadOnlyList<string> Sources, AudioRing Ring)>();
         if (_services.AudioPlayer.MusicTap is { } music) showTaps.Add(("music", new[] { AudioRouting.Music }, music));

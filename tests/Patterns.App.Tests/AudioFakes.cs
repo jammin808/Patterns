@@ -91,6 +91,15 @@ internal sealed class FakeSource : IMountedSource
         FadeMs = ms;
     }
 
+    /// <summary>Round 77: every off-air fade asked of it — when and how long — the reversible ramp a picture on no live output gets.</summary>
+    public readonly List<(DateTime At, int Ms)> OffAirFades = new();
+
+    public void BeginOffAirFade(DateTime nowUtc, int ms)
+    {
+        OffAirFades.Add((nowUtc, ms));
+        Mute = true;
+    }
+
     public void Pump(DateTime nowUtc) => Pumps++;
 
     public int AudioDelayMs = int.MinValue;

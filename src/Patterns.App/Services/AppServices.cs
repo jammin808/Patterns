@@ -684,6 +684,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         };
         Outputs.LiveChanged += UpdateRecovery;
         Outputs.LiveChanged += ShowLock.OnOutputsLiveChanged;   // the machine held with the outputs, released with them
+        Outputs.LiveChanged += ReconcileInputs;                 // round 77: the sound follows the live outputs — an output opening or closing re-routes the mounts now
         // The screens change hands the moment they open or close, not at the next poll: a start a
         // second later must never read a record for windows that are already gone.
         Outputs.LiveChanged += Ownership.OnLiveChanged;
@@ -2008,15 +2009,68 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// and the sandbox snapshot while one is open, so the detached preview shows its inputs.
     /// Also called directly on playlist item changes (runtime publishes skip side effects).
     /// </summary>
+    /// <summary>
+    /// Round 77: which pictures are on a live output right now, read from the open output windows
+    /// against the on-air show — a canvas member names its canvas, a repeater the screen it repeats
+    /// — with the NDI sends and the stream counting as the programme leaving the machine. The rule
+    /// the sound follows: a picture is heard while some live output shows it.
+    /// </summary>
+    public LiveOutputs ShownLive()
+    {
+        var elsewhere = Ndi.ActiveCount > 0 || State.Stream.Active;
+        if (!Outputs.IsLive) return elsewhere ? LiveOutputs.Of(AirState, Array.Empty<string>(), programmeLeavesOtherwise: true) : LiveOutputs.None;
+        var air = AirState;
+        var rig = Bus.Current.Rig;
+        var targets = new List<string>();
+        foreach (var window in Outputs.Windows)
+        {
+            var id = window.Pipeline.Viewport.ScreenId ?? "";
+            var placement = air.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
+            if (placement is { MirrorOf.Length: > 0 }) id = placement.MirrorOf;      // a repeater shows its source's picture
+            targets.Add(ContentTargets.IsCanvasKey(id) || id.Length == 0 ? id : rig.TargetOf(id));
+        }
+        return LiveOutputs.Of(air, targets, elsewhere);
+    }
+
+    /// <summary>How often a listener that could not bind is asked again.</summary>
+    public static readonly TimeSpan ListenerRetry = TimeSpan.FromSeconds(5);
+
+    private DateTime _listenersRetriedUtc;
+
+    /// <summary>
+    /// Round 77, from the desk's poll: a listener whose port was held at its start — the wire, the
+    /// twin's port, the beacon — is asked to bind again every few seconds until it does. At a
+    /// handover the ports are the old desk's for a few seconds after the replacement boots; before
+    /// this, a failed start left the wire dead for the whole of the new desk's life.
+    /// </summary>
+    public void RetryListeners()
+    {
+        if (!Control.StartFailed && !Twin.BindFailed && !Beacon.BindFailed) return;
+        var now = DateTime.UtcNow;
+        if (now - _listenersRetriedUtc < ListenerRetry) return;
+        _listenersRetriedUtc = now;
+        try
+        {
+            if (Control.StartFailed) Control.Reconcile();
+            if (Twin.BindFailed) Twin.Reconcile();
+            if (Beacon.BindFailed) Beacon.Reconcile();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("A listener could not be asked to bind again.", ex);
+        }
+    }
+
     public void ReconcileInputs()
     {
         // The standby cue's clips ride behind the live wants: opened before GO, held on their first frame.
         var preRoll = CueStack is null ? null : PreRoll.WantedFor(State, CueStack.StandbyCue);
-        Video.Reconcile(Bus.Current, Bus.Sandbox, preRoll: preRoll);
+        var live = ShownLive();   // round 77: a picture's sound plays while a live output shows it
+        Video.Reconcile(Bus.Current, Bus.Sandbox, preRoll: preRoll, live: live);
         NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
         // The web pages the cues ahead ask to play from a point — the caller's standby cue and the
         // clicker's next step — open early, prepared at their mark, so the take lands on the frame.
-        WebIn.Reconcile(Bus.Current, Bus.Sandbox, CueStack is null ? null : PreRoll.WebPagesFor(State, CueStack.StandbyCue, ClickerNextCue()));
+        WebIn.Reconcile(Bus.Current, Bus.Sandbox, CueStack is null ? null : PreRoll.WebPagesFor(State, CueStack.StandbyCue, ClickerNextCue()), live);
         DeckIn.Reconcile(Bus.Current, Bus.Sandbox);
         ArcadeIn.Reconcile(Bus.Current, Bus.Sandbox);
         AudioGraph?.Reconcile();   // the taps may have come or gone with the mounts: the plan follows them now, not at the next second

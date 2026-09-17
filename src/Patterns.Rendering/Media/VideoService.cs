@@ -94,6 +94,13 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>The page's sound, off or on.</summary>
     bool IsMuted { get; set; }
 
+    /// <summary>
+    /// Round 77: the sound off or on with a fade — muted, the page's own elements ramp down over
+    /// <paramref name="fadeMs"/> before the browser is muted; unmuted, they come back at their
+    /// original level. A source without a ramp of its own switches at once.
+    /// </summary>
+    void SetMuted(bool muted, int fadeMs) => IsMuted = muted;
+
     /// <summary>Frames the page delivered in the last second — a video's rate while it plays, 0 for a still page; what the status line reads.</summary>
     double FrameRate => 0;
 

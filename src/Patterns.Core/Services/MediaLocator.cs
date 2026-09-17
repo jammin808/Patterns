@@ -97,6 +97,14 @@ public static class MediaLocator
         /// <summary>Which output this mount's sound belongs on; see <see cref="AudioMonitorRule"/>.</summary>
         public AudioDestination Destination { get; init; } = AudioDestination.Program;
 
+        /// <summary>
+        /// Round 77: <see cref="Mute"/> was set by the monitor rule — the picture is on no live
+        /// output, or it is not what the desk listens to — not by the operator. The decoder fades
+        /// such a mount out rather than cutting it, and lifts the mute itself when the picture is
+        /// shown again.
+        /// </summary>
+        public bool RuleMuted { get; init; }
+
         /// <summary>A web page's armed VT, carried by the look: play from <see cref="StartSeconds"/> when it goes to air.</summary>
         public bool AutoPlay { get; init; }
 

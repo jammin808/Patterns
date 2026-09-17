@@ -768,9 +768,68 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         set
         {
             if (_muted == value) return;
+            Interlocked.Increment(ref _muteGeneration);   // a fade landing later does nothing
             _muted = value;
             OnUi(ApplyMute);
         }
+    }
+
+    private int _muteGeneration;
+
+    /// <summary>
+    /// Round 77: the page's sound off or on with a fade. Off — the picture left every live output —
+    /// the page's own elements ramp down over <paramref name="fadeMs"/> and the browser is muted
+    /// when the ramp lands; on again, the browser is unmuted and the elements get their original
+    /// levels back (<see cref="WebLeaving.RestoreScript"/>). A call during a ramp supersedes it:
+    /// an unmute mid-fade puts the level straight back, a mute mid-fade lets the ramp run.
+    /// </summary>
+    public void SetMuted(bool muted, int fadeMs)
+    {
+        if (_disposed) return;
+        if (!muted)
+        {
+            var wasMuted = _muted;
+            var generation = Interlocked.Increment(ref _muteGeneration);
+            _muteFading = false;
+            _muted = false;
+            OnUi(() =>
+            {
+                if (_disposed || Volatile.Read(ref _muteGeneration) != generation) return;
+                ApplyMute();
+                _ = RunScriptOnUiAsync(WebLeaving.RestoreScript);   // the elements the fade touched, back at their level — a no-op on a page it never touched
+            });
+            _ = wasMuted;
+            return;
+        }
+        if (_muted || _muteFading) return;   // muted already, or a fade towards it is ramping: asked again is asked once
+        if (fadeMs <= 0 || _leaving)
+        {
+            IsMuted = true;
+            return;
+        }
+        var gen = Interlocked.Increment(ref _muteGeneration);
+        _muteFading = true;
+        RunScript(WebLeaving.FadeScript(fadeMs / 1000.0));
+        _ = MuteAfterAsync(gen, fadeMs);
+    }
+
+    private volatile bool _muteFading;
+
+    private async Task MuteAfterAsync(int generation, int fadeMs)
+    {
+        try
+        {
+            await Task.Delay(fadeMs);
+        }
+        catch (Exception)
+        {
+            _muteFading = false;
+            return;
+        }
+        _muteFading = false;
+        if (_disposed || Volatile.Read(ref _muteGeneration) != generation) return;
+        _muted = true;
+        OnUi(ApplyMute);
     }
 
     private string _cleanCss = "";

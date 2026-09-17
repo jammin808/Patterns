@@ -57,6 +57,15 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public string Title => "A page";
     public double ZoomPct { get; set; } = 100;
     public bool IsMuted { get; set; }
+
+    /// <summary>Round 77: every SetMuted call — muted, and the fade it was given (0 = at once).</summary>
+    public List<(bool Muted, int FadeMs)> MuteCalls { get; } = new();
+
+    public void SetMuted(bool muted, int fadeMs)
+    {
+        MuteCalls.Add((muted, fadeMs));
+        IsMuted = muted;
+    }
     public bool PreferH264 { get; set; }
 
     // Round 68: the look's smoothing, the desk's capture plan and the leaving fade, as the engine hands them over.

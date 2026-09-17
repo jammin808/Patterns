@@ -34,6 +34,76 @@ public enum AudioDestination
 }
 
 /// <summary>
+/// Round 77: which pictures are on a live output right now — the fact the sound follows.
+///
+/// The fault this exists for: a clip on the programme kept sounding on the room's output while
+/// no live screen showed the programme — the desk's monitor had its outputs off and the one live
+/// screen showed its own YouTube page — because the rule read "the programme's sound is the
+/// room's" whether or not the programme was anywhere in the room. The room hears what it sees:
+/// a picture's sound plays while some live output shows that picture, and fades when none does.
+///
+/// <see cref="OwnTargets"/> are the content targets (a screen, a canvas key) whose own picture is
+/// on a live output; <see cref="ProgrammeLive"/> says some live output shows the programme (or
+/// the programme leaves the machine another way — an NDI send, the stream); <see cref="AnyLive"/>
+/// says any output is open at all. With no output open the desk hears the programme as it always
+/// did — a rehearsal at the desk is not a silent one.
+/// </summary>
+public sealed record LiveOutputs(IReadOnlySet<string> OwnTargets, bool ProgrammeLive, bool AnyLive)
+{
+    private static readonly IReadOnlySet<string> Nobody = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What the callers that do not know the outputs assume: the programme is shown, no screen's
+    /// own picture is — exactly the rule as it stood before this round, so a paper caller is not
+    /// changed by it.
+    /// </summary>
+    public static readonly LiveOutputs AssumeAll = new(Nobody, true, true);
+
+    /// <summary>No output open.</summary>
+    public static readonly LiveOutputs None = new(Nobody, false, false);
+
+    /// <summary>Whether a mount on this bus is being shown to the room: never the preview; the programme when it is live; an own picture when its target is.</summary>
+    public bool Shows(in MediaBus bus)
+    {
+        if (bus.Preview) return false;
+        return bus.IsProgram ? ProgrammeLive : OwnTargets.Contains(bus.OutputId);
+    }
+
+    /// <summary>
+    /// From the live targets as the window manager names them (a screen id, or a canvas key for a
+    /// joined canvas) read against the on-air show: a target with its own picture is an own
+    /// target, any other shows the programme. <paramref name="programmeLeavesOtherwise"/> is the
+    /// NDI send or the stream carrying the programme out of the machine.
+    /// </summary>
+    public static LiveOutputs Of(ShowState air, IEnumerable<string> liveTargets, bool programmeLeavesOtherwise = false)
+    {
+        var own = new HashSet<string>(StringComparer.Ordinal);
+        var programme = programmeLeavesOtherwise;
+        var any = false;
+        foreach (var target in liveTargets)
+        {
+            any = true;
+            if (target.Length > 0 && ContentTargets.UsesOwnPattern(air, target)) own.Add(target);
+            else programme = true;
+        }
+        return new LiveOutputs(own, programme, any || programmeLeavesOtherwise);
+    }
+
+    /// <summary>A stable text of the facts — the audio graph's topology signature reads it.</summary>
+    public string Signature => (ProgrammeLive ? "pgm" : "-") + "|" + (AnyLive ? "live" : "-") + "|" + string.Join(",", OwnTargets.OrderBy(t => t, StringComparer.Ordinal));
+
+    /// <summary>"the programme and 2 screens' own pictures are on live outputs" — STATE and the Audio page.</summary>
+    public string Words()
+    {
+        if (!AnyLive) return "no output is open";
+        var own = OwnTargets.Count switch { 0 => "", 1 => "1 screen's own picture", _ => $"{OwnTargets.Count} screens' own pictures" };
+        return ProgrammeLive
+            ? own.Length > 0 ? $"the programme and {own} are on live outputs" : "the programme is on the live outputs"
+            : own.Length > 0 ? $"{own} on the live outputs; the programme is on none" : "the live outputs show no picture with sound";
+    }
+}
+
+/// <summary>
 /// What the desk's own speakers play.
 ///
 /// The fault this exists for: a clip on the programme, another on a confidence screen's own
@@ -115,9 +185,50 @@ public static class AudioMonitorRule
     /// stays silent and the readout says why.
     /// </summary>
     public static AudioDestination Where(in MonitorPick pick, IReadOnlyList<MediaBus>? buses, bool hasMonitorDevice)
+        => Where(pick, buses, hasMonitorDevice, LiveOutputs.AssumeAll);
+
+    /// <summary>True when some live output shows a picture this mount is on (nothing said: the programme's).</summary>
+    public static bool ShownLive(IReadOnlyList<MediaBus>? buses, LiveOutputs live)
     {
-        if (OnProgram(buses)) return AudioDestination.Program;
-        return hasMonitorDevice && Monitored(pick, buses) ? AudioDestination.Monitor : AudioDestination.Silent;
+        if (buses is null || buses.Count == 0) return live.ProgrammeLive;
+        foreach (var bus in buses)
+        {
+            if (live.Shows(bus)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Round 77: where this mount's sound goes, read against what the room can see.
+    ///
+    /// Shown on a live output — the programme on a screen that follows it, a screen's own picture
+    /// on that screen — it plays to the programme's outputs: the room hears what it sees, and a
+    /// screen's own picture is heard where it is shown rather than muted for being nobody's
+    /// audition. On no live output it is not the room's: with no output open at all the programme
+    /// is still heard at the desk (a rehearsal is not silent); otherwise the operator's own output
+    /// carries it when they asked to listen to it — or to the programme — and there is one; else
+    /// it is silent, and the words say why. The operator's own mute and volume still apply on top.
+    /// </summary>
+    public static AudioDestination Where(in MonitorPick pick, IReadOnlyList<MediaBus>? buses, bool hasMonitorDevice, LiveOutputs live)
+    {
+        if (ShownLive(buses, live)) return AudioDestination.Program;
+        var programme = OnProgram(buses);
+        if (programme && !live.AnyLive) return AudioDestination.Program;
+        if (hasMonitorDevice && (Monitored(pick, buses) || (programme && pick.Source == AudioMonitor.Program))) return AudioDestination.Monitor;
+        return AudioDestination.Silent;
+    }
+
+    /// <summary>The buses of this mount that a live output shows — what the routing matrix carries its tap for. With no output open, every bus (the desk hears the programme); the preview never.</summary>
+    public static IReadOnlyList<MediaBus> LiveBuses(IReadOnlyList<MediaBus>? buses, LiveOutputs live)
+    {
+        if (buses is null || buses.Count == 0) buses = new[] { MediaBus.Program };
+        if (!live.AnyLive) return buses;
+        var shown = new List<MediaBus>(buses.Count);
+        foreach (var bus in buses)
+        {
+            if (live.Shows(bus)) shown.Add(bus);
+        }
+        return shown;
     }
 
     /// <summary>
@@ -126,19 +237,27 @@ public static class AudioMonitorRule
     /// away, and never from the room.
     /// </summary>
     public static MediaLocator.WantedInput Apply(in MonitorPick pick, MediaLocator.WantedInput input, bool hasMonitorDevice)
+        => Apply(pick, input, hasMonitorDevice, LiveOutputs.AssumeAll);
+
+    /// <summary>Round 77: the input routed against the live outputs; a mute the rule adds is marked as its own (<see cref="MediaLocator.WantedInput.RuleMuted"/>), so the decoder fades rather than cuts and lifts it itself.</summary>
+    public static MediaLocator.WantedInput Apply(in MonitorPick pick, MediaLocator.WantedInput input, bool hasMonitorDevice, LiveOutputs live)
     {
-        var where = Where(pick, input.Buses, hasMonitorDevice);
+        var where = Where(pick, input.Buses, hasMonitorDevice, live);
         return where == AudioDestination.Silent
-            ? input with { Mute = true, Destination = where }
-            : input with { Destination = where };
+            ? input with { Mute = true, RuleMuted = !input.Mute, Destination = where }
+            : input with { Destination = where, RuleMuted = false };
     }
 
-    /// <summary>The whole list, routed.</summary>
+    /// <summary>The whole list, routed as the callers before round 77 asked: the programme assumed shown.</summary>
     public static List<MediaLocator.WantedInput> Apply(ShowState state, List<MediaLocator.WantedInput> inputs)
+        => Apply(state, inputs, LiveOutputs.AssumeAll);
+
+    /// <summary>The whole list, routed against the live outputs.</summary>
+    public static List<MediaLocator.WantedInput> Apply(ShowState state, List<MediaLocator.WantedInput> inputs, LiveOutputs live)
     {
         var pick = Effective(state);
         var hasMonitor = state.Monitor.Device.Length > 0;
-        for (var i = 0; i < inputs.Count; i++) inputs[i] = Apply(pick, inputs[i], hasMonitor);
+        for (var i = 0; i < inputs.Count; i++) inputs[i] = Apply(pick, inputs[i], hasMonitor, live);
         return inputs;
     }
 

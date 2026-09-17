@@ -26,4 +26,20 @@ public class WebLeavingTests
         Assert.Contains("var d=10;", WebLeaving.FadeScript(double.NaN));
         Assert.Contains("var d=250;", WebLeaving.FadeScript(0.25));
     }
+
+    [Fact]
+    public void TheFadeKeepsEachElementsOriginalAndTheRestorePutsOnlyWhatTheFadeDidBack()
+    {
+        var fade = WebLeaving.FadeScript(1.5);
+        Assert.Contains("window.__pvFade=g", fade);                              // a generation: the next fade or a restore cancels this one
+        Assert.Contains("if(window.__pvFade!==g)return;", fade);
+        Assert.Contains("if(e.__pv0===undefined)e.__pv0=e.volume;return e.__pv0;", fade);   // the original kept once, not the mid-ramp value
+        Assert.Contains("els[i].muted=true;els[i].__pvm=true;", fade);           // what the fade muted is marked
+
+        var restore = WebLeaving.RestoreScript;
+        Assert.StartsWith("(function(){try{window.__pvFade=(window.__pvFade||0)+1;", restore);
+        Assert.Contains("if(e.__pv0!==undefined){e.volume=e.__pv0;delete e.__pv0;n++;}", restore);
+        Assert.Contains("if(e.__pvm){e.muted=false;e.__pvm=false;}", restore);   // an element the page itself muted stays muted
+        Assert.EndsWith("})()", restore);
+    }
 }
