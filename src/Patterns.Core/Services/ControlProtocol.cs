@@ -603,6 +603,27 @@ public static class ControlProtocol
                         : Act(ShowActionKind.LowerThirdPreview, pDesign, pPerson);
                 }
                 if (arg.EndsWith(" WITH", StringComparison.OrdinalIgnoreCase)) return Unknown(s);
+                // Round 73, the timed forms: "LT <design> FOR <seconds>" (this run's hold; 0 or STAY = until hidden),
+                // "LT <design> STAY" (this run stays), "LT <design> HOLD <seconds|STAY>" (the design's own hold, saved).
+                var hold = arg.IndexOf(" HOLD ", StringComparison.OrdinalIgnoreCase);
+                if (hold >= 0)
+                {
+                    var design = arg[..hold].Trim();
+                    var words = arg[(hold + 6)..].Trim();
+                    return design.Length == 0 || !Patterns.Core.LowerThirds.LowerThirdHolds.TryParse(words, out _) ? Unknown(s) : Act(ShowActionKind.LowerThirdHold, design, words);
+                }
+                var forAt = arg.IndexOf(" FOR ", StringComparison.OrdinalIgnoreCase);
+                if (forAt >= 0)
+                {
+                    var design = arg[..forAt].Trim();
+                    var words = arg[(forAt + 5)..].Trim();
+                    return design.Length == 0 || !Patterns.Core.LowerThirds.LowerThirdHolds.TryParse(words, out _) ? Unknown(s) : Act(ShowActionKind.LowerThirdShowFor, design, words);
+                }
+                if (arg.EndsWith(" STAY", StringComparison.OrdinalIgnoreCase))
+                {
+                    var design = arg[..^5].Trim();
+                    return design.Length == 0 ? Unknown(s) : Act(ShowActionKind.LowerThirdShowFor, design, "STAY");
+                }
                 var with = arg.IndexOf(" WITH ", StringComparison.OrdinalIgnoreCase);
                 if (with >= 0)
                 {

@@ -99,7 +99,9 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
   `LIBRARY <name>`, `PVW LIBRARY <name>`, `SCREEN n PVW LIBRARY <name>` — exactly what a click on the Library
   page does; `screen_stage` and `pvw` gain the LIBRARY choice; `editing_target`, `editing_kind`,
   `editing_editor` and `editing_library` say what the desk's editors are on; `library_selected` lights amber
-  while a tile sits on the editing target.
+  while a tile sits on the editing target. Timed lower thirds: `lower_third_for` puts a design on for this
+  run's hold (`LT n FOR 8`; 0 or STAY = until hidden), `lower_third_hold` sets the design's own (`LT n HOLD 8`);
+  `lower_third_timed` and `lower_third_leaves_in` read the countdown.
 - **3.11.0** — signal truth's PARTIAL and the take ticket (round 72): `screen_n_signal` reads PARTIAL when
   everything the path states agrees with the contract and a contracted property was never stated (a
   colour space Windows never reports, a bit depth the driver did not say) — amber on the `rig_signal_n`

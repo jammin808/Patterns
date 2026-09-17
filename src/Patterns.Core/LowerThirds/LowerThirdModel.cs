@@ -285,7 +285,8 @@ public sealed class LowerThirdDesign : Observable
     private double _marginY = 60;
     private double _scalePct = 100;
     private int _inMs = 600;
-    private int _holdMs;
+    private int _holdMs = DefaultHoldMs;
+    private bool _timed = true;
     private int _outMs = 500;
     private string _personName = "Jane Doe";
     private string _personRole = "Head of Something";
@@ -308,10 +309,44 @@ public sealed class LowerThirdDesign : Observable
     /// <summary>On top of the canvas scale: 100 = the design's own size at 1080 lines.</summary>
     public double ScalePct { get => _scalePct; set => Set(ref _scalePct, Math.Clamp(value, 10, 400)); }
 
+    /// <summary>Round 73: the hold a new design opens with — five seconds on, then it leaves by itself.</summary>
+    public const int DefaultHoldMs = 5000;
+
     /// <summary>The way in takes this long.</summary>
     public int InMs { get => _inMs; set => Set(ref _inMs, Math.Clamp(value, 0, 20000)); }
-    /// <summary>Stays this long before leaving by itself; 0 = until hidden.</summary>
+
+    /// <summary>
+    /// The hold: how long the design stays before it leaves by itself, when <see cref="Timed"/>;
+    /// 0 = until hidden whatever the switch says. Five seconds for a new design (round 73) — a
+    /// name strap comes on, holds, and goes without a second press; a saved design keeps the hold
+    /// it was saved with.
+    /// </summary>
     public int HoldMs { get => _holdMs; set => Set(ref _holdMs, Math.Clamp(value, 0, 600000)); }
+
+    /// <summary>
+    /// Round 73: the design leaves by itself after its hold (on for a new design). Off, it stays
+    /// until hidden and the hold is kept for when it is switched back on — the number is not lost
+    /// by unticking. A run can override both: LT n FOR s, LT n STAY (<see cref="LowerThirdsConfig.RunHoldMs"/>).
+    /// </summary>
+    public bool Timed { get => _timed; set => Set(ref _timed, value); }
+
+    /// <summary>The hold the clock uses: the design's own when it is timed, 0 (until hidden) otherwise.</summary>
+    [JsonIgnore]
+    public int EffectiveHoldMs => _timed && _holdMs > 0 ? _holdMs : 0;
+
+    /// <summary>The hold in seconds, for the page's field (0.5 s steps; 0 = until hidden).</summary>
+    [JsonIgnore]
+    public double HoldSeconds
+    {
+        get => _holdMs / 1000.0;
+        set
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return;
+            HoldMs = (int)Math.Round(Math.Clamp(value, 0, 600) * 1000);
+            Raise(nameof(HoldSeconds));
+        }
+    }
+
     public int OutMs { get => _outMs; set => Set(ref _outMs, Math.Clamp(value, 0, 20000)); }
 
     public string PersonName
@@ -334,7 +369,7 @@ public sealed class LowerThirdDesign : Observable
 
     /// <summary>In, hold and out together, ms (the hold counts only when it ends by itself).</summary>
     [JsonIgnore]
-    public int TotalMs => InMs + HoldMs + OutMs;
+    public int TotalMs => InMs + EffectiveHoldMs + OutMs;
 
     private bool _isOnAir;
     private string _onAirText = "";
@@ -544,8 +579,17 @@ public sealed class LowerThirdsConfig : Observable
     private string _defaultDesignId = "";
     private DateTime? _shownAtUtc;
     private DateTime? _hiddenAtUtc;
+    private int _runHoldMs;
 
     public ShowCollection<LowerThirdDesign> Designs { get; init; } = new();
+
+    /// <summary>
+    /// Round 73: this run's hold, over the design's own — LT n FOR s sets it in milliseconds, LT n
+    /// STAY sets −1 (until hidden this run), a plain show leaves it 0 (the design's own hold). Kept
+    /// with the instants: a run is the design, the moment it was shown, and how long it was asked
+    /// to stay.
+    /// </summary>
+    public int RunHoldMs { get => _runHoldMs; set => Set(ref _runHoldMs, Math.Clamp(value, -1, 600000)); }
 
     /// <summary>The library: people and lines ready to recall into any design, in the page's order (the remote's PERSON n).</summary>
     public ShowCollection<LowerThirdEntry> Entries { get; init; } = new();
@@ -699,11 +743,16 @@ public sealed class LowerThirdsConfig : Observable
         return picture;
     }
 
-    /// <summary>Puts a design on air now (showing it again restarts its way in).</summary>
-    public void Show(LowerThirdDesign design, DateTime utcNow)
+    /// <summary>
+    /// Puts a design on air now (showing it again restarts its way in). <paramref name="runHoldMs"/>
+    /// is this run's hold over the design's own: 0 the design's, a number of milliseconds, −1 stay
+    /// until hidden (round 73).
+    /// </summary>
+    public void Show(LowerThirdDesign design, DateTime utcNow, int runHoldMs = 0)
     {
         ActiveId = design.Id;
         HiddenAtUtc = null;
+        RunHoldMs = runHoldMs;
         ShownAtUtc = utcNow;
     }
 

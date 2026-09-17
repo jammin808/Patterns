@@ -168,6 +168,18 @@ public enum ShowActionKind
     /// <summary>The design on air is replaced by the design as it is now — every edit, the words too — without leaving and arriving again.</summary>
     LowerThirdUpdate,
     /// <summary>
+    /// Round 73: the design on air for this run's hold — Target = a design (number or name; empty
+    /// = the default), Value = seconds ("0" or STAY = until hidden this run). The design's own hold
+    /// is untouched; a timed design leaves by itself after the hold, the way it was designed to.
+    /// </summary>
+    LowerThirdShowFor,
+    /// <summary>
+    /// Round 73: the design's own hold, saved with the show — Target = a design, Value = seconds
+    /// (a design that leaves by itself after them) or STAY (stays until hidden; the number is
+    /// kept). The design on air retimes with it.
+    /// </summary>
+    LowerThirdHold,
+    /// <summary>
     /// The RUN surface's monitor (round 62): one screen drawn large between the wall and the
     /// history, for the caller's eye. Target = a screen (its number on the wire, or its id), a
     /// canvas key, PGM for the programme, or MAIN / blank for the main screen. Changes where the

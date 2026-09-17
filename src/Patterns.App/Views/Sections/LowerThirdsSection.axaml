@@ -206,14 +206,21 @@
                 <NumericUpDown Grid.Column="5" Minimum="10" Maximum="400" Increment="5" FormatString="0" ShowButtonSpinner="False"
                                Value="{Binding ScalePct, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Scale, percent (100 = the design's own size at 1080 lines)" />
               </Grid>
-              <Grid ColumnDefinitions="110,86,8,86,8,86,*" Margin="0,4,0,0">
-                <TextBlock Classes="label" Text="In · hold · out" VerticalAlignment="Center" />
+              <Grid ColumnDefinitions="110,86,8,86,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="In · out (ms)" VerticalAlignment="Center" />
                 <NumericUpDown Grid.Column="1" Minimum="0" Maximum="20000" Increment="50" FormatString="0" ShowButtonSpinner="False"
                                Value="{Binding InMs, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The way in, ms" />
-                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="600000" Increment="500" FormatString="0" ShowButtonSpinner="False"
-                               Value="{Binding HoldMs, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Stays this long, ms; 0 = until hidden" />
-                <NumericUpDown Grid.Column="5" Minimum="0" Maximum="20000" Increment="50" FormatString="0" ShowButtonSpinner="False"
+                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="20000" Increment="50" FormatString="0" ShowButtonSpinner="False"
                                Value="{Binding OutMs, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The way out, ms" />
+              </Grid>
+              <!-- Round 73: timed — the design leaves by itself after its hold; the number stays when the switch is off -->
+              <Grid ColumnDefinitions="110,Auto,8,86,8,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="Timed" VerticalAlignment="Center" />
+                <CheckBox Grid.Column="1" Name="LowerThirdTimed" Content="Leaves by itself after" IsChecked="{Binding Timed, Mode=TwoWay}" VerticalAlignment="Center"
+                          ToolTip.Tip="On: the design comes on, holds this long, and leaves the way it was designed to — no second press. Off: it stays until ■ HIDE (the seconds are kept). LT n FOR 8 or LT n STAY override one run from a deck; LT n HOLD 8 sets this" />
+                <NumericUpDown Grid.Column="3" Name="LowerThirdHoldSeconds" Minimum="0" Maximum="600" Increment="0.5" FormatString="0.#" ShowButtonSpinner="False"
+                               Value="{Binding HoldSeconds, Mode=TwoWay, Converter={StaticResource Num}}" IsEnabled="{Binding Timed}" ToolTip.Tip="Seconds on screen between the way in and the way out; 0 = until hidden" />
+                <TextBlock Grid.Column="5" Classes="hint" Text="s — the chip counts it down on air" VerticalAlignment="Center" />
               </Grid>
             </StackPanel>
           </DataTemplate>

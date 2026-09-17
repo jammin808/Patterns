@@ -449,6 +449,15 @@ public static class CueValidator
                     }
                     break;
                 }
+                case ShowActionKind.LowerThirdShowFor:
+                case ShowActionKind.LowerThirdHold:
+                {
+                    // Round 73: the timed forms name a design and a number of seconds (or STAY).
+                    var design = a.Target.Length == 0 ? state.LowerThirds.DefaultDesign : state.LowerThirds.Find(a.Target);
+                    if (design is null) Hard(a.Target.Length == 0 ? $"{where}: no lower third design in the show." : $"{where}: lower third '{a.Target}' not found.");
+                    if (!LowerThirds.LowerThirdHolds.TryParse(a.Value, out _)) Hard($"{where}: '{a.Value}' is not a number of seconds (or STAY).");
+                    break;
+                }
                 case ShowActionKind.AudioVolume:
                     if (!ActionSpec.TryParsePercent(a.Value, out _))
                     {

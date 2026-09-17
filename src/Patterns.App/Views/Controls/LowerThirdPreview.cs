@@ -248,7 +248,8 @@ public sealed class LowerThirdPreview : Control
             Canvas = new SKSizeI(1920, 1080),
             Palette = Palette.Resolve(snap),
         };
-        double? hiddenAt = design.HoldMs > 0 ? null : (design.InMs + WaitingHoldMs) / 1000.0;
+        // Round 73: the hold the clock would use — a design that is not timed previews with the waiting hold.
+        double? hiddenAt = design.EffectiveHoldMs > 0 ? null : (design.InMs + WaitingHoldMs) / 1000.0;
         LowerThirdRenderer.Render(c, in frame, design, shownAt: 0, hiddenAt, timeMs / 1000.0);
         DrawClipNotes(c, sink, design);
         c.Restore();

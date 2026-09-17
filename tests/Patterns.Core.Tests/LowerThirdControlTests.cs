@@ -16,6 +16,59 @@ public class LowerThirdControlTests
         Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHide), ControlProtocol.Parse("LT OFF").Action);
         Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHide), ControlProtocol.Parse("LOWERTHIRD hide").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT").Kind);
+
+        // Round 73: the timed forms.
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShowFor, "2", "8"), ControlProtocol.Parse("LT 2 FOR 8").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShowFor, "Keynote speaker", "7.5"), ControlProtocol.Parse("LOWERTHIRD Keynote speaker for 7.5").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShowFor, "2", "STAY"), ControlProtocol.Parse("LT 2 STAY").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShowFor, "2", "STAY"), ControlProtocol.Parse("LT 2 FOR STAY").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHold, "2", "6"), ControlProtocol.Parse("LT 2 HOLD 6").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHold, "Keynote", "STAY"), ControlProtocol.Parse("LT Keynote HOLD STAY").Action);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT 2 FOR soon").Kind);
+        // A design may be called anything: words that are not the timed form are a name, as they always were.
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "2 HOLD"), ControlProtocol.Parse("LT 2 HOLD").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "FOR 8"), ControlProtocol.Parse("LT FOR 8").Action);
+    }
+
+    /// <summary>Round 73: the timed verbs have their spec, their cue words, their sheet words, their checks and their OSC addresses.</summary>
+    [Fact]
+    public void TheTimedVerbsAreCueStepsWithWordsAndChecks()
+    {
+        Assert.Equal((TargetKind.LowerThird, ValueKind.Seconds), ActionSpec.For(ShowActionKind.LowerThirdShowFor));
+        Assert.Equal((TargetKind.LowerThird, ValueKind.Seconds), ActionSpec.For(ShowActionKind.LowerThirdHold));
+        Assert.Contains(ShowActionKind.LowerThirdShowFor, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.LowerThirdHold, ActionSpec.CueKinds);
+        Assert.StartsWith("Lower third on for", ActionSpec.Label(ShowActionKind.LowerThirdShowFor));
+        Assert.StartsWith("Lower third hold", ActionSpec.Label(ShowActionKind.LowerThirdHold));
+        Assert.Equal(ShowActionKind.LowerThirdShowFor, CueSheet.ParseKind("lt for"));
+        Assert.Equal(ShowActionKind.LowerThirdHold, CueSheet.ParseKind("lower third hold"));
+
+        var state = SettingsStore.Fresh();
+        var neon = LowerThirdPresets.Create("Neon");
+        state.LowerThirds.Designs.Add(neon);
+        Assert.Equal("Lower third 'Neon' for 8 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdShowFor, Target = neon.Id, Value = "8" }));
+        Assert.Equal("Lower third 'Neon' — until hidden", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdShowFor, Target = neon.Id, Value = "STAY" }));
+        Assert.Equal("Lower third 'Neon' holds 6 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdHold, Target = neon.Id, Value = "6" }));
+        Assert.Equal("Lower third 'Neon' stays until hidden", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdHold, Target = neon.Id, Value = "STAY" }));
+
+        var ctx = new CueValidationContext();
+        RunCueConfig Cue(ShowActionKind kind, string target, string value)
+        {
+            var cue = new RunCueConfig { Name = kind.ToString() };
+            cue.Actions.Add(new CueActionConfig { Kind = kind, Target = target, Value = value });
+            return cue;
+        }
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.LowerThirdShowFor, neon.Id, "8"), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.LowerThirdHold, neon.Id, "STAY"), ctx).BrokenCount);
+        Assert.Equal(1, CueValidator.ValidateOne(state, Cue(ShowActionKind.LowerThirdShowFor, neon.Id, "soon"), ctx).BrokenCount);
+        Assert.Equal(1, CueValidator.ValidateOne(state, Cue(ShowActionKind.LowerThirdHold, "nope", "8"), ctx).BrokenCount);
+
+        Assert.Equal("LOWERTHIRD 2 FOR 8", OscMap.ToLine(OscMessage.Of("/patterns/lowerthird/2/for", "8")));
+        Assert.Equal("LOWERTHIRD 2 FOR 8", OscMap.ToLine(OscMessage.Of("/patterns/lt/2/for/8")));
+        Assert.Equal("LOWERTHIRD 2 STAY", OscMap.ToLine(OscMessage.Of("/patterns/lowerthird/2/stay")));
+        Assert.Equal("LOWERTHIRD Keynote HOLD STAY", OscMap.ToLine(OscMessage.Of("/patterns/lowerthird/Keynote/hold/STAY")));
+        Assert.Equal(ShowActionKind.LowerThirdShowFor, ControlProtocol.Parse(OscMap.ToLine(OscMessage.Of("/patterns/lowerthird/2/for", "8"))!).Action.Kind);
+        Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/lowerthird/<n|name>/for"));
     }
 
     [Fact]

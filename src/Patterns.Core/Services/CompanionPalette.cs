@@ -51,7 +51,7 @@ public static class CompanionPalette
         ["screen"] = Row(("enabled", "screenOn"), ("locked", "lock"), ("armed", "green"), ("own", "steel"), ("black", "red"), ("offLook", "orange"), ("pattern", "green"), ("fault", "red"), ("group", "sky"), ("sound", "blue")),
         ["stinger"] = Row(("playing", "stingerBrown"), ("hold", "amber")),
         ["vog"] = Row(("playing", "blue")),
-        ["lowerThird"] = Row(("on", "red"), ("preview", "amber"), ("edited", "amber"), ("person", "red")),
+        ["lowerThird"] = Row(("on", "red"), ("preview", "amber"), ("edited", "amber"), ("person", "red"), ("timed", "amber")),
         ["audio"] = Row(("playing", "blue"), ("follow", "sky")),
         ["music"] = Row(("playing", "music")),
         ["overlay"] = Row(("on", "sky")),

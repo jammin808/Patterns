@@ -63,15 +63,21 @@ public class LowerThirdAppTests
             Assert.Equal(count - 1, neon.Elements.Count);
             Assert.NotNull(vm.SelectedElement);
 
-            // The preview scrubs the design's own timeline: in, a 1.5 s hold, out.
+            // The preview scrubs the design's own timeline: in, the hold, out. A new design holds
+            // 5 s (round 73); untimed, or with no hold, it previews with a 1.5 s waiting hold.
             neon.InMs = 600;
             neon.OutMs = 400;
+            Assert.Equal(6000, vm.PreviewLengthMs);
+            neon.HoldMs = 3000;
+            Assert.Equal(4000, vm.PreviewLengthMs);
+            neon.Timed = false;
+            Assert.Equal(2500, vm.PreviewLengthMs);
+            neon.Timed = true;
+            Assert.Equal(4000, vm.PreviewLengthMs);
+            neon.HoldMs = 0;
             Assert.Equal(2500, vm.PreviewLengthMs);
             vm.PreviewTimeMs = 9999;
             Assert.Equal(2500, vm.PreviewTimeMs);
-            neon.HoldMs = 3000;
-            Assert.Equal(4000, vm.PreviewLengthMs);
-            neon.HoldMs = 0;
 
             // The page hosts it all and the file round trip lands a new design.
             var host = new Window { DataContext = vm, Width = 900, Height = 3000, Content = new ScrollViewer { Content = new LowerThirdsSection() } };
@@ -184,6 +190,7 @@ public class LowerThirdAppTests
     {
         var state = new Patterns.Core.Model.ShowState();
         var clean = LowerThirdPresets.Create("Clean");
+        clean.Timed = false; // a design that stays previews with the waiting hold (round 73)
         state.LowerThirds.Designs.Add(clean);
         using var sink = new SinkState();
         var info = new SKImageInfo(640, 360, SKColorType.Bgra8888, SKAlphaType.Premul);

@@ -132,7 +132,7 @@ public sealed partial class MainViewModel
 
     private void OnSelectedLowerThirdChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(LowerThirdDesign.InMs) or nameof(LowerThirdDesign.HoldMs) or nameof(LowerThirdDesign.OutMs))
+        if (e.PropertyName is nameof(LowerThirdDesign.InMs) or nameof(LowerThirdDesign.HoldMs) or nameof(LowerThirdDesign.OutMs) or nameof(LowerThirdDesign.Timed))
         {
             Raise(nameof(PreviewLengthMs));
             PreviewTimeMs = Math.Min(PreviewTimeMs, PreviewLengthMs);
@@ -522,11 +522,13 @@ public sealed partial class MainViewModel
         var air = _services.AirState.LowerThirds;
         var (onAir, airPhase) = LowerThirdDesigner.Phase(air, now);
         var airLive = airPhase is LowerThirdPhase.In or LowerThirdPhase.Hold or LowerThirdPhase.Out;
+        // Round 73: a timed design counts down on its chip while it holds — "ON AIR · 3 s" — so the caller sees it go before it goes.
+        var leavesIn = LowerThirdClock.LeavesIn(air, now);
         var airText = airPhase switch
         {
             LowerThirdPhase.In => "ARRIVING",
             LowerThirdPhase.Out => "LEAVING",
-            LowerThirdPhase.Hold => "ON AIR",
+            LowerThirdPhase.Hold => leavesIn is { } left ? $"ON AIR · {Math.Ceiling(left).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s" : "ON AIR",
             _ => "",
         };
 

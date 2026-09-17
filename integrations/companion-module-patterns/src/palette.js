@@ -70,7 +70,7 @@ export const STATES = {
 	screen: { enabled: 'screenOn', locked: 'lock', armed: 'green', own: 'steel', black: 'red', offLook: 'orange', pattern: 'green', fault: 'red', group: 'sky', sound: 'blue' },
 	stinger: { playing: 'stingerBrown', hold: 'amber' },
 	vog: { playing: 'blue' },
-	lowerThird: { on: 'red', preview: 'amber', edited: 'amber', person: 'red' },
+	lowerThird: { on: 'red', preview: 'amber', edited: 'amber', person: 'red', timed: 'amber' },
 	audio: { playing: 'blue', follow: 'sky' },
 	music: { playing: 'music' },
 	overlay: { on: 'sky' },

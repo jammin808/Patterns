@@ -371,3 +371,11 @@ applies its colours to the show and stages no picture.
 "Fractal", "Fractals", "Mandelbrot") — so a key can label itself with the page a picture is edited
 on; `library_selected` lights amber while a tile sits on the editing target (any, or a named one).
 The Eye's desk node carries the same line. A 3.11.0 deck ignores the row and the choice.
+
+**Timed lower thirds, still 3.12.0.** A new design leaves by itself five seconds after it has
+arrived; `lower_third_for` puts a design on for this run's hold (`LT n FOR 8`; 0 or STAY keeps
+it until hidden) and `lower_third_hold` sets the design's own hold, saved with the show (`LT n
+HOLD 8`, `LT n HOLD STAY`). `$(patterns:lower_third_timed)` reads TIMED while the design on
+screen will leave by itself and `$(patterns:lower_third_leaves_in)` counts the seconds down to a
+tenth (empty when it stays); `lower_third_timed` lights amber for the same. The desk's chips
+read "ON AIR · 3 s" and the Eye's desk node says when it goes.

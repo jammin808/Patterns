@@ -186,13 +186,13 @@ public static class LowerThirdRenderer
         var cfg = f.Snapshot.State.LowerThirds;
         var design = cfg.Active;
         if (design is null || LowerThirdClock.Instants(cfg) is not { } at) return;
-        Render(c, in f, design, at.ShownAt, at.HiddenAt, f.Ctx.Time);
+        Render(c, in f, design, at.ShownAt, at.HiddenAt, f.Ctx.Time, cfg.RunHoldMs);
     }
 
-    /// <summary>A design at an instant of its own timeline (the desk's preview scrubs this).</summary>
-    public static void Render(SKCanvas c, in PatternFrame f, LowerThirdDesign design, double shownAt, double? hiddenAt, double time)
+    /// <summary>A design at an instant of its own timeline (the desk's preview scrubs this); <paramref name="runHoldMs"/> is the run's hold over the design's (round 73).</summary>
+    public static void Render(SKCanvas c, in PatternFrame f, LowerThirdDesign design, double shownAt, double? hiddenAt, double time, int runHoldMs = 0)
     {
-        var timing = LowerThirdClock.Evaluate(design, shownAt, hiddenAt, time);
+        var timing = LowerThirdClock.Evaluate(design, shownAt, hiddenAt, time, runHoldMs);
         if (!timing.Visible) return;
         var box = BoxOf(design, f.Canvas, out var scale);
         var surge = EffectImpulses.SurgeAt(time);

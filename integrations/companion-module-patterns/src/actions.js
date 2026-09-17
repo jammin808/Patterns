@@ -283,6 +283,17 @@ export function buildActions(ctx) {
 		lower_third: { name: 'Lower third on (by number, Lower thirds page order)', options: [{ type: 'number', id: 'n', label: 'Design number', default: 1, min: 1, max: 64 }], callback: (a) => send(`LT ${a.options.n}`) },
 		lower_third_name: { name: 'Lower third on (by name)', options: [text('name', 'Design name')], callback: (a) => { const n = clean(a.options.name); if (n) send(`LT ${n}`) } },
 		lower_third_off: { name: 'Lower third off (leaves the way it was designed to)', options: [], callback: () => send('LT OFF') },
+		// Round 73 — timed: on for this run's hold (it leaves by itself), or the design's own hold, saved with the show.
+		lower_third_for: {
+			name: "Lower third on for a number of seconds — this run's hold; 0 or STAY keeps it until hidden",
+			options: [{ type: 'number', id: 'n', label: 'Design number', default: 1, min: 1, max: 64 }, text('seconds', 'Seconds (0 or STAY = until hidden)', '5')],
+			callback: (a) => { const s = clean(a.options.seconds); if (s) send(`LT ${a.options.n} FOR ${s}`) },
+		},
+		lower_third_hold: {
+			name: "Lower third hold — the design's own seconds (saved with the show), or STAY for until hidden",
+			options: [{ type: 'number', id: 'n', label: 'Design number', default: 1, min: 1, max: 64 }, text('seconds', 'Seconds, or STAY', '5')],
+			callback: (a) => { const s = clean(a.options.seconds); if (s) send(`LT ${a.options.n} HOLD ${s}`) },
+		},
 		// The library: a person by number (Lower thirds page order) or name into a design — the one on air when
 		// blank (else the first) — and on air. A name that is not in the library is refused: it never reaches the screen.
 		lower_third_person: {

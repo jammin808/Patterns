@@ -385,4 +385,69 @@ public class LowerThirdTests
         state.LowerThirds.Hide(ShowClock.UtcAt(2));
         Assert.Empty(MediaLocator.FindWantedInputs(RenderTestHarness.Snap(state)));
     }
+
+    /// <summary>Round 73: a new design is timed — five seconds, then it leaves by itself; the switch, the run's override and the countdown.</summary>
+    [Fact]
+    public void ANewDesignIsTimedTheSwitchAndTheRunOverrideIt()
+    {
+        var d = new LowerThirdDesign { InMs = 600, OutMs = 400 };
+        Assert.True(d.Timed);
+        Assert.Equal(LowerThirdDesign.DefaultHoldMs, d.HoldMs);
+        Assert.Equal(5000, d.EffectiveHoldMs);
+        Assert.Equal(5.0, d.HoldSeconds);
+
+        // Shown at 10: in until 10.6, holds to 15.6, gone by 16.0 — nobody pressed anything.
+        Assert.Equal(LowerThirdPhase.Hold, LowerThirdClock.Evaluate(d, 10, null, 11).Phase);
+        Assert.Equal(LowerThirdPhase.Hold, LowerThirdClock.Evaluate(d, 10, null, 15.5).Phase);
+        Assert.Equal(LowerThirdPhase.Out, LowerThirdClock.Evaluate(d, 10, null, 15.7).Phase);
+        Assert.Equal(LowerThirdPhase.Gone, LowerThirdClock.Evaluate(d, 10, null, 16.1).Phase);
+
+        // The switch off: the number is kept, the design stays until hidden.
+        d.Timed = false;
+        Assert.Equal(0, d.EffectiveHoldMs);
+        Assert.Equal(5000, d.HoldMs);
+        Assert.Equal(LowerThirdPhase.Hold, LowerThirdClock.Evaluate(d, 10, null, 1000).Phase);
+        d.Timed = true;
+
+        // A run's own hold over the design's: two seconds, or stay.
+        Assert.Equal(2000, LowerThirdClock.HoldMsOf(d, 2000));
+        Assert.Equal(0, LowerThirdClock.HoldMsOf(d, LowerThirdHolds.StayMs));
+        Assert.Equal(5000, LowerThirdClock.HoldMsOf(d, 0));
+        Assert.Equal(LowerThirdPhase.Out, LowerThirdClock.Evaluate(d, 10, null, 12.7, runHoldMs: 2000).Phase);
+        Assert.Equal(LowerThirdPhase.Hold, LowerThirdClock.Evaluate(d, 10, null, 1000, runHoldMs: LowerThirdHolds.StayMs).Phase);
+
+        // The seconds field: half steps, 0 is until hidden.
+        d.HoldSeconds = 7.5;
+        Assert.Equal(7500, d.HoldMs);
+        d.HoldSeconds = 0;
+        Assert.Equal(0, d.EffectiveHoldMs);
+
+        // The words a hold is written in.
+        Assert.True(LowerThirdHolds.TryParse("8", out var ms) && ms == 8000);
+        Assert.True(LowerThirdHolds.TryParse("7.5s", out ms) && ms == 7500);
+        Assert.True(LowerThirdHolds.TryParse("stay", out ms) && ms == LowerThirdHolds.StayMs);
+        Assert.True(LowerThirdHolds.TryParse("0", out ms) && ms == LowerThirdHolds.StayMs);
+        Assert.False(LowerThirdHolds.TryParse("soon", out _));
+        Assert.False(LowerThirdHolds.TryParse("-3", out _));
+        Assert.False(LowerThirdHolds.TryParse("", out _));
+        Assert.Equal("8 s", LowerThirdHolds.Words(8000));
+        Assert.Equal("7.5 s", LowerThirdHolds.Words(7500));
+        Assert.Equal("until hidden", LowerThirdHolds.Words(0));
+
+        // The countdown: how long the run on screen has before it starts to leave.
+        var cfg = new LowerThirdsConfig();
+        cfg.Designs.Add(d);
+        d.HoldMs = 5000;
+        var now = ShowClock.UtcNow;
+        cfg.Show(d, now.AddSeconds(-1));
+        var left = LowerThirdClock.LeavesIn(cfg, now);
+        Assert.NotNull(left);
+        Assert.InRange(left!.Value, 4.5, 4.7);                                       // 0.6 in + 5.0 hold − 1.0 elapsed
+        cfg.Show(d, now.AddSeconds(-1), LowerThirdHolds.StayMs);
+        Assert.Null(LowerThirdClock.LeavesIn(cfg, now));                            // this run stays
+        cfg.Show(d, now.AddSeconds(-1), 2000);
+        Assert.InRange(LowerThirdClock.LeavesIn(cfg, now)!.Value, 1.5, 1.7);
+        cfg.Hide(now);
+        Assert.Null(LowerThirdClock.LeavesIn(cfg, now));                            // told to leave: nothing to count
+    }
 }

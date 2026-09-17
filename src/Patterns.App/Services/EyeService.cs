@@ -344,6 +344,7 @@ public sealed class EyeService
             TakeWords = plan is null ? "" : plan.IsRefused ? plan.Refusal! : plan.Words,
             Landing = _s.Stingers.SessionTicket?.Words ?? "",                                          // round 72: the ticket a sting will land
             Editing = _s.EditingFacts?.Invoke()?.Words ?? "",                                           // round 73: what the desk's editors are on
+            LowerThird = LowerThirdWords(air, now),                                                       // round 73: the name on screen and when it leaves
             Displays = displays,
             Screens = screens,
             Sources = sources,
@@ -404,4 +405,17 @@ public sealed class EyeService
         "arcade" => "arcade",
         _ => "source",
     };
+
+    /// <summary>Round 73: "'Keynote' — Jane Doe · leaves in 3 s", "'Keynote' · until hidden", or "" with nothing on screen.</summary>
+    internal static string LowerThirdWords(ShowState air, DateTime nowUtc)
+    {
+        var cfg = air.LowerThirds;
+        if (cfg.Active is not { } design || !Patterns.Core.LowerThirds.LowerThirdClock.IsLive(cfg, nowUtc)) return "";
+        var who = design.PersonName.Length > 0 ? $" — {design.PersonName}" : "";
+        var leaves = Patterns.Core.LowerThirds.LowerThirdClock.LeavesIn(cfg, nowUtc);
+        var when = leaves is { } s ? $"leaves in {Math.Ceiling(s).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s"
+            : cfg.HiddenAtUtc is not null ? "leaving"
+            : Patterns.Core.LowerThirds.LowerThirdClock.HoldMsOf(design, cfg.RunHoldMs) > 0 ? "leaving" : "until hidden";
+        return $"'{design.Name}'{who} · {when}";
+    }
 }

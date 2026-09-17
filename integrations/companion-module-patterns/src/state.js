@@ -140,6 +140,8 @@ export function variableValues(s) {
 		lower_third_preview_person: s.lowerThirdPreviewPerson ?? '',
 		lower_third_default: s.lowerThirdDefault ?? '',
 		lower_third_edited: s.lowerThirdEdited ? 'EDITED' : 'off',
+		lower_third_timed: s.lowerThirdTimed ? 'TIMED' : 'off',
+		lower_third_leaves_in: s.lowerThirdLeavesIn == null ? '' : String(s.lowerThirdLeavesIn),
 		look_state: (s.airLook ?? '') === '' ? 'off' : s.lookEdited ? 'EDITED' : 'LIVE',
 		look_screens_off: String(s.lookScreensOff ?? 0),
 		stream_status: s.stream?.status ?? '',

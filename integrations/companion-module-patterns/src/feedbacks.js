@@ -119,6 +119,8 @@ export function buildFeedbacks(ctx) {
 			return on !== '' && (!fb.options.name || on === fb.options.name)
 		}),
 		lower_third_edited: bool('The lower third on air was edited after it went there (UPDATE pushes the edit)', style('lowerThird', 'edited'), [], () => !!s().lowerThirdEdited),
+		// Round 73: a timed lower third is on screen and will leave by itself.
+		lower_third_timed: bool('A lower third is on screen and leaves by itself (timed)', style('lowerThird', 'timed'), [], () => !!s().lowerThirdTimed),
 		web_on_air: bool('A web page is on air (any, or one whose address carries a word)', style('presenter', 'on'), [named('word', 'A word of the address (blank = any page)')], (fb) => {
 			const w = s().web
 			if (!w || !w.page) return false

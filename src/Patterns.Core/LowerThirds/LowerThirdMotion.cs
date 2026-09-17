@@ -105,10 +105,19 @@ public readonly record struct LowerThirdTiming(LowerThirdPhase Phase, double U)
     public bool Visible => Phase is LowerThirdPhase.In or LowerThirdPhase.Hold or LowerThirdPhase.Out;
 }
 
-/// <summary>The design's clock: in, hold, out — by its own hold or by an explicit hide, whichever comes first.</summary>
+/// <summary>
+/// The design's clock: in, hold, out — by its hold or by an explicit hide, whichever comes first.
+/// Round 73: the hold is the run's (<see cref="LowerThirdsConfig.RunHoldMs"/>: a number of
+/// milliseconds, or −1 for "stay this run") over the design's own (<see cref="LowerThirdDesign.EffectiveHoldMs"/>:
+/// its hold when it is timed, else until hidden).
+/// </summary>
 public static class LowerThirdClock
 {
-    public static LowerThirdTiming Evaluate(LowerThirdDesign d, double shownAt, double? hiddenAt, double time)
+    /// <summary>The hold a run really has, in milliseconds: the run's override, else the design's own; 0 = until hidden.</summary>
+    public static int HoldMsOf(LowerThirdDesign d, int runHoldMs)
+        => runHoldMs > 0 ? runHoldMs : runHoldMs < 0 ? 0 : d.EffectiveHoldMs;
+
+    public static LowerThirdTiming Evaluate(LowerThirdDesign d, double shownAt, double? hiddenAt, double time, int runHoldMs = 0)
     {
         var t = time - shownAt;
         if (t < 0) return new LowerThirdTiming(LowerThirdPhase.Before, 0);
@@ -117,9 +126,10 @@ public static class LowerThirdClock
 
         double? outStart = null;
         if (hiddenAt is { } h && h >= shownAt) outStart = h;
-        if (d.HoldMs > 0)
+        var hold = HoldMsOf(d, runHoldMs);
+        if (hold > 0)
         {
-            var auto = shownAt + inS + d.HoldMs / 1000.0;
+            var auto = shownAt + inS + hold / 1000.0;
             if (outStart is null || auto < outStart) outStart = auto;
         }
         if (outStart is { } os && time >= os)
@@ -145,7 +155,24 @@ public static class LowerThirdClock
     {
         var design = cfg.Active;
         if (design is null || Instants(cfg) is not { } at) return false;
-        return Evaluate(design, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(utcNow)).Visible;
+        return Evaluate(design, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(utcNow), cfg.RunHoldMs).Visible;
+    }
+
+    /// <summary>
+    /// Round 73: how many seconds the design on screen has before it starts to leave by itself —
+    /// null when nothing is on, when it stays until hidden, when it was told to leave, or once it is
+    /// leaving. The Run strip's chip, STATE and the Eye count it down.
+    /// </summary>
+    public static double? LeavesIn(LowerThirdsConfig cfg, DateTime utcNow)
+    {
+        var design = cfg.Active;
+        if (design is null || Instants(cfg) is not { } at) return null;
+        var hold = HoldMsOf(design, cfg.RunHoldMs);
+        if (hold <= 0 || at.HiddenAt is not null) return null;
+        var now = ShowClock.SecondsAt(utcNow);
+        var timing = Evaluate(design, at.ShownAt, at.HiddenAt, now, cfg.RunHoldMs);
+        if (timing.Phase is not (LowerThirdPhase.In or LowerThirdPhase.Hold)) return null;
+        return Math.Max(0, at.ShownAt + design.InMs / 1000.0 + hold / 1000.0 - now);
     }
 
     /// <summary>The pose of one element at this timing, its stagger applied.</summary>

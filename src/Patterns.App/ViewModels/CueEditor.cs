@@ -290,7 +290,9 @@ public sealed class ActionRow : Observable
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",
         ValueKind.Seconds => Action.Kind is ShowActionKind.FadeToBlack or ShowActionKind.FadeUp
             ? "seconds for the fade, e.g. 2 or 1.5 (blank = the show's transition time)"
-            : "seconds before the end, e.g. 10 (blank = 10)",
+            : Action.Kind is ShowActionKind.LowerThirdShowFor or ShowActionKind.LowerThirdHold
+                ? "seconds on screen, e.g. 8 or 7.5 — or STAY (until hidden)"
+                : "seconds before the end, e.g. 10 (blank = 10)",
         ValueKind.WeatherView => "now · day (the rest of today) · tomorrow",
         ValueKind.Switch => "on · off · toggle",
         ValueKind.Hours => "12 or 24",

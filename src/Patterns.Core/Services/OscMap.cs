@@ -53,6 +53,7 @@ public static class OscMap
         ("/patterns/lowerthird/preview/off", "LOWERTHIRD PREVIEW OFF — the preview's lower third leaves"),
         ("/patterns/lowerthird/take", "LOWERTHIRD TAKE — the lower third in the preview goes to air"),
         ("/patterns/lowerthird/update", "LOWERTHIRD UPDATE — the design on air replaced by the design as it is now, in place"),
+        ("/patterns/lowerthird/<n|name>/for <seconds>", "LOWERTHIRD n FOR s — on air for this run's hold, then it leaves by itself (0 or /stay: until hidden this run); /lowerthird/<n>/hold <seconds|stay> sets the design's own hold, saved (round 73)"),
         ("/patterns/person <n|name>", "PERSON — a library entry into the lower third on air (else the show's default design)"),
         ("/patterns/web/key <key|action> [page]", "WEB KEY — a key chord (ArrowRight, Space, Ctrl+Shift+F5) or a page action (next, play, present…) to the web page on air, or to the page a second argument names (also /patterns/web/key/<key>)"),
         ("/patterns/web/next, /prev, /first, /last, /present, /exit, /play, /pause, /mute, /restart, /black, /white… [page]", "WEB <action> — the page actions as addresses of their own"),
@@ -266,6 +267,13 @@ public static class OscMap
                 var design = seg.Length > 0 ? seg : m.Text() ?? "";
                 if (design.Length == 0) return null;
                 if (design.Equals("off", StringComparison.OrdinalIgnoreCase) || design.Equals("hide", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD OFF";
+                // Round 73: /lowerthird/<design>/for <seconds> · /lowerthird/<design>/stay · /lowerthird/<design>/hold <seconds|stay>
+                if (seg2.Equals("for", StringComparison.OrdinalIgnoreCase) || seg2.Equals("hold", StringComparison.OrdinalIgnoreCase))
+                {
+                    var words = seg3.Length > 0 ? seg3 : m.Text() ?? "";
+                    return words.Length == 0 ? null : $"LOWERTHIRD {design} {seg2.ToUpperInvariant()} {words}";
+                }
+                if (seg2.Equals("stay", StringComparison.OrdinalIgnoreCase)) return $"LOWERTHIRD {design} STAY";
                 // The person rides the next segment, or the argument after the design — or the first when the design came from the address.
                 var person = seg2.Length > 0 ? seg2 : seg.Length > 0 ? m.Text() ?? "" : m.Text(1) ?? "";
                 return person.Length == 0 ? "LOWERTHIRD " + design : $"LOWERTHIRD {design} WITH {person}";

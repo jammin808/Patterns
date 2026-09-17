@@ -178,6 +178,16 @@ public static class CueSummary
             case ShowActionKind.LowerThirdPreviewOff: return "Lower third preview off";
             case ShowActionKind.LowerThirdTake: return "Lower third take (preview to air)";
             case ShowActionKind.LowerThirdUpdate: return "Lower third update (edits to air)";
+            case ShowActionKind.LowerThirdShowFor:
+            case ShowActionKind.LowerThirdHold:
+            {
+                // Round 73: the timed forms — this run's hold, or the design's own.
+                var design = a.Target.Length == 0 ? "(the default)" : $"'{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
+                var stays = a.Value.Length == 0 || a.Value.Equals("STAY", StringComparison.OrdinalIgnoreCase) || a.Value.Trim() == "0";
+                return a.Kind == ShowActionKind.LowerThirdShowFor
+                    ? (stays ? $"Lower third {design} — until hidden" : $"Lower third {design} for {a.Value} s")
+                    : (stays ? $"Lower third {design} stays until hidden" : $"Lower third {design} holds {a.Value} s");
+            }
             case ShowActionKind.WebKey: return $"Page: {WebPresets.LabelFor(a.Value)}{PageSuffix(a)}";
             case ShowActionKind.WebClick: return $"Page: click at {a.Value}{PageSuffix(a)}";
             case ShowActionKind.WebType: return $"Page: type '{Shorten(a.Value)}'{PageSuffix(a)}";

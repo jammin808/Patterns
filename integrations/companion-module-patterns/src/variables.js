@@ -49,6 +49,8 @@ export function variableDefinitions() {
 		lower_third_preview_person: 'The name the lower third in the preview carries (or empty)',
 		lower_third_default: "The show's default lower third design (★)",
 		lower_third_edited: 'EDITED when the design on air differs from the edited one, else off',
+		lower_third_timed: 'TIMED while the lower third on screen leaves by itself, else off (round 73)',
+		lower_third_leaves_in: 'Seconds before the lower third on screen starts to leave by itself, to a tenth; empty when it stays until hidden (round 73)',
 		review: 'Review on the multiview (ON/off)',
 		weather: 'The weather chip on air (ON/off)',
 		weather_text: 'The weather as the desk reads it ("Manchester · 18° · Light rain · wind 12 km/h")',

@@ -324,8 +324,9 @@ public static class HelpTopics
                 "A design's chip and a person's light red on air and green in the preview, the line under the name reading the phase and, for a person, the design that carries the name.",
                 "EDITED means the design changed after it went on: UPDATE ON AIR pushes the change in place.",
                 "■ Hide takes it off the way it was designed to leave.",
+                "Timed (round 73): a new design leaves by itself after five seconds — the chip counts it down; LT n FOR 8 holds this run eight seconds, LT n STAY keeps it until hidden, LT n HOLD 8 sets the design's own hold.",
             },
-            "LOWERTHIRD <n|name> · LOWERTHIRD OFF · LOWERTHIRD PREVIEW <n|name> · LOWERTHIRD TAKE · LOWERTHIRD UPDATE · PERSON <n|name>",
+            "LOWERTHIRD <n|name> · LOWERTHIRD OFF · LOWERTHIRD PREVIEW <n|name> · LOWERTHIRD TAKE · LOWERTHIRD UPDATE · PERSON <n|name> · LOWERTHIRD <n> FOR <s> · LOWERTHIRD <n> STAY · LOWERTHIRD <n> HOLD <s|STAY>",
             new[] { "Panel", "Lower thirds" },
             new[] { "lower third", "lower thirds", "name strap", "caption", "preview", "sign-off", "take", "update", "default", "hide", "air", "edited", "lit", "chip", "person on air", "tally" }),
 
@@ -357,6 +358,7 @@ public static class HelpTopics
                 "The preview and its timeline stay at the top of the page while the rest scrolls under them; the line beside PREVIEW names the design and says when it is on air.",
                 "Keyframes give the way in and out; styles give the type, the colours and the edges.",
                 "SAVE the design; EXPORT to share it as a file; ★ makes it the show's default.",
+                "Leaves by itself (round 73): the hold in seconds beside the way in and out — five for a new design; untick it to keep a design on until hidden, the number stays for later.",
             },
             "",
             new[] { "Lower thirds" },

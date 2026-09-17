@@ -254,6 +254,8 @@ public static class CueSheet
             "weatheroff" or "forecastoff" or "noweather" => ShowActionKind.WeatherOff,
             "weatherview" or "weathernow" or "weatherday" or "weathertomorrow" or "forecastview" => ShowActionKind.WeatherView,
             "lowerthird" or "lt" or "name" or "person" or "speaker" => ShowActionKind.LowerThirdShow,
+            "lowerthirdfor" or "ltfor" or "lowerthirdtimed" or "lttimed" => ShowActionKind.LowerThirdShowFor,
+            "lowerthirdhold" or "lthold" => ShowActionKind.LowerThirdHold,
             "ltpreview" or "previewlt" or "lowerthirdpreview" or "namepreview" or "previewname" => ShowActionKind.LowerThirdPreview,
             "lttake" or "takelt" or "lowerthirdtake" or "nametake" or "takename" => ShowActionKind.LowerThirdTake,
             "stream" or "golive" => ShowActionKind.StreamStart,

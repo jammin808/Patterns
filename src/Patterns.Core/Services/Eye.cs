@@ -92,6 +92,8 @@ public sealed class EyeFacts
     public string Landing { get; init; } = "";
     /// <summary>Round 73: what the desk is editing, in words ("Right's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot"); "" on a node.</summary>
     public string Editing { get; init; } = "";
+    /// <summary>Round 73: the lower third on screen, in words ("'Keynote' — Jane Doe · leaves in 3 s", "… · until hidden"); "" with none.</summary>
+    public string LowerThird { get; init; } = "";
     public IReadOnlyList<EyeDisplay> Displays { get; init; } = Array.Empty<EyeDisplay>();
     public IReadOnlyList<EyeScreen> Screens { get; init; } = Array.Empty<EyeScreen>();
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
@@ -483,6 +485,7 @@ public sealed class EyeGraph
         if (f.TakeWords.Length > 0) deskWords.Add($"Next TAKE ({f.TakeScope}) {f.TakeWords}");
         if (f.Landing.Length > 0) deskWords.Add($"Landing {f.Landing}");                             // round 72: the ticket a sting will land
         if (f.Editing.Length > 0) deskWords.Add($"Editing {f.Editing}");                             // round 73: what the desk's editors are on
+        if (f.LowerThird.Length > 0) deskWords.Add($"Lower third {f.LowerThird}");                    // round 73: the name on screen and when it leaves
         deskWords.AddRange(f.Attention);
         Add(new EyeNode(DeskId, EyeKind.Desk, EyePlane.Video, 1, f.MachineName.Length > 0 ? f.MachineName : "This desk", f.OutputsLive ? "outputs live" : "outputs closed", f.Health)
         {

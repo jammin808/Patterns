@@ -185,7 +185,7 @@ public sealed class LowerThirdDesigner
     /// <summary>The preview scrubber's range: the way in, a hold (its own, or <see cref="WaitingHoldMs"/> when it waits to be hidden), the way out.</summary>
     public static double PreviewLength(LowerThirdDesign? d) => d is null ? 1000 : d.InMs + HoldOf(d) + d.OutMs;
 
-    private static double HoldOf(LowerThirdDesign d) => d.HoldMs > 0 ? d.HoldMs : WaitingHoldMs;
+    private static double HoldOf(LowerThirdDesign d) => d.EffectiveHoldMs > 0 ? d.EffectiveHoldMs : WaitingHoldMs;
 
     // ---- the library: people and lines ----------------------------------------------------------
 
@@ -260,6 +260,6 @@ public sealed class LowerThirdDesigner
     {
         var active = cfg.Active;
         if (active is null || LowerThirdClock.Instants(cfg) is not { } at) return (active, LowerThirdPhase.Gone);
-        return (active, LowerThirdClock.Evaluate(active, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(nowUtc)).Phase);
+        return (active, LowerThirdClock.Evaluate(active, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(nowUtc), cfg.RunHoldMs).Phase);
     }
 }

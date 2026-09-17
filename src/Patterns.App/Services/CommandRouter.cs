@@ -399,6 +399,21 @@ public sealed class CommandRouter : IRouter
         return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(air, ShowClock.UtcNow) ? air.Active?.Name ?? "" : "";
     }
 
+    /// <summary>Round 73: seconds before the lower third on screen starts to leave by itself, to a tenth; null when none is on, or it stays until hidden.</summary>
+    private double? LowerThirdLeavesIn()
+    {
+        var air = _services.AirState.LowerThirds;
+        return Patterns.Core.LowerThirds.LowerThirdClock.LeavesIn(air, ShowClock.UtcNow) is { } s ? Math.Round(s, 1) : null;
+    }
+
+    /// <summary>Round 73: the hold the run on screen really has, in milliseconds; 0 = until hidden, or none on.</summary>
+    private int LowerThirdHoldMs()
+    {
+        var air = _services.AirState.LowerThirds;
+        if (air.Active is not { } design || !Patterns.Core.LowerThirds.LowerThirdClock.IsLive(air, ShowClock.UtcNow)) return 0;
+        return Patterns.Core.LowerThirds.LowerThirdClock.HoldMsOf(design, air.RunHoldMs);
+    }
+
     /// <summary>The name the lower third on screen carries (a library entry's, or the design's own); "" when none is on.</summary>
     private string LowerThirdPersonOnAir()
     {
@@ -507,6 +522,9 @@ public sealed class CommandRouter : IRouter
             lowerThirdPreviewPerson = LowerThirdPersonInPreview(),
             lowerThirdDefault = s.LowerThirds.DefaultDesign?.Name ?? "",   // the show's ★ design — where a person goes with none on air
             lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
+            lowerThirdTimed = LowerThirdLeavesIn() is not null,            // round 73: the design on screen leaves by itself
+            lowerThirdLeavesIn = LowerThirdLeavesIn(),                     // round 73: seconds before it starts to leave; null when it stays until hidden, or none is on
+            lowerThirdHoldMs = LowerThirdHoldMs(),                         // round 73: this run's hold in ms (0 = until hidden)
             web = WebRow(),                                                // the web page on air and its service's actions, or null
             webArmed = WebArmedRow(),                                      // the armed web VT anywhere on the desk (its page, its mark, its words), or null
             audioRouting = AudioRoutingRow(),                              // the routing matrix: on/off, the sources, each destination with its lanes and live gains

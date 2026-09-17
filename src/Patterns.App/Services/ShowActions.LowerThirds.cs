@@ -110,6 +110,45 @@ public sealed partial class ShowActions
                 _s.EditAir(a2 => a2.LowerThirds.Put(edited.Clone(newId: false)));
                 return ActionResult.Done($"Lower third '{edited.Name}' updated on air.");
             }
+            case ShowActionKind.LowerThirdShowFor:
+            {
+                // Round 73: on air for this run's hold — the design's own hold untouched. STAY or 0 keeps this run until hidden.
+                if (!LowerThirdHolds.TryParse(a.Value, out var runHold)) return ActionResult.Refused($"'{a.Value}' is not a number of seconds (or STAY).");
+                var design = a.Target.Length == 0 ? DefaultLowerThird() : State.LowerThirds.Find(a.Target) ?? _s.AirState.LowerThirds.Find(a.Target);
+                if (design is null) return ActionResult.Refused(a.Target.Length == 0 ? "No lower third design in the show." : $"Lower third '{a.Target}' not found.");
+                var now = ShowClock.UtcNow;
+                _s.EditAir(air =>
+                {
+                    var onAir = PutOnAir(air, design);
+                    air.LowerThirds.Show(onAir, now, runHold);
+                });
+                return ActionResult.Done(runHold > 0
+                    ? $"Lower third '{design.Name}' on for {LowerThirdHolds.Words(runHold)} — it leaves by itself."
+                    : $"Lower third '{design.Name}' on — until hidden.");
+            }
+            case ShowActionKind.LowerThirdHold:
+            {
+                // Round 73: the design's own hold, saved with the show; the copy on air retimes with it.
+                if (!LowerThirdHolds.TryParse(a.Value, out var hold)) return ActionResult.Refused($"'{a.Value}' is not a number of seconds (or STAY).");
+                var design = a.Target.Length == 0 ? DefaultLowerThird() : State.LowerThirds.Find(a.Target);
+                if (design is null) return ActionResult.Refused(a.Target.Length == 0 ? "No lower third design in the show." : $"Lower third '{a.Target}' not found.");
+                _s.BulkEdit(() =>
+                {
+                    design.Timed = hold > 0;
+                    if (hold > 0) design.HoldMs = hold;
+                });
+                _s.EditAir(air =>
+                {
+                    if (ReferenceEquals(air, State)) return;
+                    var copy = air.LowerThirds.Find(design.Id);
+                    if (copy is null) return;
+                    copy.Timed = hold > 0;
+                    if (hold > 0) copy.HoldMs = hold;
+                });
+                return ActionResult.Done(hold > 0
+                    ? $"Lower third '{design.Name}' holds {LowerThirdHolds.Words(hold)}, then leaves by itself."
+                    : $"Lower third '{design.Name}' stays until hidden.");
+            }
             default:
                 return null;
         }
