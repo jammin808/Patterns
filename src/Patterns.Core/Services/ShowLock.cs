@@ -129,3 +129,45 @@ public static class ShowLockWords
         return allowed.Any(a => name == a || name.StartsWith(a, StringComparison.Ordinal));
     }
 }
+
+/// <summary>
+/// Round 77: the process tree as the show lock reads it. The lock mutes every audio session that
+/// is not this process's — and the desk's own browser is not this process: WebView2 runs as a
+/// tree of msedgewebview2.exe processes under the desk, and their sound (a YouTube page on a
+/// screen) is the show's. So a process that descends from the desk — its child, or a child's
+/// child, a few hops up — is the desk's own and is never muted. Pure: the parent lookup is handed
+/// in, so the walk is tested without Windows.
+/// </summary>
+public static class ProcessTree
+{
+    /// <summary>How far up the tree a descendant is looked for: a browser's utility processes sit two or three below the desk; eight is generous and still bounded.</summary>
+    public const int MaxHops = 8;
+
+    /// <summary>
+    /// Whether <paramref name="pid"/> descends from <paramref name="rootPid"/>: its parent, or a
+    /// parent's parent, up to <paramref name="maxHops"/> up. False for the root itself, for a
+    /// parent the reader cannot give (null, or 0, or the process itself), and past the hop limit —
+    /// a loop in a reused pid never walks forever.
+    /// </summary>
+    public static bool IsDescendant(int pid, int rootPid, Func<int, int?> parentOf, int maxHops = MaxHops)
+    {
+        if (pid <= 0 || rootPid <= 0 || pid == rootPid) return false;
+        var current = pid;
+        for (var hop = 0; hop < maxHops; hop++)
+        {
+            int? parent;
+            try
+            {
+                parent = parentOf(current);
+            }
+            catch (Exception)
+            {
+                return false;   // a process that went while it was read is nobody's descendant
+            }
+            if (parent is not { } p || p <= 0 || p == current) return false;
+            if (p == rootPid) return true;
+            current = p;
+        }
+        return false;
+    }
+}

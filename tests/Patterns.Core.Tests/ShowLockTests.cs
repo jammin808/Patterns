@@ -100,4 +100,33 @@ public class ShowLockTests
         Assert.Equal("Show lock — hold the machine", ActionSpec.Label(ShowActionKind.ShowLockOn));
         Assert.DoesNotContain(ShowActionKind.ShowLockOn, ActionSpec.CueKinds);
     }
+
+    // ---- round 77: the desk's own browser is never muted --------------------------------------
+
+    [Fact]
+    public void AProcessUnderTheDeskIsTheDesksOwnAndAnythingElseIsNot()
+    {
+        // 100 is the desk; 200 is WebView2's browser under it; 300 a renderer under that; 900 Teams under explorer (1).
+        var parents = new Dictionary<int, int?> { [200] = 100, [300] = 200, [310] = 300, [900] = 1, [1] = 0, [100] = 1 };
+        int? ParentOf(int pid) => parents.TryGetValue(pid, out var p) ? p : null;
+
+        Assert.True(ProcessTree.IsDescendant(200, 100, ParentOf));
+        Assert.True(ProcessTree.IsDescendant(300, 100, ParentOf));
+        Assert.True(ProcessTree.IsDescendant(310, 100, ParentOf));
+        Assert.False(ProcessTree.IsDescendant(900, 100, ParentOf), "another app under the shell is not ours");
+        Assert.False(ProcessTree.IsDescendant(100, 100, ParentOf), "the desk is not its own descendant");
+        Assert.False(ProcessTree.IsDescendant(0, 100, ParentOf));
+        Assert.False(ProcessTree.IsDescendant(4242, 100, ParentOf), "a process the reader cannot place is nobody's");
+
+        // The walk is bounded: a chain deeper than the hop limit is not ours, and a cycle from a reused pid never spins.
+        var deep = new Dictionary<int, int?>();
+        for (var pid = 2; pid <= 20; pid++) deep[pid] = pid - 1;
+        Assert.True(ProcessTree.IsDescendant(5, 1, pid => deep.TryGetValue(pid, out var p) ? p : null));
+        Assert.False(ProcessTree.IsDescendant(20, 1, pid => deep.TryGetValue(pid, out var p) ? p : null));
+        Assert.True(ProcessTree.IsDescendant(20, 1, pid => deep.TryGetValue(pid, out var p) ? p : null, maxHops: 40));
+        var loop = new Dictionary<int, int?> { [7] = 8, [8] = 7 };
+        Assert.False(ProcessTree.IsDescendant(7, 100, pid => loop.TryGetValue(pid, out var p) ? p : null));
+        Assert.False(ProcessTree.IsDescendant(7, 100, pid => pid));                                   // a reader answering "itself"
+        Assert.False(ProcessTree.IsDescendant(7, 100, _ => throw new InvalidOperationException("gone")));   // a process that went while it was read
+    }
 }

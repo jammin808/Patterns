@@ -80,7 +80,7 @@ public sealed class WindowsMachineLock : IMachineLock
     public const string ReceiptFile = "showlock.receipt.json";
 
     private readonly string _baseDirectory;
-    private readonly Dictionary<string, bool> _mutedBefore = new(StringComparer.Ordinal);
+    private Dictionary<string, bool>? _audioOriginals;   // the receipt's AudioMuted, cached while the lock holds: session id → was it muted before us
     private LowLevelKeyboardProc? _hookProc;
     private IntPtr _hook;
 
@@ -100,6 +100,9 @@ public sealed class WindowsMachineLock : IMachineLock
         public uint? FilterFlags { get; set; }
         public uint? ToggleFlags { get; set; }
         public bool? ScreenSaverActive { get; set; }
+
+        /// <summary>Round 77: each other app's audio session muted by the lock, by session id → whether it was muted before. A crash's next start and a handover's replacement put them back from here.</summary>
+        public Dictionary<string, bool> AudioMuted { get; set; } = new(StringComparer.Ordinal);
     }
 
     private Receipt Load()
@@ -130,7 +133,7 @@ public sealed class WindowsMachineLock : IMachineLock
 
     private void ClearReceiptIfEmpty(Receipt receipt)
     {
-        if (receipt.Registry.Count > 0 || receipt.StickyFlags is not null || receipt.FilterFlags is not null || receipt.ToggleFlags is not null || receipt.ScreenSaverActive is not null) return;
+        if (receipt.Registry.Count > 0 || receipt.StickyFlags is not null || receipt.FilterFlags is not null || receipt.ToggleFlags is not null || receipt.ScreenSaverActive is not null || receipt.AudioMuted.Count > 0) return;
         try { File.Delete(ReceiptPath); } catch { /* gone */ }
     }
 
@@ -155,6 +158,12 @@ public sealed class WindowsMachineLock : IMachineLock
             {
                 SystemParametersInfo(SpiSetScreenSaveActive, ss ? 1u : 0u, IntPtr.Zero, SpifSendChange);
                 put.Add("the screensaver");
+            }
+            if (receipt.AudioMuted.Count > 0)
+            {
+                // Round 77: the apps the lock muted are unmuted again — the ones still playing; a session that closed since has nothing to put back.
+                var back = RestoreAudioSessions(receipt.AudioMuted);
+                put.Add(back > 0 ? "other apps' audio" : "");
             }
         }
         catch (Exception ex)
@@ -251,12 +260,30 @@ public sealed class WindowsMachineLock : IMachineLock
 
     // ---- other apps' audio ------------------------------------------------------------------
 
+    /// <summary>
+    /// Every other app's audio session muted, or put back. Round 77: two things the field found.
+    /// The desk's own browser — WebView2 is a tree of msedgewebview2.exe processes under the desk,
+    /// and a YouTube page on a screen sounds from them — is the desk's own and is never muted
+    /// (<see cref="ProcessTree.IsDescendant"/> over the parent pids Windows gives). And what was
+    /// muted, with whether it was muted before, is in the receipt beside the other items rather
+    /// than in this process's memory alone: a crash's next start puts the apps back, and a
+    /// handover's replacement — which continues the lock the desk before it held — puts back the
+    /// originals that desk saw, not the muted state it finds.
+    /// </summary>
     public int OtherAudio(bool mute, IReadOnlyList<string> allowedProcessNames)
     {
         try
         {
             var own = Environment.ProcessId;
             var muted = 0;
+            var originals = _audioOriginals ??= Load().AudioMuted;
+            var changed = false;
+            var parents = new Dictionary<int, int?>();
+            int? ParentOf(int pid)
+            {
+                if (!parents.TryGetValue(pid, out var parent)) parents[pid] = parent = ParentPid(pid);
+                return parent;
+            }
             using var enumerator = new MMDeviceEnumerator();
             foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
             {
@@ -273,25 +300,92 @@ public sealed class WindowsMachineLock : IMachineLock
                         var id = session.GetSessionInstanceIdentifier;
                         if (mute)
                         {
+                            if (ProcessTree.IsDescendant(pid, own, ParentOf)) continue;   // the desk's own browser: the show's sound
                             if (ShowLockWords.IsAllowed(ProcessName(pid), allowedProcessNames)) continue;
-                            if (!_mutedBefore.ContainsKey(id)) _mutedBefore[id] = session.SimpleAudioVolume.Mute;
+                            if (!originals.ContainsKey(id))
+                            {
+                                originals[id] = session.SimpleAudioVolume.Mute;
+                                changed = true;
+                            }
                             if (!session.SimpleAudioVolume.Mute) session.SimpleAudioVolume.Mute = true;
                             muted++;
                         }
-                        else if (_mutedBefore.TryGetValue(id, out var was))
+                        else if (originals.TryGetValue(id, out var was))
                         {
                             session.SimpleAudioVolume.Mute = was;
                         }
                     }
                 }
             }
-            if (!mute) _mutedBefore.Clear();
+            if (mute)
+            {
+                if (changed) SaveAudioOriginals(originals);
+            }
+            else
+            {
+                _audioOriginals = null;
+                var receipt = Load();
+                if (receipt.AudioMuted.Count > 0)
+                {
+                    receipt.AudioMuted.Clear();
+                    Save(receipt);
+                }
+                ClearReceiptIfEmpty(receipt);
+            }
             return muted;
         }
         catch (Exception ex)
         {
             Log.Warn("The show lock could not read the audio sessions.", ex);
             return -1;
+        }
+    }
+
+    private void SaveAudioOriginals(Dictionary<string, bool> originals)
+    {
+        var receipt = Load();
+        receipt.AudioMuted = new Dictionary<string, bool>(originals, StringComparer.Ordinal);
+        Save(receipt);
+    }
+
+    /// <summary>The sessions in <paramref name="originals"/> that still exist, each put back to the mute it had; how many were found.</summary>
+    private static int RestoreAudioSessions(Dictionary<string, bool> originals)
+    {
+        var put = 0;
+        using var enumerator = new MMDeviceEnumerator();
+        foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+        {
+            using (device)
+            {
+                var manager = device.AudioSessionManager;
+                manager.RefreshSessions();
+                var sessions = manager.Sessions;
+                for (var i = 0; i < sessions.Count; i++)
+                {
+                    var session = sessions[i];
+                    if (!originals.TryGetValue(session.GetSessionInstanceIdentifier, out var was)) continue;
+                    if (session.SimpleAudioVolume.Mute != was) session.SimpleAudioVolume.Mute = was;
+                    put++;
+                }
+            }
+        }
+        return put;
+    }
+
+    /// <summary>The parent of a process, from the kernel's own record of it; null when the process cannot be opened or has gone.</summary>
+    private static int? ParentPid(int pid)
+    {
+        var handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+        if (handle == IntPtr.Zero) return null;
+        try
+        {
+            var info = default(ProcessBasicInformation);
+            var status = NtQueryInformationProcess(handle, 0, ref info, (uint)Marshal.SizeOf<ProcessBasicInformation>(), out _);
+            return status == 0 ? (int)info.InheritedFromUniqueProcessId.ToInt64() : null;
+        }
+        finally
+        {
+            CloseHandle(handle);
         }
     }
 
@@ -553,6 +647,20 @@ public sealed class WindowsMachineLock : IMachineLock
         public uint iBounceMSec;
     }
 
+    /// <summary>PROCESS_BASIC_INFORMATION as NtQueryInformationProcess(ProcessBasicInformation) fills it; the parent is the last field.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessBasicInformation
+    {
+        public IntPtr Reserved1;
+        public IntPtr PebBaseAddress;
+        public IntPtr Reserved2_0;
+        public IntPtr Reserved2_1;
+        public IntPtr UniqueProcessId;
+        public IntPtr InheritedFromUniqueProcessId;
+    }
+
+    private const uint ProcessQueryLimitedInformation = 0x1000;
+
     private static StickyKeys GetSticky()
     {
         var sk = new StickyKeys { cbSize = (uint)Marshal.SizeOf<StickyKeys>() };
@@ -618,6 +726,18 @@ public sealed class WindowsMachineLock : IMachineLock
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("kernel32.dll")]
     private static extern uint SetThreadExecutionState(uint flags);
+
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, int processId);
+
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(IntPtr process, int informationClass, ref ProcessBasicInformation information, uint length, out uint returnLength);
 
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("user32.dll", SetLastError = true)]
