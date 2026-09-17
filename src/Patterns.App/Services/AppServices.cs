@@ -222,6 +222,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>The wall's ticked tiles, by target id, read by a scoped FADE (TICKED, GROUPS). Set by the desk's view model; unset (no desk) nothing is ticked.</summary>
     public Func<IReadOnlyList<string>>? TickedTargets { get; set; }
 
+    /// <summary>Round 74: the desk's pages as a deck turns them — set by the desk's view model; null on a node, where the NAV verbs are refused in words.</summary>
+    public IDeskNavigator? Navigator { get; set; }
+
     /// <summary>Where each cue list is (armed, current cue). Runtime only; reset when a show loads.</summary>
     /// <summary>Where every list is right now — the kernel's, read by the desk and by a node alike.</summary>
     public CueRuntime Cues => Kernel.Cues;
@@ -589,6 +592,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // would find nothing at all, which is the one failure the record exists for.
         _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
+        Control.FeedFrom(Actions);                                              // round 74: a deck recording a button hears what the desk does, as ACTION lines
         MidiLearn = new MidiLearnService(this);
         // Round 65.11: a box that carries a screen says what its input receives — held against the screen's contract on the desk's thread.
         Devices.InputReported += report => UiThread.Post(() => Actions.ReceiveFromDevice(report));

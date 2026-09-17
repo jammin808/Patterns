@@ -131,6 +131,7 @@ public sealed partial class ShowActions : IActionLayer
             ?? RunRigDay(a, origin)
             ?? RunEye(a, origin)
             ?? RunMidi(a)
+            ?? RunNav(a)
             ?? ActionResult.Refused($"Unknown action '{a.Kind}'.");
     }
 

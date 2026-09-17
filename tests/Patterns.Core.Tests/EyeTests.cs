@@ -38,6 +38,7 @@ public class EyeTests
         Editing = "Projector 1's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot (Fractals)",
         LowerThird = "'Keynote' — Jane Doe · leaves in 3 s",
         Midi = "learning LOOK Walk-in — press a control",
+        Nav = "On the Cues page · settings column: SELECTED CUE · 03.020 Keynote",
         Sources = new[]
         {
             new EyeSource("ndi:Cam 1", "Cam 1", "ndi", true, "receiving 50 fps", CheckLight.Green),
@@ -48,7 +49,7 @@ public class EyeTests
             new EyeDevice("dev2", "Lights", "Lines", "10.0.0.30:9000", true, false, "no link", CheckLight.Red, ""),
             new EyeDevice("dev3", "Spare", "Lines", "10.0.0.31:9000", false, false, "", CheckLight.Grey, ""),
         },
-        Decks = new[] { new EyeDeck("FOH deck", "3.6.0", "10.0.0.5", true), new EyeDeck("Stage deck", "3.6.0", "10.0.0.6", false) },
+        Decks = new[] { new EyeDeck("FOH deck", "3.6.0", "10.0.0.5", true) { Where = "PLAN › Cues", Recording = true }, new EyeDeck("Stage deck", "3.6.0", "10.0.0.6", false) },
         Companions = new[] { new EyeCompanion("FOH-PC", "10.0.0.5", true, "5.0.3"), new EyeCompanion("Spare-PC", "10.0.0.9", true, "5.0.3") },
         WireClients = 1,
         WebClients = 2,
@@ -85,6 +86,10 @@ public class EyeTests
         Assert.Equal(CheckLight.Red, g.Find("device:dev2")!.Light);                     // enabled, no link
         Assert.Equal(CheckLight.Grey, g.Find("device:dev3")!.Light);                    // disabled
         Assert.Equal(CheckLight.Green, g.Find("deck:FOH deck@10.0.0.5")!.Light);
+        Assert.Contains("navigator: PLAN › Cues", g.Find("deck:FOH deck@10.0.0.5")!.Words);                       // round 74: where the deck's navigator is
+        Assert.Contains("recording the desk's actions", g.Find("deck:FOH deck@10.0.0.5")!.Words);
+        Assert.DoesNotContain(g.Find("deck:Stage deck@10.0.0.6")!.Words, w => w.StartsWith("navigator", StringComparison.Ordinal));
+        Assert.Contains("On the Cues page · settings column: SELECTED CUE · 03.020 Keynote", g.Find("desk")!.Words);   // round 74: where the desk is
         Assert.Equal(CheckLight.Amber, g.Find("deck:Stage deck@10.0.0.6")!.Light);      // connected, not paired
         Assert.Contains("not paired", g.Find("deck:Stage deck@10.0.0.6")!.Sub);
         Assert.Null(g.Find("companion:FOH-PC"));                                        // heard and connected: one thing, the deck

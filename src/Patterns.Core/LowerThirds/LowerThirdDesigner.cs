@@ -22,10 +22,13 @@ public sealed class LowerThirdDesigner
     // ---- designs -------------------------------------------------------------------------------
 
     /// <summary>A new design from a preset (or an empty box), named so it never collides, added; the first design of a show is its default.</summary>
-    public LowerThirdDesign New(string preset)
+    public LowerThirdDesign New(string preset) => New(preset, "");
+
+    /// <summary>Round 74: a new design from a preset with the name asked for (made unique), added — LT NEW &lt;name&gt; on the wire and a deck's build key.</summary>
+    public LowerThirdDesign New(string preset, string name)
     {
         var design = preset == "Blank" ? LowerThirdPresets.Blank() : LowerThirdPresets.Create(preset);
-        design.Name = UniqueName(design.Name);
+        design.Name = UniqueName(name.Trim().Length > 0 ? name.Trim() : design.Name);
         _lowers.Designs.Add(design);
         AdoptDefault(design);
         return design;

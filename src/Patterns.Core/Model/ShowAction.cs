@@ -452,6 +452,32 @@ public enum ShowActionKind
     MidiLearnOff,
     /// <summary>Round 73: every control bound to a wire line (Value) forgotten, on every surface.</summary>
     MidiForget,
+    /// <summary>
+    /// Round 74: the desk to a page (Target = a page header, or a rail's label for its page) and,
+    /// with a Value, the item selected there through the same route the menus' GO TO entries use —
+    /// a cue, a look, a design, a person, a screen. Desk-only: a running order never turns the pages.
+    /// </summary>
+    NavPage,
+    /// <summary>Round 74: the page before.</summary>
+    NavBack,
+    /// <summary>Round 74: the panel — the desk's home.</summary>
+    NavHome,
+    /// <summary>Round 74: the settings column beside the page — Value ON / OFF / TOGGLE.</summary>
+    NavSettings,
+    /// <summary>Round 74: the preview saved as a look — Value = the name; a look of that name is updated instead.</summary>
+    LookSave,
+    /// <summary>Round 74: a look updated from the preview — Value = the name, or "" for the look on air.</summary>
+    LookUpdate,
+    /// <summary>Round 74: a look removed — Value = the name (or #n, or an id).</summary>
+    LookDelete,
+    /// <summary>Round 74: a cue added after the standby (or at the end of the caller's stack) — Value = its name.</summary>
+    CueAdd,
+    /// <summary>Round 74: a cue removed — Value = its number, name or id.</summary>
+    CueDelete,
+    /// <summary>Round 74: the editing target's picture saved as a preset of the Library — Value = the name.</summary>
+    PresetSave,
+    /// <summary>Round 74: a lower-third design made from a preset — Value = the name, Target = the preset ("" for the first).</summary>
+    LowerThirdNew,
     /// <summary>Round 67.6: the transition or video sting the next TAKE alone arrives by — Value the words (a transition, STING name, CLEAR); one shot, the show's own transition untouched.</summary>
     NextTransition,
     RigDayOn,

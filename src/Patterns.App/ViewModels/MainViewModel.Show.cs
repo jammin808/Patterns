@@ -126,6 +126,7 @@ public sealed partial class MainViewModel
         var page = Shell.Pages[index];
         var stamp = System.Diagnostics.Stopwatch.GetTimestamp();
         _services.Switches.Begin(page.Header, stamp);                   // the press: timed to the first frame the window draws after
+        RememberPage(_page, index);                                       // round 74: BACK walks the pages left
         _page = index;
         _lastPage[page.Group] = index;
         if (!run) _lastBuildPage = index;
@@ -910,6 +911,30 @@ public sealed partial class MainViewModel
             case ShowActionKind.DeckPrev:
             case ShowActionKind.DeckPage:
                 Media.RefreshDeck();
+                break;
+            // Round 74: the build verbs from a deck or the wire — the pages that list what they made follow at once.
+            case ShowActionKind.LookSave:
+            case ShowActionKind.LookUpdate:
+            case ShowActionKind.LookDelete:
+                if (result.Ok) Show.RaiseLookNames();
+                break;
+            case ShowActionKind.CueAdd:
+                if (result.Ok)
+                {
+                    Cues.Refresh();
+                    var added = CueStacks.Caller(State).Cues.FirstOrDefault(c => c.Id == _services.Actions.LastAddedCueId);
+                    if (added is not null) Cues.SelectedCue = added;   // the settings column opens for it when the desk is on the Cues page
+                }
+                break;
+            case ShowActionKind.CueDelete:
+                if (result.Ok) Cues.Refresh();
+                break;
+            case ShowActionKind.PresetSave:
+                if (result.Ok)
+                {
+                    RefreshPresetChips();
+                    BuildLibrary();
+                }
                 break;
             case ShowActionKind.PresenterNext:
             case ShowActionKind.PresenterPrev:

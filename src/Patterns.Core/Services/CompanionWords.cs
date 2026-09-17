@@ -19,14 +19,22 @@ public sealed record WireDeck(string Name, string Module, string Address, DateTi
     /// <summary>Round 66: the connection presented the show's pairing token (or the desk asks for none) — its mutating verbs run; false is a deck whose keys do nothing yet.</summary>
     public bool Paired { get; init; }
 
-    /// <summary>"FOH deck (module 3.0.0, 10.0.0.5)" — with a word when the module is behind the one this build ships.</summary>
+    /// <summary>Round 74: where the deck's navigator is, as the deck said it (NAV DECK &lt;words&gt;: "PLAN › Cues › 03.020"); "" until it says.</summary>
+    public string Where { get; init; } = "";
+
+    /// <summary>Round 74: the deck asked for the desk's actions as ACTION lines (RECORD ON) — Companion's recorder is open on a button.</summary>
+    public bool Recording { get; init; }
+
+    /// <summary>"FOH deck (module 3.0.0, 10.0.0.5) — navigator at PLAN › Cues" — with a word when the module is behind the one this build ships.</summary>
     public string Line
     {
         get
         {
             var module = Module.Length == 0 ? "no module — Generic TCP or a script" : $"module {Module}";
             var behind = Module.Length > 0 && CompanionWords.IsOlder(Module, CompanionModule.Version) ? $" — {CompanionModule.Version} is current, in the app's integrations folder" : "";
-            return $"{Name} ({module}{behind}, {Address})";
+            var where = Where.Length > 0 ? $" — navigator at {Where}" : "";
+            var recording = Recording ? " — recording" : "";
+            return $"{Name} ({module}{behind}, {Address}){where}{recording}";
         }
     }
 }

@@ -81,6 +81,21 @@ public class DeskMenuTests
         Choices = new[] { new MonitorChoice("a", "1", "1 · Main wall"), new MonitorChoice("b", "2", "2 · Stage left"), new MonitorChoice("a+b", "", "A · Main wall") },
     };
 
+    /// <summary>Round 74: a page's facts as the desk would hand them — screens, cues, tracks, music and games where the page has them.</summary>
+    private static PageFacts PageFor(string header, bool current = false, bool settingsOpen = false) => new(header)
+    {
+        Rail = DeskPages.FindRail(DeskPages.Find(header)!.Rail)!.Label,
+        Hue = DeskPages.Find(header)!.Hue,
+        IsCurrent = current,
+        HasSettings = header is "Cues" or "Screens" or "Lower thirds",
+        SettingsOpen = settingsOpen,
+        Screens = new[] { new MenuScreen("1", "a", "1 · Main wall", "on air · follows the programme", true), new MenuScreen("2", "b", "2 · Stage left", "on air · its own picture", true) },
+        Cues = new[] { new MenuCue("C1", "01.010", "Walk-in", true, ""), new MenuCue("C2", "03.020", "Keynote", false, "no look called 'Gone'") },
+        Tracks = new[] { new MenuThing("T1", "Walk-in music") },
+        Music = new[] { new MenuThing("S1", "Break playlist") },
+        Games = new[] { new MenuThing("pong", "PONG"), new MenuThing("snake", "SNAKE") },
+    };
+
     private static IEnumerable<DeskMenu> Every(DeskFacts d)
     {
         yield return DeskMenus.Screen(d, Screen());
@@ -95,6 +110,7 @@ public class DeskMenuTests
         yield return DeskMenus.Monitor(d, Monitor());
         yield return DeskMenus.Monitor(d, Monitor("OFF"));
         yield return DeskMenus.Transport(d);
+        foreach (var page in DeskPages.All) yield return DeskMenus.Page(d, PageFor(page.Header));   // round 74: every page's own menu
         foreach (var (kind, _) in PreviewEdits.OverlayKinds)
         {
             yield return DeskMenus.Overlay(d, new OverlayFacts { Kind = kind, AirOn = kind == "clock", PreviewOn = kind is "clock" or "logo", Anchor = kind == "info" ? null : Anchor9.TopRight, Words = kind == "message" ? "Welcome" : "" });
@@ -159,7 +175,7 @@ public class DeskMenuTests
         foreach (var menu in Every(d))
         {
             // One line per wire line the menu carries — the drawers' choices included, each once; a menu the wire has no words for has no MIDI group.
-            var wires = menu.Flatten().Where(e => e.Scope != MenuScope.Learn && e.HasWire).Select(e => MidiBindings.Normalise(e.Wire)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var wires = menu.Flatten().Where(e => e.Scope != MenuScope.Learn && e.HasWire && !e.TakesText).Select(e => MidiBindings.Normalise(e.Wire)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();   // round 74: a verb that takes a text has no pad
             if (wires.Count == 0)
             {
                 Assert.DoesNotContain(menu.Groups, g => g.Heading == "MIDI");
@@ -606,5 +622,92 @@ public class DeskMenuTests
         var lookDrawer = preview.GetProperty("entries")[1];
         Assert.Equal(3, lookDrawer.GetProperty("children").GetArrayLength());
         Assert.Equal("SCREEN 2 PVW LOOK Walk-in", lookDrawer.GetProperty("children")[0].GetProperty("wire").GetString());
+    }
+
+    [Fact]
+    public void APagesMenuListsItsThingsWithTheirMenuWordsAndItsBuildVerbsTakeAText()
+    {
+        var d = Facts(lookOnAir: true);
+
+        // The Looks page: every look fires on air, opens its own menu, and the one on air is ticked; the build verbs take a text where the * is, except LOOK UPDATE, which updates the look on air.
+        var looks = DeskMenus.Page(d, PageFor("Looks", current: true));
+        Assert.Equal("page", looks.Kind);
+        Assert.Equal("LOOKS", looks.Title);
+        Assert.Contains("PLAN rail", looks.Subtitle);
+        Assert.Contains("the desk is here", looks.Subtitle);
+        var walkIn = looks.Find("look:L1")!;
+        Assert.Equal("LOOK Walk-in", walkIn.Wire);
+        Assert.Equal("LOOK Walk-in", walkIn.Menu);
+        Assert.Equal(ShowActionKind.ApplyLook, walkIn.Action!.Value.Kind);
+        Assert.True(walkIn.IsOn);
+        Assert.False(looks.Find("look:L2")!.IsOn);
+        var save = looks.Find("build.look.save")!;
+        Assert.Equal("LOOK SAVE *", save.Wire);
+        Assert.True(save.TakesText);
+        Assert.Equal(ShowActionKind.LookSave, save.Action!.Value.Kind);
+        var update = looks.Find("build.look.update")!;
+        Assert.Equal("LOOK UPDATE", update.Wire);
+        Assert.False(update.TakesText);
+        Assert.True(update.IsEnabled);
+        Assert.Contains("Walk-in", update.Text);
+        Assert.False(DeskMenus.Page(Facts(lookOnAir: false), PageFor("Looks")).Find("build.look.update")!.IsEnabled);   // no look on air: says so
+        Assert.True(looks.Find("build.look.delete")!.TakesText);
+        // The page on the desk, and the MIDI group never offers a pad for a verb that needs typing.
+        Assert.True(looks.Find("go.page")!.IsOn);
+        Assert.Equal("NAV Looks", looks.Find("go.page")!.Wire);
+        Assert.Equal(ShowActionKind.NavPage, looks.Find("go.page")!.Action!.Value.Kind);
+        Assert.Null(looks.Find("go.settings"));                                                         // the Looks page has no settings column
+        var midi = DeskMenus.Page(d with { HasMidiSurface = true, MidiSurfaceOpen = true }, PageFor("Looks"));
+        Assert.NotNull(midi.Find("midi.learn:look:L1"));
+        Assert.Null(midi.Find("midi.learn:build.look.save"));
+        Assert.NotNull(midi.Find("midi.learn:build.look.update"));
+        // The JSON carries the menu words and the text flag for the deck.
+        var json = MenuJson.Write(looks);
+        Assert.Contains("\"menu\":\"LOOK Walk-in\"", json);
+        Assert.Contains("\"takesText\":true", json);
+
+        // The Cues page: the stack with the standby ticked and a broken cue's reason; add after the standby, named or not; delete by number.
+        var cues = DeskMenus.Page(d, PageFor("Cues", current: true, settingsOpen: true));
+        Assert.True(cues.Find("cue:C1")!.IsOn);
+        Assert.Equal("CUE STANDBY 01.010", cues.Find("cue:C1")!.Wire);
+        Assert.Equal("CUE 03.020", cues.Find("cue:C2")!.Menu);
+        Assert.Equal(MenuTone.Warn, cues.Find("cue:C2")!.Tone);
+        Assert.Contains("Gone", cues.Find("cue:C2")!.Detail);
+        Assert.Equal("CUE ADD", cues.Find("build.cue.add")!.Wire);
+        Assert.Equal("CUE ADD *", cues.Find("build.cue.add.named")!.Wire);
+        Assert.True(cues.Find("go.settings")!.IsOn);
+        Assert.Equal("NAV SETTINGS TOGGLE", cues.Find("go.settings")!.Wire);
+
+        // The Lower thirds page: designs and people fire live and open their menus; a new design by name, or from a chosen preset.
+        var lower = DeskMenus.Page(d, PageFor("Lower thirds"));
+        Assert.Equal("LT Neon", lower.Find("lt:D1")!.Wire);
+        Assert.StartsWith("★ ", lower.Find("lt:D1")!.Text, StringComparison.Ordinal);
+        Assert.True(lower.Find("lt:D2")!.IsOn);
+        Assert.Equal("PERSON Jane Doe", lower.Find("person:P1")!.Menu);
+        Assert.Equal("LT NEW *", lower.Find("build.lt.new")!.Wire);
+        var from = lower.Find("build.lt.from")!;
+        Assert.True(from.HasChildren);
+        Assert.Contains(from.Children, c => c.Wire == "LT NEW * FROM Neon" && c.TakesText);
+        Assert.Contains(from.Children, c => c.Wire == "LT NEW * FROM Blank");
+
+        // The Screens page: each screen opens its own menu by its number and routes to the page with it selected; the programme too.
+        var screens = DeskMenus.Page(d, PageFor("Screens"));
+        Assert.Equal("SCREEN 2", screens.Find("screen:b")!.Menu);
+        Assert.Equal(new MenuRoute("Screens", "b"), screens.Find("screen:b")!.Route);
+        Assert.Equal("PGM", screens.Find("screen:pgm")!.Menu);
+
+        // The Pattern page: every kind and preset into the preview, and the picture saved by name; the Audio page's tracks and music; the Arcade's games.
+        var pattern = DeskMenus.Page(d, PageFor("Pattern"));
+        Assert.Contains(pattern.Flatten(), e => e.Wire == "PVW PATTERN Grid" && e.Scope == MenuScope.Preview);
+        Assert.Equal("PVW PRESET Bars", pattern.Find("preset:Bars")!.Wire);
+        Assert.Equal("PRESET SAVE *", pattern.Find("build.preset.save")!.Wire);
+        var audio = DeskMenus.Page(d, PageFor("Audio"));
+        Assert.Equal("AUDIO PLAY Walk-in music", audio.Find("track:T1")!.Wire);
+        Assert.Equal("MUSIC PLAY Break playlist", audio.Find("music:S1")!.Wire);
+        Assert.Equal("ARCADE START pong", DeskMenus.Page(d, PageFor("Arcade")).Find("game:pong")!.Wire);
+        // A page with nothing to list still says how to reach it.
+        var help = DeskMenus.Page(d, PageFor("Help"));
+        Assert.Single(help.Groups, g => g.Heading != "MIDI");
+        Assert.Equal("GO TO", help.Groups[0].Heading);
     }
 }

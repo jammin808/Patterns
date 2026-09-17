@@ -57,6 +57,17 @@ public static class MenuQuery
             case "GO":
             case "RUN":
                 return DeskMenus.Transport(facts);   // round 73: the RUN surface's buttons, for a control to be learned on any of them
+            case "PAGE":
+            {
+                // Round 74: a page's own menu — its things with their lines and the words that open their menus, its build verbs — what a deck lays on its keys.
+                var page = DeskPages.Find(rest) ?? (DeskPages.FindRail(rest) is { } rail && DeskPages.Of(rail.Id) is { Count: > 0 } railPages ? railPages[0] : null);
+                if (page is null)
+                {
+                    problem = $"no page '{rest}' — {string.Join(", ", DeskPages.All.Select(p => p.Header))}";
+                    return null;
+                }
+                return DeskMenus.Page(facts, DeskMenuFacts.Page(s, page.Header));
+            }
             case "CUE":
             {
                 var cue = FindCue(s, rest);
@@ -135,13 +146,13 @@ public static class MenuQuery
                 return DeskMenus.Overlay(facts, DeskMenuFacts.Overlay(s, kind));
             }
             default:
-                problem = $"MENU what? SCREEN n · PGM · PREVIEW · CUE <number|name|standby> · LOOK <name> · LT <n|name> · PERSON <name> · LAYER 1|2 · CLOCK · LOGO · MESSAGE · PIP · WEATHER · COUNTDOWN · MONITOR · TRANSPORT — not '{text}'";
+                problem = $"MENU what? SCREEN n · PGM · PREVIEW · CUE <number|name|standby> · LOOK <name> · LT <n|name> · PERSON <name> · LAYER 1|2 · CLOCK · LOGO · MESSAGE · PIP · WEATHER · COUNTDOWN · MONITOR · TRANSPORT · PAGE <name> — not '{text}'";
                 return null;
         }
     }
 
     /// <summary>A screen number (overview order), a screen id, a canvas key, or PGM ("") — null for a stranger.</summary>
-    private static string? ResolveTarget(AppServices s, string word)
+    internal static string? ResolveTarget(AppServices s, string word)
     {
         if (ContentTargets.IsProgramTarget(word)) return "";
         if (int.TryParse(word, out var n))
@@ -165,7 +176,7 @@ public static class MenuQuery
         return null;
     }
 
-    private static LowerThirdDesign? FindDesign(ShowState state, string word)
+    internal static LowerThirdDesign? FindDesign(ShowState state, string word)
     {
         if (word.Length == 0) return state.LowerThirds.DefaultDesign;
         if (int.TryParse(word, out var n)) return n >= 1 && n <= state.LowerThirds.Designs.Count ? state.LowerThirds.Designs[n - 1] : null;

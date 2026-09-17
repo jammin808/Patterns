@@ -110,7 +110,18 @@ public sealed record MenuEntry(string Id, string Text, MenuScope Scope, MenuTone
     /// <summary>The drawer: the choices this entry opens (looks, presets, kinds, timings…).</summary>
     public IReadOnlyList<MenuEntry> Children { get; init; } = Array.Empty<MenuEntry>();
 
+    /// <summary>
+    /// Round 74: the words after MENU that open this thing's own menu ("LOOK Walk-in", "CUE 03.020",
+    /// "LT Neon", "SCREEN 2", "CLOCK") — a page's menu lists its things with these, so a deck's
+    /// navigator steps from the page to the thing without a table of its own. Empty when the entry
+    /// is not a thing with a menu.
+    /// </summary>
+    public string Menu { get; init; } = "";
+
     public bool IsEnabled => Because.Length == 0;
+
+    /// <summary>Round 74: the wire line takes a text where its * is ("LOOK SAVE *", "LT NEW * FROM Neon") — a deck asks for the words before it sends.</summary>
+    public bool TakesText => Wire.Contains('*');
 
     public bool HasChildren => Children.Count > 0;
 

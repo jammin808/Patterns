@@ -105,6 +105,11 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Eye.Json());
             case RemoteCommandKind.MidiStatus:
                 return ControlProtocol.Ok(_services.MidiLearn.Json());
+            case RemoteCommandKind.NavStatus:
+                return ControlProtocol.Ok(_services.Actions.NavJson());                         // round 74: the rails, the pages, where the desk is
+            case RemoteCommandKind.NavDeck:
+            case RemoteCommandKind.Record:
+                return ControlProtocol.Ok();   // round 74: the wire's port keeps these per connection; from the web remote or OSC there is no connection to keep them for
         }
 
         var action = cmd.Action;
@@ -127,6 +132,19 @@ public sealed class CommandRouter : IRouter
                 return result.Ok
                     ? ControlProtocol.Ok(JsonSerializer.Serialize(new { standby = StandbyRow(stack.StandbyCue) }))
                     : ControlProtocol.Err(result.Message);
+            // Round 74: the navigator's and the build verbs answer with their words — a deck shows "Look 'Walk-in' saved" on the key it pressed.
+            case ShowActionKind.NavPage:
+            case ShowActionKind.NavBack:
+            case ShowActionKind.NavHome:
+            case ShowActionKind.NavSettings:
+            case ShowActionKind.LookSave:
+            case ShowActionKind.LookUpdate:
+            case ShowActionKind.LookDelete:
+            case ShowActionKind.CueAdd:
+            case ShowActionKind.CueDelete:
+            case ShowActionKind.PresetSave:
+            case ShowActionKind.LowerThirdNew:
+                return result.Ok ? ControlProtocol.Ok(result.Message.Length > 0 ? result.Message : null) : ControlProtocol.Err(result.Message);
             default:
                 return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);
         }
@@ -469,7 +487,7 @@ public sealed class CommandRouter : IRouter
             show = s.Name,
             rev = Rev?.Invoke() ?? 0,
             version = AppVersion.Current,                                  // this build, so a deck can say which desk it is on
-            decks = _services.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address }).ToArray(),   // every deck that said HELLO
+            decks = _services.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address, where = d.Where, recording = d.Recording }).ToArray(),   // every deck that said HELLO; round 74: where its navigator is
             airLabel = _services.AirLabel,
             cuestack = CueStackJson(),
             blackout = s.Blackout,
@@ -634,6 +652,7 @@ public sealed class CommandRouter : IRouter
             take = _services.Actions.TakeRow(),                                                   // round 67: the wall's scope, its plan, the next take's one-shot
             editing = _services.Actions.EditingRow(),                                             // round 73: what the desk's editors are on, and the Library tile last put there
             midi = _services.MidiLearn.Row(),                                                    // round 73: MIDI learn — the line it waits for, the surfaces, every control bound
+            nav = _services.Actions.NavRow(),                                                    // round 74: the desk's page, its settings column, the page before, each deck's whereabouts
             modules = Modules.Rows().Select(r => new { name = r.Name, version = r.Version, native = r.Native, loaded = r.Loaded }).ToArray(),   // the build's assemblies, and which this process loaded
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
             // The room around the desk, for a deck's keys: every node heard, the callers linked, the twin, the stage.

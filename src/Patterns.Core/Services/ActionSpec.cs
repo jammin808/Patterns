@@ -34,6 +34,10 @@ public enum TargetKind
     Stage,
     /// <summary>What the RUN surface's monitor shows: a screen, a canvas, PGM for the programme, or MAIN / blank for the main screen.</summary>
     Monitor,
+    /// <summary>Round 74: a page of the desk's rail by its header (Cues, Looks, Screens…) or a rail by its name (SHOW, PLAN, BUILD, SETUP, ADMIN).</summary>
+    DeskPage,
+    /// <summary>Round 74: a lower-thirds preset by its name (blank = the plain one).</summary>
+    Preset,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -116,6 +120,13 @@ public static class ActionSpec
         ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeReset => (TargetKind.None, ValueKind.None),
         ShowActionKind.MidiLearn or ShowActionKind.MidiForget => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MidiLearnOff => (TargetKind.None, ValueKind.None),
+        ShowActionKind.NavPage => (TargetKind.DeskPage, ValueKind.Text),
+        ShowActionKind.NavBack or ShowActionKind.NavHome => (TargetKind.None, ValueKind.None),
+        ShowActionKind.NavSettings => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.LookSave or ShowActionKind.LookUpdate or ShowActionKind.LookDelete => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.CueAdd or ShowActionKind.CueDelete => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.PresetSave => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.LowerThirdNew => (TargetKind.Preset, ValueKind.Text),
         ShowActionKind.CanvasOn or ShowActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         ShowActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         ShowActionKind.TimerAdd => (TargetKind.None, ValueKind.Text),
@@ -276,6 +287,17 @@ public static class ActionSpec
         ShowActionKind.MidiLearn => "MIDI learn — the next control moved on a surface is bound to a wire line",
         ShowActionKind.MidiLearnOff => "MIDI learn — cancel",
         ShowActionKind.MidiForget => "MIDI — forget every control bound to a wire line",
+        ShowActionKind.NavPage => "Desk — go to a page (and select a thing there)",
+        ShowActionKind.NavBack => "Desk — the page before",
+        ShowActionKind.NavHome => "Desk — the panel",
+        ShowActionKind.NavSettings => "Desk — the settings column beside the page (on, off, toggle)",
+        ShowActionKind.LookSave => "Look — save the preview as a look (or update the look of that name)",
+        ShowActionKind.LookUpdate => "Look — update from the preview (the look on air, or a named one)",
+        ShowActionKind.LookDelete => "Look — delete",
+        ShowActionKind.CueAdd => "Cue — add one after the standby",
+        ShowActionKind.CueDelete => "Cue — delete",
+        ShowActionKind.PresetSave => "Preset — save the editing target's picture to the Library",
+        ShowActionKind.LowerThirdNew => "Lower third — a new design from a preset",
         ShowActionKind.NextTransition => "Next take — the transition or video sting for the next TAKE alone (one shot)",
         ShowActionKind.RigDayOn => "Rig day games — on",
         ShowActionKind.RigDayOff => "Rig day games — off",
@@ -474,6 +496,10 @@ public static class ActionSpec
             => "the operator's own eye — a running order never moves what the desk is looking at",
         ShowActionKind.MidiLearn or ShowActionKind.MidiLearnOff or ShowActionKind.MidiForget
             => "the operator's own mapping of a control surface — a running order never binds or unbinds a control",
+        ShowActionKind.NavPage or ShowActionKind.NavBack or ShowActionKind.NavHome or ShowActionKind.NavSettings
+            => "the operator's own page — a running order never turns the desk's pages or opens its columns",
+        ShowActionKind.LookSave or ShowActionKind.LookUpdate or ShowActionKind.LookDelete or ShowActionKind.CueAdd or ShowActionKind.CueDelete or ShowActionKind.PresetSave or ShowActionKind.LowerThirdNew
+            => "building the show — a running order that rewrote its own looks, cues, presets or designs as it ran would be a loop waiting to happen",
         ShowActionKind.NextTransition => "the operator's next press — a cue names the transition it arrives by on the recall itself",
         ShowActionKind.ScreenTestRoute => "a commissioning tool — the diagnostic profile stands in for a contract while a path is proven; a running order never puts a screen on the test route",
         ShowActionKind.ScreenReceived => "the engineer's own reading of a processor's input status, at commissioning — a running order never claims what a box receives",

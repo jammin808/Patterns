@@ -13,7 +13,7 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public class WireVocabularyTests
 {
-    private static readonly (string Line, ShowAction Action)[] Verbs =
+    internal static readonly (string Line, ShowAction Action)[] Verbs =
     {
         ("GO", new(ShowActionKind.OutputsOn)),
         ("OUTPUTS OFF", new(ShowActionKind.OutputsOff)),
@@ -64,6 +64,27 @@ public class WireVocabularyTests
         ("MIDI LEARN CANCEL", new(ShowActionKind.MidiLearnOff)),
         ("MIDI FORGET CUE GO", new(ShowActionKind.MidiForget, "", "CUE GO")),
         ("MIDI UNBIND LT 1", new(ShowActionKind.MidiForget, "", "LT 1")),
+        // Round 74: the navigator and the build verbs.
+        ("NAV Cues 03.020", new(ShowActionKind.NavPage, "Cues", "03.020")),
+        ("NAV Lower thirds Neon", new(ShowActionKind.NavPage, "Lower thirds", "Neon")),
+        ("NAV Looks", new(ShowActionKind.NavPage, "Looks")),
+        ("NAV plan", new(ShowActionKind.NavPage, "PLAN")),
+        ("DESK Screens 2", new(ShowActionKind.NavPage, "Screens", "2")),
+        ("NAV HOME", new(ShowActionKind.NavHome)),
+        ("NAV BACK", new(ShowActionKind.NavBack)),
+        ("NAV SETTINGS ON", new(ShowActionKind.NavSettings, "", "ON")),
+        ("NAV SETTINGS OFF", new(ShowActionKind.NavSettings, "", "OFF")),
+        ("NAV SETTINGS", new(ShowActionKind.NavSettings, "", "TOGGLE")),
+        ("LOOK SAVE Walk-in", new(ShowActionKind.LookSave, "", "Walk-in")),
+        ("LOOK UPDATE", new(ShowActionKind.LookUpdate)),
+        ("LOOK UPDATE Walk-in", new(ShowActionKind.LookUpdate, "", "Walk-in")),
+        ("LOOK DELETE Walk-in", new(ShowActionKind.LookDelete, "", "Walk-in")),
+        ("CUE ADD", new(ShowActionKind.CueAdd)),
+        ("CUE ADD Doors open", new(ShowActionKind.CueAdd, "", "Doors open")),
+        ("CUE DELETE 03.020", new(ShowActionKind.CueDelete, "", "03.020")),
+        ("PRESET SAVE Bars", new(ShowActionKind.PresetSave, "", "Bars")),
+        ("LT NEW Keynote", new(ShowActionKind.LowerThirdNew, "", "Keynote")),
+        ("LT NEW Keynote FROM Neon", new(ShowActionKind.LowerThirdNew, "Neon", "Keynote")),
         ("EYE NEXT", new(ShowActionKind.EyeNext)),
         ("EYE PREV", new(ShowActionKind.EyePrev)),
         ("EYE LENS control", new(ShowActionKind.EyeLens, "", "control")),
@@ -247,7 +268,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus, RemoteCommandKind.MidiStatus },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus, RemoteCommandKind.MidiStatus, RemoteCommandKind.NavStatus, RemoteCommandKind.NavDeck, RemoteCommandKind.Record },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -305,6 +326,25 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("MIDI LEARN").Kind);        // a bare LEARN fails closed
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("MIDI FORGET").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("MIDI PANIC").Kind);
+        // Round 74: the navigator's questions, a deck's whereabouts, the recorder's feed — and what fails closed.
+        Assert.Equal(RemoteCommandKind.NavStatus, ControlProtocol.Parse("NAV").Kind);
+        Assert.Equal(RemoteCommandKind.NavStatus, ControlProtocol.Parse("NAV STATUS").Kind);
+        Assert.Equal(RemoteCommandKind.NavStatus, ControlProtocol.Parse("NAV PAGES").Kind);
+        Assert.Equal(RemoteCommandKind.NavDeck, ControlProtocol.Parse("NAV DECK PLAN › Cues › 03.020").Kind);
+        Assert.Equal("PLAN › Cues › 03.020", ControlProtocol.Parse("NAV DECK PLAN › Cues › 03.020").Text);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("NAV DECK").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("NAV Nowhere").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("NAV SETTINGS SIDEWAYS").Kind);
+        Assert.Equal(RemoteCommandKind.Record, ControlProtocol.Parse("RECORD ON").Kind);
+        Assert.Equal("ON", ControlProtocol.Parse("RECORD START").Text);
+        Assert.Equal("OFF", ControlProtocol.Parse("RECORD STOP").Text);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("RECORD").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LOOK SAVE").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LOOK DELETE").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("CUE DELETE").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("PRESET SAVE").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT NEW").Kind);
+        Assert.Equal(ShowActionKind.PatternPreset, ControlProtocol.Parse("PRESET Saved bars").Action.Kind);   // a preset whose name starts with Save is still a recall
         var hello = ControlProtocol.Parse("HELLO FOH deck");
         Assert.Equal(RemoteCommandKind.Hello, hello.Kind);
         Assert.Equal("FOH deck", hello.Text);

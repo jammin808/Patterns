@@ -38,45 +38,13 @@ public sealed record GroupChip(ShellGroup Group, string Label, string Hue, strin
 /// </summary>
 public static class Shell
 {
-    public static readonly IReadOnlyList<ShellGroupInfo> Groups = new[]
-    {
-        new ShellGroupInfo(ShellGroup.Show, "SHOW", "#2EE68A", "Show time: the panel beside the switcher, and the Run surface for the caller"),
-        new ShellGroupInfo(ShellGroup.Plan, "PLAN", "#6E9BFF", "Before the show: the cue stack, looks, and the install's clock — programmes, adverts, announcements"),
-        new ShellGroupInfo(ShellGroup.Build, "BUILD", "#3EC1F3", "Making content: patterns, media, overlays, countdown, particles, fractals, branding, layers, the library, the assistant"),
-        new ShellGroupInfo(ShellGroup.Setup, "SETUP", "#B18CFF", "At the rig: screens, the monitor walls, audio, NDI, streaming, remote control"),
-        new ShellGroupInfo(ShellGroup.Admin, "ADMIN", "#B8E356", "The machine: performance, GPU, the watchdog — and Help"),
-    };
+    /// <summary>The rails, from the desk's one table (round 74: <see cref="Patterns.Core.Services.DeskPages"/> — the wire's NAV and a deck's navigator read the same rows).</summary>
+    public static readonly IReadOnlyList<ShellGroupInfo> Groups = Patterns.Core.Services.DeskPages.Rails
+        .Select(r => new ShellGroupInfo(Enum.Parse<ShellGroup>(r.Id), r.Label, r.Hue, r.Hint)).ToList();
 
-    public static readonly IReadOnlyList<ShellPage> Pages = Table(
-        ("Panel", ShellGroup.Show, "#2EE68A"),
-        ("Run", ShellGroup.Show, "#2EE68A"),
-        ("Eye", ShellGroup.Show, "#F2D26B"),
-        ("Cues", ShellGroup.Plan, "#6E9BFF"),
-        ("Looks", ShellGroup.Plan, "#6E9BFF"),
-        ("Install", ShellGroup.Plan, "#9AB4FF"),
-        ("Pattern", ShellGroup.Build, "#3EC1F3"),
-        ("Media", ShellGroup.Build, "#FF6EC7"),
-        ("Overlays", ShellGroup.Build, "#FFC24D"),
-        ("Lower thirds", ShellGroup.Build, "#FFC24D"),
-        ("Countdown", ShellGroup.Build, "#FFC24D"),
-        ("Particles", ShellGroup.Build, "#FFC24D"),
-        ("Fractals", ShellGroup.Build, "#FFC24D"),
-        ("Reactive", ShellGroup.Build, "#7CF5C8"),
-        ("Branding", ShellGroup.Build, "#FFC24D"),
-        ("Layers", ShellGroup.Build, "#E39BFF"),
-        ("Library", ShellGroup.Build, "#C0CBDB"),
-        ("Assistant", ShellGroup.Build, "#7CF5C8"),
-        ("Screens", ShellGroup.Setup, "#B18CFF"),
-        ("Multiview", ShellGroup.Setup, "#5FD0FF"),
-        ("Audio", ShellGroup.Setup, "#FF9E58"),
-        ("NDI", ShellGroup.Setup, "#8FA5FF"),
-        ("Stream", ShellGroup.Setup, "#FF5C7A"),
-        ("Remote", ShellGroup.Setup, "#35E0D0"),
-        ("Interactive", ShellGroup.Setup, "#7CF5C8"),
-        ("Arcade", ShellGroup.Setup, "#E0FF5F"),
-        ("Nodes", ShellGroup.Setup, "#5FD0FF"),
-        ("Machine", ShellGroup.Admin, "#B8E356"),
-        ("Help", ShellGroup.Admin, "#C0CBDB"));
+    /// <summary>The pages, from the same table, in the exact order of the TabItems in MainWindow.axaml (a test pins the two together).</summary>
+    public static readonly IReadOnlyList<ShellPage> Pages = Patterns.Core.Services.DeskPages.All
+        .Select((p, i) => new ShellPage(i, p.Header, Enum.Parse<ShellGroup>(p.Rail), p.Hue)).ToList();
 
     /// <summary>The page the app opens on: the show panel, never the Run surface.</summary>
     public const int PanelPage = 0;
@@ -105,7 +73,4 @@ public static class Shell
 
     /// <summary>The style class a page's view wears for its neon ("hue-cues", "hue-lower-thirds"): what the settings column beside it wears too.</summary>
     public static string HueClass(string header) => "hue-" + header.ToLowerInvariant().Replace(' ', '-');
-
-    private static IReadOnlyList<ShellPage> Table(params (string Header, ShellGroup Group, string Hue)[] rows)
-        => rows.Select((r, i) => new ShellPage(i, r.Header, r.Group, r.Hue)).ToList();
 }

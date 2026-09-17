@@ -55,6 +55,12 @@ public enum RemoteCommandKind
     EyeStatus,
     /// <summary>MIDI / MIDI STATUS (round 73): the MIDI surfaces, every control bound and the line learn waits for, as JSON.</summary>
     MidiStatus,
+    /// <summary>NAV / NAV STATUS (round 74): the rails and pages, the desk's page, the settings column, the decks' whereabouts — as JSON.</summary>
+    NavStatus,
+    /// <summary>NAV DECK &lt;words&gt; (round 74): the deck says where its navigator is (Text); the port that holds the connection keeps it; nothing runs.</summary>
+    NavDeck,
+    /// <summary>RECORD ON / OFF (round 74): the connection asks for the desk's actions as ACTION lines while a deck records a button (Text = ON / OFF); the port keeps it; nothing runs.</summary>
+    Record,
 }
 
 /// <summary>
@@ -280,6 +286,9 @@ public static class ControlProtocol
                             _ => Unknown(s),
                         };
                     case "LIST": return Query(RemoteCommandKind.CueList);
+                    // Round 74, the build verbs: a cue after the standby (or at the end), named; a cue removed by number, name or id.
+                    case "ADD": case "NEW": return Act(ShowActionKind.CueAdd, "", rest);
+                    case "DELETE": case "REMOVE": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.CueDelete, "", rest);
                     default: return Unknown(s);
                 }
             }
@@ -332,7 +341,17 @@ public static class ControlProtocol
                 };
 
             case "LOOK":
+            {
                 if (arg.Length == 0) return Unknown(s);
+                // Round 74, the build verbs: "LOOK SAVE <name>" (the preview as a look — saved anew, or the look of that
+                // name updated), "LOOK UPDATE [name]" (from the preview; the look on air when no name), "LOOK DELETE <name>".
+                // A look literally named Save, Update or Delete is reached by #n.
+                var build = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var buildWhat = build[0].ToUpperInvariant();
+                var buildRest = build.Length > 1 ? build[1].Trim() : "";
+                if (buildWhat is "SAVE" or "STORE") return buildRest.Length == 0 ? Unknown(s) : Act(ShowActionKind.LookSave, "", buildRest);
+                if (buildWhat is "UPDATE") return Act(ShowActionKind.LookUpdate, "", buildRest);
+                if (buildWhat is "DELETE" or "REMOVE" or "FORGET") return buildRest.Length == 0 ? Unknown(s) : Act(ShowActionKind.LookDelete, "", buildRest);
                 // "LOOK #3": the third look in the show's order — a bank key that follows the list as
                 // looks are made, whatever their names and F-keys. The executor counts; "#0" is a name.
                 if (arg.StartsWith('#') && int.TryParse(arg[1..], out var index) && index > 0)
@@ -342,6 +361,7 @@ public static class ControlProtocol
                 return int.TryParse(arg, out var slot)
                     ? Act(ShowActionKind.ApplyLookHotkey, slot)
                     : Act(ShowActionKind.ApplyLook, arg);
+            }
 
             case "SCREEN":
             {
@@ -578,6 +598,16 @@ public static class ControlProtocol
                 }
                 if (arg.Equals("TAKE", StringComparison.OrdinalIgnoreCase)) return Act(ShowActionKind.LowerThirdTake);
                 if (arg.Equals("UPDATE", StringComparison.OrdinalIgnoreCase)) return Act(ShowActionKind.LowerThirdUpdate);
+                // Round 74, the build verb: "LT NEW <name> [FROM <preset>]" — a design from a preset, named. A design called New is reached by number.
+                if (arg.StartsWith("NEW ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var made = arg[4..].Trim();
+                    var from = made.IndexOf(" FROM ", StringComparison.OrdinalIgnoreCase);
+                    var newName = from >= 0 ? made[..from].Trim() : made;
+                    var preset = from >= 0 ? made[(from + 6)..].Trim() : "";
+                    return newName.Length == 0 ? Unknown(s) : Act(ShowActionKind.LowerThirdNew, preset, newName);
+                }
+                if (arg.Equals("NEW", StringComparison.OrdinalIgnoreCase)) return Unknown(s);
                 // The sign-off flow: "LT PREVIEW <design> [WITH <person>]", "LT PREVIEW WITH <person>", "LT PREVIEW OFF".
                 var preview = arg.StartsWith("PREVIEW", StringComparison.OrdinalIgnoreCase) ? 7
                             : arg.StartsWith("PVW", StringComparison.OrdinalIgnoreCase) ? 3 : 0;
@@ -912,7 +942,13 @@ public static class ControlProtocol
             // "PATTERN Grid" / "PATTERN LED wall": the kind of picture on air, by its name (spaces ignored).
             // "PRESET Walk-in": a pattern saved on the Pattern page, back into the picture being edited.
             case "PRESET":
-                return arg.Length == 0 ? Unknown(s) : Act(ShowActionKind.PatternPreset, "", arg);
+            {
+                if (arg.Length == 0) return Unknown(s);
+                // Round 74: "PRESET SAVE <name>" — the editing target's picture into the Library; a preset named Save is reached through the Library.
+                if (arg.StartsWith("SAVE ", StringComparison.OrdinalIgnoreCase)) return Act(ShowActionKind.PresetSave, "", arg[5..].Trim());
+                if (arg.Equals("SAVE", StringComparison.OrdinalIgnoreCase)) return Unknown(s);
+                return Act(ShowActionKind.PatternPreset, "", arg);
+            }
             case "PATTERN":
                 return arg.Trim().Length == 0 ? Unknown(s) : Act(ShowActionKind.PatternKind, "", arg.Trim());
 
@@ -1173,6 +1209,48 @@ public static class ControlProtocol
             // each entry with the line that does it — a tablet or a script offers the desk's own choices.
             case "MENU":
                 return Query(RemoteCommandKind.Menu, arg.Trim());
+
+            // "NAV" (round 74): bare or STATUS reads the rails, the pages, the desk's page and the settings column as
+            // JSON; HOME is the panel, BACK the page before, SETTINGS ON|OFF|TOGGLE the column beside the page;
+            // DECK <words> is a deck saying where its navigator is (kept by the port, nothing runs); anything else
+            // is a page (or a rail) and, after it, the thing to select there: "NAV Cues 03.020", "NAV Looks Walk-in",
+            // "NAV Lower thirds Neon", "NAV plan". Desk-only: a running order never turns the pages.
+            case "NAV":
+            case "DESK":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1].Trim() : "";
+                switch (what)
+                {
+                    case "" or "STATUS" or "PAGES" or "RAILS": return Query(RemoteCommandKind.NavStatus);
+                    case "HOME" or "PANEL": return Act(ShowActionKind.NavHome);
+                    case "BACK" or "PREV" or "PREVIOUS": return Act(ShowActionKind.NavBack);
+                    case "SETTINGS" or "COLUMN" or "POPOUT":
+                        return rest.ToUpperInvariant() switch
+                        {
+                            "ON" or "OPEN" or "SHOW" => Act(ShowActionKind.NavSettings, "", "ON"),
+                            "OFF" or "CLOSE" or "HIDE" => Act(ShowActionKind.NavSettings, "", "OFF"),
+                            "" or "TOGGLE" => Act(ShowActionKind.NavSettings, "", "TOGGLE"),
+                            _ => Unknown(s),
+                        };
+                    case "DECK": return rest.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.NavDeck, rest);
+                    default:
+                    {
+                        var where = DeskPages.Resolve(arg.Trim());
+                        return where is null ? Unknown(s) : Act(ShowActionKind.NavPage, where.Value.Page, where.Value.Item);
+                    }
+                }
+            }
+
+            // "RECORD ON" / "RECORD OFF" (round 74): the action feed for a deck recording a button — the port keeps it per connection.
+            case "RECORD":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" or "START" => Query(RemoteCommandKind.Record, "ON"),
+                    "OFF" or "STOP" => Query(RemoteCommandKind.Record, "OFF"),
+                    _ => Unknown(s),
+                };
 
             // "MIDI" (round 73): bare or STATUS reads the surfaces, every control bound and what learn waits
             // for, as JSON; LEARN <line> arms learn for a wire line (the next control moved on any open surface

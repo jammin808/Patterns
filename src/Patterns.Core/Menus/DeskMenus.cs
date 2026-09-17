@@ -554,7 +554,14 @@ public static class DeskMenus
 
         var question = $"Cue {c.Number} '{c.Name}' does: {(c.Summary.Length > 0 ? c.Summary : "nothing yet")}.{(c.IsBroken ? $" It reads as broken: {c.Problem}." : "")}{(c.FollowSeconds is { } fs ? $" The next cue auto-follows {(fs == 0 ? "at once" : $"after {fs} s")}." : "")} Is anything missing for this moment of the show, and what would you add to it?";
         var subtitle = Join(c.IsStandby ? "STANDBY" : "", c.Enabled ? "" : "SKIPPED", c.IsBroken ? "BROKEN — " + c.Problem : c.Summary);
-        return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTone.Live : c.IsStandby ? MenuTone.Preview : MenuTone.Stack, new[]
+                // Round 74: the cue removed — from a deck's navigator or the wire; refused while the stack is armed.
+        stack.Add(new MenuEntry("cue.delete", "Delete this cue", MenuScope.Stack, MenuTone.Warn)
+        {
+            Detail = "Out of the stack — its actions with it; standby moves on if it was here",
+            Wire = $"CUE DELETE {c.Number}",
+            Action = new ShowAction(ShowActionKind.CueDelete, "", c.Number),
+        });
+return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTone.Live : c.IsStandby ? MenuTone.Preview : MenuTone.Stack, new[]
         {
             new MenuGroup("RUN", MenuTone.Plain, run) { Note = "The row's own verbs." },
             new MenuGroup("THE CUE", MenuTone.Stack, stack) { Note = StackNote },
@@ -616,6 +623,14 @@ public static class DeskMenus
                     Because = d.SandboxOpen ? "" : "Open EDIT SAFE and build the picture first.",
                 },
                 new MenuEntry("look.hotkey", l.Hotkey > 0 ? $"F-key — F{l.Hotkey}" : "F-key — none", MenuScope.Stack, MenuTone.Stack) { Detail = "The key that puts it on air", Children = hotkeys },
+                // Round 74: the look removed — from a deck's navigator or the wire; a look a cue recalls stays.
+                new MenuEntry("look.delete", "Delete this look", MenuScope.Stack, MenuTone.Warn)
+                {
+                    Detail = "Out of the show file",
+                    Wire = $"LOOK DELETE {l.Name}",
+                    Action = new ShowAction(ShowActionKind.LookDelete, "", l.Name),
+                    Because = l.UsedBy.Count > 0 ? $"Cues {string.Join(", ", l.UsedBy)} recall it — change those first." : "",
+                },
             }) { Note = "Edits the look in the show file." },
             new MenuGroup("GO TO", MenuTone.Go, new[] { Go("go.looks", "Looks page", "Looks", l.Id), Go("go.cues", "Cues page", "Cues") }),
             new MenuGroup("ASK", MenuTone.Ask, new[]
@@ -998,7 +1013,7 @@ public static class DeskMenus
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var e in menu.Flatten())
         {
-            if (!e.HasWire || e.Scope == MenuScope.Learn) continue;
+            if (!e.HasWire || e.Scope == MenuScope.Learn || e.TakesText) continue;   // a verb that takes a text has no pad
             var wire = MidiBindings.Normalise(e.Wire);
             if (!seen.Add(wire)) continue;
             var bound = MidiBindings.For(d.MidiBindings, wire);
@@ -1083,6 +1098,291 @@ public static class DeskMenus
             new MenuGroup("LIVE", MenuTone.Live, live) { Note = LiveNote },
         }));
     }
+
+    // ---- a page of the rail (round 74) ----------------------------------------------------
+
+    /// <summary>The build group's rule in one line.</summary>
+    public const string BuildNote = "Edits the show file from a deck: a * takes the words the deck asks for.";
+
+    /// <summary>
+    /// Round 74: a page's own menu — what a deck's navigator lays on its keys when the operator
+    /// steps onto the page. The things on it (looks, cues, designs, people, kinds, presets, media,
+    /// screens, overlays, tracks, games), each with its line, its tick and the words that open its
+    /// own menu; the page's build verbs (a look saved, a cue added, a preset saved, a design made),
+    /// with * where the deck's text goes; the page on the desk and its settings column; and the
+    /// MIDI group like every menu. Built from facts alone, so the wire (MENU PAGE Looks), the deck
+    /// and a test read the same menu. Every line is its wire line parsed, so the two never disagree.
+    /// </summary>
+    public static DeskMenu Page(DeskFacts d, PageFacts p)
+    {
+        var header = p.Header;
+        var groups = new List<MenuGroup>();
+        switch (header)
+        {
+            case "Panel":
+            case "Run":
+                groups.Add(new MenuGroup("TRANSPORT", MenuTone.Live, Transport(d).Groups[0].Entries) { Note = LiveNote });
+                groups.Add(LooksGroup(d));
+                break;
+            case "Looks":
+                groups.Add(LooksGroup(d));
+                groups.Add(new MenuGroup("BUILD", MenuTone.Stack, new[]
+                {
+                    Build("build.look.save", "Save the preview as a look…", "LOOK SAVE *", "A name; a look of that name is updated instead"),
+                    new MenuEntry("build.look.update", d.HasLookOnAir ? $"Update '{d.LookOnAirName}' from the preview" : "Update the look on air", MenuScope.Stack, MenuTone.Stack)
+                    {
+                        Detail = "The picture in the preview becomes the look on air",
+                        Wire = "LOOK UPDATE",
+                        Action = new ShowAction(ShowActionKind.LookUpdate),
+                        Because = d.HasLookOnAir ? "" : "No look is on air — LOOK UPDATE <name> names one.",
+                    },
+                    Build("build.look.delete", "Delete a look…", "LOOK DELETE *", "By name; a look a cue recalls is refused"),
+                }) { Note = BuildNote });
+                break;
+            case "Cues":
+            {
+                var cues = p.Cues.Select(c => new MenuEntry("cue:" + c.Id, $"{c.Number} {c.Name}".TrimEnd(), MenuScope.Stack, c.Problem.Length > 0 ? MenuTone.Warn : MenuTone.Stack)
+                {
+                    Detail = c.Problem.Length > 0 ? c.Problem : c.Standby ? "STANDBY — GO runs it" : "Standby it: GO runs it next",
+                    Wire = $"CUE STANDBY {c.Number}",
+                    Action = new ShowAction(ShowActionKind.CueStandby, c.Number),
+                    Menu = $"CUE {c.Number}",
+                    IsOn = c.Standby,
+                }).ToList();
+                if (cues.Count > 0) groups.Add(new MenuGroup("THE STACK", MenuTone.Stack, cues) { Note = "Standby moves; nothing goes to air until GO." });
+                groups.Add(new MenuGroup("BUILD", MenuTone.Stack, new[]
+                {
+                    new MenuEntry("build.cue.add", "Add a cue after the standby", MenuScope.Stack, MenuTone.Stack)
+                    {
+                        Detail = "Numbered to fit, named 'New cue' — the settings column opens for it on the desk",
+                        Wire = "CUE ADD",
+                        Action = new ShowAction(ShowActionKind.CueAdd),
+                    },
+                    Build("build.cue.add.named", "Add a cue named…", "CUE ADD *", "After the standby, numbered to fit"),
+                    Build("build.cue.delete", "Delete a cue…", "CUE DELETE *", "By number or name; refused while the stack is armed"),
+                }) { Note = BuildNote });
+                break;
+            }
+            case "Lower thirds":
+            {
+                var designs = d.Designs.Select(x => new MenuEntry("lt:" + x.Id, (x.IsDefault ? "★ " : "") + x.Name, MenuScope.Live, MenuTone.Live)
+                {
+                    Detail = x.OnAir ? "ON AIR" : x.InPreview ? "in the preview" : "On air now, with the show's default name",
+                    Wire = $"LT {x.Name}",
+                    Action = new ShowAction(ShowActionKind.LowerThirdShow, x.Name),
+                    Menu = $"LT {x.Name}",
+                    IsOn = x.OnAir,
+                    Because = d.PrepMode ? "PREP mode — the show is not live." : "",
+                }).ToList();
+                if (designs.Count > 0) groups.Add(new MenuGroup("DESIGNS", MenuTone.Live, designs) { Note = LiveNote });
+                var people = d.People.Select(x => new MenuEntry("person:" + x.Id, x.Name, MenuScope.Live, MenuTone.Live)
+                {
+                    Detail = x.Summary.Length > 0 ? x.Summary : "On air now, in the show's default design",
+                    Wire = $"PERSON {x.Name}",
+                    Action = new ShowAction(ShowActionKind.LowerThirdShow, "", x.Name),
+                    Menu = $"PERSON {x.Name}",
+                    Because = d.PrepMode ? "PREP mode — the show is not live." : "",
+                }).ToList();
+                if (people.Count > 0) groups.Add(new MenuGroup("PEOPLE", MenuTone.Live, people) { Note = LiveNote });
+                var presets = LowerThirds.LowerThirdPresets.Names.Concat(new[] { "Blank" }).Select(name => new MenuEntry("build.lt.new:" + name, name, MenuScope.Stack, MenuTone.Stack)
+                {
+                    Detail = "A new design from this preset, named…",
+                    Wire = $"LT NEW * FROM {name}",
+                    Action = new ShowAction(ShowActionKind.LowerThirdNew, name, "*"),
+                }).ToList();
+                groups.Add(new MenuGroup("BUILD", MenuTone.Stack, new[]
+                {
+                    Build("build.lt.new", "New lower third named…", "LT NEW *", "From the Clean preset; the Lower thirds page opens on it"),
+                    new MenuEntry("build.lt.from", "New lower third from a preset…", MenuScope.Stack, MenuTone.Stack) { Detail = "Choose the preset, then the name", Children = presets },
+                    new MenuEntry("build.lt.off", "Lower third off", MenuScope.Live, MenuTone.Live) { Detail = "Whatever is on screen leaves", Wire = "LT OFF", Action = new ShowAction(ShowActionKind.LowerThirdHide) },
+                }) { Note = BuildNote });
+                break;
+            }
+            case "Pattern":
+            {
+                var kinds = d.Kinds.Select(k => new MenuEntry("kind:" + k.Word, k.Label, MenuScope.Preview, MenuTone.Preview)
+                {
+                    Detail = "The editing target's picture becomes this kind — in the preview",
+                    Wire = $"PVW PATTERN {k.Word}",
+                    Action = ControlProtocol.Parse($"PVW PATTERN {k.Word}").Action,
+                }).ToList();
+                groups.Add(new MenuGroup("KINDS", MenuTone.Preview, kinds) { Note = PreviewNote });
+                if (d.Presets.Count > 0) groups.Add(new MenuGroup("PRESETS", MenuTone.Preview, PresetEntries(d, "PVW PRESET")) { Note = PreviewNote });
+                groups.Add(new MenuGroup("BUILD", MenuTone.Stack, new[] { Build("build.preset.save", "Save the picture as a preset…", "PRESET SAVE *", "The editing target's picture into the Library, by name") }) { Note = BuildNote });
+                break;
+            }
+            case "Library":
+            case "Media":
+            {
+                if (d.Presets.Count > 0 && header == "Library") groups.Add(new MenuGroup("PRESETS", MenuTone.Preview, PresetEntries(d, "LIBRARY")) { Note = PreviewNote });
+                var media = d.Media.Select(m => new MenuEntry("media:" + m.Id, m.Name, MenuScope.Preview, MenuTone.Preview)
+                {
+                    Detail = (m.IsVideo ? "a clip" : "a still") + " — onto the editing target's preview",
+                    Wire = $"LIBRARY {m.Name}",
+                    Action = new ShowAction(ShowActionKind.ScreenStageLibrary, "FOCUSED", m.Name),
+                }).ToList();
+                if (media.Count > 0) groups.Add(new MenuGroup("MEDIA", MenuTone.Preview, media) { Note = PreviewNote });
+                if (header == "Media")
+                {
+                    groups.Add(new MenuGroup("THE CLIP", MenuTone.Live, new[]
+                    {
+                        new MenuEntry("video.restart", "Clip from the top", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air restarts", Wire = "VIDEO RESTART", Action = new ShowAction(ShowActionKind.VideoRestart) },
+                        new MenuEntry("video.end", "Clip to its end", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air jumps to its last seconds", Wire = "VIDEO END", Action = new ShowAction(ShowActionKind.VideoToEnd) },
+                    }) { Note = LiveNote });
+                }
+                break;
+            }
+            case "Overlays":
+            case "Countdown":
+            {
+                var kinds = header == "Countdown" ? PreviewEdits.OverlayKinds.Where(k => k.Kind == "countdown") : PreviewEdits.OverlayKinds;
+                groups.Add(new MenuGroup("OVERLAYS", MenuTone.Go, kinds.Select(k => new MenuEntry("overlay:" + k.Kind, k.Label, MenuScope.Go, MenuTone.Go)
+                {
+                    Detail = "Its own menu: on and off, where it sits, its words",
+                    Menu = k.Kind.ToUpperInvariant(),
+                    Route = new MenuRoute(header),
+                }).ToList()));
+                break;
+            }
+            case "Layers":
+                groups.Add(new MenuGroup("LAYERS", MenuTone.Go, new[] { 1, 2 }.Select(i => new MenuEntry("layer:" + i, $"Layer {i}", MenuScope.Go, MenuTone.Go)
+                {
+                    Detail = "Its own menu: on and off, its source, its blend",
+                    Menu = $"LAYER {i}",
+                    Route = new MenuRoute("Layers"),
+                }).ToList()));
+                break;
+            case "Screens":
+            case "Multiview":
+            {
+                var screens = p.Screens.Select(x => new MenuEntry("screen:" + x.TargetId, x.Number.Length > 0 ? $"{x.Number} · {x.Title}" : x.Title, MenuScope.Go, MenuTone.Go)
+                {
+                    Detail = x.Words,
+                    Menu = x.Number.Length > 0 ? $"SCREEN {x.Number}" : $"SCREEN {x.TargetId}",
+                    Route = new MenuRoute("Screens", x.TargetId),
+                    IsOn = x.Live,
+                }).ToList();
+                if (screens.Count > 0) groups.Add(new MenuGroup("SCREENS", MenuTone.Go, screens) { Note = "Each screen's own menu: its picture, its switches, its group." });
+                groups.Add(new MenuGroup("THE PROGRAMME", MenuTone.Go, new[]
+                {
+                    new MenuEntry("screen:pgm", "The programme", MenuScope.Go, MenuTone.Go) { Detail = "The picture every screen without its own follows", Menu = "PGM", Route = new MenuRoute("Screens") },
+                }));
+                break;
+            }
+            case "Audio":
+            {
+                var tracks = p.Tracks.Select(t => new MenuEntry("track:" + t.Id, t.Name, MenuScope.Live, MenuTone.Live)
+                {
+                    Detail = "Plays now, through the routing matrix",
+                    Wire = $"AUDIO PLAY {t.Name}",
+                    Action = new ShowAction(ShowActionKind.AudioPlay, t.Name),
+                }).ToList();
+                if (tracks.Count > 0) groups.Add(new MenuGroup("TRACKS", MenuTone.Live, tracks) { Note = LiveNote });
+                var music = p.Music.Select(m => new MenuEntry("music:" + m.Id, m.Name, MenuScope.Live, MenuTone.Live)
+                {
+                    Detail = "Break music, now",
+                    Wire = $"MUSIC PLAY {m.Name}",
+                    Action = new ShowAction(ShowActionKind.SpotifyPlay, m.Name),
+                }).ToList();
+                if (music.Count > 0) groups.Add(new MenuGroup("BREAK MUSIC", MenuTone.Live, music) { Note = LiveNote });
+                groups.Add(new MenuGroup("SOUND", MenuTone.Live, new[]
+                {
+                    new MenuEntry("music.pause", "Break music — pause", MenuScope.Live, MenuTone.Live) { Detail = "The break music pauses", Wire = "MUSIC PAUSE", Action = new ShowAction(ShowActionKind.SpotifyPause) },
+                    new MenuEntry("stopall", "STOP ALL", MenuScope.Live, MenuTone.Live) { Detail = "The track, the music, any VOG or stinger and the tone — never the outputs", Wire = "STOPALL", Action = new ShowAction(ShowActionKind.StopAll) },
+                }) { Note = LiveNote });
+                break;
+            }
+            case "Arcade":
+            {
+                var games = p.Games.Select(g => new MenuEntry("game:" + g.Id, g.Name, MenuScope.Live, MenuTone.Live)
+                {
+                    Detail = "Starts on the arcade source",
+                    Wire = $"ARCADE START {g.Id}",
+                    Action = new ShowAction(ShowActionKind.ArcadeStart, "", g.Id),
+                }).ToList();
+                if (games.Count > 0) groups.Add(new MenuGroup("GAMES", MenuTone.Live, games) { Note = LiveNote });
+                groups.Add(new MenuGroup("THE ARCADE", MenuTone.Live, new[]
+                {
+                    new MenuEntry("arcade.stop", "Stop the game", MenuScope.Live, MenuTone.Live) { Detail = "Back to attract mode", Wire = "ARCADE STOP", Action = new ShowAction(ShowActionKind.ArcadeStop) },
+                }) { Note = LiveNote });
+                break;
+            }
+            case "Eye":
+                groups.Add(new MenuGroup("THE EYE", MenuTone.Go, new[]
+                {
+                    new MenuEntry("eye.next", "Next problem", MenuScope.Go, MenuTone.Go) { Detail = "The Eye focuses the next thing that needs a look", Wire = "EYE NEXT", Action = new ShowAction(ShowActionKind.EyeNext), Route = new MenuRoute("Eye") },
+                    new MenuEntry("eye.prev", "Previous problem", MenuScope.Go, MenuTone.Go) { Wire = "EYE PREV", Action = new ShowAction(ShowActionKind.EyePrev), Route = new MenuRoute("Eye") },
+                    new MenuEntry("eye.reset", "Whole picture", MenuScope.Go, MenuTone.Go) { Detail = "The camera fits everything", Wire = "EYE RESET", Action = new ShowAction(ShowActionKind.EyeReset), Route = new MenuRoute("Eye") },
+                }));
+                break;
+            case "Assistant":
+                groups.Add(new MenuGroup("ASK", MenuTone.Ask, new[]
+                {
+                    Ask("ask.show", "What should I check before the show?", "Looking at the show as it stands — the rig, the cue stack, the looks, the lower thirds and the machine — what should be checked before the doors open?", d),
+                    Ask("ask.cues", "Walk me through the cue stack", "Read the caller's cue stack in order and say, for each cue, what it puts up and what could go wrong?", d),
+                }));
+                break;
+        }
+        var go = new List<MenuEntry>
+        {
+            new("go.page", p.IsCurrent ? "The desk is on this page" : "Open on the desk", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = p.IsCurrent ? "" : $"The {p.Rail} rail turns to it",
+                Route = new MenuRoute(header),
+                Wire = "NAV " + header,
+                Action = new ShowAction(ShowActionKind.NavPage, header),
+                IsOn = p.IsCurrent,
+            },
+        };
+        if (p.HasSettings)
+        {
+            go.Add(new MenuEntry("go.settings", p.SettingsOpen ? "Settings column — open" : "Settings column", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = "The column beside the page, for the selected thing's settings",
+                Route = new MenuRoute(header),
+                Wire = "NAV SETTINGS TOGGLE",
+                Action = new ShowAction(ShowActionKind.NavSettings, "", "TOGGLE"),
+                IsOn = p.SettingsOpen,
+            });
+        }
+        groups.Add(new MenuGroup("GO TO", MenuTone.Go, go));
+        var subtitle = Join(p.Rail.Length > 0 ? $"{p.Rail} rail" : "", p.IsCurrent ? "the desk is here" : "", p.SettingsOpen ? "settings column open" : "");
+        return WithMidi(d, new DeskMenu("page", header, header.ToUpperInvariant(), subtitle, MenuTone.Go, groups));
+    }
+
+    /// <summary>The show's looks as a page lists them: each fires on air, opens its own menu, and is ticked when it is the look on air.</summary>
+    private static MenuGroup LooksGroup(DeskFacts d)
+    {
+        var looks = d.Looks.Select(l => new MenuEntry("look:" + l.Id, l.Name, MenuScope.Live, MenuTone.Live)
+        {
+            Detail = Join(l.OnAir ? "ON AIR" : "", l.InPreview ? "in the preview" : "", l.Hotkey > 0 ? $"F{l.Hotkey}" : "", "on air now, with the transition"),
+            Wire = $"LOOK {l.Name}",
+            Action = new ShowAction(ShowActionKind.ApplyLook, l.Name),
+            Menu = $"LOOK {l.Name}",
+            IsOn = l.OnAir,
+            Because = d.PrepMode ? "PREP mode — the show is not live; looks land in the preview." : "",
+        }).ToList();
+        if (looks.Count == 0)
+        {
+            looks.Add(new MenuEntry("look:none", "No looks yet", MenuScope.Go, MenuTone.Go) { Detail = "Build a picture and save it as a look on the Looks page", Route = new MenuRoute("Looks") });
+        }
+        return new MenuGroup("LOOKS", MenuTone.Live, looks) { Note = LiveNote };
+    }
+
+    private static List<MenuEntry> PresetEntries(DeskFacts d, string verb) => d.Presets.Select(name => new MenuEntry("preset:" + name, name, MenuScope.Preview, MenuTone.Preview)
+    {
+        Detail = "Into the editing target's preview",
+        Wire = $"{verb} {name}",
+        Action = ControlProtocol.Parse($"{verb} {name}").Action,
+    }).ToList();
+
+    /// <summary>A build verb that takes a text where its * is; the action is the line parsed with the * in place, so the kind is the line's.</summary>
+    private static MenuEntry Build(string id, string text, string wire, string detail) => new(id, text, MenuScope.Stack, MenuTone.Stack)
+    {
+        Detail = detail,
+        Wire = wire,
+        Action = ControlProtocol.Parse(wire).Action,
+    };
 
     private static MenuEntry Go(string id, string text, string page, string item = "")
         => new(id, text, MenuScope.Go, MenuTone.Go) { Route = new MenuRoute(page, item) };

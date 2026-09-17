@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.LowerThirds;
 using Patterns.Core.Menus;
 using Patterns.Core.Model;
@@ -45,6 +46,45 @@ public static class DeskMenuFacts
             HasMidiSurface = s.MidiLearn.HasSurface,
             MidiSurfaceOpen = s.MidiLearn.SurfaceOpen,
             MidiLearning = s.MidiLearn.Wire,
+        };
+    }
+
+    /// <summary>
+    /// Round 74: a page's facts for its menu — the rail and the hue from the desk's one table,
+    /// whether the desk is on it and its settings column is there and open, and the things on it
+    /// the desk's facts do not carry: the screens in the overview's order, the caller's cues with
+    /// the standby and any hard problem, the playlist's tracks, the break-music entries, the games.
+    /// </summary>
+    public static PageFacts Page(AppServices s, string header)
+    {
+        var state = s.State;
+        var page = DeskPages.Find(header);
+        var nav = s.Navigator?.Facts();
+        var onIt = nav is not null && (header == "Run" ? nav.Run : nav.Page == header && !nav.Run);
+        var stack = CueStacks.Caller(state);
+        var standbyId = s.CueStack.StandbyCue?.Id ?? "";
+        var report = header == "Cues" ? CueValidator.Validate(state, stack, s.ValidationContext) : null;
+        return new PageFacts(header)
+        {
+            Rail = page is null ? "" : DeskPages.FindRail(page.Rail)?.Label ?? page.Rail,
+            Hue = page?.Hue ?? "",
+            IsCurrent = onIt,
+            HasSettings = header is "Cues" or "Screens" or "Lower thirds",
+            SettingsOpen = onIt && nav is { SettingsOpen: true },
+            Screens = header is "Screens" or "Multiview"
+                ? Rig.OrderedLivePlacements(state, s.Screens.All).Select((x, i) =>
+                {
+                    var f = Screen(s, x.Placement.ScreenId);
+                    var words = string.Join(" · ", new[] { f.OnAir ? "on air" : "", f.Own ? "its own picture" : "follows the programme", f.Locked ? "LOCKED" : "", f.Armed ? "" : "not armed", f.RoleBadge }.Where(w => w.Length > 0));
+                    return new MenuScreen((i + 1).ToString(CultureInfo.InvariantCulture), x.Placement.ScreenId, f.Title, words, f.OnAir);
+                }).ToList()
+                : Array.Empty<MenuScreen>(),
+            Cues = header == "Cues"
+                ? stack.Cues.Select(c => new MenuCue(c.Id, c.Number, c.Name, c.Id == standbyId, report is not null && report.Broken.TryGetValue(c.Id, out var why) ? why : "")).ToList()
+                : Array.Empty<MenuCue>(),
+            Tracks = header == "Audio" ? state.AudioPlayer.Items.Select(t => new MenuThing(t.Id, t.DisplayName)).ToList() : Array.Empty<MenuThing>(),
+            Music = header == "Audio" ? state.Spotify.Items.Select(m => new MenuThing(m.Id, m.DisplayName)).ToList() : Array.Empty<MenuThing>(),
+            Games = header == "Arcade" ? Patterns.Arcade.ArcadeEngine.Catalogue.Select(g => new MenuThing(g.Id, g.Title)).ToList() : Array.Empty<MenuThing>(),
         };
     }
 

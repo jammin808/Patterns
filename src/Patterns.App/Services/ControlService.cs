@@ -372,6 +372,27 @@ public sealed partial class ControlService : IDisposable
                         _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow) { Paired = Paired(token, presented, loopback) };
                     }
                 }
+                if (cmd.Kind is RemoteCommandKind.NavDeck or RemoteCommandKind.Record)
+                {
+                    // Round 74: the deck's own facts — where its navigator is, whether it is recording a button —
+                    // kept per connection by the port (nothing runs); STATE's decks row and the Eye's deck node read them.
+                    var recording = cmd.Kind == RemoteCommandKind.Record && cmd.Text == "ON";
+                    lock (_gate)
+                    {
+                        var deck = _decks.TryGetValue(client, out var known)
+                            ? known
+                            : new WireDeck(origin.Name.Length > 0 ? origin.Name : address, "", address, DateTime.UtcNow) { Paired = Paired(token, presented, loopback) };
+                        _decks[client] = cmd.Kind == RemoteCommandKind.NavDeck ? deck with { Where = cmd.Text } : deck with { Recording = recording };
+                        if (cmd.Kind == RemoteCommandKind.Record)
+                        {
+                            if (recording) _recording[peer] = endpoint;
+                            else _recording.Remove(peer);
+                        }
+                    }
+                    peer.Say(ControlProtocol.Ok(cmd.Kind == RemoteCommandKind.NavDeck ? "at " + cmd.Text : recording ? "recording — the desk's actions follow as ACTION lines" : "recording off"));
+                    ArmPush();
+                    continue;
+                }
                 if (!ControlProtocol.IsQuery(cmd) && !Paired(token, presented, loopback))
                 {
                     // A mutating verb from a connection that has not paired: refused in the wire's words, nothing run.
@@ -392,6 +413,7 @@ public sealed partial class ControlService : IDisposable
             {
                 _peers.Remove(peer);
                 _decks.Remove(client);
+                _recording.Remove(peer);
             }
             peer.Dispose();
             _wireLedger.Release(address);
@@ -425,6 +447,48 @@ public sealed partial class ControlService : IDisposable
     public long Rev => Interlocked.Read(ref _rev);
 
     private readonly Dictionary<TcpClient, WireDeck> _decks = new();
+
+    /// <summary>Round 74: the peers that asked for the desk's actions (RECORD ON), each with its own endpoint so its own presses are not fed back to it.</summary>
+    private readonly Dictionary<WirePeer, string> _recording = new();
+
+    private ShowActions? _feed;
+
+    /// <summary>Round 74: the action layer this port listens to for the recorder's feed (the desk's; a node's port has none to give).</summary>
+    public void FeedFrom(ShowActions actions)
+    {
+        _feed = actions;
+        actions.Performed += Feed;
+    }
+
+    /// <summary>
+    /// Round 74: the recorder's feed. Every action that ran — a key, a menu line, a MIDI pad, another
+    /// deck's press — goes to each peer that is recording, as the wire line that reproduces it
+    /// (ACTION LOOK Walk-in), so Companion's Action Recorder writes the desk's own words into a
+    /// button. Automation (a cue's steps, a follow, the schedule, a playlist, a stinger, a recovery)
+    /// is not a press and is not fed; a refused action did nothing and is not fed; the recording
+    /// deck's own presses are its own buttons already and are not fed back to it; a kind the wire
+    /// has no line for (TAKE, CUT, a note) is not fed.
+    /// </summary>
+    public void Feed(ShowAction action, ActionOrigin origin, ActionResult result)
+    {
+        if (!result.Ok || IsAutomation(origin.Kind)) return;
+        List<KeyValuePair<WirePeer, string>> recording;
+        lock (_gate)
+        {
+            if (_recording.Count == 0) return;
+            recording = _recording.ToList();
+        }
+        var line = WireWriter.Line(_feed?.Readable(action) ?? action);   // the look's name, the screen's number — the operator's words, not the desk's ids
+        if (line.Length == 0) return;
+        foreach (var (peer, endpoint) in recording)
+        {
+            if (origin.Kind == OriginKind.Tcp && origin.Endpoint == endpoint) continue;
+            peer.Say("ACTION " + line);
+        }
+    }
+
+    private static bool IsAutomation(OriginKind kind)
+        => kind is OriginKind.Cue or OriginKind.Follow or OriginKind.Schedule or OriginKind.Playlist or OriginKind.Stinger or OriginKind.Recovery;
 
     /// <summary>The decks that said HELLO and are still connected — name, module version, address — for the Remote page and STATE.</summary>
     public IReadOnlyList<WireDeck> Decks

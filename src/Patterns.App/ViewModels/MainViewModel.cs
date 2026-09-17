@@ -261,6 +261,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         _services.FocusedTarget = () => _selectedTargetId;
         _services.TakeScopeWords = () => SelectedTakeScope.Words;
         _services.EditingFacts = EditingFactsNow;                                              // round 73: STATE's editing row and the Eye read the desk's editors
+        _services.Navigator = this;                                                             // round 74: a deck turns the desk's pages through the action layer
         _services.NextTake.Changed += () =>
         {
             Raise(nameof(TakeButtonText));

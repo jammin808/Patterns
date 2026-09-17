@@ -38,6 +38,8 @@ public static class MenuJson
         scope = e.Scope.ToString().ToLowerInvariant(),
         tone = e.Tone.ToString().ToLowerInvariant(),
         wire = e.Wire,
+        menu = e.Menu,
+        takesText = e.TakesText,
         because = e.Because,
         on = e.IsOn,
         enabled = e.IsEnabled,

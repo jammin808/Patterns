@@ -96,6 +96,8 @@ public sealed class EyeFacts
     public string LowerThird { get; init; } = "";
     /// <summary>Round 73: MIDI learn and the surfaces' map in words — "learning LOOK Walk-in — press a control", "12 controls bound on APC40"; "" with no surface in the show.</summary>
     public string Midi { get; init; } = "";
+    /// <summary>Round 74: where the desk is, in words ("On the Cues page · settings column: SELECTED CUE · 03.020"); "" on a node.</summary>
+    public string Nav { get; init; } = "";
     public IReadOnlyList<EyeDisplay> Displays { get; init; } = Array.Empty<EyeDisplay>();
     public IReadOnlyList<EyeScreen> Screens { get; init; } = Array.Empty<EyeScreen>();
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
@@ -167,7 +169,13 @@ public sealed record EyeSource(string Key, string Label, string Kind, bool Mount
 public sealed record EyeDevice(string Id, string Name, string Profile, string Address, bool Enabled, bool Open, string Status, CheckLight Light, string Words, string InputScreen = "", string Received = "", int Mapped = 0);
 
 /// <summary>A controller that said HELLO on the wire; Paired when it presented the show's token (or none is asked).</summary>
-public sealed record EyeDeck(string Name, string Module, string Address, bool Paired);
+public sealed record EyeDeck(string Name, string Module, string Address, bool Paired)
+{
+    /// <summary>Round 74: where the deck's navigator is, in the deck's own words ("PLAN › Cues › 03.020"); "" for a deck that has not said.</summary>
+    public string Where { get; init; } = "";
+    /// <summary>Round 74: the deck is recording the desk's actions into a button.</summary>
+    public bool Recording { get; init; }
+}
 
 /// <summary>A Companion heard on mDNS.</summary>
 public sealed record EyeCompanion(string Host, string Address, bool Fresh, string Version);
@@ -489,6 +497,7 @@ public sealed class EyeGraph
         if (f.Editing.Length > 0) deskWords.Add($"Editing {f.Editing}");                             // round 73: what the desk's editors are on
         if (f.LowerThird.Length > 0) deskWords.Add($"Lower third {f.LowerThird}");                    // round 73: the name on screen and when it leaves
         if (f.Midi.Length > 0) deskWords.Add($"MIDI {f.Midi}");                                        // round 73: learn armed, or the surfaces' map
+        if (f.Nav.Length > 0) deskWords.Add(f.Nav);                                                    // round 74: the page, the column, the selection
         deskWords.AddRange(f.Attention);
         Add(new EyeNode(DeskId, EyeKind.Desk, EyePlane.Video, 1, f.MachineName.Length > 0 ? f.MachineName : "This desk", f.OutputsLive ? "outputs live" : "outputs closed", f.Health)
         {
@@ -633,7 +642,11 @@ public sealed class EyeGraph
             var id = $"deck:{d.Name}@{d.Address}";
             var light = d.Paired ? CheckLight.Green : CheckLight.Amber;
             var sub = d.Paired ? "paired" + (d.Module.Length > 0 ? $" · module {d.Module}" : "") : "connected, not paired — its keys do nothing";
-            Add(new EyeNode(id, EyeKind.Deck, EyePlane.Control, 0, d.Name.Length > 0 ? d.Name : d.Address, sub, light) { Words = new[] { d.Address, d.Module.Length > 0 ? "module " + d.Module : "" }.Where(w => w.Length > 0).ToList(), Route = new MenuRoute("Remote") });
+            Add(new EyeNode(id, EyeKind.Deck, EyePlane.Control, 0, d.Name.Length > 0 ? d.Name : d.Address, sub, light)
+            {
+                Words = new[] { d.Address, d.Module.Length > 0 ? "module " + d.Module : "", d.Where.Length > 0 ? "navigator: " + d.Where : "", d.Recording ? "recording the desk's actions" : "" }.Where(w => w.Length > 0).ToList(),   // round 74: where its navigator is
+                Route = new MenuRoute("Remote"),
+            });
             Link(id, DeskId, EyeEdgeKind.Controls, light, d.Paired ? "paired" : "not paired");
         }
         foreach (var c in f.Companions.Where(c => !deckAddresses.Contains(c.Address)).OrderBy(c => c.Host, StringComparer.OrdinalIgnoreCase))

@@ -224,3 +224,35 @@ public sealed record MonitorFacts
 
 /// <summary>A video sting of the library as the NEXT TRANSITION drawer lists it (round 67.6).</summary>
 public sealed record MenuSting(string Id, string Name);
+
+/// <summary>Round 74: a screen or a canvas as a page's menu lists it — the wire's number ("" for a canvas), the target id, the title, a line of words, and whether it is live.</summary>
+public sealed record MenuScreen(string Number, string TargetId, string Title, string Words, bool Live);
+
+/// <summary>Round 74: a cue of the caller's stack as the Cues page's menu lists it.</summary>
+public sealed record MenuCue(string Id, string Number, string Name, bool Standby, string Problem);
+
+/// <summary>Round 74: a thing named by id and name — a track of the audio playlist, a break-music entry, a game of the arcade.</summary>
+public sealed record MenuThing(string Id, string Name);
+
+/// <summary>
+/// Round 74: a page of the rail as its menu sees it — the header, the rail and the hue from the
+/// desk's one table, whether the desk is on it and whether its settings column is there and open,
+/// and the things on it that the desk's facts do not already carry (screens, cues, tracks, music,
+/// games). Looks, designs, people, presets, media and kinds come with <see cref="DeskFacts"/>.
+/// </summary>
+public sealed record PageFacts(string Header)
+{
+    public string Rail { get; init; } = "";
+    public string Hue { get; init; } = "";
+    /// <summary>The desk is on this page now.</summary>
+    public bool IsCurrent { get; init; }
+    /// <summary>The page has a settings column for its selection (the Cues, Screens, Lower thirds and Machine pages).</summary>
+    public bool HasSettings { get; init; }
+    /// <summary>The column is open now.</summary>
+    public bool SettingsOpen { get; init; }
+    public IReadOnlyList<MenuScreen> Screens { get; init; } = Array.Empty<MenuScreen>();
+    public IReadOnlyList<MenuCue> Cues { get; init; } = Array.Empty<MenuCue>();
+    public IReadOnlyList<MenuThing> Tracks { get; init; } = Array.Empty<MenuThing>();
+    public IReadOnlyList<MenuThing> Music { get; init; } = Array.Empty<MenuThing>();
+    public IReadOnlyList<MenuThing> Games { get; init; } = Array.Empty<MenuThing>();
+}

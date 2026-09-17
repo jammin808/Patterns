@@ -24,6 +24,8 @@ public class CompanionWordsTests
         Assert.Equal($"FOH deck (module {CompanionModule.Version}, 10.0.0.5)", new WireDeck("FOH deck", CompanionModule.Version, "10.0.0.5", since).Line);   // the current module: no word
         Assert.Equal($"Stage deck (module 2.8.0 — {CompanionModule.Version} is current, in the app's integrations folder, 10.0.0.6)", new WireDeck("Stage deck", "2.8.0", "10.0.0.6", since).Line);
         Assert.Equal("script (no module — Generic TCP or a script, 10.0.0.7)", new WireDeck("script", "", "10.0.0.7", since).Line);
+        // Round 74: where the deck's navigator is, and that it is recording, on the same line.
+        Assert.Equal($"FOH deck (module {CompanionModule.Version}, 10.0.0.5) — navigator at PLAN › Cues — recording", new WireDeck("FOH deck", CompanionModule.Version, "10.0.0.5", since) { Where = "PLAN › Cues", Recording = true }.Line);
         Assert.True(CompanionWords.IsOlder("2.8.0", "3.0.0"));
         Assert.True(CompanionWords.IsOlder("v2.8", "3.0.0"));
         Assert.False(CompanionWords.IsOlder("3.0.0", "3.0.0"));

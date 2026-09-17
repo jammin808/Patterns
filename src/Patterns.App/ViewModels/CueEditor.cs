@@ -265,6 +265,8 @@ public sealed class ActionRow : Observable
         TargetKind.Place => "Where… (blank = every screen)",
         TargetKind.AudioSource => "Which sound…",
         TargetKind.AudioDestination => "Which destination…",
+        TargetKind.DeskPage => "Which page or rail… (Cues, Looks, Screens, SHOW, PLAN…)",
+        TargetKind.Preset => "Which lower-thirds preset… (blank = plain)",
         _ => "",
     };
 

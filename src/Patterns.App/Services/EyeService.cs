@@ -249,7 +249,7 @@ public sealed class EyeService
         }).ToList();
 
         var token = state.Control.Token;
-        var decks = _s.Control.Decks.Select(d => new EyeDeck(d.Name, d.Module, d.Address, d.Paired || !PairingToken.Needed(token))).ToList();
+        var decks = _s.Control.Decks.Select(d => new EyeDeck(d.Name, d.Module, d.Address, d.Paired || !PairingToken.Needed(token)) { Where = d.Where, Recording = d.Recording }).ToList();   // round 74: where each deck's navigator is
         var companions = _s.Kernel.Mdns.Companions
             .Select(c => new EyeCompanion(c.Host.Length > 0 ? c.Host : c.Instance, c.Address?.ToString() ?? "", !c.Expired(now), c.Txt.TryGetValue("version", out var v) ? v : ""))
             .ToList();
@@ -346,6 +346,7 @@ public sealed class EyeService
             Editing = _s.EditingFacts?.Invoke()?.Words ?? "",                                           // round 73: what the desk's editors are on
             LowerThird = LowerThirdWords(air, now),                                                       // round 73: the name on screen and when it leaves
             Midi = _s.MidiLearn.EyeWords,                                                                // round 73: learn armed, or the surfaces' map
+            Nav = _s.Actions.NavWords(),                                                                 // round 74: the page, the column, the selection
             Displays = displays,
             Screens = screens,
             Sources = sources,
