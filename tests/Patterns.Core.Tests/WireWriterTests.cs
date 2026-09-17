@@ -18,6 +18,11 @@ public class WireWriterTests
         foreach (var (line, action) in WireVocabularyTests.Verbs)
         {
             var written = WireWriter.Line(action);
+            if (ActionSpec.CarriesSecret(action.Kind))
+            {
+                Assert.Equal("", written);   // round 75: the passcode rides the target, and the writer never spells it back
+                continue;
+            }
             Assert.False(written.Length == 0, $"{line}: {action.Kind} has a line");
             var back = ControlProtocol.Parse(written);
             Assert.True(back.IsAction, $"{line} → '{written}' is a line of the wire");
@@ -32,6 +37,21 @@ public class WireWriterTests
         Assert.Equal("", WireWriter.Line(new ShowAction(ShowActionKind.Cut)));
         Assert.Equal("", WireWriter.Line(new ShowAction(ShowActionKind.Note, "", "a note")));
         Assert.Equal("", WireWriter.Line(new ShowAction(ShowActionKind.Unknown)));
+    }
+
+    [Fact]
+    public void TheAdminVerbsWriteNothingSoNoFeedCarriesThePasscode()
+    {
+        foreach (var kind in new[] { ShowActionKind.UpdateApply, ShowActionKind.Restart })
+        {
+            Assert.True(ActionSpec.CarriesSecret(kind));
+            var line = WireWriter.Line(new ShowAction(kind, "hunter2-9931"));
+            Assert.Equal("", line);
+            Assert.False(Secrets.Carries(line, "hunter2-9931"));
+        }
+        Assert.False(ActionSpec.CarriesSecret(ShowActionKind.ApplyLook));
+        Assert.False(ActionSpec.CarriesSecret(ShowActionKind.LookSave));
+        Assert.False(ActionSpec.CarriesSecret(ShowActionKind.VideoRestart));   // a restart of the clip, no passcode on it
     }
 
     [Fact]

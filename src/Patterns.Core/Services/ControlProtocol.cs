@@ -1402,9 +1402,21 @@ public static class ControlProtocol
     /// True for a line that reads and never writes — STATUS, PING, HELLO, AUTH, CUE LIST, the
     /// MENU and the other queries — which a connection that has not paired may send. Every action
     /// is a mutating verb and waits for the token (round 65); an unknown line is let through to
-    /// its "unknown command" answer, which gives nothing away.
+    /// its "unknown command" answer, which gives nothing away. Round 75: RECORD and NAV DECK are
+    /// not queries either — RECORD subscribes the connection to the desk's action feed and NAV
+    /// DECK writes the deck's whereabouts into STATE, the Remote page and the Eye — so both wait
+    /// for the token like a verb.
     /// </summary>
-    public static bool IsQuery(RemoteCommand cmd) => cmd.Kind != RemoteCommandKind.Action;
+    public static bool IsQuery(RemoteCommand cmd) => cmd.Kind is not (RemoteCommandKind.Action or RemoteCommandKind.Record or RemoteCommandKind.NavDeck);
+
+    /// <summary>
+    /// Round 75: the version of the descriptor the wire answers a deck with — the NAV reply (the
+    /// rails and pages) and every MENU reply (a thing's or a page's menu: groups of entries with a
+    /// line, a tick, a tone, a reason, a route, a menu, a drawer). Companion is one client of it; a
+    /// tablet, the assistant or a console read the same JSON and check this number before they
+    /// lay it out. It moves only when a field changes meaning or goes; a field added keeps it.
+    /// </summary>
+    public const int DescriptorVersion = 1;
 
     /// <summary>The answer to a mutating verb from a connection that has not presented the token.</summary>
     public const string NotPaired = "not paired — this desk asks for its pairing token first: AUTH <token> on the wire, X-Patterns-Token on the web (Remote page, TRUST)";

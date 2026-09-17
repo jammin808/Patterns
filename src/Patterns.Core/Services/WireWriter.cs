@@ -8,12 +8,16 @@ namespace Patterns.Core.Services;
 /// RECORD ON on the wire), the menus and the assistant can say what a press was in the wire's
 /// own words, and a test round-trips the wire's whole vocabulary through here and the parser.
 /// A kind the wire has no line for — TAKE and CUT (a wire cannot take a half-built preview),
-/// a note — writes "" and is not recorded.
+/// a note — writes "" and is not recorded. Round 75: so does a kind whose target is a secret
+/// (<see cref="ActionSpec.CarriesSecret"/> — UPDATE APPLY and RESTART carry the admin passcode);
+/// a deck recording the desk never hears it, and a line a deck could not replay without the
+/// passcode is no loss.
 /// </summary>
 public static class WireWriter
 {
     public static string Line(ShowAction a)
     {
+        if (ActionSpec.CarriesSecret(a.Kind)) return "";
         var t = a.Target ?? "";
         var v = a.Value ?? "";
         static string Join(params string[] parts) => string.Join(' ', parts.Where(p => p.Length > 0));

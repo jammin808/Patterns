@@ -98,6 +98,7 @@ public sealed partial class ShowActions : IActionLayer
         ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.ListGo or ShowActionKind.ListBack or ShowActionKind.ListReset
             => CueStacks.Find(State, action.Target)?.Name ?? action.Target,
         ShowActionKind.SpotifyPlay when action.Target.Length > 0 => SpotifyLibrary.Find(State, action.Target)?.DisplayName ?? action.Target,
+        _ when ActionSpec.CarriesSecret(action.Kind) => "",   // round 75: the admin passcode rides the target — the row keeps the kind and the outcome, never the secret
         _ => action.Target,
     };
 

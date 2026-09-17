@@ -99,6 +99,16 @@ public enum ValueKind
 /// </summary>
 public static class ActionSpec
 {
+    /// <summary>
+    /// Round 75: the kinds whose target is a secret — the admin passcode rides UPDATE APPLY and
+    /// RESTART. Nothing that writes an action out again may spell them: the wire writer writes
+    /// nothing (so a recording deck never hears the passcode), the journal's row keeps the kind and
+    /// the outcome and blanks the target, and MIDI learn refuses to bind them (a bound line would
+    /// sit in the show file in clear). The verbs themselves still run from the desk, the Remote
+    /// page and a paired connection that types the passcode.
+    /// </summary>
+    public static bool CarriesSecret(ShowActionKind kind) => kind is ShowActionKind.UpdateApply or ShowActionKind.Restart;
+
     public static (TargetKind Target, ValueKind Value) For(ShowActionKind kind) => kind switch
     {
         ShowActionKind.ApplyLook => (TargetKind.Look, ValueKind.Transition),

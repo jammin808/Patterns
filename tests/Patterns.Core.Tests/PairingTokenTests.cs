@@ -69,11 +69,12 @@ public class PairingTokenTests
         Assert.Equal(RemoteCommandKind.Auth, ControlProtocol.Parse("auth k7qm").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("AUTH").Kind);
 
-        foreach (var query in new[] { "PING", "STATUS", "HELLO FOH deck", "AUTH x", "CUE LIST", "TWIN STATUS", "NODES", "STAGE STATUS", "MENU PGM", "what is this" })
+        foreach (var query in new[] { "PING", "STATUS", "HELLO FOH deck", "AUTH x", "CUE LIST", "TWIN STATUS", "NODES", "STAGE STATUS", "MENU PGM", "MENU PAGE Looks", "NAV", "MIDI", "EYE", "what is this" })
         {
             Assert.True(ControlProtocol.IsQuery(ControlProtocol.Parse(query)), query);
         }
-        foreach (var verb in new[] { "BLACKOUT ON", "GO", "CUE GO abc", "CUE STANDBY NEXT", "STOPALL", "LOOK 5", "STAGE ACK id", "NEXT", "OUTPUTS OFF" })
+        // Round 75: RECORD subscribes a connection to the desk's actions and NAV DECK writes where a deck is — a standing, not a question.
+        foreach (var verb in new[] { "BLACKOUT ON", "GO", "CUE GO abc", "CUE STANDBY NEXT", "STOPALL", "LOOK 5", "STAGE ACK id", "NEXT", "OUTPUTS OFF", "RECORD ON", "RECORD OFF", "NAV DECK PLAN › Looks", "NAV Looks", "LOOK SAVE Walk-in" })
         {
             Assert.False(ControlProtocol.IsQuery(ControlProtocol.Parse(verb)), verb);
         }

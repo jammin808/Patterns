@@ -15,6 +15,7 @@ public static class MenuJson
     /// <summary>The menu as plain objects — what the JSON is made of, and what a test reads.</summary>
     public static object Shape(DeskMenu menu) => new
     {
+        protocol = ControlProtocol.DescriptorVersion,
         kind = menu.Kind,
         subject = menu.Subject,
         title = menu.Title,

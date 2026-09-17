@@ -609,6 +609,7 @@ public class DeskMenuTests
         var menu = DeskMenus.Screen(Facts(), Screen(offLook: true));
         using var doc = JsonDocument.Parse(MenuJson.Write(menu));
         var root = doc.RootElement;
+        Assert.Equal(ControlProtocol.DescriptorVersion, root.GetProperty("protocol").GetInt32());   // round 75: a client checks this before it lays the menu out
         Assert.Equal("screen", root.GetProperty("kind").GetString());
         Assert.Equal("b", root.GetProperty("subject").GetString());
         Assert.Equal("#FF8A00", root.GetProperty("hue").GetString());

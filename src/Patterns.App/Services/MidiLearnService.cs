@@ -77,6 +77,11 @@ public sealed class MidiLearnService
                 ? $"The wire has no verb for '{line}' — a control can only be bound to a line the wire knows (docs/REMOTE.md)."
                 : $"'{line}' is a question, not something a control can do — bind a line that acts (LOOK, CUE GO, BLACKOUT, LT…).");
         }
+        if (ActionSpec.CarriesSecret(parsed.Action.Kind))
+        {
+            // Round 75: a bound line sits in the show file in clear, and the show file travels (the twin, a stick, a bundle).
+            return ActionResult.Refused("An admin verb (UPDATE APPLY, RESTART) carries the passcode — not a line to bind. The admin verbs stay on the desk and the Remote page.");
+        }
         if (!HasSurface) return ActionResult.Refused("No MIDI control surface in the show — add one on the Interactive page (+ MIDI CONTROL SURFACE) first.");
         if (!SurfaceOpen) return ActionResult.Refused("No MIDI surface is open — switch the Interactive area on and check the surface's port on the Interactive page.");
         Wire = line;

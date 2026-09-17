@@ -108,6 +108,7 @@ public class NavAppTests
             // NAV alone: the rails and pages a deck lays its navigator out from, and where the desk is.
             using (var doc = Json(Send(router, "NAV")))
             {
+                Assert.Equal(ControlProtocol.DescriptorVersion, doc.RootElement.GetProperty("protocol").GetInt32());   // round 75
                 Assert.Equal(5, doc.RootElement.GetProperty("rails").GetArrayLength());
                 Assert.Equal(Shell.Pages.Count, doc.RootElement.GetProperty("pages").GetArrayLength());
                 Assert.Equal("Help", doc.RootElement.GetProperty("desk").GetProperty("page").GetString());
@@ -235,7 +236,7 @@ public class NavAppTests
                 Assert.False(go.GetProperty("entries")[0].GetProperty("on").GetBoolean());                   // the desk is on the panel
             }
             // The thing's own menu is one step on, by the words the page gave.
-            Assert.StartsWith("OK {\"kind\":\"look\"", Send(router, "MENU LOOK Walk-in"), StringComparison.Ordinal);
+            Assert.StartsWith("OK {\"protocol\":1,\"kind\":\"look\"", Send(router, "MENU LOOK Walk-in"), StringComparison.Ordinal);
 
             // The Cues page: the caller's cues with the standby ticked; the page on the desk and its column.
             Assert.StartsWith("OK", Send(router, "CUE ADD Doors"), StringComparison.Ordinal);
@@ -255,7 +256,7 @@ public class NavAppTests
                 Assert.Contains("the desk is here", doc.RootElement.GetProperty("subtitle").GetString());
             }
             // A rail's word lays out its first page; a stranger is refused with the pages.
-            Assert.StartsWith("OK {\"kind\":\"page\",\"subject\":\"Screens\"", Send(router, "MENU PAGE setup"), StringComparison.Ordinal);
+            Assert.StartsWith("OK {\"protocol\":1,\"kind\":\"page\",\"subject\":\"Screens\"", Send(router, "MENU PAGE setup"), StringComparison.Ordinal);
             var refused = Send(router, "MENU PAGE Nowhere");
             Assert.StartsWith("ERR", refused, StringComparison.Ordinal);
             Assert.Contains("Lower thirds", refused);
@@ -301,6 +302,80 @@ public class NavAppTests
     }
 
     /// <summary>A deck on the wire: one connection kept open, lines sent, replies read with the dispatcher pumped (the router hops to the UI thread), STATE pushes skipped.</summary>
+    /// <summary>
+    /// Round 75: the recorder behind pairing, and no secret on any feed. RECORD and NAV DECK are a connection's
+    /// standing, so they wait for the token like a verb; an admin verb that succeeded on the desk is never fed to a
+    /// recording deck (the passcode rides its target); the journal keeps such a verb's kind and outcome and blanks
+    /// its target, so the file on disk carries no passcode; and MIDI learn refuses to bind a line that carries one.
+    /// </summary>
+    [AvaloniaFact]
+    public void AnUnpairedDeckCannotRecordOrSayWhereItIsAndNoFeedOrJournalRowCarriesTheAdminPasscode()
+    {
+        const string token = "K7QM-3XWD-P9RA";
+        const string passcode = "hunter2-9931";
+        var wire = FreePort();
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = false;   // the test's deck connects from loopback, which a desk trusts by default
+        var b = TestApp.Boot("patterns-tests-recorder-", dir =>
+        {
+            var s = SettingsStore.Fresh();
+            s.Control.Enabled = true;
+            s.Control.TcpPort = wire;
+            s.Control.HttpPort = FreePort();
+            s.Twin.AcceptCallers = false;
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+            File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
+        });
+        try
+        {
+            var (services, vm, _) = b;
+            vm.State.Control.Token = token;
+            Dispatcher.UIThread.RunJobs();
+            PumpUntil(() => CanConnect(wire));
+            using var deck = new Deck(wire);
+            Assert.Equal("OK", deck.Say("HELLO FOH deck module=3.14.0"));
+
+            // The feed and the deck's whereabouts wait for the token like a verb; a question does not.
+            Assert.StartsWith("ERR not paired", deck.Say("RECORD ON"), StringComparison.Ordinal);
+            Assert.StartsWith("ERR not paired", deck.Say("NAV DECK PLAN › Looks"), StringComparison.Ordinal);
+            Assert.StartsWith("OK {", deck.Say("NAV"), StringComparison.Ordinal);
+            Assert.Equal("OK paired", deck.Say("AUTH " + token));
+            Assert.Equal("OK at PLAN › Looks", deck.Say("NAV DECK PLAN › Looks"));
+            Assert.StartsWith("OK recording", deck.Say("RECORD ON"), StringComparison.Ordinal);
+
+            // An admin verb that succeeded on the desk is never fed; the next action is, which proves the channel.
+            services.Control.Feed(new ShowAction(ShowActionKind.UpdateApply, passcode), ActionOrigin.Desk, ActionResult.Requested("Updating"));
+            services.Control.Feed(new ShowAction(ShowActionKind.Restart, passcode), ActionOrigin.Desk, ActionResult.Requested("Restarting"));
+            Assert.True(services.Actions.Execute(ShowActionKind.CueHoldOn, ActionOrigin.Desk).Ok);
+            Assert.Equal("ACTION CUE HOLD ON", deck.Next());
+
+            // The journal keeps an admin verb's kind and outcome, never its target, whatever the outcome.
+            var apply = services.Actions.Execute(new ShowAction(ShowActionKind.UpdateApply, passcode), ActionOrigin.Desk);
+            var restart = services.Actions.Execute(new ShowAction(ShowActionKind.Restart, passcode), ActionOrigin.Desk);
+            Assert.False(apply.Ok);
+            Assert.False(restart.Ok);
+            Assert.False(Secrets.Carries(apply.Message + restart.Message, passcode));
+            var rows = services.Journal.Tail(50).Where(e => e.Kind is nameof(ShowActionKind.UpdateApply) or nameof(ShowActionKind.Restart)).ToList();
+            Assert.Equal(2, rows.Count);
+            Assert.All(rows, e => Assert.Equal("", e.Target));
+
+            // A control cannot be bound to a line that carries the passcode, and the refusal does not repeat it.
+            var learn = deck.Say("MIDI LEARN UPDATE APPLY " + passcode);
+            Assert.StartsWith("ERR", learn, StringComparison.Ordinal);
+            Assert.Contains("carries the passcode", learn, StringComparison.Ordinal);
+            Assert.False(Secrets.Carries(learn, passcode));
+
+            // The file on disk carries no passcode after all of that.
+            Assert.False(Secrets.Carries(File.ReadAllText(services.Journal.Path), passcode));
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            b.Dispose();
+        }
+    }
+
     private sealed class Deck : IDisposable
     {
         private readonly TcpClient _tcp = new();

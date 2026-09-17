@@ -194,6 +194,7 @@ public sealed partial class ShowActions
     /// <summary>NAV on the wire: the rails and their pages, every page with its rail and hue, and where the desk is — what a deck lays its navigator out from.</summary>
     public string NavJson() => JsonUtil.SerializeCompact(new
     {
+        protocol = ControlProtocol.DescriptorVersion,
         rails = DeskPages.Rails.Select(r => new { id = r.Id, label = r.Label, hue = r.Hue, hint = r.Hint, pages = DeskPages.Of(r.Id).Select(p => p.Header).ToArray() }).ToArray(),
         pages = DeskPages.All.Select(p => new { header = p.Header, rail = p.Rail, hue = p.Hue, room = p.Rail == "Admin", settings = p.Header is "Cues" or "Screens" or "Lower thirds" or "Machine" or "Audio" }).ToArray(),
         desk = NavRow(),

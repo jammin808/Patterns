@@ -374,6 +374,13 @@ public sealed partial class ControlService : IDisposable
                 }
                 if (cmd.Kind is RemoteCommandKind.NavDeck or RemoteCommandKind.Record)
                 {
+                    if (!Paired(token, presented, loopback))
+                    {
+                        // Round 75: the action feed and the deck's whereabouts are a connection's standing, not a
+                        // question — an unpaired connection hears what the operator does no more than it moves the show.
+                        peer.Say(ControlProtocol.Err(ControlProtocol.NotPaired));
+                        continue;
+                    }
                     // Round 74: the deck's own facts — where its navigator is, whether it is recording a button —
                     // kept per connection by the port (nothing runs); STATE's decks row and the Eye's deck node read them.
                     var recording = cmd.Kind == RemoteCommandKind.Record && cmd.Text == "ON";
