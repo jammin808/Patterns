@@ -110,14 +110,24 @@ public sealed class SystemProcessProbe : IProcessProbe
 /// <param name="TookOver">This desk now has the screens the previous run was playing on.</param>
 /// <param name="EndedOwner">The previous process had to be ended — it never answered the ask.</param>
 /// <param name="Words">One sentence for the status line, the health line and the log.</param>
+/// <param name="Deferred">
+/// Round 76: the screens are another run's and this desk has not asked for them yet — it opens its
+/// own windows over that run's first, so the room never sees the desktop between the two, and asks
+/// (and ends, when the ask goes unanswered) through <see cref="OutputTakeover.FinishClaim"/> once
+/// its own picture is up.
+/// </param>
 public sealed record TakeoverResult(
     OutputClaim Claim,
     OutputOwner? Owner,
     bool TookOver,
     bool EndedOwner,
-    string Words)
+    string Words,
+    bool Deferred = false)
 {
     public static readonly TakeoverResult None = new(OutputClaim.Free, null, false, false, "");
+
+    /// <summary>The screens are, or are about to be, this desk's off a run that was playing on them: the show goes back on them without asking anyone.</summary>
+    public bool TakesOrTook => TookOver || Deferred;
 
     /// <summary>The record could not be read: a fence. Nothing opens the screens by itself this run; the operator can.</summary>
     public bool Uncertain => Claim == OutputClaim.Unknown;
@@ -148,6 +158,18 @@ public static class OutputTakeover
     /// <summary>What this start found; read by the desk for its status and health lines.</summary>
     public static TakeoverResult Last { get; private set; } = TakeoverResult.None;
 
+    /// <summary>Round 76: the process probe a deferred claim finishes with when none is passed — the tests' seam; null is the system's.</summary>
+    public static IProcessProbe? ProbeOverride { get; set; }
+
+    /// <summary>Round 76: the wait a deferred claim finishes with when none is passed — the tests' seam; null sleeps.</summary>
+    public static Action<TimeSpan>? WaitOverride { get; set; }
+
+    /// <summary>Round 76: the clock a deferred claim finishes on when none is passed — the tests' seam; null is UTC now.</summary>
+    public static Func<DateTime>? ClockOverride { get; set; }
+
+    /// <summary>A record that could not be read is read again this many times before it counts as a fence: a live owner's atomic rename may be under way at the very moment.</summary>
+    public const int ReadRetries = 3;
+
     /// <summary>Reset the result — the desk consumes it at construction, and the tests between desks.</summary>
     public static void Reset() => Last = TakeoverResult.None;
 
@@ -174,12 +196,76 @@ public static class OutputTakeover
         IProcessProbe? probe = null,
         Func<DateTime>? clock = null,
         Action<TimeSpan>? wait = null,
-        ISidecarFiles? files = null)
+        ISidecarFiles? files = null,
+        bool defer = false)
     {
-        var result = Claim(baseDirectory, enabled, probe, clock, wait, files);
+        var result = Claim(baseDirectory, enabled, probe, clock, wait, files, defer);
         Last = result;
         if (result.Words.Length > 0) Log.Info(result.Words);
         return result;
+    }
+
+    /// <summary>
+    /// Round 76: the second half of a deferred claim, run by the desk once its own windows are up
+    /// over the other run's — ask, wait the grace, end a run that never answers — so the room saw
+    /// this desk's picture before the old one's went. Bounded like the start's claim. The record is
+    /// read again first: an owner that let go or died meanwhile is nothing to take.
+    /// </summary>
+    public static TakeoverResult FinishClaim(
+        string baseDirectory,
+        TakeoverResult deferred,
+        IProcessProbe? probe = null,
+        Func<DateTime>? clock = null,
+        Action<TimeSpan>? wait = null,
+        ISidecarFiles? files = null)
+    {
+        if (!deferred.Deferred || deferred.Owner is null) return deferred;
+        TakeoverResult result;
+        try
+        {
+            probe ??= ProbeOverride ?? new SystemProcessProbe();
+            clock ??= ClockOverride ?? (() => DateTime.UtcNow);
+#pragma warning disable RS0030 // the owner store is another process's file: the poll between reads is the wait, on a worker after the desk's own windows are up
+            wait ??= WaitOverride ?? Thread.Sleep;
+#pragma warning restore RS0030
+            var store = new OutputOwnerStore(baseDirectory, files);
+            var read = ReadWithRetries(store, wait);
+            var owner = read.Value;
+            if (read.IsUnreadable)
+            {
+                result = new TakeoverResult(deferred.Claim, deferred.Owner, false, false,
+                    $"The last run's record could not be read again ({read.Problem}) — its screens are not taken; this desk's picture is over them. Close it by hand.");
+            }
+            else if (owner is null || owner.Pid != deferred.Owner.Pid)
+            {
+                // It let go, or died, between the start and now: its windows are gone and ours are up.
+                store.ClearRequest();
+                result = new TakeoverResult(deferred.Claim, deferred.Owner, true, false, OutputOwnership.TakenWords(deferred.Owner, ended: false));
+            }
+            else
+            {
+                result = Take(store, owner, deferred.Claim, probe, clock, wait);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Finishing the claim on the screens failed — the other run keeps its record; this desk's picture is over it.", ex);
+            result = new TakeoverResult(deferred.Claim, deferred.Owner, false, false, $"The last run's screens could not be taken ({ex.Message}) — close it by hand.");
+        }
+        Last = result;
+        if (result.Words.Length > 0) Log.Info(result.Words);
+        return result;
+    }
+
+    private static SidecarRead<OutputOwner> ReadWithRetries(OutputOwnerStore store, Action<TimeSpan> wait)
+    {
+        var read = store.Read();
+        for (var attempt = 1; read.IsUnreadable && attempt < ReadRetries; attempt++)
+        {
+            wait(PollEvery);
+            read = store.Read();
+        }
+        return read;
     }
 
     private static TakeoverResult Claim(
@@ -188,7 +274,8 @@ public static class OutputTakeover
         IProcessProbe? probe,
         Func<DateTime>? clock,
         Action<TimeSpan>? wait,
-        ISidecarFiles? files)
+        ISidecarFiles? files,
+        bool defer)
     {
         try
         {
@@ -198,7 +285,9 @@ public static class OutputTakeover
             wait ??= Thread.Sleep;
 #pragma warning restore RS0030
             var store = new OutputOwnerStore(baseDirectory, files);
-            var read = store.Read();
+            // Read again before it counts as a fence: a live owner renames its record over the old
+            // one every second, and a read that lands on the rename is a moment, not a verdict.
+            var read = ReadWithRetries(store, wait);
             // A record that cannot be read is a fence, not an absence: it may name a desk that is
             // playing to the room right now. Nothing is asked, ended or opened; the words say how
             // the operator opens the screens once sure.
@@ -230,7 +319,29 @@ public static class OutputTakeover
                     $"The last run is still playing on {OutputOwnership.TargetWords(owner.Targets)} (pid {owner.Pid}) — " +
                     "taking the screens back is off in Machine → Watchdog, so this desk leaves them alone.");
             }
+            if (defer)
+            {
+                // Round 76: the other run's windows stay up, playing, while this desk boots and opens
+                // its own over them; the ask comes after, from FinishClaim. The room sees one
+                // picture replaced by the next, never the desktop between them.
+                return new TakeoverResult(claim, owner, false, false,
+                    $"The last run is still playing on {OutputOwnership.TargetWords(owner.Targets)} (pid {owner.Pid}) — " +
+                    "this desk puts its own picture over them first, then takes them.", Deferred: true);
+            }
+            return Take(store, owner, claim, probe, clock, wait);
+        }
+        catch (Exception ex)
+        {
+            // Not "free": a start that could not find out who has the screens does not open them by itself.
+            Log.Warn("Reading who has the screens failed — nothing is opened by itself this run.", ex);
+            return TakeoverResult.Unknown(ex.Message);
+        }
+    }
 
+    /// <summary>The ask, the grace and the ending — the one way the screens are taken from a run that has them.</summary>
+    private static TakeoverResult Take(OutputOwnerStore store, OutputOwner owner, OutputClaim claim, IProcessProbe probe, Func<DateTime> clock, Action<TimeSpan> wait)
+    {
+        {
             // Ask first: a desk whose UI still answers closes its own windows within a second, which
             // is the tidy way — nothing is ended, and its operator is told what happened. An ask
             // that never reached the disk was never asked: a silence after it says nothing about
@@ -307,12 +418,6 @@ public static class OutputTakeover
                     : $"The last run still has {OutputOwnership.TargetWords(owner.Targets)} (pid {owner.Pid}) and {why} — " +
                       "close it by hand, then OUTPUTS ON here.");
         }
-        catch (Exception ex)
-        {
-            // Not "free": a start that could not find out who has the screens does not open them by itself.
-            Log.Warn("Reading who has the screens failed — nothing is opened by itself this run.", ex);
-            return TakeoverResult.Unknown(ex.Message);
-        }
     }
 
     /// <summary>
@@ -355,6 +460,7 @@ public sealed class OutputOwnershipService
     private volatile string _trouble = "";
     private volatile bool _held;
     private volatile bool _closed;
+    private volatile bool _holdWrites;
 
     public OutputOwnershipService(AppServices services, Func<DateTime>? clock = null, ISidecarFiles? files = null)
     {
@@ -381,6 +487,25 @@ public sealed class OutputOwnershipService
     public string Trouble => _trouble;
 
     /// <summary>
+    /// Round 76: while a deferred claim is open the record on disk is the other run's — this desk
+    /// neither writes it (a fight of two owners over one file) nor answers asks on it. The hold lifts
+    /// when the claim is finished (<see cref="ReleaseHold"/>), or by itself when the record reads as
+    /// nobody's — the other run closed by hand.
+    /// </summary>
+    public bool HoldWrites
+    {
+        get => _holdWrites;
+        set => _holdWrites = value;
+    }
+
+    /// <summary>The claim is finished: this desk writes its own record now, not at the next tick.</summary>
+    public void ReleaseHold()
+    {
+        _holdWrites = false;
+        Run(force: true);
+    }
+
+    /// <summary>
     /// One tick from the desk's poll: claim or release the record as the outputs come and go, beat
     /// it while they are live, and answer an ask from another desk. What the UI thread does here is
     /// read the outputs and their names; the two sidecars are touched on a worker, because a show
@@ -403,6 +528,7 @@ public sealed class OutputOwnershipService
         {
             try
             {
+                if (_holdWrites && !TryLiftHold()) return;
                 if (AnswerAsk(live)) return;
                 if (live) Beat(targets, force);
                 else Release();
@@ -420,6 +546,20 @@ public sealed class OutputOwnershipService
 
     private int _working;
 
+    /// <summary>A hold lifts by itself once the record is nobody's: missing, or naming a process that is gone.</summary>
+    private bool TryLiftHold()
+    {
+        var read = _store.Read();
+        if (read.IsUnreadable) return false;
+        var probe = OutputTakeover.ProbeOverride ?? new SystemProcessProbe();
+        var claim = OutputOwnership.Read(read.Value, Environment.ProcessId, Environment.MachineName, _clock(), probe.Look);
+        if (claim is not (OutputClaim.Free or OutputClaim.Ours or OutputClaim.Stale)) return false;
+        _holdWrites = false;
+        if (claim == OutputClaim.Stale) _store.Clear();
+        Log.Info("The other run's ownership record is nobody's now — this desk keeps the record from here.");
+        return true;
+    }
+
     /// <summary>
     /// A clean exit: the screens are nobody's, and the next start must not go hunting for them.
     /// Straight through rather than through <c>Release</c> — a worker may have written the record a
@@ -429,8 +569,17 @@ public sealed class OutputOwnershipService
     public void Shutdown()
     {
         _closed = true;
+        var wasHeld = _held;
         _held = false;
         _claimedUtc = DateTime.MinValue;
+        // Round 76: after a handover the record on disk is the replacement's — a desk that let the
+        // screens go before it left does not clear another run's claim on them on its way out.
+        var read = _store.Read();
+        if (!wasHeld && read.IsValid && read.Value!.Pid != Environment.ProcessId)
+        {
+            Log.Info($"The screens' ownership record is another run's (pid {read.Value.Pid}) — left as it is at exit.");
+            return;
+        }
         if (!_store.Clear().Committed) Log.Warn("The screens' ownership record could not be cleared at exit; the next start reads it as stale.");
         _store.ClearRequest();
     }

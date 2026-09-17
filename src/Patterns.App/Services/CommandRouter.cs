@@ -588,6 +588,14 @@ public sealed class CommandRouter : IRouter
                 destinations = _services.Stream.Health.Facts.Destinations,
             },
             health = HealthMonitor.Summary(DateTime.UtcNow),
+            continuity = new                                                 // round 76: the show across a restart and a hot-plug
+            {
+                handingOver = _services.HandingOver,                         // this desk asked to be replaced and keeps its outputs until the replacement asks for the screens
+                claimDeferred = _services.Takeover.Deferred,                 // the screens are another run's until this desk's picture is over them and it has asked
+                takeover = _services.Takeover.Words,                         // what this start found on the screens, and what it did about it
+                carriedOver = _services.Outputs.CarriedOver,                 // output windows carried onto re-identified displays after a hot-plug rather than closed and reopened
+                pendingResumes = _services.Video.PendingResumes,             // clips still to be moved to where they would be by now, after a restart
+            },
             quality = new                                                    // the effects' ladder: the mode, the level (0 full … 3), its factor, the Machine page's words
             {
                 mode = _services.Quality.Ladder.Mode.ToString(),

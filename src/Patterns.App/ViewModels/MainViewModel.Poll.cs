@@ -317,6 +317,7 @@ public sealed partial class MainViewModel
     private void PollOwnership()
     {
         _services.Ownership.Tick();
+        _services.PollHandover();   // round 76: a replacement that never asked is given up on, and the desk says so
         var live = _services.Outputs.IsLive;
         var took = _services.Takeover;
         var trouble = _services.Ownership.Trouble;
@@ -390,6 +391,8 @@ public sealed partial class MainViewModel
     private void SweepRetired()
     {
         _services.Video.SweepRetired();
+        _services.Video.ApplyResumes();   // round 76: a clip mounted again after a restart moves to where it would be by now
+        _services.WritePlayhead();        // round 76: where every clip and the music are, for the next restart to resume from
         _services.NdiIn.SweepRetired();
         _services.WebIn.SweepRetired();
         _services.WebIn.Poll();

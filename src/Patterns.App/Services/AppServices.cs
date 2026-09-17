@@ -168,7 +168,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public OutputOwnershipService Ownership { get; }
 
     /// <summary>What this start found on the screens: a previous run still playing, taken back or left alone.</summary>
-    public TakeoverResult Takeover { get; }
+    public TakeoverResult Takeover { get; private set; }
+
+    /// <summary>Round 76: the playheads a second ago — every clip's and the music's — for a restart to resume from.</summary>
+    public PlayheadStore Playhead { get; }
 
     /// <summary>The show journal: every air change with its origin, on disk beside the settings.</summary>
     public ShowLog Journal => Kernel.Journal;
@@ -455,6 +458,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Kernel.Facts = GatherFacts;
         // The show's files on one lane (round 65.12), built before the first save below can ask for it.
         Recovery = new RecoveryStore(Store.BaseDirectory);
+        Playhead = new PlayheadStore(Store.BaseDirectory);
         Persistence = new PersistenceRuntime(Store, Recovery, Files) { Autosave = _autosave };
         if (Kernel.Migrated || Kernel.MigrationNotes.Count > 0)
         {
@@ -591,6 +595,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Metrics = new SystemMetricsService(this);
         Analyser = new AudioAnalyserService(this);
         Ownership = new OutputOwnershipService(this);
+        // Round 76: the screens are another run's until this desk has its own picture over them and
+        // has asked — its record stays that run's meanwhile, so this desk writes nothing on it.
+        Ownership.HoldWrites = Takeover.Deferred;
         PendingRecovery = Recovery.Read();
         // The record on disk belongs to the previous run until this one has either acted on it
         // or written its own. Until then the ordinary bookkeeping must not delete it as "nothing
@@ -697,6 +704,17 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         {
             HealthMonitor.WatchdogNote = words;
             Notify(words);
+            if (_handingOver)
+            {
+                // Round 76: the ask came from the replacement this desk asked for. It has its own picture
+                // over these screens and holds their record now; this desk leaves through the
+                // supervisor's door with the handover code, its recovery record kept for the replacement.
+                _handingOver = false;
+                _restartRequested = true;
+                WatchdogBeat.Value = SupervisorPolicy.AliveBeat;
+                Log.Info("The replacement has the screens — this desk leaves; the room never saw the desktop.");
+                if (ExitRequest is null || !ExitRequest(SupervisorPolicy.ReplacedExitCode)) Log.Warn("The handover exit was not accepted — this desk stays up without its outputs.");
+            }
         };
         // On air the collector works in the background and never stops the world for a full
         // collection; off air the default comes back.
@@ -960,6 +978,19 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     private (bool Live, bool Audio, bool Sandboxed, long Air)? _recoveryWritten;
     private bool _restartRequested;
+    private bool _handingOver;
+    private DateTime _handoverAskedUtc;
+    private bool _claimFinishing;
+    private bool _playheadOnDisk;
+
+    /// <summary>Round 76: the clock the handover's patience reads; the tests pin it.</summary>
+    public Func<DateTime> HandoverClock { get; set; } = () => DateTime.UtcNow;
+
+    /// <summary>Round 76: how long a desk that asked to be replaced waits for the replacement's ask before it carries on as it was; the tests shorten it.</summary>
+    public static TimeSpan HandoverPatience { get; set; } = SupervisorPolicy.HandoverPatience;
+
+    /// <summary>Round 76: this desk asked the supervisor for a replacement and keeps its outputs up until that replacement asks for the screens.</summary>
+    public bool HandingOver => _handingOver;
     private volatile bool _handedOver;
     private bool _recoveryPending;
     private long _airVersion;
@@ -1015,7 +1046,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         AirLabel: AirLabel,
         AirLookId: AirLookId,
         PreviousAirLookId: PreviousAirLookId,
-        PreviewLookId: PreviewLookId);
+        PreviewLookId: PreviewLookId,
+        Deliberate: _handingOver || _restartRequested);
 
     /// <summary>The caller's place, or null when nothing has been armed or fired — an unused stack must not force the Run layout on a restart.</summary>
     private RunPlace? PlaceForRecovery()
@@ -1036,11 +1068,142 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
         Persistence.AwaitPending();     // a record on the lane must not land over the one written here
+        _restartRequested = true;       // first: the record written below says the restart was asked for (Deliberate)
         Recovery.Write(RecoveryRecord(PlaceForRecovery()));
-        _restartRequested = true;
+        WritePlayheadNow();             // where every clip and the music are, this second, for the relaunch to resume from
         SaveNow();
         if (!(Updates.Supervised)) return 0;
         return forUpdate ? SupervisorPolicy.UpdateRequestExitCode : SupervisorPolicy.RestartRequestExitCode;
+    }
+
+    /// <summary>
+    /// Round 76: a restart the operator asked for while the outputs are live is a handover, not a
+    /// gap. This desk asks the supervisor for a replacement through its heartbeat and carries on —
+    /// its windows, its sound, its record all up — while the replacement boots with --recover, opens
+    /// its own windows over these (topmost, so they cover) with the show put back from the record,
+    /// and then asks for the screens; the ask closes this desk's outputs and it leaves with
+    /// <see cref="SupervisorPolicy.ReplacedExitCode"/>. The room sees one picture become the next.
+    /// The record keeps following the air meanwhile (a cue may fire while the replacement boots) and
+    /// says the restart was deliberate, so the replacement puts the show back whatever AutoRestore
+    /// says. Returns the words for the status line, or "" when a handover is not possible here —
+    /// no supervisor, or nothing on the screens — and the caller restarts the plain way.
+    /// </summary>
+    public string TryHandoverRestart()
+    {
+        if (!Updates.Supervised || !Outputs.IsLive) return "";
+        const string words = "Restarting — the replacement is on its way; the screens stay lit until it has them.";
+        if (_handingOver) return words;
+        Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
+        _handingOver = true;
+        _handoverAskedUtc = HandoverClock();
+        _recoveryWritten = null;        // the next record says Deliberate
+        UpdateRecovery();
+        WritePlayheadNow();
+        WatchdogBeat.Value = SupervisorPolicy.HandoverBeat;
+        Log.Info("Handover restart requested: the replacement starts beside this desk; the outputs stay up until it asks for them.");
+        return words;
+    }
+
+    /// <summary>
+    /// Round 76, from the desk's poll: a replacement that never asked — the supervisor gone, a
+    /// replacement that never became a desk — is given up on after the patience, and this desk
+    /// carries on as it was, saying so; a restart with the outputs dark for want of a replacement
+    /// would be the very thing the handover exists to avoid.
+    /// </summary>
+    public void PollHandover()
+    {
+        if (!_handingOver) return;
+        if (HandoverClock() - _handoverAskedUtc < HandoverPatience) return;
+        _handingOver = false;
+        WatchdogBeat.Value = SupervisorPolicy.AliveBeat;
+        var words = "The restart did not come — this desk carries on with the show as it is. RESTART again, or close and reopen Patterns.";
+        Log.Warn(words);
+        Notify(words);
+        HealthMonitor.WatchdogNote = words;
+        _recoveryWritten = null;        // the record no longer says deliberate
+        UpdateRecovery();
+    }
+
+    /// <summary>
+    /// Round 76, from the desk's poll: where every clip with a timeline and the music are, this
+    /// second, into the playhead sidecar on the file lane — a few hundred bytes — so a restart of any
+    /// kind resumes each where it would be by now. Cleared when nothing has a playhead.
+    /// </summary>
+    public void WritePlayhead()
+    {
+        var record = PlayheadRecordNow();
+        if (record.IsEmpty)
+        {
+            if (!_playheadOnDisk) return;
+            _playheadOnDisk = false;
+            Persistence.Queue("Playhead clear", Playhead.Clear);
+            return;
+        }
+        _playheadOnDisk = true;
+        Persistence.Queue("Playhead write", () => Playhead.Write(record));
+    }
+
+    /// <summary>The playheads onto the disk now, on this thread — the record a restart reads a second from now.</summary>
+    private void WritePlayheadNow()
+    {
+        var record = PlayheadRecordNow();
+        if (record.IsEmpty)
+        {
+            Playhead.Clear();
+            _playheadOnDisk = false;
+            return;
+        }
+        Playhead.Write(record);
+        _playheadOnDisk = true;
+    }
+
+    private PlayheadRecord PlayheadRecordNow()
+    {
+        var clips = Video.Playheads().Select(h => new ClipPlace(h.Key, h.Seconds, h.Loops)).ToList();
+        MusicPlace? music = State.AudioPlayer.Playing && AudioPlayer.NowIndex >= 0 ? new MusicPlace(AudioPlayer.NowIndex, AudioPlayer.PositionSeconds) : null;
+        return new PlayheadRecord(DateTime.UtcNow, clips, music);
+    }
+
+    /// <summary>Round 76: the clips and the music back where they would be by now, from the playhead record the run that went wrote a second before.</summary>
+    private void ResumePlayheads(RecoverySnapshot was)
+    {
+        var heads = Playhead.Read();
+        var now = DateTime.UtcNow;
+        if (heads is null || heads.IsEmpty || !PlayheadResume.IsFresh(heads, now)) return;
+        if (heads.Clips.Count > 0) Video.ResumeAt(heads.Clips, heads.UpdatedUtc);
+        if (heads.Music is { } music && was.AudioPlaying) AudioPlayer.ResumeAt(music.Index, music.Seconds, heads.UpdatedUtc);
+        Log.Info($"Playheads resumed from the record: {heads.Clips.Count} clip(s){(heads.Music is null || !was.AudioPlaying ? "" : " and the music")}, each where it would be by now.");
+    }
+
+    /// <summary>
+    /// Round 76: the second half of a deferred claim — this desk's picture is up over the other
+    /// run's, so now it asks that run for the screens (and ends it when the ask goes unanswered), on
+    /// a worker: the ask waits the grace, and the desk's thread never waits on another process. The
+    /// result lands back on the desk: the words, the record taken as this desk's, the health line.
+    /// </summary>
+    private void FinishDeferredClaim(ViewModels.MainViewModel vm)
+    {
+        if (!Takeover.Deferred || _claimFinishing) return;
+        _claimFinishing = true;
+        var deferred = Takeover;
+        var dir = Store.BaseDirectory;
+        _ = Task.Run(() => OutputTakeover.FinishClaim(dir, deferred)).ContinueWith(t =>
+        {
+            var result = t.IsCompletedSuccessfully
+                ? t.Result
+                : deferred with { Words = "The last run's screens could not be taken — close it by hand; this desk's picture is over them." };
+            UiThread.Post(() =>
+            {
+                Takeover = result with { Deferred = false };
+                _claimFinishing = false;
+                if (result.TookOver) Ownership.ReleaseHold();   // the record is this desk's from here
+                if (result.Words.Length > 0)
+                {
+                    vm.StatusMessage = RecoveryBanner.Length > 0 ? result.Words + " " + RecoveryBanner : result.Words;
+                    HealthMonitor.WatchdogNote = result.Words;
+                }
+            });
+        }, TaskScheduler.Default);
     }
 
     /// <summary>Keeps the recovery sidecar current: present while something is live, gone otherwise.</summary>
@@ -1090,6 +1253,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var live = Outputs.IsLive;
         var audio = State.AudioPlayer.Playing;
         var sandboxed = Sandbox.Active;
+        var deliberate = _handingOver || _restartRequested;
         var pinned = _pinnedAirLook;
         var airSource = sandboxed || pinned is { Length: > 0 } ? Bus.Current.State : null;   // the program as published: what the audience is seeing, whole
         var black = Bus.BlackTargets.Count == 0 ? null : Bus.BlackTargets.ToList();
@@ -1116,7 +1280,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 }
             }
             var record = new RecoverySnapshot(live, audio, DateTime.UtcNow, AirLook: null, Run: place, Sandboxed: sandboxed, Air: air,
-                BlackTargets: black, Streaming: streaming, AirLabel: airLabel, AirLookId: airLookId, PreviousAirLookId: previousAirLookId, PreviewLookId: previewLookId);
+                BlackTargets: black, Streaming: streaming, AirLabel: airLabel, AirLookId: airLookId, PreviousAirLookId: previousAirLookId, PreviewLookId: previewLookId,
+                Deliberate: deliberate);
             var json = RecoveryStore.Serialize(record);
             files.Record(FileBudget.RecoverySerialise, MsSince(t));
             return (record, json);
@@ -1200,11 +1365,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 Log.Warn($"Recovery held: {Takeover.Words}");
                 return;
             }
-            var took = Takeover.TookOver;
+            // A claim deferred (round 76) counts as taken: the other run's screens are about to be this
+            // desk's, and its picture goes up over theirs before they are asked for.
+            var took = Takeover.TakesOrTook;
             // Taking the screens back ended the picture the room was watching. Putting it straight
             // back is then a duty, not a preference: the AutoRestore choice is about a watchdog's
             // own restart, and it must never be the reason a takeover leaves a dark room behind it.
-            if (!took && !State.Watchdog.AutoRestore) return;
+            // A restart the operator asked for (round 76, Deliberate) is theirs too: the choice about a
+            // crash they did not ask for never leaves the room dark after a restart they did.
+            var deliberate = PendingRecovery?.Deliberate == true;
+            if (!took && !deliberate && !State.Watchdog.AutoRestore) return;
             // A takeover is proof the run we took the screens from was alive seconds ago, so its
             // record is better evidence than the settings file whatever its timestamp says — a
             // desk that went live this morning and never moved the air wrote it this morning.
@@ -1220,10 +1390,13 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 if (!Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
                 vm.StatusMessage = Takeover.Words + " There was no record of what was on air — the screens carry the show as last saved, which may be an untaken preview. Check PGM.";
                 Log.Warn(vm.StatusMessage);
+                FinishDeferredClaim(vm);
                 return;
             }
 
             RestoreRecord(was, took, vm);
+            ResumePlayheads(was);
+            FinishDeferredClaim(vm);
         }
         catch (Exception ex)
         {
@@ -1326,7 +1499,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             // operator needs to know the windows in the room are this desk's now, not the ghost's.
             // Name the restart honestly: the watchdog's own relaunch says so, and the same path
             // now serves a restart the operator asked for, which is not the watchdog's doing.
-            var who = HealthMonitor.Restarts > 0 ? "Restarted by the watchdog" : "Restarted";
+            var who = !was.Deliberate && HealthMonitor.Restarts > 0 ? "Restarted by the watchdog" : "Restarted";
             var head = headOverride ?? (Takeover.TookOver
                 ? Takeover.Words
                 : restored

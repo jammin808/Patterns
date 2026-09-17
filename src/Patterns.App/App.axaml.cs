@@ -70,7 +70,7 @@ public sealed class App : Application
             // and so it does after this start took the screens back from a run that was still
             // playing on them, whether or not a watchdog was in the story (a hand relaunch of a
             // hung desk is the same room, the same screens and the same show).
-            if (LaunchOptions.Recover || services.Takeover.TookOver) services.RecoverWhenReady(vm);
+            if (LaunchOptions.Recover || services.Takeover.TakesOrTook) services.RecoverWhenReady(vm);
 
             // Previews are sandboxed by default: the operator can touch any editor from the
             // first second without it reaching the audience.
@@ -109,7 +109,7 @@ public sealed class App : Application
             {
                 try
                 {
-                    pipe.WriteByte(1);
+                    pipe.WriteByte(WatchdogBeat.Value);   // alive — or alive and asking to be replaced (round 76)
                     pipe.Flush();
                 }
                 catch

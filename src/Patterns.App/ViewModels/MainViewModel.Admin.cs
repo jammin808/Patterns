@@ -641,6 +641,15 @@ public sealed partial class MainViewModel
             StatusMessage = "Restart in place needs the watchdog (see Stability below) — with it off, close and reopen Patterns instead.";
             return;
         }
+        // Round 76: with the outputs live the restart is a handover — the replacement boots beside this
+        // desk and takes the screens once its own picture is over them; nothing goes dark.
+        var handover = _services.TryHandoverRestart();
+        if (handover.Length > 0)
+        {
+            StatusMessage = handover;
+            Log.Info("Handover restart requested from the Machine page.");
+            return;
+        }
         var code = _services.PrepareRestart();
         StatusMessage = "Restarting — the show comes straight back…";
         Log.Info("Restart requested from the Machine page.");

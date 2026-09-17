@@ -159,6 +159,24 @@ public sealed class AudioPlayerService : IDisposable
     }
 
     /// <summary>The track at a place plays now; false past the list.</summary>
+    private double _pendingSeekSeconds = -1;
+
+    /// <summary>
+    /// Round 76: after a restart, the track that was playing and where it was — plus the time since
+    /// the record — so the music comes back in the same track at the same bar, not at the top of
+    /// the list. The seek is applied when the track's outputs open.
+    /// </summary>
+    public void ResumeAt(int index, double seconds, DateTime recordedUtc)
+    {
+        if (index < 0) return;
+        _pendingIndex = index;
+        var elapsed = (ShowClock.UtcNow - recordedUtc).TotalSeconds;
+        _pendingSeekSeconds = elapsed < 0 || elapsed > PlayheadResume.MaxAge.TotalSeconds ? -1 : Math.Max(0, seconds) + elapsed;
+    }
+
+    /// <summary>Round 76: a seek still waiting for the track's outputs to open (-1: none).</summary>
+    public double PendingSeekSeconds => _pendingSeekSeconds;
+
     public bool PlayAt(int index)
     {
         var cfg = _services.State.AudioPlayer;
@@ -397,6 +415,8 @@ public sealed class AudioPlayerService : IDisposable
         using var enumerator = new MMDeviceEnumerator();
         var deviceNames = picks.Select(p => p.Device).ToList();
         var first = true;
+        var resumeAt = _pendingSeekSeconds;   // round 76: the bar to come back to after a restart, once
+        _pendingSeekSeconds = -1;
         foreach (var device in ResolveDevices(enumerator, deviceNames, _services.AudioEndpoints.Current.Render))
         {
             AudioFileReader? reader = null;
@@ -404,6 +424,12 @@ public sealed class AudioPlayerService : IDisposable
             try
             {
                 reader = new AudioFileReader(path);
+                if (resumeAt > 0)
+                {
+                    var total = reader.TotalTime.TotalSeconds;
+                    var at = total > 0 ? (loop ? resumeAt % total : resumeAt) : resumeAt;
+                    if (total <= 0 || at < total) reader.CurrentTime = TimeSpan.FromSeconds(at);
+                }
                 IWaveProvider source = loop ? new LoopingWaveStream(reader) : reader;
                 // The chain: the file → the sample-rate converter that locks this device to the
                 // master clock → the matrix's gain for this destination (unity while it is off)

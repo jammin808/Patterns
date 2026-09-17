@@ -76,6 +76,22 @@ internal static class LaunchOptions
 }
 
 /// <summary>
+/// Round 76: the byte the child's UI thread writes to the supervisor once a second — alive, or
+/// alive and asking to be replaced (a restart with the outputs live: the replacement boots beside
+/// this desk, which keeps its windows up until the replacement has its own over them).
+/// </summary>
+public static class WatchdogBeat
+{
+    private static volatile byte _value = SupervisorPolicy.AliveBeat;
+
+    public static byte Value
+    {
+        get => _value;
+        set => _value = value;
+    }
+}
+
+/// <summary>
 /// The watchdog: the plain launch becomes a tiny supervisor that runs the real app as a
 /// child (same exe, --child), listens to a once-a-second heartbeat posted from the child's
 /// UI thread, and restarts the child — with backoff, and a crash-loop cap decided by
@@ -120,103 +136,77 @@ internal static class Supervisor
             ? $"Mini-dumps on a native crash: on, into {CrashDumps.DirectoryFor(baseDirectory)} ({dumpsKept.Count} kept)."
             : "Mini-dumps on a native crash: off — createdump.exe is not beside the exe.");
 
+        // Round 76: a replacement the running child asked for, booting beside it. When the child
+        // leaves after the handover the replacement is the child — nothing is started.
+        ChildRun? next = null;
+
         while (true)
         {
-            if (pendingUpdate is { } update)
+            ChildRun child;
+            if (next is not null)
             {
-                pendingUpdate = null;
-                var (backup, version) = ApplyUpdate(update, exe);
-                if (backup is not null)
+                child = next;
+                next = null;
+            }
+            else
+            {
+                if (pendingUpdate is { } update)
                 {
-                    provingBackup = backup;
-                    provingVersion = version;
-                }
-            }
-
-            using var pipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
-            var psi = new ProcessStartInfo(exe)
-            {
-                UseShellExecute = false,
-                WorkingDirectory = Environment.CurrentDirectory,
-            };
-            psi.ArgumentList.Add("--child");
-            psi.ArgumentList.Add("--beat");
-            psi.ArgumentList.Add(pipe.GetClientHandleAsString());
-            if (restarts > 0)
-            {
-                psi.ArgumentList.Add("--recover");
-                psi.ArgumentList.Add("--restarts");
-                psi.ArgumentList.Add(restarts.ToString(CultureInfo.InvariantCulture));
-            }
-            foreach (var arg in LaunchOptions.Forwarded())
-            {
-                psi.ArgumentList.Add(arg);
-            }
-            foreach (var arg in LaunchOptions.Passthrough)
-            {
-                psi.ArgumentList.Add(arg);
-            }
-            foreach (var (key, value) in dumpEnvironment)
-            {
-                psi.Environment[key] = value;
-            }
-
-            Process child;
-            try
-            {
-                child = Process.Start(psi) ?? throw new InvalidOperationException("no process");
-            }
-            catch (Exception ex)
-            {
-                WLog($"Could not start the app: {ex.Message}");
-                StandDown($"The watchdog could not start the app at {DateTime.Now:HH:mm}: {ex.Message} — see patterns.watchdog.log", "could-not-start");
-                return 1;
-            }
-            pipe.DisposeLocalCopyOfClientHandle();
-
-            // The child's exit wakes the loop at once: a manual restart used to wait out the rest
-            // of a one-second poll before the next start.
-            using var exited = new ManualResetEventSlim(false);
-            try
-            {
-                child.EnableRaisingEvents = true;
-                child.Exited += (_, _) => exited.Set();
-                if (child.HasExited) exited.Set();
-            }
-            catch
-            {
-                // No exit event on this host: the poll below still notices within a second.
-            }
-
-            long lastBeatTicks = 0;
-            var beatReader = new Thread(() =>
-            {
-                try
-                {
-                    var one = new byte[1];
-                    while (pipe.Read(one, 0, 1) > 0)
+                    pendingUpdate = null;
+                    var (backup, version) = ApplyUpdate(update, exe);
+                    if (backup is not null)
                     {
-                        Interlocked.Exchange(ref lastBeatTicks, DateTime.UtcNow.Ticks);
+                        provingBackup = backup;
+                        provingVersion = version;
                     }
                 }
-                catch
-                {
-                    // Pipe closes with the child — the exit path takes over.
-                }
-            })
-            { IsBackground = true, Name = "watchdog-heartbeat" };
-            beatReader.Start();
 
-            var startedUtc = DateTime.UtcNow;
+                var started = ChildRun.Start(exe, restarts, dumpEnvironment, out var startError);
+                if (started is null)
+                {
+                    WLog($"Could not start the app: {startError}");
+                    StandDown($"The watchdog could not start the app at {DateTime.Now:HH:mm}: {startError} — see patterns.watchdog.log", "could-not-start");
+                    return 1;
+                }
+                child = started;
+            }
+
             var killedForHang = false;
             var startupHang = false;
-            while (!exited.Wait(1000) && !child.WaitForExit(0))
+            while (!child.WaitExit(1000))
             {
-                var ticks = Interlocked.Read(ref lastBeatTicks);
+                // Round 76: the child asks to be replaced — a restart with the outputs live. The
+                // replacement starts now, beside it, with --recover; the child keeps its windows and
+                // its sound up until the replacement has its own over them and asks for the screens.
+                if (child.HandoverAsked && next is null && !child.HandoverRefused)
+                {
+                    var replacement = ChildRun.Start(exe, restarts + 1, dumpEnvironment, out var error);
+                    if (replacement is null)
+                    {
+                        child.HandoverRefused = true;
+                        WLog($"App asked to be replaced but the replacement could not start: {error} — the app carries on (it says so itself).");
+                    }
+                    else
+                    {
+                        restarts++;
+                        next = replacement;
+                        WLog($"App asked to be replaced — the replacement (pid {replacement.Pid}) is starting beside it as restart #{restarts}; the screens stay lit.");
+                    }
+                }
+                // A replacement that ended before it took the screens: the running app carries on.
+                if (next is not null && next.HasExited)
+                {
+                    WLog($"The replacement (pid {next.Pid}) exited with {next.ExitCode} before taking the screens — the running app carries on.");
+                    next.Dispose();
+                    next = null;
+                    child.HandoverRefused = true;
+                }
+
+                var ticks = child.LastBeatUtc;
                 // Before the first beat the startup deadline judges the child, after it the hang
                 // timeout (round 65): a child that wedges in the graphics device, a takeover or the
                 // desk's construction never beats at all, and used to be waited for forever.
-                var phase = SupervisorPolicy.Phase(startedUtc, ticks == 0 ? null : new DateTime(ticks, DateTimeKind.Utc), DateTime.UtcNow);
+                var phase = SupervisorPolicy.Phase(child.StartedUtc, ticks, DateTime.UtcNow);
                 if (phase is SupervisorPolicy.ChildPhase.Starting or SupervisorPolicy.ChildPhase.Beating) continue;
                 {
                     startupHang = phase == SupervisorPolicy.ChildPhase.StartupHang;
@@ -224,31 +214,26 @@ internal static class Supervisor
                         ? $"No first heartbeat in {SupervisorPolicy.StartupDeadline.TotalSeconds:0}s — the app never became a desk; ending it."
                         : $"UI heartbeat silent for {SupervisorPolicy.HangTimeout.TotalSeconds:0}s — ending the hung app.");
                     killedForHang = true;
-                    try
-                    {
-                        child.Kill(entireProcessTree: true);
-                    }
-                    catch
-                    {
-                        // Racing a dying process is fine.
-                    }
-                    child.WaitForExit(10000);
+                    child.Kill();
                     break;
                 }
             }
 
-            int exitCode;
-            try
-            {
-                child.WaitForExit();   // the exit is known; this lets the runtime finish reading it
-                exitCode = child.ExitCode;
-            }
-            catch
-            {
-                exitCode = -1;
-            }
+            var exitCode = child.ExitCodeOrUnknown();
+            var startedUtc = child.StartedUtc;
             child.Dispose();
             var ranFor = DateTime.UtcNow - startedUtc;
+
+            // Round 76: the child left with its replacement up — the handover happened (84), or the
+            // old desk crashed on its way out. Either way the replacement is the desk now, and
+            // nothing is started; the loop goes on watching it.
+            if (next is not null)
+            {
+                WLog(exitCode == SupervisorPolicy.ReplacedExitCode && !killedForHang
+                    ? $"App handed its screens to the replacement (pid {next.Pid}) after {ranFor.TotalSeconds:0}s and left — the room never saw the desktop."
+                    : $"App {(killedForHang ? "hung" : $"exited with {exitCode} ({ExitCodes.Describe(exitCode)})")} while its replacement (pid {next.Pid}) is up — the replacement is the app now.");
+                continue;
+            }
 
             // The first run of an updated build: it stays when it ran through the proving period (or was closed cleanly); otherwise the old files come back.
             if (provingBackup is { } proving)
@@ -296,10 +281,11 @@ internal static class Supervisor
                     var why = killedForHang ? (startupHang ? "hung before its first heartbeat" : "hung")
                         : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Machine page)"
                         : exitCode == SupervisorPolicy.UpdateRequestExitCode ? "asked to be updated"
+                        : exitCode == SupervisorPolicy.ReplacedExitCode ? "left after a handover whose replacement is not running"
                         : $"crashed (exit {exitCode} = {ExitCodes.Hex(exitCode)}, {ExitCodes.Describe(exitCode)})";
                     WLog($"App {why} after {(DateTime.UtcNow - startedUtc).TotalSeconds:0}s — " +
                          $"restart #{restarts} in {verdict.Delay.TotalSeconds:0}s.");
-                    if (killedForHang || exitCode is not (SupervisorPolicy.RestartRequestExitCode or SupervisorPolicy.UpdateRequestExitCode))
+                    if (killedForHang || exitCode is not (SupervisorPolicy.RestartRequestExitCode or SupervisorPolicy.UpdateRequestExitCode or SupervisorPolicy.ReplacedExitCode))
                     {
                         // The next start reads this onto its health line and into its log, and after a
                         // native fault decodes clips in software for that run.
@@ -319,6 +305,186 @@ internal static class Supervisor
 #pragma warning restore RS0030
                     break;
             }
+        }
+    }
+
+    /// <summary>
+    /// One child of the supervisor: its process, the pipe its UI thread beats on, the reader of
+    /// that pipe, and what it said last — alive, or alive and asking to be replaced (round 76).
+    /// </summary>
+    private sealed class ChildRun : IDisposable
+    {
+        private readonly Process _process;
+        private readonly AnonymousPipeServerStream _pipe;
+        private readonly ManualResetEventSlim _exited = new(false);
+        private long _lastBeatTicks;
+        private volatile bool _handoverAsked;
+
+        private ChildRun(Process process, AnonymousPipeServerStream pipe)
+        {
+            _process = process;
+            _pipe = pipe;
+            StartedUtc = DateTime.UtcNow;
+        }
+
+        public DateTime StartedUtc { get; }
+
+        public int Pid
+        {
+            get
+            {
+                try { return _process.Id; } catch { return 0; }
+            }
+        }
+
+        /// <summary>The child beat the handover byte: it asks for a replacement beside it.</summary>
+        public bool HandoverAsked => _handoverAsked;
+
+        /// <summary>A replacement was tried for this child and failed; a second ask starts nothing more — the child carries on and says so itself.</summary>
+        public bool HandoverRefused { get; set; }
+
+        public DateTime? LastBeatUtc
+        {
+            get
+            {
+                var ticks = Interlocked.Read(ref _lastBeatTicks);
+                return ticks == 0 ? null : new DateTime(ticks, DateTimeKind.Utc);
+            }
+        }
+
+        public bool HasExited
+        {
+            get
+            {
+                try { return _exited.IsSet || _process.HasExited; } catch { return true; }
+            }
+        }
+
+        public int ExitCode => ExitCodeOrUnknown();
+
+        public static ChildRun? Start(string exe, int restarts, IReadOnlyDictionary<string, string> environment, out string error)
+        {
+            error = "";
+            var pipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
+            var psi = new ProcessStartInfo(exe)
+            {
+                UseShellExecute = false,
+                WorkingDirectory = Environment.CurrentDirectory,
+            };
+            psi.ArgumentList.Add("--child");
+            psi.ArgumentList.Add("--beat");
+            psi.ArgumentList.Add(pipe.GetClientHandleAsString());
+            if (restarts > 0)
+            {
+                psi.ArgumentList.Add("--recover");
+                psi.ArgumentList.Add("--restarts");
+                psi.ArgumentList.Add(restarts.ToString(CultureInfo.InvariantCulture));
+            }
+            foreach (var arg in LaunchOptions.Forwarded())
+            {
+                psi.ArgumentList.Add(arg);
+            }
+            foreach (var arg in LaunchOptions.Passthrough)
+            {
+                psi.ArgumentList.Add(arg);
+            }
+            foreach (var (key, value) in environment)
+            {
+                psi.Environment[key] = value;
+            }
+
+            Process process;
+            try
+            {
+                process = Process.Start(psi) ?? throw new InvalidOperationException("no process");
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                pipe.Dispose();
+                return null;
+            }
+            pipe.DisposeLocalCopyOfClientHandle();
+            var run = new ChildRun(process, pipe);
+
+            // The child's exit wakes the loop at once: a manual restart used to wait out the rest
+            // of a one-second poll before the next start.
+            try
+            {
+                process.EnableRaisingEvents = true;
+                process.Exited += (_, _) => run._exited.Set();
+                if (process.HasExited) run._exited.Set();
+            }
+            catch
+            {
+                // No exit event on this host: the poll still notices within a second.
+            }
+
+            var beatReader = new Thread(() =>
+            {
+                try
+                {
+                    var one = new byte[1];
+                    while (pipe.Read(one, 0, 1) > 0)
+                    {
+                        Interlocked.Exchange(ref run._lastBeatTicks, DateTime.UtcNow.Ticks);
+                        if (one[0] == SupervisorPolicy.HandoverBeat) run._handoverAsked = true;
+                    }
+                }
+                catch
+                {
+                    // Pipe closes with the child — the exit path takes over.
+                }
+            })
+            { IsBackground = true, Name = "watchdog-heartbeat" };
+            beatReader.Start();
+            return run;
+        }
+
+        /// <summary>True once the child has exited; waits up to the time given.</summary>
+        public bool WaitExit(int milliseconds)
+        {
+            try
+            {
+                return _exited.Wait(milliseconds) || _process.WaitForExit(0);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        public void Kill()
+        {
+            try
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // Racing a dying process is fine.
+            }
+            try { _process.WaitForExit(10000); } catch { /* gone */ }
+        }
+
+        public int ExitCodeOrUnknown()
+        {
+            try
+            {
+                _process.WaitForExit();   // the exit is known; this lets the runtime finish reading it
+                return _process.ExitCode;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        public void Dispose()
+        {
+            try { _process.Dispose(); } catch { /* already gone */ }
+            try { _pipe.Dispose(); } catch { /* closed with the child */ }
+            _exited.Dispose();
         }
     }
 

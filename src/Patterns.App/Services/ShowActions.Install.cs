@@ -41,6 +41,14 @@ public sealed partial class ShowActions
                 if (!_s.Gate.Check(State.Install.AdminPasscode, a.Target, DateTime.UtcNow)) return ActionResult.Refused($"Restart refused — {_s.Gate.Reason}.");
                 if (!_s.Updates.Supervised) return ActionResult.Refused("A restart in place needs the watchdog — start Patterns normally, with the watchdog on under Machine → Stability.");
                 if (_s.ExitRequest is null) return ActionResult.Refused("No way to restart in this session.");
+                // Round 76: with the outputs live the restart is a handover — the replacement takes the
+                // screens once its own picture is over them, and nothing goes dark.
+                var handover = _s.TryHandoverRestart();
+                if (handover.Length > 0)
+                {
+                    Log.Info($"Handover restart requested from {origin.Label}.");
+                    return ActionResult.Requested(handover);
+                }
                 var code = _s.PrepareRestart();
                 Log.Info($"Restart requested from {origin.Label}.");
                 return _s.ExitRequest(code) ? ActionResult.Requested("Restarting — the show comes straight back.") : ActionResult.Failed("The app did not accept the exit request.");

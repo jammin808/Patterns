@@ -51,6 +51,30 @@ public sealed class SupervisorPolicy
     /// </summary>
     public const int UpdateRequestExitCode = 83;
 
+    /// <summary>
+    /// Round 76: the exit of a desk that handed its screens to its replacement. A restart asked for
+    /// while the outputs are live is a handover, not a gap: the desk asks the supervisor for a
+    /// replacement through its heartbeat (<see cref="HandoverBeat"/>), keeps its windows and its
+    /// sound up while the replacement boots, opens nothing new, and leaves with this code once the
+    /// replacement has its own windows over the old ones and has asked for the screens. The
+    /// supervisor then starts nothing — the replacement is already the child it watches.
+    /// </summary>
+    public const int ReplacedExitCode = 84;
+
+    /// <summary>The heartbeat byte of a child that is alive.</summary>
+    public const byte AliveBeat = 1;
+
+    /// <summary>The heartbeat byte of a child that is alive and asks to be replaced (round 76): start the next desk now, beside this one.</summary>
+    public const byte HandoverBeat = 2;
+
+    /// <summary>
+    /// How long a desk that asked to be replaced waits for the replacement's ask before it takes
+    /// its place back — the supervisor gone, a replacement that never became a desk. The startup
+    /// deadline is the replacement's; this is a little less, so the old desk says so first and
+    /// carries on rather than sitting frozen behind a restart that is not coming.
+    /// </summary>
+    public static readonly TimeSpan HandoverPatience = TimeSpan.FromSeconds(90);
+
     /// <summary>Hung = the child was beating and then went silent past the timeout.</summary>
     public static bool IsHung(DateTime? lastBeatUtc, DateTime utcNow)
         => lastBeatUtc is { } beat && utcNow - beat > HangTimeout;
@@ -106,7 +130,9 @@ public sealed class SupervisorPolicy
             return new SupervisorVerdict(SupervisorAction.GiveUp, TimeSpan.Zero);
         }
 
-        if (exitCode is RestartRequestExitCode or UpdateRequestExitCode && !killedForHang)
+        // A desk that left after handing its screens over (84) with no replacement running is a
+        // restart the supervisor missed — it comes straight back, like a restart request.
+        if (exitCode is RestartRequestExitCode or UpdateRequestExitCode or ReplacedExitCode && !killedForHang)
         {
             return new SupervisorVerdict(SupervisorAction.Restart, TimeSpan.Zero);
         }
@@ -143,6 +169,11 @@ public sealed class SupervisorPolicy
 /// picture itself — the LIVE strip, the look tallies, LOOK BACK, the beacon and every remote read
 /// them. Restored with the pixels, or the wall is right and the desk claims to know nothing
 /// about it at the moment a caller most needs to trust the strip.
+/// <paramref name="Deliberate"/> (round 76) says the record was written for a restart the operator
+/// asked for — the Machine page's RESTART, the wire's — rather than left behind by a crash. A
+/// deliberate restart puts the show back whatever the watchdog's AutoRestore choice says: that
+/// choice is about a crash the operator did not ask for, and it must never be the reason a restart
+/// they did ask for leaves a dark room.
 /// </summary>
 public sealed record RecoverySnapshot(
     bool Live,
@@ -157,7 +188,8 @@ public sealed record RecoverySnapshot(
     string? AirLabel = null,
     string? AirLookId = null,
     string? PreviousAirLookId = null,
-    string? PreviewLookId = null);
+    string? PreviewLookId = null,
+    bool Deliberate = false);
 
 /// <summary>
 /// The caller's place, written atomically on every GO: what was on standby, what ran last and
@@ -365,6 +397,7 @@ public static class ExitCodes
         0 => "a clean close",
         SupervisorPolicy.RestartRequestExitCode => "a restart asked for on the Machine page",
         SupervisorPolicy.UpdateRequestExitCode => "a restart to apply an update",
+        SupervisorPolicy.ReplacedExitCode => "a restart handed over to its replacement — the screens never went dark",
         AccessViolation => "an access violation (a native fault: a decoder, a driver or a library wrote where it should not)",
         IllegalInstruction => "an illegal instruction (a native fault)",
         StackOverflow => "a stack overflow",

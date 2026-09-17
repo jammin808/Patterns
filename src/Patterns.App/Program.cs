@@ -79,7 +79,10 @@ internal static class Program
         // A crash or a hang leaves the previous run's render windows playing — the room keeps its
         // picture, which is right — but they answer to nobody. Take them back before a single
         // window of this run opens, so OUTPUTS ON never opens a second set behind the first.
-        Services.OutputTakeover.ClaimAtStart(store.BaseDirectory, early?.Watchdog.TakeOverOutputs ?? true);
+        // Round 76: deferred — a run still playing keeps its windows up while this one boots and opens
+        // its own over them; the ask (and the ending of a run that never answers) comes after, from the
+        // desk, so the room sees one picture become the next and never the desktop between them.
+        Services.OutputTakeover.ClaimAtStart(store.BaseDirectory, early?.Watchdog.TakeOverOutputs ?? true, defer: true);
         if (early is not null) Services.AppServices.Preloaded = (store, early);
 
         // An exception no handler contained (a worker thread's, or one the UI guard let through)

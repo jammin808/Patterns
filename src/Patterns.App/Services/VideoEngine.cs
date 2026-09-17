@@ -452,6 +452,90 @@ public sealed class VideoEngine : IDisposable
         SweepRetired(now);
     }
 
+    /// <summary>
+    /// Round 76: where every mounted clip with a timeline is — its key, its position, whether it
+    /// loops — for the playhead record the desk writes each second. A pre-rolled clip (held on its
+    /// first frame) and a capture have no playhead to record.
+    /// </summary>
+    public IEnumerable<(string Key, double Seconds, bool Loops)> Playheads()
+    {
+        foreach (var (key, mount) in _mounts)
+        {
+            if (mount.PreRoll) continue;
+            double seconds;
+            bool canSeek;
+            try
+            {
+                canSeek = mount.Source.CanSeek;
+                seconds = canSeek ? mount.Source.PositionSeconds : 0;
+            }
+            catch (Exception)
+            {
+                continue;   // a decoder on its way out answers nothing
+            }
+            if (!canSeek) continue;
+            yield return (key, seconds, mount.Loop);
+        }
+    }
+
+    private readonly Dictionary<string, (double Seconds, DateTime RecordedUtc, bool Loops)> _resumes = new(StringComparer.Ordinal);
+
+    /// <summary>Round 76: clips still waiting to be moved to where they would be by now — a mount not open yet, a decoder not playing yet.</summary>
+    public int PendingResumes => _resumes.Count;
+
+    /// <summary>
+    /// Round 76: after a restart, where each clip was a moment before it — by mount key — so it
+    /// resumes there (plus the time since) once its decoder is playing, rather than from its first
+    /// frame. Applied by <see cref="ApplyResumes"/> on the desk's poll and after each reconcile; a
+    /// resume whose record is too old, or whose clip is never mounted again, is dropped.
+    /// </summary>
+    public void ResumeAt(IReadOnlyList<ClipPlace> clips, DateTime recordedUtc)
+    {
+        foreach (var clip in clips)
+        {
+            if (clip.Key.Length == 0) continue;
+            _resumes[clip.Key] = (clip.Seconds, recordedUtc, clip.Loops);
+        }
+    }
+
+    /// <summary>Round 76: every resume whose clip is mounted and playing is applied now; the rest wait for the next call, up to the record's age limit.</summary>
+    public void ApplyResumes(DateTime? nowUtc = null)
+    {
+        if (_resumes.Count == 0) return;
+        var now = nowUtc ?? DateTime.UtcNow;
+        foreach (var (key, resume) in _resumes.ToList())
+        {
+            if (!PlayheadResume.IsFresh(new PlayheadRecord(resume.RecordedUtc, Array.Empty<ClipPlace>()), now))
+            {
+                _resumes.Remove(key);
+                Log.Info($"Clip resume dropped — the record is too old: {key}.");
+                continue;
+            }
+            if (!_mounts.TryGetValue(key, out var mount) || mount.PreRoll) continue;
+            bool ready;
+            try
+            {
+                ready = mount.Source.IsPlaying && mount.Source.CanSeek;
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+            if (!ready) continue;
+            _resumes.Remove(key);
+            var target = PlayheadResume.Target(resume.Seconds, resume.RecordedUtc, now, mount.Source.DurationSeconds, resume.Loops || mount.Loop);
+            if (target is not { } seconds || seconds <= 0.25)
+            {
+                Log.Info($"Clip resumed from its start ({(target is null ? "it would have ended by now" : "it had barely begun")}): {key}.");
+                continue;
+            }
+            var moved = mount.Source.Seek(seconds);
+            Log.Info(moved
+                ? $"Clip resumed at {VideoClock.Format(seconds)} — where it would be by now: {key}."
+                : $"Clip could not be moved to {VideoClock.Format(seconds)}; it plays from its start: {key}.");
+        }
+    }
+
     /// <summary>Also called from the app's 1 s poll so a retired decoder never lingers.</summary>
     public void SweepRetired(DateTime? nowUtc = null)
     {
