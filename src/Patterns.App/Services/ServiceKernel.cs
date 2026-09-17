@@ -32,6 +32,12 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>The show file was upgraded on load: the desk writes it back once, so the ids minted for its looks and stingers stay the same next time.</summary>
     public bool Migrated { get; }
 
+    /// <summary>Round 76: what the load changed that the operator should hear about (a credential-bearing control row removed) — the health line and the log carry it, the file is written back.</summary>
+    public IReadOnlyList<string> MigrationNotes { get; }
+
+    /// <summary>Round 76: journal rows an older build wrote with the admin passcode, blanked at this boot.</summary>
+    public int JournalRowsScrubbed { get; }
+
     public SnapshotBus Bus { get; }
 
     public ShowLog Journal { get; }
@@ -135,8 +141,10 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         State.Blackout = false;
         State.Tone.Enabled = false;             // a tone must never auto-start with the app
         Migrated = Store.LastLoadMigrated;
+        MigrationNotes = Store.LastMigrationNotes;
 
         Journal = new ShowLog(Store.BaseDirectory);
+        JournalRowsScrubbed = Journal.ScrubSecrets();   // round 76: a passcode an older build journaled leaves the disk at the first boot that knows better
         KnownGood = new KnownGoodRig(Store.BaseDirectory, Journal);
         StandDownNote = WatchdogMarker.ReadAndClear(Store.BaseDirectory);
         LastCrash = CrashMarker.ReadAndClear(Store.BaseDirectory);

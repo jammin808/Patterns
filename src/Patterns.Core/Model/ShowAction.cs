@@ -507,8 +507,18 @@ public readonly record struct ShowAction(ShowActionKind Kind, string Target = ""
     /// <summary>No action — what a wire's handshake or query carries in the action's place.</summary>
     public static readonly ShowAction None = new(ShowActionKind.Unknown);
 
+    /// <summary>
+    /// The action's words for a log, a fault, a test's failure — every diagnostic line reads this
+    /// one formatter (round 76). A kind whose target is the admin passcode
+    /// (<see cref="Services.ActionSpec.CarriesSecret"/>) prints "Restart [redacted]": a secret may
+    /// enter the authority path, and never leaves through a diagnostic.
+    /// </summary>
     public override string ToString()
-        => Target.Length == 0 ? Kind.ToString() : Value.Length == 0 ? $"{Kind} {Target}" : $"{Kind} {Target} {Value}";
+    {
+        if (Target.Length == 0) return Kind.ToString();
+        var target = Services.ActionSpec.CarriesSecret(Kind) ? Services.ActionSpec.Redacted : Target;
+        return Value.Length == 0 ? $"{Kind} {target}" : $"{Kind} {target} {Value}";
+    }
 }
 
 /// <summary>Where an action came from — the one fact a history row must never lose.</summary>

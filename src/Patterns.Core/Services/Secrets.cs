@@ -100,4 +100,67 @@ public static class Secrets
 
     /// <summary>Whether the text still carries a secret's value — the check a bundle test runs over what it wrote.</summary>
     public static bool Carries(string json, string secretValue) => secretValue.Length > 0 && json.Contains(secretValue, StringComparison.Ordinal);
+
+    /// <summary>A value shorter than this is not scrubbed from free text: it would mask half a log for a passcode of "1234".</summary>
+    public const int MinScrubLength = 4;
+
+    /// <summary>
+    /// Round 76: the show's secret values themselves — every property the list names, wherever it
+    /// sits, and the twin's key — longest first, so a value that contains another is masked whole.
+    /// What the support bundle scrubs from its free-text entries (the log, the journal), where a
+    /// property name is no help: a passcode an older build logged is found by its value or not at all.
+    /// </summary>
+    public static IReadOnlyList<string> ValuesOf(ShowState state)
+    {
+        var values = new HashSet<string>(StringComparer.Ordinal);
+        JsonNode? root;
+        try
+        {
+            root = JsonNode.Parse(JsonUtil.SerializeCompact(state));
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<string>();
+        }
+        if (root is not JsonObject obj) return Array.Empty<string>();
+        Collect(obj);
+        foreach (var (section, property) in Placed)
+        {
+            if (obj[section] is JsonObject sec && sec[property] is JsonValue v && v.TryGetValue<string>(out var text) && text.Length >= MinScrubLength) values.Add(text);
+        }
+        return values.OrderByDescending(v => v.Length).ThenBy(v => v, StringComparer.Ordinal).ToList();
+
+        void Collect(JsonNode? node)
+        {
+            switch (node)
+            {
+                case JsonObject o:
+                    foreach (var (key, child) in o)
+                    {
+                        if (Names.Contains(key) && child is JsonValue v && v.TryGetValue<string>(out var text))
+                        {
+                            if (text.Length >= MinScrubLength) values.Add(text);
+                            continue;
+                        }
+                        Collect(child);
+                    }
+                    break;
+                case JsonArray a:
+                    foreach (var item in a) Collect(item);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Free text with every known secret value replaced by the mask — the bundle's logs and journal.</summary>
+    public static string Scrub(string text, IReadOnlyCollection<string>? values)
+    {
+        if (values is null || values.Count == 0 || text.Length == 0) return text;
+        foreach (var value in values)
+        {
+            if (value.Length < MinScrubLength) continue;
+            text = text.Replace(value, Mask, StringComparison.Ordinal);
+        }
+        return text;
+    }
 }

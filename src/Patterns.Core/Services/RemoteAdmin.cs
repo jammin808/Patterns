@@ -85,8 +85,13 @@ public static class SupportBundle
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>
     public static string FileNameFor(DateTime localNow) => $"patterns-support-{localNow:yyyyMMdd-HHmm}.zip";
 
-    /// <summary>Builds the zip; returns the entries it holds. A file that cannot be read is noted, never fatal.</summary>
-    public static IReadOnlyList<string> Build(string baseDirectory, string zipPath, string info)
+    /// <summary>
+    /// Builds the zip; returns the entries it holds. A file that cannot be read is noted, never fatal.
+    /// <paramref name="secretValues"/> (round 76, <see cref="Secrets.ValuesOf"/>) are the show's own
+    /// secret values, masked wherever they appear in a text entry — the log and the journal have no
+    /// property names to redact by, and an older build may have written a passcode into either.
+    /// </summary>
+    public static IReadOnlyList<string> Build(string baseDirectory, string zipPath, string info, IReadOnlyCollection<string>? secretValues = null)
     {
         var included = new List<string>();
         var notes = new StringBuilder(info).AppendLine().AppendLine();
@@ -99,21 +104,22 @@ public static class SupportBundle
                 if (!File.Exists(path)) continue;
                 try
                 {
-                    // The recovery record now holds a whole show state — the same secrets the
-                    // settings file holds, so it leaves by the same redacted door.
-                    if (name == "patterns.settings.json" || name == "patterns.recovery.json")
+                    // The app appends to its logs between opens: a shared read is enough. Every
+                    // entry on the list is text, and every one leaves with the known secret values
+                    // masked; the settings and the recovery record (a whole show state, the same
+                    // secrets the settings hold) go through the redaction by property name as well.
+                    string text;
+                    using (var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var reader = new StreamReader(source, Encoding.UTF8))
                     {
-                        var entry = zip.CreateEntry(name);
-                        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
-                        writer.Write(Redact(File.ReadAllText(path)));
+                        text = reader.ReadToEnd();
                     }
-                    else
+                    if (name == "patterns.settings.json" || name == "patterns.recovery.json") text = Redact(text);
+                    text = Secrets.Scrub(text, secretValues);
+                    var entry = zip.CreateEntry(name);
+                    using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false)))
                     {
-                        // The app appends to its logs between opens: a shared read is enough.
-                        using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                        var entry = zip.CreateEntry(name);
-                        using var target = entry.Open();
-                        source.CopyTo(target);
+                        writer.Write(text);
                     }
                     included.Add(name);
                 }
@@ -127,7 +133,11 @@ public static class SupportBundle
             {
                 try
                 {
-                    zip.CreateEntryFromFile(last, "updates/" + UpdateApply.NoteName);
+                    var entry = zip.CreateEntry("updates/" + UpdateApply.NoteName);
+                    using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false)))
+                    {
+                        writer.Write(Secrets.Scrub(File.ReadAllText(last), secretValues));
+                    }
                     included.Add("updates/" + UpdateApply.NoteName);
                 }
                 catch (Exception ex)

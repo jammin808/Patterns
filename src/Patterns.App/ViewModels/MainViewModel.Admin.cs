@@ -361,7 +361,7 @@ public sealed partial class MainViewModel
                 $"Install: {_services.Install.Status}",
                 $"Update: {_services.Updates.Status}",
                 $"Management: {_services.Management.Status}");
-            var entries = SupportBundle.Build(dir, path, info);
+            var entries = SupportBundle.Build(dir, path, info, Secrets.ValuesOf(State));
             SupportBundleText = $"Written: {path} ({entries.Count} entries — {string.Join(", ", entries)}).";
             StatusMessage = $"Support bundle written beside the settings: {System.IO.Path.GetFileName(path)}.";
             Log.Info($"Support bundle written: {path}");

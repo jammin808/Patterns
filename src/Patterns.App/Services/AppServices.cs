@@ -456,11 +456,17 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // The show's files on one lane (round 65.12), built before the first save below can ask for it.
         Recovery = new RecoveryStore(Store.BaseDirectory);
         Persistence = new PersistenceRuntime(Store, Recovery, Files) { Autosave = _autosave };
-        if (Kernel.Migrated)
+        if (Kernel.Migrated || Kernel.MigrationNotes.Count > 0)
         {
             // An upgraded file is written back once so the ids minted for its looks and
-            // stingers are the same ids next time (cues and the journal refer to them).
+            // stingers are the same ids next time (cues and the journal refer to them) — and so a
+            // credential-bearing control row the load removed (round 76) leaves the disk now.
             SaveNow();
+        }
+        foreach (var note in Kernel.MigrationNotes)
+        {
+            Log.Warn(note);
+            HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0 ? HealthMonitor.WatchdogNote + " · " + note : note;
         }
 
         // This start found the last run's render windows still playing and took them back (or was

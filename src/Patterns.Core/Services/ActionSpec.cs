@@ -109,6 +109,9 @@ public static class ActionSpec
     /// </summary>
     public static bool CarriesSecret(ShowActionKind kind) => kind is ShowActionKind.UpdateApply or ShowActionKind.Restart;
 
+    /// <summary>What stands in for a secret target wherever an action is rendered diagnostically (<see cref="ShowAction.ToString"/>).</summary>
+    public const string Redacted = "[redacted]";
+
     public static (TargetKind Target, ValueKind Value) For(ShowActionKind kind) => kind switch
     {
         ShowActionKind.ApplyLook => (TargetKind.Look, ValueKind.Transition),

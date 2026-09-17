@@ -92,6 +92,69 @@ public sealed class ShowLog
         }
     }
 
+    /// <summary>
+    /// Round 76: rows an older build wrote with the admin passcode as the target of RESTART or UPDATE
+    /// APPLY (the row keeps the kind and the outcome and blanks the target since round 75) are blanked
+    /// in the file and its rotated half, once, at boot. A quick scan first, so a journal with nothing
+    /// to scrub costs one read; a rewrite goes through a temp file moved over the old one. Returns the
+    /// rows blanked; never throws.
+    /// </summary>
+    public int ScrubSecrets()
+    {
+        var total = 0;
+        try
+        {
+            lock (_gate)
+            {
+                foreach (var file in new[] { Path, Path + ".1" })
+                {
+                    total += ScrubFile(file);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Show log scrub failed.", ex);
+        }
+        return total;
+    }
+
+    /// <summary>Whether a row's kind is one whose target was the admin passcode.</summary>
+    public static bool KindCarriesSecret(string kind)
+        => Enum.TryParse<Model.ShowActionKind>(kind, ignoreCase: false, out var k) && ActionSpec.CarriesSecret(k);
+
+    private static int ScrubFile(string file)
+    {
+        if (!File.Exists(file)) return 0;
+        var text = File.ReadAllText(file);
+        if (!text.Contains("\"Kind\":\"Restart\"", StringComparison.Ordinal) && !text.Contains("\"Kind\":\"UpdateApply\"", StringComparison.Ordinal)) return 0;
+        var lines = text.Split('\n');
+        var changed = 0;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd('\r');
+            if (line.Length == 0) continue;
+            ShowLogEntry? entry;
+            try
+            {
+                entry = JsonSerializer.Deserialize<ShowLogEntry>(line, Compact);
+            }
+            catch (JsonException)
+            {
+                continue;   // a torn line stays as it is
+            }
+            if (entry is null || entry.Target.Length == 0 || !KindCarriesSecret(entry.Kind)) continue;
+            lines[i] = JsonSerializer.Serialize(entry with { Target = "" }, Compact);
+            changed++;
+        }
+        if (changed == 0) return 0;
+        var tmp = file + ".tmp";
+        File.WriteAllText(tmp, string.Join('\n', lines));
+        File.Move(tmp, file, overwrite: true);
+        Log.Info($"Show log: {changed} old row{(changed == 1 ? "" : "s")} carrying an admin passcode blanked in {System.IO.Path.GetFileName(file)}.");
+        return changed;
+    }
+
     private void RotateIfLarge()
     {
         var info = new FileInfo(Path);

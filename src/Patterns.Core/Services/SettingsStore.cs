@@ -96,6 +96,9 @@ public sealed class SettingsStore
     /// </summary>
     public bool LastLoadMigrated { get; private set; }
 
+    /// <summary>Round 76: what the last load changed that the operator should hear about — a credential-bearing control row removed, in words that never repeat the row.</summary>
+    public IReadOnlyList<string> LastMigrationNotes { get; private set; } = Array.Empty<string>();
+
     public ShowState? LoadFrom(string path)
     {
         foreach (var candidate in new[] { path, path + ".bak" })
@@ -119,9 +122,10 @@ public sealed class SettingsStore
             // the operator's latest edits gone for a hand-typed entry. It is logged and the show
             // keeps its old schema number, so the upgrade is tried again at the next start.
             LastLoadMigrated = state.SchemaVersion < ShowState.CurrentSchemaVersion;
+            LastMigrationNotes = Array.Empty<string>();
             try
             {
-                Migrate(state);
+                LastMigrationNotes = Migrate(state);
             }
             catch (Exception ex)
             {
@@ -135,7 +139,8 @@ public sealed class SettingsStore
     }
 
     /// <summary>Upgrades files written by older builds in place.</summary>
-    public static void Migrate(ShowState state)
+    /// <summary>The upgrade, in place; the notes the operator should hear (round 76) — empty in the ordinary case.</summary>
+    public static IReadOnlyList<string> Migrate(ShowState state)
     {
         if (state.SchemaVersion < 2)
         {
@@ -260,7 +265,13 @@ public sealed class SettingsStore
         // the list's first row, and every row carries an id.
         AudioPlaylist.Migrate(state.AudioPlayer);
 
+        // Round 76: a control row that carries the admin passcode in clear goes, and the operator is
+        // told — every load, not once per schema, because the rule is the show's policy (MIDI learn
+        // refuses such a line since round 75) and a row typed back in is refused the same way.
+        var notes = SecretRows.Scrub(state);
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
+        return notes;
     }
 
     /// <summary>"awards-2026.patshow.json" → "awards-2026"; the settings file itself has no name.</summary>
