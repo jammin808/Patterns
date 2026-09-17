@@ -68,27 +68,52 @@ public sealed class OutputWindowManager
             return;
         }
 
-        var wanted = new HashSet<string>();
+        var wanted = new HashSet<string>(targets.Select(t => t.Screen.Id));
+        // Round 76: a display Windows re-identified after a hot-plug (a new index, a shifted origin) carries its
+        // window over to the new id — the hot-plug pass says which old id became which (the same decision that
+        // moved the screen's placement) — so every output the unplugged display had nothing to do with keeps its
+        // window, its pipeline and its last frame. Only what no screen claims any more closes.
+        var hotPlug = _services.HotPlug;
+        var fresh = hotPlug is not null && hotPlug.Pass != _renamePassSeen;
+        var renames = fresh ? hotPlug!.RecentRenames : null;
+        if (fresh)
+        {
+            _renamePassSeen = hotPlug!.Pass;
+            // A screen that went lost may have carried the very id a re-indexed display now has: its window
+            // closes before any screen is matched to an id, or the stale window would answer for the new one —
+            // the screen that has the id now gets its own window by carry-over or afresh.
+            foreach (var id in hotPlug.RecentLost)
+            {
+                CloseWindow(id);
+            }
+        }
         foreach (var (screen, viewport) in targets)
         {
-            wanted.Add(screen.Id);
             if (_windows.TryGetValue(screen.Id, out var existing))
             {
                 existing.Pipeline.Viewport = viewport;
                 existing.ApplyOptions();
                 existing.NotifySnapshot();
+                continue;
             }
-            else
+            var was = renames is null ? null : renames.FirstOrDefault(kv => kv.Value == screen.Id && !wanted.Contains(kv.Key) && _windows.ContainsKey(kv.Key)).Key;
+            if (was is not null && _windows.Remove(was, out var carried))
             {
-                var window = new OutputWindow(_services, screen, viewport);
-                window.Closed += (_, _) =>
-                {
-                    _windows.Remove(screen.Id);
-                    LiveChanged?.Invoke();
-                };
-                _windows[screen.Id] = window;
-                window.Show();
+                carried.Retarget(screen, viewport);
+                _windows[screen.Id] = carried;
+                CarriedOver++;
+                Log.Info($"Output window carried over to the re-identified display: {was} → {screen.Id} ({screen.Label}).");
+                continue;
             }
+            var window = new OutputWindow(_services, screen, viewport);
+            window.Closed += (_, _) =>
+            {
+                // By the window's current id: a carry-over may have re-keyed it since it opened.
+                if (_windows.TryGetValue(window.TargetScreenId, out var open) && ReferenceEquals(open, window)) _windows.Remove(window.TargetScreenId);
+                LiveChanged?.Invoke();
+            };
+            _windows[screen.Id] = window;
+            window.Show();
         }
 
         foreach (var id in _windows.Keys.Where(id => !wanted.Contains(id)).ToList())
@@ -99,6 +124,11 @@ public sealed class OutputWindowManager
         LiveChanged?.Invoke();
         Log.Info($"Outputs live: {_windows.Count}.");
     }
+
+    /// <summary>Round 76: how many windows were carried onto a re-identified display rather than opened afresh — the tests and STATE read it.</summary>
+    public int CarriedOver { get; private set; }
+
+    private int _renamePassSeen;
 
     /// <summary>
     /// Pure mapping from arrangement to per-screen viewports — grouped screens get a span

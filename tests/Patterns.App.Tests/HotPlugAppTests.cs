@@ -231,4 +231,86 @@ public class HotPlugAppTests
             b.Dispose();
         }
     }
+
+    /// <summary>
+    /// Round 76: a display unplugged re-indexes the others, and their output windows used to be closed and
+    /// opened again under the new ids — black on every output the unplugged display had nothing to do with.
+    /// Now the hot-plug pass's own renames carry each window over: the same window, the same pipeline, the
+    /// same last frame, moved to the display's new place; only the unplugged display's window closes.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheOutputWindowsOfTheOtherDisplaysAreCarriedOverAHotPlugNotClosedAndOpenedAgain()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var screens = services.Screens;
+            var boot = screens.Real.ToList();
+            var desk = Display(7, "Desk monitor", 1920, 1080, 7000, 0, primary: true);
+            var pjL = Display(8, "EPSON PJ", 1920, 1080, 8920, 0);
+            var pjR = Display(9, "EPSON PJ", 1920, 1080, 10840, 0);
+            IReadOnlyList<ScreenInfo> now = boot.Concat(new[] { desk, pjL, pjR }).ToList();
+            screens.Source = () => now;
+            screens.Refresh();
+            Dispatcher.UIThread.RunJobs();
+            foreach (var p in vm.State.Output.Placements) p.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            var on = services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
+            Assert.True(on.Ok, on.Message);
+            Dispatcher.UIThread.RunJobs();
+            var placements = vm.State.Output.Placements;
+            var deskPlacement = placements.Single(p => p.ScreenId == desk.Id);
+            var left = placements.Single(p => p.ScreenId == pjL.Id);
+            var right = placements.Single(p => p.ScreenId == pjR.Id);
+            var before = services.Outputs.Windows.ToDictionary(w => w.TargetScreenId);
+            Assert.True(before.ContainsKey(desk.Id) && before.ContainsKey(pjL.Id) && before.ContainsKey(pjR.Id), string.Join(", ", before.Keys));
+            var leftWindow = before[pjL.Id];
+            var rightWindow = before[pjR.Id];
+            Assert.Equal(0, services.Outputs.CarriedOver);
+
+            // The desk monitor goes; the projectors come back re-indexed and shifted left, and Windows — which always
+            // names one display primary — promotes a projector to primary, as it does when the primary is unplugged.
+            // Two identical projectors: the model keeps each screen by its display's name and size where it can and
+            // renames the other onto the display left over — whatever it decided, every live screen keeps the very
+            // window it had, moved to where its display is, and the promotion turns no live output off.
+            var pjL2 = Display(7, "EPSON PJ", 1920, 1080, 7000, 0, primary: true);
+            var pjR2 = Display(8, "EPSON PJ", 1920, 1080, 8920, 0);
+            now = boot.Concat(new[] { pjL2, pjR2 }).ToList();
+            screens.Refresh();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(deskPlacement.Planned);                                                 // the unplugged display's screen waits
+            Assert.Contains(desk.Id, services.HotPlug.RecentLost);
+            Assert.Equal(new[] { pjL2.Id, pjR2.Id }.OrderBy(x => x), new[] { left.ScreenId, right.ScreenId }.OrderBy(x => x));
+            var renamed = new[] { (left, pjL.Id), (right, pjR.Id) }.Count(x => x.Item1.ScreenId != x.Item2);
+            Assert.True(renamed >= 1, "at least one projector was re-identified under a new id");
+            foreach (var (p, was) in new[] { (left, pjL.Id), (right, pjR.Id) })
+            {
+                if (p.ScreenId != was) Assert.Equal(p.ScreenId, services.HotPlug.RecentRenames[was]);
+            }
+
+            var after = services.Outputs.Windows.ToDictionary(w => w.TargetScreenId);
+            var story = $"before: {string.Join(", ", before.Keys)} | after: {string.Join(", ", after.Keys)} | renames: {string.Join(", ", services.HotPlug.RecentRenames.Select(kv => kv.Key + "→" + kv.Value))} | lost: {string.Join(", ", services.HotPlug.RecentLost)} | left now {left.ScreenId} right now {right.ScreenId} | carried {services.Outputs.CarriedOver}";
+            Assert.True(ReferenceEquals(leftWindow, after[left.ScreenId]), "left: " + story);   // the very window, carried or kept
+            Assert.True(ReferenceEquals(rightWindow, after[right.ScreenId]), "right: " + story);
+            var byId = now.ToDictionary(d => d.Id);
+            Assert.Equal(byId[left.ScreenId].Bounds, after[left.ScreenId].ScreenBounds);         // at its display's place now
+            Assert.Equal(byId[right.ScreenId].Bounds, after[right.ScreenId].ScreenBounds);
+            Assert.True(after.Count == before.Count - 1, "count: " + story);                     // the unplugged display's window alone closed
+            Assert.True(left.Enabled && right.Enabled, "the promotion to primary turned no live output off");
+            Assert.Equal(renamed, services.Outputs.CarriedOver);
+            Assert.True(services.Outputs.IsLive);
+
+            // The pass is acted on once: a later re-apply carries nothing again.
+            services.Outputs.OnScreensChanged();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(renamed, services.Outputs.CarriedOver);
+            Assert.Same(leftWindow, services.Outputs.Windows.Single(w => w.TargetScreenId == left.ScreenId));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 }

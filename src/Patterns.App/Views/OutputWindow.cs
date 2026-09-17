@@ -26,12 +26,19 @@ public sealed class OutputWindow : Window
     private DateTime _escArmedUtc = DateTime.MinValue;
 
     public RenderPipeline Pipeline { get; }
-    public string TargetScreenId { get; }
+    public string TargetScreenId { get; private set; }
+
+    /// <summary>Round 76: the display this window was opened (or last carried) onto — its bounds and its name — so a display re-identified after a hot-plug can be matched to the window already playing on it.</summary>
+    public PixelRect ScreenBounds { get; private set; }
+
+    public string ScreenLabel { get; private set; }
 
     public OutputWindow(AppServices services, ScreenInfo screen, PipelineViewport viewport)
     {
         _services = services;
         TargetScreenId = screen.Id;
+        ScreenBounds = screen.Bounds;
+        ScreenLabel = screen.Label;
         Pipeline = new RenderPipeline(services.Bus, viewport);
 
         Title = $"Patterns output — {screen.Label}";
@@ -56,6 +63,35 @@ public sealed class OutputWindow : Window
         Deactivated += (_, _) => _down.Clear(); // a key-up missed during Alt+Tab must not jam a key
         KeyDown += OnKeyDown;
         KeyUp += OnKeyUp;
+    }
+
+    /// <summary>
+    /// Round 76: the same window, the same pipeline, the same last frame — carried onto a display Windows
+    /// re-identified after a hot-plug (a new id, a shifted origin) instead of being closed and opened
+    /// again, which put black on every output that had nothing to do with the unplugged one. Moved
+    /// only when the display's origin moved; the picture never leaves the glass.
+    /// </summary>
+    public void Retarget(ScreenInfo screen, PipelineViewport viewport)
+    {
+        var moved = ScreenBounds.X != screen.Bounds.X || ScreenBounds.Y != screen.Bounds.Y;
+        TargetScreenId = screen.Id;
+        ScreenBounds = screen.Bounds;
+        ScreenLabel = screen.Label;
+        Title = $"Patterns output — {screen.Label}";
+        Pipeline.Viewport = viewport;
+        if (moved)
+        {
+            try
+            {
+                Position = new PixelPoint(screen.Bounds.X, screen.Bounds.Y);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Output window could not be moved to its display's new place.", ex);
+            }
+        }
+        ApplyOptions();
+        NotifySnapshot();
     }
 
     /// <summary>Whether this output asked to bypass the compositor; its window-side part is applied on every ApplyOptions.</summary>

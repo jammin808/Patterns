@@ -97,6 +97,19 @@ public sealed class HotPlugService
         return true;
     }
 
+    /// <summary>
+    /// Round 76: the ids the last pass moved — a display re-identified after a hot-plug, old id → new id, a
+    /// swap's step aside followed through — so the output windows carry over to the new ids rather than
+    /// close and open again (black on every output the unplugged display had nothing to do with).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RecentRenames { get; private set; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>Round 76: the ids of the screens the last pass marked lost (their ids before the pass) — their windows close first, before any other screen is matched to an id one of them may have carried.</summary>
+    public IReadOnlySet<string> RecentLost { get; private set; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>Round 76: one up per pass, so a reader acts on a pass's renames once and never on a stale map.</summary>
+    public int Pass { get; private set; }
+
     private bool Apply()
     {
         var state = _s.State;
@@ -104,24 +117,36 @@ public sealed class HotPlugService
         var plan = HotPlugWatch.Decide(state.Output.Placements.ToList(), now);
         var when = Clock();
         var programTouched = false;
+        var renames = new Dictionary<string, string>(StringComparer.Ordinal);
+        var lostIds = new HashSet<string>(StringComparer.Ordinal);
 
         // Losses first: a lost screen's old id may be the very id a re-indexed display now carries.
         foreach (var p in plan.Lost)
         {
+            lostIds.Add(p.ScreenId);
             programTouched |= Lose(p, when);
         }
         // Swaps: a display that took another screen's old id — that screen moves aside first, so no two screens share an id, even for a moment.
         foreach (var (p, d) in plan.Renamed)
         {
             var holder = state.Output.Placements.FirstOrDefault(q => !ReferenceEquals(q, p) && q.ScreenId == d.Id);
-            if (holder is not null) programTouched |= RenameQuietly(holder.ScreenId, ScreenPlacement.PlannedIdPrefix + "move-" + Guid.NewGuid().ToString("N")[..8]);
+            if (holder is not null)
+            {
+                var aside = ScreenPlacement.PlannedIdPrefix + "move-" + Guid.NewGuid().ToString("N")[..8];
+                renames[holder.ScreenId] = aside;
+                programTouched |= RenameQuietly(holder.ScreenId, aside);
+            }
         }
         foreach (var (p, d) in plan.Renamed)
         {
             var old = p.ScreenId;
+            renames[old] = d.Id;
             programTouched |= RenameQuietly(old, d.Id);
             Log.Info($"Display re-identified after a hot-plug: {old} → {d.Id} ({d.Words}).");
         }
+        RecentRenames = HotPlugWatch.Resolved(renames);
+        RecentLost = lostIds;
+        Pass++;
         foreach (var (p, d) in plan.Returned)
         {
             programTouched |= Adopt(p, d, "is back", substitute: false);

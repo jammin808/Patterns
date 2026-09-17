@@ -40,6 +40,8 @@ public sealed class RigEditor
     /// Keeps placements in sync with detected screens: new screens appear to the right of the
     /// arrangement (disconnected), and — until the operator pins a choice — the primary screen
     /// defaults to disabled whenever other screens exist, so GO never covers the control UI.
+    /// The default settles the arrangement at the desk; while the outputs are live it turns
+    /// nothing on or off (round 76, see below).
     /// </summary>
     public void ReconcilePlacements(IReadOnlyList<ScreenInfo> screens)
     {
@@ -64,7 +66,14 @@ public sealed class RigEditor
             }
         }
 
-        // Re-evaluate the default for anything the user hasn't pinned.
+        // Re-evaluate the default for anything the user hasn't pinned — at the desk, never on the air.
+        // Round 76: Windows always names one display primary, so unplugging the one it named (the desk's
+        // own monitor, off by this default) promotes another — a projector — to primary, and this rule
+        // then turned that live output off: black on a screen the unplugged display had nothing to do
+        // with. The reverse held too: a desk monitor no longer primary was turned on under the operator.
+        // While the outputs are live the arrangement is the show's; the default settles new placements
+        // only, and a change of mind is the operator's, on the Screens page or the wire.
+        if (_s.Outputs.IsLive) return;
         foreach (var p in placements)
         {
             if (p.UserPinned) continue;

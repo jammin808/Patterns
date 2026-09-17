@@ -50,6 +50,27 @@ public static class HotPlugWatch
     /// <summary>A planned id no display can ever carry: the screen waits under it for its display.</summary>
     public static string LostId() => LostIdPrefix + Guid.NewGuid().ToString("N")[..8];
 
+    /// <summary>
+    /// Round 76: a pass's renames followed through — a screen stepped aside (old → aside) and the aside
+    /// renamed on (aside → new) read as old → new — so a reader keyed by the old id finds the id it ended
+    /// under. A chain that loops is cut where it repeats.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> Resolved(IReadOnlyDictionary<string, string> renames)
+    {
+        var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (from, _) in renames)
+        {
+            var to = from;
+            var hops = 0;
+            while (renames.TryGetValue(to, out var next) && hops++ < renames.Count && next != from)
+            {
+                to = next;
+            }
+            if (to != from) resolved[from] = to;
+        }
+        return resolved;
+    }
+
     /// <summary>The name half of a key.</summary>
     public static string LabelOf(string key)
     {

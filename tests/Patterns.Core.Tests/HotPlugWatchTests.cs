@@ -188,4 +188,24 @@ public class HotPlugWatchTests
         Assert.StartsWith("SCREEN MISSING: 'Stage' unplugged at", HotPlugWatch.HealthWords(new[] { lost }));
         Assert.StartsWith("2 SCREENS MISSING: 'Stage' unplugged at", HotPlugWatch.HealthWords(new[] { lost, Lost("Wall", "LG|3840x2160", "0,0", 0, 3840, 2160) }));
     }
+
+    /// <summary>Round 76: a pass's renames followed through — a step aside and the rename on it read as one move; a loop is cut.</summary>
+    [Fact]
+    public void RenamesAreResolvedThroughTheirChains()
+    {
+        var resolved = HotPlugWatch.Resolved(new Dictionary<string, string>
+        {
+            ["8:a"] = "7:a",                     // re-indexed
+            ["7:a"] = "planned:move-1",          // stepped aside first
+            ["planned:move-1"] = "6:a",          // then renamed on
+            ["x"] = "y",
+            ["y"] = "x",                         // a loop: cut where it repeats
+        });
+        Assert.Equal("6:a", resolved["8:a"]);
+        Assert.Equal("6:a", resolved["7:a"]);
+        Assert.Equal("6:a", resolved["planned:move-1"]);
+        Assert.Equal("y", resolved["x"]);
+        Assert.Equal("x", resolved["y"]);
+        Assert.Empty(HotPlugWatch.Resolved(new Dictionary<string, string>()));
+    }
 }
