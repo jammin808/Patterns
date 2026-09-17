@@ -8,8 +8,27 @@ namespace Patterns.Core.Services;
 /// <param name="Locked">LOCK on the tile: it keeps its picture through looks, cues, TAKE ALL and stingers.</param>
 /// <param name="Armed">ARM on the tile: the next CUT / TAKE may change it.</param>
 /// <param name="Ticked">The tick at the top of the tile.</param>
-/// <param name="Shape">Round 75: what the target is, in the wall's words — "a screen of its own", "a repeater of 1 · Left", "Canvas A of 2 · Right, 3 · Rear" — kept by a ticket at the press and compared at its landing, so a take never lands on a target that is not what the press promised. "" when the caller keeps no shapes.</param>
-public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "");
+/// <param name="Shape">Round 75: what the target is, in the wall's words — "a screen of its own", "a repeater of 1 · Left", "Canvas A of 2 · Right, 3 · Rear" — kept by a ticket at the press and said at its landing when the target is something else now. "" when the caller keeps no shapes.</param>
+/// <param name="ShapeKey">Round 76: what the target is, structurally (<see cref="TakeShapes"/>) — "own", "mirror:a", "canvas:a|b" — the key a landing compares, so a label that changed during the clip never holds a landing and a member that joined or left always does. "" when the caller keeps no keys, and the words decide as in round 75.</param>
+public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "", string ShapeKey = "");
+
+/// <summary>
+/// Round 76: a target's structural identity apart from its words. Round 75 compared the wall's words
+/// ("a repeater of 1 · Left") at the landing, and the words carry labels — a screen renamed during the
+/// clip read as a topology change: fail-safe, not true. The key carries ids alone: what a target is
+/// (its own, a repeater, a canvas), and of whom. Transactions compare keys; operators read words.
+/// </summary>
+public static class TakeShapes
+{
+    /// <summary>A screen with a picture of its own.</summary>
+    public const string Own = "own";
+
+    /// <summary>A repeater of the target with this id.</summary>
+    public static string Mirror(string sourceId) => "mirror:" + sourceId;
+
+    /// <summary>A joined canvas of these members — order-blind, so a presentation reorder is no change.</summary>
+    public static string Canvas(IEnumerable<string> memberIds) => "canvas:" + string.Join("|", memberIds.OrderBy(m => m, StringComparer.Ordinal));
+}
 
 /// <summary>A target inside the scope that the take leaves alone, and the one word that says why.</summary>
 public sealed record TakeHeld(string Id, string Label, string Reason)
@@ -82,8 +101,11 @@ public sealed record TakePlan
     /// <summary>The wall's names for <see cref="Taken"/>, in the same order — a ticket keeps them, so its words stay the press's.</summary>
     public IReadOnlyList<string> TakenLabels { get; init; } = Array.Empty<string>();
 
-    /// <summary>Round 75: each taken target's <see cref="TakeTarget.Shape"/> at the press, in the same order — a ticket keeps them and its landing compares.</summary>
+    /// <summary>Round 75: each taken target's <see cref="TakeTarget.Shape"/> at the press, in the same order — a ticket keeps them and its landing says them.</summary>
     public IReadOnlyList<string> TakenShapes { get; init; } = Array.Empty<string>();
+
+    /// <summary>Round 76: each taken target's <see cref="TakeTarget.ShapeKey"/> at the press, in the same order — a ticket keeps them and its landing compares.</summary>
+    public IReadOnlyList<string> TakenKeys { get; init; } = Array.Empty<string>();
 
     /// <summary>
     /// Resolves the scope against the rig. <paramref name="focused"/> is the tile the desk has focused
@@ -134,6 +156,7 @@ public sealed record TakePlan
         var taken = new List<string>();
         var takenLabels = new List<string>();
         var takenShapes = new List<string>();
+        var takenKeys = new List<string>();
         var held = new List<TakeHeld>();
         foreach (var t in rig)
         {
@@ -146,6 +169,7 @@ public sealed record TakePlan
                 taken.Add(t.Id);
                 takenLabels.Add(t.Label);
                 takenShapes.Add(t.Shape);
+                takenKeys.Add(t.ShapeKey);
             }
         }
         var outside = rig.Where(t => !inside.Contains(t.Id)).Select(t => t.Id).ToList();
@@ -172,6 +196,7 @@ public sealed record TakePlan
             Taken = taken,
             TakenLabels = takenLabels,
             TakenShapes = takenShapes,
+            TakenKeys = takenKeys,
             Held = held,
             Outside = outside,
             Where = where,
@@ -220,8 +245,11 @@ public sealed record TakeTicket
     /// <summary>The wall's names for <see cref="Taken"/> at the press, in the same order.</summary>
     public IReadOnlyList<string> Labels { get; init; } = Array.Empty<string>();
 
-    /// <summary>Round 75: what each of <see cref="Taken"/> was at the press (<see cref="TakeTarget.Shape"/>), in the same order; the landing holds a target that is something else now.</summary>
+    /// <summary>Round 75: what each of <see cref="Taken"/> was at the press (<see cref="TakeTarget.Shape"/>), in the same order — the words a landing says for a target that is something else now.</summary>
     public IReadOnlyList<string> Shapes { get; init; } = Array.Empty<string>();
+
+    /// <summary>Round 76: what each of <see cref="Taken"/> was at the press, structurally (<see cref="TakeTarget.ShapeKey"/>), in the same order — what the landing compares; the words decide only when a side has no key.</summary>
+    public IReadOnlyList<string> Keys { get; init; } = Array.Empty<string>();
 
     /// <summary>What the press said: "on every armed screen", "on 2 · Right alone".</summary>
     public required string Where { get; init; }
@@ -244,6 +272,7 @@ public sealed record TakeTicket
         Taken = plan.Taken,
         Labels = plan.TakenLabels,
         Shapes = plan.TakenShapes,
+        Keys = plan.TakenKeys,
         Where = plan.Where,
         Cover = cover,
         PressedUtc = pressedUtc,
@@ -269,14 +298,15 @@ public sealed record TakeTicket
             var id = Taken[i];
             var label = i < Labels.Count ? Labels[i] : id;
             var promised = i < Shapes.Count ? Shapes[i] : "";
+            var promisedKey = i < Keys.Count ? Keys[i] : "";
             if (!byId.TryGetValue(id, out var now))
             {
                 var elsewhere = whereNow?.Invoke(id) ?? "";
                 held.Add(new TakeHeld(id, label, elsewhere.Length > 0 ? TakeHeld.ChangedSince(elsewhere) : TakeHeld.GoneReason));
             }
-            else if (promised.Length > 0 && now.Shape.Length > 0 && !string.Equals(promised, now.Shape, StringComparison.Ordinal))
+            else if (ShapeChanged(promised, promisedKey, now))
             {
-                held.Add(new TakeHeld(id, label, TakeHeld.ChangedSince(now.Shape)));
+                held.Add(new TakeHeld(id, label, TakeHeld.ChangedSince(now.Shape.Length > 0 ? now.Shape : now.ShapeKey)));
             }
             else if (now.Locked) held.Add(new TakeHeld(id, label, TakeHeld.LockedSinceReason));
             else landed.Add(id);
@@ -287,6 +317,18 @@ public sealed record TakeTicket
             : Taken.Count == 0 ? "The press promised nothing."
             : $"Nothing lands — {string.Join(", ", held.Select(h => $"{h.Label} ({h.Reason})"))}.";
         return new TakeLanding(landed, held, kept, refusal);
+    }
+
+    /// <summary>
+    /// Round 76: whether a target is something else than the press promised. The keys decide when both
+    /// the press and the rig carry one (a label that changed is no change; a member that joined or left,
+    /// a screen made a repeater, a repeater made its own is); the words decide as in round 75 when a side
+    /// has none. A press or a rig that keeps neither compares nothing.
+    /// </summary>
+    public static bool ShapeChanged(string promisedShape, string promisedKey, TakeTarget now)
+    {
+        if (promisedKey.Length > 0 && now.ShapeKey.Length > 0) return !string.Equals(promisedKey, now.ShapeKey, StringComparison.Ordinal);
+        return promisedShape.Length > 0 && now.Shape.Length > 0 && !string.Equals(promisedShape, now.Shape, StringComparison.Ordinal);
     }
 }
 

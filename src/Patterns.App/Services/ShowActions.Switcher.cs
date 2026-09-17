@@ -224,13 +224,32 @@ public sealed partial class ShowActions
                     return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the picture, then CUT or TAKE it to this screen.");
                 }
                 var target = ResolveScreenTarget(a.Target);
-                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                if (target is null)
+                {
+                    // Round 76: a promised target gone from the rig during the clip — the ticket's words say where it went.
+                    if (origin == ActionOrigin.Stinger && _landing is { Tile: true } goneTicket)
+                    {
+                        var goneGeometry = Rig.Geometry(State, _s.Screens.All);
+                        var gone = goneTicket.Land(RigTargets(goneGeometry), id => WhereNow(goneGeometry, id));
+                        if (gone.IsRefused) return ActionResult.Failed(gone.Refusal!);
+                    }
+                    return ActionResult.Refused($"No screen '{a.Target}'.");
+                }
                 if (!ContentTargets.IsCanvasKey(target) && State.Output.Placements.FirstOrDefault(p => p.ScreenId == target) is { MirrorOf.Length: > 0 } mirror
                     && ContentTargets.IsInRig(State, mirror.MirrorOf))
                 {
                     return ActionResult.Refused("A repeater draws its source's picture and has none of its own — take to its source instead.");
                 }
-                var where = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                var tileGeometry = Rig.Geometry(State, _s.Screens.All);
+                var where = tileGeometry.LabelFor(State, target);
+                // Round 76: a tile's landing runs the ticket the press froze against the rig as it is now — the one
+                // validator the wall's landing runs — so a canvas that grew or a screen made a repeater during the
+                // clip holds the landing with the reason, and the tile path only applies a landing already approved.
+                if (origin == ActionOrigin.Stinger && _landing is { Tile: true } tileTicket)
+                {
+                    var landingNow = tileTicket.Land(RigTargets(tileGeometry), id => WhereNow(tileGeometry, id));
+                    if (landingNow.IsRefused) return ActionResult.Failed(landingNow.Refusal!);
+                }
                 // LOCKED means locked (round 67): the tile's own key is no way round it either — nor is a sting's
                 // landing (round 72): a lock that came after the press holds the screen, and the landing says so.
                 if (ScreenRoles.IsLocked(State, target))
@@ -248,7 +267,13 @@ public sealed partial class ShowActions
                         _s.NextTake.Consume();
                         return ActionResult.Refused($"The sting '{nextOne.StingName}' is not in the library any more — the one-shot is cleared; the next TAKE is the show's own.");
                     }
-                    var ticket = new TakeTicket { Scope = "TILE " + target, Taken = new[] { target }, Labels = new[] { where }, Where = $"on {where} alone", Tile = true, Cover = sting.DisplayName, PressedUtc = ShowClock.UtcNow };
+                    // Round 76: the tile's ticket carries its target's shape and key like the wall's, so the landing can tell a target that is not what the press saw.
+                    var pressed = RigTargets(tileGeometry).FirstOrDefault(t => t.Id == target);
+                    var ticket = new TakeTicket
+                    {
+                        Scope = "TILE " + target, Taken = new[] { target }, Labels = new[] { where }, Where = $"on {where} alone", Tile = true, Cover = sting.DisplayName, PressedUtc = ShowClock.UtcNow,
+                        Shapes = new[] { pressed?.Shape ?? "" }, Keys = new[] { pressed?.ShapeKey ?? "" },
+                    };
                     if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, ticket: ticket)) return ActionResult.Failed($"{_s.Stingers.Status} The one-shot stays for the next TAKE.");
                     _s.NextTake.Consume();
                     return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands on {where} alone when the clip ends.");
@@ -398,18 +423,38 @@ public sealed partial class ShowActions
             var canvas = ContentTargets.IsCanvasKey(target);
             var mirror = !canvas && byId.TryGetValue(target, out var p) && p.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, p.MirrorOf);
             var shape = canvas
-                ? $"{geometry.LabelFor(State, target)} of {string.Join(", ", ContentTargets.Members(target).Select(m => geometry.LabelFor(State, m)))}"
+                ? CanvasShape(geometry, target)
                 : mirror ? $"a repeater of {geometry.LabelFor(State, byId[target].MirrorOf)}"
                 : "a screen of its own";
+            // Round 76: the key beside the words — ids alone, so a rename during the clip is no change and a member moved is.
+            var key = canvas ? TakeShapes.Canvas(ContentTargets.Members(target)) : mirror ? TakeShapes.Mirror(byId[target].MirrorOf) : TakeShapes.Own;
             rig.Add(new TakeTarget(target, geometry.LabelFor(State, target), canvas, mirror,
-                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape));
+                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape, key));
         }
         return rig;
     }
 
-    /// <summary>Round 75: where a promised screen went when it is no longer a target of its own — "in Canvas A" — for a landing's words; "" when it is simply gone from the rig.</summary>
+    /// <summary>"A · Canvas A of 1 · Left, 2 · Right" — a canvas's shape in the wall's words.</summary>
+    private string CanvasShape(RigGeometry geometry, string canvasKey)
+        => $"{geometry.LabelFor(State, canvasKey)} of {string.Join(", ", ContentTargets.Members(canvasKey).Select(m => geometry.LabelFor(State, m)))}";
+
+    /// <summary>
+    /// Round 75: where a promised target went when it is no longer a target of its own — "in Canvas A" for a
+    /// screen that joined a canvas; round 76: for a promised canvas, what its members are now ("A · Canvas A of
+    /// 1 · Left, 2 · Right, 3 · Lobby" when the canvas grew or shrank around them, "screens of their own" when it
+    /// broke up) — for a landing's words; "" when it is simply gone from the rig.
+    /// </summary>
     private string WhereNow(RigGeometry geometry, string id)
     {
+        if (ContentTargets.IsCanvasKey(id))
+        {
+            var members = ContentTargets.Members(id);
+            foreach (var target in geometry.Targets)
+            {
+                if (ContentTargets.IsCanvasKey(target) && ContentTargets.Members(target).Any(m => Array.IndexOf(members, m) >= 0)) return CanvasShape(geometry, target);
+            }
+            return members.Any(m => geometry.Targets.Contains(m)) ? "screens of their own" : "";
+        }
         foreach (var target in geometry.Targets)
         {
             if (ContentTargets.IsCanvasKey(target) && Array.IndexOf(ContentTargets.Members(target), id) >= 0) return $"in {geometry.LabelFor(State, target)}";

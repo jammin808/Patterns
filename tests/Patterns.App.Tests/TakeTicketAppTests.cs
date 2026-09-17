@@ -373,7 +373,8 @@ public class TakeTicketAppTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Sting could not move the show on — previous content back.", services.Stingers.Status);
             Assert.NotEqual(PatternKind.LedWall, services.Bus.Current.PatternFor("b").Kind);
-            Assert.Contains(services.Journal.Tail(20), e => e.Kind == "ScreenTake" && e.Message.Contains("was locked after the press"));
+            // Round 76: the tile's landing runs the ticket validator the wall's runs, so the hold reads as the wall's would.
+            Assert.Contains(services.Journal.Tail(20), e => e.Kind == "ScreenTake" && e.Message.Contains("locked since the press"));
         }
         finally
         {
@@ -430,6 +431,143 @@ public class TakeTicketAppTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(ActionStatus.Done, services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk, "").Status);
             Assert.Null(services.NextTake.Pending);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    private static List<ScreenInfo> ThreeScreens() => new()
+    {
+        new("a", "Left", new PixelRect(0, 0, 1920, 1080), 1.0, true, 0),
+        new("b", "Right", new PixelRect(1920, 0, 1920, 1080), 1.0, false, 1),
+        new("c", "Lobby", new PixelRect(4400, 0, 1920, 1080), 1.0, false, 2),
+    };
+
+    /// <summary>a+b flush = canvas A; c stands alone. All three enabled.</summary>
+    private static void Rig3(TestApp.Booted b)
+    {
+        var fakes = ThreeScreens();
+        b.Services.Screens.All.Clear();
+        foreach (var s in fakes) b.Services.Screens.All.Add(s);
+        b.Vm.State.Output.Placements.Clear();
+        b.Vm.ReconcilePlacements(fakes);
+        var a = b.Vm.State.Output.Placements.First(p => p.ScreenId == "a");
+        var bb = b.Vm.State.Output.Placements.First(p => p.ScreenId == "b");
+        var c = b.Vm.State.Output.Placements.First(p => p.ScreenId == "c");
+        a.X = 0; a.Y = 0;
+        bb.X = 1920; bb.Y = 0;
+        c.X = 6000; c.Y = 0;
+        foreach (var p in b.Vm.State.Output.Placements) p.Enabled = true;
+        b.Vm.RebuildSwitcherTiles();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    /// <summary>
+    /// Round 76: a canvas tile's TAKE under a sting lands through the same validator as the wall's. The canvas
+    /// grew while the clip ran (a third screen joined it): the promised canvas is not a target any more, nothing
+    /// lands, the show comes back and the words say what its members are now — a transaction never lands on a
+    /// larger destination than the operator pressed.
+    /// </summary>
+    [AvaloniaFact]
+    public void ACanvasTilesTakeUnderAStingIsHeldWhenTheCanvasGrewDuringTheClip()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            AudioFakes.Install(b);
+            var clip = new FakeClip();
+            services.Video.SourceFactory = _ => clip;
+            Rig3(b);
+            Programme(b, PatternKind.Grid);
+            Whoosh(b);
+            var router = new CommandRouter(services);
+            var canvasKey = CanvasNameConfig.KeyFor(new[] { "a", "b" });
+
+            Assert.StartsWith("OK", Send(router, "TAKE NEXT STING Whoosh"));
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            Dispatcher.UIThread.RunJobs();
+            var pressed = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, canvasKey);
+            Assert.Equal(ActionStatus.Requested, pressed.Status);
+            var ticket = services.Stingers.SessionTicket!;
+            Assert.True(ticket.Tile);
+            Assert.Equal(new[] { canvasKey }, ticket.Taken);
+            Assert.Equal(new[] { TakeShapes.Canvas(new[] { "a", "b" }) }, ticket.Keys);
+            Assert.Contains(" of 1 · Left, 2 · Right", Assert.Single(ticket.Shapes), StringComparison.Ordinal);
+
+            // The lobby screen is moved flush with the wall while the clip runs: the canvas is a+b+c now.
+            vm.State.Output.Placements.First(p => p.ScreenId == "c").X = 3840;
+            vm.RebuildSwitcherTiles();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(CanvasNameConfig.KeyFor(new[] { "a", "b", "c" }), Patterns.App.Services.Rig.Geometry(vm.State, services.Screens.All).Targets);
+
+            clip.Ended = true;
+            services.Stingers.Poll();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.Stingers.ClipActive);
+            Assert.Equal("Sting could not move the show on — previous content back.", services.Stingers.Status);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
+            var row = Assert.Single(services.Journal.Tail(20), e => e.Kind == "ScreenTake" && e.Message.StartsWith("Nothing lands", StringComparison.Ordinal));
+            Assert.Contains("changed since the press — now ", row.Message, StringComparison.Ordinal);
+            Assert.Contains("3 · Lobby", row.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Round 76: a rename during the clip moves the words a landing says, never the key it compares. The wall's
+    /// TAKE promised the canvas and the lobby screen; the right screen is renamed while the clip runs; the plan's
+    /// words now carry the new name, and the landing goes ahead with nothing held.
+    /// </summary>
+    [AvaloniaFact]
+    public void ARenameDuringTheClipMovesTheWordsNotTheKeyAndTheLandingGoesAhead()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            AudioFakes.Install(b);
+            var clip = new FakeClip();
+            services.Video.SourceFactory = _ => clip;
+            Rig3(b);
+            Programme(b, PatternKind.Grid);
+            Whoosh(b);
+            var router = new CommandRouter(services);
+            var canvasKey = CanvasNameConfig.KeyFor(new[] { "a", "b" });
+
+            vm.SelectedTakeScope = vm.TakeScopes[0];
+            Assert.StartsWith("OK", Send(router, "TAKE NEXT STING Whoosh"));
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            Dispatcher.UIThread.RunJobs();
+            vm.TakeCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Stingers.ClipActive, vm.StatusMessage);
+            var ticket = services.Stingers.SessionTicket!;
+            Assert.Equal(new[] { canvasKey, "c" }, ticket.Taken);
+            Assert.Equal(new[] { TakeShapes.Canvas(new[] { "a", "b" }), TakeShapes.Own }, ticket.Keys);
+            Assert.Contains("2 · Right", ticket.Shapes[0], StringComparison.Ordinal);
+
+            // The right screen is renamed while the clip runs: the words move, the key does not.
+            vm.State.Output.Placements.First(p => p.ScreenId == "b").CustomLabel = "Stage Right";
+            Dispatcher.UIThread.RunJobs();
+            var now = services.Actions.PlanTake(FadeScope.Everything);
+            Assert.Contains("Stage Right", now.TakenShapes[0], StringComparison.Ordinal);
+            Assert.Equal(ticket.Keys, now.TakenKeys);
+
+            clip.Ended = true;
+            services.Stingers.Poll();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Sting done — the show moved on.", services.Stingers.Status);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("c").Kind);
+            var take = Assert.Single(services.Journal.Tail(20), e => e.Kind == "Take" && e.Message.StartsWith("TAKE — sandbox faded up", StringComparison.Ordinal));
+            Assert.DoesNotContain("held since the press", take.Message, StringComparison.Ordinal);
         }
         finally
         {

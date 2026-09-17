@@ -134,4 +134,54 @@ public class TakeTicketTests
         var held = Assert.Single(bare.Land(new[] { new TakeTarget("a", "a"), new TakeTarget("b", "b", Locked: true) }).HeldSince);
         Assert.Equal(("b", "b", TakeHeld.LockedSinceReason), (held.Id, held.Label, held.Reason));
     }
+
+    /// <summary>
+    /// Round 76: the key decides and the words explain. A canvas renamed during the clip (its words moved, its
+    /// members did not) lands; a canvas whose members moved is held with what it is now; a screen made a
+    /// repeater is held; a target that carries no key on one side falls back to the words, as round 75 compared.
+    /// </summary>
+    [Fact]
+    public void TheStructuralKeyDecidesTheLandingAndTheWordsExplainIt()
+    {
+        Assert.Equal("canvas:a|b|c", TakeShapes.Canvas(new[] { "c", "a", "b" }));                        // order-blind
+        Assert.Equal("mirror:a", TakeShapes.Mirror("a"));
+        Assert.Equal("own", TakeShapes.Own);
+
+        var canvas = new TakeTarget("a+b", "A · Canvas A", IsCanvas: true, Shape: "A · Canvas A of 1 · Left, 2 · Right", ShapeKey: TakeShapes.Canvas(new[] { "a", "b" }));
+        var foyer = new TakeTarget("c", "3 · Foyer", Shape: Own, ShapeKey: TakeShapes.Own);
+        var plan = TakePlan.Resolve(new[] { canvas, foyer }, FadeScope.Everything, focused: null);
+        Assert.Equal(new[] { "canvas:a|b", "own" }, plan.TakenKeys);
+        var ticket = TakeTicket.From(plan, "", "Whoosh", Pressed);
+        Assert.Equal(new[] { "canvas:a|b", "own" }, ticket.Keys);
+        Assert.Equal(new[] { "A · Canvas A of 1 · Left, 2 · Right", Own }, ticket.Shapes);
+
+        // A rename during the clip: the words moved, the key did not — the landing goes ahead.
+        var renamed = ticket.Land(new[] { canvas with { Label = "A · Main wall", Shape = "A · Main wall of 1 · Left, 2 · Stage Right" }, foyer });
+        Assert.False(renamed.IsRefused);
+        Assert.Equal(new[] { "a+b", "c" }, renamed.Landed);
+        Assert.Empty(renamed.HeldSince);
+
+        // The canvas grew: its key is another target's now — the promised one is gone from the rig, and the words say what its members are now.
+        var grown = new TakeTarget("a+b+c", "A · Canvas A", IsCanvas: true, Shape: "A · Canvas A of 1 · Left, 2 · Right, 3 · Foyer", ShapeKey: TakeShapes.Canvas(new[] { "a", "b", "c" }));
+        var landing = ticket.Land(new[] { grown }, id => id == "a+b" ? grown.Shape : "");
+        Assert.True(landing.IsRefused);
+        Assert.Equal("Nothing lands — A · Canvas A (changed since the press — now A · Canvas A of 1 · Left, 2 · Right, 3 · Foyer), 3 · Foyer (gone from the rig).", landing.Refusal);
+
+        // A screen made a repeater: the same id, another key — held with the words now; a repeater made its own likewise.
+        var mirrored = ticket.Land(new[] { canvas, foyer with { IsMirror = true, Shape = "a repeater of 1 · Left", ShapeKey = TakeShapes.Mirror("a") } });
+        Assert.Equal(new[] { "a+b" }, mirrored.Landed);
+        var held = Assert.Single(mirrored.HeldSince);
+        Assert.Equal(("c", "3 · Foyer", "changed since the press — now a repeater of 1 · Left"), (held.Id, held.Label, held.Reason));
+
+        // A member that left while the same words stand (a hand-edited label): the key catches what the words would miss.
+        var swapped = ticket.Land(new[] { canvas with { ShapeKey = TakeShapes.Canvas(new[] { "a", "d" }) }, foyer });
+        Assert.Equal(new[] { "c" }, swapped.Landed);
+        Assert.Equal("changed since the press — now A · Canvas A of 1 · Left, 2 · Right", Assert.Single(swapped.HeldSince).Reason);
+
+        // No key on the rig's side (an older caller): the words decide, as round 75 compared them.
+        var wordsOnly = ticket.Land(new[] { canvas with { ShapeKey = "", Shape = "A · Canvas A of 1 · Left, 2 · Stage Right" }, foyer with { ShapeKey = "" } });
+        Assert.Equal(new[] { "c" }, wordsOnly.Landed);
+        Assert.Equal("changed since the press — now A · Canvas A of 1 · Left, 2 · Stage Right", Assert.Single(wordsOnly.HeldSince).Reason);
+        Assert.True(TakeTicket.ShapeChanged("", "", canvas) == false);                                    // nothing kept on either side compares nothing
+    }
 }
