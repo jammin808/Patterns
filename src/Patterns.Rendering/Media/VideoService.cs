@@ -110,6 +110,12 @@ public interface IWebSource : IVideoFrameSource
 
     /// <summary>"routed to HDMI 3", or why the page could not be — the Audio page's line; "" when nothing was asked.</summary>
     string AudioRouteNote => "";
+    /// <summary>Round 76: the page's player is told the browser cannot play VP9 or AV1, so it picks H.264 (<see cref="Patterns.Core.Media.WebPlayback"/>); applied on the next document.</summary>
+    bool PreferH264
+    {
+        get => false;
+        set { _ = value; /* a source that is not a page has no player to steer */ }
+    }
 
     /// <summary>How the page's frames are buffered on their way to the glass (round 68): the look's choice, applied live.</summary>
     Patterns.Core.Media.WebSmoothing Smoothing

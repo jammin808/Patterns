@@ -277,6 +277,14 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             await StartScreencastAsync();
             if (_disposed) return;
 
+            // Round 76: before the first document — the codec preference the player reads as it starts, and
+            // the route's grant and sink script, so the outputs' names are visible to the page's first script
+            // rather than a second and a half after it loaded.
+            if (_preferH264) await ApplyPreferH264Async();
+            if (_disposed) return;
+            if (_audioDevice.Length > 0) await PrepareRouteAsync();
+            if (_disposed) return;
+
             NavigateCore(_currentUrl);
 
             _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(1000.0 / CaptureFps));
@@ -647,6 +655,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             var text = fps > 0 ? $"{_status} · {fps:0} fps · {_pipeline.Smoother.Words}" : _status;
             if (_screencastRestarts > 0) text += _screencastOn ? $" · screencast restarted ({_screencastRestarts})" : " · screenshot poll (the screencast stalled)";
             if (_routeHeld) text += " · sound held: not routed";
+            if (_preferH264) text += " · " + WebPlayback.PreferH264Words;
             return _browserSaysHidden ? text + " · the browser thinks its window is hidden" : text;
         }
     }
@@ -703,6 +712,53 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private string _audioDevice = "";
     private string? _sinkScriptId;
     private volatile string _audioRouteNote = "";
+    private volatile bool _preferH264;
+    private string? _preferH264ScriptId;
+    private int _preferGeneration;
+
+    /// <summary>
+    /// Round 76: the page's player is told the browser cannot play VP9 or AV1 and picks H.264 (see
+    /// <see cref="WebPlayback"/>). A document-created script, so it is in place before the player's own
+    /// code runs; a change applies to the next document the page loads.
+    /// </summary>
+    public bool PreferH264
+    {
+        get => _preferH264;
+        set
+        {
+            if (_preferH264 == value) return;
+            _preferH264 = value;
+            Interlocked.Increment(ref _preferGeneration);
+            OnUi(() => _ = ApplyPreferH264Async());
+        }
+    }
+
+    private async Task ApplyPreferH264Async()
+    {
+        if (_core is null || _disposed) return;
+        var generation = Volatile.Read(ref _preferGeneration);
+        try
+        {
+            if (_preferH264ScriptId is { } old)
+            {
+                _preferH264ScriptId = null;
+                _core.RemoveScriptToExecuteOnDocumentCreated(old);
+            }
+            if (!_preferH264) return;
+            var id = await _core.AddScriptToExecuteOnDocumentCreatedAsync(WebPlayback.PreferH264Script);
+            if (_disposed || _core is null) return;
+            if (generation != Volatile.Read(ref _preferGeneration))
+            {
+                _core.RemoveScriptToExecuteOnDocumentCreated(id);
+                return;
+            }
+            _preferH264ScriptId = id;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The page's codec preference could not be applied.", ex);
+        }
+    }
 
     /// <summary>
     /// The output the page's sound leaves by. Chromium lets a page pick an output for its media
@@ -779,15 +835,39 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
             }
             await _core.ExecuteScriptAsync(SinkScript(wanted));
-            await Task.Delay(1500);
-            if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
-            var result = await _core.ExecuteScriptAsync("JSON.stringify(window.__patternsSink||null)");
-            if (generation != Volatile.Read(ref _routeGeneration)) return;
-            var note = ReadSinkNote(result, wanted);
-            var outcome = WebAudioRoute.Classify(note, wanted);
+            // Round 76: the page's answer is awaited, not assumed at a timer — asked every quarter second
+            // until it says routed, default or a failure time will not mend, for as long as the patience
+            // runs; the sound is held throughout and the moment the page says routed it plays. An early
+            // failure (the outputs' names not visible yet) asks the page to apply again.
+            var started = Stopwatch.GetTimestamp();
+            string note;
+            WebRouteOutcome outcome;
+            while (true)
+            {
+                await Task.Delay(WebAudioRoute.AskEvery);
+                if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
+                var result = await _core.ExecuteScriptAsync("JSON.stringify(window.__patternsSink||null)");
+                if (generation != Volatile.Read(ref _routeGeneration)) return;
+                note = ReadSinkNote(result, wanted);
+                outcome = WebAudioRoute.Classify(note, wanted);
+                var waited = Stopwatch.GetElapsedTime(started);
+                if (!WebAudioRoute.KeepAsking(outcome, note, waited)) break;
+                if (outcome == WebRouteOutcome.Failed && _core is not null)
+                {
+                    try
+                    {
+                        await _core.ExecuteScriptAsync("window.__patternsSinkApply&&window.__patternsSinkApply()");
+                    }
+                    catch (Exception)
+                    {
+                        // the next read says what became of it
+                    }
+                }
+            }
             _routeHeld = WebAudioRoute.HoldSound(outcome);
             _audioRouteNote = _routeHeld ? WebAudioRoute.HeldWords(note) : note;
             ApplyMute();
+            if (_routeHeld) Log.Warn($"Web page sound held: {_audioRouteNote} ({WebAddress.ShortName(_currentUrl)}).");
         }
         catch (Exception ex)
         {
@@ -796,6 +876,33 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             _audioRouteNote = WebAudioRoute.HeldWords("the page could not be asked: " + ex.Message);
             ApplyMute();
             Log.Warn("Steering the page's sound failed.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Round 76: the route's groundwork before the first document — the outputs' names granted to the
+    /// page's origin and the sink script registered for every document — so the player's first frames
+    /// already play on the output asked for; the answer is read after the navigation as ever.
+    /// </summary>
+    private async Task PrepareRouteAsync()
+    {
+        if (_core is null || _disposed) return;
+        var wanted = _audioDevice;
+        if (wanted.Length == 0) return;
+        try
+        {
+            var origin = WebAudioRoute.OriginOf(_currentUrl);
+            if (origin.Length > 0 && _permittedOrigin != origin)
+            {
+                await _core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Microphone, origin, CoreWebView2PermissionState.Allow);
+                _permittedOrigin = origin;
+            }
+            if (_disposed || _core is null || _sinkScriptId is not null) return;
+            _sinkScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(SinkScript(wanted));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The page's sound route could not be prepared before its first document; it is applied after.", ex);
         }
     }
 
@@ -828,7 +935,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                "if(!m){window.__patternsSink={want:want,error:outs.length===0?'the page cannot see any output (no permission)':'no output called '+want+' among '+outs.length};return;}" +
                "var n=0;for(const e of els){if(e.setSinkId){try{await e.setSinkId(m.deviceId);n++;}catch(err){window.__patternsSink={want:want,error:String(err&&err.message||err)};return;}}}" +
                "window.__patternsSink={want:want,applied:m.label,elements:n};}catch(err){window.__patternsSink={want:want,error:String(err&&err.message||err)};}}" +
-               "apply();if(!window.__patternsSinkObs){window.__patternsSinkObs=new MutationObserver(function(){clearTimeout(window.__patternsSinkT);window.__patternsSinkT=setTimeout(apply,300);});" +
+               "window.__patternsSinkApply=apply;apply();if(!window.__patternsSinkObs){window.__patternsSinkObs=new MutationObserver(function(){clearTimeout(window.__patternsSinkT);window.__patternsSinkT=setTimeout(apply,300);});" +
                "window.__patternsSinkObs.observe(document.documentElement,{childList:true,subtree:true});}})()";
     }
 

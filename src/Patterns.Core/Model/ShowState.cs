@@ -2716,6 +2716,16 @@ public sealed class WebConfig : Observable
     /// <summary>Kept for show files from before pages lived inside the engine; nothing opens outside Patterns any more.</summary>
     public string TargetScreenId { get => _targetScreenId; set => Set(ref _targetScreenId, value); }
 
+    private bool _preferH264 = true;
+
+    /// <summary>
+    /// Round 76: a YouTube page is told the browser cannot play VP9 or AV1, so its player picks H.264
+    /// — the codec every card decodes in hardware — and the picture the screencast captures comes
+    /// smooth where a software VP9/AV1 decode made it stutter. On by default; off for a 4K wall that
+    /// needs YouTube's above-1080p streams and has a card that decodes them.
+    /// </summary>
+    public bool PreferH264 { get => _preferH264; set => Set(ref _preferH264, value); }
+
     /// <summary>Quick-recall URLs (session schedules, dashboards, wayfinding pages).</summary>
     public ShowCollection<string> SavedUrls { get; init; } = new();
 }

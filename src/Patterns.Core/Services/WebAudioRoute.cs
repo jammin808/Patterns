@@ -38,6 +38,34 @@ public static class WebAudioRoute
     /// <summary>Whether the page's sound is held (muted by the desk) for this outcome: while a route is asked for and not in force.</summary>
     public static bool HoldSound(WebRouteOutcome outcome) => outcome is WebRouteOutcome.Pending or WebRouteOutcome.Failed;
 
+    /// <summary>
+    /// Round 76: how long the desk keeps asking a page whether its players are routed before it takes the
+    /// answer as final. One read after a second and a half used to decide for the page's whole life, and a
+    /// busy page (a 1080p player starting, the browser encoding the screencast) had often not answered yet:
+    /// "nothing answered yet" was read as pending, the sound stayed held, and the next TAKE to the same page
+    /// was silent until a fresh browser happened to answer in time — the field's "audio didn't play,
+    /// came back after a few takes". The answer is a fact when the page gives it, not when a timer expires.
+    /// </summary>
+    public static readonly TimeSpan AnswerPatience = TimeSpan.FromSeconds(10);
+
+    /// <summary>How often the page is asked again while its answer is awaited.</summary>
+    public static readonly TimeSpan AskEvery = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Whether to ask again: yes while nothing has answered, and yes after a failure that time can mend —
+    /// the outputs' names not yet visible because the permission grant had not landed — for as long as the
+    /// patience runs; no once the page said routed, said default, or refused for a reason that will not change.
+    /// </summary>
+    public static bool KeepAsking(WebRouteOutcome outcome, string note, TimeSpan waited)
+    {
+        if (waited >= AnswerPatience) return false;
+        return outcome == WebRouteOutcome.Pending || (outcome == WebRouteOutcome.Failed && IsEarlyFailure(note));
+    }
+
+    /// <summary>A failure the next moment may mend: the page could not yet see the outputs' names (the grant lands asynchronously), or had no player yet to route.</summary>
+    public static bool IsEarlyFailure(string note)
+        => (note ?? "").Contains("no permission", StringComparison.Ordinal) || (note ?? "").Contains("nothing answered", StringComparison.Ordinal);
+
     /// <summary>The note with the hold said: "not routed: no output called HDMI 3 — sound held, not on the default output".</summary>
     public static string HeldWords(string note) => note.Length == 0 ? "sound held until routed" : note + " — sound held, not on the default output";
 

@@ -233,6 +233,7 @@ public sealed class WebEngine : IDisposable
                 page.Source.IsMuted = w.Mute;
                 page.Source.CleanCss = w.Clean;
                 page.Source.Smoothing = w.Smoothing;
+                page.Source.PreferH264 = PrefersH264(w, snap.State);
                 page.Source.ApplyCapture(PlanOf(w, page.Source.FrameRate));
                 if (page.PreRoll != isEarly || page.UnwantedUtc is not null) _pages[w.Key] = page with { PreRoll = isEarly, UnwantedUtc = null };
                 RouteSound(page.Source, w, snap.State);
@@ -252,6 +253,7 @@ public sealed class WebEngine : IDisposable
                 source.IsMuted = w.Mute;
                 source.CleanCss = w.Clean;
                 source.Smoothing = w.Smoothing;
+                source.PreferH264 = PrefersH264(w, snap.State);
                 _pages[w.Key] = new Page(source, w.Format, isEarly);
                 InputBus.Mount(w.Key, source);
                 RouteSound(source, w, snap.State);
@@ -672,6 +674,9 @@ public sealed class WebEngine : IDisposable
         }
         _retired.Add((key, page.Source, DateTime.UtcNow));
     }
+
+    /// <summary>Round 76: a YouTube page's player is steered to H.264 while the show says so (<see cref="WebConfig.PreferH264"/>); every other service is left to its own codecs.</summary>
+    public static bool PrefersH264(MediaLocator.WantedInput w, ShowState state) => w.Service == PageService.YouTube && state.Web.PreferH264;
 
     /// <summary>How long a page leaving the programme fades for: the show's transition when it is on, a cut otherwise.</summary>
     public static double LeaveFadeOf(ShowState state) => state.Transition.Enabled ? Math.Clamp(state.Transition.DurationMs, 0, 3000) / 1000.0 : 0;

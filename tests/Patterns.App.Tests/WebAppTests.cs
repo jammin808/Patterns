@@ -57,6 +57,7 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public string Title => "A page";
     public double ZoomPct { get; set; } = 100;
     public bool IsMuted { get; set; }
+    public bool PreferH264 { get; set; }
 
     // Round 68: the look's smoothing, the desk's capture plan and the leaving fade, as the engine hands them over.
     public Patterns.Core.Media.WebSmoothing Smoothing { get; set; } = Patterns.Core.Media.WebSmoothing.Auto;
@@ -423,6 +424,46 @@ public class WebAppTests
             vm.Media.WebTypedText = "x";
             vm.Media.SendWebTextCommand.Execute(null);
             Assert.Contains("No web page", vm.StatusMessage);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Round 76: a YouTube page's player is steered to H.264 while the show says so — the setting is on
+    /// by default, off is the operator's — and a page of any other service is left to its own codecs.
+    /// </summary>
+    [AvaloniaFact]
+    public void AYouTubePagePrefersH264WhileTheShowSaysSoAndAPlainPageNever()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            var pages = FakePages(services);
+            Assert.True(vm.State.Web.PreferH264);
+
+            ShowPage(vm, "https://www.youtube.com/embed/abc123");
+            Dispatcher.UIThread.RunJobs();
+            services.WebIn.Reconcile(services.Bus.Current);
+            Dispatcher.UIThread.RunJobs();
+            var tube = Assert.Single(pages);
+            Assert.True(tube.PreferH264);
+
+            vm.State.Web.PreferH264 = false;
+            Dispatcher.UIThread.RunJobs();
+            services.WebIn.Reconcile(services.Bus.Current);
+            Assert.False(tube.PreferH264);                                              // the operator's choice reaches the page live
+
+            vm.State.Web.PreferH264 = true;
+            ShowPage(vm, "https://boards.example/wayfinding");
+            Dispatcher.UIThread.RunJobs();
+            services.WebIn.Reconcile(services.Bus.Current);
+            Dispatcher.UIThread.RunJobs();
+            var board = pages.Last(p => p.CurrentUrl.Contains("wayfinding", StringComparison.Ordinal));
+            Assert.False(board.PreferH264);                                             // not YouTube: its own codecs
         }
         finally
         {
