@@ -195,7 +195,7 @@ public sealed partial class ShowActions
     public string NavJson() => JsonUtil.SerializeCompact(new
     {
         rails = DeskPages.Rails.Select(r => new { id = r.Id, label = r.Label, hue = r.Hue, hint = r.Hint, pages = DeskPages.Of(r.Id).Select(p => p.Header).ToArray() }).ToArray(),
-        pages = DeskPages.All.Select(p => new { header = p.Header, rail = p.Rail, hue = p.Hue, room = p.Rail == "Admin", settings = p.Header is "Cues" or "Screens" or "Lower thirds" or "Machine" }).ToArray(),
+        pages = DeskPages.All.Select(p => new { header = p.Header, rail = p.Rail, hue = p.Hue, room = p.Rail == "Admin", settings = p.Header is "Cues" or "Screens" or "Lower thirds" or "Machine" or "Audio" }).ToArray(),
         desk = NavRow(),
     });
 }

@@ -1,0 +1,154 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Panels.MachineSettingsPanel"
+             x:DataType="vm:MainViewModel">
+  <!-- Round 73: the Machine page's settings, in the pop-out column beside the page (PopOutHost) rather than down a long page:
+       show lock, rig day games, the watchdog, the beacon, the twin and the earlier versions of the show. The page keeps the
+       health tiles, the warnings, the super-check, the performance lines and the graphics card. -->
+  <StackPanel Classes="form" Margin="12,8,14,16">
+    <TextBlock Classes="h2" Text="SHOW LOCK (NOTHING INTERRUPTS THE SHOW)" />
+    <TextBlock Classes="hint tip"
+               Text="The things that have interrupted shows, held off while this one runs: a toast over the desk, a new-mail chime through the PA, a Teams call ringing out of the show's speakers, Sticky Keys popping up under a caller's Shift, the display going to sleep, the Windows key opening Start. On with the outputs and off with them, or by hand; everything is put back on release and on exit, and a crash leaves a receipt the next start puts back from." />
+    <CheckBox Content="Lock when the outputs open, release when they close"
+              IsChecked="{Binding State.Lock.AutoWithOutputs}" />
+    <WrapPanel>
+      <CheckBox Content="Notifications off" IsChecked="{Binding State.Lock.Notifications}" Margin="0,0,14,0" ToolTip.Tip="Windows toasts and banners off for this user while the lock is on" />
+      <CheckBox Content="System sounds off" IsChecked="{Binding State.Lock.Sounds}" Margin="0,0,14,0" ToolTip.Tip="Every event's sound and the default beep silenced" />
+      <CheckBox Content="Other apps' audio muted" IsChecked="{Binding State.Lock.OtherAudio}" Margin="0,0,14,0" ToolTip.Tip="Every audio session that is not Patterns' — Teams, Outlook, a browser — muted, and any that starts later within two seconds; the apps named below are let through" />
+      <CheckBox Content="Shortcut keys off" IsChecked="{Binding State.Lock.Shortcuts}" Margin="0,0,14,0" ToolTip.Tip="The Sticky, Filter and Toggle Keys shortcuts (five Shifts, eight seconds of Shift, five seconds of NumLock) off; a feature that is on stays on" />
+      <CheckBox Content="Stay awake" IsChecked="{Binding State.Lock.KeepAwake}" Margin="0,0,14,0" ToolTip.Tip="The machine kept awake, the display on, the screensaver off" />
+      <CheckBox Content="Windows key off" IsChecked="{Binding State.Lock.WindowsKey}" ToolTip.Tip="The Windows key swallowed, so nothing opens Start over the desk" />
+    </WrapPanel>
+    <Grid ColumnDefinitions="110,*">
+      <TextBlock Classes="label" Text="Allowed audio" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Lock.AllowedAudio, Mode=TwoWay}" Watermark="Spotify"
+               ToolTip.Tip="Apps whose audio the lock lets through, by process name — the break-music player the show itself drives; commas between names" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding ShowLockStatus}" TextWrapping="Wrap" />
+    <ItemsControl ItemsSource="{Binding ShowLockItems}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Classes="hint" Text="{Binding}" TextWrapping="Wrap" Margin="8,0,0,0" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Classes="go" Content="{Binding ShowLockButtonText}" Padding="14,8" Margin="0,4,0,0" Command="{Binding ShowLockToggleCommand}"
+            ToolTip.Tip="Hold the machine for the show now, or put everything back — SHOWLOCK ON / OFF on the wire" />
+    <TextBlock Classes="hint tip"
+               Text="What needs an administrator once, before the tour — Windows Update's restart and its pause, toasts for every account, the error-reporting dialog — is tools/show-machine.ps1; docs/SHOW-MACHINE.md says what it sets. A pending Windows Update restart is read here, on the health line, in the super-check and in the assistant's brief. Quit Teams and Outlook before doors, or set Teams to Do not disturb: the lock mutes their audio, but a call still pops a window on the desk's screen — the log says when the foreground went elsewhere." />
+
+    <TextBlock Classes="h2" Text="RIG DAY GAMES (OPT-IN)" />
+    <CheckBox Content="Rig day, gamified — the show-ready bar on the health line, the alignment game and Blend Quest on the Screens page, the on-time streak on the Run surface"
+              IsChecked="{Binding IsRigDayOn}"
+              ToolTip.Tip="Off, none of it shows. On: every step a real measure — outputs on, every join's audit green, the calibration under a pixel, the show lock held, the super-check clear — quiet during a show unless asked; RIGDAY ON / OFF on the wire" />
+    <TextBlock Classes="label" Text="{Binding RigDayWords}" TextWrapping="Wrap" IsVisible="{Binding IsRigDayOn}" />
+    <TextBlock Classes="label" Text="{Binding QuestWords}" TextWrapping="Wrap" IsVisible="{Binding IsRigDayOn}" />
+    <TextBlock Classes="label" Text="{Binding StreakWords}" TextWrapping="Wrap" IsVisible="{Binding HasStreak}" />
+
+    <TextBlock Classes="h2" Text="WATCHDOG" />
+    <CheckBox Content="Watchdog: auto-restart after a crash or hang"
+              IsChecked="{Binding State.Watchdog.Enabled}"
+              ToolTip.Tip="Takes effect on the next start of Patterns" />
+    <CheckBox Content="After a restart, put the show back (open outputs, resume the audio track)"
+              IsChecked="{Binding State.Watchdog.AutoRestore}"
+              IsEnabled="{Binding State.Watchdog.Enabled}" />
+    <CheckBox Content="Take the screens back from a run that is still playing"
+              IsChecked="{Binding State.Watchdog.TakeOverOutputs}"
+              ToolTip.Tip="A crash or a hang leaves the render windows up so the room keeps its picture — but they answer to nobody. On, a start asks that process for the screens and ends it if it has stopped answering, then puts the show back on them. Off, it leaves them playing and says so on the health line" />
+    <Button Classes="stop" Content="RESTART APP (SHOW COMES BACK)" Padding="14,8" Margin="0,6,0,0"
+            Command="{Binding RestartAppCommand}"
+            ToolTip.Tip="Exits and relaunches through the watchdog — outputs and the audio track are restored in seconds. Use it to apply a GPU change or clear a suspected leak at a break." />
+    <TextBlock Classes="hint tip"
+               Text="A tiny supervisor runs the app as its child (two Patterns.exe in Task Manager — that's this). If the app crashes, or its interface stops responding for 30 seconds, it is restarted within seconds with the same settings and the outputs re-opened. Restarts back off and stop if something crashes over and over (see patterns.watchdog.log) — and when they stop, the next start says so on the health line above. What the heartbeat cannot see — outputs open but drawing nothing while the desk still answers, a stream that switched itself off — the advice list above now says." />
+
+
+    <TextBlock Classes="h2" Text="BEACON (A SECOND MACHINE)" />
+    <CheckBox Content="Send a heartbeat beacon every second — this is the main machine"
+              IsChecked="{Binding State.Watchdog.BeaconEnabled}"
+              ToolTip.Tip="One small UDP datagram a second: who this machine is, what is on air, the cue on standby, the health line. A backup machine listening for it knows within five seconds when this one goes silent — and the watchdog sends one last beacon when it gives up" />
+    <Grid ColumnDefinitions="110,*,8,90,16,Auto,8,*" IsEnabled="{Binding State.Watchdog.BeaconEnabled}">
+      <TextBlock Classes="label" Text="Send to" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Watchdog.BeaconHost, Mode=TwoWay}" Watermark="255.255.255.255 = everyone on this network"
+               ToolTip.Tip="The backup machine's address or name, or the broadcast address" />
+      <NumericUpDown Grid.Column="3" Minimum="1" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Watchdog.BeaconPort, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The port the backup listens on" />
+      <TextBlock Grid.Column="5" Classes="label" Text="As" VerticalAlignment="Center" />
+      <TextBox Grid.Column="7" Text="{Binding State.Watchdog.BeaconName, Mode=TwoWay}" Watermark="this computer's name" ToolTip.Tip="How this machine names itself in its beacon" />
+    </Grid>
+    <CheckBox Content="Listen for the main machine's beacon — this is the backup"
+              IsChecked="{Binding State.Watchdog.BeaconListen}"
+              ToolTip.Tip="The health line and the super-check then say whether the main machine is alive, silent, or its watchdog stood down" />
+    <Grid ColumnDefinitions="110,90" IsEnabled="{Binding State.Watchdog.BeaconListen}">
+      <TextBlock Classes="label" Text="Listen on port" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Watchdog.BeaconListenPort, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding BeaconStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip"
+               Text="The backup-machine path: two machines on the same network, the same show file on both (a USB stick, or Export the show), the same displays cabled to a switcher or the same NDI names, the main one sending its beacon and the backup listening. The backup's health line reads 'Main machine seen 1 s ago: live · Walk-in · standby 01.020' while all is well, 'MAIN MACHINE SILENT for 6 s — take over?' when the main goes quiet, and 'its watchdog gave up' when the main's supervisor stood down; the super-check shows the same as a red row. Taking over is still your call — OUTPUTS ON here, the switcher to this machine — and that is deliberate: two machines both deciding to be the main is the one failure worse than one being down. Nothing but this datagram leaves the machine; the beacon carries no control." />
+
+    <TextBlock Classes="h2" Text="TWIN (A SECOND PATTERNS, IN STEP)" />
+    <TextBlock Classes="hint tip"
+               Text="A second Patterns kept in step with this one — another folder on this machine, or another machine — with the whole show already loaded and every edit mirrored as it lands, its outputs held closed until it takes over. Stronger than the beacon alone: the beacon says the main has gone; a twin has the show up and takes it." />
+    <Grid ColumnDefinitions="110,*,8,Auto,8,90">
+      <TextBlock Classes="label" Text="Role" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding TwinRoles}"
+                SelectedValue="{Binding State.Twin.Role, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="Main: this desk runs the show and a standby may join it. Standby: this desk follows a main with its outputs held closed, ready to take the show" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Port" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="5" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Twin.Port, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The port the main listens on and the standby dials" />
+    </Grid>
+    <Grid ColumnDefinitions="110,*,8,Auto,8,*">
+      <TextBlock Classes="label" Text="Main is at" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Twin.MainHost, Mode=TwoWay}" Watermark="empty = whichever main's beacon this machine hears"
+               ToolTip.Tip="For a standby: the main's address or name. Leave it empty and the standby dials whichever main's beacon it hears — the main's beacon names its twin port" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Key" VerticalAlignment="Center" />
+      <TextBox Grid.Column="5" Text="{Binding State.Twin.Key, Mode=TwoWay}" Watermark="made for a main that has none — the standby needs the same"
+               ToolTip.Tip="The same key on the main and the standby, or the main refuses the link. A main with no key is given one before its port opens — a keyless main would let any machine on the network hold its outputs closed — so copy this to the standby" />
+    </Grid>
+    <Grid ColumnDefinitions="110,*,8,Auto,8,*">
+      <TextBlock Classes="label" Text="Wall switch cue" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Twin.TakeOverCue, Mode=TwoWay}" Watermark="a cue that puts this machine's input on the wall (number, name or id)"
+               ToolTip.Tip="Fired once this desk has taken the show over: the switcher's HTTP or OSC verb, a PJLink input, a matrix route — whatever puts this machine's picture on the wall. The room's own fence: whichever desk the room shows is the one running the show. Taking over by itself from another machine needs one" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Take-back cue" VerticalAlignment="Center" />
+      <TextBox Grid.Column="5" Text="{Binding State.Twin.TakeBackCue, Mode=TwoWay}" Watermark="the wall back to this machine"
+               ToolTip.Tip="For a main: fired on TAKE BACK once the show is on here again — the wall switched back to this machine's input" />
+    </Grid>
+    <CheckBox Content="Take over by itself once the main has been silent for five seconds (from another machine: only with a wall switch cue)"
+              IsChecked="{Binding State.Twin.AutoTakeOver}"
+              ToolTip.Tip="On this machine: a main that has hung is ended first, and the takeover is refused if it cannot be — so it is safe. From another machine a silence cannot tell a dead main from a cut cable, so the standby only takes over by itself when a wall switch cue makes it the desk the room shows; without one, TAKE OVER stays your press" />
+    <CheckBox Content="Send the show's credentials to the standby (a projector's password, the weather key)"
+              IsChecked="{Binding State.Twin.SendSecrets}"
+              ToolTip.Tip="On: the standby runs the show with nothing typed twice. Off, for a link on a network that is not the show's own: they are blanked on the wire and the standby keeps the ones typed on it. The twin's key is never sent either way — each side proves it over the other's nonce — and the admin passcode, the management token and the remote's ports never travel" />
+    <CheckBox Content="Run a standby of this desk as a second process on this machine"
+              IsChecked="{Binding State.Twin.LocalStandby}"
+              ToolTip.Tip="A main only: the same build started in its own folder beside this one (twin-standby — its own settings, logs and crash domain), dialled to this desk, taking over by itself when this desk stops beating, started again by this desk when it exits. Its outputs are held closed until it takes over; TAKE BACK puts the show back here. A clean exit of this desk ends it — unless it has the show" />
+    <TextBlock Classes="label" Text="{Binding TwinStatus}" TextWrapping="Wrap" />
+    <WrapPanel>
+      <Button Classes="go" Content="TAKE OVER NOW" Padding="14,8" Margin="0,4,8,0" Command="{Binding TwinTakeOverCommand}"
+              ToolTip.Tip="The standby runs the show from here: the hold on its outputs lifts and what the main had on air goes on, with the caller's place — TWIN TAKEOVER on the wire" />
+      <Button Classes="mini" Content="TAKE OVER ANYWAY" Margin="0,4,8,0" VerticalAlignment="Center" Command="{Binding TwinTakeOverAnywayCommand}"
+              ToolTip.Tip="Over a refusal only — the hung main could not be ended, or the takeover could not be marked on disk: the standby opens its outputs regardless, and the room may show two desks until the other is ended by hand. Never by itself — TWIN TAKEOVER FORCE on the wire" />
+      <Button Classes="mini" Content="STAND BY AGAIN" Margin="0,4,8,0" VerticalAlignment="Center" Command="{Binding TwinStandByCommand}"
+              ToolTip.Tip="After a takeover: the outputs are held closed again and the main is followed once more — TWIN STANDBY on the wire" />
+      <Button Classes="mini" Content="TAKE BACK" Margin="0,4,0,0" VerticalAlignment="Center" Command="{Binding TwinTakeBackCommand}"
+              ToolTip.Tip="The main, after its standby ran the show: the standby's show (the edits made while it ran) and what it had on air land here, this desk's outputs open, and the standby closes its own and follows again — TWIN TAKEBACK on the wire" />
+    </WrapPanel>
+    <TextBlock Classes="hint tip"
+               Text="On this machine: tick 'Run a standby' and this desk starts one — the same build in the twin-standby folder beside this one, in step within a second, its outputs held closed. If this desk hangs or crashes, the standby takes the screens by itself (it ends a hung main first, so nothing plays on under nobody's hand) and the watchdog brings this desk back — which reads the standby's mark and holds its own outputs: the room never sees two desks on the same screens. When you are ready, TAKE BACK: the standby's show and air land here, the outputs open here, and the standby follows again. Without the tick: a second copy of Patterns in its own folder set to Standby with 'Main is at' 127.0.0.1 is the same thing started by hand. On another machine: the same as the beacon's backup, in step instead of merely told; the pictures reach the room through the switcher, so a wall switch cue — the switcher's own verb through an endpoint — is what makes a takeover real, and taking over by itself from another machine needs one. A takeover on this machine marks itself on disk first and ends the hung main second; either failing, it is refused with the reason and the outputs stay held (TAKE OVER ANYWAY overrides by hand). A main with no key is given one. A standby on this machine that dies with the show: the main puts the show back on itself. What never travels: these twin settings, the watchdog and the beacon, the install, the graphics card, the remote's ports, the operator's monitor and the desk layout — each machine keeps its own. TWIN STATUS, TWIN TAKEOVER, TWIN TAKEOVER FORCE, TWIN STANDBY and TWIN TAKEBACK are the wire's words." />
+
+    <TextBlock Classes="h2" Text="EARLIER VERSIONS OF THE SHOW" />
+    <TextBlock Classes="label" Text="{Binding Show.BackupsSummary}" TextWrapping="Wrap" />
+    <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,4,0,0">
+      <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Show.BackupChoices}" SelectedItem="{Binding Show.SelectedBackup, Mode=TwoWay}"
+                PlaceholderText="No earlier version yet" ToolTip.Tip="The previous save, then the kept versions, newest first" />
+      <Button Grid.Column="2" Classes="chip" Content="RESTORE" Command="{Binding Show.RestoreBackupCommand}"
+              ToolTip.Tip="The chosen version becomes the show — every list starts over, exactly as Load show does; the show as it is now goes to the versions first" />
+      <Button Grid.Column="4" Classes="chip" Content="OPEN FOLDER" Command="{Binding Show.OpenBackupsFolderCommand}" />
+    </Grid>
+    <TextBlock Classes="hint tip"
+               Text="Every save keeps the previous file as .bak, and the first save that changes something after five quiet minutes keeps the file as it was in backups/ under its time — twenty of them, the oldest going as new ones come. So the show as it was before the last change, and as it was an hour or a day ago, is one RESTORE away, on this machine, without a network. The GitHub history is the other ladder: every push is a version of the software with its build attached (README → Versions and rolling back)." />
+  </StackPanel>
+</UserControl>

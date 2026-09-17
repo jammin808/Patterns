@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Panels.AudioSettingsPanel"
+             x:DataType="vm:MainViewModel">
+  <!-- Round 73: the Audio page's settings groups, in the pop-out column beside the page (PopOutHost): the master clock
+       and sync check, and the tone generator. The page keeps what the desk listens to, the playlist, the outputs, the
+       routing, the break music and the stingers. -->
+  <StackPanel Classes="form" Margin="12,8,14,16">
+    <TextBlock Classes="h2" Text="MASTER CLOCK &amp; SYNC" />
+    <TextBlock Classes="hint tip" TextWrapping="Wrap"
+               Text="Every audio device runs on a clock of its own, and none of them is the show's: over two hours a sound card fifty parts per million off is a third of a second out. With the lock on, every output's sound is resampled by the drift its clock shows against the master clock — the same clock the pictures, the fades and the ducks run on — so a two-hour track ends when the pictures do. The offsets above hold a picture and its sound together; the sync check lets you measure them." />
+    <CheckBox Content="Lock the outputs to the master clock (resample away the drift)" IsChecked="{Binding State.AudioPlayer.SyncLock}" />
+    <TextBlock Classes="label" Text="{Binding Audio.SyncStatus}" TextWrapping="Wrap" />
+    <Grid ColumnDefinitions="130,*,58">
+      <TextBlock Classes="label" Text="Video sound delay" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="-1000" Maximum="2000" TickFrequency="10"
+              Value="{Binding State.AudioPlayer.VideoAudioDelayMs, Mode=TwoWay, Converter={StaticResource Num}}"
+              ToolTip.Tip="The soundtrack of every video clip, capture and stinger clip against its picture (libVLC): negative plays the sound earlier" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.AudioPlayer.VideoAudioDelayMs, StringFormat={}{0} ms}" />
+    </Grid>
+    <Grid ColumnDefinitions="Auto,12,*">
+      <ToggleButton Classes="mini" Content="SYNC CHECK" IsChecked="{Binding Audio.SyncCheck, Mode=TwoWay}"
+                    ToolTip.Tip="Every two seconds on the master clock, every screen, NDI send and the stream flash white and the tone output clicks. Film a screen with a phone (or watch the stream and the room together): the gap between the flash and the click is the offset to dial in above" />
+      <TextBlock Grid.Column="2" Classes="hint tip" VerticalAlignment="Center" TextWrapping="Wrap"
+                 Text="A flash on every sink and a click on the tone output at the same master instant, every two seconds — measure the gap, set the offsets, switch it off." />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="TONE GENERATOR" />
+    <ToggleButton Classes="blackout" Content="TONE ON / OFF" IsChecked="{Binding State.Tone.Enabled}"
+                  HorizontalAlignment="Left" Padding="16,8" />
+    <TextBlock Classes="label" Text="{Binding Audio.ToneStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip" Text="The tone never auto-starts with the app — it always comes up off. It goes out on the programme's first output above, not on whatever Windows calls default: a tone on the laptop's own speakers while the PA is on a USB card checks nothing. Change that output while the tone is up and the tone moves with it." />
+
+    <StackPanel IsEnabled="{Binding State.Tone.Enabled}">
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Mode" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Audio.ToneModes}"
+                  SelectedValue="{Binding State.Tone.Mode, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Channels" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Audio.ToneChannelsList}"
+                  SelectedValue="{Binding State.Tone.Channels, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Frequency (Hz)" />
+        <NumericUpDown Grid.Column="1" Minimum="20" Maximum="20000" Increment="10" FormatString="0"
+                       Value="{Binding State.Tone.FrequencyHz, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Classes="mini" Content="100" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="100" />
+        <Button Classes="mini" Content="440" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="440" />
+        <Button Classes="mini" Content="1 k" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="1000" />
+        <Button Classes="mini" Content="10 k" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="10000" />
+      </StackPanel>
+      <Grid ColumnDefinitions="130,*,52">
+        <TextBlock Classes="label" Text="Level (dBFS)" />
+        <Slider Grid.Column="1" Minimum="-60" Maximum="0" TickFrequency="1"
+                Value="{Binding State.Tone.LevelDb, Mode=TwoWay}" />
+        <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Tone.LevelDb, StringFormat={}{0:0} dB}" />
+      </Grid>
+      <TextBlock Classes="hint tip"
+                 Text="-18 dBFS is a common line-up level. The tone plays on the default Windows audio device; channel ident shows LEFT / RIGHT on screen in time with the pips." />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

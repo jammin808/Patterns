@@ -86,6 +86,23 @@
   <Style Selector="Thumb.paneHandle:pointerover /template/ Border#Bar">
     <Setter Property="Background" Value="{StaticResource AccentBrush}" />
   </Style>
+  <!-- Round 73: the pop-out settings column's handle, on its left edge — the column's width, remembered in the show. -->
+  <Style Selector="Thumb.popOutHandle">
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent">
+          <Border Name="Bar" Width="2" Height="48" CornerRadius="1" Background="{StaticResource HairlineBrush}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Thumb.popOutHandle:pointerover /template/ Border#Bar">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+  </Style>
 
   <!-- Switcher strip tiles -->
   <Style Selector="Border.tile">

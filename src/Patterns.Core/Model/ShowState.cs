@@ -1914,6 +1914,10 @@ public sealed class DeskLayoutConfig : Observable
     public const double MaxWideScreensWidth = 1000;
 
     /// <summary>The Run area: how much of its width the cue stack takes — about a third by default, the wall the rest.</summary>
+    /// <summary>Round 73: the pop-out settings column's width in pixels — what a settings form needs; the column's own handle drags it and the show remembers it.</summary>
+    public const double DefaultPopOutWidth = 420;
+    public const double MinPopOutWidth = 300;
+    public const double MaxPopOutWidth = 720;
     public const double DefaultRunCueShare = 0.35;
     public const double MinRunCueShare = 0.2;
     public const double MaxRunCueShare = 0.7;
@@ -1924,6 +1928,7 @@ public sealed class DeskLayoutConfig : Observable
     private double _wideScreensWidth = DefaultWideScreensWidth;
     private bool _showHints;
     private double _runCueShare = DefaultRunCueShare;
+    private double _popOutWidth = DefaultPopOutWidth;
     private bool _runWallCollapsed;
     private bool _runPadOpen;
     private string _runMonitor = "";
@@ -1962,6 +1967,18 @@ public sealed class DeskLayoutConfig : Observable
     /// page strip, and the room goes to the controls.
     /// </summary>
     public bool ShowHints { get => _showHints; set => Set(ref _showHints, value); }
+
+    /// <summary>
+    /// Round 73: the pop-out settings column's width in pixels (the handle on its left edge drags
+    /// it). The page column grows by it while the column is open, so the page keeps its own width
+    /// (<see cref="EditorWidth"/>) whatever the column is set to. Absent in an older file, so the
+    /// column opens at its default.
+    /// </summary>
+    public double PopOutWidth
+    {
+        get => _popOutWidth;
+        set => Set(ref _popOutWidth, Math.Clamp(double.IsFinite(value) ? value : DefaultPopOutWidth, MinPopOutWidth, MaxPopOutWidth));
+    }
 
     /// <summary>The cue stack's share of the Run area's width (the divider between the wall and the stack); the wall takes the rest.</summary>
     public double RunCueShare

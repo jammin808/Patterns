@@ -69,7 +69,7 @@ public static class DeskMenuFacts
             Rail = page is null ? "" : DeskPages.FindRail(page.Rail)?.Label ?? page.Rail,
             Hue = page?.Hue ?? "",
             IsCurrent = onIt,
-            HasSettings = header is "Cues" or "Screens" or "Lower thirds",
+            HasSettings = header is "Cues" or "Screens" or "Lower thirds" or "Machine" or "Audio",   // round 73: the long pages keep their settings in the column
             SettingsOpen = onIt && nav is { SettingsOpen: true },
             Screens = header is "Screens" or "Multiview"
                 ? Rig.OrderedLivePlacements(state, s.Screens.All).Select((x, i) =>

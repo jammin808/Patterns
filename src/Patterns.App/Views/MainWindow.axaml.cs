@@ -33,6 +33,7 @@ public partial class MainWindow : Window
         AddHandler(TextInputEvent, (_, e) => { if (DataContext is MainViewModel { Media.KeysToPage: true }) e.Handled = true; }, RoutingStrategies.Tunnel);
         Deactivated += (_, _) => _down.Clear(); // a key-up missed during Alt+Tab must not jam a key
         DataContextChanged += (_, _) => HookShell();
+        PopOut.WidthDragged += SetPopOutWidth;   // round 73: the column's handle writes its width into the show
     }
 
     private MainViewModel? _hookedVm;
@@ -123,8 +124,8 @@ public partial class MainWindow : Window
     /// <summary>The page column's width as laid out (the show's value, held back by the window's width) — with the pop-out settings column inside it while that is open.</summary>
     public double EditorColumnWidth => WorkArea.ColumnDefinitions[0].Width.Value;
 
-    /// <summary>The pop-out settings column's share of the page column: its width while open, nothing while closed.</summary>
-    public double PopOutWidthApplied => _deskVm?.PopOut.IsOpen == true ? Controls.PopOutHost.ColumnWidth : 0;
+    /// <summary>The pop-out settings column's share of the page column: its width (the show's, round 73) while open, nothing while closed.</summary>
+    public double PopOutWidthApplied => _deskVm?.PopOut.IsOpen == true ? _desk?.PopOutWidth ?? Controls.PopOutHost.ColumnWidth : 0;
 
     /// <summary>The page's own width: the column less the pop-out.</summary>
     public double PageColumnWidth => EditorColumnWidth - PopOutWidthApplied;
@@ -190,6 +191,7 @@ public partial class MainWindow : Window
             var columns = WorkArea.ColumnDefinitions;
             var rows = SwitcherRows.RowDefinitions;
             var room = WorkArea.Bounds.Width;
+            PopOut.Width = _desk.PopOutWidth;   // round 73: the column is as wide as the show remembers
             // The divider column is a fixed width; a star or auto column would read as its weight.
             var divider = columns[1].Width.IsAbsolute ? columns[1].Width.Value : columns[1].ActualWidth;
             // WIDE by the operator's choice, or because the page (the machine, help) wants the room:
@@ -248,6 +250,14 @@ public partial class MainWindow : Window
     {
         if (_desk is null) return;
         _desk.WideScreensWidth = px;   // clamps; the change event re-applies
+        ApplyDeskLayout();
+    }
+
+    /// <summary>Round 73: the pop-out settings column's width, as a drag of its handle sets it; remembered in the show.</summary>
+    public void SetPopOutWidth(double px)
+    {
+        if (_desk is null) return;
+        _desk.PopOutWidth = px;   // clamps; the change event re-applies
         ApplyDeskLayout();
     }
 

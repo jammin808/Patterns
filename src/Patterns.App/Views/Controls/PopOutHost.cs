@@ -1,11 +1,13 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.App.Views.Panels;
+using Patterns.Core.Model;
 
 namespace Patterns.App.Views.Controls;
 
@@ -17,12 +19,15 @@ namespace Patterns.App.Views.Controls;
 /// page's hue); this control builds the panel for the key once and keeps it, so a change of
 /// selection binds the same panel to the new item rather than building the controls again. It
 /// wears the page's hue class, so its title band and the panel's bands take the page's neon like
-/// the page's own, and ? TIPS reads its tips under its title after the page's.
+/// the page's own, and ? TIPS reads its tips under its title after the page's. Round 73: the
+/// handle on its left edge drags its width (the window keeps it in the show's desk layout), and
+/// the Machine and Audio pages keep their settings groups here, so the pages themselves stay
+/// the health lines and the lists.
 /// </summary>
 public sealed class PopOutHost : UserControl
 {
-    /// <summary>The column's width in pixels — what a settings form needs, and what the page column grows by while it is open.</summary>
-    public const double ColumnWidth = 420;
+    /// <summary>The column's default width in pixels — what a settings form needs, and what the page column grows by while it is open; the handle drags it between the desk layout's bounds.</summary>
+    public const double ColumnWidth = DeskLayoutConfig.DefaultPopOutWidth;
 
     public static readonly StyledProperty<string> KeyProperty = AvaloniaProperty.Register<PopOutHost, string>(nameof(Key), "");
     public static readonly StyledProperty<string> TitleProperty = AvaloniaProperty.Register<PopOutHost, string>(nameof(Title), "");
@@ -33,7 +38,12 @@ public sealed class PopOutHost : UserControl
         ["cue"] = () => new CueSettingsPanel(),
         ["screen"] = () => new ScreenSettingsPanel(),
         ["element"] = () => new ElementSettingsPanel(),
+        ["machine"] = () => new MachineSettingsPanel(),   // round 73: show lock, rig day, the watchdog, the beacon, the twin, the earlier versions
+        ["audio"] = () => new AudioSettingsPanel(),       // round 73: the master clock and sync, the tone generator
     };
+
+    /// <summary>Round 73: the handle was dragged — the width the column should be, within the desk layout's bounds; the window writes it into the show and lays the desk out again.</summary>
+    public event Action<double>? WidthDragged;
 
     private readonly Dictionary<string, Control> _built = new();
     private readonly TextBlock _title;
@@ -41,8 +51,7 @@ public sealed class PopOutHost : UserControl
 
     public PopOutHost()
     {
-        MinWidth = ColumnWidth;
-        MaxWidth = ColumnWidth;
+        Width = ColumnWidth;
         // The title is a section band like the page's own ("SELECTED CUE · 01.010 Doors"), so it takes the page's neon and heads the column's tips.
         _title = new TextBlock { Classes = { "h2" }, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         var close = new Button { Content = "◀ CLOSE", Classes = { "mini" }, HorizontalAlignment = HorizontalAlignment.Right };
@@ -57,7 +66,18 @@ public sealed class PopOutHost : UserControl
         rows.Children.Add(header);
         Grid.SetRow(_body, 1);
         rows.Children.Add(_body);
-        Content = new Border { Classes = { "panel", "popOut" }, Padding = new Thickness(0), Child = rows };
+        var panel = new Border { Classes = { "panel", "popOut" }, Padding = new Thickness(0), Child = rows };
+        // Round 73: the handle on the left edge. Dragging left widens the column (the page column
+        // grows with it, the page keeps its own width), dragging right narrows it; the window keeps
+        // the width in the show's desk layout, so every show opens its column where it was left.
+        var handle = new Thumb { Classes = { "popOutHandle" }, Cursor = new Cursor(StandardCursorType.SizeWestEast) };
+        ToolTip.SetTip(handle, "Drag: the column's width — the show remembers it");
+        handle.DragDelta += (_, e) => WidthDragged?.Invoke(Math.Clamp((double.IsNaN(Width) ? ColumnWidth : Width) - e.Vector.X, DeskLayoutConfig.MinPopOutWidth, DeskLayoutConfig.MaxPopOutWidth));
+        var frame = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        frame.Children.Add(handle);
+        Grid.SetColumn(panel, 1);
+        frame.Children.Add(panel);
+        Content = frame;
     }
 
     /// <summary>Which settings to show: "cue", "screen", "element" — or empty for none.</summary>

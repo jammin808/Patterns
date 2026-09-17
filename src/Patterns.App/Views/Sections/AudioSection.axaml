@@ -9,6 +9,14 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-audio" Text="Audio" />
 
+    <!-- Round 73: the master clock and sync and the tone generator live in the pop-out column beside this page, so the page is the lists and the routing. -->
+    <Grid ColumnDefinitions="*,8,Auto" Margin="0,4,0,0">
+      <TextBlock Classes="hint" TextWrapping="Wrap" VerticalAlignment="Center"
+                 Text="The master clock and sync check, and the tone generator, are in the column beside this page. ◀ CLOSE hides the column; SETTINGS ▸ brings it back." />
+      <Button Grid.Column="2" Classes="mini" Content="SETTINGS ▸" Command="{Binding OpenPopOutCommand}" IsVisible="{Binding !PopOut.IsOpen}"
+              ToolTip.Tip="Open the clock, sync and tone settings in the column beside this page" />
+    </Grid>
+
     <TextBlock Classes="h2" Text="WHAT THE DESK IS LISTENING TO" />
     <TextBlock Classes="hint tip"
                Text="A show can have a clip on the programme, another on a confidence screen's own picture and a third loaded into the preview, and every one of them has a soundtrack. Played together they are a mix nobody chose, over the top of whatever you are trying to hear. So the desk monitors one at a time, and unless you say otherwise it is the programme — the sound the room is hearing is the sound you are checking against. This changes nothing on any screen, any NDI send or the stream: what the audience hears comes off the picture that is on air, never off the desk's own speakers. It is the clips, the capture boxes and the web pages that are monitored; the audio playlist, VOGs and stingers are the show's own sound and always play." />
@@ -220,26 +228,6 @@
                    Text="What the matrix can and cannot do on this build. The playlist, VOGs, stingers and the tone open on the destinations routed for them, at the level and behind the delay each row says, and follow a VOG per destination. A clip's soundtrack (a file on the pattern, a layer or a screen's own picture) comes to the desk's mixer while the matrix is on and reaches every destination it is routed to — a sound card, an HDMI screen, an NDI send with the sound embedded — through a lane per destination, the metered number above. A web page's sound is steered through the page's own output picker: it can go to one output, and only where the browser lets the page see the outputs — the line above says what the page did. A capture card's embedded audio is not opened by this build. Levels add along the path (the crosspoint, then the row's trim); the floor is −60 dB (off), the ceiling +12." />
       </StackPanel>
     </Expander>
-
-    <TextBlock Classes="h2" Text="MASTER CLOCK &amp; SYNC" />
-    <TextBlock Classes="hint tip" TextWrapping="Wrap"
-               Text="Every audio device runs on a clock of its own, and none of them is the show's: over two hours a sound card fifty parts per million off is a third of a second out. With the lock on, every output's sound is resampled by the drift its clock shows against the master clock — the same clock the pictures, the fades and the ducks run on — so a two-hour track ends when the pictures do. The offsets above hold a picture and its sound together; the sync check lets you measure them." />
-    <CheckBox Content="Lock the outputs to the master clock (resample away the drift)" IsChecked="{Binding State.AudioPlayer.SyncLock}" />
-    <TextBlock Classes="label" Text="{Binding Audio.SyncStatus}" TextWrapping="Wrap" />
-    <Grid ColumnDefinitions="130,*,58">
-      <TextBlock Classes="label" Text="Video sound delay" VerticalAlignment="Center" />
-      <Slider Grid.Column="1" Minimum="-1000" Maximum="2000" TickFrequency="10"
-              Value="{Binding State.AudioPlayer.VideoAudioDelayMs, Mode=TwoWay, Converter={StaticResource Num}}"
-              ToolTip.Tip="The soundtrack of every video clip, capture and stinger clip against its picture (libVLC): negative plays the sound earlier" />
-      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
-                 Text="{Binding State.AudioPlayer.VideoAudioDelayMs, StringFormat={}{0} ms}" />
-    </Grid>
-    <Grid ColumnDefinitions="Auto,12,*">
-      <ToggleButton Classes="mini" Content="SYNC CHECK" IsChecked="{Binding Audio.SyncCheck, Mode=TwoWay}"
-                    ToolTip.Tip="Every two seconds on the master clock, every screen, NDI send and the stream flash white and the tone output clicks. Film a screen with a phone (or watch the stream and the room together): the gap between the flash and the click is the offset to dial in above" />
-      <TextBlock Grid.Column="2" Classes="hint tip" VerticalAlignment="Center" TextWrapping="Wrap"
-                 Text="A flash on every sink and a click on the tone output at the same master instant, every two seconds — measure the gap, set the offsets, switch it off." />
-    </Grid>
 
     <TextBlock Classes="h2" Text="BREAK MUSIC (SPOTIFY)" />
     <TextBlock Classes="hint tip"
@@ -485,45 +473,5 @@
     <TextBlock Classes="hint tip"
                Text="Soundcheck signal for the audio engineer: a reference tone, or a channel ident — one pip LEFT, two pips RIGHT — with a matching on-screen indicator on every output, so what you see is what they hear." />
 
-    <TextBlock Classes="h2" Text="TONE GENERATOR" />
-    <ToggleButton Classes="blackout" Content="TONE ON / OFF" IsChecked="{Binding State.Tone.Enabled}"
-                  HorizontalAlignment="Left" Padding="16,8" />
-    <TextBlock Classes="label" Text="{Binding Audio.ToneStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint tip" Text="The tone never auto-starts with the app — it always comes up off. It goes out on the programme's first output above, not on whatever Windows calls default: a tone on the laptop's own speakers while the PA is on a USB card checks nothing. Change that output while the tone is up and the tone moves with it." />
-
-    <StackPanel IsEnabled="{Binding State.Tone.Enabled}">
-      <Grid ColumnDefinitions="130,*">
-        <TextBlock Classes="label" Text="Mode" />
-        <ComboBox Grid.Column="1" ItemsSource="{Binding Audio.ToneModes}"
-                  SelectedValue="{Binding State.Tone.Mode, Mode=TwoWay}"
-                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
-      </Grid>
-      <Grid ColumnDefinitions="130,*">
-        <TextBlock Classes="label" Text="Channels" />
-        <ComboBox Grid.Column="1" ItemsSource="{Binding Audio.ToneChannelsList}"
-                  SelectedValue="{Binding State.Tone.Channels, Mode=TwoWay}"
-                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
-      </Grid>
-      <Grid ColumnDefinitions="130,*">
-        <TextBlock Classes="label" Text="Frequency (Hz)" />
-        <NumericUpDown Grid.Column="1" Minimum="20" Maximum="20000" Increment="10" FormatString="0"
-                       Value="{Binding State.Tone.FrequencyHz, Mode=TwoWay, Converter={StaticResource Num}}" />
-      </Grid>
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button Classes="mini" Content="100" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="100" />
-        <Button Classes="mini" Content="440" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="440" />
-        <Button Classes="mini" Content="1 k" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="1000" />
-        <Button Classes="mini" Content="10 k" Command="{Binding Audio.ToneFrequencyCommand}" CommandParameter="10000" />
-      </StackPanel>
-      <Grid ColumnDefinitions="130,*,52">
-        <TextBlock Classes="label" Text="Level (dBFS)" />
-        <Slider Grid.Column="1" Minimum="-60" Maximum="0" TickFrequency="1"
-                Value="{Binding State.Tone.LevelDb, Mode=TwoWay}" />
-        <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
-                   Text="{Binding State.Tone.LevelDb, StringFormat={}{0:0} dB}" />
-      </Grid>
-      <TextBlock Classes="hint tip"
-                 Text="-18 dBFS is a common line-up level. The tone plays on the default Windows audio device; channel ident shows LEFT / RIGHT on screen in time with the pips." />
-    </StackPanel>
   </StackPanel>
 </UserControl>

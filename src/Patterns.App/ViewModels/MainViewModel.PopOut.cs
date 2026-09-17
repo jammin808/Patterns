@@ -4,8 +4,9 @@ namespace Patterns.App.ViewModels;
 
 /// <summary>
 /// What the pop-out settings column beside the page shows: a key the host builds a panel for
-/// ("cue", "screen", "element"), a title, and the identity of the selection it is showing, so
-/// a column the operator closed stays closed until something else is selected.
+/// ("cue", "screen", "element"; round 73: "machine", "audio" for a page's own settings), a title,
+/// and the identity of the selection it is showing, so a column the operator closed stays closed
+/// until something else is selected (for a page's own settings: until SETTINGS ▸).
 /// </summary>
 public sealed class PopOutState : Observable
 {
@@ -101,6 +102,11 @@ public sealed partial class MainViewModel
                 want = ("screen", "SELECTED SCREEN · " + Screens.SelectedScreenTitle, "screen:" + placement.ScreenId);
             else if (header == "Lower thirds" && SelectedElement is { } element)
                 want = ("element", "SELECTED ELEMENT · " + (element.Name.Length > 0 ? element.Name : element.Kind.ToString()), "element:" + element.Id);
+            // Round 73: the long pages keep their settings in the column, so the page is the health lines and the lists.
+            else if (header == "Machine")
+                want = ("machine", "MACHINE SETTINGS · LOCK, WATCHDOG, BEACON, TWIN, VERSIONS", "machine");
+            else if (header == "Audio")
+                want = ("audio", "AUDIO SETTINGS · CLOCK, SYNC, TONE", "audio");
         }
         if (want is null)
         {

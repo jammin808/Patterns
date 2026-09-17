@@ -142,7 +142,7 @@ public sealed partial class MainViewModel : IDeskNavigator
                 {
                     return ActionResult.Refused(header is "Cues" or "Screens" or "Lower thirds"
                         ? $"Nothing is selected on the {header} page — select a thing first (NAV {header} <name>)."
-                        : $"The {header} page has no settings column.");
+                        : $"The {header} page has no settings column — the Cues, Screens, Lower thirds, Machine and Audio pages have one.");
                 }
                 return ActionResult.Done($"Settings column: {PopOut.Title}.");
             case "OFF":
