@@ -202,6 +202,128 @@ public class TakeTicketAppTests
         }
     }
 
+    /// <summary>
+    /// Round 75: a target that is not what the press saw is held. The right screen is made a repeater of the left
+    /// while the clip runs; the landing holds it with what it is now, lands the left, and the journal's TAKE row says so.
+    /// </summary>
+    [AvaloniaFact]
+    public void AScreenMadeARepeaterDuringTheClipIsHeldAsChangedSinceThePress()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            AudioFakes.Install(b);
+            var clip = new FakeClip();
+            services.Video.SourceFactory = _ => clip;
+            Rig(b);
+            Programme(b, PatternKind.Grid);
+            Whoosh(b);
+            var router = new CommandRouter(services);
+
+            vm.SelectedTakeScope = vm.TakeScopes[0];
+            Assert.StartsWith("OK", Send(router, "TAKE NEXT STING Whoosh"));
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            Dispatcher.UIThread.RunJobs();
+            vm.TakeCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Stingers.ClipActive, vm.StatusMessage);
+            var ticket = services.Stingers.SessionTicket!;
+            Assert.Equal(new[] { "a", "b" }, ticket.Taken);
+            Assert.Equal(new[] { "a screen of its own", "a screen of its own" }, ticket.Shapes);
+
+            // The right screen becomes a repeater of the left while the clip runs: not what the press saw.
+            vm.State.Output.Placements.First(p => p.ScreenId == "b").MirrorOf = "a";
+            Dispatcher.UIThread.RunJobs();
+            clip.Ended = true;
+            services.Stingers.Poll();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.Stingers.ClipActive);
+            Assert.Equal("Sting done — the show moved on.", services.Stingers.Status);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("a").Kind);
+            var take = Assert.Single(services.Journal.Tail(20), e => e.Kind == "Take" && e.Message.Contains("held since the press: ", StringComparison.Ordinal));
+            Assert.Contains("(changed since the press — now a repeater of ", take.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Round 75 (72.3's open item): a LOCK during a running clip pins the picture beneath the clip — never the
+    /// clip. With EDIT SAFE open the edited state pins the show the sting covers while the clip plays on for the
+    /// audience; with EDIT SAFE closed the lock holds the show beneath once the clip ends. Either way the screen is
+    /// locked and shows the show, never a frozen transition.
+    /// </summary>
+    [AvaloniaFact]
+    public void ALockDuringTheClipPinsThePictureBeneathTheClipNeverTheClip()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            AudioFakes.Install(b);
+            var clip = new FakeClip();
+            services.Video.SourceFactory = _ => clip;
+            Rig(b);
+            Programme(b, PatternKind.Grid);
+            Whoosh(b);
+            var router = new CommandRouter(services);
+
+            // EDIT SAFE open: a whole cover under a TAKE; LOCK the right screen while the clip runs.
+            vm.SelectedTakeScope = vm.TakeScopes[0];
+            Assert.StartsWith("OK", Send(router, "TAKE NEXT STING Whoosh"));
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            Dispatcher.UIThread.RunJobs();
+            vm.TakeCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Stingers.ClipActive, vm.StatusMessage);
+            Assert.Equal(PatternKind.Grid, services.Stingers.PictureUnder("b")!.Kind);
+            Assert.Null(services.Stingers.PictureUnder("nowhere"));
+            Assert.Equal(PatternKind.Media, LookService.Shown(services.AirState, "b").Kind);            // the audience sees the clip
+            Assert.True(services.Actions.Execute(ShowActionKind.ScreenLock, ActionOrigin.Desk, "b").Ok);
+            Assert.Equal(PatternKind.Grid, LookService.Shown(vm.State, "b").Kind);                    // the edited state pins the show beneath, never the clip
+            Assert.Equal(PatternKind.Media, LookService.Shown(services.AirState, "b").Kind);            // the clip plays on
+            clip.Ended = true;
+            services.Stingers.Poll();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.Stingers.ClipActive);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Grid, LookService.Shown(vm.State, "b").Kind);
+            Assert.True(ScreenRoles.IsLocked(vm.State, "b"));
+            Assert.Null(services.Stingers.PictureUnder("b"));                                          // no clip, no picture beneath: the air is the truth
+
+            // EDIT SAFE closed: the right screen follows the programme again; a sting fired over the programme; LOCK
+            // during the clip; when the clip ends the lock holds the show beneath, not the clip's last frame.
+            Assert.True(services.Actions.Execute(ShowActionKind.ScreenUnlock, ActionOrigin.Desk, "b").Ok);
+            vm.IsSandboxActive = false;
+            Dispatcher.UIThread.RunJobs();
+            ContentTargets.SetOwnPattern(vm.State, "b", false);
+            services.RepublishNow();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PatternKind.ColorBars, LookService.Shown(vm.State, "b").Kind);
+            clip = new FakeClip();
+            Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, "Whoosh").Ok, vm.StatusMessage);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Stingers.ClipActive, services.Stingers.Status);
+            Assert.Equal(PatternKind.Media, LookService.Shown(vm.State, "b").Kind);
+            Assert.True(services.Actions.Execute(ShowActionKind.ScreenLock, ActionOrigin.Desk, "b").Ok);
+            clip.Ended = true;
+            services.Stingers.Poll();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.Stingers.ClipActive);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);   // the show beneath the clip, held by the lock
+            Assert.Equal(PatternKind.ColorBars, LookService.Shown(vm.State, "b").Kind);
+            Assert.True(ScreenRoles.IsLocked(vm.State, "b"));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void ATilesTakeUnderAStingLandsOnTheTileAloneAndALockSinceHoldsIt()
     {

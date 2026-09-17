@@ -276,7 +276,11 @@ public sealed partial class ShowActions
             ? air.Independent.FirstOrDefault(x => x.ScreenId == source)?.Pattern ?? air.Pattern
             : air.Pattern;
         var picture = JsonUtil.ClonePattern(showing);
-        _s.BulkEdit(() => ScreenRoles.SetLocked(State, target, locked, picture));
+        // Round 75: a LOCK during a running clip pins the picture beneath the clip — the show the sting covers,
+        // never the transition itself — in the edited state; the air keeps the clip playing under its lock, and
+        // the sting's end puts the picture beneath back where the lock now holds it.
+        var beneath = locked && _s.Sandbox.Active ? _s.Stingers.PictureUnder(source) : null;
+        _s.BulkEdit(() => ScreenRoles.SetLocked(State, target, locked, beneath ?? picture));
         if (_s.Sandbox.Active) _s.EditAir(program => ScreenRoles.SetLocked(program, target, locked, picture));
         var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
         return ActionResult.Done(locked

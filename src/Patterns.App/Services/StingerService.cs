@@ -113,6 +113,36 @@ public sealed class StingerService : IDisposable
     /// <summary>A stinger landed and is holding the screens until the operator takes them.</summary>
     public bool Holding => _holding;
 
+    /// <summary>
+    /// Round 75: the picture the running clip covers on a target — what a LOCK pressed during the clip pins in
+    /// the edited state, so a lock keeps the show and never the transition: a scoped cover's saved own picture
+    /// for the target (or the programme it followed, which a scoped cover leaves alone), a whole cover's saved
+    /// look for it. Null when no clip covers the target — the air is then the truth, as ever.
+    /// </summary>
+    public PatternConfig? PictureUnder(string target)
+    {
+        if (!ClipActive) return null;
+        var air = _services.AirState;
+        if (!ContentTargets.IsInRig(air, target)) return null;
+        if (_cover is not null)
+        {
+            if (!_cover.Contains(target, StringComparer.Ordinal)) return null;
+            if (_savedScoped is { } scoped)
+            {
+                foreach (var s in scoped)
+                {
+                    if (s.Target != target) continue;
+                    return s.WasCustom && s.Before is not null ? JsonUtil.ClonePattern(s.Before) : JsonUtil.ClonePattern(air.Pattern);
+                }
+            }
+            return JsonUtil.ClonePattern(air.Pattern);
+        }
+        // A whole cover: a screen locked at the fire kept its own picture and has no clip over it.
+        var shown = LookService.Shown(air, target);
+        if (shown.Kind != PatternKind.Media || shown.Media.Source != MediaSource.Video || shown.Media.VideoPath != _clipPath) return null;
+        return _savedLook is null ? null : LookService.PictureFor(_savedLook, target);
+    }
+
     /// <summary>The held stinger's name, or "" when nothing is holding.</summary>
     public string HoldName => _holding ? _after?.Name ?? "" : "";
 

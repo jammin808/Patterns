@@ -357,10 +357,11 @@ public sealed partial class ShowActions
         }
     }
 
-    /// <summary>The wall's landing: the ticket against the rig as it is now, then the same send a press makes.</summary>
+    /// <summary>The wall's landing: the ticket against the rig as it is now — every target's shape included (round 75) — then the same send a press makes.</summary>
     private ActionResult LandWall(TakeTicket ticket)
     {
-        var landing = ticket.Land(Rig.Targets(State, _s.Screens.All), id => ScreenRoles.IsLocked(State, id));
+        var geometry = Rig.Geometry(State, _s.Screens.All);
+        var landing = ticket.Land(RigTargets(geometry), id => WhereNow(geometry, id));
         if (landing.IsRefused) return ActionResult.Failed(landing.Refusal!);
         _s.Sandbox.SendAll(cut: false, landing.Kept);
         var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
@@ -371,16 +372,7 @@ public sealed partial class ShowActions
     public TakePlan PlanTake(FadeScope scope)
     {
         var geometry = Rig.Geometry(State, _s.Screens.All);
-        var ticked = new HashSet<string>(_s.TickedTargets?.Invoke() ?? Array.Empty<string>(), StringComparer.Ordinal);
-        var byId = State.Output.Placements.ToDictionary(p => p.ScreenId, StringComparer.Ordinal);
-        var rig = new List<TakeTarget>();
-        foreach (var target in Rig.Targets(State, _s.Screens.All))
-        {
-            var canvas = ContentTargets.IsCanvasKey(target);
-            var mirror = !canvas && byId.TryGetValue(target, out var p) && p.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, p.MirrorOf);
-            rig.Add(new TakeTarget(target, geometry.LabelFor(State, target), canvas, mirror,
-                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target)));
-        }
+        var rig = RigTargets(geometry);
         IReadOnlyList<string>? named = null;
         if (scope.Kind is FadeScopeKind.Screen or FadeScopeKind.Group or FadeScopeKind.Target)
         {
@@ -389,6 +381,40 @@ public sealed partial class ShowActions
             named = targets;
         }
         return TakePlan.Resolve(rig, scope, _s.FocusedTarget?.Invoke(), named);
+    }
+
+    /// <summary>
+    /// The rig's targets as a take sees them now — locked, armed, ticked, a canvas, a repeater — each with its
+    /// shape in the wall's words (round 75), so the plan a press makes and the landing a ticket makes read the
+    /// same list and a landing can tell a target that is not what the press promised.
+    /// </summary>
+    private List<TakeTarget> RigTargets(RigGeometry geometry)
+    {
+        var ticked = new HashSet<string>(_s.TickedTargets?.Invoke() ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var byId = State.Output.Placements.ToDictionary(p => p.ScreenId, StringComparer.Ordinal);
+        var rig = new List<TakeTarget>();
+        foreach (var target in geometry.Targets)
+        {
+            var canvas = ContentTargets.IsCanvasKey(target);
+            var mirror = !canvas && byId.TryGetValue(target, out var p) && p.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, p.MirrorOf);
+            var shape = canvas
+                ? $"{geometry.LabelFor(State, target)} of {string.Join(", ", ContentTargets.Members(target).Select(m => geometry.LabelFor(State, m)))}"
+                : mirror ? $"a repeater of {geometry.LabelFor(State, byId[target].MirrorOf)}"
+                : "a screen of its own";
+            rig.Add(new TakeTarget(target, geometry.LabelFor(State, target), canvas, mirror,
+                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape));
+        }
+        return rig;
+    }
+
+    /// <summary>Round 75: where a promised screen went when it is no longer a target of its own — "in Canvas A" — for a landing's words; "" when it is simply gone from the rig.</summary>
+    private string WhereNow(RigGeometry geometry, string id)
+    {
+        foreach (var target in geometry.Targets)
+        {
+            if (ContentTargets.IsCanvasKey(target) && Array.IndexOf(ContentTargets.Members(target), id) >= 0) return $"in {geometry.LabelFor(State, target)}";
+        }
+        return "";
     }
 
     /// <summary>The one-shot onto the publish about to happen: a cut, a rate, a kind with its scene and direction — the bus's own overrides, as a look's recall uses them.</summary>

@@ -8,7 +8,8 @@ namespace Patterns.Core.Services;
 /// <param name="Locked">LOCK on the tile: it keeps its picture through looks, cues, TAKE ALL and stingers.</param>
 /// <param name="Armed">ARM on the tile: the next CUT / TAKE may change it.</param>
 /// <param name="Ticked">The tick at the top of the tile.</param>
-public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false);
+/// <param name="Shape">Round 75: what the target is, in the wall's words — "a screen of its own", "a repeater of 1 · Left", "Canvas A of 2 · Right, 3 · Rear" — kept by a ticket at the press and compared at its landing, so a take never lands on a target that is not what the press promised. "" when the caller keeps no shapes.</param>
+public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "");
 
 /// <summary>A target inside the scope that the take leaves alone, and the one word that says why.</summary>
 public sealed record TakeHeld(string Id, string Label, string Reason)
@@ -20,6 +21,10 @@ public sealed record TakeHeld(string Id, string Label, string Reason)
     public const string LockedSinceReason = "locked since the press";
     /// <summary>Round 72: no longer a target in the rig when the ticket lands.</summary>
     public const string GoneReason = "gone from the rig";
+    /// <summary>Round 75: the target is not what the press saw — a screen made a repeater, a canvas whose members moved, a screen that joined a canvas — and keeps its picture; <see cref="ChangedSince"/> adds what it is now.</summary>
+    public const string ChangedSinceReason = "changed since the press";
+    /// <summary>"changed since the press — now a repeater of 1 · Left".</summary>
+    public static string ChangedSince(string now) => now.Length == 0 ? ChangedSinceReason : $"{ChangedSinceReason} — now {now}";
 }
 
 /// <summary>
@@ -77,6 +82,9 @@ public sealed record TakePlan
     /// <summary>The wall's names for <see cref="Taken"/>, in the same order — a ticket keeps them, so its words stay the press's.</summary>
     public IReadOnlyList<string> TakenLabels { get; init; } = Array.Empty<string>();
 
+    /// <summary>Round 75: each taken target's <see cref="TakeTarget.Shape"/> at the press, in the same order — a ticket keeps them and its landing compares.</summary>
+    public IReadOnlyList<string> TakenShapes { get; init; } = Array.Empty<string>();
+
     /// <summary>
     /// Resolves the scope against the rig. <paramref name="focused"/> is the tile the desk has focused
     /// (null = the PGM tile, the programme); <paramref name="named"/> is what the caller resolved for
@@ -125,6 +133,7 @@ public sealed record TakePlan
         var inside = new HashSet<string>(candidates.Select(t => t.Id), StringComparer.Ordinal);
         var taken = new List<string>();
         var takenLabels = new List<string>();
+        var takenShapes = new List<string>();
         var held = new List<TakeHeld>();
         foreach (var t in rig)
         {
@@ -136,6 +145,7 @@ public sealed record TakePlan
             {
                 taken.Add(t.Id);
                 takenLabels.Add(t.Label);
+                takenShapes.Add(t.Shape);
             }
         }
         var outside = rig.Where(t => !inside.Contains(t.Id)).Select(t => t.Id).ToList();
@@ -161,6 +171,7 @@ public sealed record TakePlan
             Scope = scope,
             Taken = taken,
             TakenLabels = takenLabels,
+            TakenShapes = takenShapes,
             Held = held,
             Outside = outside,
             Where = where,
@@ -209,6 +220,9 @@ public sealed record TakeTicket
     /// <summary>The wall's names for <see cref="Taken"/> at the press, in the same order.</summary>
     public IReadOnlyList<string> Labels { get; init; } = Array.Empty<string>();
 
+    /// <summary>Round 75: what each of <see cref="Taken"/> was at the press (<see cref="TakeTarget.Shape"/>), in the same order; the landing holds a target that is something else now.</summary>
+    public IReadOnlyList<string> Shapes { get; init; } = Array.Empty<string>();
+
     /// <summary>What the press said: "on every armed screen", "on 2 · Right alone".</summary>
     public required string Where { get; init; }
 
@@ -229,32 +243,46 @@ public sealed record TakeTicket
         Scope = scope,
         Taken = plan.Taken,
         Labels = plan.TakenLabels,
+        Shapes = plan.TakenShapes,
         Where = plan.Where,
         Cover = cover,
         PressedUtc = pressedUtc,
     };
 
     /// <summary>
-    /// The landing against the rig as it is now: the promised targets that are still in the rig and not locked
-    /// since land; every other target in the rig keeps its picture, the ones the press promised with the reason.
-    /// A landing with nothing left to land is a refusal that names why — the sting then puts the show back and
-    /// says so — never a silent success.
+    /// The landing against the rig as it is now: the promised targets that are still in the rig, still the shape
+    /// the press saw and not locked since land; every other target in the rig keeps its picture, the promised ones
+    /// with the reason — gone from the rig; changed since the press (round 75: a screen made a repeater, a canvas
+    /// whose members moved, a screen that joined a canvas — <paramref name="whereNow"/> says where a promised id
+    /// went when it is no longer a target of its own, "in Canvas A"); or locked since. A transaction never gains a
+    /// destination, and never lands on one that is not what it promised. A landing with nothing left to land is
+    /// a refusal that names why — the sting then puts the show back and says so — never a silent success.
     /// </summary>
-    public TakeLanding Land(IReadOnlyList<string> rig, Func<string, bool> lockedNow)
+    public TakeLanding Land(IReadOnlyList<TakeTarget> rigNow, Func<string, string?>? whereNow = null)
     {
-        var inRig = new HashSet<string>(rig, StringComparer.Ordinal);
+        var byId = new Dictionary<string, TakeTarget>(StringComparer.Ordinal);
+        foreach (var t in rigNow) byId[t.Id] = t;
         var landed = new List<string>();
         var held = new List<TakeHeld>();
         for (var i = 0; i < Taken.Count; i++)
         {
             var id = Taken[i];
             var label = i < Labels.Count ? Labels[i] : id;
-            if (!inRig.Contains(id)) held.Add(new TakeHeld(id, label, TakeHeld.GoneReason));
-            else if (lockedNow(id)) held.Add(new TakeHeld(id, label, TakeHeld.LockedSinceReason));
+            var promised = i < Shapes.Count ? Shapes[i] : "";
+            if (!byId.TryGetValue(id, out var now))
+            {
+                var elsewhere = whereNow?.Invoke(id) ?? "";
+                held.Add(new TakeHeld(id, label, elsewhere.Length > 0 ? TakeHeld.ChangedSince(elsewhere) : TakeHeld.GoneReason));
+            }
+            else if (promised.Length > 0 && now.Shape.Length > 0 && !string.Equals(promised, now.Shape, StringComparison.Ordinal))
+            {
+                held.Add(new TakeHeld(id, label, TakeHeld.ChangedSince(now.Shape)));
+            }
+            else if (now.Locked) held.Add(new TakeHeld(id, label, TakeHeld.LockedSinceReason));
             else landed.Add(id);
         }
         var landedSet = new HashSet<string>(landed, StringComparer.Ordinal);
-        var kept = rig.Where(t => !landedSet.Contains(t)).ToList();
+        var kept = rigNow.Where(t => !landedSet.Contains(t.Id)).Select(t => t.Id).ToList();
         string? refusal = landed.Count > 0 ? null
             : Taken.Count == 0 ? "The press promised nothing."
             : $"Nothing lands — {string.Join(", ", held.Select(h => $"{h.Label} ({h.Reason})"))}.";
