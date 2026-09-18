@@ -372,6 +372,24 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Screen id the preview mirrors while editing an independent screen (null = program).</summary>
     public string? PreviewScreenId { get; set; }
 
+    private string? _editingTargetId;
+
+    /// <summary>
+    /// Round 78: the target the desk's editors are on (null = the programme). The sandbox's PVW rule reads
+    /// it — a settled own picture shows on its tile's PVW only while the editors are on that tile — so a
+    /// change of editing target republishes the sandbox's snapshot: the tiles' PVWs follow the editors at once.
+    /// </summary>
+    public string? EditingTargetId
+    {
+        get => _editingTargetId;
+        set
+        {
+            if (_editingTargetId == value) return;
+            _editingTargetId = value;
+            if (Sandbox.Active) RepublishNow();
+        }
+    }
+
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _reapplyTimer;
     private int _bulkDepth;

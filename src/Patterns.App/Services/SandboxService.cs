@@ -45,7 +45,123 @@ public sealed class SandboxService
         if (_program is null) return;
         _program.Blackout = _services.State.Blackout; // transport is never sandboxed
         _services.Bus.Publish(_program, _services.AirWatch);
-        _services.Bus.PublishSandbox(_services.State, _services.StateWatch);
+        _services.Bus.PublishSandbox(_services.State, _services.StateWatch, SettledOwn());
+    }
+
+    // ---- what a tile's PVW holds (round 78) --------------------------------------------------------
+
+    /// <summary>
+    /// The pictures a tile's PVW can hold, and so what its own CUT / TAKE lands — one rule, read by the
+    /// snapshot the miniatures draw (<see cref="SettledOwn"/>), by the take (<see cref="PvwPicture"/>),
+    /// by the menus and the Eye (<see cref="IsStaged"/>):
+    ///
+    ///   pending  — a picture the audience has not seen: an own picture in the edited state that the frozen
+    ///              program lacks (SEND staged it) or has differently (the preview edited it). The PVW holds it.
+    ///   editing  — an own picture already on air, while the editors are on this target: the PVW shows the
+    ///              picture being worked on, exactly as the big PREVIEW pane and the editors do.
+    ///   settled  — an own picture already on air and no editor on it: the PVW follows the programme's
+    ///              preview, because that is what a TAKE on the tile puts up.
+    ///   programme — a target that follows the programme: the programme's preview.
+    ///
+    /// The field pressed TAKE eleven times on a settled tile: each press copied the tile's own picture over
+    /// itself and the desk said "fades up" each time. Attempts are not facts — a take lands what the PVW
+    /// shows, and a take that would change nothing is refused with the reason (<see cref="EffectOf"/>).
+    /// </summary>
+    public bool IsStaged(string targetId)
+        => Active && _program is not null && Pending(_services.State, _program, ScreenRoles.ResolveMirror(_services.State, targetId));
+
+    /// <summary>The picture this target's PVW shows while the sandbox is open — what a CUT / TAKE on its tile lands.</summary>
+    public PatternConfig PvwPicture(string targetId)
+    {
+        var state = _services.State;
+        var resolved = ScreenRoles.ResolveMirror(state, targetId);
+        if (!Active || _program is null) return LookService.Shown(state, resolved);
+        if (Pending(state, _program, resolved) || resolved == _services.EditingTargetId) return LookService.Shown(state, resolved);
+        return state.Pattern;
+    }
+
+    /// <summary>What a CUT / TAKE on a tile would do to what the audience sees on its target.</summary>
+    public enum TakeEffect
+    {
+        /// <summary>The picture changes.</summary>
+        Picture,
+        /// <summary>The same picture, but the target goes its own way (OWN): it keeps it when the programme changes.</summary>
+        OwnOnly,
+        /// <summary>Nothing: the target already shows this picture as its own.</summary>
+        Nothing,
+    }
+
+    public TakeEffect EffectOf(string targetId)
+    {
+        if (!Active || _program is null) return TakeEffect.Nothing;
+        var resolved = ScreenRoles.ResolveMirror(_services.State, targetId);
+        if (!SamePicture(PvwPicture(resolved), LookService.Shown(_program, resolved))) return TakeEffect.Picture;
+        return ContentTargets.UsesOwnPattern(_program, resolved) ? TakeEffect.Nothing : TakeEffect.OwnOnly;
+    }
+
+    /// <summary>Of the targets a wall TAKE changes, how many the audience already sees with the picture it would land — the edited state's picture for them is the air's.</summary>
+    public int AlreadyOnAir(IReadOnlyList<string> taken)
+    {
+        if (!Active || _program is null) return 0;
+        var n = 0;
+        foreach (var t in taken)
+        {
+            if (SamePicture(LookService.Shown(_services.State, t), LookService.Shown(_program, t))) n++;
+        }
+        return n;
+    }
+
+    private static bool Pending(ShowState state, ShowState program, string targetId)
+    {
+        if (!ContentTargets.UsesOwnPattern(state, targetId)) return false;
+        if (!ContentTargets.UsesOwnPattern(program, targetId)) return true;
+        var mine = OwnPicture(state, targetId);
+        var air = OwnPicture(program, targetId);
+        return mine is null || air is null || !SamePicture(mine, air);
+    }
+
+    private static PatternConfig? OwnPicture(ShowState s, string targetId)
+    {
+        foreach (var a in s.Independent)
+        {
+            if (a.ScreenId == targetId) return a.Pattern;
+        }
+        return null;
+    }
+
+    /// <summary>The same picture in every property the show file keeps — the identity a take compares, as the recovery record would see it.</summary>
+    public static bool SamePicture(PatternConfig a, PatternConfig b)
+        => ReferenceEquals(a, b) || JsonUtil.SerializeCompact(a) == JsonUtil.SerializeCompact(b);
+
+    private HashSet<string>? _settled;
+
+    /// <summary>
+    /// The settled targets for the sandbox's snapshot: own on both sides with the same picture, and not the
+    /// editing target. The same instance while the set has not changed, so the snapshot shares its
+    /// transition keys and no PVW fades for nothing.
+    /// </summary>
+    private IReadOnlyCollection<string>? SettledOwn()
+    {
+        var state = _services.State;
+        var program = _program!;
+        List<string>? found = null;
+        foreach (var a in state.Independent)
+        {
+            var id = a.ScreenId;
+            if (id == _services.EditingTargetId) continue;
+            if (!ContentTargets.UsesOwnPattern(state, id) || !ContentTargets.UsesOwnPattern(program, id)) continue;
+            var air = OwnPicture(program, id);
+            if (air is null || !SamePicture(a.Pattern, air)) continue;
+            (found ??= new List<string>()).Add(id);
+        }
+        if (found is null)
+        {
+            _settled = null;
+            return null;
+        }
+        if (_settled is not null && _settled.Count == found.Count && found.TrueForAll(_settled.Contains)) return _settled;
+        _settled = new HashSet<string>(found, StringComparer.Ordinal);
+        return _settled;
     }
 
     /// <summary>
@@ -144,9 +260,10 @@ public sealed class SandboxService
     ///                  TO TICKED and a look sent to one screen both go this way.
     /// </summary>
     /// <param name="ownPicture">
-    /// Round 67: take what the tile's own PVW shows — its own picture when the operator edited or staged
-    /// one there, else the programme's preview — rather than the programme's preview whatever the tile
-    /// holds. The tile's own CUT / TAKE go this way; SEND and SEND TO TICKED carry the programme's preview.
+    /// Round 67: take what the tile's own PVW shows — round 78: <see cref="PvwPicture"/>, the one rule: a
+    /// picture staged or edited on the tile while the audience has not seen it, its own picture while the
+    /// editors are on it, else the programme's preview — rather than the programme's preview whatever the
+    /// tile holds. The tile's own CUT / TAKE go this way; SEND and SEND TO TICKED carry the programme's preview.
     /// </param>
     public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true, bool cut = false, bool ownPicture = false)
     {
@@ -157,7 +274,7 @@ public sealed class SandboxService
         if (toAir && cut) _services.Bus.CutOnNextPublish();
         var state = _services.State;
         var program = _program;
-        var pictures = targetIds.ToDictionary(id => id, id => JsonUtil.ClonePattern(ownPicture ? LookService.Shown(state, id) : state.Pattern), StringComparer.Ordinal);
+        var pictures = targetIds.ToDictionary(id => id, id => JsonUtil.ClonePattern(ownPicture ? PvwPicture(id) : state.Pattern), StringComparer.Ordinal);
         void Land(ShowState s)
         {
             foreach (var id in targetIds)
@@ -179,15 +296,6 @@ public sealed class SandboxService
             ? $"Sandbox {(cut ? "cut" : "sent")} live to {targetIds.Count} target(s); the preview keeps the picture."
             : $"Sandbox staged on {targetIds.Count} target(s); the air is untouched until a CUT or TAKE.");
     }
-
-    /// <summary>
-    /// This target is holding a picture the preview put there that the audience has not seen — the
-    /// edited state has its own pattern for it and the frozen program does not.
-    /// </summary>
-    public bool IsStaged(string targetId)
-        => Active && _program is not null
-           && ContentTargets.UsesOwnPattern(_services.State, targetId)
-           && !ContentTargets.UsesOwnPattern(_program, targetId);
 
     /// <summary>
     /// The lower third across a TAKE. A design showing in the preview (a PVW for a sign-off) goes

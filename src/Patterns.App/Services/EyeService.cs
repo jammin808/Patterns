@@ -209,7 +209,7 @@ public sealed class EyeService
                 Enabled = placement.Enabled,
                 OnAir = liveTargets.Contains(placement.ScreenId) || liveTargets.Contains(target),
                 Own = own is not null,
-                Staged = own is null && ContentTargets.UsesOwnPattern(state, target),
+                Staged = _s.Sandbox.IsStaged(target),                                              // round 78: a picture the audience has not seen — staged or edited
                 Contract = placement.Signal.IsSet ? SignalTruth.DesignWords(placement.Signal) : "",
                 Verdict = hasContract ? signal.Result : "",
                 SignalWords = hasContract ? (worst is null ? signal.Result + " · " + signal.Design : $"{signal.Result} — {worst.Item}: {worst.Value}") : "",

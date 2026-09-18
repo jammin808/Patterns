@@ -26,13 +26,19 @@ public sealed partial class MainViewModel
     public RelayCommand<LayerConfig> BrowseLayerImageCommand { get; }
     public RelayCommand<LayerConfig> BrowseLayerVideoCommand { get; }
 
-    /// <summary>The pattern the PREVIEW pane shows, in the live model: the target's own, its source's when it repeats one, else the program.</summary>
+    /// <summary>
+    /// The pattern the PREVIEW pane shows, in the live model: the target's own, its source's when it repeats
+    /// one, else the program. Round 78: while the sandbox is open, the sandbox's PVW rule — a settled own
+    /// picture shows here only while the editors are on the target; otherwise the pane follows the
+    /// programme's preview like the tile's miniature, because that is what a TAKE puts up.
+    /// </summary>
     public PatternConfig PreviewPattern
     {
         get
         {
             var id = _services.PreviewScreenId;
             if (id is null) return State.Pattern;
+            if (_services.Sandbox.Active) return _services.Sandbox.PvwPicture(id);
             id = ScreenRoles.ResolveMirror(State, id);
             if (!ContentTargets.UsesOwnPattern(State, id)) return State.Pattern;
             return State.Independent.FirstOrDefault(a => a.ScreenId == id)?.Pattern ?? State.Pattern;
@@ -276,6 +282,7 @@ public sealed partial class MainViewModel
                 // copy was never edited takes the copy away again, so the show file never gathers them.
                 if (previous?.ScreenId is { } left && left != value.ScreenId) DropUnusedStaging(left);
                 if (value.ScreenId is { } id) EnsureStaged(id);
+                _services.EditingTargetId = value.ScreenId;                                    // round 78: the tiles' PVWs follow the editors
                 Raise(nameof(ActivePattern));
                 Raise(nameof(EditTargetBanner));
                 Raise(nameof(CanvasInfo));

@@ -199,17 +199,18 @@ public sealed partial class ShowActions
                     var ticket = TakeTicket.From(plan, StingTakeScope(scope, plan), sting.DisplayName, ShowClock.UtcNow);
                     if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, ticket: ticket)) return ActionResult.Failed($"{_s.Stingers.Status} The one-shot stays for the next TAKE.");
                     _s.NextTake.Consume();
-                    return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands {plan.Where} when the clip ends; the show's transition is unchanged.");
+                    return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands {plan.Where} when the clip ends; the show's transition is unchanged." + UnseenNote());
                 }
                 if (next is not null) _s.NextTake.Consume();
                 ArmNextTransition(next);
+                var already = _s.Sandbox.AlreadyOnAir(plan.Taken);                              // round 78: read before the send settles it
                 _s.Sandbox.SendAll(cut, plan.Kept);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
                 var kept = plan.Kept.Count == 0 ? "" : $" ({plan.Kept.Count} kept their picture)";
                 var arrived = next is null ? "" : $" Arrived by {next.Words} (one shot).";
                 return ActionResult.Done((cut
-                    ? $"CUT — sandbox is now the program {plan.Where}{kept}."
-                    : $"TAKE — sandbox faded up {plan.Where}{kept}.") + arrived + rearmed);
+                    ? $"CUT — sandbox is now the program {plan.Where}{kept}{AlreadyWords(already, plan.Taken.Count)}."
+                    : $"TAKE — sandbox faded up {plan.Where}{kept}{AlreadyWords(already, plan.Taken.Count)}.") + arrived + rearmed + UnseenNote());
             }
             case ShowActionKind.ScreenTake:
             case ShowActionKind.ScreenCut:
@@ -259,6 +260,18 @@ public sealed partial class ShowActions
                         : $"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
                 }
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
+                // Round 78: attempts are not facts. The tile's PVW holds one picture (SandboxService.PvwPicture: staged or
+                // edited and not yet seen, its own while the editors are on it, else the programme's preview) and the take
+                // lands exactly that — so a press that would put up what the screen already shows is refused with the
+                // reason and the way out, and spends no one-shot. A landing under a sting was validated at the press.
+                var effect = _s.Sandbox.EffectOf(target);
+                if (origin != ActionOrigin.Stinger && effect == SandboxService.TakeEffect.Nothing)
+                {
+                    return ActionResult.Refused(_s.EditingTargetId == target
+                        ? $"{where} already shows its own picture — nothing to take. Edit it here, or put the editors on PROGRAM and TAKE to send the programme's preview to it."
+                        : $"{where} already shows this picture — nothing to take. Change the preview, or SEND a picture to this tile first.");
+                }
+                var pendingOne = _s.Sandbox.IsStaged(target);                                     // read before the send settles it
                 var nextOne = cutOne || origin == ActionOrigin.Stinger ? null : _s.NextTake.Pending;
                 if (nextOne is { IsSting: true })
                 {
@@ -276,17 +289,22 @@ public sealed partial class ShowActions
                     };
                     if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, ticket: ticket)) return ActionResult.Failed($"{_s.Stingers.Status} The one-shot stays for the next TAKE.");
                     _s.NextTake.Consume();
-                    return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands on {where} alone when the clip ends.");
+                    return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands on {where} alone when the clip ends." + UnseenNote());
                 }
                 if (nextOne is not null) _s.NextTake.Consume();
                 ArmNextTransition(nextOne);
-                // What this tile's PVW shows (round 67): its own picture when one was edited or staged there, else the programme's preview.
+                // What this tile's PVW shows (round 67, the rule in SandboxService.PvwPicture since round 78).
                 _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne, ownPicture: true);
                 var arrivedOne = nextOne is null ? "" : $" Arrived by {nextOne.Words} (one shot).";
                 var adjustedOne = AdjustmentNote(_s.AirState.Independent.FirstOrDefault(x => x.ScreenId == target)?.Pattern);   // round 77
-                return ActionResult.Done((cutOne
-                    ? $"CUT — the preview is on {where} alone, as its own picture; every other screen stays."
-                    : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.") + arrivedOne + adjustedOne);
+                var verb = cutOne ? "CUT" : "TAKE";
+                var whatOne = pendingOne ? $"the picture on {where}'s PVW" : "the preview";
+                var landedOne = effect == SandboxService.TakeEffect.OwnOnly
+                    ? $"{verb} — {where} already showed this picture; it is now its own (OWN), so it keeps it when the programme changes."
+                    : cutOne
+                        ? $"CUT — {whatOne} is on {where} alone, as its own picture; every other screen stays."
+                        : $"TAKE — {whatOne} fades up on {where} alone, as its own picture; every other screen stays.";
+                return ActionResult.Done(landedOne + arrivedOne + UnseenNote() + adjustedOne);   // the picture's own note last, as round 77 pinned it
             }
             default:
                 return null;
@@ -389,10 +407,29 @@ public sealed partial class ShowActions
         var geometry = Rig.Geometry(State, _s.Screens.All);
         var landing = ticket.Land(RigTargets(geometry), id => WhereNow(geometry, id));
         if (landing.IsRefused) return ActionResult.Failed(landing.Refusal!);
+        var already = _s.Sandbox.AlreadyOnAir(landing.Landed);                                        // round 78
         _s.Sandbox.SendAll(cut: false, landing.Kept);
         var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
         var kept = landing.Kept.Count == 0 ? "" : $" ({landing.Kept.Count} kept their picture)";
-        return ActionResult.Done($"TAKE — sandbox faded up {ticket.Where}{kept}, as pressed under the sting '{ticket.Cover}'{landing.HeldWords}.{rearmed}");
+        return ActionResult.Done($"TAKE — sandbox faded up {ticket.Where}{kept}{AlreadyWords(already, landing.Landed.Count)}, as pressed under the sting '{ticket.Cover}'{landing.HeldWords}.{rearmed}{UnseenNote()}");
+    }
+
+    /// <summary>
+    /// Round 78: attempts are not facts — the words a take carries when the room cannot see it land: the
+    /// outputs closed (the field's eleven takes with the outputs off, each reported as a fade-up), or the blackout up.
+    /// </summary>
+    private string UnseenNote()
+    {
+        if (!_s.Outputs.IsLive) return " The outputs are off — nothing is on the screens until OUTPUTS ON.";
+        if (_s.AirState.Blackout) return " Blackout is on — the screens stay black until it lifts.";
+        return "";
+    }
+
+    /// <summary>Round 78: of the screens a wall take changed, those the audience already saw with that picture — none, some, or every one.</summary>
+    private static string AlreadyWords(int already, int taken)
+    {
+        if (already <= 0 || taken <= 0) return "";
+        return already >= taken ? " — every screen taken already showed its picture" : $" — {already} of {taken} already showed it";
     }
 
     public TakePlan PlanTake(FadeScope scope)
@@ -491,11 +528,25 @@ public sealed partial class ShowActions
             held = plan.Held.Select(h => new { id = h.Id, label = h.Label, reason = h.Reason }).ToArray(),
             outside = plan.Outside.Count,
             refusal = plan.Refusal ?? "",
+            outputsLive = _s.Outputs.IsLive,                                                                  // round 78: a take with the outputs off lands on no screen
+            pending = PendingTargets(),                                                                       // round 78: the tiles whose PVW holds a picture the audience has not seen
             next = _s.NextTake.Row(),
             landing = _s.Stingers.SessionTicket is { } ticket                                          // round 72: the take waiting under a sting — the press's promise
                 ? new { sting = ticket.Cover, scope = ticket.Scope, targets = ticket.Taken, where = ticket.Where, words = ticket.Words, pressedUtc = ticket.PressedUtc }
                 : null,
         };
+    }
+
+    /// <summary>Round 78: the targets whose PVW holds a picture the audience has not seen — staged by SEND or edited in the preview — in wall order.</summary>
+    private string[] PendingTargets()
+    {
+        if (!_s.Sandbox.Active) return Array.Empty<string>();
+        var pending = new List<string>();
+        foreach (var target in Rig.Geometry(State, _s.Screens.All).Targets)
+        {
+            if (_s.Sandbox.IsStaged(target)) pending.Add(target);
+        }
+        return pending.ToArray();
     }
 
     /// <summary>"Screen 2 · Group A" — the targets as the wall names them.</summary>

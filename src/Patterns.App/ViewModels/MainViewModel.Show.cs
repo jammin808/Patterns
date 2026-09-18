@@ -559,7 +559,7 @@ public sealed partial class MainViewModel
             tile.RefreshExternal(enabled, target == _selectedTargetId,
                 ContentTargets.UsesOwnPattern(State, target), armed,
                 onAir: live && enabled && !black, held: building && (!armed || locked), locked: locked, black: black,
-                canSend: building);
+                canSend: building, staged: building && _services.Sandbox.IsStaged(target));   // round 78: PVW lit while a picture waits here
         }
         RefreshTakeScope();
     }

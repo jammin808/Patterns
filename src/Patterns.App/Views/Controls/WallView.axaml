@@ -96,6 +96,11 @@
                           ToolTip.Tip="Faded to black on its own — FADE TO BLACK on this tile, from the panel, a cue, the phone or Companion; FADE UP brings it back (a FADE UP on EVERY SCREEN brings back every tile like it)">
                     <TextBlock Text="BLACK" />
                   </Border>
+                  <!-- PVW (round 78): a picture waits on this tile's PVW that the audience has not seen — staged by SEND or edited in the preview; CUT / TAKE here puts it up -->
+                  <Border Classes="roleBadge pvwBadge" IsVisible="{Binding IsStaged}"
+                          ToolTip.Tip="A picture is waiting on this tile's PVW — staged by SEND, or edited in the preview — and the audience has not seen it. CUT / TAKE on this tile puts it up; a wall TAKE that leaves this tile alone drops it">
+                    <TextBlock Text="PVW" />
+                  </Border>
                 </StackPanel>
                 <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"

@@ -151,6 +151,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     private bool _isBlack;
     private bool _isCollapsed;
     private bool _canSend;
+    private bool _isStaged;
     private Patterns.Core.Model.LookConfig? _pendingLook;
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
@@ -453,11 +454,22 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         private set => Set(ref _isBlack, value);
     }
 
+    /// <summary>
+    /// Round 78: this tile's PVW holds a picture the audience has not seen — staged by SEND, or edited in
+    /// the preview — and a CUT / TAKE on the tile puts it up. The tile wears PVW while it does.
+    /// </summary>
+    public bool IsStaged
+    {
+        get => _isStaged;
+        private set => Set(ref _isStaged, value);
+    }
+
     /// <summary>Refreshes live state without rebuilding the wall (keeps focus, ticks and MON).</summary>
-    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked, bool black = false, bool canSend = false)
+    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked, bool black = false, bool canSend = false, bool staged = false)
     {
         IsBlack = black;
         CanSend = canSend && !IsProgramTile;
+        IsStaged = staged && !IsProgramTile;
         if (_isLocked != locked)
         {
             _isLocked = locked;

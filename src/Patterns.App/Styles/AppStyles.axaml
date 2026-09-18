@@ -471,6 +471,15 @@
     <Setter Property="Foreground" Value="#E0342E" />
   </Style>
 
+  <!-- Round 78: a picture waits on this tile's PVW that the audience has not seen — the badge reads in the PVW miniature's green -->
+  <Style Selector="Border.roleBadge.pvwBadge">
+    <Setter Property="Background" Value="#0F2A1C" />
+    <Setter Property="BorderBrush" Value="#802EE68A" />
+  </Style>
+  <Style Selector="Border.roleBadge.pvwBadge > TextBlock">
+    <Setter Property="Foreground" Value="#2EE68A" />
+  </Style>
+
   <!-- A section heading is a band: bold caps on a subdued ground, the page's own neon for both
        (the hue styles at the end of this file), so the sections of a page read apart at a glance. -->
   <Style Selector="TextBlock.h2">

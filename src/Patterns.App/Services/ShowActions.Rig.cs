@@ -428,6 +428,7 @@ public sealed partial class ShowActions
                     audioOut = x.Placement.AudioOutput,                                       // round 69: the output its sound leaves by (a destination key), "" for none
                     audioOutLabel = x.Placement.AudioOutput.Length > 0 ? AudioRouting.DestinationLabel(State, x.Placement.AudioOutput) : "",
                     audioSource = x.Placement.AudioOutput.Length > 0 ? AudioRouting.SourceOfScreenWords(_s.AirState, x.Placement.ScreenId) : "",   // what its picture's sound is now
+                    staged = _s.Sandbox.IsStaged(target),                        // round 78: a picture waits on its tile's PVW that the audience has not seen — CUT / TAKE there puts it up
                 };
             })
             .ToArray();
