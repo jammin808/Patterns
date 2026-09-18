@@ -87,6 +87,7 @@ rounds='
   74 056bba5d4524dde85adfc0370447bfee25870887
   75 8c0af5b68022b5279793ad3453c313cae7683c2e
   76 9946d01f7ae1f1db90038de3a5a768422319b4b5
+  77 a4c7305ad997cf343100a3bc69bb38af1ed64838
 '
 
 [ -f CHANGELOG.md ] || { echo "run this from the repository root (no CHANGELOG.md here)" >&2; exit 1; }

@@ -2899,3 +2899,55 @@ mute-first ask, and the crash gap's measurement on the rig.
 - Core 909, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 782 — 2,419; the module's
   31 node tests. One analyzer fence tripped on the way (CA1826 on an indexable list in a new test) and
   was fixed before the push.
+
+## Round 78 review — the wall's take, the folder's lease, the outputs that leave the machine
+
+### 78.0 — the files read
+
+- **Done.** The show log, `patterns.log`, the Super Check and the quality profile read against the code;
+  the assessment read against the code. §96.1.
+- **Found on the way.** The show log alone settled the report: eleven takes journaled `Done` with the
+  outputs off, then `OutputsOn` two seconds after the last — the desk had stated eleven attempts as facts.
+  The screencast log answered §95.3's hypothesis: every rung refused, so not the parameters.
+
+### 78.1 — the wall's CUT/TAKE truth
+
+- **Done.** §96.2.
+- **Found on the way.** `SendToTargets(ownPicture: true)` read `LookService.Shown`, true for good once a
+  take had set OWN — the rule of round 67 as written could never send the programme's preview to a tile
+  twice. Nothing compared the landing picture with the air's, and nothing said the outputs were off. Round
+  30's decision that an armed OWN screen keeps its picture through a wall take (`WallTests`) is kept: the
+  tile's rule is the tile's, and a settled OWN tile's PVW is what the tile's own key would land. The big
+  PREVIEW pane pointed at a settled tile follows the same rule and shows the programme's preview — unless
+  the editors are on that tile, when the pane, the miniature and the take all mean its own picture, so an
+  edit never jumps the pane. `MediaAdjustmentsAppTests` pinned the picture's own note as the last words of
+  a take, so the outputs-off note goes before it.
+
+### 78.2 — the show folder's lease asked again
+
+- **Done.** §96.3.
+- **Found on the way.** The mutex was disposed unreleased at exit — to the next asker an abandoned mutex,
+  which happens to be taken; the lease releases it. `ShutdownPhaseTests` names "instance mutex" among the
+  critical steps; the step keeps its name. `SaveAtExit` still answers true for a desk that never saves —
+  harmless now that a second desk's exit never reaches the clear — and stays so on purpose: the "recovery
+  kept" marker is for a save that failed, not for a desk that was never to save.
+
+### 78.3 — NDI and the stream as outputs of what they carry
+
+- **Done.** §96.4.
+- **Found on the way.** The stream's "" source is the first enabled display's picture, not the programme
+  — the old blanket flag had it as the programme leaving. `NdiSender.Start` returns without the runtime and
+  the service still lists the sender active, so `ActiveCount` was always "configured and enabled": the
+  tests read the same fact on a machine without NDI.
+
+### 78.4 — the beacon's log
+
+- **Done.** §96.5.
+- **Found on the way.** In the code, not the field's log: the port came free in time there. The count is
+  the fact the test reads; the log's gate is the same `% 12` the control server uses.
+
+### The suites
+
+- Core 909, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 792 — 2,429; the module's
+  31 node tests. One test wrote an absolute count of the beacon's failed binds after boot and met the
+  poll's own ask; it counts from what it finds.

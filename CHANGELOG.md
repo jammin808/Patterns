@@ -8,6 +8,31 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 78 — 2026-09-18 — the wall's CUT/TAKE truth, the show folder's lease asked again, NDI and the stream as outputs of what they carry; the assessment answered
+
+`round-78` · PLAN §96 · REVIEW round 78 · 2,429 tests · module 3.14.0
+
+- **The wall's CUT/TAKE truth.** A tile's PVW holds one picture — staged or edited and not yet seen, its
+  own while the editors are on it, else the programme's preview — and a CUT / TAKE on the tile lands
+  exactly that: a second take lands the new preview instead of copying the tile's own picture over itself;
+  a take that would change nothing is refused with the way out and spends no one-shot; every take says when
+  the outputs are off or the blackout is up; the wall's take says how many screens already showed their
+  picture. STATE's take row (`outputsLive`, `pending`) and screen rows (`staged`), the Eye, a PVW badge on
+  the tile. `SandboxService.PvwPicture`, `ShowSnapshot.SettledOwn`.
+- **The show folder's lease asked again.** A desk that started as the second on its folder — a handover's
+  replacement, a second window — owns the folder the moment the first has gone: saving on and the show
+  written at once, the break music its to run, STATE `continuity.primary`, the Eye's desk words; a second
+  desk's exit never clears the first desk's recovery record. `IInstanceLease`, `AppServices.PollPrimary`.
+- **NDI and the stream as outputs of what they carry.** Each running sender and the stream is a live output
+  of its source — the programme, a screen through its mirror chain, a canvas, its own screen — never a
+  blanket "the programme leaves the machine"; a sender on a screen's own picture keeps that picture heard
+  and the programme's clip silent.
+- **The beacon's log.** A held port is asked again every five seconds and logged once, then a line a minute.
+- **The assessment answered.** PLAN §96.6: what was correct (P1-1, P2-1, P2-2, the persistence questions),
+  good and done another way (the two-process regression as a lease seam), wrong or short (the wall fault
+  missing, the audio policy already stated, the ask bound to the handover), deferred with the reason (the
+  phase model, mute-first, the scheduler).
+
 ## Round 77 — 2026-09-17 — the field's second report: the room hears what it sees, the lock spares the desk's own browser, a refused screencast asked again, the handover's side-effects, the mirror made visible
 
 `round-77` · PLAN §95 · REVIEW round 77 · 2,419 tests · module 3.14.0

@@ -457,10 +457,58 @@ from the Media page's preview while the video plays.
 (the screencast was refused …; asking again)" to "… fps · screencast (after N refusals)" or to the plain
 rate; the rate after the screencast takes is the page's (24–30 fps for a video), not 20; the screenshot
 shows the video, not black. A page whose screencast is never accepted is a row with the log's lines.
+Round 78 note: the field's log of 2026-09-18 answered the first question — every rung refused (1× … 20× over
+seven minutes, always E_INVALIDARG) — so the next row should also record the WebView2 runtime version and
+whether the control had a surface (shown, non-zero size) at the first ask (PLAN §96.8).
 
 | date | machine | build / manifest hash | refusals | rung that took | fps before / after | screenshot shows video | result |
 |------|---------|-----------------------|----------|----------------|--------------------|------------------------|--------|
 |      |         |                       |          |                |                    |                        |        |
+
+## 20. The wall's CUT/TAKE truth (round 78)
+
+**Set up.** Two screens on the wall; EDIT SAFE open; the outputs OFF; the show log tailed
+(`patterns.showlog.jsonl`).
+
+**Do.** Build a picture in the preview and TAKE it on tile 2; read the status line and the journal row.
+Change the preview and TAKE tile 2 again; read tile 2's PGM miniature. TAKE tile 2 a third time without
+changing anything. Then OUTPUTS ON and repeat the three presses. Then click tile 2 (the editors on it),
+change one property, and TAKE tile 2; then click PGM and TAKE tile 2 again.
+
+**Pass.** With the outputs off every Done row ends "The outputs are off — nothing is on the screens until
+OUTPUTS ON." and the screens show nothing. The second take lands the new preview on tile 2 (the PGM
+miniature and, once the outputs are on, the TV change). The third press is refused: "2 · … already shows
+this picture — nothing to take. Change the preview, or SEND a picture to this tile first." — nothing moves,
+the journal row says Refused. With the editors on tile 2 its PVW shows its own picture, the edit lights
+PVW on the tile, and the take lands the edit while the programme's preview is unchanged; with the editors
+back on PGM the tile's PVW is the programme's preview again and the take lands it. STATE's `take.pending`
+names the tile while a picture waits on it and `take.outputsLive` reads the outputs.
+
+| date | machine | build / manifest hash | outputs-off words | second take landed the new preview | third press refused | edit on the tile pending and landed | result |
+|------|---------|-----------------------|-------------------|-------------------------------------|---------------------|--------------------------------------|--------|
+|      |         |                       |                   |                                     |                     |                                      |        |
+
+## 21. The show folder's lease across a live restart (round 78)
+
+**Set up.** The supervised desk with the outputs live on one screen; Spotify enabled and connected;
+`patterns.log` tailed; STATE read on the wire (`continuity.primary`).
+
+**Do.** Admin → RESTART (the handover). While the two desks overlap, read the replacement's STATE and its
+Machine page's Spotify status. After the old desk has left, wait a poll (a second or two) and read them
+again. Edit the show in the replacement, close it cleanly, start Patterns again and check the edit is there
+and no recovery restore runs. Then the abandoned case: with the outputs live, kill the old desk's process
+from Task Manager during the overlap.
+
+**Pass.** During the overlap the replacement's `continuity.primary` is false, its Spotify status reads
+"Break music is run by the first Patterns window.", and its log says autosave is off "until that one
+leaves". Within a poll of the old desk's exit the log reads "This desk owns the show folder now …",
+`continuity.primary` is true, the Spotify status is the ordinary one, and the show file's timestamp moved.
+The edit survives the clean close and the next start puts nothing back from a recovery record. The killed
+old desk leaves the mutex abandoned and the replacement is primary within a poll all the same.
+
+| date | machine | build / manifest hash | primary false during overlap | promoted within a poll | edit survived close | abandoned owner taken | result |
+|------|---------|-----------------------|------------------------------|------------------------|---------------------|-----------------------|--------|
+|      |         |                       |                              |                        |                     |                       |        |
 
 ## What a fail means
 

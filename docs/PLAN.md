@@ -10209,3 +10209,178 @@ what each sentence turned out to be, and what was built.
   ladder tests the parameter hypothesis and the log's rung line will say.
 - **A screen's own picture with no named output** in the non-matrix path plays to the default device
   beside the programme's when both are live; the matrix, or naming the screen's output, is the answer.
+
+## 96. Round 78 — the wall's CUT/TAKE truth, the show folder's lease asked again, NDI and the stream as outputs of what they carry; the assessment answered
+
+The maintainer reported one thing — "Cut/Take have stopped working in the Switcher Wall" — and attached
+two more: a written assessment of round 77.6 (an executive assessment, a priority list, a suggested
+round 78 and a roadmap) with the ask to say what in it is correct, good and wrong and to fix what is
+agreed; and, asked whether they would help, the show laptop's files again — a Super Check, the quality
+profile, `patterns.log` and the show log. They helped: the show log pinned the take fault to the second.
+This section is what the files said, what was built, and the assessment answered point by point.
+
+### 96.1 What the files said
+
+- **The show log.** Between 00:22:26 and 00:22:53 UTC the desk journaled eleven `ScreenTake` and
+  `ScreenCut` rows, every one `Done`, every one reading "TAKE — the preview fades up on 2 · LG TV alone,
+  as its own picture; every other screen stays." (or the CUT of it, or on 1 · Display 1); then a wall
+  `Take` at 00:23:05 ("1 kept their picture") — and `OutputsOn` at 00:23:07. The outputs were off for
+  every press. Nothing could have reached a screen, and the desk reported a fade-up eleven times: the
+  desk stating an attempt as a fact, which is the one thing the doctrine forbids.
+- **The code, read against it.** A tile's CUT / TAKE took what its PVW showed — round 67's rule — and the
+  PVW's rule was `LookService.Shown(state, id)`: the tile's own picture whenever the edited state said
+  OWN. A take sets OWN in the edited state. So after the first take on a tile, every later press copied
+  the tile's own picture — by then the air's — over itself, said "fades up", and the operator's new
+  preview never reached that tile again without a SEND or OWN off first. Two faults under one report:
+  the room could see nothing, and had it been able to, nothing would have changed.
+- **`patterns.log`.** Round 77's screencast retry working exactly as designed and refused at every rung
+  — "refused 1× … 2× … 3× … 10× … 20×, every rung of the ask" over seven minutes, each from
+  `WebFrameSource.cs:436` with the same E_INVALIDARG — so the parameter hypothesis of §95.3 is answered:
+  no size, quality or format is the matter, and the cause is elsewhere (§96.8). The show lock's
+  notifications item denied on `HKCU\Software\Policies\Microsoft\Windows\Explorer` — a policy key, not
+  the user's own. The beacon quiet: the port came free in time.
+- **The Super Check.** The LG TV at 1280×720 @ 50 Hz under a show asking 60 (the amber row: pick a mode
+  on the Screens page or lower the master rate); the render clock at 16.5 Hz for a display that needs
+  50, LIMITED BY RENDER CLOCK; outputs at 13.9 of 60 fps; memory 86 % of 15.4 GB in use with this app at
+  969 MB of its 3.0 GB ceiling — the machine's other programs, not Patterns; video memory 129 MB of
+  7.2 GB; the quality profile at level 2, three steps down.
+- **The assessment.** Its strongest finding, P1-1, is right and is in the code: `_primaryInstance` and
+  `_autosave` are decided once at the mutex and never again; `SaveAtExit` answers true when autosave is
+  off; the shutdown clears the recovery record on that answer; `SpotifyService` gates on
+  `IsPrimaryInstance`. P2-1 is right: `ShownLive()` passed `programmeLeavesOtherwise: true` for any
+  active sender or stream. P2-2 is right: one hop. The rest is answered in §96.6.
+
+### 96.2 The wall's CUT/TAKE truth (78.1)
+
+- **Claim.** A tile's PVW holds one picture and a CUT / TAKE on the tile lands exactly that; a take that
+  would change nothing is refused with the reason and the way out; every take says when the room cannot
+  see it land.
+- **Design.** One rule, `SandboxService.PvwPicture`: *pending* — a picture the audience has not seen, an
+  own picture in the edited state that the frozen program lacks (SEND staged it) or has differently (the
+  preview edited it) — the PVW holds it; *editing* — an own picture already on air while the editors are
+  on this target — the PVW shows the picture being worked on, as the big PREVIEW pane and the editors do;
+  *settled* — an own picture on air and no editor on it — the PVW follows the programme's preview, which
+  is what a TAKE puts up; a target that follows the programme — the programme's preview. `IsStaged` is
+  the pending rule now (the menus and the Eye read it). The sandbox's snapshot carries `SettledOwn`
+  (`ShowSnapshot`, from `PublishBoth`, the same instance while unchanged so transition keys stay shared)
+  and `ShowSnapshot.PatternFor` reads it, so the tile's PVW miniature and the big pane pointed at a
+  settled tile show the programme's preview; `AppServices.EditingTargetId`, set by the edit target,
+  republishes the sandbox when the editors move. `SandboxService.EffectOf` — Picture, OwnOnly, Nothing:
+  Nothing is refused ("2 · Right already shows this picture — nothing to take. Change the preview, or
+  SEND a picture to this tile first." — or, with the editors on it, "… Edit it here, or put the editors
+  on PROGRAM and TAKE …") and spends no one-shot; OwnOnly lands and says the screen already showed the
+  picture and is now its own. `UnseenNote`: "The outputs are off — nothing is on the screens until
+  OUTPUTS ON." or "Blackout is on — the screens stay black until it lifts." on every take, landing and
+  sting request. The wall's take says how many taken screens already showed their picture
+  (`AlreadyOnAir`). STATE's take row gains `outputsLive` and `pending`, every screen row `staged`; the
+  tile wears a PVW badge while a picture waits on it; the words name "the picture on 2 · Right's PVW" or
+  "the preview".
+- **What the wall keeps.** A wall TAKE still lands every armed target's edited picture — an armed OWN
+  screen keeps the picture the operator chose (`WallTests`, round 30's decision) — so for a settled OWN
+  tile the miniature is the tile's own key's truth and the wall's result says "already showed it"; the
+  plan text naming such targets before the press is §96.8.
+- **Proof.** `TakeTruthAppTests`: a second take lands the new preview, not the tile's old picture; a take
+  that would change nothing is refused with the way out and keeps the one-shot, on the wire too; the
+  editors on a tile make its PVW its own picture, an edit pending, landed by the take while the
+  programme's preview stays, and the PVW follows the preview again when the editors leave; a staged
+  picture lights PVW on the tile, STATE's `pending` and the Eye's "not taken yet", and an OWN-only take
+  says so; every take says when the outputs are off and the journal carries it. The round-77 words pinned
+  by `MediaAdjustmentsAppTests` (the picture's own note last) still hold.
+
+### 96.3 The show folder's lease asked again (78.2)
+
+- **Claim.** A desk that started as the second on its folder becomes the first the moment the first has
+  gone; a second desk never clears the first desk's recovery record.
+- **Design.** `IInstanceLease` / `MutexInstanceLease` (the named mutex, released on dispose; an owner
+  that died leaves it abandoned and the next ask takes it) with `AppServices.LeaseFactory` for the tests.
+  `AppServices.PollPrimary`, from the desk's poll beside `RetryListeners`: while not primary, ask; owned →
+  `_primaryInstance`, `_autosave`, `Persistence.Autosave` on, `SaveNow()`, `Spotify.PokeNow()`, a notice
+  and a log line. The shutdown's recovery step is skipped with the reason while this desk is the second.
+  STATE's continuity row `primary`; the Eye's desk node: "a second desk on this show folder — the first
+  one saves the show and keeps its recovery record; this one takes the folder over when it leaves."
+- **Proof.** `PrimaryInstanceAppTests` with a fake lease: second — no save, STATE, the Eye, "Break music
+  is run by the first Patterns window."; refused while the first is there; the first gone — the next poll
+  owns the folder, autosave on, the edit made while second written, STATE `primary`, the status line, the
+  music unlocked, no further asks; a second desk's exit leaves the recovery record and disposes the lease.
+
+### 96.4 NDI and the stream as outputs of what they carry (78.3)
+
+- **Claim.** A picture's sound plays while some live output shows it — and an NDI send or the stream is a
+  live output of the picture it carries, never of the programme by default.
+- **Policy** (the assessment asked for it before code): a virtual output carries the sound of the picture
+  it shows, exactly as a window does; a sender on a screen's own picture is that picture's output, a
+  sender on the programme the programme's, a sender on its own screen its own screen's. There is no
+  separate audio semantics for NDI or the stream; the matrix's own rows remain the operator's way to route
+  sound apart from the picture.
+- **Design.** `NdiService.ActiveIds`; `ShownLive()` maps each running sender's `SourceScreenId` and the
+  stream's source ("" being the first enabled display's picture, as `StreamService` captures it) through
+  `LiveTargetOf` — "" the programme, a canvas key, a screen through `ScreenRoles.ResolveMirror` and the
+  canvas it joined — into `LiveOutputs.Of` beside the windows' targets; the blanket flag is no longer
+  passed.
+- **Proof.** `VirtualOutputsAppTests`: a sender on a screen's own picture makes that picture live and the
+  programme not; on the programme, the programme live with no window open; on a repeater of the screen,
+  the chain resolves; the screen back on the programme, the sender is the programme again; the sender off,
+  nothing live; the stream on a screen's picture and on its default source. `LiveOutputsAudioAppTests`
+  and `AudioMonitorTests` unchanged and green.
+
+### 96.5 The beacon's log (78.4)
+
+- Found in the code, not the field's log (the port came free in time there): round 77's retry warned with
+  the stack every five seconds for as long as a port was held. `BeaconService.BindFailures` — the first
+  failure the warning, then one line a minute, a bind that takes after failures said once — the shape of
+  the control server's. `BeaconAppTests`: a held port counted, thirteen more asks counted, the port freed
+  bound with the count forgotten.
+
+### 96.6 The assessment answered
+
+- **Correct, and done.** P1-1 (§96.3, with the promotion's save and the break music poked); the
+  persistence questions of its checklist — `Autosave == false` is not a successful save, a second desk
+  never clears the record, promotion forces a save; P2-1 (§96.4, with the policy it asked for); P2-2
+  (§96.4, `ResolveMirror` for windows and virtual outputs alike); the abandoned-mutex path (the lease
+  takes it); "should the old process explicitly release" — it does now (the mutex used to be disposed
+  unreleased at exit, an abandoned mutex to the next asker: the same outcome by a worse path).
+- **Good, and done another way.** P1-2, the two-process regression: the lease is the only cross-process
+  fact in the sequence, everything else is in-process, so the regression is a fake lease against a real
+  desk (boot second, refused, freed, promoted, saved; exit keeps the record) — a headless test cannot
+  start a second Patterns with windows, and the real two-process path is a qualification row (§21). The
+  audit of every `IsPrimaryInstance` reader: `SpotifyService` is the only one beside persistence; the
+  management check-in and the updater do not gate on it.
+- **Wrong, or short.** Its suggested round 78 put the lease first and had no wall fault at all: the
+  field's own report did, and it went first — the operator's press is the show. "Do not change code
+  before the audio policy is explicit": round 77 had already stated the policy — a picture's sound plays
+  while some live output shows it — and virtual outputs reading like windows is that policy applied, not
+  a new one. Its failure sequence's step 11, "recovery may be cleared", understated it: the record was
+  cleared, by design, on every clean exit of a second desk. The suggested `TryBecomePrimaryAfterHandover`
+  bound the ask to the handover; the field's case is any second desk — a second window, a replacement, a
+  desk started by hand beside a dying one — so the ask is the poll's, not the handover's.
+- **Deferred, with the reason.** P2-3, explicit handover phases: after the lease its invariants hold
+  without a phase model — one persistence owner (the lease), one output authority (the ownership record),
+  one lock maintainer (`HandOver` / `TakeBack`), one break-music runner (the lease) — and a model would be
+  a second place for the same truth; kept as the fallback the assessment itself proposed. Mute-first
+  handover: evidence first, as it says. The scheduler: §95.8, measured first. Q1–Q4 are QUALIFICATION §17–§19
+  and §14, with §19's row now carrying the field's answer to Q1 (every rung refused).
+
+### 96.7 The papers (78.5)
+
+- This section; REVIEW round 78; CHANGELOG; README; QUALIFICATION.md §20–§21 and the §19 note; the tag
+  table row 77.
+
+### 96.8 What the round did not do, and what is next
+
+- **The wall's plan and OWN.** `TakePlan` says "→ 2 · Lobby" for an armed settled OWN tile and the take
+  leaves its picture as it was; the result says so after. The plan text saying "keeps its own picture
+  (OWN)" before the press wants a flag on `TakeTarget` — Core, pure, small — next.
+- **The screencast refusal is not the parameters.** Every rung refused, always E_INVALIDARG, from the
+  first ask. The remaining candidates are the runtime: `Page.startScreencast` refused by this WebView2
+  build under composition hosting, or asked before the control has a surface (a hidden or zero-sized
+  control at the ask). Next is a Windows bench that logs the runtime version and the control's size at the
+  ask, asks after the first `Page.frameNavigated`, and tries the ask with the control shown — QUALIFICATION
+  §19's row is where the answers go. The screenshot poll carries the page meanwhile, at 20 fps.
+- **The 50 Hz TV under a 60 fps show.** The Super Check's advice stands (60 on the TV, or the master rate
+  at 50); a design item is the master rate following the displays' common rate automatically, the operator
+  told. Not this round.
+- **The policy registry key.** The lock's notifications item writes `HKCU\Software\Policies\…`, which a
+  managed machine denies; a fall-back to the user's own Explorer notification settings, and the receipt
+  saying which key it used, is a small next round.
+- **Memory at 86 %** is the machine's, not Patterns' (969 MB of a 3.0 GB ceiling; the advice row says so).
+- **Monitors degrade before outputs** — still §95.8, still measured first.

@@ -23,6 +23,12 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The wall's take truth and the show folder's lease (round 78)** — a tile's CUT / TAKE lands what its PVW
+  shows (a picture staged or edited there, its own while the editors are on it, else the programme's
+  preview), refuses a take that would change nothing with the way out, and says when the outputs are off; a
+  desk that started second on its folder takes the folder over the moment the first has gone (saving on, the
+  show written, the break music its own) and never clears the first desk's recovery record; an NDI send and
+  the stream count as live outputs of the picture they carry, not of the programme by default.
 - **The field's second report answered (round 77)** — the room hears what it sees: a picture's sound plays
   while some live output shows it and fades with the transition when none does (a programme clip falls silent
   when the only live screen shows its own picture; a screen's own picture is heard on its screen); the show
