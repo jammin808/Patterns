@@ -465,7 +465,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             {
                 _autosave = false;
                 _primaryInstance = false;
-                Log.Warn("Another instance owns this folder — autosave disabled here.");
+                Log.Warn("Another instance owns this folder — autosave disabled here until that one leaves; this desk then takes the folder over.");
             }
         }
         catch
@@ -2066,26 +2066,44 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     }
 
     /// <summary>
-    /// Round 77: which pictures are on a live output right now, read from the open output windows
-    /// against the on-air show — a canvas member names its canvas, a repeater the screen it repeats
-    /// — with the NDI sends and the stream counting as the programme leaving the machine. The rule
-    /// the sound follows: a picture is heard while some live output shows it.
+    /// Round 77: which pictures are on a live output right now, read against the on-air show — a canvas
+    /// member names its canvas, a repeater the screen it repeats (the whole chain, round 78). The rule the
+    /// sound follows: a picture is heard while some live output shows it. Round 78: an NDI send and the
+    /// stream are outputs of the picture they carry — the programme, a screen's picture, a canvas, a
+    /// screen of their own — read from each sender's source like a window's, never a blanket "the
+    /// programme leaves the machine": a sender on a confidence screen's own picture kept the programme's
+    /// clip sounding in a room whose only live screen showed something else.
     /// </summary>
     public LiveOutputs ShownLive()
     {
-        var elsewhere = Ndi.ActiveCount > 0 || State.Stream.Active;
-        if (!Outputs.IsLive) return elsewhere ? LiveOutputs.Of(AirState, Array.Empty<string>(), programmeLeavesOtherwise: true) : LiveOutputs.None;
         var air = AirState;
         var rig = Bus.Current.Rig;
         var targets = new List<string>();
-        foreach (var window in Outputs.Windows)
+        if (Outputs.IsLive)
         {
-            var id = window.Pipeline.Viewport.ScreenId ?? "";
-            var placement = air.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
-            if (placement is { MirrorOf.Length: > 0 }) id = placement.MirrorOf;      // a repeater shows its source's picture
-            targets.Add(ContentTargets.IsCanvasKey(id) || id.Length == 0 ? id : rig.TargetOf(id));
+            foreach (var window in Outputs.Windows) targets.Add(LiveTargetOf(air, rig, window.Pipeline.Viewport.ScreenId ?? ""));
         }
-        return LiveOutputs.Of(air, targets, elsewhere);
+        foreach (var id in Ndi.ActiveIds)
+        {
+            var sender = air.Ndi.Senders.FirstOrDefault(s => s.Id == id);
+            if (sender is not null) targets.Add(LiveTargetOf(air, rig, sender.SourceScreenId));
+        }
+        if (State.Stream.Active)
+        {
+            // The stream's "" is the first enabled display's picture, not the programme (StreamService.SourceRect).
+            var source = State.Stream.SourceScreenId;
+            if (source.Length == 0) source = air.Output.Placements.FirstOrDefault(p => p.Enabled)?.ScreenId ?? "";
+            targets.Add(LiveTargetOf(air, rig, source));
+        }
+        return LiveOutputs.Of(air, targets);
+    }
+
+    /// <summary>The content target a sink's source names on the air: the programme (""), a canvas key, or a screen through its mirror chain and the canvas it joined.</summary>
+    private static string LiveTargetOf(ShowState air, RigGeometry rig, string id)
+    {
+        if (id.Length == 0 || ContentTargets.IsCanvasKey(id)) return id;
+        var resolved = ScreenRoles.ResolveMirror(air, id);
+        return ContentTargets.IsCanvasKey(resolved) ? resolved : rig.TargetOf(resolved);
     }
 
     /// <summary>How often a listener that could not bind is asked again.</summary>
@@ -2393,13 +2411,14 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // 6. Recovery: a clean exit must never auto-restore — unless the show could not be written,
         //    when the record is the only copy of the last state and stays for the next start.
         if (_restartRequested) Skip("recovery", "recovery cleared", "a restart: the record puts the show back");
+        else if (!_primaryInstance) Skip("recovery", "recovery kept", "a second desk on this folder: the record is the first desk's to keep or clear");   // round 78: the field's replacement cleared the record it did not own
         else if (saved) Step("recovery", "recovery cleared", Recovery.Clear);
         else Step("recovery", "recovery kept", () => WatchdogMarker.Write(Store.BaseDirectory, $"The show file could not be written at exit at {DateTime.Now:HH:mm} — the recovery record was kept; the last state of the show is in it (patterns.log has the reason)."));
         // 7. Ownership: the windows went with the outputs above, so the record must go too, or the
         //    next start would hunt for screens that are not playing.
         Step("ownership", "ownership", Ownership.Shutdown);
         // 8. The process's own handles.
-        Step("process", "instance mutex", () => _instanceMutex?.Dispose());
+        Step("process", "instance mutex", () => _lease?.Dispose());
     }
 
     /// <summary>
@@ -2411,7 +2430,6 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// not — and then the recovery record stays, so the next start puts the show back from it.
     /// </summary>
     public bool SaveAtExit(TimeSpan wait) => Persistence.SaveAtExit(State, wait);
-        else if (!_primaryInstance) Skip("recovery", "recovery kept", "a second desk on this folder: the record is the first desk's to keep or clear");   // round 78: the field's replacement cleared the record it did not own
 
     /// <summary>One shutdown step on its own guard: its failure logged, written to the report, and the next step still taken. A test can name a step to fail.</summary>
     private void Step(string phase, string what, Action step)

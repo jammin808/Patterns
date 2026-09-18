@@ -399,6 +399,9 @@ public sealed class NdiService : IDisposable
 
     public int ActiveCount => _active.Count;
 
+    /// <summary>Round 78: the senders running now, by id — the desk reads each one's source to know which picture leaves the machine on it.</summary>
+    public IReadOnlyCollection<string> ActiveIds => _active.Keys;
+
     public void Reconcile(ShowSnapshot snap)
     {
         // Prep is pre-programming: nothing leaves the machine, on a cable or on the network.
