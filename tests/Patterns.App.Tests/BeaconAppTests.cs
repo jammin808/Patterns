@@ -49,6 +49,53 @@ public class BeaconAppTests
         throw new TimeoutException("the beacon never came");
     }
 
+    /// <summary>
+    /// Round 78: a port held by another process (the desk this one replaces, through a handover) is asked for
+    /// again — every failed bind counts, so the log carries the first and then one line a minute rather than a
+    /// warning every five seconds — and the count goes when the port comes free.
+    /// </summary>
+    [AvaloniaFact]
+    public void AHeldBeaconPortCountsItsFailedBindsAndForgetsThemWhenItBinds()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var services = b.Services;
+            var cfg = b.Vm.State.Watchdog;
+            var holder = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+            var held = ((IPEndPoint)holder.Client.LocalEndPoint!).Port;
+            try
+            {
+                cfg.BeaconListenPort = held;
+                cfg.BeaconListen = true;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(services.Beacon.BindFailed);
+                Assert.False(services.Beacon.Listening);
+                var first = services.Beacon.BindFailures;                 // one per publish that reached the beacon, and the poll may have asked once already
+                Assert.True(first >= 1);
+
+                // Asked again and again while the port is held: the count climbs, the flag stays.
+                for (var i = 0; i < 13; i++) services.Beacon.Reconcile();
+                Assert.Equal(first + 13, services.Beacon.BindFailures);
+                Assert.True(services.Beacon.BindFailed);
+            }
+            finally
+            {
+                holder.Dispose();
+            }
+
+            // The port comes free: the next ask binds, and the count is forgotten.
+            services.Beacon.Reconcile();
+            Assert.True(services.Beacon.Listening);
+            Assert.False(services.Beacon.BindFailed);
+            Assert.Equal(0, services.Beacon.BindFailures);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void TheBeaconGoesOutAndAMainMachineIsHeard()
     {

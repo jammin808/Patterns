@@ -44,6 +44,9 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     /// <summary>Round 77: the listener's last bind failed (the port held by the desk this one replaces, usually); the poll asks again.</summary>
     public bool BindFailed { get; private set; }
 
+    /// <summary>Round 78: how many binds in a row have failed — the first is the warning, then a line a minute (the poll asks every five seconds).</summary>
+    public int BindFailures { get; private set; }
+
     public bool Sending => _sender is not null && _target is not null;
     public bool Listening => _listener is not null;
     public long Sent => Interlocked.Read(ref _sent);
@@ -95,11 +98,16 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
                 _listener = new UdpClient(new IPEndPoint(IPAddress.Any, cfg.BeaconListenPort));
                 _ = ReceiveLoop(_listener, _cts.Token);
                 notes.Add($"listening on port {cfg.BeaconListenPort}");
+                if (BindFailures > 0) Log.Info($"Beacon listening on port {cfg.BeaconListenPort} after {BindFailures} failed {(BindFailures == 1 ? "try" : "tries")}.");
+                BindFailures = 0;
             }
             catch (Exception ex)
             {
                 notes.Add($"could not listen on port {cfg.BeaconListenPort}: {ex.Message}");
-                Log.Warn("Beacon listener failed.", ex);
+                // Round 78: the port is usually the old desk's through a handover, gone within seconds — the poll asks every
+                // five seconds (AppServices.RetryListeners), so the first failure is the warning and the rest a line a minute.
+                if (BindFailures++ == 0) Log.Warn("Beacon listener failed.", ex);
+                else if (BindFailures % 12 == 0) Log.Warn($"Beacon still cannot listen on port {cfg.BeaconListenPort} ({BindFailures} tries): {ex.Message}");
                 _listener = null;
                 BindFailed = true;
                 _activeKey = "";   // round 77: asked again on the next change, and from the desk's poll
