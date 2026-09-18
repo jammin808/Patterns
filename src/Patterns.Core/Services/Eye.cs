@@ -75,6 +75,8 @@ public sealed class EyeFacts
     public string MachineName { get; init; } = "";
     public string Build { get; init; } = "";
     public bool OutputsLive { get; init; }
+    /// <summary>Round 78: this desk is the second on its show folder — the first one saves the show and keeps its recovery record; this one takes the folder over when it leaves.</summary>
+    public bool SecondDesk { get; init; }
     /// <summary>The super-check's overall light — the desk's own.</summary>
     public CheckLight Health { get; init; } = CheckLight.Grey;
     public string HealthWords { get; init; } = "";
@@ -491,6 +493,7 @@ public sealed class EyeGraph
         // The desk: the hub of every band.
         var deskWords = new List<string>();
         if (f.Build.Length > 0) deskWords.Add($"Build {f.Build}");
+        if (f.SecondDesk) deskWords.Add("a second desk on this show folder — the first one saves the show and keeps its recovery record; this one takes the folder over when it leaves");   // round 78
         if (f.HealthWords.Length > 0) deskWords.Add(f.HealthWords);
         if (f.MemoryWords.Length > 0) deskWords.Add(f.MemoryWords);                                   // round 69: the memory line
         if (f.NextTake.Length > 0) deskWords.Add($"Next take: {f.NextTake} (one shot)");

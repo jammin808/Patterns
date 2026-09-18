@@ -395,7 +395,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     private int _bulkDepth;
     private bool _autosave = true;
     private bool _primaryInstance = true;
-    private Mutex? _instanceMutex;
+    private IInstanceLease? _lease;
+
+    /// <summary>Round 78: the tests' way to hand a desk a folder lease of their own (a second desk, then the first one gone); null = the machine-wide mutex.</summary>
+    public static Func<string, IInstanceLease>? LeaseFactory { get; set; }
 
     /// <summary>
     /// The settings Main read before Avalonia started, handed to the desk so it does not read
@@ -451,12 +454,14 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // A fault on the UI thread is contained from here on: logged, counted, the desk kept up.
         UiFaults.Install();
 
-        // Second instance on the same folder: run, but leave saving to the first one.
-        // (string.GetHashCode is randomized per process — a stable hash is required here.)
+        // Second instance on the same folder: run, but leave saving to the first one — and ask again from
+        // the poll (round 78, PollPrimary): a handover's replacement or a second window owns the folder the
+        // moment the first desk has gone. (string.GetHashCode is randomized per process — a stable hash is required here.)
         try
         {
-            _instanceMutex = new Mutex(true, "PatternsApp-" + StableFolderKey(store.BaseDirectory), out var first);
-            if (!first)
+            var key = "PatternsApp-" + StableFolderKey(store.BaseDirectory);
+            _lease = LeaseFactory?.Invoke(key) ?? new MutexInstanceLease(key);
+            if (!_lease.Owned)
             {
                 _autosave = false;
                 _primaryInstance = false;
@@ -1125,6 +1130,39 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         WatchdogBeat.Value = SupervisorPolicy.HandoverBeat;
         Log.Info("Handover restart requested: the replacement starts beside this desk; the outputs stay up until it asks for them.");
         return words;
+    }
+
+    /// <summary>
+    /// Round 78, from the desk's poll: a desk that started as the second on its folder — a handover's
+    /// replacement beside the desk it replaces, a second window — asks for the folder's lease again, and
+    /// owns the folder the moment the first desk has gone: saving comes on here and the show is written at
+    /// once, the recovery record is this desk's to keep or clear, the break music is this desk's to run.
+    /// The field's replacement ran a whole show as the second desk: the lease was asked for once, at the
+    /// start, and never again — autosave off, "Break music is run by the first Patterns window", and its
+    /// exit clearing a recovery record that was not its own.
+    /// </summary>
+    public void PollPrimary()
+    {
+        if (_primaryInstance || _lease is null || _shutDown) return;
+        bool owned;
+        try
+        {
+            owned = _lease.TryAcquire();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The show folder's lease could not be asked for.", ex);
+            return;
+        }
+        if (!owned) return;
+        _primaryInstance = true;
+        _autosave = true;
+        Persistence.Autosave = true;
+        SaveNow();
+        Spotify.PokeNow();
+        const string words = "This desk owns the show folder now — the first window has gone: saving is on here, the show is written, and the break music is this desk's to run.";
+        Log.Info(words);
+        Notify(words);
     }
 
     /// <summary>
@@ -2373,6 +2411,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// not — and then the recovery record stays, so the next start puts the show back from it.
     /// </summary>
     public bool SaveAtExit(TimeSpan wait) => Persistence.SaveAtExit(State, wait);
+        else if (!_primaryInstance) Skip("recovery", "recovery kept", "a second desk on this folder: the record is the first desk's to keep or clear");   // round 78: the field's replacement cleared the record it did not own
 
     /// <summary>One shutdown step on its own guard: its failure logged, written to the report, and the next step still taken. A test can name a step to fail.</summary>
     private void Step(string phase, string what, Action step)

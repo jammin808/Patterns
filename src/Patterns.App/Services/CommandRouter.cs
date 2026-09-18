@@ -591,6 +591,7 @@ public sealed class CommandRouter : IRouter
             health = HealthMonitor.Summary(DateTime.UtcNow),
             continuity = new                                                 // round 76: the show across a restart and a hot-plug
             {
+                primary = _services.IsPrimaryInstance,                      // round 78: this desk owns the show folder — it saves, keeps the recovery record, runs the break music; false on a second desk until the first leaves
                 handingOver = _services.HandingOver,                         // this desk asked to be replaced and keeps its outputs until the replacement asks for the screens
                 claimDeferred = _services.Takeover.Deferred,                 // the screens are another run's until this desk's picture is over them and it has asked
                 takeover = _services.Takeover.Words,                         // what this start found on the screens, and what it did about it
