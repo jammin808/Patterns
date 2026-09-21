@@ -130,6 +130,10 @@
     </Grid>
     <TextBlock Classes="hint tip"
                Text="The show's frame rate. Every output presents at it — a 30 fps show on 60 Hz displays draws every other refresh, evenly, on one clock — an NDI sender set to 'master' sends at it, and the stream can follow it. Unlimited leaves every display at its own refresh. The selected screen can override it in its settings column." />
+    <CheckBox Content="Follow the displays — never ask a display for more frames than it refreshes" IsChecked="{Binding Screens.FollowDisplays, Mode=TwoWay}" />
+    <TextBlock Classes="label" Text="{Binding Screens.MasterRateWords}" />
+    <TextBlock Classes="hint tip"
+               Text="With the follow on, a display slower than the master rate leads: a 50 Hz TV under a 60 fps show runs the show at 50, the line above says which display and what was set, the log and the Super Check say the same, and the outputs, the NDI 'master' rate, the stream and the tech info chip all read the rate in force. Off holds the set rate; the Super Check then names the display that is over-asked." />
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Desk monitors" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding MonitorFpsOptions}"

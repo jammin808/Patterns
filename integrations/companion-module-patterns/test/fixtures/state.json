@@ -589,5 +589,9 @@
         "recording": false
       }
     ]
-  }
+  },
+  "masterFps": 60,
+  "masterFollows": true,
+  "masterFpsEffective": 50,
+  "masterRate": "50 fps \u2014 following Lobby (50 Hz); set 60"
 }

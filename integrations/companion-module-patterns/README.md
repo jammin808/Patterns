@@ -96,7 +96,10 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 - **3.15.0** — the desk's descriptor version read (round 80): every NAV and MENU reply's `protocol` is read into
   `desk_protocol`; a desk that speaks a newer descriptor than this module knows (1) shows a warning on the
-  connection and the keys keep working on what they understand.
+  connection and the keys keep working on what they understand. Two variables beside the machine's:
+  `master_fps` (the master rate in force — the setting, or the slowest display it follows; 0 unlimited) and
+  `master_rate` (the words: *50 fps — following Lobby (50 Hz); set 60*), from STATE's `masterFpsEffective`
+  and `masterRate`.
 - **3.14.0** — the Navigator (round 74): the desk's rails, pages, menus and drawers on 24 slot keys (`nav_slot`, `nav_home`, `nav_back`, `nav_prev`, `nav_next`, `nav_rail`, `nav_page`, `nav_menu`, `nav_mode`, `nav_follow`, `nav_text`, `nav_refresh`), the desk's own pages turned (`nav_desk`, `nav_desk_page`), every line sent matched to its reply so a key can ask the desk a question (NAV, MENU PAGE Looks, MENU LOOK Walk-in), the build verbs (a look saved, a cue added, a preset saved, a design made) from the keys with `nav_text` for the words, Companion's Action Recorder fed by the desk (RECORD ON / OFF — what the desk does comes back as the line that reproduces it), LEARN on the raw line (the desk's next action becomes the key's line), Stream Deck + knobs stepping the audio and break-music levels (`audio_level_step`, `music_level_step`), `nav_*` and `desk_*` variables and feedbacks, a Navigator section with the rails and pages from the desk's own table.
 - **3.13.0** — MIDI learn on the deck (round 73): `midi_learn` arms the desk for a wire line (the next control moved on any open surface is bound to it, saved with the show), `midi_learn_off` cancels, `midi_forget` unbinds every control bound to a line; `midi_learning`, `midi_bindings`, `midi_surfaces` and `midi_words` variables; a `midi_learning` feedback (amber while a learn waits, for any line or one carrying a word).
 - **3.12.0** — the Library on the deck (round 73): a `library` action puts a tile (a factory pattern, a file, a

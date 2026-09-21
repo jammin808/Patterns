@@ -161,7 +161,7 @@ public class AssistantAppTests
             Assert.Contains("Brand: Acme", request.System);
             // The desk's states ride in the brief: EDIT SAFE off here, the outputs off, the editing target, the stack, the sound.
             Assert.Contains("Desk: EDIT SAFE off — the preview mirrors the air", request.System);
-            Assert.Contains("outputs off (nothing on the displays); editing target Program.", request.System);
+            Assert.Contains("outputs off (nothing on the displays); master rate every display's own refresh; editing target Program.", request.System);   // round 80: the rate in force rides in the Desk line
             Assert.Contains("On air (and the preview, EDIT SAFE off): pattern", request.System);
             Assert.Contains("Cue stack (the caller's stack, 0 cues; not armed):", request.System);
             Assert.Contains("Sound now: nothing playing.", request.System);

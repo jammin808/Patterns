@@ -1733,6 +1733,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             EditingTarget = Assistant.EditingTarget,
             OutputsLive = s.Outputs.IsLive,
             OutputWindows = s.Outputs.Windows.Count,
+            MasterRate = Rig.MasterRate(state, s.Screens.All).Words,   // round 80
             ShowLock = s.ShowLock.Status,
             Canvases = canvases,
             ScreenShows = shows,

@@ -230,7 +230,7 @@ public sealed class NdiSender : IDisposable
                     NdiFrame.Render(_engine, snap, sink, surface.Canvas, size, cfg.SourceScreenId, SinkKind.Ndi, $"NDI {name}", frame++, time, pair.Sandbox);
                     surface.Canvas.Flush();
 
-                    var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey, snap.State.Output.MasterFps);
+                    var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey, OutputRate.EffectiveMaster(snap.State.Output));   // round 80: "master" is the rate in force
                     using (var pixmap = surface.PeekPixels())
                     {
                         if (pixmap is null)

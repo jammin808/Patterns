@@ -482,6 +482,7 @@ public sealed class CommandRouter : IRouter
         // saw a plain green, and two surfaces disagreeing about a fact is worse than neither having it.
         var lookEdited = _services.LookTally.AirEdited();
         var offLook = _services.LookTally.TargetsOffLook();
+        var masterRate = Rig.MasterRate(s, _services.Screens.All);   // round 80
         var payload = new
         {
             show = s.Name,
@@ -671,6 +672,11 @@ public sealed class CommandRouter : IRouter
             nodes = _services.Nodes.Rows(),
             twin = _services.Twin.DeckBlock(),
             stage = _services.Stage.Block(),
+            // Round 80: the master rate as the show runs it — the setting, the follow, the rate in force (0 unlimited) and the words.
+            masterFps = s.Output.MasterFps,
+            masterFollows = s.Output.FollowDisplays,
+            masterFpsEffective = masterRate.Effective,
+            masterRate = masterRate.Words,
         };
         return JsonSerializer.Serialize(payload);
     }

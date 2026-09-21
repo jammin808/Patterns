@@ -278,9 +278,31 @@ public sealed class ScreensPage : Observable
             if (State.Output.MasterFps == value) return;
             State.Output.MasterFps = value;
             Raise();
+            Raise(nameof(MasterRateWords));
             if (_services.Outputs.IsLive) _services.Outputs.Apply(); // the windows re-read their viewports
         }
     }
+
+    /// <summary>
+    /// Round 80: the master rate follows the displays — the show never asks a display for more
+    /// frames than it refreshes. Off holds the set rate; the Super Check then says which display
+    /// is over-asked.
+    /// </summary>
+    public bool FollowDisplays
+    {
+        get => State.Output.FollowDisplays;
+        set
+        {
+            if (State.Output.FollowDisplays == value) return;
+            State.Output.FollowDisplays = value;
+            Raise();
+            Raise(nameof(MasterRateWords));
+            if (_services.Outputs.IsLive) _services.Outputs.Apply(); // the windows re-read their rate
+        }
+    }
+
+    /// <summary>Round 80: the master rate as the show runs it — "Master rate 50 fps — following Lobby (50 Hz); set 60".</summary>
+    public string MasterRateWords => "Master rate " + Rig.MasterRate(State, _services.Screens.All).Words + ".";
 
     /// <summary>The selected screen's own rate; 0 follows the master.</summary>
     public int SelectedFpsOverride
@@ -930,11 +952,19 @@ public sealed class ScreensPage : Observable
     }
 
     private string _gapSummarySeen = "";
+    private string _masterRateSeen = "";
 
     /// <summary>On the desk's tick: a run's progress, and a gap row edited in place moves the words.</summary>
     public void Poll()
     {
         PollCalibration();
+        // Round 80: the master rate's words move when a display is seen or changes its mode — once a second, raised only on a change.
+        var master = MasterRateWords;
+        if (master != _masterRateSeen)
+        {
+            _masterRateSeen = master;
+            Raise(nameof(MasterRateWords));
+        }
         if (_selectedPlacement is not { Gaps.Count: > 0 }) return;
         var now = GapSummary;
         if (now == _gapSummarySeen) return;

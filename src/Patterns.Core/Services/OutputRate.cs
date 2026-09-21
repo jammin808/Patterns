@@ -1,3 +1,5 @@
+using Patterns.Core.Model;
+
 namespace Patterns.Core.Services;
 
 /// <summary>
@@ -67,6 +69,75 @@ public static class OutputRate
             ? new RateLimit(true, needed, clockHz, RateLimitCause.BelowEveryDisplay, known.Min())
             : new RateLimit(true, needed, clockHz, RateLimitCause.Unknown, 0);
     }
+
+    // ---- round 80: the master rate follows the displays ----------------------------------------
+
+    /// <summary>
+    /// Round 80: the master rate the show runs at. The operator's setting stands, except that a show
+    /// following its displays never asks a display for more frames than it refreshes: with the
+    /// follow on and a display slower than the set rate behind an enabled screen, the rate in force
+    /// is that display's — the slowest known — and the words name it. Unlimited (0) stays
+    /// unlimited: every output already presents at its own display. A display in the family of the
+    /// set rate (59 under 60) is not slower. A display not yet seen (0 Hz) does not count, and with
+    /// none known the set rate stands. With the follow off, a slower display is still named, so the
+    /// Super Check and the Screens page can say what the outputs on it are dropping.
+    /// </summary>
+    public static MasterRate Master(int setFps, bool follow, IEnumerable<(string Label, int Hz)> displays)
+    {
+        var set = Math.Max(0, setFps);
+        var label = "";
+        var hz = 0;
+        if (set > 0)
+        {
+            foreach (var (l, h) in displays)
+            {
+                if (h <= 0 || h >= set || SameFamily(h, set)) continue;   // not slower than the show asks
+                if (hz == 0 || h < hz)
+                {
+                    hz = h;
+                    label = l;
+                }
+            }
+        }
+        return new MasterRate(set, follow, follow && hz > 0 ? hz : set, label, hz);
+    }
+
+    /// <summary>
+    /// The rule over the show: the displays behind the screens that are here — enabled, not planned,
+    /// not lost — as last seen (<see cref="ScreenPlacement.DisplayHz"/>), labelled by the operator's
+    /// name or the screen id. The desk labels them better with the display's own name
+    /// (Rig.MasterRate); the rate is the same.
+    /// </summary>
+    public static MasterRate Master(OutputConfig output)
+        => Master(output.MasterFps, output.FollowDisplays,
+            Leading(output).Select(p => (p.CustomLabel.Length > 0 ? p.CustomLabel : p.ScreenId, p.DisplayHz)));
+
+    /// <summary>The screens whose displays may lead the master rate: enabled, not planned, not lost (a display that is gone leads nothing until it is back).</summary>
+    public static IEnumerable<ScreenPlacement> Leading(OutputConfig output)
+        => output.Placements.Where(p => p.Enabled && !p.Planned && p.LostAtUtc is null);
+
+    /// <summary>The master rate in force — what every reader of the master rate reads (round 80); 0 unlimited.</summary>
+    public static int EffectiveMaster(OutputConfig output) => Master(output).Effective;
+}
+
+/// <summary>
+/// Round 80: the master rate as the show runs it — the operator's setting, whether it follows the
+/// displays, the rate in force, and the slowest display below the setting (its label and Hz; ""
+/// and 0 when none is).
+/// </summary>
+public sealed record MasterRate(int Set, bool Follows, int Effective, string SlowestLabel = "", int SlowestHz = 0)
+{
+    /// <summary>The rate in force is a display's, not the setting's.</summary>
+    public bool Followed => Effective != Set;
+
+    /// <summary>A display refreshes slower than the show asks and the follow is off: the outputs on it drop frames.</summary>
+    public bool Overasks => !Followed && SlowestHz > 0;
+
+    /// <summary>"60 fps", "50 fps — following Lobby (50 Hz); set 60", "60 fps — Lobby refreshes at 50 Hz and is not followed", "every display's own refresh".</summary>
+    public string Words => Set <= 0 ? "every display's own refresh"
+        : Followed ? $"{Effective} fps — following {SlowestLabel} ({SlowestHz} Hz); set {Set}"
+        : Overasks ? $"{Set} fps — {SlowestLabel} refreshes at {SlowestHz} Hz and is not followed"
+        : $"{Set} fps";
 }
 
 /// <summary>Round 79: why the render clock limits an output — which of the two very different fixes the words should name.</summary>

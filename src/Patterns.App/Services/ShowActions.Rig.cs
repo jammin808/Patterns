@@ -452,7 +452,7 @@ public sealed partial class ShowActions
         var label = Rig.LabelFor(placement, info);
         var width = info?.Bounds.Width ?? placement.PlannedWidth;
         var height = info?.Bounds.Height ?? placement.PlannedHeight;
-        var present = placement.FpsOverride > 0 ? placement.FpsOverride : State.Output.MasterFps;
+        var present = placement.FpsOverride > 0 ? placement.FpsOverride : OutputRate.EffectiveMaster(State.Output);   // round 80: the rate in force
         var observed = info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? DisplayObservation.For(info.Bounds.ToRaster()) : null;
         var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
         // Round 65.8: the EDID Patterns wrote for this screen, so the view can say whether the display presents it.

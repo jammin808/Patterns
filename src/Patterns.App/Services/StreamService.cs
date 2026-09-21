@@ -129,7 +129,7 @@ public sealed class StreamService : IDisposable
             Starting: enc is null or { Phase: ChildPhase.Starting or ChildPhase.Restarting },
             Frames: enc?.Frames ?? 0,
             Fps: _fps,
-            TargetFps: StreamMrl.EffectiveFps(cfg, _services.State.Output.MasterFps),
+            TargetFps: StreamMrl.EffectiveFps(cfg, OutputRate.EffectiveMaster(_services.State.Output)),
             Restarts: enc?.Restarts ?? 0,
             Trouble: trouble,
             UpSeconds: up));
@@ -169,7 +169,7 @@ public sealed class StreamService : IDisposable
 
             var rendered = IsRendered(cfg.SourceScreenId);
             var rect = rendered ? SKRectI.Empty : SourceRect(cfg.SourceScreenId);
-            var fps = StreamMrl.EffectiveFps(cfg, _services.State.Output.MasterFps);
+            var fps = StreamMrl.EffectiveFps(cfg, OutputRate.EffectiveMaster(_services.State.Output));
             var key = $"{(rendered ? "render:" + cfg.SourceScreenId : rect.ToString())}|{cfg.Width}x{cfg.Height}@{fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{cfg.AudioDelayMs}|{string.Join(";", urls)}";
             if (key == _heldKey)
             {
@@ -195,7 +195,7 @@ public sealed class StreamService : IDisposable
                 if (rendered)
                 {
                     // The engine draws the target into the ring; the encoder process pulls the frames through libVLC's memory input.
-                    if (StreamMrl.BuildRendered(cfg, urls, _services.State.Output.MasterFps) is not { } renderedPlan) return;
+                    if (StreamMrl.BuildRendered(cfg, urls, OutputRate.EffectiveMaster(_services.State.Output)) is not { } renderedPlan) return;
                     _ring = SharedFrameRing.Create(SharedFrameRing.NameFor("stream"), cfg.Width, cfg.Height);
                     _renderer = new StreamRenderer(_services.Bus, cfg.SourceScreenId, _ring, fps);
                     _renderer.Start();
@@ -203,7 +203,7 @@ public sealed class StreamService : IDisposable
                 }
                 else
                 {
-                    if (StreamMrl.Build(cfg, rect.ToRaster(), urls, _services.State.Output.MasterFps) is not { } capturePlan) return;
+                    if (StreamMrl.Build(cfg, rect.ToRaster(), urls, OutputRate.EffectiveMaster(_services.State.Output)) is not { } capturePlan) return;
                     plan = new EncoderPlan(EncoderPlan.Capture, capturePlan.Mrl, capturePlan.Options, "", cfg.Width, cfg.Height, fps);
                 }
                 _encoder = new ChildProcess(EncoderHost.Role, Launcher, line => Log.Info(line));

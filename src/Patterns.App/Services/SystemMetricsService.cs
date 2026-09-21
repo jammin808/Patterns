@@ -162,6 +162,13 @@ public sealed class SystemMetricsService : IDisposable
         }
     }
 
+    /// <summary>Round 80: the master rate in force — the setting, or the slowest display it follows — as a target; 60 when unlimited.</summary>
+    private int TargetFpsInForce()
+    {
+        var master = OutputRate.EffectiveMaster(_services.State.Output);
+        return master > 0 ? master : 60;
+    }
+
     /// <summary>The advisor's view of the rig for one sample; the target rate follows the show's master frame rate (60 when unlimited).</summary>
     public AdvisorContext BuildContext(MetricSample sample) => new()
     {
@@ -170,7 +177,7 @@ public sealed class SystemMetricsService : IDisposable
         // stopped draws nothing, and that is the one case the frozen-outputs rule must still see.
         ContentContinuous = sample.OutputWindows > 0 && (sample.OutputFps > 15 || ContentWantsFrames()),
         StreamError = _services.State.Stream.LastError,
-        TargetFps = _services.State.Output.MasterFps > 0 ? _services.State.Output.MasterFps : 60,
+        TargetFps = TargetFpsInForce(),   // round 80: the master rate in force, 60 when unlimited
         WatchdogEnabled = _services.State.Watchdog.Enabled,
         WatchdogRestarts = HealthMonitor.Restarts,
         DiscreteGpuPresent = GpuService.DiscreteGpuPresent,
@@ -545,6 +552,9 @@ public sealed class SystemMetricsService : IDisposable
             // libVLC missing: the note says so.
         }
 
+        // Round 80: the master rate as the show runs it — the target every rate row reads, and its own row.
+        var master = Rig.MasterRate(state, _services.Screens.All);
+
         // The engine's frame budget and the start-up, read once for the facts.
         var frames = FrameBudgets.Readings(ShowClock.Seconds);
         var worstFrame = FrameBudgets.Worst(frames);
@@ -582,7 +592,8 @@ public sealed class SystemMetricsService : IDisposable
             OutputsLive = _services.Outputs.IsLive,
             OutputWindows = s?.OutputWindows ?? -1,
             OutputFps = History.Recent.Count > 0 ? History.AvgRecent(60, x => x.OutputFps) : -1,
-            TargetFps = state.Output.MasterFps > 0 ? state.Output.MasterFps : 60,
+            TargetFps = master.Effective > 0 ? master.Effective : 60,
+            Master = master,
             WorstFrameMs = s?.WorstFrameMs ?? -1,
             SlowFrames = s?.SlowFrames ?? -1,
             Faults = (int)Math.Min(int.MaxValue, HealthMonitor.Faults),

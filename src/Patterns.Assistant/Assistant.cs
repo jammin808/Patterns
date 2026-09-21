@@ -404,6 +404,9 @@ public sealed class ShowFacts
     public bool OutputsLive { get; init; }
     public int OutputWindows { get; init; }
 
+    /// <summary>Round 80: the master rate as the show runs it — "50 fps — following Lobby (50 Hz); set 60"; "" when unknown.</summary>
+    public string MasterRate { get; init; } = "";
+
     /// <summary>The show lock's line — what the machine is held off, or that it is not held.</summary>
     public string ShowLock { get; init; } = "";
 
@@ -498,6 +501,7 @@ public static class ShowBrief
                     ? "EDIT SAFE open — the preview is what the operator edits and where an applied proposal lands; the program on air is separate until TAKE or CUT"
                     : "EDIT SAFE off — the preview mirrors the air (a proposal that draws opens EDIT SAFE first, so nothing lands on air)")
               .Append("; outputs ").Append(f.OutputsLive ? $"live ({f.OutputWindows} window{(f.OutputWindows == 1 ? "" : "s")} open)" : "off (nothing on the displays)")
+              .Append(f.MasterRate.Length > 0 ? $"; master rate {f.MasterRate}" : "")
               .Append("; editing target ").Append(f.EditingTarget.Length > 0 ? f.EditingTarget : "Program").AppendLine(".");
         }
 

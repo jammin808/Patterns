@@ -8,6 +8,7 @@ public sealed class OutputConfig : Observable
     private bool _topmost = true;
     private bool _hideCursor = true;
     private int _masterFps;
+    private bool _followDisplays = true;
 
     public bool Topmost { get => _topmost; set => Set(ref _topmost, value); }
     public bool HideCursor { get => _hideCursor; set => Set(ref _hideCursor, value); }
@@ -18,6 +19,14 @@ public sealed class OutputConfig : Observable
     /// own refresh, as before.
     /// </summary>
     public int MasterFps { get => _masterFps; set => Set(ref _masterFps, Math.Clamp(value, 0, 240)); }
+
+    /// <summary>
+    /// Round 80: the master rate follows the displays — the show never asks a display for more
+    /// frames than it refreshes: a 50 Hz display under a 60 fps show runs the show at 50, and the
+    /// desk says so (OutputRate.Master). Off holds the set rate whatever the displays do. On by
+    /// default; a show saved before this round follows.
+    /// </summary>
+    public bool FollowDisplays { get => _followDisplays; set => Set(ref _followDisplays, value); }
 
     /// <summary>
     /// The spatial screen arrangement. Screens dragged flush against each other form one

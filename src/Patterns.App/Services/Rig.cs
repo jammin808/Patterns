@@ -64,6 +64,15 @@ public static class Rig
         => placement.CustomLabel.Length > 0 ? placement.CustomLabel : info?.Label ?? placement.ScreenId;
 
     /// <summary>
+    /// Round 80: the master rate as the show runs it, with the displays labelled as the desk labels
+    /// them — the same rule as <see cref="OutputRate.Master(OutputConfig)"/> over the same state
+    /// (the enabled screens' displays as last seen behind them), so every reader agrees on the rate.
+    /// </summary>
+    public static MasterRate MasterRate(ShowState state, IReadOnlyList<ScreenInfo> known)
+        => OutputRate.Master(state.Output.MasterFps, state.Output.FollowDisplays,
+            OutputRate.Leading(state.Output).Select(p => (LabelFor(p, known.FirstOrDefault(s => s.Id == p.ScreenId)), p.DisplayHz)));
+
+    /// <summary>
     /// Every content target in the rig, in wall order: joined canvases by member key, then the
     /// stand-alone screens. The strip, a scoped TAKE and the arming set all walk this list.
     /// </summary>

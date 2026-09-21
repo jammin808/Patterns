@@ -393,6 +393,13 @@ desk offers. A 3.12.0 deck ignores the row.
 
 ## 19. Round 74 additions
 
+**The master rate on the deck, module 3.15.0 (round 80).** Two variables beside the machine's: `master_fps` is
+the master rate in force — the setting, or the slowest display the show follows (a 50 Hz TV under a 60 fps show
+runs the show at 50); 0 when unlimited — and `master_rate` the words the desk uses (*50 fps — following Lobby
+(50 Hz); set 60*, *60 fps — Lobby refreshes at 50 Hz and is not followed* with the follow off, *every display's
+own refresh*). They read STATE's `masterFpsEffective` and `masterRate`; the Screens page's FOLLOW THE DISPLAYS
+switch is where the follow is turned.
+
 **The desk's descriptor version, module 3.15.0 (round 80).** Every NAV and MENU reply carries `protocol`
 (round 75.4); the module reads it into `desk_protocol`, and a desk that speaks a newer descriptor than the
 module knows (1) shows a warning on the connection — *Desk protocol 2, this module knows 1 — update the

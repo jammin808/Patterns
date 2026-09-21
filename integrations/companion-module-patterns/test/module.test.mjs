@@ -120,6 +120,8 @@ test('a STATE becomes the variables a key reads, the new blocks included', async
 	assert.equal(v.node_1, 'Caller\nFOH-CALL')
 	assert.equal(v.machine_memory_held, '3 held (212 MB): 2 on air, 1 idle — the first lets go in 43 s')
 	assert.equal(v.machine_gpu_cache, 'GPU cache 48 MB of 128 MB (212 resources)')
+	assert.equal(v.master_fps, '50') // round 80: the rate in force, not the setting
+	assert.equal(v.master_rate, '50 fps — following Lobby (50 Hz); set 60')
 	assert.equal(v.node_2_kind, 'timer')
 	assert.equal(v.nodes_count, '1')
 	assert.equal(v.nodes_text, 'Caller FOH-CALL')

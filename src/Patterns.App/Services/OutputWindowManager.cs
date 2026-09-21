@@ -17,6 +17,7 @@ public sealed class OutputWindowManager
 {
     private readonly AppServices _services;
     private readonly Dictionary<string, OutputWindow> _windows = new();
+    private string _masterWords = "";
 
     public OutputWindowManager(AppServices services)
     {
@@ -57,8 +58,16 @@ public sealed class OutputWindowManager
             LiveChanged?.Invoke();
             return;
         }
+        // Round 80: the outputs pace to the master rate in force — the setting, or the slowest display it follows —
+        // and the operator is told once per change of the words, in the log, when a display leads or is over-asked.
+        var master = Rig.MasterRate(_services.State, _services.Screens.All);
+        if (master.Words != _masterWords)
+        {
+            _masterWords = master.Words;
+            if (master.Followed || master.Overasks) Log.Info($"Master rate {master.Words}.");
+        }
         var targets = BuildViewports(_services.State.Output.Placements, _services.Screens.All,
-            masterFps: _services.State.Output.MasterFps, canvases: _services.State.Output.CanvasNames,
+            masterFps: master.Effective, canvases: _services.State.Output.CanvasNames,
             latticeOn: _services.RigEditor.LatticeOn, latticePoint: _services.RigEditor.LatticePoint, latticeTargets: _services.RigEditor.LatticeTargets,
             celebration: _services.RigDay.Celebration);
         if (targets.Count == 0)

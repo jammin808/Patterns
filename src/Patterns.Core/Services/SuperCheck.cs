@@ -61,6 +61,8 @@ public sealed class CheckFacts
     public string DirectOutputSummary { get; init; } = "";
 
     public IReadOnlyList<CheckDisplay> Displays { get; init; } = Array.Empty<CheckDisplay>();
+    /// <summary>Round 80: the master rate as the show runs it — the setting, the follow, the rate in force and the slowest display; null on a bare fact set (no row).</summary>
+    public MasterRate? Master { get; init; }
     /// <summary>Round 65: each screen's signal truth — the contract against what Windows is observed to send.</summary>
     public IReadOnlyList<SignalReport> Signals { get; init; } = Array.Empty<SignalReport>();
     /// <summary>Round 65.9: whether the desk compared the rig against a commissioned one this round (false on a bare fact set: no RIG rows).</summary>
@@ -476,6 +478,15 @@ public static class SuperCheck
         rows.Add(new CheckRow(s, "Connected", real == 0 ? CheckLight.Amber : CheckLight.Green,
             $"{real} display{(real == 1 ? "" : "s")}{(planned > 0 ? $" · {planned} planned" : "")}",
             real == 0 ? "no display is attached — outputs cannot open" : ""));
+        // Round 80: the master rate as the show runs it. Green when it follows a slower display down (the row says
+        // which and what was set), amber when a display is slower than the show asks and the follow is off.
+        if (f.Master is { } m)
+        {
+            rows.Add(new CheckRow(s, "Master rate", m.Set <= 0 ? CheckLight.Grey : m.Overasks ? CheckLight.Amber : CheckLight.Green, m.Words,
+                m.Followed ? "the show never asks a display for more frames than it has — switch the follow off on the Screens page to hold the set rate"
+                : m.Overasks ? $"{m.SlowestLabel} refreshes at {m.SlowestHz} Hz but the show asks for {m.Set} — switch the follow on (Screens page), pick a mode, or lower the master rate"
+                : ""));
+        }
         foreach (var d in f.Displays)
         {
             var mode = $"{d.Width}×{d.Height}{(d.RefreshHz > 0 ? $" @ {d.RefreshHz} Hz" : "")}";
@@ -492,7 +503,7 @@ public static class SuperCheck
             if (d.Enabled && d.RefreshHz > 0 && f.TargetFps > 0 && d.RefreshHz < f.TargetFps - 0.5)
             {
                 light = CheckLight.Amber;
-                note = $"the display refreshes at {d.RefreshHz} Hz but the show asks for {f.TargetFps:0} — pick a mode on the Screens page or lower the master rate";
+                note = $"the display refreshes at {d.RefreshHz} Hz but the show asks for {f.TargetFps:0} — pick a mode on the Screens page, lower the master rate, or let it follow the displays";
             }
             rows.Add(new CheckRow(s, d.Label, light, value, note));
         }

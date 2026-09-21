@@ -231,6 +231,8 @@ export function variableValues(s) {
 		machine_memory_pressure: s.memory?.pressure ?? 'none',
 		machine_memory_held: s.memory?.residency?.words ?? '',
 		machine_gpu_cache: s.machine?.gpuCache?.words ?? '',
+		master_fps: String(s.masterFpsEffective ?? 0),
+		master_rate: s.masterRate ?? '',
 		machine_inventory: s.machine?.inventory ?? '',
 		machine_rig: s.machine?.rig ?? '',
 		commissioning: s.commissioning?.headline ?? '',
