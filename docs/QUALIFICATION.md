@@ -510,6 +510,53 @@ old desk leaves the mutex abandoned and the replacement is primary within a poll
 |------|---------|-----------------------|------------------------------|------------------------|---------------------|-----------------------|--------|
 |      |         |                       |                              |                        |                     |                       |        |
 
+## 22. The walk (round 79)
+
+The scripted 15-to-30-minute walk the retrospective asked for in place of the nineteen checklists that
+never recorded a result: one row per calendar day the maintainer picks up a build, and one after any
+round that touches a platform path (display topology or hot-plug, audio endpoints, WebView2, the
+process or the watchdog, the twin, the registry, CUT/TAKE). Non-blocking: a round whose row is blank
+is written `unwalked` in its REVIEW section, which is a fact, not a stop. Any step the operator cannot
+complete becomes a headless test driven through the input pipeline (the `DeskMenuPointerTests` shape),
+not a footnote. The files go to `docs/field/round-NN/` (`docs/field/README.md`).
+
+**Set up.** The show laptop with the TV on its HDMI and the desk's own display; the outputs off;
+`patterns.log` tailed; the Machine page open on the desk's display.
+
+**Do, in order, ticking each.**
+
+1. **Version.** Read the Admin page's version (or STATE's `version`): `0.<round>.<run>+round-NN.<sha>`
+   from a CI build, `0.<round>.0+round-NN.<sha>` from a script — never `1.0.0`.
+2. **Outputs off, then on** (`Shift+F6`, `Shift+F5`): the TV comes up on the programme, the desk's
+   display stays the desk; the Super Check's Outputs rows read green.
+3. **A Fractal on the desk.** BUILD → Fractals, a scene, TAKE; the Render frame line moves; nothing
+   on the desk stutters while it runs.
+4. **A web page and a YouTube page on the TV.** BUILD → Media, a web item and a YouTube item, each
+   taken; the Media page's web row names the path (screencast, or the poll and why) and its fps.
+5. **TAKE the same tile three times** with the preview unchanged: the first press lands (the
+   journal row's `effect` is Changed or OwnOnly, its `visibility` OutputsLive), the second and third
+   are refused with the reason under the picker and no journal row says Done.
+6. **RESTART with the outputs live** (Admin → RESTART): the TV never shows the desktop; the log has
+   the handover lines; the recovery record's picture is what came back.
+7. **Unplug the TV and plug it back.** Every other output stays lit; the log's SCREEN lines name the
+   TV alone; the Super Check's display rows come back green.
+8. **A right-click menu** on a tile and on the PREVIEW picture: opens at once; its Group and Next
+   take entries read what the desk reads.
+9. **The three lines.** With a moving pattern up, the Machine page's Start-up, Desk tick and Render
+   frame lines, copied into the report.
+10. **Desk monitors** (round 79): the Screens page's Desk monitors picker at 25 and at 60 — the
+    tiles' motion follows it, the outputs' Render frame line does not move; if LIMITED BY RENDER
+    CLOCK shows, its words name the display it follows or say the desk is not keeping up.
+11. **OSC** (if it is on): the Super Check's REMOTE / OSC row is amber with its FIX until a bind
+    address is set, green once bound.
+
+**Pass.** Every step ticked with the readings it asks for; the three lines posted; the four files
+committed. A step that fails is a row of `docs/OPEN.md` with the reading beside it.
+
+| date | machine | build | steps ticked (1–11) | Start-up / Desk tick / Render frame | result | files |
+|------|---------|-------|---------------------|-------------------------------------|--------|-------|
+|      |         |       |                     |                                     |        |       |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute
