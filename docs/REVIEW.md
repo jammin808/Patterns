@@ -2951,3 +2951,89 @@ mute-first ask, and the crash gap's measurement on the rig.
 - Core 909, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 792 — 2,429; the module's
   31 node tests. One test wrote an absolute count of the beacon's failed binds after boot and met the
   poll's own ask; it counts from what it finds.
+
+## Round 79 review — the retrospective answered
+
+### 79.0 — the retrospective read
+
+- **Done.** The handed-in retrospective read claim by claim against the code at `08dcaaa`; every row of its
+  "still open at HEAD" table that named a line was true; two were checked and left (`docs/OPEN.md`, the
+  last table). §97.1, §97.9.
+- **Found on the way.** The remote holds no tag and no Release at all: `git ls-remote --tags` is empty, so
+  "every round from 15 on has an annotated tag" had never been true on GitHub; the script exists, the run
+  is the maintainer's. The repository's root is `b746a8d` of 2026-09-06 (257 commits): the retrospective's
+  "92 earlier commits from `227f628`" were in its clone, not in this remote.
+
+### 79.1 — truth as fields
+
+- **Done.** §97.2.
+- **Found on the way.** `WouldChange` first compared the taken screens alone and refused a wall take that
+  carried a rig change (`TileToPreviewTests`: c made a repeater of b, so c's picture would move without
+  c being taken); it reads every target of the rig through the edited state's mirror map now. Bare `CUT`
+  on the wire produces an unknown action by design, so the tests press through `Actions.Execute`. An
+  automation's no-op take is not refused: a cue that lands what is already up is `Done` with `Nothing`,
+  because a cue list must not stop on a picture that is already right.
+
+### 79.2 — the last fail-open edges
+
+- **Done.** §97.3.
+- **Found on the way.** `Control.Bind` is free text; an unparsable address binds every interface as
+  before, and the status line names what it bound. "toggle" on a verb that does not toggle was accepted
+  by the OSC map and did nothing; it is refused with the other unknown words. The mirrored-token sentence
+  was in three places and the twin's fence test already held the payload free of secrets; the sentences
+  now say what the test proves.
+
+### 79.3 — the recorder's oracle
+
+- **Done.** §97.4.
+- **Found on the way.** Seventeen kinds had no line: eight that the wire cannot say and nine that it
+  should. `lines.txt` carries eight of the nine; AUDIO UNROUTE hides behind a checkbox the sampler leaves
+  at its default, so the enum fence, not the file, is what holds the ninth. The first run of the
+  round-trip found no further disagreement beyond the nine.
+
+### 79.4 — the monitors paced
+
+- **Done.** §97.5.
+- **Found on the way.** `RefreshRunMonitor` was internal to the view model; the picker rebuilds the RUN
+  monitor through it. `RateAndAspectTests` pinned the clock limit's exact words and read the fixture's 50
+  Hz display as the cause once the rates were passed — the assertion now reads the cause it names.
+  `SignalTruth` and the overlay renderer keep the three-argument `ClockLimit`, whose cause is `Unknown`.
+
+### 79.5 — an hour of hygiene
+
+- **Done.** §97.6.
+- **Found on the way.** The SDK already stamps `AssemblyInformationalVersion` as `1.0.0+<full sha>` on a
+  plain build, so `AppVersion` shortens rather than reads git itself; the exe's true version is what the
+  publish line stamps. The cmd scripts cannot break out of a `for /f` with `if`, so the newest header is
+  taken with a `goto`. The playhead's file name lives on `PlayheadStore`, not the record. The createdump
+  target cannot run on this Linux desk — `docs/OPEN.md` L24 until CI's `portable-exe` job has checked
+  the file once.
+
+### 79.6 — the latent nits
+
+- **Done.** §97.7.
+- **Found on the way.** `WirePeer.Close` disposes its cancellation source, so `FlushAsync`'s token read
+  after a close was a real `ObjectDisposedException`, not only the dead catch the retrospective named:
+  both fixed. `ScreenPlacement`'s runtime-only property is `AdoptTargetId` (the tally text is a look's).
+  The page-name fence found all 37 rail → page references true after the edits — the two stale forms
+  were the only ones. The Quick start's step 3 was wrong under the shipped default (a chosen pattern
+  builds in the preview and reaches the outputs on TAKE), and CHANGELOG's thesis called one maintainer
+  "the field"; both corrected.
+
+### 79.7 — the process
+
+- **Done.** §97.8. `CLAUDE.md`, `docs/field/README.md`, `docs/OPEN.md`, QUALIFICATION §22.
+- **Walk.** Unwalked — no rig this round. Platform paths touched: CUT/TAKE (79.1), the monitors' pacing
+  (79.4), the process start-up's version banner (79.5). The §22 walk is due on the next build the
+  maintainer picks up; its files go to `docs/field/round-80/`.
+
+### The review's items, answered
+
+- The retrospective's sixteen entries: taken, declined or deferred, each with its reason — §97.9. Its
+  twenty-two open rows: fifteen closed by this round's units, one closed in part (the monitors paced; the
+  master rate's follow still open), six open, one sentence checked and left — every one in `docs/OPEN.md`
+  with what closes it, and one row of the ledger's own (L28, the sealed air type).
+
+### The suites
+
+- Core 929, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 804 — 2,461; the module's 31 node tests.

@@ -3,10 +3,45 @@
 Patterns is built in rounds: one request from the maintainer's desk or rig — and from round 76
 on, the show laptop's own files — answered as a run of commits, each round closed with its papers. This is the short form, newest first; the long form is
 `docs/PLAN.md` (the design of each round, by section) and `docs/REVIEW.md` (what was found and
-fixed). Every round from 15 on is a tag on its last commit — `round-15` … — and every tag from
-`round-61` on has a Release with the built desk. The README's *Versions and rolling back* says
-how to get any of them back. The count at each round is the test suite at its end; the module
+fixed). Every round from 15 on is tagged on its last commit — `round-15` … — by
+`.github/scripts/tag-rounds.sh` once the maintainer has run it, and every tag from `round-61` on gets
+a Release with the built desk. The README's *Versions and rolling back* says how to get any of them
+back. From round 79 each entry names its evidence class: the maintainer's list, a handed-in critique,
+a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
+
+## Round 79 — 2026-09-21 — the retrospective answered: truth as fields, the last fail-open edges, the recorder's oracle, the monitors paced, an hour of hygiene, the latent nits, the process
+
+`round-79` · PLAN §97 · REVIEW round 79 · 2,461 tests · module 3.14.0 · evidence: a handed-in retrospective checked claim by claim, and the maintainer's "run 1 to 7"
+
+- **Truth as fields.** Every action result carries what the room could see (`Visibility`: outputs live,
+  off, blackout) and, for the take family, what changed (`Effect`: changed, own only, nothing, not
+  measured), stamped once at the executor from a before-and-after comparison of the air; the journal row,
+  STATE's `take.last` and the Eye's desk words carry them; a wall TAKE a hand presses over an air that
+  already is the preview is refused with the way out, the show's own automation never is; the take tests
+  open an output and press twice.
+- **The last fail-open edges.** The four overlay switch sites and the OSC map refuse an unknown word
+  instead of toggling; OSC binds the desk's bind address and is amber in the Super Check and the Eye while
+  it is open on every interface without pairing; the token stays local by design and the papers say so.
+- **The recorder's oracle.** The nine wire verbs the writer could not say are written; the module's own
+  `lines.txt` round-trips parse → write → parse; an enum fence names the eight kinds the wire cannot say;
+  a dropped line is logged once per kind.
+- **The monitors paced.** The wall's miniatures, the PROGRAM pane and the RUN monitor present at the desk's
+  own monitor rate (25 by default, the Screens page's Desk monitors picker, STATE `monitorFps`); LIMITED
+  BY RENDER CLOCK names its cause — the clock following a slower display, or the desk not keeping up.
+- **An hour of hygiene.** The build says which build it is (`0.<round>.<run>+round-NN.<sha>` on every
+  surface; the manifest's round from the changelog's header); the Release gated on the Windows smoke lane;
+  `createdump.exe` beside the exe from one post-publish target; the stale module package untracked; a show
+  file from a newer build runs as read with autosave off and the reason on the desk; the recovery record's
+  air migrated before it goes back on air; the support bundle carries the playhead and the quality profile,
+  with a fence over every sidecar the core names.
+- **The latent nits.** The programme and the sandbox published as one pair a frame reads once; the
+  sandbox's picture identities memoised on the trackers' change counters; `SectionsPublished` after the
+  assignment; the wire peer's dead catch and its flush under a close; the stale sentences made true, with
+  a fence that every "RAIL → Page" names a real page.
+- **The process.** `CLAUDE.md` (the agent brief), `docs/field/` (the show laptop's four files per report),
+  `docs/OPEN.md` (the cumulative still-open ledger: sixteen rows closed by this round, twelve open),
+  QUALIFICATION §22 (the scripted walk). Unwalked: no rig this round.
 
 ## Round 78 — 2026-09-18 — the wall's CUT/TAKE truth, the show folder's lease asked again, NDI and the stream as outputs of what they carry; the assessment answered
 

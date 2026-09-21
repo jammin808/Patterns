@@ -10384,3 +10384,223 @@ This section is what the files said, what was built, and the assessment answered
   saying which key it used, is a small next round.
 - **Memory at 86 %** is the machine's, not Patterns' (969 MB of a 3.0 GB ceiling; the advice row says so).
 - **Monitors degrade before outputs** — still §95.8, still measured first.
+
+## 97. Round 79 — the retrospective answered: truth as fields, the last fail-open edges, the recorder's oracle, the monitors paced, an hour of hygiene, the latent nits, the process
+
+The maintainer handed in a document — a retrospective of the whole project written with hindsight
+("Patterns, rebuilt with hindsight": sixteen entries, a consolidated "what is still open at HEAD" table
+of twenty-two rows verified at `08dcaaa`, twenty rules for directing the agent, a day-1 checklist) — and
+asked what of it could make Patterns better. The answer was seven items; the maintainer said "Run 1 to
+7". The evidence class is a handed-in critique checked claim by claim at a named line (the round-72
+shape), plus the maintainer's list. No machine's files arrived this round; the walk of QUALIFICATION §22
+is due on the next build the maintainer picks up.
+
+### 97.1 What the retrospective said, and what the round took from it
+
+Read against the code, the table was right in every row that named a line: the recorder dropping nine
+wire verbs, the four overlay switch sites and the OSC map defaulting an unknown word to a toggle, OSC
+bound to every interface and painted green, the false token sentence, the bundle without the playhead
+and the quality files, no newer-schema rule, every build saying 1.0.0 and the manifest saying round-15,
+`createdump` from one script, the tracked 3.3.0 package, `SamePicture` serialising per publish, the
+capture's two reads, `SectionsPublished` before the assignment, the dead catch, the take tests that never
+opened an output, the stale sentences. Two rows were checked and left: "the tree before 2026-09-06 is not
+in the repository's history" is true of this repository (root `b746a8d`, 257 commits at the round's
+open — the retrospective's clone held earlier history this remote does not), and the two-machine freeze
+is the maintainer's gate to write, not the agent's to impose (`docs/OPEN.md` L21). The seven items:
+
+1. truth as fields (entry 4) — 79.1;
+2. the last fail-open edges and the OSC lights (entries 13, 14) — 79.2;
+3. the recorder's oracle (entry 14) — 79.3;
+4. the monitors paced and the clock limit's cause (entry 5) — 79.4;
+5. an hour of hygiene (entries 9, 10, 11, the bundle) — 79.5;
+6. the latent nits and the stale prose (entry 16) — 79.6;
+7. the process (entries 1, 12) — 79.7; and this paper — 79.8.
+
+### 97.2 Truth as fields (79.1)
+
+**The claim.** `Done` was words. Eleven `ScreenTake` rows read `Done` with the outputs off (§96.1), and
+the test that would have caught it did not exist because no take test opened an output.
+
+**The design.** Two fields on every `ActionResult`, stamped once, at the executor, after the action ran:
+`Visibility` — `OutputsLive`, `OutputsOff` or `Blackout`, from the outputs' state and the air's blackout
+at that moment (`Unknown` only for a result made before the executor saw it) — and `Effect` — for the
+take family (`ShowActions.IsTake`: the wall's and the tile's CUT, TAKE and FADE, SEND, the pins), a
+before-and-after comparison of what the air shows: `LookService.Seen` (each target's shown picture, the
+overlays, the countdown, the blackout, the lower thirds) and `LookService.Fingerprint` (the ownership
+map). `Changed` when the room's picture moved, `OwnOnly` when only the ownership did, `Nothing` when
+neither, `NotMeasured` for every other kind. The journal row carries both as optional columns
+(`ShowLogEntry.Visibility`, `.Effect`; older rows have neither and read as before); STATE's `take.last`
+row (`kind`, `outcome`, `effect`, `visibility`, `atUtc`, `words`); the Eye's desk node reads "Last take:
+…". The wall's TAKE is refused by a hand when it would change nothing (`SandboxService.WouldChange` over
+every rig target through the edited state's mirror map, then the overlays and the countdown), with the
+reason and the way out; the show's own automation (`ActionOrigin.IsAutomation`: a cue, a follow, the
+schedule, a playlist, a stinger, a recovery) is never refused and its row says `Nothing`. `ControlService`
+reads the same rule for the wire's standing.
+
+**The proof.** `TakeFactsCoreTests` (the enums, the journal row, the `Seen` identity) and
+`TakeTruthAppTests` on a live desk: the outputs opened on three headless screens, a take lands with
+`Changed` and `OutputsLive`, the second press on the same tile is refused, a wall take over an air that
+already is the preview is refused for a hand and journaled `Nothing` for a cue; a fence over ten presses
+that every take's `Effect` is measured. Found on the way: `WouldChange` first read the taken screens
+alone and refused a take that carried a rig change (a screen made a repeater of another); it reads every
+target of the rig now. The wire's `OK` payload for a take stays words — the Companion navigator shows the
+payload on a key — and the fields travel in STATE and the journal.
+
+### 97.3 The last fail-open edges (79.2)
+
+**The claim.** Round 72.5 closed six switch families; four sites (CLOCK SECONDS, CLOCK DATE, MESSAGE
+SCROLL, TICKER) still toggled on any unknown word through `OverlayControl.SwitchWord`, and the OSC map
+turned any unknown word into TOGGLE at 22 call sites. OSC bound every interface whatever `Control.Bind`
+said, and once a token was set the Super Check and the Eye painted it green although OSC cannot pair.
+Three places said the token is mirrored to the twin; `Control` is a local section and never travels.
+
+**The design.** `ControlProtocol.Switched(kind, word, line)` refuses a non-switch word at the four sites
+as unknown, the same answer as the other families. `OscMap.Switch` returns null for an unknown word — and
+for "toggle" on a verb that does not toggle — and every caller (`Sw(verb, sw)`, GROUP, the numbered
+verbs) refuses on null; "1"/"0" segments still read. `OscService` binds `Control.Bind` when it parses
+(`IPAddress.Any` otherwise) and its status line names the address. `CheckFacts.OscOpen`/`OscPort` feed a
+REMOTE / OSC row: amber with the FIX while OSC is open on every interface, green when bound; `EyeOsc`
+carries the bind and the node and its edge go amber unbound. The token stays local by design (round 44:
+secrets stripped from the mirror) and the three sentences say so; a test holds that the twin's payload
+never carries it.
+
+**The proof.** `WireVocabularyTests` (the four sites refuse), `OscMapTests` (unknown and toggle-on-a-
+non-toggle refused, digits read), `OscAppTests.OscListensOnTheDesksBindAddressAlone`, the Super Check
+row and the Eye's amber in `PairingTokenTests` and `EyeTests`, the token never in the mirror.
+
+### 97.4 The recorder's oracle (79.3)
+
+**The claim.** `WireWriter` could not write 17 of 220 kinds; nine were wire verbs the module emits (19
+of its 296 `lines.txt` lines), dropped from the action feed without a log, while five artefacts claimed
+whole-vocabulary coverage.
+
+**The design.** The nine arms written (AUDIO ROUTING, AUDIO ROUTE t TO v, AUDIO UNROUTE t FROM v, AUDIO
+VOG MODE, COUNTDOWN TOGGLE, COUNTDOWN FOLLOW, PLAN SHIFT, PLAN RESUME, PLAN CATCHUP) and a bare COUNTDOWN
+START for an empty value; `WireWriter.Unsayable` names the eight kinds the wire cannot say and why
+(Unknown, Note, Take, Cut, ListGo, ListBack, ListReset, CueFire — a wire cannot take a half-built
+preview or fire an unnamed cue). The module's own generated `lines.txt` is the writer's oracle: every
+line that parses to an action round-trips parse → write → parse to an equal action
+(`CompanionModuleContractTests`), and an enum-exhaustiveness fence holds that every `ShowActionKind`
+either writes a sample line or is in the named list (`WireWriterTests`). `ControlService.Feed` logs once
+per kind when a non-unsayable, non-secret kind has no line, instead of dropping it in silence.
+
+**The proof.** The two fences; the module's 31 node tests unchanged. Found on the way: `lines.txt` has no
+AUDIO UNROUTE line because the module emits it behind a checkbox `emit-lines.mjs` samples at its default;
+the enum fence covers the ninth kind the file does not.
+
+### 97.5 The monitors paced, and the clock limit's cause (79.4)
+
+**The claim.** The wall's PGM and PVW miniatures, the PROGRAM pane and the RUN surface's monitor drew
+every beat on the compositor thread, so a big rig's desk competed with its outputs; and LIMITED BY RENDER
+CLOCK said that it was limited without saying why — a clock in the family of a slower display (the review's
+50 Hz TV under a 60 fps show) reads the same as a desk that is not keeping up.
+
+**The design.** `DeskLayoutConfig.MonitorFps` (25 by default, 0..120; a local section — this desk's own,
+never the twin's), passed by every monitor viewport (`PipelineViewport.Monitor(…, fps)`) to the pacer the
+outputs already use (`TargetFps` → `FramePacer`; `OutputRate.Present` returns the wanted rate when no
+display is known); the preview pane stays at every beat. A Desk monitors picker beside the master rate on
+the Screens page; `MainViewModel.MonitorFps` rebuilds the tiles and the RUN monitor and the window
+rebuilds its panes on the change; STATE `monitorFps`. `OutputRate.ClockLimit(present, displayHz, clockHz,
+displayRates)` returns `RateLimit` with `RateLimitCause`: `FollowsSlowerDisplay` (the clock is in a slower
+display's family — "make the display that needs 60 Hz the one it follows") or `BelowEveryDisplay` (the
+desk is not keeping up), `Unknown` when the rates are not known; `FrameBudgets.ClockLimited` passes every
+output's display rate. The chip, the Machine page, STATE and the Super Check read the words.
+
+**The proof.** `RateAndAspectTests.AClockLimitNamesItsCauseFromTheDisplaysRates`, the budget's words,
+`MonitorRateAppTests` on a live desk (the tiles' target rate follows the picker, the outputs' does not).
+Measured first, as §95.8 asked: the cost the pacing removes is the monitors' share of the compositor's
+frames, which the Machine page's Render frame line reads on the rig — the §22 walk's step 10.
+
+### 97.6 An hour of hygiene (79.5)
+
+- **The build says which build it is.** CI stamps `-p:Version=0.<round>.<run>` and
+  `-p:InformationalVersion=<version>+round-<round>.<sha7>`, the round from CHANGELOG's newest `## Round
+  NN` header (never the first back-ticked `round-15` of the prose); the scripts stamp `0.<round>.0+round-
+  <round>.<sha>` from git. `AppVersion.Read` takes the informational version (the SDK already stamps
+  `1.0.0+<fullsha>` on a plain build) and cuts the commit to seven characters, so the wire, the beacon,
+  the pages, STATE and the Eye name the exe. The manifest carries `round = "round-NN"` and the version.
+- **The Release gated on the smoke lane.** `release: needs: [portable-exe, companion-module,
+  windows-smoke]`.
+- **`createdump.exe` from one post-publish target.** `PlaceCreatedumpBesideTheExe` in the App project
+  (after Publish, win-x64 self-contained, from the resolved runtime pack), a warning when the pack has
+  none; every script and CI check the file (a Linux desk cannot run the target — `docs/OPEN.md` L24 until
+  the first green `portable-exe` run).
+- **The stale package** `jammin808-patterns-3.3.0.tgz` untracked.
+- **A newer schema.** `SettingsStore.NewerSchema`: a show file from a newer build is read as it is, its
+  schema never stamped down, its upgrade never run, autosave off with the banner saying why
+  (`ServiceKernel.NewerSchema`); the recovery record's `Air` takes `Migrate` before `RestoreAir`.
+- **The support bundle** carries `patterns.playhead.json` and `patterns.quality.json`;
+  `SupportBundle.NeverBundled` names what never travels and why (the Spotify credentials, a direct
+  output's fuse, an update's manifest); `SupportBundleFenceTests` walks every `patterns.*` constant in
+  Core and fails on one that is neither bundled nor named.
+
+### 97.7 The latent nits (79.6)
+
+- **One pair.** `SnapshotBus.Pair` (`SnapshotPair(Current, Sandbox)`), one volatile reference, replaced in
+  one assignment by `Publish`, `PublishSandbox`, `ClearSandbox` and the new `PublishBoth`, which the
+  sandbox's publish path uses; `FrameInput.Capture`, the pipeline's `SnapshotFor` and the NDI sender read
+  the pair once, so no frame draws a new programme beside an old sandbox. `SectionsPublished` fires from
+  the publish once the snapshot is readable, not from inside the build.
+- **Picture identity by counter.** `ChangeTracker.Version` counts the changes a tracker sees (runtime-only
+  writes do not count); `SandboxService.Same` memoises `SamePicture` on the two trackers' counts and the
+  programme's identity, so each own picture is serialised once per change of either root rather than once
+  per ask, and an edit reads as pending before any publish.
+- **The wire peer.** The unreachable second catch removed; `FlushAsync` guarded against a close under the
+  wait (`Close` disposes the source).
+- **The words made true.** The README's registry sentence (a GPU preference for the exe and the show
+  lock's quiet keys, put back), the page count dropped, EDIT SAFE BY DEFAULT under EDIT SAFE on SETUP →
+  Screens (there never was an Admin → Switcher), the Screens page in place of the Outputs page in the
+  help, the next-take menu, the wall's tooltip, REMOTE.md and two comments, the tags sentence conditional on
+  the script having run (the remote holds no tag yet), the Quick start's step 3 true under the shipped
+  EDIT SAFE default, and CHANGELOG's thesis naming the maintainer's desk and rig. `DeskWordsFenceTests`
+  holds every "RAIL → Page" on the help, the menus, the wall, the README and the papers against
+  `DeskPages` (37 references, all real after the edits) and names the two phrases that may not return.
+
+### 97.8 The process (79.7)
+
+`CLAUDE.md` at the root: what this is, the standing brief with its closing sentence naming the rig, the
+doctrine, the constraints that bite, the loop, where every artefact lives, how a round opens (the field's
+files first, then `docs/OPEN.md`, the requester and the evidence class named, the ask read against the
+brief) and closes (one commit per unit, the papers, the suites, `unwalked` where no walk row exists), the
+house words. `docs/field/README.md`: the four files per report and the report's shape; the folder stays
+empty until the first report is committed. `docs/OPEN.md`: the cumulative ledger, sixteen rows closed by
+this round's units (one the monitors' half of a split row), twelve open with what closes each, one
+checked and left; nothing leaves it until a row
+names the closing unit. `docs/QUALIFICATION.md` §22: the eleven-step walk with a result table.
+
+### 97.9 The retrospective's entries, answered
+
+Taken: entries 1 (the files and the walk, as `docs/field/` and §22 — the per-day cadence and the gate are
+the maintainer's), 4 (the fields), 5 (the monitors paced, the cause named; the ladder and the governor
+left alone — no number yet), 9 (one post-publish target, the createdump check, the release gate), 10
+(the newer-schema rule, `Migrate` on the recovery path), 11 (the build identity; short subjects with prose
+in the body from the papers commit on — this round's earlier commits kept the long form), 12 (the brief,
+the ledger, the requester and the evidence class on every entry from this one on), 13 (the bind rule and
+the honest lights, the token sentence), 14 (the tokenizer's refusal by construction at the four sites and
+the OSC map; the oracle and the enum fence), 16 (the nits, the page-name lint).
+
+Declined or deferred, with the reason: entry 2 (freeze the twin and the nodes, take the games out of the
+tree) — the status is written (`docs/OPEN.md` L21) and the gate is the maintainer's to set; removing code
+that has tests and papers is a round of its own if asked. Entry 3 (a sealed programme type taken by every
+picture-derived reader) — `AirState` since round 72 is the seam; the sealed type with a fence over named
+services is viable, not now (`docs/OPEN.md` L28). Entries 6 and 7 — done at rounds 70 and 58/64; nothing
+to add. Entry 8 (a probe per native) — the WebView2 probe stays open (L26). Entry 10's show-file fixtures
+— wait for a second real machine, as the entry itself says. Entry 12's PLAN freeze and `ARCHITECTURE.md`
+rewrite, and the README cut to the product — not this round: a rewrite of the papers people read is its
+own ask. Entry 15 (the assistant) — L22. Entry 17's generator — only when a third hand mirror exists; the
+oracle is the check for now. The commit-subject rule and the CHANGELOG's evidence class are adopted from
+this round's close.
+
+### 97.10 What the round did not do, and what is next
+
+`docs/OPEN.md` is the list: the policy key's fall-back (L09), the screencast bench (L10), the master rate
+following the displays (L11), the descriptor version read or dropped (L17), one atomic-write helper (L18),
+the two-machine status (L21), the assistant's settings (L22), the plan's OWN words (L23), the createdump
+target's first Windows run (L24), the tags on the remote (L25), the WebView2 probe (L26), the sealed air
+type (L28). Next, in order: the walk (§22) on the next build, with the four files into `docs/field/`; then
+what the files say.
+
+### 97.11 The papers (79.8)
+
+- This section; REVIEW round 79; CHANGELOG (with the evidence class); README (the ledger's entry, the
+  build's version, the brief and the ledger named); the tag table row 78 (`08dcaaa`); `docs/OPEN.md` L28.
