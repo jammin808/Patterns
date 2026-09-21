@@ -549,3 +549,25 @@ test('round 74 — the recorder and learn: RECORD ON / OFF as Companion opens an
 	await tick()
 	assert.equal(b.inst.pending.length, 0)
 })
+
+test('round 80 — a desk that speaks a newer descriptor than the module knows is said on the connection, and the keys keep working', async () => {
+	const b = await boot()
+	const navReply = { protocol: 2, rails: [{ id: 'Plan', label: 'PLAN', hue: '#6E9BFF', pages: ['Cues', 'Looks'] }], pages: [{ header: 'Cues', rail: 'Plan', hue: '#6E9BFF', settings: true }, { header: 'Looks', rail: 'Plan', hue: '#6E9BFF', settings: false }], desk: { page: 'Cues', rail: 'PLAN', run: false } }
+	b.socket.receive('OK\nOK ' + JSON.stringify(navReply) + '\n') // HELLO's reply, then NAV's
+	await tick()
+	assert.equal(b.ctx.variables.desk_protocol, '2')
+	const last = b.ctx.statuses[b.ctx.statuses.length - 1]
+	assert.equal(last.status, InstanceStatus.UnknownWarning)
+	assert.match(last.message, /protocol 2/)
+	assert.match(last.message, /knows 1/)
+	assert.equal(b.ctx.variables.nav_slot_1, 'PLAN') // the table was still learned: the deck works on what it understands
+})
+
+test('round 80 — a desk on the descriptor the module knows raises no warning and the version is a variable', async () => {
+	const b = await boot()
+	const navReply = { protocol: 1, rails: [{ id: 'Plan', label: 'PLAN', hue: '#6E9BFF', pages: ['Cues'] }], pages: [{ header: 'Cues', rail: 'Plan', hue: '#6E9BFF', settings: true }], desk: { page: 'Cues', rail: 'PLAN', run: false } }
+	b.socket.receive('OK\nOK ' + JSON.stringify(navReply) + '\n')
+	await tick()
+	assert.equal(b.ctx.variables.desk_protocol, '1')
+	assert.ok(!b.ctx.statuses.some((s) => s.status === InstanceStatus.UnknownWarning))
+})

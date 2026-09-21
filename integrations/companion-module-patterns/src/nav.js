@@ -13,6 +13,13 @@ export const NAV_SLOTS = 24
 
 export const LEVELS = ['rails', 'pages', 'page', 'menu', 'drawer']
 
+/**
+ * Round 80: the descriptor protocol this module reads — the `protocol` the desk puts on every NAV and MENU reply
+ * (round 75.4). A desk that says a higher number has a descriptor this module was not written for: the keys keep
+ * working on what they understand, and the connection's status says so (main.js onProtocol).
+ */
+export const KNOWN_PROTOCOL = 1
+
 /** The rails as the desk has them; the reply to NAV replaces this the moment it comes. */
 export const DEFAULT_RAILS = [
 	{ id: 'Show', label: 'SHOW', hue: '#2EE68A', pages: ['Panel', 'Run', 'Eye'] },
@@ -81,6 +88,8 @@ export class Navigator {
 		this.changed = changed
 		this.log = log
 		this.slotCount = slots
+		this.protocol = 0 // round 80: the desk's descriptor version, from its NAV and MENU replies (0 until one is read)
+		this.onProtocol = null // round 80: told once per change, with the number
 		this.rails = DEFAULT_RAILS
 		this.pages = DEFAULT_RAILS.flatMap((r) => r.pages.map((header) => ({ header, rail: r.id, hue: r.hue })))
 		this.level = 'rails'
@@ -121,9 +130,25 @@ export class Navigator {
 		return this.crumbs.length > 0 ? this.crumbs.join(' › ') : 'RAILS'
 	}
 
+	/** A MENU reply as an object (null for ERR), its descriptor version noted on the way. */
+	async menu(words) {
+		const m = payload(await this.ask(words))
+		if (m) this.noteProtocol(m.protocol)
+		return m
+	}
+
+	/** Round 80: the descriptor version a reply carries; a change is told to onProtocol once. */
+	noteProtocol(value) {
+		const n = Number(value)
+		if (!Number.isInteger(n) || n <= 0 || n === this.protocol) return
+		this.protocol = n
+		if (typeof this.onProtocol === 'function') this.onProtocol(n)
+	}
+
 	/** The reply to NAV: the rails and their pages replace the built-in table. */
 	learnDesk(nav) {
 		if (!nav || typeof nav !== 'object') return
+		this.noteProtocol(nav.protocol)
 		const rails = Array.isArray(nav.rails) ? nav.rails : []
 		if (rails.length > 0) {
 			this.rails = rails.map((r) => ({ id: String(r.id ?? ''), label: String(r.label ?? r.id ?? ''), hue: String(r.hue ?? ''), pages: Array.isArray(r.pages) ? r.pages.map(String) : [] }))
@@ -186,7 +211,7 @@ export class Navigator {
 		const page = this.pages.find((p) => p.header.toLowerCase() === name.toLowerCase())
 		if (!page) return false
 		const rail = this.rails.find((r) => r.id === page.rail) ?? this.rail
-		const menu = payload(await this.ask(`MENU PAGE ${page.header}`))
+		const menu = await this.menu(`MENU PAGE ${page.header}`)
 		if (!menu) return false
 		this.push()
 		this.level = 'page'
@@ -206,7 +231,7 @@ export class Navigator {
 	async openMenu(words) {
 		const w = String(words ?? '').trim()
 		if (w.length === 0) return false
-		const menu = payload(await this.ask(`MENU ${w}`))
+		const menu = await this.menu(`MENU ${w}`)
 		if (!menu) return false
 		this.push()
 		this.level = 'menu'
@@ -279,12 +304,12 @@ export class Navigator {
 			case 'rails': this.home(); return
 			case 'pages': { const rail = this.rail; this.trail.pop(); this.openRail(rail?.id ?? ''); return }
 			case 'page': {
-				const menu = payload(await this.ask(`MENU PAGE ${this.page}`))
+				const menu = await this.menu(`MENU PAGE ${this.page}`)
 				if (menu) { this.entries = slotsOf(menu); this.clampOffset(); this.settle() }
 				return
 			}
 			case 'menu': {
-				const menu = payload(await this.ask(`MENU ${this.menuWords}`))
+				const menu = await this.menu(`MENU ${this.menuWords}`)
 				if (menu) { this.entries = slotsOf(menu); this.clampOffset(); this.settle() }
 				return
 			}
@@ -382,6 +407,7 @@ export class Navigator {
 			nav_range: this.range,
 			nav_count: String(this.entries.length),
 			nav_mode: this.mode === 'run' ? 'RUN' : 'MENU',
+			desk_protocol: this.protocol > 0 ? String(this.protocol) : '',
 			nav_follow: this.follow ? 'FOLLOW' : 'off',
 			nav_text: this.text,
 			nav_reply: this.reply,

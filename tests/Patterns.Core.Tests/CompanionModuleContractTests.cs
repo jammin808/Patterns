@@ -87,4 +87,18 @@ public class CompanionModuleContractTests
         Assert.Contains("export default PatternsInstance", File.ReadAllText(Path.Combine(ModuleDir, "src", "main.js")));
         Assert.Contains("export const UpgradeScripts", File.ReadAllText(Path.Combine(ModuleDir, "src", "main.js")));
     }
+
+    /// <summary>
+    /// Round 80: the descriptor's version the desk puts on every NAV and MENU reply (round 75.4) is the one the module
+    /// reads — <c>KNOWN_PROTOCOL</c> in nav.js against <see cref="ControlProtocol.DescriptorVersion"/>. A bump on the
+    /// desk without the module's fails here, not on a deck that suddenly warns on every connection.
+    /// </summary>
+    [Fact]
+    public void TheModuleKnowsTheDesksDescriptorVersion()
+    {
+        var nav = File.ReadAllText(Path.Combine(ModuleDir, "src", "nav.js"));
+        var known = System.Text.RegularExpressions.Regex.Match(nav, @"export const KNOWN_PROTOCOL = (\d+)");
+        Assert.True(known.Success, "nav.js declares no KNOWN_PROTOCOL");
+        Assert.Equal(ControlProtocol.DescriptorVersion, int.Parse(known.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
+    }
 }

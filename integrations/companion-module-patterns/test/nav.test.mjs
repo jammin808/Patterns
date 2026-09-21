@@ -2,7 +2,7 @@
 // modes, the text, the paging, BACK, FOLLOW — nothing known ahead of time but the rails.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Navigator, NAV_SLOTS, payload, slotsOf, navVariableDefaults } from '../src/nav.js'
+import { KNOWN_PROTOCOL, Navigator, NAV_SLOTS, payload, slotsOf, navVariableDefaults } from '../src/nav.js'
 
 const entry = (id, text, extra = {}) => ({ id, text, detail: '', scope: 'live', tone: 'live', wire: '', menu: '', takesText: false, because: '', on: false, enabled: true, page: '', item: '', question: '', children: [], ...extra })
 const menuOf = (kind, subject, title, groups) => ({ kind, subject, title, subtitle: '', tone: 'go', hue: '#C0CBDB', groups })
@@ -235,6 +235,32 @@ test('a stranger is refused without moving; the defaults are the rest values eve
 	assert.equal(d.nav_slot_1, 'SHOW') // a deck at rest shows the rails
 	assert.equal(d.nav_slot_6, '')
 	assert.equal(d.nav_mode, 'MENU')
-	assert.equal(Object.keys(d).length, 13 + NAV_SLOTS * 4)
+	assert.equal(Object.keys(d).length, 14 + NAV_SLOTS * 4) // round 80: desk_protocol joined the Navigator's own
 	assert.deepEqual(slotsOf(null), [])
+})
+
+test('round 80 — the desk\'s descriptor version is read from NAV and MENU replies, told once per change, and read as a variable', async () => {
+	const { nav } = await booted()
+	assert.equal(KNOWN_PROTOCOL, 1)
+	assert.equal(nav.protocol, 0) // the fake desk's table carries no version: nothing claimed
+	assert.equal(nav.variables().desk_protocol, '')
+	const told = []
+	nav.onProtocol = (n) => told.push(n)
+	nav.learnDesk({ ...navReply, protocol: 2 })
+	assert.equal(nav.protocol, 2)
+	assert.equal(nav.variables().desk_protocol, '2')
+	nav.learnDesk({ ...navReply, protocol: 2 }) // the same again: not told twice
+	nav.learnDesk({ ...navReply, protocol: 'x' }) // not a number: ignored
+	assert.deepEqual(told, [2])
+	// A MENU reply carries it too.
+	const versioned = new Navigator({ ask: async () => 'OK ' + JSON.stringify({ ...looksPage, protocol: 3 }), say: () => {} })
+	const seen = []
+	versioned.onProtocol = (n) => seen.push(n)
+	const menu = await versioned.menu('MENU PAGE Looks')
+	assert.equal(menu.title, 'LOOKS')
+	assert.deepEqual(seen, [3])
+	assert.equal(versioned.variables().desk_protocol, '3')
+	const refused = new Navigator({ ask: async () => 'ERR no such thing', say: () => {} })
+	assert.equal(await refused.menu('MENU LOOK Nobody'), null)
+	assert.equal(refused.protocol, 0)
 })

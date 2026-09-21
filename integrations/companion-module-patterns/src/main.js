@@ -12,10 +12,10 @@ import { buildNavPresets, buildPresets, buildShowPresets, structure } from './pr
 import { variableDefinitions } from './variables.js'
 import { configFields, connectionTarget, groupEnabled, groupOf } from './config.js'
 import { emptyState, showSignature, upcoming, variableValues } from './state.js'
-import { Navigator, payload } from './nav.js'
+import { KNOWN_PROTOCOL, Navigator, payload } from './nav.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.14.0'
+export const MODULE_VERSION = '3.15.0'
 
 /** How long a question to the desk waits for its answer before the key gives up. */
 export const ASK_TIMEOUT_MS = 5000
@@ -43,6 +43,20 @@ class PatternsInstance extends InstanceBase {
 			log: (level, text) => this.log(level, text),
 			changed: (nav) => this.onNavChanged(nav),
 		})
+		this.nav.onProtocol = (version) => this.onProtocol(version)
+	}
+
+	/**
+	 * Round 80: the desk's descriptor version, read from its NAV and MENU replies. A newer desk is said on the
+	 * connection (a warning, not a fault: the keys keep working on what this module understands) and in
+	 * `desk_protocol`; the same or an older version is a fact in the variable alone.
+	 */
+	onProtocol(version) {
+		this.setVariableValues({ desk_protocol: String(version) })
+		if (version > KNOWN_PROTOCOL) {
+			this.log('warn', `The desk speaks descriptor protocol ${version}; this module knows ${KNOWN_PROTOCOL} — update the module for what is new`)
+			this.updateStatus(InstanceStatus.UnknownWarning, `Desk protocol ${version}, this module knows ${KNOWN_PROTOCOL} — update the module`)
+		}
 	}
 
 	async init(config) {

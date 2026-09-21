@@ -218,6 +218,7 @@ export function variableDefinitions() {
 		nav_menu: "Navigator — the thing's menu on the keys (the words after MENU)",
 		nav_title: 'Navigator — the title of this level',
 		nav_where: 'Navigator — where the keys are, as crumbs (what the desk\'s Remote page shows for this deck)',
+		desk_protocol: "The desk's descriptor protocol version, from its NAV and MENU replies (round 80) — this module knows 1; a newer desk shows a warning on the connection and the keys keep working on what they understand",
 		nav_range: 'Navigator — "1–24 of 40" when the level has more entries than keys, or empty',
 		nav_count: 'Navigator — how many entries this level has',
 		nav_mode: 'Navigator — MENU or RUN',

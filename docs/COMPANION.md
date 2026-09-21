@@ -393,6 +393,13 @@ desk offers. A 3.12.0 deck ignores the row.
 
 ## 19. Round 74 additions
 
+**The desk's descriptor version, module 3.15.0 (round 80).** Every NAV and MENU reply carries `protocol`
+(round 75.4); the module reads it into `desk_protocol`, and a desk that speaks a newer descriptor than the
+module knows (1) shows a warning on the connection — *Desk protocol 2, this module knows 1 — update the
+module* — while the keys keep working on what they understand. A desk on the same or an older version
+raises nothing; the variable is the fact. `CompanionModuleContractTests` holds the module's number to the
+desk's.
+
 **The Navigator, version 3.14.0.** One page of keys that reads the desk itself. `nav_slot` (1–24)
 is the grid: the Navigator lays a level on it — the rails (`NAV`), a rail's pages, a page's own
 menu (`MENU PAGE Looks`: its looks, cues, designs, people, kinds, presets, media, screens,
