@@ -40,7 +40,7 @@ is the Bitfocus Companion module, where its version moved.
   assignment; the wire peer's dead catch and its flush under a close; the stale sentences made true, with
   a fence that every "RAIL → Page" names a real page.
 - **The process.** `CLAUDE.md` (the agent brief), `docs/field/` (the show laptop's four files per report),
-  `docs/OPEN.md` (the cumulative still-open ledger: sixteen rows closed by this round, twelve open),
+  `docs/OPEN.md` (the cumulative still-open ledger: seventeen rows closed by this round, eleven open),
   QUALIFICATION §22 (the scripted walk). Unwalked: no rig this round.
 
 ## Round 78 — 2026-09-18 — the wall's CUT/TAKE truth, the show folder's lease asked again, NDI and the stream as outputs of what they carry; the assessment answered

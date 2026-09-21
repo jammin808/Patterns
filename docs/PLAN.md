@@ -10564,7 +10564,7 @@ files first, then `docs/OPEN.md`, the requester and the evidence class named, th
 brief) and closes (one commit per unit, the papers, the suites, `unwalked` where no walk row exists), the
 house words. `docs/field/README.md`: the four files per report and the report's shape; the folder stays
 empty until the first report is committed. `docs/OPEN.md`: the cumulative ledger, sixteen rows closed by
-this round's units (one the monitors' half of a split row), twelve open with what closes each, one
+this round's units (one the monitors' half of a split row), eleven open with what closes each, one
 checked and left; nothing leaves it until a row
 names the closing unit. `docs/QUALIFICATION.md` §22: the eleven-step walk with a result table.
 
@@ -10595,8 +10595,8 @@ this round's close.
 
 `docs/OPEN.md` is the list: the policy key's fall-back (L09), the screencast bench (L10), the master rate
 following the displays (L11), the descriptor version read or dropped (L17), one atomic-write helper (L18),
-the two-machine status (L21), the assistant's settings (L22), the plan's OWN words (L23), the createdump
-target's first Windows run (L24), the tags on the remote (L25), the WebView2 probe (L26), the sealed air
+the two-machine status (L21), the assistant's settings (L22), the plan's OWN words (L23), the tags on the
+remote (L25), the WebView2 probe (L26), the sealed air
 type (L28). Next, in order: the walk (§22) on the next build, with the four files into `docs/field/`; then
 what the files say.
 

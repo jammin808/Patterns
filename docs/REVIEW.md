@@ -3037,7 +3037,8 @@ mute-first ask, and the crash gap's measurement on the rig.
 - **Fixed.** The band assertions read `h2` headings alone, and the test fills the wall (`PollNow`) before it
   reads the page, so the assertion is exercised under the condition that failed rather than by timing.
   Nothing skipped; the wall is asserted at its twelve tiles. The `portable-exe` job, gated on `test`, did not
-  run in 260 — `docs/OPEN.md` L24 waits for the next run.
+  run in 260; run 261 ran it green — the createdump target placed the file and both runtime checks passed —
+  and `docs/OPEN.md` L24 is closed by it.
 
 ### The review's items, answered
 
