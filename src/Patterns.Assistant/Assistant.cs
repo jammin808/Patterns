@@ -67,9 +67,7 @@ public sealed class AssistantKeyStore
     {
         try
         {
-            var tmp = Path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(key));
-            File.Move(tmp, Path, overwrite: true);
+            AtomicFile.WriteAllText(Path, JsonUtil.Serialize(key));
         }
         catch (Exception ex)
         {

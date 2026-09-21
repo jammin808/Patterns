@@ -49,9 +49,7 @@ public sealed class PlayheadStore
     {
         try
         {
-            var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.SerializeCompact(record));
-            File.Move(tmp, _path, overwrite: true);
+            AtomicFile.WriteAllText(_path, JsonUtil.SerializeCompact(record));
         }
         catch (Exception ex)
         {

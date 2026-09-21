@@ -347,10 +347,7 @@ public static class UpdateApply
 
     public static void WriteRequest(string updatesDir, UpdateRequest request)
     {
-        Directory.CreateDirectory(updatesDir);
-        var path = Path.Combine(updatesDir, RequestName);
-        File.WriteAllText(path + ".tmp", JsonUtil.Serialize(request));
-        File.Move(path + ".tmp", path, overwrite: true);
+        AtomicFile.WriteAllText(Path.Combine(updatesDir, RequestName), JsonUtil.Serialize(request));
     }
 
     public static UpdateRequest? ReadRequest(string updatesDir)

@@ -57,9 +57,7 @@ public sealed class QualityProfileStore
     {
         try
         {
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(profile));
-            File.Move(tmp, FilePath, overwrite: true);
+            AtomicFile.WriteAllText(FilePath, JsonUtil.Serialize(profile));
         }
         catch (Exception ex)
         {

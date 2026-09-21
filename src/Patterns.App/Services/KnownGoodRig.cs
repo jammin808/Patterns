@@ -40,10 +40,7 @@ public sealed class KnownGoodRig
     {
         lock (_gate)
         {
-            var tmp = Path + ".tmp";
-            File.WriteAllText(tmp, now.ToJson());
-            if (File.Exists(Path)) File.Copy(Path, Path + ".bak", overwrite: true);
-            File.Move(tmp, Path, overwrite: true);
+            AtomicFile.WriteAllTextKeepingBackup(Path, now.ToJson());
             Known = now;
             _lastJournaled = null;
             LastDrift = null;

@@ -240,9 +240,7 @@ public sealed class RecoveryStore
     {
         try
         {
-            var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, json);
-            File.Move(tmp, _path, overwrite: true);
+            AtomicFile.WriteAllText(_path, json);
         }
         catch (Exception ex)
         {
@@ -524,10 +522,7 @@ public static class CrashMarker
     {
         try
         {
-            var path = Path.Combine(directory, FileName);
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(note));
-            File.Move(tmp, path, overwrite: true);
+            AtomicFile.WriteAllText(Path.Combine(directory, FileName), JsonUtil.Serialize(note));
         }
         catch
         {

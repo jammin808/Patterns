@@ -45,9 +45,7 @@ public sealed class SpotifyCredentialStore
     {
         try
         {
-            var tmp = Path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(creds));
-            File.Move(tmp, Path, overwrite: true);
+            AtomicFile.WriteAllText(Path, JsonUtil.Serialize(creds));
         }
         catch (Exception ex)
         {

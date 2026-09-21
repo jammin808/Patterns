@@ -155,9 +155,7 @@ public sealed class ShowLog
             changed++;
         }
         if (changed == 0) return 0;
-        var tmp = file + ".tmp";
-        File.WriteAllText(tmp, string.Join('\n', lines));
-        File.Move(tmp, file, overwrite: true);
+        AtomicFile.WriteAllText(file, string.Join('\n', lines));
         Log.Info($"Show log: {changed} old row{(changed == 1 ? "" : "s")} carrying an admin passcode blanked in {System.IO.Path.GetFileName(file)}.");
         return changed;
     }

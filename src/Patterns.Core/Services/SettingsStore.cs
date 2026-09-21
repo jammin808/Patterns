@@ -408,18 +408,7 @@ public sealed class SettingsStore
         }
     }
 
-    public static void WriteAtomic(string path, string content)
-    {
-        var dir = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, content);
-        if (File.Exists(path))
-        {
-            File.Copy(path, path + ".bak", overwrite: true);
-        }
-        File.Move(tmp, path, overwrite: true);
-    }
+    public static void WriteAtomic(string path, string content) => AtomicFile.WriteAllTextKeepingBackup(path, content);
 
     private static void Quarantine(string path)
     {
