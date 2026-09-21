@@ -9,8 +9,9 @@ namespace Patterns.Core.Services;
 /// <param name="Armed">ARM on the tile: the next CUT / TAKE may change it.</param>
 /// <param name="Ticked">The tick at the top of the tile.</param>
 /// <param name="Shape">Round 75: what the target is, in the wall's words — "a screen of its own", "a repeater of 1 · Left", "Canvas A of 2 · Right, 3 · Rear" — kept by a ticket at the press and said at its landing when the target is something else now. "" when the caller keeps no shapes.</param>
+/// <param name="KeepsOwn">Round 80: an armed target whose own picture is on the air and unchanged in the preview — a wall take leaves it as it is (round 30's rule), and the plan says so before the press instead of listing it as taken.</param>
 /// <param name="ShapeKey">Round 76: what the target is, structurally (<see cref="TakeShapes"/>) — "own", "mirror:a", "canvas:a|b" — the key a landing compares, so a label that changed during the clip never holds a landing and a member that joined or left always does. "" when the caller keeps no keys, and the words decide as in round 75.</param>
-public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "", string ShapeKey = "");
+public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "", string ShapeKey = "", bool KeepsOwn = false);
 
 /// <summary>
 /// Round 76: a target's structural identity apart from its words. Round 75 compared the wall's words
@@ -85,18 +86,27 @@ public sealed record TakePlan
     /// <summary>"on every armed screen", "on 2 · Comfort alone", "on the ticked tiles: 1 · Main, A · Wall".</summary>
     public string Where { get; init; } = "";
 
-    /// <summary>The plan in one line for a key's face or a status line: "→ 1 · Main, A · Wall · held: 2 · Comfort (locked)".</summary>
+    /// <summary>
+    /// The plan in one line for a key's face or a status line: "→ 1 · Main, A · Wall · held: 2 · Comfort (locked)"; round 80:
+    /// "→ 1 · Main · 2 · Lobby keeps its own picture (OWN)" for an armed target whose own picture the take leaves as it is.
+    /// </summary>
     public string Words
     {
         get
         {
             if (Refusal is not null) return Refusal;
-            var taken = string.Join(", ", TakenLabels);
+            var keeping = new HashSet<string>(KeepsOwnLabels, StringComparer.Ordinal);
+            var taken = string.Join(", ", TakenLabels.Where(l => !keeping.Contains(l)));
+            var head = taken.Length > 0 ? $"→ {taken}" : "→ no screen changes its picture";
+            var own = KeepsOwnLabels.Count == 0 ? "" : $" · {string.Join(", ", KeepsOwnLabels)} keep{(KeepsOwnLabels.Count == 1 ? "s its" : " their")} own picture (OWN)";
             var held = Held.Count == 0 ? "" : " · held: " + string.Join(", ", Held.Select(h => $"{h.Label} ({h.Reason})"));
             var outside = Outside.Count == 0 ? "" : $" · {Outside.Count} outside the scope keep{(Outside.Count == 1 ? "s" : "")} {(Outside.Count == 1 ? "its" : "their")} picture";
-            return $"→ {taken}{held}{outside}";
+            return $"{head}{own}{held}{outside}";
         }
     }
+
+    /// <summary>Round 80: the wall's names for the taken targets that keep their own picture (<see cref="TakeTarget.KeepsOwn"/>) — still taken (the send carries them), said apart.</summary>
+    public IReadOnlyList<string> KeepsOwnLabels { get; init; } = Array.Empty<string>();
 
     /// <summary>The wall's names for <see cref="Taken"/>, in the same order — a ticket keeps them, so its words stay the press's.</summary>
     public IReadOnlyList<string> TakenLabels { get; init; } = Array.Empty<string>();
@@ -157,6 +167,7 @@ public sealed record TakePlan
         var takenLabels = new List<string>();
         var takenShapes = new List<string>();
         var takenKeys = new List<string>();
+        var keepsOwn = new List<string>();
         var held = new List<TakeHeld>();
         foreach (var t in rig)
         {
@@ -170,6 +181,7 @@ public sealed record TakePlan
                 takenLabels.Add(t.Label);
                 takenShapes.Add(t.Shape);
                 takenKeys.Add(t.ShapeKey);
+                if (t.KeepsOwn) keepsOwn.Add(t.Label);      // round 80: carried by the send, its picture left as it is — said before the press
             }
         }
         var outside = rig.Where(t => !inside.Contains(t.Id)).Select(t => t.Id).ToList();
@@ -197,6 +209,7 @@ public sealed record TakePlan
             TakenLabels = takenLabels,
             TakenShapes = takenShapes,
             TakenKeys = takenKeys,
+            KeepsOwnLabels = keepsOwn,
             Held = held,
             Outside = outside,
             Where = where,

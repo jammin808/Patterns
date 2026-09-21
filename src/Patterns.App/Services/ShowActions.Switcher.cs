@@ -467,6 +467,7 @@ public sealed partial class ShowActions
     {
         var ticked = new HashSet<string>(_s.TickedTargets?.Invoke() ?? Array.Empty<string>(), StringComparer.Ordinal);
         var byId = State.Output.Placements.ToDictionary(p => p.ScreenId, StringComparer.Ordinal);
+        var program = _s.Sandbox.ProgramState ?? State;                 // round 80: the air, for what a take leaves as it is
         var rig = new List<TakeTarget>();
         foreach (var target in geometry.Targets)
         {
@@ -478,8 +479,11 @@ public sealed partial class ShowActions
                 : "a screen of its own";
             // Round 76: the key beside the words — ids alone, so a rename during the clip is no change and a member moved is.
             var key = canvas ? TakeShapes.Canvas(ContentTargets.Members(target)) : mirror ? TakeShapes.Mirror(byId[target].MirrorOf) : TakeShapes.Own;
+            // Round 80: an own picture on the air and unchanged in the preview — a wall take carries it and leaves it as it is
+            // (round 30's rule); the plan says so before the press instead of listing the target as if its picture would move.
+            var keepsOwn = !mirror && ContentTargets.UsesOwnPattern(program, target) && !(_s.Sandbox.Active && _s.Sandbox.IsStaged(target));
             rig.Add(new TakeTarget(target, geometry.LabelFor(State, target), canvas, mirror,
-                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape, key));
+                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape, key, keepsOwn));
         }
         return rig;
     }
