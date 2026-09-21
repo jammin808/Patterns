@@ -673,6 +673,8 @@ public sealed class SystemMetricsService : IDisposable
             RemoteUrl = remoteUrl,
             RemoteBind = state.Control.Bind,
             RemoteToken = PairingToken.Needed(state.Control.Token),
+            OscOpen = state.Control.Enabled && state.Control.OscEnabled,                                  // round 79: the port that cannot pair
+            OscPort = state.Control.OscPort,
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             Advice = Suggestions,

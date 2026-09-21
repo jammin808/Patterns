@@ -33,10 +33,12 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 > `CUE LIST`, the `MENU` queries, the pages themselves — never needs it, and connections from the
 > desk's own machine never do. A mutating verb without it answers `ERR not paired …` and runs
 > nothing; NEW TOKEN cuts every paired remote off until the new token is typed into it. The token
-> is the show's: saved with it and mirrored to the twin, so a standby that takes over answers the
-> same remotes. **Bind to** puts the web remote and the wire on one address — the control
-> network's, on a desk with two — so the audience network never sees the control ports. OSC has
-> no session to pair: leave it off, or keep it behind the control network. Turn remote control off
+> is this desk's own: saved with the show but never mirrored to the twin (the Control section stays
+> on each machine — secrets do not travel the link), so type the same token into a standby for it
+> to answer the same remotes after a handover. **Bind to** puts the web remote, the wire and OSC on
+> one address — the control network's, on a desk with two — so the audience network never sees the
+> control ports. OSC has no session to pair, so the token never covers it: Super Check paints an
+> open OSC port amber until it is bound or off. Turn remote control off
 > on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`, `UPDATE APPLY` and
 > the `/admin` page — sits behind the Install page's passcode (`docs/INSTALLS.md`), which rides in
 > the `X-Patterns-Pass` header and never in a URL.

@@ -9,6 +9,44 @@ public class OscMapTests
 {
     private static OscMessage Of(string address, params object?[] args) => OscMessage.Of(address, args);
 
+    /// <summary>
+    /// Round 79: a switch word the map does not know is a refused message, never the bare address — /patterns/blackout/onn
+    /// used to toggle the blackout and /patterns/outputs/toggle used to open the outputs. The spellings the map knows,
+    /// a segment "1" / "0" among them now, all still land.
+    /// </summary>
+    [Fact]
+    public void AnUnknownSwitchWordIsRefusedNotReadAsTheBareVerb()
+    {
+        var refused = new[]
+        {
+            Of("/patterns/blackout/onn"), Of("/patterns/blackout", "maybe"), Of("/patterns/blackout/togle"),
+            Of("/patterns/outputs/toggle"), Of("/patterns/outputs", "later"), Of("/patterns/tone/flip"),
+            Of("/patterns/screen/2/flip"), Of("/patterns/screen/2", "onn"), Of("/patterns/lock/1/pls"),
+            Of("/patterns/duck/loud"), Of("/patterns/freeze", "all"), Of("/patterns/review/now"),
+            Of("/patterns/clock/seconds/onn"), Of("/patterns/clock/date", "tomorrow"), Of("/patterns/ticker/fast"), Of("/patterns/message/scroll/togle"),
+            Of("/patterns/logo/big"), Of("/patterns/pip/there"), Of("/patterns/stream/go"), Of("/patterns/schedule/tonight"),
+            Of("/patterns/cue/hold/pls"), Of("/patterns/cue/arm/toggle"), Of("/patterns/group/a/sometimes"), Of("/patterns/audio/routing/loud"),
+        };
+        foreach (var m in refused)
+        {
+            Assert.Null(OscMap.ToLine(m));
+        }
+
+        var accepted = new (OscMessage Message, string Line)[]
+        {
+            (Of("/patterns/blackout/1"), "BLACKOUT ON"), (Of("/patterns/blackout/0"), "BLACKOUT OFF"), (Of("/patterns/blackout/toggle"), "BLACKOUT TOGGLE"),
+            (Of("/patterns/blackout", "TRUE"), "BLACKOUT ON"), (Of("/patterns/blackout", 0.7f), "BLACKOUT ON"), (Of("/patterns/blackout"), "BLACKOUT TOGGLE"),
+            (Of("/patterns/outputs"), "OUTPUTS ON"), (Of("/patterns/outputs/off"), "OUTPUTS OFF"), (Of("/patterns/outputs", "no"), "OUTPUTS OFF"),
+            (Of("/patterns/screen/2/1"), "SCREEN 2 ON"), (Of("/patterns/lock/1/0"), "LOCK 1 OFF"), (Of("/patterns/screen/2/toggle"), "SCREEN 2 TOGGLE"),
+            (Of("/patterns/clock/seconds/on"), "CLOCK SECONDS ON"), (Of("/patterns/ticker"), "MESSAGE SCROLL TOGGLE"), (Of("/patterns/freeze", "yes"), "FREEZE ON"),
+            (Of("/patterns/cue/hold"), "CUE HOLD ON"), (Of("/patterns/group/a/off"), "GROUP A OFF"),
+        };
+        foreach (var (m, line) in accepted)
+        {
+            Assert.Equal(line, OscMap.ToLine(m));
+        }
+    }
+
     [Fact]
     public void EveryAddressBecomesTheLineItMeans()
     {

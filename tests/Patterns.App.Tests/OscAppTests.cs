@@ -129,4 +129,45 @@ public class OscAppTests
             b.Dispose();
         }
     }
+
+    /// <summary>Round 79: the desk's bind address holds for OSC too — the socket opens on that address alone and the status says so.</summary>
+    [AvaloniaFact]
+    public void OscListensOnTheDesksBindAddressAlone()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var cfg = vm.State.Control;
+            cfg.HttpPort = FreeTcpPort();
+            cfg.TcpPort = FreeTcpPort();
+            var oscPort = FreeUdpPort();
+            cfg.OscPort = oscPort;
+            cfg.Bind = "127.0.0.1";
+            cfg.OscEnabled = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith($"OSC in on port {oscPort} on 127.0.0.1 only", services.Osc.Status);
+
+            using var sender = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+            var target = new IPEndPoint(IPAddress.Loopback, oscPort);
+            sender.Send(OscCodec.Encode(OscMessage.Of("/patterns/blackout", 1)), target);
+            PumpUntil(() => services.State.Blackout);
+
+            // An unknown switch word is answered as an error and moves nothing (round 79: the map fails closed).
+            sender.Send(OscCodec.Encode(OscMessage.Of("/patterns/blackout/offf")), target);
+            var error = Receive(sender, m => m.Address == "/patterns/error" && (m.Text() ?? "").Contains("unknown address"));
+            Assert.Contains("/patterns/blackout/offf", error.Text());
+            Assert.True(services.State.Blackout);
+
+            // The bind cleared: the port re-opens on every interface, and the status says so no more.
+            cfg.Bind = "";
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith($"OSC in on port {oscPort} · ", services.Osc.Status);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 }

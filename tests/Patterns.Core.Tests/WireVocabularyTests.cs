@@ -408,3 +408,41 @@ public class WireVocabularyTests
         Assert.Equal(ShowActionKind.FreezeOff, ControlProtocol.Parse("FREEZE OFF").Action.Kind);
     }
 }
+
+    /// <summary>
+    /// Round 79: the four overlay switches that still read any word as the toggle — CLOCK SECONDS, CLOCK DATE,
+    /// MESSAGE SCROLL and TICKER — refuse an unknown word like the latches do. The switch's spellings all stay.
+    /// </summary>
+    [Fact]
+    public void TheOverlaySwitchesRefuseAnyOtherWordToo()
+    {
+        var accepted = new (string Line, ShowActionKind Kind, string Value)[]
+        {
+            ("CLOCK SECONDS", ShowActionKind.ClockSeconds, "toggle"), ("CLOCK SECONDS TOGGLE", ShowActionKind.ClockSeconds, "toggle"),
+            ("CLOCK SECONDS ON", ShowActionKind.ClockSeconds, "on"), ("CLOCK SECS off", ShowActionKind.ClockSeconds, "off"), ("CLOCK SECONDS 1", ShowActionKind.ClockSeconds, "on"),
+            ("CLOCK DATE", ShowActionKind.ClockDate, "toggle"), ("CLOCK DATE SHOW", ShowActionKind.ClockDate, "on"), ("CLOCK DATE HIDE", ShowActionKind.ClockDate, "off"),
+            ("MESSAGE SCROLL", ShowActionKind.MessageScroll, "toggle"), ("MESSAGE SCROLL ON", ShowActionKind.MessageScroll, "on"), ("MSG SCROLL false", ShowActionKind.MessageScroll, "off"),
+            ("TICKER", ShowActionKind.MessageScroll, "toggle"), ("TICKER OFF", ShowActionKind.MessageScroll, "off"), ("TICKER yes", ShowActionKind.MessageScroll, "on"), ("TICKER flip", ShowActionKind.MessageScroll, "toggle"),
+        };
+        foreach (var (line, kind, value) in accepted)
+        {
+            var cmd = ControlProtocol.Parse(line);
+            Assert.True(cmd.IsAction, line);
+            Assert.Equal(kind, cmd.Action.Kind);
+            Assert.Equal(value, cmd.Action.Value);
+        }
+
+        var refused = new[]
+        {
+            "CLOCK SECONDS ONN", "CLOCK SECONDS TOGLE", "CLOCK SECONDS MAYBE", "CLOCK SECS 50",
+            "CLOCK DATE OFFF", "CLOCK DATE NOW",
+            "MESSAGE SCROLL TOGLE", "MESSAGE SCROLL FAST", "MSG SCROLL 2",
+            "TICKER ONN", "TICKER TOGLE", "TICKER LATER",
+        };
+        foreach (var line in refused)
+        {
+            var cmd = ControlProtocol.Parse(line);
+            Assert.False(cmd.IsAction, $"{line} must not be an action");
+            Assert.Equal(RemoteCommandKind.Unknown, cmd.Kind);
+        }
+    }

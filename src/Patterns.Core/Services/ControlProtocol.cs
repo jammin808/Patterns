@@ -139,6 +139,15 @@ public static class ControlProtocol
     /// <summary>"on" / "off" / "toggle" from ON / SHOW / 1 / TRUE, OFF / HIDE / 0 / FALSE, or nothing (a bare verb toggles).</summary>
     public static string SwitchWord(string text) => OverlayControl.SwitchWord(text);
 
+    /// <summary>
+    /// Round 79: a switch verb's word as its action — on / off / toggle in any of their spellings, or no word (a bare
+    /// verb toggles). Any other word is refused as unknown, never read as the toggle: round 72.5's rule for the
+    /// latches, now at the four overlay sites (CLOCK SECONDS / DATE, MESSAGE SCROLL, TICKER) that still fell through,
+    /// where a misspelt OFF from a deck flipped the ticker the other way.
+    /// </summary>
+    private static RemoteCommand Switched(ShowActionKind kind, string word, string line)
+        => word.Length == 0 || OverlayControl.IsSwitchWord(word) ? Act(kind, "", SwitchWord(word)) : Unknown(line);
+
     /// <summary>"5", "2.5", "2:30" (minutes:seconds), "90s", "5m", "5 min": minutes as a decimal; false for words, nothing, zero or over a day.</summary>
     public static bool TryParseMinutes(string text, out double minutes)
     {
@@ -835,8 +844,8 @@ public static class ControlProtocol
                     case "ON": case "SHOW": return Act(ShowActionKind.ClockOn);
                     case "OFF": case "HIDE": return Act(ShowActionKind.ClockOff);
                     case "12": case "12H": case "24": case "24H": return Act(ShowActionKind.ClockFormat, "", what[..2]);
-                    case "SECONDS": case "SECS": return Act(ShowActionKind.ClockSeconds, "", SwitchWord(rest));
-                    case "DATE": return Act(ShowActionKind.ClockDate, "", SwitchWord(rest));
+                    case "SECONDS": case "SECS": return Switched(ShowActionKind.ClockSeconds, rest, s);
+                    case "DATE": return Switched(ShowActionKind.ClockDate, rest, s);
                     default: return Unknown(s);
                 }
             }
@@ -851,13 +860,13 @@ public static class ControlProtocol
                     case "": case "TOGGLE": return Act(ShowActionKind.MessageToggle);
                     case "ON": case "SHOW": return Act(ShowActionKind.MessageOn, "", rest);
                     case "OFF": case "HIDE": return Act(ShowActionKind.MessageOff);
-                    case "SCROLL": return Act(ShowActionKind.MessageScroll, "", SwitchWord(rest));
+                    case "SCROLL": return Switched(ShowActionKind.MessageScroll, rest, s);
                     case "TEXT": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.MessageOn, "", rest);
                     default: return Act(ShowActionKind.MessageOn, "", arg);   // "MESSAGE Doors open at 7": the words, and on
                 }
             }
             case "TICKER":
-                return Act(ShowActionKind.MessageScroll, "", SwitchWord(arg));
+                return Switched(ShowActionKind.MessageScroll, arg, s);
             case "COUNTDOWN":
             case "TIMER":
             {

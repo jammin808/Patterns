@@ -93,7 +93,7 @@ public sealed class OscService : IDisposable
         HookStack();
         var cfg = _services.State.Control;
         var on = cfg.Enabled && cfg.OscEnabled;
-        var key = on ? $"{cfg.OscPort}|{cfg.OscFeedbackHost}|{cfg.OscFeedbackPort}" : "";
+        var key = on ? $"{cfg.OscPort}|{cfg.Bind}|{cfg.OscFeedbackHost}|{cfg.OscFeedbackPort}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
 
@@ -107,9 +107,12 @@ public sealed class OscService : IDisposable
         _cts = new CancellationTokenSource();
         try
         {
-            _udp = new UdpClient(new IPEndPoint(IPAddress.Any, cfg.OscPort));
+            // Round 79: the desk's bind address (round 65) holds for OSC as it does for the wire and the web — the one
+            // control port that cannot pair is the one that most needs to stay on the control network.
+            var bound = IPAddress.TryParse(cfg.Bind, out var address) ? address : null;
+            _udp = new UdpClient(new IPEndPoint(bound ?? IPAddress.Any, cfg.OscPort));
             _ = ReceiveLoop(_udp, _cts.Token);
-            _status = $"OSC in on port {cfg.OscPort} · {ResolveFeedback(cfg.OscFeedbackHost, cfg.OscFeedbackPort, cfg.OscPort)}.";
+            _status = $"OSC in on port {cfg.OscPort}{(bound is null ? "" : $" on {bound} only")} · {ResolveFeedback(cfg.OscFeedbackHost, cfg.OscFeedbackPort, cfg.OscPort)}.";
             Log.Info(_status);
         }
         catch (Exception ex)

@@ -122,4 +122,43 @@ public class PairingTokenTests
         Assert.Equal(CheckLight.Green, paired.Light);
         Assert.Equal("http://10.0.0.5:9696/ · paired", paired.Value);
     }
+
+    /// <summary>
+    /// Round 79: OSC has no session, so the token never covers it — an open OSC port is amber with the fix even on
+    /// a paired desk, green with the reason once the control ports are bound, and no row at all while OSC is off.
+    /// </summary>
+    [Fact]
+    public void TheOscRowSaysThePortCannotPairAndWhatKeepsItToTheControlNetwork()
+    {
+        static CheckRow? Row(CheckFacts f) => SuperCheck.Run(f).Rows.SingleOrDefault(r => r.Section == "REMOTE" && r.Item == "OSC");
+
+        Assert.Null(Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true }));
+        Assert.Null(Row(new CheckFacts { RemoteEnabled = false, OscOpen = true, OscPort = 9698 }));
+
+        var open = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698 });
+        Assert.NotNull(open);
+        Assert.Equal(CheckLight.Amber, open!.Light);
+        Assert.Equal("port 9698 · open on every interface", open.Value);
+        Assert.StartsWith("FIX:", open.Note);
+        Assert.Contains("cannot pair", open.Note);
+        Assert.Contains("bind", open.Note);
+
+        var bound = Row(new CheckFacts { RemoteEnabled = true, OscOpen = true, OscPort = 9698, RemoteBind = "10.0.0.5" });
+        Assert.NotNull(bound);
+        Assert.Equal(CheckLight.Green, bound!.Light);
+        Assert.Equal("port 9698 · open on 10.0.0.5 only", bound.Value);
+        Assert.Contains("cannot pair", bound.Note);
+    }
+
+    /// <summary>
+    /// Round 79: the token is this desk's own. The Control section never travels the twin link (secrets do not,
+    /// round 44), so a standby answers the token typed into it — what the papers used to call "mirrored" is not.
+    /// </summary>
+    [Fact]
+    public void TheTokenIsThisDesksOwnAndNeverMirroredToATwin()
+    {
+        Assert.Contains(nameof(ShowState.Control), TwinSync.LocalSections);
+        Assert.False(TwinSync.IsMirrored(nameof(ShowState.Control)));
+        Assert.DoesNotContain(nameof(ShowState.Control), TwinSync.MirroredSections);
+    }
 }

@@ -227,6 +227,9 @@ public sealed class CheckFacts
     public string RemoteBind { get; init; } = "";
     /// <summary>Whether a pairing token is set, so a remote must present it before a mutating verb runs.</summary>
     public bool RemoteToken { get; init; }
+    /// <summary>Round 79: whether OSC is listening (remote control on, OSC in ticked) — the one control port that has no session to pair.</summary>
+    public bool OscOpen { get; init; }
+    public int OscPort { get; init; }
 
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
@@ -252,6 +255,7 @@ public static class SuperCheck
         Stream(f, rows);
         Audio(f, rows);
         Remote(f, rows);
+        Osc(f, rows);
         Video(f, rows);
         AdviceRows(f, rows);
         var level = Grade(f);
@@ -973,6 +977,23 @@ public static class SuperCheck
             rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Amber, $"{where} · open on every interface",
                 "FIX: anyone on any network this machine is on can run the show — Remote page, TRUST: NEW TOKEN and pair the decks and phones, or bind the control ports to the control network's address"));
         }
+    }
+
+    /// <summary>
+    /// Round 79: OSC has no session, so the show's token never covers it — a port open on every interface is amber
+    /// with the fix, whatever the remote row says; bound to the control network's address it is green with the reason.
+    /// Nothing while OSC is off: the remote row already says what the network trusts.
+    /// </summary>
+    private static void Osc(CheckFacts f, List<CheckRow> rows)
+    {
+        if (!f.RemoteEnabled || !f.OscOpen) return;
+        if (f.RemoteBind.Length > 0)
+        {
+            rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Green, $"port {f.OscPort} · open on {f.RemoteBind} only", "OSC cannot pair; the bind keeps it to the control network"));
+            return;
+        }
+        rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Amber, $"port {f.OscPort} · open on every interface",
+            "FIX: OSC cannot pair, so the show's token does not cover it — anyone on any network this machine is on can drive the show over it: bind the control ports to the control network's address (Remote page), or untick OSC in when it is not needed"));
     }
 
     private static void Video(CheckFacts f, List<CheckRow> rows)

@@ -358,7 +358,7 @@ public sealed class EyeService
             Companions = companions,
             WireClients = Math.Max(0, _s.Control.WireConnections - decks.Count),
             WebClients = _s.Control.HttpConnections,
-            Osc = state.Control.OscEnabled ? new EyeOsc(state.Control.OscPort, _s.Osc.StatusLine) : null,
+            Osc = state.Control.OscEnabled ? new EyeOsc(state.Control.OscPort, _s.Osc.StatusLine, state.Control.Bind) : null,   // round 79: the bind decides its light
             Twin = twin,
             Nodes = nodes,
             Room = room,

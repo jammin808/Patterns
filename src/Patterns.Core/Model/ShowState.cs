@@ -2244,7 +2244,8 @@ public sealed class ControlConfig : Observable
     /// The show's pairing token: what a remote presents before the desk runs its mutating verbs —
     /// AUTH on the wire, X-Patterns-Token on the web. Reading (STATE, STATUS, the pages) never needs
     /// it; this machine's own browsers never do. Empty is open — any device on the network, as
-    /// before — and Super Check says so. Saved with the show, mirrored to the twin, never in a URL.
+    /// before — and Super Check says so. Saved with the show; this machine's own, never mirrored to a
+    /// twin (set the same token on a standby for the remotes to follow a handover); never in a URL.
     /// </summary>
     public string Token { get => _token; set => Set(ref _token, (value ?? "").Trim()); }
 

@@ -186,7 +186,8 @@ public sealed record EyeDeck(string Name, string Module, string Address, bool Pa
 /// <summary>A Companion heard on mDNS.</summary>
 public sealed record EyeCompanion(string Host, string Address, bool Fresh, string Version);
 
-public sealed record EyeOsc(int Port, string Words);
+/// <summary>OSC as the Eye sees it (round 79: <paramref name="Bind"/> is the address the control ports are bound to, "" for every interface — OSC cannot pair, so an unbound port is amber).</summary>
+public sealed record EyeOsc(int Port, string Words, string Bind = "");
 
 /// <summary>The twin link as this process sees it: Role "main" / "standby" / "" (alone), the other machine's name, the phase's words and light.</summary>
 public sealed record EyeTwin(string Role, string Phase, string OtherName, string Words, CheckLight Light);
@@ -676,8 +677,18 @@ public sealed class EyeGraph
         }
         if (f.Osc is { } osc)
         {
-            Add(new EyeNode("osc", EyeKind.Osc, EyePlane.Control, 0, "OSC", $"port {osc.Port}" + (osc.Words.Length > 0 ? " · " + osc.Words : ""), CheckLight.Green) { Route = new MenuRoute("Remote") });
-            Link("osc", DeskId, EyeEdgeKind.Controls, CheckLight.Green);
+            // Round 79: OSC has no session to pair, so the show's token never covers it — open on every interface it is
+            // amber with the way out, as the super-check's row is; bound to the control network's address it is green.
+            var open = osc.Bind.Length == 0;
+            var light = open ? CheckLight.Amber : CheckLight.Green;
+            Add(new EyeNode("osc", EyeKind.Osc, EyePlane.Control, 0, "OSC", $"port {osc.Port}" + (osc.Words.Length > 0 ? " · " + osc.Words : ""), light)
+            {
+                Route = new MenuRoute("Remote"),
+                Words = open
+                    ? new[] { "open on every interface — OSC cannot pair, so the token does not cover it; bind the control ports to the control network's address, or turn OSC in off when it is not needed" }
+                    : new[] { $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" },
+            });
+            Link("osc", DeskId, EyeEdgeKind.Controls, light);
         }
 
         // The desk's own: the cue stack and the assistant.

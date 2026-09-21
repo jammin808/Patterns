@@ -115,8 +115,8 @@ public static class OscMap
         var seg3 = parts.Length > 3 ? parts[3] : "";
         switch (verb)
         {
-            case "outputs": return "OUTPUTS " + Switch(m, seg, "ON", toggles: false);
-            case "blackout": return "BLACKOUT " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "outputs": return Sw("OUTPUTS", Switch(m, seg, "ON", toggles: false));
+            case "blackout": return Sw("BLACKOUT", Switch(m, seg, "TOGGLE", toggles: true));
             case "identify": return "IDENTIFY";
             case "look":
                 // /patterns/look/index/3 · /patterns/look/index 3 · /patterns/look/bank/3: the third look in the show's order.
@@ -167,7 +167,7 @@ public static class OscMap
             case "lock": return Numbered("LOCK", seg, m, seg2, "TOGGLE", toggles: true);
             case "group":
                 if (seg.Length == 0) return null;
-                return $"GROUP {seg.ToUpperInvariant()} {Switch(m, seg2, "ON", toggles: false)}";
+                return Sw($"GROUP {seg.ToUpperInvariant()}", Switch(m, seg2, "ON", toggles: false));
             // /patterns/audio/play · /patterns/audio/play 3 · /patterns/audio/play/3 · /patterns/audio/play "Walk-in" · /next · /prev · /volume 80 · /stop
             case "audio":
             case "track":
@@ -190,9 +190,9 @@ public static class OscMap
                     }
                     // /patterns/audio/routing on · /patterns/audio/route "music" "Info HDMI" [-6] · /patterns/audio/unroute "music" "Info HDMI" · /patterns/audio/vog "Info HDMI" replace
                     case "routing": case "matrix":
-                        return "AUDIO ROUTING " + Switch(m, seg2, "ON", toggles: true);
+                        return Sw("AUDIO ROUTING", Switch(m, seg2, "ON", toggles: true));
                     case "follow": case "follows":
-                        return "AUDIO FOLLOW " + Switch(m, seg2, "ON", toggles: true);
+                        return Sw("AUDIO FOLLOW", Switch(m, seg2, "ON", toggles: true));
                     case "route":
                     {
                         var source = m.Text() ?? "";
@@ -238,8 +238,8 @@ public static class OscMap
                         return what.Length > 0 ? "MUSIC PLAY " + seg : null;
                 }
             }
-            case "tone": return "TONE " + Switch(m, seg, "ON", toggles: false);
-            case "duck": return "DUCK " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "tone": return Sw("TONE", Switch(m, seg, "ON", toggles: false));
+            case "duck": return Sw("DUCK", Switch(m, seg, "TOGGLE", toggles: true));
             case "stinger":
                 if (seg.Equals("stop", StringComparison.OrdinalIgnoreCase)) return "STINGER STOP";
                 return Named("STINGER", m, seg);
@@ -379,7 +379,7 @@ public static class OscMap
                 }
                 return what.Length == 0 ? null : "DECK " + what.ToUpperInvariant();
             }
-            case "stream": return "STREAM " + Switch(m, seg, "ON", toggles: false);
+            case "stream": return Sw("STREAM", Switch(m, seg, "ON", toggles: false));
             // /patterns/device/Arduino "RELAY 1" · /patterns/device "Arduino" "RELAY 1" · /patterns/device/Arduino/RELAY 1: a line to a device.
             case "device":
             case "send":
@@ -408,8 +408,8 @@ public static class OscMap
                             _ => "CUE STANDBY " + which,
                         };
                     }
-                    case "hold": return "CUE HOLD " + Switch(m, seg2, "ON", toggles: false);
-                    case "arm": return "CUE ARM " + Switch(m, seg2, "ON", toggles: false);
+                    case "hold": return Sw("CUE HOLD", Switch(m, seg2, "ON", toggles: false));
+                    case "arm": return Sw("CUE ARM", Switch(m, seg2, "ON", toggles: false));
                     case "list": return "CUE LIST";
                     default: return null;
                 }
@@ -430,40 +430,40 @@ public static class OscMap
                 if (what.Length == 0) return null;
                 return what.ToLowerInvariant() is "off" or "stop" or "skip" or "end" ? "ADVERT OFF" : "ADVERT " + what;
             }
-            case "schedule": return "SCHEDULE " + Switch(m, seg, "ON", toggles: false);
+            case "schedule": return Sw("SCHEDULE", Switch(m, seg, "ON", toggles: false));
             // The overlays: /patterns/clock [1|0] · /patterns/clock/24 · /patterns/clock/seconds 0 · /patterns/message "Doors open" · /patterns/message/scroll 1 ·
             // /patterns/countdown 5 · /patterns/countdown/start/2:30 · /patterns/countdown/toggle · /patterns/countdown/to "19:30" · /patterns/countdown/stop · /patterns/logo · /patterns/pip · /patterns/overlays/off
             case "clock":
             {
                 var what = seg.ToLowerInvariant();
                 if (what is "12" or "24") return "CLOCK " + what;
-                if (what is "seconds" or "secs") return "CLOCK SECONDS " + Switch(m, seg2, "TOGGLE", toggles: true);
-                if (what is "date") return "CLOCK DATE " + Switch(m, seg2, "TOGGLE", toggles: true);
+                if (what is "seconds" or "secs") return Sw("CLOCK SECONDS", Switch(m, seg2, "TOGGLE", toggles: true));
+                if (what is "date") return Sw("CLOCK DATE", Switch(m, seg2, "TOGGLE", toggles: true));
                 if (what is "format" or "hours")
                 {
                     var hours = seg2.Length > 0 ? seg2 : m.Number() is { } h ? ((int)Math.Round(h)).ToString(CultureInfo.InvariantCulture) : m.Text() ?? "";
                     return hours is "12" or "24" ? "CLOCK " + hours : null;
                 }
                 if (seg.Length == 0 && m.Number() is { } n && (int)Math.Round(n) is 12 or 24) return "CLOCK " + (int)Math.Round(n);
-                return "CLOCK " + Switch(m, seg, "TOGGLE", toggles: true);
+                return Sw("CLOCK", Switch(m, seg, "TOGGLE", toggles: true));
             }
             case "message":
             case "msg":
             {
                 var what = seg.ToLowerInvariant();
-                if (what is "scroll" or "ticker") return "MESSAGE SCROLL " + Switch(m, seg2, "TOGGLE", toggles: true);
+                if (what is "scroll" or "ticker") return Sw("MESSAGE SCROLL", Switch(m, seg2, "TOGGLE", toggles: true));
                 if (what is "text" or "say")
                 {
                     var words = seg2.Length > 0 ? string.Join(" ", parts.Skip(2)) : m.Text() ?? "";
                     return words.Length == 0 ? null : "MESSAGE " + words;
                 }
-                if (what is "on" or "off" or "toggle") return "MESSAGE " + Switch(m, seg, "TOGGLE", toggles: true);
+                if (what is "on" or "off" or "toggle") return Sw("MESSAGE", Switch(m, seg, "TOGGLE", toggles: true));
                 if (seg.Length > 0) return "MESSAGE " + string.Join(" ", parts.Skip(1));   // /patterns/message/Doors%20open — the words as the address
                 // A string that is not a switch word is the message's words; a number, a bool, a switch word or nothing is the switch.
                 if (m.Args.Count > 0 && m.Args[0] is string typed && typed.Trim().ToLowerInvariant() is not ("on" or "off" or "toggle" or "1" or "0" or "")) return "MESSAGE " + typed.Trim();
-                return "MESSAGE " + Switch(m, seg, "TOGGLE", toggles: true);
+                return Sw("MESSAGE", Switch(m, seg, "TOGGLE", toggles: true));
             }
-            case "ticker": return "MESSAGE SCROLL " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "ticker": return Sw("MESSAGE SCROLL", Switch(m, seg, "TOGGLE", toggles: true));
             case "countdown":
             case "timer":
             {
@@ -488,15 +488,15 @@ public static class OscMap
                     default: return "COUNTDOWN START " + seg;   // /patterns/countdown/5
                 }
             }
-            case "logo": return "LOGO " + Switch(m, seg, "TOGGLE", toggles: true);
-            case "pip": return "PIP " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "logo": return Sw("LOGO", Switch(m, seg, "TOGGLE", toggles: true));
+            case "pip": return Sw("PIP", Switch(m, seg, "TOGGLE", toggles: true));
             case "pattern": return Named("PATTERN", m, seg);
             // /patterns/library "Mandelbrot" · /patterns/library/Mandelbrot — a Library tile onto the desk's editing target's preview (round 73).
             case "library": case "lib": return Named("LIBRARY", m, seg);
             // /patterns/pvw/pattern "Grid" · /patterns/pvw/preset/Walk-in · /patterns/pvw/look "Walk-in" · /patterns/pvw/reset · /patterns/pvw/program · /patterns/pvw — the programme's picture in the preview.
             case "pvw": case "preview": return Staged("PVW", parts.Skip(1).ToArray(), m);
             case "overlays": return seg.Length == 0 || seg.ToLowerInvariant() is "off" or "clear" or "none" ? "OVERLAYS OFF" : null;
-            case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "review": return Sw("REVIEW", Switch(m, seg, "TOGGLE", toggles: true));
             // /patterns/run/monitor 2 · /patterns/run/monitor/pgm · /patterns/run/monitor "off" — the RUN surface's monitor.
             case "run":
             {
@@ -513,9 +513,9 @@ public static class OscMap
                 {
                     return "WEATHER " + view switch { Model.WeatherView.RestOfDay => "DAY", Model.WeatherView.Tomorrow => "TOMORROW", _ => "NOW" };
                 }
-                return "WEATHER " + Switch(m, seg, "TOGGLE", toggles: true);
+                return Sw("WEATHER", Switch(m, seg, "TOGGLE", toggles: true));
             }
-            case "freeze": return "FREEZE " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "freeze": return Sw("FREEZE", Switch(m, seg, "TOGGLE", toggles: true));
             // /patterns/fade 2 · /patterns/fade/up 2 · /patterns/fade/down: the seconds as the argument or the next segment.
             // Where: /patterns/fade/screen/2 [secs] · /patterns/fade/up/group/A · /patterns/fade/focused 2 · /patterns/fade/ticked ·
             // /patterns/fade/groups · /patterns/fade "SCREEN 2" 2 — the scope as segments or a string argument.
@@ -613,30 +613,35 @@ public static class OscMap
     private static string? Numbered(string verb, string seg, OscMessage m, string seg2, string whenMissing, bool toggles)
     {
         if (!int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var n)) return null;
-        return $"{verb} {n} {Switch(m, seg2, whenMissing, toggles)}";
+        return Sw($"{verb} {n}", Switch(m, seg2, whenMissing, toggles));
     }
 
     /// <summary>The sub-verb: a segment, else the first argument as text, lower-cased.</summary>
     private static string Sub(OscMessage m, string seg) => (seg.Length > 0 ? seg : m.Text() ?? "").ToLowerInvariant();
 
     /// <summary>
-    /// ON / OFF / TOGGLE from a segment ("on", "off", "toggle") or the first argument (a number:
-    /// above a half is on; a bool; the words), else what a bare address means for this verb.
+    /// ON / OFF / TOGGLE from a segment ("on", "off", "toggle", "1", "0") or the first argument (a number:
+    /// above a half is on; a bool; the words), else what a bare address means for this verb. Round 79: any
+    /// other word is refused (null) — it used to read as the bare address, so /patterns/blackout/onn toggled
+    /// the blackout and /patterns/outputs/toggle opened the outputs. The wire's rule since round 72.5, here too.
     /// </summary>
-    private static string Switch(OscMessage m, string seg, string whenMissing, bool toggles)
+    private static string? Switch(OscMessage m, string seg, string whenMissing, bool toggles)
     {
         var word = seg.Length > 0 ? seg : m.Text() ?? "";
         switch (word.ToLowerInvariant())
         {
-            case "on": case "true": case "yes": return "ON";
-            case "off": case "false": case "no": return "OFF";
-            case "toggle": return toggles ? "TOGGLE" : whenMissing;
+            case "on": case "true": case "yes": case "1": return "ON";
+            case "off": case "false": case "no": case "0": return "OFF";
+            case "toggle": return toggles ? "TOGGLE" : null;
             case "": return whenMissing;
         }
         var number = m.Number();
         if (number is { } v) return v > 0.5 ? "ON" : "OFF";
-        return whenMissing;
+        return null;
     }
+
+    /// <summary>The verb with its switch word, or nothing when the word was refused — so a refused switch is a refused line, not the verb alone.</summary>
+    private static string? Sw(string verb, string? sw) => sw is null ? null : verb + " " + sw;
 
     /// <summary>A coordinate in percent from an argument: an integer as it is, a float up to 1.0 as a fraction (× 100); null without one.</summary>
     private static string? Coordinate(OscMessage m, int index)

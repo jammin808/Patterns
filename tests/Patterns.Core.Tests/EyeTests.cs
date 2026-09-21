@@ -53,7 +53,7 @@ public class EyeTests
         Companions = new[] { new EyeCompanion("FOH-PC", "10.0.0.5", true, "5.0.3"), new EyeCompanion("Spare-PC", "10.0.0.9", true, "5.0.3") },
         WireClients = 1,
         WebClients = 2,
-        Osc = new EyeOsc(8000, "mapped"),
+        Osc = new EyeOsc(8000, "mapped", "10.0.0.5"),                                            // round 79: bound to the control network, so green
         Twin = new EyeTwin("main", "in step", "STANDBY-PC", "in step · 3 ms", CheckLight.Green),
         Nodes = new[] { new EyeNodeHeard("i1", "caller", "CALLER-PC", true, true, "linked"), new EyeNodeHeard("i2", "timer", "STAGE-PC", false, false, "") },
         Room = new EyeRoom("APPLE", 12, "quiz", CheckLight.Green),
@@ -425,5 +425,26 @@ public class EyeTests
         Assert.Contains("3 controls mapped", g.Find("device:apc")!.Words);
         Assert.Contains("1 control mapped", g.Find("device:pad")!.Words);
         Assert.DoesNotContain(g.Find("device:nano")!.Words, w => w.Contains("mapped", StringComparison.Ordinal));
+    }
+
+    /// <summary>Round 79: OSC cannot pair — open on every interface the node and its edge are amber with the way out; bound, green with the reason.</summary>
+    [Fact]
+    public void AnOscPortOpenOnEveryInterfaceIsAmberAndABoundOneGreen()
+    {
+        var bound = EyeGraph.Build(Rig());
+        Assert.Equal(CheckLight.Green, bound.Find("osc")!.Light);
+        Assert.Contains(bound.Find("osc")!.Words, w => w.Contains("open on 10.0.0.5 only", StringComparison.Ordinal));
+        Assert.Equal(CheckLight.Green, bound.Edges.Single(e => e.From == "osc").Light);
+
+        var facts = Rig();
+        var open = EyeGraph.Build(new EyeFacts
+        {
+            MachineName = facts.MachineName, Build = facts.Build, OutputsLive = facts.OutputsLive, Health = facts.Health,
+            Osc = new EyeOsc(9698, "OSC in on port 9698."),
+        });
+        var node = open.Find("osc")!;
+        Assert.Equal(CheckLight.Amber, node.Light);
+        Assert.Contains(node.Words, w => w.Contains("cannot pair", StringComparison.Ordinal) && w.Contains("bind", StringComparison.Ordinal));
+        Assert.Equal(CheckLight.Amber, open.Edges.Single(e => e.From == "osc").Light);
     }
 }

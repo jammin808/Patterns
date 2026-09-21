@@ -8,8 +8,10 @@ namespace Patterns.Core.Services;
 /// AUTH on the wire, X-Patterns-Token on the web (round 65). Twelve symbols in three groups from
 /// an alphabet a person can read out over a radio and type on a phone (no 0/O, no 1/I/L), compared
 /// in constant time with dashes, spaces and case ignored. Empty is open: the network as it was,
-/// with Super Check saying so. The token is the show's — saved with it, mirrored to the twin so a
-/// standby that takes over answers the same remotes — and never in a URL.
+/// with Super Check saying so. The token is this desk's own — saved with the show file, in the
+/// Control section a twin never mirrors (<see cref="TwinSync.LocalSections"/>: secrets do not
+/// travel the link, round 44), so a standby answers the token typed into it: set the same one on
+/// both desks for the remotes to follow a handover — and never in a URL.
 /// </summary>
 public static class PairingToken
 {
