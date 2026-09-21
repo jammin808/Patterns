@@ -3027,6 +3027,18 @@ mute-first ask, and the crash gap's measurement on the rig.
   (79.4), the process start-up's version banner (79.5). The §22 walk is due on the next build the
   maintainer picks up; its files go to `docs/field/round-80/`.
 
+### 79.9 — the CI run
+
+- **Found.** CI run 260's `test` job failed on one App test, `PopOutWidthTests.TheMachineAndAudioPagesKeepTheirSettingsInTheColumn`,
+  green in every earlier run and in the local suites. Its assertion that no TextBlock on the Machine page reads
+  "WATCHDOG" collided with the health wall's WATCHDOG tile, which the desk tick fills a second after boot: the
+  test had held only while the wall was still empty when the page was read, and a colder Release run on the
+  runner filled it first. A settings band is an `h2` heading; the tile's title is an `hTitle`.
+- **Fixed.** The band assertions read `h2` headings alone, and the test fills the wall (`PollNow`) before it
+  reads the page, so the assertion is exercised under the condition that failed rather than by timing.
+  Nothing skipped; the wall is asserted at its twelve tiles. The `portable-exe` job, gated on `test`, did not
+  run in 260 — `docs/OPEN.md` L24 waits for the next run.
+
 ### The review's items, answered
 
 - The retrospective's sixteen entries: taken, declined or deferred, each with its reason — §97.9. Its

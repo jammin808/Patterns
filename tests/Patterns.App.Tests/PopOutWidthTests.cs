@@ -128,10 +128,15 @@ public class PopOutWidthTests
             Assert.Equal("hue-machine", vm.PopOut.Hue);
             Assert.IsType<MachineSettingsPanel>(host.Panel);
             var page = window.GetVisualDescendants().OfType<AdminSection>().First();
+            vm.PollNow();       // the health wall filled, as the desk tick fills it — the page is read with its tiles up, not before
+            Settle(window);
+            Assert.Equal(12, vm.DashboardTiles.Count);
             foreach (var band in new[] { "SHOW LOCK (NOTHING INTERRUPTS THE SHOW)", "RIG DAY GAMES (OPT-IN)", "WATCHDOG", "BEACON (A SECOND MACHINE)", "TWIN (A SECOND PATTERNS, IN STEP)", "EARLIER VERSIONS OF THE SHOW" })
             {
-                Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == band);
-                Assert.DoesNotContain(page.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == band);
+                Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == band && t.Classes.Contains("h2"));
+                // A band is an h2 heading. The page's health wall has a WATCHDOG tile of its own (an hTitle), filled on the
+                // first desk tick — the old assertion over every TextBlock held only while the wall was still empty.
+                Assert.DoesNotContain(page.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == band && t.Classes.Contains("h2"));
             }
             Assert.Contains(page.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "STABILITY (WATCHDOG)");
             Assert.Contains(page.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.RuntimeText);
@@ -163,7 +168,7 @@ public class PopOutWidthTests
             var audio = window.GetVisualDescendants().OfType<AudioSection>().First();
             Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "TONE GENERATOR");
             Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "MASTER CLOCK & SYNC");
-            Assert.DoesNotContain(audio.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "TONE GENERATOR");
+            Assert.DoesNotContain(audio.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "TONE GENERATOR" && t.Classes.Contains("h2"));
             Assert.Contains(audio.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "BREAK MUSIC (SPOTIFY)");
 
             // From the wire (round 74): the column closes and opens for the page too.
