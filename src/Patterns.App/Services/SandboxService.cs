@@ -44,8 +44,8 @@ public sealed class SandboxService
     {
         if (_program is null) return;
         _program.Blackout = _services.State.Blackout; // transport is never sandboxed
-        _services.Bus.Publish(_program, _services.AirWatch);
-        _services.Bus.PublishSandbox(_services.State, _services.StateWatch, SettledOwn());
+        // Round 79: one pair — no frame reads the new programme beside the old sandbox.
+        _services.Bus.PublishBoth(_program, _services.AirWatch, _services.State, _services.StateWatch, SettledOwn());
     }
 
     // ---- what a tile's PVW holds (round 78) --------------------------------------------------------
@@ -95,7 +95,7 @@ public sealed class SandboxService
     {
         if (!Active || _program is null) return TakeEffect.Nothing;
         var resolved = ScreenRoles.ResolveMirror(_services.State, targetId);
-        if (!SamePicture(PvwPicture(resolved), LookService.Shown(_program, resolved))) return TakeEffect.Picture;
+        if (!Same(PvwPicture(resolved), LookService.Shown(_program, resolved))) return TakeEffect.Picture;
         return ContentTargets.UsesOwnPattern(_program, resolved) ? TakeEffect.Nothing : TakeEffect.OwnOnly;
     }
 
@@ -106,7 +106,7 @@ public sealed class SandboxService
         var n = 0;
         foreach (var t in taken)
         {
-            if (SamePicture(Landing(_services.State, t), LookService.Shown(_program, t))) n++;
+            if (Same(Landing(_services.State, t), LookService.Shown(_program, t))) n++;
         }
         return n;
     }
@@ -131,7 +131,7 @@ public sealed class SandboxService
         {
             var resolved = ScreenRoles.ResolveMirror(state, t);
             var after = keptSet.Contains(resolved) && !takenSet.Contains(resolved) ? PinSource(program, resolved) : Landing(state, resolved);
-            if (!SamePicture(after, LookService.Shown(program, t))) return true;
+            if (!Same(after, LookService.Shown(program, t))) return true;
         }
         return JsonUtil.SerializeCompact(state.Overlays) != JsonUtil.SerializeCompact(program.Overlays)
             || JsonUtil.SerializeCompact(state.Countdown) != JsonUtil.SerializeCompact(program.Countdown);
@@ -161,13 +161,13 @@ public sealed class SandboxService
         return LookService.Shown(state, resolved);
     }
 
-    private static bool Pending(ShowState state, ShowState program, string targetId)
+    private bool Pending(ShowState state, ShowState program, string targetId)
     {
         if (!ContentTargets.UsesOwnPattern(state, targetId)) return false;
         if (!ContentTargets.UsesOwnPattern(program, targetId)) return true;
         var mine = OwnPicture(state, targetId);
         var air = OwnPicture(program, targetId);
-        return mine is null || air is null || !SamePicture(mine, air);
+        return mine is null || air is null || !Same(mine, air);
     }
 
     private static PatternConfig? OwnPicture(ShowState s, string targetId)
@@ -179,9 +179,45 @@ public sealed class SandboxService
         return null;
     }
 
-    /// <summary>The same picture in every property the show file keeps — the identity a take compares, as the recovery record would see it.</summary>
+    /// <summary>The same picture in every property the show file keeps — the identity a take compares, as the recovery record would see it. The service's own asks go through <see cref="Same"/>, which memoises it.</summary>
     public static bool SamePicture(PatternConfig a, PatternConfig b)
         => ReferenceEquals(a, b) || JsonUtil.SerializeCompact(a) == JsonUtil.SerializeCompact(b);
+
+    // ---- picture identity, memoised on the change counters (round 79) ------------------------------
+
+    private readonly Dictionary<PatternConfig, string> _pictureKeys = new(ReferenceEqualityComparer.Instance);
+    private long _keysState = -1;
+    private long _keysAir = -1;
+    private ShowState? _keysProgram;
+
+    /// <summary>
+    /// <see cref="SamePicture"/> for the service's own asks. Every publish while the sandbox is open compares each own
+    /// picture with the air's (<see cref="SettledOwn"/>), every wall refresh asks each tile (<see cref="IsStaged"/>,
+    /// <see cref="PvwPicture"/>), the menus and the take ask again (<see cref="EffectOf"/>, <see cref="WouldChange"/>):
+    /// each picture is serialised once per change of either root, not once per ask. The two trackers' change counters
+    /// (<see cref="ChangeTracker.Version"/>) say when an identity can have moved — a frozen programme replaced counts
+    /// too — and the memo starts afresh then, so a picture edited a moment ago reads as changed before any publish.
+    /// </summary>
+    private bool Same(PatternConfig a, PatternConfig b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        var stateVersion = _services.StateWatch.Version;
+        var airVersion = _services.AirWatch?.Version ?? -1;
+        if (stateVersion != _keysState || airVersion != _keysAir || !ReferenceEquals(_program, _keysProgram))
+        {
+            _pictureKeys.Clear();
+            _keysState = stateVersion;
+            _keysAir = airVersion;
+            _keysProgram = _program;
+        }
+        return Key(a) == Key(b);
+    }
+
+    private string Key(PatternConfig picture)
+    {
+        if (!_pictureKeys.TryGetValue(picture, out var key)) _pictureKeys[picture] = key = JsonUtil.SerializeCompact(picture);
+        return key;
+    }
 
     private HashSet<string>? _settled;
 
@@ -201,7 +237,7 @@ public sealed class SandboxService
             if (id == _services.EditingTargetId) continue;
             if (!ContentTargets.UsesOwnPattern(state, id) || !ContentTargets.UsesOwnPattern(program, id)) continue;
             var air = OwnPicture(program, id);
-            if (air is null || !SamePicture(a.Pattern, air)) continue;
+            if (air is null || !Same(a.Pattern, air)) continue;
             (found ??= new List<string>()).Add(id);
         }
         if (found is null)

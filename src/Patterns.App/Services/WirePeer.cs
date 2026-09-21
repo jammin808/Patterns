@@ -95,7 +95,7 @@ public sealed class WirePeer : IDisposable
         Wake();
     }
 
-    /// <summary>Waits until everything queued so far has been written, or the timeout: for a last word before a close.</summary>
+    /// <summary>Waits until everything queued so far has been written, or the timeout: for a last word before a close. False when the peer closed under the wait.</summary>
     public async Task<bool> FlushAsync(TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -103,7 +103,15 @@ public sealed class WirePeer : IDisposable
         {
             if (Closed) return false;
             if (Pending == 0 && !_writing) return true;
-            await Task.Delay(5, _cts.Token);
+            try
+            {
+                await Task.Delay(5, _cts.Token);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+                // Round 79: Close cancelled and disposed the source between the check and the read — nothing more is written.
+                return false;
+            }
         }
         return false;
     }
@@ -120,10 +128,6 @@ public sealed class WirePeer : IDisposable
         catch (Exception ex) when (ex is SemaphoreFullException or ObjectDisposedException)
         {
             // The writer has a wake-up waiting already, or the peer closed under this call.
-        }
-        catch (ObjectDisposedException)
-        {
-            // Closed under us.
         }
     }
 

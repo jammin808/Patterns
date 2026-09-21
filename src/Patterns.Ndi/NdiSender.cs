@@ -132,7 +132,8 @@ public sealed class NdiSender : IDisposable
             {
                 try
                 {
-                    var snap = _bus.Current;
+                    var pair = _bus.Pair;   // round 79: the programme and the sandbox of one generation
+                    var snap = pair.Current;
                     var cfg = FindConfig(snap);
                     if (cfg is null || !cfg.Enabled)
                     {
@@ -226,7 +227,7 @@ public sealed class NdiSender : IDisposable
                     var time = ShowClock.Seconds;
                     sink.Fps.Tick(time);
                     // The program fills the frame; a mirrored target keeps its shape; the sender's own screen fills it.
-                    NdiFrame.Render(_engine, snap, sink, surface.Canvas, size, cfg.SourceScreenId, SinkKind.Ndi, $"NDI {name}", frame++, time, _bus.Sandbox);
+                    NdiFrame.Render(_engine, snap, sink, surface.Canvas, size, cfg.SourceScreenId, SinkKind.Ndi, $"NDI {name}", frame++, time, pair.Sandbox);
                     surface.Canvas.Flush();
 
                     var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey, snap.State.Output.MasterFps);

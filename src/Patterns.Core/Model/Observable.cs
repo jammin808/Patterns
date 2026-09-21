@@ -80,6 +80,13 @@ public sealed class ChangeTracker
     private readonly HashSet<string>? _dirty;
     private bool _allDirty = true;
 
+    /// <summary>
+    /// Round 79: how many changes the tracker has seen. A reader keys a cache on it — the sandbox's picture identities
+    /// are serialised once per change of a root, not once per ask — because the count moves exactly when the root does.
+    /// A runtime-only write (a [JsonIgnore] property) does not count: it reaches no snapshot and no saved picture.
+    /// </summary>
+    public long Version { get; private set; }
+
     /// <param name="trackSections">Remember the root's top-level property under which each change landed, for <see cref="TakeDirty"/>.</param>
     /// <param name="onRuntimeOnlyChanged">Raised instead of <paramref name="onChanged"/> for a write to a <see cref="JsonIgnoreAttribute"/> property; null = <paramref name="onChanged"/>.</param>
     public ChangeTracker(object root, Action onChanged, bool trackSections = false, Action? onRuntimeOnlyChanged = null)
@@ -123,6 +130,7 @@ public sealed class ChangeTracker
             if (section is null) _allDirty = true;
             else _dirty.Add(section);
         }
+        Version++;
         _onChanged();
     }
 

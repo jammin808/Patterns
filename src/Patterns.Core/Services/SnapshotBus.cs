@@ -270,7 +270,7 @@ public sealed class ShowSnapshot
 /// </summary>
 public sealed class SnapshotBus
 {
-    private volatile ShowSnapshot _current;
+    private volatile SnapshotPair _pair;
     private long _version;
     private readonly Func<double> _clock;
     private TickerLine _ticker;
@@ -283,16 +283,22 @@ public sealed class SnapshotBus
         _ticker = TickerLine.From(initial.Overlays.Message.ScrollPxPerSec);
         _sandboxTicker = _ticker;
         var now = _clock();
-        _current = new ShowSnapshot
+        _pair = new SnapshotPair(new ShowSnapshot
         {
             State = SnapshotClone.Clone(initial),
             Version = 0,
             PublishedClock = now,
             Ticker = _ticker,
-        };
+        }, null);
     }
 
-    public ShowSnapshot Current => _current;
+    public ShowSnapshot Current => _pair.Current;
+
+    /// <summary>
+    /// Round 79: the programme and the sandbox as one immutable pair — a frame's capture reads it once and draws
+    /// one generation of both. <see cref="PublishBoth"/> replaces it in one assignment.
+    /// </summary>
+    public SnapshotPair Pair => _pair;
 
     /// <summary>Set by the publisher before <see cref="Publish"/> to flash screen badges.</summary>
     public DateTime? IdentifyUntilUtc { get; set; }
@@ -414,38 +420,61 @@ public sealed class SnapshotBus
     public event Action? Changed;
 
     /// <summary>
-    /// Raised on the publisher's thread as a snapshot is built from a root, with the root's sections
-    /// the tracker named dirty — null when everything moved, or could not be named. The twin link
-    /// mirrors exactly those sections to a standby; nothing else need walk the show to find out.
+    /// Raised on the publisher's thread once the snapshot built from a root is published — <see cref="Current"/>
+    /// or <see cref="Sandbox"/> already reads it (round 79: it used to fire from inside the build, before the
+    /// assignment) — with the root's sections the tracker named dirty: null when everything moved, or could not
+    /// be named. The twin link mirrors exactly those sections to a standby; nothing else need walk the show to find out.
     /// </summary>
     public event Action<ShowState, HashSet<string>?>? SectionsPublished;
 
     /// <param name="changes">The tracker watching <paramref name="state"/>, when one tracks its sections: the publish then copies only what moved.</param>
     public void Publish(ShowState state, ChangeTracker? changes = null)
     {
-        _current = Build(state, ref _ticker, changes);
+        var snapshot = Build(state, ref _ticker, changes, out var dirty);
+        _pair = new SnapshotPair(snapshot, _pair.Sandbox);
+        SectionsPublished?.Invoke(state, dirty);
         Changed?.Invoke();
     }
-
-    private volatile ShowSnapshot? _sandbox;
 
     /// <summary>
     /// While look programming is sandboxed, the preview renders this snapshot and every
     /// other sink stays on <see cref="Current"/> (the frozen program). Null = no sandbox.
     /// </summary>
-    public ShowSnapshot? Sandbox => _sandbox;
+    public ShowSnapshot? Sandbox => _pair.Sandbox;
 
     /// <param name="settledOwn">Round 78: the targets whose PVW follows the programme's preview — see <see cref="ShowSnapshot.SettledOwn"/>. The same instance while the set has not changed, so the snapshot can share its transition keys.</param>
     public void PublishSandbox(ShowState state, ChangeTracker? changes = null, IReadOnlyCollection<string>? settledOwn = null)
     {
         // The sandbox keeps a ticker line of its own, seeded from the program's when it opens:
         // a speed tried in the sandbox must never re-anchor the train that is on air.
-        if (_sandbox is null) _sandboxTicker = _ticker;
-        _sandbox = Build(state, ref _sandboxTicker, changes, settledOwn);
+        var pair = _pair;
+        if (pair.Sandbox is null) _sandboxTicker = _ticker;
+        var snapshot = Build(state, ref _sandboxTicker, changes, out var dirty, settledOwn);
+        _pair = new SnapshotPair(pair.Current, snapshot);
+        SectionsPublished?.Invoke(state, dirty);
         Changed?.Invoke();
     }
 
-    public void ClearSandbox() => _sandbox = null;
+    /// <summary>
+    /// Round 79: the programme and its sandbox published together. Published one after the other, a frame captured
+    /// between the two writes read the new programme beside the old sandbox — for that one frame a picture just
+    /// sent to the air was still staged in its PVW, and a tally read a generation the outputs had left. One
+    /// assignment: every sink's capture (<c>FrameInput.Capture</c>) reads one generation of both.
+    /// <see cref="SectionsPublished"/> fires for each root, the programme first, once the pair is readable.
+    /// </summary>
+    /// <param name="settledOwn">As <see cref="PublishSandbox"/>'s.</param>
+    public void PublishBoth(ShowState program, ChangeTracker? programChanges, ShowState sandbox, ChangeTracker? sandboxChanges, IReadOnlyCollection<string>? settledOwn = null)
+    {
+        var current = Build(program, ref _ticker, programChanges, out var programDirty);
+        if (_pair.Sandbox is null) _sandboxTicker = _ticker;
+        var preview = Build(sandbox, ref _sandboxTicker, sandboxChanges, out var sandboxDirty, settledOwn);
+        _pair = new SnapshotPair(current, preview);
+        SectionsPublished?.Invoke(program, programDirty);
+        SectionsPublished?.Invoke(sandbox, sandboxDirty);
+        Changed?.Invoke();
+    }
+
+    public void ClearSandbox() => _pair = new SnapshotPair(_pair.Current, null);
 
     /// <summary>What the last snapshot built from a root carried: the copy, its rig, and the display table the rig was resolved against.</summary>
     private sealed record Built(ShowSnapshot Snapshot, IReadOnlyDictionary<string, ScreenGeometry> Displays);
@@ -460,7 +489,8 @@ public sealed class SnapshotBus
     /// <summary>The sections <see cref="ShowSnapshot.TransitionKeyFor"/> reads; a change to any of them starts the memo afresh.</summary>
     private static readonly string[] TransitionKeySections = { nameof(ShowState.Pattern), nameof(ShowState.Independent), nameof(ShowState.Output) };
 
-    private ShowSnapshot Build(ShowState state, ref TickerLine ticker, ChangeTracker? changes, IReadOnlyCollection<string>? settledOwn = null)
+    /// <param name="dirty">The sections <paramref name="changes"/> named for this root — for <see cref="SectionsPublished"/>, raised by the caller once the snapshot is readable.</param>
+    private ShowSnapshot Build(ShowState state, ref TickerLine ticker, ChangeTracker? changes, out HashSet<string>? dirty, IReadOnlyCollection<string>? settledOwn = null)
     {
         var version = ++_version;
         var now = _clock();
@@ -490,8 +520,7 @@ public sealed class SnapshotBus
         // Only what moved is copied; the rest is the previous snapshot's own frozen objects. A
         // tracker for another root, or none, or a first publish from this root, copies everything.
         var previous = _lastBuilt.TryGetValue(state, out var last) ? last : null;
-        var dirty = changes is not null && ReferenceEquals(changes.Root, state) ? changes.TakeDirty() : null;
-        SectionsPublished?.Invoke(state, dirty);
+        dirty = changes is not null && ReferenceEquals(changes.Root, state) ? changes.TakeDirty() : null;
         ShowState clone;
         RigGeometry rig;
         var displays = Displays;
@@ -548,6 +577,13 @@ public sealed class SnapshotBus
         return snapshot;
     }
 }
+
+/// <summary>
+/// Round 79: what the bus holds — the programme every output draws and the sandbox the preview side draws while
+/// look programming is sandboxed (null otherwise) — as one immutable pair, replaced in one assignment, so a frame
+/// that captures it draws one generation of both. See <see cref="SnapshotBus.PublishBoth"/>.
+/// </summary>
+public sealed record SnapshotPair(ShowSnapshot Current, ShowSnapshot? Sandbox);
 
 /// <summary>The playlist item currently on screen (immutable; carried on snapshots).</summary>
 public sealed record PlaylistNow(string Path, bool IsVideo, int Index, int Count, DateTime StartedUtc, double DurationSeconds);

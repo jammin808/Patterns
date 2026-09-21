@@ -16,7 +16,8 @@
 </p>
 
 **Patterns** is a single portable `Patterns.exe` you keep on a USB stick. It opens instantly on
-any Windows 10/11 x64 machine — no install, no admin rights, no registry — and puts accurate,
+any Windows 10/11 x64 machine — no install, no admin rights, and the registry only where you ask
+for it (a GPU preference for the exe; the show lock's quiet keys, put back when the lock lifts) — and puts accurate,
 pixel-exact test patterns on every screen, wall and NDI receiver in the room. It is built to run
 for hours without a hiccup: GPU-accelerated rendering, zero-allocation draw loops, per-frame
 fault containment, and settings that can never brick startup.
@@ -1347,7 +1348,7 @@ fault containment, and settings that can never brick startup.
   (nothing crashes without the NDI runtime).
 - **Five groups, two levels** — the rail holds **SHOW · PLAN · BUILD · SETUP · ADMIN**, grouped
   by who is at the desk and when, and the page strip across the top shows the pages of the
-  current group, so eighteen pages never crowd a laptop screen. **MODE** in the header is
+  current group alone, so the desk's pages never crowd a laptop screen. **MODE** in the header is
   PREP or SHOW: PREP holds the outputs, the NDI sends and the stream closed while you
   pre-program (every editor, look and cue still works), SHOW lets them open; **LAYOUT** is
   RUN, the caller's surface over either mode — and leaving RUN is refused while the stack is
@@ -1613,7 +1614,7 @@ fault containment, and settings that can never brick startup.
   audience** until you CUT or TAKE — and EDIT SAFE re-arms itself after every send, so you are
   always building in safety. What you *fire* still goes straight to air: F-key looks, scheduled
   cues, presenter steps, stingers and every remote command. `→ PVW` loads a look into the preview
-  instead. Turn it off in Admin → Switcher if you prefer the preview to mirror the program.
+  instead. Turn it off under EDIT SAFE on SETUP → Screens if you prefer the preview to mirror the program.
 - **Prep mode — programme the show before the rig exists** — switch to PREP and build the whole
   thing at your desk with nothing plugged in: **plan screens** at the sizes the venue will have,
   arrange them, name them, give each its pattern, join them into canvases, put them in the
@@ -1707,8 +1708,12 @@ editor, looks/cues/presenter steps and the Show page drive them live.*
    put it in a folder you can write to (USB stick, desktop — anywhere).
 2. Run it. Arrange your screens on the **Screens** page (SETUP) — drag them together for one
    big canvas, click a tile to enable/disable it or give it its own pattern.
-3. Choose a pattern (or click one in the **Library**), tune it, press **OUTPUTS ON** (`Shift+F5`).
-4. Everything — wall geometry, blend overlap, colours, countdowns — updates live on the outputs.
+3. Choose a pattern (or click one in the **Library**) and tune it — it builds in the **PREVIEW**,
+   because EDIT SAFE is on from the start — then press **TAKE** (or **CUT**) to put it on the
+   programme, and **OUTPUTS ON** (`Shift+F5`) to open the outputs on it.
+4. Everything — wall geometry, blend overlap, colours, countdowns — builds in the preview and
+   reaches the outputs on the next CUT or TAKE; what you *fire* (a look, a cue, a stinger, a
+   remote command) goes straight to air.
 5. Save the state as a **look** and put it on an F-key or the daily schedule (**Looks** page,
    PLAN); build the cue stack on the **Cues** page.
 6. Run the evening from the **Show panel** or the **RUN** surface — or from a phone, tablet or
@@ -1789,14 +1794,15 @@ history in rounds, newest first — each entry with the round's tag, its dates, 
 `docs/PLAN.md`, its test count and the Companion module's version where it moved; the rounds
 before the repository's history are listed from the plan. A test keeps it current.
 
-- **Tags.** Every round from 15 on has an annotated tag on its last commit, `round-15` …
-  `round-61`, made and pushed by `.github/scripts/tag-rounds.sh` — run it once from the
-  repository root when a round closes; it makes the tags that are missing and pushes them, and a
-  second run finds nothing to do. `git checkout round-57` is the desk exactly as round 57 left it;
+- **Tags.** Every round from 15 on is tagged on its last commit — `round-15` onwards, one
+  annotated tag each — by `.github/scripts/tag-rounds.sh`, which carries the table of each round's
+  last commit: run it once from the repository root when a round closes and it makes the tags that
+  are missing and pushes them; a second run finds nothing to do. A round has its tag, and the
+  Release below, only once the script has been run for it. `git checkout round-57` is the desk exactly as round 57 left it;
   `git diff round-57 round-58 --stat` is what a round changed. Tag a version you trust before a
   show — `git tag -a show-2026-09-19 -m "Autumn conference" && git push origin show-2026-09-19` —
   and it gets a Release like a round.
-- **Releases.** Every tag from `round-61` on has a Release on the repository's Releases page:
+- **Releases.** Every tag from `round-61` on gets a Release on the repository's Releases page:
   the portable `Patterns-<tag>.exe`, the full bundle with libVLC as a zip, the Companion module
   package and a checksum file, built by CI from that tag, with the changelog's entry as its
   notes. Rolling a show machine back is downloading the older Release and running it; nothing is

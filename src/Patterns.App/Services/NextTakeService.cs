@@ -5,7 +5,7 @@ namespace Patterns.App.Services;
 /// <summary>
 /// The desk's next take (round 67.6): the transition or video sting the next TAKE alone arrives by, held
 /// until a TAKE spends it. Runtime only — a show opens with the show's own transition — and never the
-/// show's setting: the Outputs page's transition is untouched however many one-shots run.
+/// show's setting: the Screens page's transition is untouched however many one-shots run.
 /// </summary>
 public sealed class NextTakeService
 {

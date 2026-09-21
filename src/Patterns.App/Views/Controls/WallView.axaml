@@ -192,7 +192,7 @@
               ToolTip.Tip="Preview becomes program instantly (no fade) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups. A CUT is a cut: a NEXT TRANSITION waits for the TAKE" />
       <Button Classes="go" Content="{Binding TakeButtonText}" FontWeight="Bold" Padding="16,6" Focusable="False"
               Command="{Binding TakeCommand}" IsEnabled="{Binding IsSandboxActive}"
-              ToolTip.Tip="Preview fades up as the program (uses the transition time) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups. Right-click: NEXT TRANSITION — the transition or video sting for the next take alone; the show's transition on the Outputs page never moves" />
+              ToolTip.Tip="Preview fades up as the program (uses the transition time) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups. Right-click: NEXT TRANSITION — the transition or video sting for the next take alone; the show's transition on the Screens page never moves" />
     </StackPanel>
     <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
               ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"

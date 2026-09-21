@@ -28,15 +28,15 @@ public readonly record struct FrameInput(ShowSnapshot Program, ShowSnapshot? Pre
     public bool IsShow => Kind == FrameKind.Show;
 
     /// <summary>
-    /// The capture: one read of the sandbox and one of the program. The preview side (the preview
-    /// window, a monitor's PVW pane) draws the sandbox while one is open; every other sink draws
-    /// the program — and both read the same sandbox reference for the PREVIEW tile, so one frame
-    /// cannot mix two generations of it.
+    /// The capture: one read of the bus's pair (round 79: the programme and the sandbox are published as one, so a
+    /// frame cannot read a new programme beside an old sandbox). The preview side (the preview window, a monitor's
+    /// PVW pane) draws the sandbox while one is open; every other sink draws the program — and both read the same
+    /// sandbox reference for the PREVIEW tile, so one frame cannot mix two generations of it.
     /// </summary>
     public static FrameInput Capture(SnapshotBus bus, bool previewSide, double clock, FrameKind kind = FrameKind.Show)
     {
-        var sandbox = bus.Sandbox;
-        var current = bus.Current;
-        return new FrameInput(previewSide && sandbox is not null ? sandbox : current, sandbox, clock, kind);
+        var pair = bus.Pair;
+        var sandbox = pair.Sandbox;
+        return new FrameInput(previewSide && sandbox is not null ? sandbox : pair.Current, sandbox, clock, kind);
     }
 }

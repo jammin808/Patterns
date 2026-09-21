@@ -1073,7 +1073,7 @@ public sealed class ScreensPage : Observable
 
     // ---- custom labels ------------------------------------------------------
 
-    /// <summary>The selected screen's operator label (Outputs page).</summary>
+    /// <summary>The selected screen's operator label (Screens page).</summary>
     public string SelectedScreenLabel
     {
         get => _selectedPlacement?.CustomLabel ?? "";

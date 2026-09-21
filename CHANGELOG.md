@@ -1,7 +1,7 @@
 # Changelog
 
-Patterns is built in rounds: one request from the field, answered as a run of commits, each
-round closed with its papers. This is the short form, newest first; the long form is
+Patterns is built in rounds: one request from the maintainer's desk or rig — and from round 76
+on, the show laptop's own files — answered as a run of commits, each round closed with its papers. This is the short form, newest first; the long form is
 `docs/PLAN.md` (the design of each round, by section) and `docs/REVIEW.md` (what was found and
 fixed). Every round from 15 on is a tag on its last commit — `round-15` … — and every tag from
 `round-61` on has a Release with the built desk. The README's *Versions and rolling back* says

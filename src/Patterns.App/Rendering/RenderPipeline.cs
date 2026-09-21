@@ -296,7 +296,10 @@ public sealed class RenderPipeline : IDisposable
 
     /// <summary>The preview (and a monitor's PVW side) follows the sandbox while look programming is sandboxed; outputs, NDI and thumbnails always show program.</summary>
     private ShowSnapshot SnapshotFor(PipelineViewport vp)
-        => vp.Kind == SinkKind.Preview || vp.UsePreviewSnapshot ? _bus.Sandbox ?? _bus.Current : _bus.Current;
+    {
+        var pair = _bus.Pair;   // round 79: one read of both, one generation
+        return PreviewSide(vp) ? pair.Sandbox ?? pair.Current : pair.Current;
+    }
 
     /// <summary>Whether this sink draws the sandbox while one is open: the preview window and a monitor's PVW pane.</summary>
     private static bool PreviewSide(PipelineViewport vp) => vp.Kind == SinkKind.Preview || vp.UsePreviewSnapshot;

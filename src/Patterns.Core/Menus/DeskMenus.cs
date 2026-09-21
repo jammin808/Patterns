@@ -368,7 +368,7 @@ public static class DeskMenus
         MenuEntry Kind(string id, string text, string words, string detail = "") => Choice(id, text, words, detail, KindOn(words));
         var children = new List<MenuEntry>
         {
-            Choice("default", "The show's own transition", "CLEAR", $"As set on the Outputs page — {d.TransitionDefault}", on: current.Length == 0),
+            Choice("default", "The show's own transition", "CLEAR", $"As set on the Screens page — {d.TransitionDefault}", on: current.Length == 0),
             Kind("dissolve", "Dissolve", "dissolve", "A crossfade at the show's rate"),
             Kind("dip", "Dip", "dip", "Through the dip colour"),
             Kind("wipe", "Wipe", "wipe", "The show's direction"),
@@ -390,7 +390,7 @@ public static class DeskMenus
         }
         return new MenuEntry("take.next", d.NextTake.Length > 0 ? $"Next take — {d.NextTake} (one shot)" : "Next take — the show's transition", MenuScope.Live, MenuTone.Live)
         {
-            Detail = "How the next TAKE alone arrives; the show's transition on the Outputs page never moves",
+            Detail = "How the next TAKE alone arrives; the show's transition on the Screens page never moves",
             Children = children,
         };
     }
