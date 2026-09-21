@@ -3,14 +3,21 @@ using System.Text.Json.Serialization;
 
 namespace Patterns.Core.Services;
 
-/// <summary>One change to what the audience sees (or hears), with who caused it.</summary>
+/// <summary>
+/// One change to what the audience sees (or hears), with who caused it. Round 79: <paramref name="Visibility"/>
+/// (OutputsLive / OutputsOff / Blackout) and <paramref name="Effect"/> (Changed / OwnOnly / Nothing) as the
+/// executor stamped them — fields, so a report reads them without parsing the words; absent on rows written
+/// before round 79 and on rows nothing stamped, and left out of the JSON then.
+/// </summary>
 public sealed record ShowLogEntry(
     DateTime AtUtc,
     string Origin,
     string Kind,
     string Target,
     string Outcome,
-    string Message)
+    string Message,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Visibility = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Effect = null)
 {
     [JsonIgnore]
     public DateTime AtLocal => AtUtc.ToLocalTime();
@@ -55,8 +62,8 @@ public sealed class ShowLog
         }
     }
 
-    public void Record(string origin, string kind, string target, string outcome, string message = "")
-        => Record(new ShowLogEntry(DateTime.UtcNow, origin, kind, target, outcome, message));
+    public void Record(string origin, string kind, string target, string outcome, string message = "", string? visibility = null, string? effect = null)
+        => Record(new ShowLogEntry(DateTime.UtcNow, origin, kind, target, outcome, message, visibility, effect));
 
     /// <summary>The most recent entries, oldest first. Unreadable lines are skipped.</summary>
     public IReadOnlyList<ShowLogEntry> Tail(int count)

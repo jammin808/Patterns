@@ -28,6 +28,9 @@ public sealed partial class ShowActions : IActionLayer
     public ActionResult Execute(ShowAction action, ActionOrigin origin)
     {
         ActionResult result;
+        // Round 79: the take family is measured, not believed — the air's pictures read here before the take and
+        // again after it (TakeMeasure), at the one place every take passes whatever asked for it.
+        var measure = IsTake(action.Kind) ? TakeMeasure.Before(_s) : null;
         // Every verb the show has comes through here — the desk's keys, the wire, OSC, Companion,
         // a cue, the schedule, a device. That makes this the one place that can say "what happens
         // inside this is a take", which is what decides whether the pictures it changes transition
@@ -49,13 +52,70 @@ public sealed partial class ShowActions : IActionLayer
             result = ActionResult.Failed(ex.Message);
         }
 
+        // Round 79: attempts are not facts. Two of them the words cannot be trusted for go on the result as fields,
+        // stamped here once for every origin: whether anybody could see this land (the outputs and the blackout after
+        // it ran), and for a take what it did to the air. The journal row carries both, STATE and the Eye the last take.
+        result = result with { Visibility = VisibilityNow(), Effect = measure?.After(_s) ?? ActionEffect.NotMeasured };
+        if (measure is not null) LastTake = new TakeRecord(action.Kind, result, ShowClock.UtcNow);
         if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby or ShowActionKind.StageAck)
             && !SweptPast(action, origin))
         {
-            _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(), result.Message);
+            _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(), result.Message, Stamp(result.Visibility), Stamp(result.Effect));
         }
         Performed?.Invoke(action, origin, result);
         return result;
+    }
+
+    /// <summary>Round 79: the take family — the verbs whose effect on the air is measured, and whose "Done" must have changed something when a hand pressed them.</summary>
+    public static bool IsTake(ShowActionKind kind)
+        => kind is ShowActionKind.Take or ShowActionKind.Cut or ShowActionKind.ScreenTake or ShowActionKind.ScreenCut;
+
+    /// <summary>Round 79: the last take this desk ran, with the facts stamped on it — what STATE's take row and the Eye's desk node carry as the last take. Null before the first.</summary>
+    public TakeRecord? LastTake { get; private set; }
+
+    /// <summary>Whether the room could see an action land, read after it ran: the outputs closed, the blackout up, or live.</summary>
+    private ActionVisibility VisibilityNow()
+    {
+        if (!_s.OutputsLive) return ActionVisibility.OutputsOff;
+        return _s.AirState.Blackout ? ActionVisibility.Blackout : ActionVisibility.OutputsLive;
+    }
+
+    private static string? Stamp(ActionVisibility visibility) => visibility == ActionVisibility.Unknown ? null : visibility.ToString();
+
+    private static string? Stamp(ActionEffect effect) => effect == ActionEffect.NotMeasured ? null : effect.ToString();
+
+    /// <summary>
+    /// Round 79: the air's pictures at the press — <see cref="LookService.Seen"/> for what the screens show and
+    /// <see cref="LookService.Fingerprint"/> for who owns it — read again after the take. Measured on the air's model,
+    /// the state the outputs draw from; the frame follows within each sink's lag (round 52). Two small strings per
+    /// take, a gesture, never on a publish.
+    /// </summary>
+    private sealed class TakeMeasure
+    {
+        private readonly IReadOnlyList<string> _targets;
+        private readonly string _seen;
+        private readonly string _look;
+
+        private TakeMeasure(IReadOnlyList<string> targets, string seen, string look)
+        {
+            _targets = targets;
+            _seen = seen;
+            _look = look;
+        }
+
+        public static TakeMeasure Before(AppServices s)
+        {
+            var targets = Rig.Geometry(s.State, s.Screens.All).Targets;
+            var air = s.AirState;
+            return new TakeMeasure(targets, LookService.Seen(air, targets), LookService.Fingerprint(air));
+        }
+
+        public ActionEffect After(AppServices s)
+        {
+            var air = s.AirState;
+            if (LookService.Seen(air, _targets) != _seen) return ActionEffect.Changed;
+            return LookService.Fingerprint(air) != _look ? ActionEffect.OwnOnly : ActionEffect.Nothing;
+        }
     }
 
     public ActionResult Execute(ShowActionKind kind, ActionOrigin origin, string target = "", string value = "")
@@ -139,4 +199,38 @@ public sealed partial class ShowActions : IActionLayer
     /// <summary>The origins on the far side of a wire: TCP, HTTP, OSC, Companion, a device, the management server.</summary>
     private static bool IsRemote(ActionOrigin origin)
         => origin.Kind is OriginKind.Tcp or OriginKind.Http or OriginKind.Osc or OriginKind.Companion or OriginKind.Device or OriginKind.Management;
+}
+
+/// <summary>Round 79: one take as a fact row — the kind, its result with the stamps, and when. STATE's take row and the Eye's desk node carry the last one.</summary>
+public sealed record TakeRecord(ShowActionKind Kind, ActionResult Result, DateTime AtUtc)
+{
+    public string Verb => Kind is ShowActionKind.Cut or ShowActionKind.ScreenCut ? "CUT" : "TAKE";
+
+    /// <summary>"TAKE 20:31:05 — the pictures changed · outputs off — unseen"; "CUT 20:31:09 — refused: Nothing to take …".</summary>
+    public string Words
+    {
+        get
+        {
+            var at = AtUtc.ToLocalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+            if (!Result.Ok) return $"{Verb} {at} — {Result.Status.ToString().ToLowerInvariant()}: {Result.Message}";
+            var seen = Result.Visibility switch
+            {
+                ActionVisibility.OutputsLive => "outputs live",
+                ActionVisibility.OutputsOff => "outputs off — unseen",
+                ActionVisibility.Blackout => "blackout — unseen",
+                _ => "",
+            };
+            if (Result.Status == ActionStatus.Requested) return Join($"{Verb} {at} — requested: lands when the clip ends", seen);
+            var effect = Result.Effect switch
+            {
+                ActionEffect.Changed => "the pictures changed",
+                ActionEffect.OwnOnly => "the pictures stayed; a screen is its own now",
+                ActionEffect.Nothing => "nothing changed",
+                _ => "",
+            };
+            return Join($"{Verb} {at} — {effect}", seen);
+        }
+    }
+
+    private static string Join(string head, string tail) => tail.Length == 0 ? head : head + " · " + tail;
 }

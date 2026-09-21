@@ -99,16 +99,66 @@ public sealed class SandboxService
         return ContentTargets.UsesOwnPattern(_program, resolved) ? TakeEffect.Nothing : TakeEffect.OwnOnly;
     }
 
-    /// <summary>Of the targets a wall TAKE changes, how many the audience already sees with the picture it would land — the edited state's picture for them is the air's.</summary>
+    /// <summary>Of the targets a wall TAKE changes, how many the audience already sees with the picture it would land — the picture the take lands on them (<see cref="Landing"/>) is the air's.</summary>
     public int AlreadyOnAir(IReadOnlyList<string> taken)
     {
         if (!Active || _program is null) return 0;
         var n = 0;
         foreach (var t in taken)
         {
-            if (SamePicture(LookService.Shown(_services.State, t), LookService.Shown(_program, t))) n++;
+            if (SamePicture(Landing(_services.State, t), LookService.Shown(_program, t))) n++;
         }
         return n;
+    }
+
+    /// <summary>
+    /// Round 79: whether a wall TAKE with this plan would change what the audience sees. Every screen of the rig is
+    /// read through the edited state's mirror map (a take carries the rig too: a screen made a repeater shows its
+    /// source's picture the moment the take lands), and the picture the take puts there — a taken target's landing
+    /// picture, a kept target's pin of the air's (<see cref="MergeScope"/>) — is compared with the air's; then the
+    /// rig-wide layers a take carries (the overlays, the countdown). The look tally and the pins themselves are not
+    /// what the audience sees, and do not count: the field pressed TAKE eleven times over an air that already was
+    /// the preview and read "fades up" each time.
+    /// </summary>
+    public bool WouldChange(IReadOnlyList<string> taken, IReadOnlyList<string> kept)
+    {
+        if (!Active || _program is null) return false;
+        var state = _services.State;
+        var program = _program;
+        var keptSet = new HashSet<string>(kept, StringComparer.Ordinal);
+        var takenSet = new HashSet<string>(taken, StringComparer.Ordinal);
+        foreach (var t in Rig.Targets(state, _services.Screens.All).Concat(state.Output.Placements.Select(p => p.ScreenId)).Distinct(StringComparer.Ordinal))
+        {
+            var resolved = ScreenRoles.ResolveMirror(state, t);
+            var after = keptSet.Contains(resolved) && !takenSet.Contains(resolved) ? PinSource(program, resolved) : Landing(state, resolved);
+            if (!SamePicture(after, LookService.Shown(program, t))) return true;
+        }
+        return JsonUtil.SerializeCompact(state.Overlays) != JsonUtil.SerializeCompact(program.Overlays)
+            || JsonUtil.SerializeCompact(state.Countdown) != JsonUtil.SerializeCompact(program.Countdown);
+    }
+
+    /// <summary>The picture a scoped take pins on a kept target: the air's own picture for it, else the air's programme — <see cref="MergeScope"/>'s rule.</summary>
+    private static PatternConfig PinSource(ShowState program, string target)
+        => ContentTargets.UsesOwnPattern(program, target)
+            ? program.Independent.FirstOrDefault(a => a.ScreenId == target)?.Pattern ?? program.Pattern
+            : program.Pattern;
+
+    /// <summary>
+    /// The picture a wall take lands on a taken target: the edited state's, except that a pin the take lifts — an armed
+    /// target whose own picture is only the copy a scoped take kept for it (<see cref="MergeScope"/>) — follows the
+    /// programme's preview, which is what the send makes it show.
+    /// </summary>
+    private static PatternConfig Landing(ShowState state, string targetId)
+    {
+        var resolved = ScreenRoles.ResolveMirror(state, targetId);
+        if (ContentTargets.UsesOwnPattern(state, resolved))
+        {
+            foreach (var a in state.Independent)
+            {
+                if (a.ScreenId == resolved && a.PinnedByTake) return state.Pattern;
+            }
+        }
+        return LookService.Shown(state, resolved);
     }
 
     private static bool Pending(ShowState state, ShowState program, string targetId)

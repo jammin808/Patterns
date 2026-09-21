@@ -183,6 +183,15 @@ public sealed partial class ShowActions
                 // and a take that would move nothing is refused with the reason, never reported as done.
                 var plan = PlanTake(scope);
                 if (plan.IsRefused) return ActionResult.Refused(plan.Refusal!);
+                // Round 79: attempts are not facts on the wall either. The plan says what the scope would move; whether that
+                // would change anything the audience sees is another question (SandboxService.WouldChange: each taken
+                // screen's landing picture against the air's, and the layers a take carries). A hand that presses TAKE over
+                // an air that already is the preview is told so, spends no one-shot and publishes nothing. The show's own
+                // automation asserts an end state and is not refused when it holds — its row says Done with Effect Nothing.
+                if (!origin.IsAutomation && !_s.Sandbox.WouldChange(plan.Taken, plan.Kept))
+                {
+                    return ActionResult.Refused($"Nothing to take {plan.Where} — the air is already the preview. Change the preview, or SEND a picture to a tile first.");
+                }
                 // The one-shot (round 67.6): a CUT is a cut and leaves it for the TAKE it was given to; a video
                 // sting covers the screens first and the take lands when the clip ends — requested now, done then.
                 // The take a sting lands at its end is the press's own landing: it never spends a one-shot set meanwhile.
@@ -265,7 +274,7 @@ public sealed partial class ShowActions
                 // lands exactly that — so a press that would put up what the screen already shows is refused with the
                 // reason and the way out, and spends no one-shot. A landing under a sting was validated at the press.
                 var effect = _s.Sandbox.EffectOf(target);
-                if (origin != ActionOrigin.Stinger && effect == SandboxService.TakeEffect.Nothing)
+                if (!origin.IsAutomation && effect == SandboxService.TakeEffect.Nothing)
                 {
                     return ActionResult.Refused(_s.EditingTargetId == target
                         ? $"{where} already shows its own picture — nothing to take. Edit it here, or put the editors on PROGRAM and TAKE to send the programme's preview to it."
@@ -299,11 +308,14 @@ public sealed partial class ShowActions
                 var adjustedOne = AdjustmentNote(_s.AirState.Independent.FirstOrDefault(x => x.ScreenId == target)?.Pattern);   // round 77
                 var verb = cutOne ? "CUT" : "TAKE";
                 var whatOne = pendingOne ? $"the picture on {where}'s PVW" : "the preview";
-                var landedOne = effect == SandboxService.TakeEffect.OwnOnly
-                    ? $"{verb} — {where} already showed this picture; it is now its own (OWN), so it keeps it when the programme changes."
-                    : cutOne
+                var landedOne = effect switch
+                {
+                    SandboxService.TakeEffect.OwnOnly => $"{verb} — {where} already showed this picture; it is now its own (OWN), so it keeps it when the programme changes.",
+                    SandboxService.TakeEffect.Nothing => $"{verb} — {where} already shows this picture as its own; nothing changed.",     // round 79: automation's no-op, said as one
+                    _ => cutOne
                         ? $"CUT — {whatOne} is on {where} alone, as its own picture; every other screen stays."
-                        : $"TAKE — {whatOne} fades up on {where} alone, as its own picture; every other screen stays.";
+                        : $"TAKE — {whatOne} fades up on {where} alone, as its own picture; every other screen stays.",
+                };
                 return ActionResult.Done(landedOne + arrivedOne + UnseenNote() + adjustedOne);   // the picture's own note last, as round 77 pinned it
             }
             default:
@@ -533,6 +545,9 @@ public sealed partial class ShowActions
             next = _s.NextTake.Row(),
             landing = _s.Stingers.SessionTicket is { } ticket                                          // round 72: the take waiting under a sting — the press's promise
                 ? new { sting = ticket.Cover, scope = ticket.Scope, targets = ticket.Taken, where = ticket.Where, words = ticket.Words, pressedUtc = ticket.PressedUtc }
+                : null,
+            last = LastTake is { } lt                                                                  // round 79: the last take as a fact row — what it did, and whether anybody saw it
+                ? new { kind = lt.Kind.ToString(), outcome = lt.Result.Status.ToString(), effect = lt.Result.Effect.ToString(), visibility = lt.Result.Visibility.ToString(), atUtc = lt.AtUtc, words = lt.Result.Message }
                 : null,
         };
     }

@@ -92,6 +92,8 @@ public sealed class EyeFacts
     public string TakeWords { get; init; } = "";
     /// <summary>Round 72: a TAKE waiting under a video sting — the ticket the press froze, in words ("→ 1 · Left, 2 · Right when 'Whoosh' ends"); "" with none.</summary>
     public string Landing { get; init; } = "";
+    /// <summary>Round 79: the last take this desk ran, as a fact row in words ("TAKE 20:31:05 — the pictures changed · outputs off — unseen"); "" before the first.</summary>
+    public string LastTake { get; init; } = "";
     /// <summary>Round 73: what the desk is editing, in words ("Right's preview (its own picture) · Fractal — Fractals page · library: Mandelbrot"); "" on a node.</summary>
     public string Editing { get; init; } = "";
     /// <summary>Round 73: the lower third on screen, in words ("'Keynote' — Jane Doe · leaves in 3 s", "… · until hidden"); "" with none.</summary>
@@ -499,6 +501,7 @@ public sealed class EyeGraph
         if (f.NextTake.Length > 0) deskWords.Add($"Next take: {f.NextTake} (one shot)");
         if (f.TakeWords.Length > 0) deskWords.Add($"Next TAKE ({f.TakeScope}) {f.TakeWords}");
         if (f.Landing.Length > 0) deskWords.Add($"Landing {f.Landing}");                             // round 72: the ticket a sting will land
+        if (f.LastTake.Length > 0) deskWords.Add($"Last take: {f.LastTake}");                        // round 79: what it did, and whether anybody saw it
         if (f.Editing.Length > 0) deskWords.Add($"Editing {f.Editing}");                             // round 73: what the desk's editors are on
         if (f.LowerThird.Length > 0) deskWords.Add($"Lower third {f.LowerThird}");                    // round 73: the name on screen and when it leaves
         if (f.Midi.Length > 0) deskWords.Add($"MIDI {f.Midi}");                                        // round 73: learn armed, or the surfaces' map

@@ -50,6 +50,24 @@ public static class LookService
     /// </summary>
     public static string Fingerprint(ShowState state) => Normalise(Snapshot(state));
 
+    /// <summary>
+    /// Round 79: what the audience sees, as one string — each target's shown picture in the order given, then the
+    /// rig-wide layers a picture carries (the overlays, the countdown, the blackout, the lower third on screen). Two
+    /// equal strings are the same pictures on the screens, whoever owns them: a screen made its own with the same
+    /// picture reads the same here and differs in <see cref="Fingerprint"/>, which is how a take's effect tells
+    /// "the pictures changed" from "only the ownership did".
+    /// </summary>
+    public static string Seen(ShowState state, IEnumerable<string> targets)
+    {
+        var parts = new List<string>();
+        foreach (var t in targets) parts.Add(JsonUtil.SerializeCompact(Shown(state, t)));
+        parts.Add(JsonUtil.SerializeCompact(state.Overlays));
+        parts.Add(JsonUtil.SerializeCompact(state.Countdown));
+        parts.Add(state.Blackout ? "black" : "lit");
+        parts.Add(state.LowerThirds.IsShowing ? state.LowerThirds.ActiveId : "");
+        return string.Join("\n", parts);
+    }
+
     /// <summary>The fingerprint of a saved look; "" when its JSON cannot be read.</summary>
     public static string Fingerprint(string lookJson)
     {

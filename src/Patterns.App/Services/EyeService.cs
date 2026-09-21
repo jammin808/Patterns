@@ -345,6 +345,7 @@ public sealed class EyeService
             TakeScope = plan?.Scope.Label ?? "",
             TakeWords = plan is null ? "" : plan.IsRefused ? plan.Refusal! : plan.Words,
             Landing = _s.Stingers.SessionTicket?.Words ?? "",                                          // round 72: the ticket a sting will land
+            LastTake = _s.Actions.LastTake?.Words ?? "",                                                // round 79: the last take as a fact row
             Editing = _s.EditingFacts?.Invoke()?.Words ?? "",                                           // round 73: what the desk's editors are on
             LowerThird = LowerThirdWords(air, now),                                                       // round 73: the name on screen and when it leaves
             Midi = _s.MidiLearn.EyeWords,                                                                // round 73: learn armed, or the surfaces' map

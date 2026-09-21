@@ -570,6 +570,14 @@ public sealed record ActionOrigin(OriginKind Kind, string Name = "", string Endp
         }
     }
 
+    /// <summary>
+    /// Round 79 (the rule the wire's recorder used since round 74, now the one place): the show's own automation —
+    /// a cue, the schedule, the playlist, a sting's landing, the recovery, a follower's forward — against a hand on a
+    /// key. Automation asserts an end state and is not refused when it already holds; a hand is told what its press
+    /// did, and a press that would do nothing is refused with the way out.
+    /// </summary>
+    public bool IsAutomation => Kind is OriginKind.Cue or OriginKind.Follow or OriginKind.Schedule or OriginKind.Playlist or OriginKind.Stinger or OriginKind.Recovery;
+
     public override string ToString() => Label;
 }
 
@@ -585,12 +593,53 @@ public enum ActionStatus
     Refused,
 }
 
+/// <summary>
+/// Round 79: whether the room could see an action land — read from the outputs and the blackout after it
+/// ran, and stamped on the result by the executor for every origin. The words a result carries can say
+/// "fades up"; this says whether anybody could have seen it. The journal keeps it as a field, so a report
+/// is read by fields and not by parsing the words.
+/// </summary>
+public enum ActionVisibility
+{
+    /// <summary>Not stamped — a result built off the executor (a node's paper stack, a forwarded verb).</summary>
+    Unknown,
+    /// <summary>The outputs were live and the blackout down: the screens showed the result.</summary>
+    OutputsLive,
+    /// <summary>The outputs were closed: nothing reached a screen.</summary>
+    OutputsOff,
+    /// <summary>The blackout was up: the screens stayed black.</summary>
+    Blackout,
+}
+
+/// <summary>
+/// Round 79: what an action did to what the audience sees — the air's pictures compared before and after by
+/// the executor, for the take family (TAKE, CUT, a tile's own). Attempts are not facts: a take journaled Done
+/// says a take ran; this says whether it changed anything.
+/// </summary>
+public enum ActionEffect
+{
+    /// <summary>Not measured for this kind of action.</summary>
+    NotMeasured,
+    /// <summary>The pictures on the screens changed.</summary>
+    Changed,
+    /// <summary>The pictures stayed; only how they are held changed — a screen became its own (OWN), or a pin lifted.</summary>
+    OwnOnly,
+    /// <summary>Nothing on air changed.</summary>
+    Nothing,
+}
+
 public sealed record ActionResult(ActionStatus Status, string Message = "")
 {
     public bool Ok => Status is ActionStatus.Done or ActionStatus.Requested;
 
     /// <summary>A cue's run names itself here — its execution id and what it still waits for — so the stack's history row can be settled by the receipts that come later. Null for anything that is not a cue.</summary>
     public Services.CueExecution? Execution { get; init; }
+
+    /// <summary>Round 79: whether the room could see this land — the executor's stamp, from the outputs and the blackout after the action ran.</summary>
+    public ActionVisibility Visibility { get; init; }
+
+    /// <summary>Round 79: what this did to what the audience sees — measured by the executor for the take family, <see cref="ActionEffect.NotMeasured"/> for the rest.</summary>
+    public ActionEffect Effect { get; init; }
 
     public static ActionResult Done(string message = "") => new(ActionStatus.Done, message);
     public static ActionResult Requested(string message = "") => new(ActionStatus.Requested, message);

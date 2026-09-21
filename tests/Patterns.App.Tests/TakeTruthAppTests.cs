@@ -16,6 +16,11 @@ namespace Patterns.App.Tests;
 /// picture over itself, a take that would change nothing is refused with the way out, and every take says
 /// when the outputs are off, so the desk never reports a fade-up nobody could see. The field pressed TAKE
 /// eleven times with the outputs off and read "fades up" eleven times.
+///
+/// Round 79.1: the facts as fields. Every result is stamped with whether the room could see it land (the outputs,
+/// the blackout) and every take with what it did to the air (measured before and after, at the executor); the
+/// journal row, STATE's take row and the Eye's desk node carry them. A hand's wall TAKE over an air that already
+/// is the preview is refused like the tile's; the show's own automation is not, and its row says Nothing changed.
 /// </summary>
 public class TakeTruthAppTests
 {
@@ -39,6 +44,15 @@ public class TakeTruthAppTests
     }
 
     private static SwitcherTile Tile(MainViewModel vm, string id) => vm.SwitcherTiles.Single(t => t.TargetId == id);
+
+    /// <summary>The outputs open on the fake screens (headless windows), so a take can be seen.</summary>
+    private static void GoLive(TestApp.Booted b)
+    {
+        var on = b.Services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
+        Assert.True(on.Ok, on.Message);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(b.Services.Outputs.IsLive);
+    }
 
     /// <summary>Three screens, the grid on air everywhere, EDIT SAFE open with the preview still the grid.</summary>
     private static (AppServices Services, MainViewModel Vm) Open(TestApp.Booted b)
@@ -214,6 +228,8 @@ public class TakeTruthAppTests
             Assert.True(ownOnly.Ok);
             Assert.Contains("already showed this picture", ownOnly.Message);
             Assert.Contains("OWN", ownOnly.Message);
+            Assert.Equal(ActionEffect.OwnOnly, ownOnly.Effect);                                   // round 79: measured, not believed
+            Assert.Equal(ActionVisibility.OutputsOff, ownOnly.Visibility);
             Assert.True(ContentTargets.UsesOwnPattern(services.AirState, "c"));
 
             // TAKE on the staged tile puts it up: pending gone, the badge off.
@@ -248,15 +264,202 @@ public class TakeTruthAppTests
             Assert.Equal(PatternKind.LedWall, services.Bus.Current.PatternFor("b").Kind);
             var row = services.Journal.Tail(5).Last(e => e.Kind == "ScreenTake");
             Assert.Contains("OUTPUTS ON", row.Message);
+            Assert.Equal("OutputsOff", row.Visibility);                                           // round 79: the fact as a field, not only in the words
+            Assert.Equal("Changed", row.Effect);
+            Assert.Equal(ActionVisibility.OutputsOff, one.Visibility);
+            Assert.Equal(ActionEffect.Changed, one.Effect);
             Assert.Contains("\"outputsLive\":false", new CommandRouter(services).StateJson());
 
-            // The wall's take too — and with nothing changed in the preview it says every screen already showed its picture.
+            // The wall's take too — and with nothing changed in the preview the next press is refused (round 79), where
+            // it used to be reported done with "every screen already showed its picture".
             vm.TakeCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("OUTPUTS ON", vm.StatusMessage);
             vm.TakeCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
-            Assert.Contains("already showed", vm.StatusMessage);
+            Assert.Contains("Nothing to take", vm.StatusMessage);
+            Assert.Contains("\"outcome\":\"Refused\",\"effect\":\"Nothing\",\"visibility\":\"OutputsOff\"", new CommandRouter(services).StateJson());
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ATakeWithAnOutputOpenIsAFactRowAndASecondPressIsRefusedAsNothing()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm) = Open(b);
+            GoLive(b);
+            vm.State.Pattern.Kind = PatternKind.LedWall;
+            Dispatcher.UIThread.RunJobs();
+
+            // The tile's take: seen, and it changed the picture — on the result, in the journal, in STATE, in the Eye.
+            var one = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b");
+            Assert.True(one.Ok, one.Message);
+            Assert.Equal(ActionVisibility.OutputsLive, one.Visibility);
+            Assert.Equal(ActionEffect.Changed, one.Effect);
+            Assert.DoesNotContain("outputs are off", one.Message);
+            var row = services.Journal.Tail(5).Last(e => e.Kind == "ScreenTake");
+            Assert.Equal("Done", row.Outcome);
+            Assert.Equal("OutputsLive", row.Visibility);
+            Assert.Equal("Changed", row.Effect);
+            Assert.Contains("\"last\":{\"kind\":\"ScreenTake\",\"outcome\":\"Done\",\"effect\":\"Changed\",\"visibility\":\"OutputsLive\"", new CommandRouter(services).StateJson());
+            Assert.NotNull(services.Actions.LastTake);
+            services.Eye.Refresh();
+            Assert.Contains(services.Eye.Graph.Find(EyeGraph.DeskId)!.Words,
+                w => w.StartsWith("Last take: TAKE ", StringComparison.Ordinal) && w.Contains("the pictures changed", StringComparison.Ordinal) && w.Contains("outputs live", StringComparison.Ordinal));
+
+            // The same press again: refused, and the refusal is a fact row too — nothing changed, nothing published.
+            var version = services.Bus.Current.Version;
+            var again = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b");
+            Assert.Equal(ActionStatus.Refused, again.Status);
+            Assert.Equal(ActionEffect.Nothing, again.Effect);
+            Assert.Equal(ActionVisibility.OutputsLive, again.Visibility);
+            Assert.Equal(version, services.Bus.Current.Version);
+            var refused = services.Journal.Tail(5).Last(e => e.Kind == "ScreenTake");
+            Assert.Equal("Refused", refused.Outcome);
+            Assert.Equal("Nothing", refused.Effect);
+            Assert.Contains("\"last\":{\"kind\":\"ScreenTake\",\"outcome\":\"Refused\",\"effect\":\"Nothing\"", new CommandRouter(services).StateJson());
+            services.Eye.Refresh();
+            Assert.Contains(services.Eye.Graph.Find(EyeGraph.DeskId)!.Words,
+                w => w.StartsWith("Last take: TAKE ", StringComparison.Ordinal) && w.Contains("refused: ", StringComparison.Ordinal) && w.Contains("nothing to take", StringComparison.Ordinal));
+
+            // The wall: the programme's preview is the LED wall and a and c still show the grid, so the take changes them.
+            // The next press over an air that already is the preview is refused with the way out, spends no one-shot and
+            // publishes nothing — the field's eleven presses, answered on the wall as round 78 answered them on the tile.
+            var wall = services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk);
+            Assert.True(wall.Ok, wall.Message);
+            Assert.Equal(ActionEffect.Changed, wall.Effect);
+            Assert.Equal(ActionVisibility.OutputsLive, wall.Visibility);
+            Assert.Equal(PatternKind.LedWall, services.Bus.Current.PatternFor("a").Kind);
+            Assert.True(services.Actions.Execute(ControlProtocol.Parse("TAKE NEXT CUT").Action, ActionOrigin.Desk).Ok);
+            version = services.Bus.Current.Version;
+            var nothing = services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Refused, nothing.Status);
+            Assert.StartsWith("Nothing to take", nothing.Message, StringComparison.Ordinal);
+            Assert.Contains("the air is already the preview", nothing.Message);
+            Assert.Contains("SEND", nothing.Message);
+            Assert.Equal(ActionEffect.Nothing, nothing.Effect);
+            Assert.NotNull(services.NextTake.Pending);
+            Assert.Equal(version, services.Bus.Current.Version);
+            var cut = services.Actions.Execute(ShowActionKind.Cut, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Refused, cut.Status);
+            Assert.Contains("Nothing to take", cut.Message);
+            Assert.Equal("Nothing", services.Journal.Tail(5).Last(e => e.Kind == "Cut").Effect);
+
+            // The blackout up: the take lands in the model, and its stamp says the screens stayed black.
+            Assert.True(services.Actions.Execute(ShowActionKind.BlackoutOn, ActionOrigin.Desk).Ok);
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            Dispatcher.UIThread.RunJobs();
+            var dark = services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk);
+            Assert.True(dark.Ok, dark.Message);
+            Assert.Equal(ActionVisibility.Blackout, dark.Visibility);
+            Assert.Equal(ActionEffect.Changed, dark.Effect);
+            Assert.Contains("Blackout is on", dark.Message);
+            var darkRow = services.Journal.Tail(5).Last(e => e.Kind == "Take");
+            Assert.Equal("Blackout", darkRow.Visibility);
+            Assert.Equal("Changed", darkRow.Effect);
+            services.Eye.Refresh();
+            Assert.Contains(services.Eye.Graph.Find(EyeGraph.DeskId)!.Words, w => w.StartsWith("Last take: TAKE ", StringComparison.Ordinal) && w.Contains("blackout — unseen", StringComparison.Ordinal));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheShowsOwnAutomationIsNotRefusedWhenItsEndStateHoldsAndItsRowSaysNothingChanged()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm) = Open(b);
+            var cue = new ActionOrigin(OriginKind.Cue, "Q3");
+
+            // Nothing edited: a hand is refused; the cue's take runs, changes nothing, and its row says exactly that.
+            Assert.Equal(ActionStatus.Refused, services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk).Status);
+            var byCue = services.Actions.Execute(ShowActionKind.Take, cue);
+            Assert.True(byCue.Ok, byCue.Message);
+            Assert.Equal(ActionEffect.Nothing, byCue.Effect);
+            Assert.Contains("every screen taken already showed its picture", byCue.Message);
+            var row = services.Journal.Tail(5).Last(e => e.Kind == "Take");
+            Assert.Equal("cue Q3", row.Origin);
+            Assert.Equal("Done", row.Outcome);
+            Assert.Equal("Nothing", row.Effect);
+            Assert.Equal("OutputsOff", row.Visibility);
+
+            // The tile the same way: the first cue take lands, the second is a no-op said as one, a hand's is refused.
+            vm.State.Pattern.Kind = PatternKind.LedWall;
+            Dispatcher.UIThread.RunJobs();
+            var first = services.Actions.Execute(ShowActionKind.ScreenTake, cue, "b");
+            Assert.True(first.Ok, first.Message);
+            Assert.Equal(ActionEffect.Changed, first.Effect);
+            var second = services.Actions.Execute(ShowActionKind.ScreenTake, cue, "b");
+            Assert.True(second.Ok, second.Message);
+            Assert.Equal(ActionEffect.Nothing, second.Effect);
+            Assert.Contains("nothing changed", second.Message);
+            Assert.Equal(ActionStatus.Refused, services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b").Status);
+            Assert.Equal(ActionStatus.Refused, services.Actions.Execute(ShowActionKind.ScreenTake, new ActionOrigin(OriginKind.Companion, "FOH deck"), "b").Status);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void EveryResultIsStampedAndEveryDoneTakeFromAHandChangedSomething()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm) = Open(b);
+            var seen = new List<(ShowAction Action, ActionOrigin Origin, ActionResult Result)>();
+            services.Actions.Performed += (a, o, r) => seen.Add((a, o, r));
+
+            void Press(ShowActionKind kind, string target = "") => services.Actions.Execute(kind, ActionOrigin.Desk, target);
+            Press(ShowActionKind.BlackoutOn);
+            Press(ShowActionKind.BlackoutOff);
+            Press(ShowActionKind.ScreenCut, "c");                                                 // own only: c already shows the preview (the grid) and becomes its own
+            vm.State.Pattern.Kind = PatternKind.LedWall;
+            Dispatcher.UIThread.RunJobs();
+            Press(ShowActionKind.ScreenTake, "b");                                                // changed
+            Press(ShowActionKind.ScreenTake, "b");                                                // refused: nothing
+            Press(ShowActionKind.Take);                                                           // changed: a
+            Press(ShowActionKind.Take);                                                           // refused: nothing
+            vm.State.Pattern.Kind = PatternKind.Focus;
+            Dispatcher.UIThread.RunJobs();
+            Press(ShowActionKind.Cut);                                                            // changed: a again
+            Press(ShowActionKind.Cut);                                                            // refused
+            services.Actions.Execute(ShowActionKind.Take, new ActionOrigin(OriginKind.Cue, "Q1"));   // automation: done, nothing
+
+            Assert.Equal(10, seen.Count);                                                        // every press above, once each
+            foreach (var (action, origin, result) in seen)
+            {
+                Assert.NotEqual(ActionVisibility.Unknown, result.Visibility);
+                if (!ShowActions.IsTake(action.Kind))
+                {
+                    Assert.Equal(ActionEffect.NotMeasured, result.Effect);
+                    continue;
+                }
+                Assert.NotEqual(ActionEffect.NotMeasured, result.Effect);
+                if (result.Status == ActionStatus.Done && !origin.IsAutomation) Assert.NotEqual(ActionEffect.Nothing, result.Effect);
+                if (result.Status == ActionStatus.Refused) Assert.Equal(ActionEffect.Nothing, result.Effect);
+            }
+            Assert.Contains(seen, x => x.Result.Effect == ActionEffect.OwnOnly && x.Action.Kind == ShowActionKind.ScreenCut);
+            Assert.Contains(seen, x => x.Origin.IsAutomation && x.Result.Status == ActionStatus.Done && x.Result.Effect == ActionEffect.Nothing);
+            Assert.Equal(3, seen.Count(x => x.Result.Status == ActionStatus.Done && !x.Origin.IsAutomation && x.Result.Effect == ActionEffect.Changed));
+
+            // The take family is exactly the four verbs.
+            foreach (var kind in Enum.GetValues<ShowActionKind>())
+            {
+                Assert.Equal(kind is ShowActionKind.Take or ShowActionKind.Cut or ShowActionKind.ScreenTake or ShowActionKind.ScreenCut, ShowActions.IsTake(kind));
+            }
         }
         finally
         {

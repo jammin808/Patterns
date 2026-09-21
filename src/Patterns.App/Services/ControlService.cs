@@ -490,7 +490,7 @@ public sealed partial class ControlService : IDisposable
     /// </summary>
     public void Feed(ShowAction action, ActionOrigin origin, ActionResult result)
     {
-        if (!result.Ok || IsAutomation(origin.Kind)) return;
+        if (!result.Ok || origin.IsAutomation) return;
         List<KeyValuePair<WirePeer, string>> recording;
         lock (_gate)
         {
@@ -505,9 +505,6 @@ public sealed partial class ControlService : IDisposable
             peer.Say("ACTION " + line);
         }
     }
-
-    private static bool IsAutomation(OriginKind kind)
-        => kind is OriginKind.Cue or OriginKind.Follow or OriginKind.Schedule or OriginKind.Playlist or OriginKind.Stinger or OriginKind.Recovery;
 
     /// <summary>The decks that said HELLO and are still connected — name, module version, address — for the Remote page and STATE.</summary>
     public IReadOnlyList<WireDeck> Decks
