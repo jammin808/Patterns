@@ -27,6 +27,43 @@ public class RateAndAspectTests
     public void TheOutputPresentsAtTheRateItsDisplayCanShow(int wanted, int displayHz, double clockHz, int expected)
         => Assert.Equal(expected, OutputRate.Present(wanted, displayHz, clockHz));
 
+    /// <summary>
+    /// Round 79: LIMITED BY RENDER CLOCK names its cause when the displays' rates are known — a clock in the family
+    /// of a slower display (make the display that needs the higher rate lead), or a clock below every display (the
+    /// desk is not keeping up) — and says only that it is limited when they are not.
+    /// </summary>
+    [Fact]
+    public void AClockLimitNamesItsCauseFromTheDisplaysRates()
+    {
+        var follows = OutputRate.ClockLimit(0, 60, 50.0, new[] { 50, 60 });
+        Assert.True(follows.Limited);
+        Assert.Equal(RateLimitCause.FollowsSlowerDisplay, follows.Cause);
+        Assert.Equal(50, follows.CauseHz);
+        Assert.Contains("follows a 50 Hz display", follows.Words("Output 2"));
+        Assert.Contains("needs 60 Hz", follows.Words("Output 2"));
+        Assert.StartsWith("Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK", follows.Words("Output 2"));
+
+        var below = OutputRate.ClockLimit(0, 60, 45.0, new[] { 50, 60 });
+        Assert.Equal(RateLimitCause.BelowEveryDisplay, below.Cause);
+        Assert.Equal(50, below.CauseHz);
+        Assert.Contains("below every display", below.Words("Output 1"));
+        Assert.Contains("not keeping up", below.Words("Output 1"));
+
+        var unknown = OutputRate.ClockLimit(0, 60, 50.0, null);
+        Assert.True(unknown.Limited);
+        Assert.Equal(RateLimitCause.Unknown, unknown.Cause);
+        Assert.Equal("", unknown.CauseWords);
+        Assert.Equal("Output 3: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK", unknown.Words("Output 3"));
+        Assert.Equal(unknown.Words("Output 3"), OutputRate.ClockLimit(0, 60, 50.0).Words("Output 3"));      // the two-argument form is the old words
+
+        var between = OutputRate.ClockLimit(0, 60, 55.0, new[] { 50, 60 });                                  // in nobody's family, above one display: not known
+        Assert.Equal(RateLimitCause.Unknown, between.Cause);
+
+        Assert.Equal(RateLimitCause.None, OutputRate.ClockLimit(0, 50, 50.0, new[] { 50 }).Cause);           // the clock is the display's own
+        Assert.False(OutputRate.ClockLimit(0, 60, 59.94, new[] { 60 }).Limited);                             // one family
+        Assert.Equal("", OutputRate.ClockLimit(0, 60, 60.0, new[] { 60 }).Words("Output 1"));
+    }
+
     [Theory]
     [InlineData(59.94, 60, true)]
     [InlineData(29.97, 30, true)]
@@ -73,7 +110,9 @@ public class RateAndAspectTests
         var pane = new FrameBudgetReading(Patterns.Core.Model.SinkKind.Preview, 0, "Preview", 100, 0, 100, 5, 8, "", 50, ClockHz: 50.0);
         var readings = new[] { limited, served, pane };
         var words = Assert.Single(FrameBudgets.ClockLimited(readings));
-        Assert.Equal("Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK", words);
+        Assert.StartsWith("Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK", words, StringComparison.Ordinal);
+        Assert.Contains("the clock follows a 50 Hz display", words);                      // round 79: Output 1's display leads the clock — the cause named
+        Assert.Contains("make the display that needs 60 Hz the one it follows", words);
         Assert.Equal(50.0, FrameBudgets.ClockHz(readings));
 
         var amber = SuperCheck.Run(new CheckFacts { RenderClockHz = 50.0, ClockLimited = FrameBudgets.ClockLimited(readings) }).Rows.Single(r => r.Item == "Render clock");

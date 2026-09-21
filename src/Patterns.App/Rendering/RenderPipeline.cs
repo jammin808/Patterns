@@ -32,12 +32,13 @@ public sealed record PipelineViewport(
     /// <summary>The output's display refresh as Windows reports it (round 63); 0 unknown — a pane, a feed, a planned screen.</summary>
     public int DisplayHz { get; init; }
 
-    /// <summary>A monitor of one content target: PGM or PVW side, at its true size, scaled to fit.</summary>
-    public static PipelineViewport Monitor(string? targetId, SKSizeI targetSize, string label, bool previewSide)
+    /// <summary>A monitor of one content target: PGM or PVW side, at its true size, scaled to fit. Round 79: <paramref name="fps"/> is the rate it presents at (the desk's <see cref="DeskLayoutConfig.MonitorFps"/>; 0 every beat) — the monitors degrade before the outputs.</summary>
+    public static PipelineViewport Monitor(string? targetId, SKSizeI targetSize, string label, bool previewSide, int fps = 0)
         => new(SinkKind.Monitor, targetSize, default, targetId, 0, label)
         {
             FitReference = true,
             UsePreviewSnapshot = previewSide,
+            TargetFps = Math.Max(0, fps),
         };
 
     /// <summary>Physical rotation applied when blitting to the window (content stays upright).</summary>
@@ -115,7 +116,7 @@ public sealed record PipelineViewport(
     /// <summary>A blend mask from a camera calibration — a grey picture over this output's raster that multiplies its light — or "" for the zones alone.</summary>
     public string BlendMaskPath { get; init; } = "";
 
-    /// <summary>The rate this sink presents at (0 = every vsync). Outputs only; the preview and monitors stay unpaced.</summary>
+    /// <summary>The rate this sink presents at (0 = every vsync). The outputs, and since round 79 the desk's monitors at the desk's monitor rate; the preview stays unpaced.</summary>
     public int TargetFps { get; init; }
 
     /// <summary>

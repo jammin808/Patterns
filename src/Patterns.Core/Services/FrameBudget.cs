@@ -594,7 +594,14 @@ public static class FrameBudgets
 
     /// <summary>The outputs the render clock limits, in words — one line per sink; empty when none or nothing measured (round 64).</summary>
     public static IReadOnlyList<string> ClockLimited(IReadOnlyList<FrameBudgetReading> readings)
-        => readings.Where(r => r.Kind == SinkKind.Output && r.ClockLimit.Limited).Select(r => r.ClockLimit.Words(r.Name)).ToList();
+    {
+        // Round 79: every output's display rate goes in, so the words can say which fix — the clock following a slower
+        // display, or the clock below every display (the desk not keeping up).
+        var rates = readings.Where(r => r.Kind == SinkKind.Output && r.DisplayHz > 0).Select(r => r.DisplayHz).Distinct().ToList();
+        return readings.Where(r => r.Kind == SinkKind.Output && r.ClockLimit.Limited)
+            .Select(r => OutputRate.ClockLimit(r.TargetFps, r.DisplayHz, r.ClockHz, rates).Words(r.Name))
+            .ToList();
+    }
 
     /// <summary>The render clock's measured beat as the outputs hear it — the fastest any sink measured; -1 before one has (round 64).</summary>
     public static double ClockHz(IReadOnlyList<FrameBudgetReading> readings)

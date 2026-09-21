@@ -182,8 +182,9 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         ToPreviewCommand = new RelayCommand(() => _vm.LoadTileIntoPreview(this));
         TakeHereCommand = new RelayCommand(() => _vm.TakeToTile(this, cut: false));
         CutHereCommand = new RelayCommand(() => _vm.TakeToTile(this, cut: true));
-        PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
-        PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
+        var monitorFps = vm.State.Desk.MonitorFps;                                              // round 79: the miniatures pace to the desk's monitor rate
+        PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false, monitorFps);
+        PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true, monitorFps);
     }
 
     /// <summary>The look chosen on the Show panel for this screen alone — sent by SendLookCommand.</summary>
@@ -759,6 +760,13 @@ public sealed record FpsOption(int Value, string Label)
     {
         new(0, "The show's master rate"),
         new(24, "24 fps"), new(25, "25 fps"), new(30, "30 fps"), new(50, "50 fps"), new(60, "60 fps"),
+    };
+
+    /// <summary>Round 79: the desk's monitors — the wall's miniatures, the PROGRAM pane, the RUN monitor.</summary>
+    public static readonly FpsOption[] Monitor =
+    {
+        new(0, "Every beat of the display (unlimited)"),
+        new(15, "15 fps"), new(20, "20 fps"), new(25, "25 fps (default)"), new(30, "30 fps"), new(50, "50 fps"), new(60, "60 fps"),
     };
 }
 

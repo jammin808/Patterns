@@ -94,7 +94,7 @@ public partial class MainWindow : Window
 
         vm.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is not (nameof(MainViewModel.SelectedTargetSize) or nameof(MainViewModel.SelectedTargetId))) return;
+            if (e.PropertyName is not (nameof(MainViewModel.SelectedTargetSize) or nameof(MainViewModel.SelectedTargetId) or nameof(MainViewModel.MonitorFps))) return;
             preview.Viewport = PreviewViewport(vm);
             program.Viewport = ProgramViewport(vm);
             PreviewCanvas.NotifyChanged();
@@ -741,7 +741,7 @@ public partial class MainWindow : Window
     }
 
     private static PipelineViewport ProgramViewport(MainViewModel vm)
-        => PipelineViewport.Monitor(vm.SelectedTargetId, vm.SelectedTargetSize, "PGM", previewSide: false);
+        => PipelineViewport.Monitor(vm.SelectedTargetId, vm.SelectedTargetSize, "PGM", previewSide: false, vm.MonitorFps);   // round 79: a monitor, paced like the tiles
 
     private static PipelineViewport PreviewViewport(MainViewModel vm)
         => PipelineViewport.Preview with { ReferenceSize = vm.SelectedTargetSize, FitReference = true };

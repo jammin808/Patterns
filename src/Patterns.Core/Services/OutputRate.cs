@@ -46,19 +46,56 @@ public static class OutputRate
     /// display's refresh as reported (0 unknown), the clock's measured beat (≤ 0 not measured).
     /// </summary>
     public static RateLimit ClockLimit(int presentFps, int displayHz, double clockHz)
+        => ClockLimit(presentFps, displayHz, clockHz, null);
+
+    /// <summary>
+    /// Round 79: as above, and why — the refresh rates of every display the outputs are on tell a clock that
+    /// follows a slower display (the clock beats in the family of one of them: make the display that needs the
+    /// higher rate the one the clock follows) from a clock below every display (the desk cannot keep up:
+    /// lighten it). Null or empty rates: the cause is not known, and the words say only that it is limited.
+    /// </summary>
+    public static RateLimit ClockLimit(int presentFps, int displayHz, double clockHz, IReadOnlyCollection<int>? displayRates)
     {
         var needed = presentFps > 0 ? (displayHz > 0 ? Math.Min(presentFps, displayHz) : presentFps) : displayHz;
         var limited = clockHz > 0 && needed > 0 && clockHz < needed && !SameFamily(clockHz, needed);
-        return new RateLimit(limited, needed, clockHz);
+        if (!limited) return new RateLimit(false, needed, clockHz, RateLimitCause.None, 0);
+        var known = displayRates?.Where(r => r > 0).Distinct().ToList();
+        if (known is not { Count: > 0 }) return new RateLimit(true, needed, clockHz, RateLimitCause.Unknown, 0);
+        var led = known.FirstOrDefault(r => SameFamily(clockHz, r));
+        if (led > 0) return new RateLimit(true, needed, clockHz, RateLimitCause.FollowsSlowerDisplay, led);
+        return known.All(r => clockHz < r)
+            ? new RateLimit(true, needed, clockHz, RateLimitCause.BelowEveryDisplay, known.Min())
+            : new RateLimit(true, needed, clockHz, RateLimitCause.Unknown, 0);
     }
 }
 
-/// <summary>An output against the render clock: whether the clock limits it, the rate it needs and the clock's measured beat (≤ 0: not measured — unknown, never assumed).</summary>
-public readonly record struct RateLimit(bool Limited, int NeededHz, double ClockHz)
+/// <summary>Round 79: why the render clock limits an output — which of the two very different fixes the words should name.</summary>
+public enum RateLimitCause
 {
-    /// <summary>The words for a sink: "Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK".</summary>
+    /// <summary>Not limited.</summary>
+    None,
+    /// <summary>Limited, and the displays' rates were not given — the cause is not known.</summary>
+    Unknown,
+    /// <summary>The clock beats at a slower display's rate: Windows drives the compositor from that display — make the one that needs the higher rate lead.</summary>
+    FollowsSlowerDisplay,
+    /// <summary>The clock is below every display's rate: the desk is not keeping up — a page, a decoder, the tiles; lighten it.</summary>
+    BelowEveryDisplay,
+}
+
+/// <summary>An output against the render clock: whether the clock limits it, the rate it needs, the clock's measured beat (≤ 0: not measured — unknown, never assumed), and since round 79 why (with the display rate the cause names, 0 none).</summary>
+public readonly record struct RateLimit(bool Limited, int NeededHz, double ClockHz, RateLimitCause Cause = RateLimitCause.Unknown, int CauseHz = 0)
+{
+    /// <summary>The words for a sink: "Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK — the clock follows a 50 Hz display: make the display that needs 60 Hz the one it follows".</summary>
     public string Words(string sink)
-        => Limited ? $"{sink}: {NeededHz} Hz needed, render clock {ClockHz:0.0} Hz — LIMITED BY RENDER CLOCK" : "";
+        => Limited ? $"{sink}: {NeededHz} Hz needed, render clock {ClockHz:0.0} Hz — LIMITED BY RENDER CLOCK{CauseWords}" : "";
+
+    /// <summary>Round 79: the cause and its fix, as a suffix; "" when not limited or not known.</summary>
+    public string CauseWords => Cause switch
+    {
+        RateLimitCause.FollowsSlowerDisplay => $" — the clock follows a {CauseHz} Hz display: make the display that needs {NeededHz} Hz the one it follows",
+        RateLimitCause.BelowEveryDisplay => $" — the clock is below every display's rate (the slowest is {CauseHz} Hz): the desk is not keeping up — lower the desk monitors' rate, close a page, lighten the show",
+        _ => "",
+    };
 }
 
 /// <summary>A pixel size's shape in the words a video engineer uses: 16:9, 16:10, 4:3, 21:9, 1:1, 9:16 — or the reduced pair, or "1.78:1" when neither reads.</summary>

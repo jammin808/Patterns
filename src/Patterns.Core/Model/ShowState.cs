@@ -2005,6 +2005,19 @@ public sealed class DeskLayoutConfig : Observable
     /// </summary>
     public string RunMonitor { get => _runMonitor; set => Set(ref _runMonitor, value ?? ""); }
 
+    /// <summary>Round 79: the rate the desk's monitors present at by default — a miniature at 25 fps costs the machine less than half of what it did at the display's 60, and the outputs get the beats first.</summary>
+    public const int DefaultMonitorFps = 25;
+
+    private int _monitorFps = DefaultMonitorFps;
+
+    /// <summary>
+    /// Round 79: the rate the desk's monitors — the wall's PGM and PVW miniatures, the PROGRAM pane, the RUN
+    /// surface's monitor — present at, through the same pacer the outputs use; the preview pane stays at every
+    /// beat, since it is where the operator's hand is. 0 leaves the monitors at every beat as before. The desk's
+    /// own (this section never travels to a twin): a laptop desk turns it down, a workstation up.
+    /// </summary>
+    public int MonitorFps { get => _monitorFps; set => Set(ref _monitorFps, Math.Clamp(value, 0, 120)); }
+
     public ShowCollection<string> CollapsedTiles { get; init; } = new();
 }
 

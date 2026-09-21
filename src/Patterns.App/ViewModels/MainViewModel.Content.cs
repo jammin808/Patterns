@@ -530,7 +530,7 @@ public sealed partial class MainViewModel
     /// The monitor follows the desk layout's choice (RUN MONITOR, the right-click) and the rig: called
     /// when the wall is rebuilt, and by itself when the choice changes from any origin.
     /// </summary>
-    internal void RefreshRunMonitor()
+    public void RefreshRunMonitor()
     {
         var desk = State.Desk;
         if (!ReferenceEquals(_monitorDesk, desk))
@@ -553,7 +553,7 @@ public sealed partial class MainViewModel
         var title = facts.IsProgram ? "PGM — the programme" : facts.ShowingWords;
         RunMonitorRatio = size.Height > 0 ? (double)size.Width / size.Height : 16.0 / 9.0;
         RunMonitorTitle = title;
-        RunMonitorViewport = Patterns.App.Rendering.PipelineViewport.Monitor(target, size, title, previewSide: false);
+        RunMonitorViewport = Patterns.App.Rendering.PipelineViewport.Monitor(target, size, title, previewSide: false, State.Desk.MonitorFps);   // round 79: paced like the tiles
     }
 
     // ---- the caller's lower thirds on the Run surface (round 62) ----

@@ -130,6 +130,14 @@
     </Grid>
     <TextBlock Classes="hint tip"
                Text="The show's frame rate. Every output presents at it — a 30 fps show on 60 Hz displays draws every other refresh, evenly, on one clock — an NDI sender set to 'master' sends at it, and the stream can follow it. Unlimited leaves every display at its own refresh. The selected screen can override it in its settings column." />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Desk monitors" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding MonitorFpsOptions}"
+                SelectedValue="{Binding MonitorFps, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
+    </Grid>
+    <TextBlock Classes="hint tip"
+               Text="The rate the desk's own monitors draw at — the wall's miniatures, the PROGRAM pane and the RUN surface's monitor — so they cost the machine less and the outputs get the beats first; the PREVIEW pane, where your hand is, stays at every beat. 25 fps by default; this desk's setting, never the twin's." />
 
     <TextBlock Classes="h2" Text="SELECTED SCREEN" />
     <!-- The selected screen's settings live in the pop-out column beside this page (round 19): the overview keeps its room. -->

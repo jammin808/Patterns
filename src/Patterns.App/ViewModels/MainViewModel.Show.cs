@@ -357,6 +357,26 @@ public sealed partial class MainViewModel
     public string RunWallToggleText => IsRunWallCollapsed ? "◂ EXPAND TILES" : "▸ COLLAPSE TILES";
 
     /// <summary>The page takes the room and the screens reduce to a strip on the right (the show remembers it).</summary>
+    /// <summary>
+    /// Round 79: the rate the desk's monitors present at — the wall's miniatures, the PROGRAM pane, the RUN
+    /// surface's monitor — so the monitors degrade before the outputs; 0 is every beat. A change rebuilds the
+    /// tiles and the RUN monitor here and the panes in the window, all at once.
+    /// </summary>
+    public int MonitorFps
+    {
+        get => State.Desk.MonitorFps;
+        set
+        {
+            if (State.Desk.MonitorFps == value) return;
+            State.Desk.MonitorFps = value;
+            Raise(nameof(MonitorFps));
+            RebuildSwitcherTiles();
+            RefreshRunMonitor();
+        }
+    }
+
+    public FpsOption[] MonitorFpsOptions => FpsOption.Monitor;
+
     public bool WideWorkArea
     {
         get => State.Desk.WideWorkArea;
