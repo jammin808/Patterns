@@ -86,8 +86,17 @@ public sealed partial class MainViewModel
     /// <summary>The line under the switch's: what the side effects after an edit cost — the passes, what the change mask let skip, the systems that took the time.</summary>
     public string SideEffectsText { get => _sideEffectsText; private set => Set(ref _sideEffectsText, value); }
 
-    /// <summary>The status-timer body, callable directly (tests drive it without waiting on the clock).</summary>
-    public void PollNow() => PollStatus();
+    /// <summary>
+    /// The status-timer body, callable directly (tests drive it without waiting on the clock). A
+    /// tick asked for now reads the machine as it is now: the dashboard's facts memo, kept five
+    /// ticks on the timer, is dropped first, so a budget or a tick reset before the call is what
+    /// the poll reads — never the preview's first cold frames from a tick the clock ran earlier.
+    /// </summary>
+    public void PollNow()
+    {
+        _dashboardFacts = null;
+        PollStatus();
+    }
 
     /// <summary>
     /// The desk's second in lanes. The critical lane runs every tick, first, whatever the budget:
