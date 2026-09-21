@@ -109,6 +109,14 @@ counted on the frame of a change (a new epoch starts, the drops before it stay);
 RENDER CLOCK* appears only when the render clock reads below what a display wants and is then a
 finding about the machine, recorded; the *Render clock* row is green otherwise.
 
+**Round 80, the follow.** With FOLLOW THE DISPLAYS on (the Screens page, the default) and the target at
+60, the show runs at 50 on both outputs while the 50 Hz display is enabled: the super-check's *Master
+rate* row reads *50 fps — following <label> (50 Hz); set 60* in green, STATE `masterFpsEffective` is 50
+and `masterRate` the same words, the log carries *Master rate 50 fps — following …* once, the 60 Hz
+output's chip says 50 of 60. Switch the follow off: the row goes amber naming the display, the outputs
+read 60, the 50 Hz output drops as before. Disable the 50 Hz screen: the row goes back to *60 fps*. Record
+the row's words in *notes*.
+
 | date | machine | displays (Hz) | build / manifest hash | presented at | epochs | drops on change | clockLimited | result | notes |
 |------|---------|---------------|-----------------------|--------------|--------|-----------------|--------------|--------|-------|
 |      |         |               |                       |              |        |                 |              |        |       |

@@ -10604,3 +10604,150 @@ what the files say.
 
 - This section; REVIEW round 79; CHANGELOG (with the evidence class); README (the ledger's entry, the
   build's version, the brief and the ledger named); the tag table row 78 (`08dcaaa`); `docs/OPEN.md` L28.
+
+## 98. Round 80 — the ledger's rows that need no rig: the master rate follows the displays, the plan's OWN words, the module reads the descriptor version, one atomic write, the poll reads the machine now
+
+### 98.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** The maintainer's one word, "continue", after round 79 closed green
+(CI runs 261 and 262), read against `docs/OPEN.md`: the round is the ledger's rows that need no rig. No files
+have arrived in `docs/field/` since the folder was made (79.7): there is nothing to read as "what the files
+said" this round, and the walk (§22) is still the next thing a build on the show laptop does. The ledger's
+eleven open rows were read for the ones code and tests can close here: four — L11 (the master rate does not
+follow the displays), L23 (the plan's words before the press), L17 (the descriptor version read by nothing),
+L18 (ten temp-then-move copies) — plus one found on the way (80.5). The seven left need the rig, a second
+machine, a bench, the maintainer's script, or a design: L09, L10, L21, L22, L25, L26, L28, and the round
+adds L29 (§98.7).
+
+### 98.2 The master rate follows the displays (80.1)
+
+**The claim.** L11: a 50 Hz TV under a 60 fps show showed the Super Check's advice — 60 on the TV, or the
+master rate at 50 — and nothing moved by itself. The output on the TV paced to its display (round 63), so
+the TV showed 50 of the 60 frames the show made; the other outputs ran at 60, the NDI "master" sender sent
+60, the stream asked for 60, and the chip and the row said so.
+
+**The design.** One rule in Core, `OutputRate.Master(set, follow, displays)`: the operator's setting
+stands, except that with the follow on and a display slower than the set rate behind a screen that is here
+— enabled, not planned, not lost (`OutputRate.Leading`) — the rate in force is that display's, the slowest
+known, and the words name it: *50 fps — following Lobby (50 Hz); set 60*. Unlimited (0) stays unlimited:
+every output already presents at its own display and there is nothing to follow down. A display in the set
+rate's family (59 under 60, `SameFamily`) is not slower. A display not yet seen (`DisplayHz` 0) does not
+count; a faster one never leads; the rate never goes up. With the follow off the slower display is still
+named — *60 fps — Lobby refreshes at 50 Hz and is not followed* — so the Super Check can say what the
+outputs on it are dropping. `MasterRate` carries `Set`, `Follows`, `Effective`, the slowest display's label
+and Hz, `Followed`, `Overasks` and `Words`. `OutputConfig.FollowDisplays`, on by default: a show saved
+before this round follows, which is the ask. The rule reads the state alone (`ScreenPlacement.DisplayHz`,
+written by the window manager and the hot-plug service when a display is seen) so the NDI lane, which has
+the snapshot and no desk, computes the same number the desk does; the desk labels the displays as it
+labels them everywhere (`Rig.MasterRate`) and the rate is the same.
+
+Every reader of the master rate reads the rate in force: the output windows' pacing
+(`OutputWindowManager.Apply`), the facts' target and so the OUTPUTS and DISPLAYS rows
+(`SystemMetricsService.GatherFacts` — the display row goes green by itself once the show follows it
+down), the advisor's target, the stream's rate (four sites in `StreamService`), a screen's signal report
+(`ShowActions.SignalReportFor`), the NDI "master" rate (`NdiSender`, off the snapshot), and the tech info
+chip through the viewport's `MasterFps`. The operator is told: a *Master rate* row in the Super Check's
+DISPLAYS section — green when it follows, with what was set and how to hold the setting; amber when a
+display is over-asked and the follow is off, naming the display and the three ways out; grey when
+unlimited; none on a bare fact set — the Screens page's FOLLOW THE DISPLAYS switch under the master rate
+with the words beneath it (raised on the tick when a display is seen or changes its mode, never every
+second), a log line once per change of the words when a display leads or is over-asked, STATE's
+`masterFps`, `masterFollows`, `masterFpsEffective` and `masterRate` at the end of the row, the Eye's
+desk node (*Master rate …*), the assistant's Desk line, and the Companion module's `master_fps` and
+`master_rate` variables (3.15.0, unreleased this round, from STATE). Every reader in the same round; the
+right-click menus have no entry because the master rate has none (L29).
+
+**The proof.** `MasterRateTests`: the slowest leads; the follow off holds and names; unlimited, never up,
+the family, an unseen and a faster display; the screens that are here (a disabled, a planned and a lost
+placement lead nothing); the Super Check's rows in all four lights and the display row green at the rate
+in force; the Eye's words. `MasterRateAppTests`: on a headless desk with its display last seen at 50 Hz
+under a 60 fps show, the rate in force reaches STATE, the facts, the Super Check, the Screens page, the Eye,
+the assistant's facts and the open output windows' viewports (`MasterFps` 50), and the switch off turns
+every one of them to 60 with the display named. The module's STATE test reads the two variables. No
+measurement this round: frames presented at 50 on a 50 Hz display is the §5 matrix's reading on the rig.
+
+### 98.3 The plan's OWN words (80.2)
+
+**The claim.** L23: the plan before the press read "→ 2 · Lobby" for an armed settled OWN tile that the
+take leaves as it is; only the result afterwards said so (79.1's `Effect`).
+
+**The design.** `TakeTarget.KeepsOwn` (Core, pure) — set by the desk's `RigTargets` when the target shows
+its own picture on air (`ContentTargets.UsesOwnPattern` over the programme, not the edit) and nothing is
+staged for it (`Sandbox.IsStaged`); a mirror never keeps its own. `TakePlan.KeepsOwnLabels` and the words:
+*→ 1 · Main · 2 · Lobby keeps its own picture (OWN) · held: 3 · Info (locked)*, or *→ no screen changes
+its picture · 1 · Main, 2 · Lobby keep their own picture (OWN)*. The semantics are untouched — a keeping
+target is still taken (the take confirms its own picture) — only the words say before what the result
+says after.
+
+**The proof.** `TakePlanOwnWordsTests` (the three word shapes; a held target is never listed as keeping),
+`TakePlanWordsAppTests` (a rig of three, EDIT SAFE open with a Grid, a tile take on b: the settled plan
+names b as keeping; editing b's own Grid makes it a change again and the label leaves).
+
+### 98.4 The module reads the descriptor version (80.3)
+
+**The claim.** L17: `ControlProtocol.DescriptorVersion = 1` rode on every NAV and MENU reply and nothing
+read it — a desk speaking a newer descriptor would have been walked by a module that did not know it.
+
+**The design.** The module's Navigator reads `protocol` from every NAV and MENU reply
+(`Navigator.noteProtocol`, `KNOWN_PROTOCOL = 1`); a newer version than it knows sets the connection's
+status to a warning naming both numbers and telling the operator to update the module, and the keys keep
+working on what they understand; `desk_protocol` is a variable. The desk's copy of the module version moves
+to 3.15.0 (`CompanionWords.Version`, fenced against `package.json`), and a Core contract test reads
+`KNOWN_PROTOCOL` out of `nav.js` and holds it to `ControlProtocol.DescriptorVersion`, so the two cannot
+drift without a red build.
+
+**The proof.** The module's node tests (the variable, the warning on 2, no warning on 1; 34 with the two
+of 80.1); `CompanionModuleContractTests.TheModuleKnowsTheDesksDescriptorVersion`.
+
+### 98.5 One atomic write (80.4)
+
+**The claim.** L18: ten temp-then-move copies in nine files beside `SettingsStore.WriteAtomic`, each with
+its own idea of the temp name and the backup.
+
+**The design.** `AtomicFile` in Core — `WriteAllText` (the directory made, the temp written, moved over
+the target), `WriteAllTextKeepingBackup` (the target copied to `.bak` first: the settings, the known-good
+rig), `TempPath` — and every sidecar writer on it: the recovery record and the crash note, the quality
+profile, the show log's trim, the Spotify credentials, the remote's update request, the playhead record,
+the known-good rig, the assistant's key. Two writers stay their own by design and are named in the fence:
+`OutputOwnership` (the tri-state committed write of 43.1, whose fence is the point) and
+`ManagementService` (a large file streamed through its temp path). `AtomicFileTests` holds the behaviour
+and a source fence that every `".tmp"` in `src/` is the helper's or an exemption's.
+
+**The proof.** `AtomicFileTests`; every sidecar suite untouched and green (the persistence runtime, the
+restart continuity, the support bundle's list).
+
+### 98.6 The poll reads the machine now (80.5, found on the way)
+
+**The claim.** Validating 80.2 and 80.4 on a loaded agent, `AdminTests.TheDashboardReadsTheMachineAtA
+GlanceAndMovesWithTheNumbers` came up *Ready, with cautions — RENDER* — the second time this test had read
+the agent instead of the numbers it injected (its own comment records the first).
+
+**The cause.** The dashboard's facts are gathered every fifth tick on the timer and reused between
+(`_dashboardFacts`). A timer tick during the boot's `RunJobs` gathered them while the preview's first cold
+frames were past the slow line; the test then cleared the budgets and reset the tick — and `PollNow()`
+read the memo from before the reset.
+
+**The design.** `PollNow()` drops the memo before the tick: a tick asked for now reads the machine as it is
+now. The timer's ticks keep the five-tick memo; only the on-demand hook, which tests alone call, pays for a
+gather each call. The test is unchanged and deterministic.
+
+### 98.7 What the round did not do, and what is next
+
+`docs/OPEN.md` is the list: the policy key's fall-back (L09), the screencast bench (L10), the two-machine
+status (L21), the assistant's settings (L22), the tags on the remote (L25), the WebView2 probe (L26), the
+sealed air type (L28), and one row of this round's own — L29, the master rate and its follow have no wire
+verb, no deck action and no menu entry (a deck reads them, it cannot turn the follow). No measurement this
+round for 80.1 (the §5 matrix on the rig) or 80.4 (no write is on a hot path). Next, in order: the walk
+(§22) on the next build, with the four files into `docs/field/`; then what the files say.
+
+**The closing sentence, the rig named.** The round's verb an output can show is the master rate following
+a display down: its rows are the Super Check's *Master rate* row and the log line *Master rate 50 fps —
+following Lobby (50 Hz); set 60.*, read beside the output windows' viewports in `MasterRateAppTests` on the
+headless desk. On the rig they are unread: the round is unwalked.
+
+### 98.8 The papers (80.6)
+
+- This section; REVIEW round 80; CHANGELOG (with the evidence class); README (the ledger's entry, the frame
+  rate's words, the count); `docs/REMOTE.md` and `docs/COMPANION.md` (with 80.1 and 80.3); QUALIFICATION §5
+  (the follow in the mixed-refresh matrix); the tag table row 79 (`9e22fd0`); `docs/OPEN.md` — L11, L17,
+  L18, L23 closed, L29 added.

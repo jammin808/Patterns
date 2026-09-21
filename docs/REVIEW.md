@@ -3050,3 +3050,70 @@ mute-first ask, and the crash gap's measurement on the rig.
 ### The suites
 
 - Core 929, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 804 — 2,461; the module's 31 node tests.
+
+## Round 80 review — the ledger's rows that need no rig
+
+### 80.0 — the round opened
+
+- The maintainer's "continue" after a green round 79; `docs/OPEN.md` read for the rows code and tests can
+  close without the rig: L11, L23, L17, L18. `docs/field/` has no files yet; nothing to read as what the
+  files said (§98.1).
+
+### 80.1 — the master rate follows the displays
+
+- **Done.** §98.2. `OutputRate.Master`, `MasterRate`, `OutputConfig.FollowDisplays`, `Rig.MasterRate`,
+  every reader, the Super Check row, the Screens page switch and words, the log line, STATE, the Eye, the
+  assistant, the module's variables.
+- **Found on the way.** The rule first read every enabled placement; a placement whose display is lost
+  keeps its `DisplayHz`, and a TV unplugged would have led the master rate from the cupboard — the rule
+  reads the screens that are here (`OutputRate.Leading`: enabled, not planned, not lost), and the Core
+  test holds all three. The display row's amber note read "pick a mode or lower the master rate"; it names
+  the follow now, and goes green by itself once the target is the rate in force. The Core rule labels a
+  display by the operator's name or the screen id; the desk's readers go through `Rig.MasterRate` for the
+  display's own name — the number is the same, and the App test holds the words on the desk's side. The
+  full App suite found what the filtered runs had not: the assistant's brief test pinned the Desk line's
+  neighbours ("outputs off …; editing target Program.") and went red when the master rate joined the line
+  between them — the expectation names the master rate now, which is the point of the line.
+- **Walk.** Unwalked — no rig this round. Platform path touched: the outputs' pacing rate. The §5 matrix
+  reads the follow on the rig (QUALIFICATION §5, the words added); the §22 walk is due on the next build.
+
+### 80.2 — the plan's OWN words
+
+- **Done.** §98.3. `TakeTarget.KeepsOwn`, `TakePlan.KeepsOwnLabels`, the words, `RigTargets`.
+- **Found on the way.** The flag reads the programme (`Sandbox.ProgramState`), not the edited state: a
+  screen whose OWN is only staged is a change the take makes, not a picture it keeps. A held target
+  (locked, not armed, a repeater) is never listed as keeping, whatever its picture: the words say what the
+  take does, and a held target is outside it.
+
+### 80.3 — the module reads the descriptor version
+
+- **Done.** §98.4. Module 3.15.0 (`KNOWN_PROTOCOL`, `noteProtocol`, `desk_protocol`, the warning status),
+  `CompanionWords.Version`, the contract test, COMPANION.md.
+- **Found on the way.** The module's "defaults are the rest values" test counts the Navigator's variables
+  (`14 + NAV_SLOTS * 4` now) and the desk's copy of the version is fenced to `package.json` — both went red
+  first and were made true, not loosened.
+
+### 80.4 — one atomic write
+
+- **Done.** §98.5. `AtomicFile`, nine writers on it, the two named exemptions, `AtomicFileTests` with the
+  source fence.
+- **Found on the way.** The playhead file's name lives on `PlayheadStore`, not `PlayheadRecord`; the
+  support bundle's fence names it there. The fence asserts each exemption file still exists, so a rename
+  cannot leave a stale exemption behind.
+
+### 80.5 — the poll reads the machine now
+
+- **Done.** §98.6. `PollNow()` drops the dashboard's facts memo; the test unchanged.
+- **Found on the way.** The mechanism, not a flake: the five-tick memo gathered by a timer tick during the
+  boot on a loaded agent, read after the test's reset. Two runs of the class and the App suite green since.
+
+### The review's items, answered
+
+- The ledger: eleven open rows read; four closed by this round's units (L11 by 80.1, L23 by 80.2, L17 by
+  80.3, L18 by 80.4), one added (L29, the master rate's wire and deck), seven open — every one in
+  `docs/OPEN.md` with what closes it. Closed rows: twenty-one; open: eight.
+
+### The suites
+
+- Core 947, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 806 — 2,481; the module's 34 node tests.
+- Walk: unwalked.

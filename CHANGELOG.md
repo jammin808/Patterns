@@ -10,6 +10,30 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 80 — 2026-09-21 — the ledger's rows that need no rig: the master rate follows the displays, the plan's OWN words, the module reads the descriptor version, one atomic write
+
+`round-80` · PLAN §98 · REVIEW round 80 · 2,481 tests · module 3.15.0 · evidence: the maintainer's "continue" and the ledger's rows that need no rig
+
+- **The master rate follows the displays.** The show never asks a display for more frames than it
+  refreshes: with FOLLOW THE DISPLAYS on (the default, so a show saved before this round follows), a
+  display slower than the master rate behind a screen that is here leads — a 50 Hz TV under a 60 fps
+  show runs the show at 50 — and every reader reads the rate in force: the outputs' pacing, the NDI
+  "master" rate, the stream, a screen's signal report, the tech info chip, the facts' target. The
+  operator is told: the Super Check's *Master rate* row (green following, amber over-asked with the follow
+  off, grey unlimited), the Screens page's switch and words, a log line once per change, STATE's
+  `masterFps` / `masterFollows` / `masterFpsEffective` / `masterRate`, the Eye's desk words, the assistant's
+  Desk line, the module's `master_fps` and `master_rate`. `OutputRate.Master`, `OutputConfig.FollowDisplays`.
+- **The plan's OWN words.** The take plan says before the press which armed tile keeps its own picture —
+  *2 · Lobby keeps its own picture (OWN)* — instead of listing it as taken; `TakeTarget.KeepsOwn`.
+- **The module reads the descriptor version.** Companion module 3.15.0 reads `protocol` on every NAV and
+  MENU reply, warns on the connection when the desk speaks a newer descriptor than it knows, and carries
+  `desk_protocol`; a Core contract test holds the module's number to the desk's.
+- **One atomic write.** `AtomicFile` in Core for every sidecar's temp-then-move (nine writers; the
+  ownership record's committed write and the management service's streamed file named as the exemptions),
+  with a source fence.
+- **Found on the way.** An on-demand poll drops the dashboard's five-tick facts memo, so the dashboard test
+  reads the numbers it injects and not the agent's cold first frames. Unwalked: no rig this round.
+
 ## Round 79 — 2026-09-21 — the retrospective answered: truth as fields, the last fail-open edges, the recorder's oracle, the monitors paced, an hour of hygiene, the latent nits, the process
 
 `round-79` · PLAN §97 · REVIEW round 79 · 2,461 tests · module 3.14.0 · evidence: a handed-in retrospective checked claim by claim, and the maintainer's "run 1 to 7"
