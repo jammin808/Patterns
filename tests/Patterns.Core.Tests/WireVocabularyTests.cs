@@ -170,6 +170,19 @@ public class WireVocabularyTests
         ("COUNTDOWN TO 14:00", new(ShowActionKind.CountdownTo, "", "14:00")),
         ("COUNTDOWN STOP", new(ShowActionKind.CountdownStop)),
         ("COUNTDOWN LABEL Back at", new(ShowActionKind.CountdownLabel, "", "Back at")),
+        // Round 79: the verbs the module could send and the writer had no line for — in the table, so the round trip holds them.
+        ("COUNTDOWN START", new(ShowActionKind.CountdownStart)),
+        ("COUNTDOWN TOGGLE", new(ShowActionKind.CountdownToggle)),
+        ("COUNTDOWN FOLLOW ON", new(ShowActionKind.CountdownFollow, "", "on")),
+        ("COUNTDOWN FOLLOW OFF", new(ShowActionKind.CountdownFollow, "", "off")),
+        ("AUDIO ROUTING ON", new(ShowActionKind.AudioRouting, "", "on")),
+        ("AUDIO ROUTING TOGGLE", new(ShowActionKind.AudioRouting, "", "toggle")),
+        ("AUDIO ROUTE music TO Info HDMI AT -6", new(ShowActionKind.AudioRoute, "music", "Info HDMI AT -6")),
+        ("AUDIO ROUTE screen INFO TO Info HDMI", new(ShowActionKind.AudioRoute, "screen INFO", "Info HDMI")),
+        ("AUDIO UNROUTE music FROM Info HDMI", new(ShowActionKind.AudioUnroute, "music", "Info HDMI")),
+        ("AUDIO VOG Info HDMI DUCK", new(ShowActionKind.AudioVogMode, "Info HDMI", "duck")),
+        ("PLAN RESUME", new(ShowActionKind.PlanResume)),
+        ("PLAN CATCHUP", new(ShowActionKind.PlanCatchUp)),
         ("LOGO ON", new(ShowActionKind.LogoOn)),
         ("LOGO OFF", new(ShowActionKind.LogoOff)),
         ("LOGO", new(ShowActionKind.LogoToggle)),
@@ -407,7 +420,6 @@ public class WireVocabularyTests
         Assert.Equal(ShowActionKind.ScreenUnlock, ControlProtocol.Parse("LOCK 2 off").Action.Kind);
         Assert.Equal(ShowActionKind.FreezeOff, ControlProtocol.Parse("FREEZE OFF").Action.Kind);
     }
-}
 
     /// <summary>
     /// Round 79: the four overlay switches that still read any word as the toggle — CLOCK SECONDS, CLOCK DATE,
@@ -446,3 +458,4 @@ public class WireVocabularyTests
             Assert.Equal(RemoteCommandKind.Unknown, cmd.Kind);
         }
     }
+}

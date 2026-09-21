@@ -41,6 +41,38 @@ public class CompanionModuleContractTests
         Assert.True(unknown.Count == 0, "The desk does not understand:\n" + string.Join("\n", unknown));
     }
 
+    /// <summary>
+    /// Round 79: the recorder's oracle. Every line the module can send that is an action, once parsed and written
+    /// back by the wire writer, parses to the same action — so a deck recording what another deck did receives a line
+    /// that reproduces it, for every verb the module speaks and not only for the vocabulary table's rows.
+    /// </summary>
+    [Fact]
+    public void EveryActionLineTheModuleSendsRoundTripsThroughTheWriter()
+    {
+        var path = Path.Combine(ModuleDir, "test", "lines.txt");
+        var lines = File.ReadAllLines(path).Where(l => l.Trim().Length > 0).ToList();
+        var failures = new List<string>();
+        var roundTripped = 0;
+        foreach (var line in lines)
+        {
+            var cmd = ControlProtocol.Parse(line);
+            if (!cmd.IsAction) continue;
+            var action = cmd.Action;
+            if (ActionSpec.CarriesSecret(action.Kind) || WireWriter.Unsayable.Contains(action.Kind)) continue;
+            var written = WireWriter.Line(action);
+            if (written.Length == 0)
+            {
+                failures.Add($"{line} → {action.Kind}: the writer has no line");
+                continue;
+            }
+            var back = ControlProtocol.Parse(written);
+            if (!back.IsAction || back.Action != action) failures.Add($"{line} → '{written}' → {(back.IsAction ? back.Action.ToString() : back.Kind.ToString())}");
+            roundTripped++;
+        }
+        Assert.True(failures.Count == 0, "A deck recording these would not get them back:\n" + string.Join("\n", failures));
+        Assert.True(roundTripped > 120, $"only {roundTripped} action lines round-tripped");
+    }
+
     [Fact]
     public void TheModuleIsOneCompanion5Loads()
     {

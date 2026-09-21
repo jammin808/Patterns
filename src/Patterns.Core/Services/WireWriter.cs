@@ -15,6 +15,19 @@ namespace Patterns.Core.Services;
 /// </summary>
 public static class WireWriter
 {
+    /// <summary>
+    /// Round 79: the kinds the wire has no line for, named — so the recorder's fence (every other kind writes a line
+    /// that parses back to itself) and the feed's one-time log agree on what is expected. TAKE and CUT: a wire cannot
+    /// take a half-built preview. A note is the caller's pad. The stack's own transport (GO, BACK and RESET on a list,
+    /// a cue fired by id) is the desk's alone. Unknown is a newer build's verb. The admin verbs are a rule of their own
+    /// (<see cref="ActionSpec.CarriesSecret"/>).
+    /// </summary>
+    public static readonly IReadOnlySet<ShowActionKind> Unsayable = new HashSet<ShowActionKind>
+    {
+        ShowActionKind.Unknown, ShowActionKind.Note, ShowActionKind.Take, ShowActionKind.Cut,
+        ShowActionKind.ListGo, ShowActionKind.ListBack, ShowActionKind.ListReset, ShowActionKind.CueFire,
+    };
+
     public static string Line(ShowAction a)
     {
         if (ActionSpec.CarriesSecret(a.Kind)) return "";
@@ -143,10 +156,20 @@ public static class WireWriter
             ShowActionKind.MessageOff => "MESSAGE OFF",
             ShowActionKind.MessageToggle => "MESSAGE",
             ShowActionKind.MessageScroll => Join("MESSAGE SCROLL", v),
-            ShowActionKind.CountdownStart => Join("COUNTDOWN", v),
+            ShowActionKind.CountdownStart => v.Length == 0 ? "COUNTDOWN START" : Join("COUNTDOWN", v),   // round 79: a bare "COUNTDOWN" reads as the toggle
+            ShowActionKind.CountdownToggle => "COUNTDOWN TOGGLE",
+            ShowActionKind.CountdownFollow => Join("COUNTDOWN FOLLOW", v.ToUpperInvariant()),
             ShowActionKind.CountdownTo => Join("COUNTDOWN TO", v),
             ShowActionKind.CountdownStop => "COUNTDOWN STOP",
             ShowActionKind.CountdownLabel => Join("COUNTDOWN LABEL", v),
+            // Round 79: the routing matrix and the day's slip — nine verbs the module could send and a recording deck never heard.
+            ShowActionKind.AudioRouting => Join("AUDIO ROUTING", v.ToUpperInvariant()),
+            ShowActionKind.AudioRoute => Join("AUDIO ROUTE", t, "TO", v),
+            ShowActionKind.AudioUnroute => Join("AUDIO UNROUTE", t, "FROM", v),
+            ShowActionKind.AudioVogMode => Join("AUDIO VOG", t, v.ToUpperInvariant()),
+            ShowActionKind.PlanShift => Join("PLAN SHIFT", v),
+            ShowActionKind.PlanResume => "PLAN RESUME",
+            ShowActionKind.PlanCatchUp => "PLAN CATCHUP",
             ShowActionKind.LogoOn => "LOGO ON",
             ShowActionKind.LogoOff => "LOGO OFF",
             ShowActionKind.LogoToggle => "LOGO",

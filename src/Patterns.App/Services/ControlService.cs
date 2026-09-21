@@ -479,6 +479,9 @@ public sealed partial class ControlService : IDisposable
         actions.Performed += Feed;
     }
 
+    /// <summary>Round 79: the kinds the recorder found no line for this session, each logged once.</summary>
+    private readonly HashSet<ShowActionKind> _unwritten = new();
+
     /// <summary>
     /// Round 74: the recorder's feed. Every action that ran — a key, a menu line, a MIDI pad, another
     /// deck's press — goes to each peer that is recording, as the wire line that reproduces it
@@ -498,7 +501,16 @@ public sealed partial class ControlService : IDisposable
             recording = _recording.ToList();
         }
         var line = WireWriter.Line(_feed?.Readable(action) ?? action);   // the look's name, the screen's number — the operator's words, not the desk's ids
-        if (line.Length == 0) return;
+        if (line.Length == 0)
+        {
+            // Round 79: a kind the writer cannot say is expected (WireWriter.Unsayable, the admin verbs); any other is a
+            // verb the recorder silently lost — said once per kind, so a deck's empty recording has a line in the log.
+            if (!WireWriter.Unsayable.Contains(action.Kind) && !ActionSpec.CarriesSecret(action.Kind) && _unwritten.Add(action.Kind))
+            {
+                Log.Warn($"The recorder has no wire line for {action.Kind}: a deck recording the desk will not hear it (WireWriter.Line).");
+            }
+            return;
+        }
         foreach (var (peer, endpoint) in recording)
         {
             if (origin.Kind == OriginKind.Tcp && origin.Endpoint == endpoint) continue;
