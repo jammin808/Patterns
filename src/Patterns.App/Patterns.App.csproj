@@ -51,6 +51,23 @@
     <VlcWindowsArm64Enabled>false</VlcWindowsArm64Enabled>
   </PropertyGroup>
 
+  <!-- Round 79: mini-dumps of a native crash need createdump.exe beside the exe, and the single-file publish folds
+       it into the bundle. One target, after every win-x64 self-contained publish — CI, build/publish-win-x64.*,
+       build/publish-win-x64-full.* — copies it from the exact runtime pack this publish resolved (ResolvedRuntimePack),
+       never "the newest in the cache"; a pack without it is a loud warning, and the scripts and CI check the file. -->
+  <Target Name="PlaceCreatedumpBesideTheExe" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'win-x64' And '$(SelfContained)' == 'true'">
+    <ItemGroup>
+      <_PatternsRuntimePack Include="@(ResolvedRuntimePack)" Condition="'%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.NETCore.App'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_PatternsRuntimePackDir>@(_PatternsRuntimePack->'%(PackageDirectory)')</_PatternsRuntimePackDir>
+      <_PatternsCreatedump>$(_PatternsRuntimePackDir)/runtimes/win-x64/native/createdump.exe</_PatternsCreatedump>
+    </PropertyGroup>
+    <Copy SourceFiles="$(_PatternsCreatedump)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'$(_PatternsRuntimePackDir)' != '' And Exists('$(_PatternsCreatedump)')" />
+    <Message Importance="high" Text="createdump.exe placed beside the exe from $(_PatternsRuntimePackDir): the watchdog keeps a mini-dump of a native crash." Condition="'$(_PatternsRuntimePackDir)' != '' And Exists('$(_PatternsCreatedump)')" />
+    <Warning Text="createdump.exe was not found in the runtime pack ('$(_PatternsCreatedump)'): native crashes will leave no mini-dump (the note and the log still say what happened)." Condition="'$(_PatternsRuntimePackDir)' == '' Or !Exists('$(_PatternsCreatedump)')" />
+  </Target>
+
   <ItemGroup>
     <ProjectReference Include="..\Patterns.Core\Patterns.Core.csproj" />
     <ProjectReference Include="..\Patterns.Platform.Windows\Patterns.Platform.Windows.csproj" />

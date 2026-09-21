@@ -80,6 +80,20 @@ public static class SupportBundle
         // Who had the screens when this run started, and any ask left unanswered: the first thing to
         // read when a rig reports windows playing with nobody at the controls.
         "patterns.outputs.json", "patterns.handover.json", "patterns.knowngood.json",
+        // Round 79: where every clip was when the desk last wrote it, and the quality ladder's settled level — the two
+        // sidecars a "the video came back from the wrong place" or "the effects looked coarse" report is read with.
+        PlayheadStore.FileName, QualityProfileStore.FileName,
+    };
+
+    /// <summary>
+    /// Round 79: the sidecars the bundle never carries, each with its reason — the fence
+    /// (SupportBundleTests) holds that every other file-name constant beside the settings is in <see cref="Files"/>.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> NeverBundled = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [SpotifyCredentialStore.FileName] = "the operator's Spotify credentials",
+        [DirectOutput.FuseFileName] = "a fuse that exists only while a direct output is starting",
+        [UpdatePackage.ManifestName] = "an update's manifest, not this desk's own record",
     };
 
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>

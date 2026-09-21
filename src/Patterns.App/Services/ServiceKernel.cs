@@ -31,6 +31,8 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
     /// <summary>The show file was upgraded on load: the desk writes it back once, so the ids minted for its looks and stingers stay the same next time.</summary>
     public bool Migrated { get; }
+    /// <summary>Round 79: the schema version of a settings file a newer build wrote, 0 when none — the desk runs it as read and holds its saves.</summary>
+    public int NewerSchema { get; }
 
     /// <summary>Round 76: what the load changed that the operator should hear about (a credential-bearing control row removed) — the health line and the log carry it, the file is written back.</summary>
     public IReadOnlyList<string> MigrationNotes { get; }
@@ -142,6 +144,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         State.Tone.Enabled = false;             // a tone must never auto-start with the app
         Migrated = Store.LastLoadMigrated;
         MigrationNotes = Store.LastMigrationNotes;
+        NewerSchema = Store.NewerSchema;                                     // round 79: a file from a newer build runs as read, unsaved
 
         Journal = new ShowLog(Store.BaseDirectory);
         JournalRowsScrubbed = Journal.ScrubSecrets();   // round 76: a passcode an older build journaled leaves the disk at the first boot that knows better

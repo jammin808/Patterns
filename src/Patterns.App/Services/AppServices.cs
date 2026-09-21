@@ -482,8 +482,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // The show's files on one lane (round 65.12), built before the first save below can ask for it.
         Recovery = new RecoveryStore(Store.BaseDirectory);
         Playhead = new PlayheadStore(Store.BaseDirectory);
+        if (Kernel.NewerSchema > 0)
+        {
+            // Round 79: the show file came from a newer build. It is run as read and never written over — the newer
+            // build's sections would be lost — so the autosave stays off for this run and the desk says so.
+            _autosave = false;
+            Notify($"This show file was saved by a newer Patterns (schema {Kernel.NewerSchema}; this build reads {ShowState.CurrentSchemaVersion}). It runs as read and is not saved over — open it with the build that wrote it, or SAVE AS a copy for this one.");
+        }
         Persistence = new PersistenceRuntime(Store, Recovery, Files) { Autosave = _autosave };
-        if (Kernel.Migrated || Kernel.MigrationNotes.Count > 0)
+        if (Kernel.NewerSchema == 0 && (Kernel.Migrated || Kernel.MigrationNotes.Count > 0))
         {
             // An upgraded file is written back once so the ids minted for its looks and
             // stingers are the same ids next time (cues and the journal refer to them) — and so a
@@ -1514,6 +1521,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 }
                 else
                 {
+                    // Round 79: the record's air is a whole show state written by the build that crashed — an older
+                    // one after an update restart — so it takes the same upgrade the settings file takes on load.
+                    foreach (var note in SettingsStore.Migrate(air)) Log.Warn("Recovery record: " + note);
                     RestoreAir(air);
                     vm.RefreshAfterRecovery();
                 }

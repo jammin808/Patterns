@@ -32,7 +32,9 @@ public sealed record QualityProfile(string Machine, int Level, int StepsDown, Da
 /// <summary>The profile's file beside the settings: read at the start, written when the ladder settles and at the end.</summary>
 public sealed class QualityProfileStore
 {
-    public QualityProfileStore(string directory) => FilePath = Path.Combine(directory, "patterns.quality.json");
+    public const string FileName = "patterns.quality.json";
+
+    public QualityProfileStore(string directory) => FilePath = Path.Combine(directory, FileName);
 
     public string FilePath { get; }
 

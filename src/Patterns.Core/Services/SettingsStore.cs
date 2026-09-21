@@ -96,6 +96,13 @@ public sealed class SettingsStore
     /// </summary>
     public bool LastLoadMigrated { get; private set; }
 
+    /// <summary>
+    /// Round 79: the schema version of a file written by a newer build than this one, 0 when the last load was this
+    /// build's own or older. Such a file is run as read — never stamped down to this build's version, never saved over:
+    /// the newer build's sections would be lost and the file could not go back to the desk that wrote it.
+    /// </summary>
+    public int NewerSchema { get; private set; }
+
     /// <summary>Round 76: what the last load changed that the operator should hear about — a credential-bearing control row removed, in words that never repeat the row.</summary>
     public IReadOnlyList<string> LastMigrationNotes { get; private set; } = Array.Empty<string>();
 
@@ -123,14 +130,24 @@ public sealed class SettingsStore
             // keeps its old schema number, so the upgrade is tried again at the next start.
             LastLoadMigrated = state.SchemaVersion < ShowState.CurrentSchemaVersion;
             LastMigrationNotes = Array.Empty<string>();
-            try
+            NewerSchema = state.SchemaVersion > ShowState.CurrentSchemaVersion ? state.SchemaVersion : 0;
+            if (NewerSchema > 0)
             {
-                LastMigrationNotes = Migrate(state);
+                // Round 79: a file from a newer build. The upgrade would stamp it down to this version and a save
+                // would drop what this build does not know; it runs as read, and the desk says so and holds its saves.
+                Log.Warn($"Settings file '{candidate}' was written by a newer build (schema {state.SchemaVersion}, this build reads {ShowState.CurrentSchemaVersion}) — running it as read; autosave is off so the newer file is never written over.");
             }
-            catch (Exception ex)
+            else
             {
-                LastLoadMigrated = false;
-                Log.Error($"Settings file '{candidate}' loaded but its upgrade failed — running it as read.", ex);
+                try
+                {
+                    LastMigrationNotes = Migrate(state);
+                }
+                catch (Exception ex)
+                {
+                    LastLoadMigrated = false;
+                    Log.Error($"Settings file '{candidate}' loaded but its upgrade failed — running it as read.", ex);
+                }
             }
             if (state.Name.Length == 0) state.Name = ShowNameFor(path);
             return state;

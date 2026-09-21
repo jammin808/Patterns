@@ -8,6 +8,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Round 79: the build identity, as build/publish-win-x64.sh and CI stamp it.
+round=$(grep -m1 -oE '^## Round [0-9]+' CHANGELOG.md | grep -oE '[0-9]+' || true)
+sha=$(git rev-parse --short=7 HEAD 2>/dev/null || echo local)
+version="0.${round:-0}.0"
+echo "Building $version+round-${round:-0}.$sha"
+
 dotnet publish src/Patterns.App/Patterns.App.csproj \
   -c Release \
   -r win-x64 \
@@ -16,7 +22,15 @@ dotnet publish src/Patterns.App/Patterns.App.csproj \
   -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:EnableCompressionInSingleFile=false \
   -p:DebugType=embedded \
+  "-p:Version=$version" \
+  "-p:InformationalVersion=$version+round-${round:-0}.$sha" \
   -o dist/win-x64-full
+
+# Round 79: createdump.exe comes from the project's post-publish target; a bundle without it leaves no mini-dump.
+if [ ! -f dist/win-x64-full/createdump.exe ]; then
+  echo "ERROR: createdump.exe is not beside the exe — the publish target did not place it." >&2
+  exit 1
+fi
 
 # Web pages inside the engine: WebView2's loader must sit beside the exe (the package puts it
 # under runtimes/win-x64/native, which the single-file exe does not always look in).

@@ -102,15 +102,32 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
+      # Round 79: the build says which build it is. The version is 0.<round>.<run> — the round from the
+      # changelog's newest header, the run number from Actions — and the informational version carries
+      # the round and the commit (0.79.312+round-79.9410292), so the wire, the beacon, the pages, the
+      # support bundle and a deck's HELLO name this exe and not "1.0.0". A local publish (build/*.sh,
+      # *.cmd) does the same from git; a plain build stays 1.0.0+<sha>, an honest developer build.
       - name: Publish portable win-x64
-        run: >
-          dotnet publish src/Patterns.App/Patterns.App.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=false
-          -p:DebugType=embedded
-          -o dist/win-x64
+        shell: pwsh
+        run: |
+          $round = (Select-String -Path CHANGELOG.md -Pattern '^## Round (\d+)' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if (-not $round) { throw "CHANGELOG.md has no '## Round NN' header to take the round from" }
+          $sha = $env:GITHUB_SHA.Substring(0, 7)
+          $version = "0.$round.$env:GITHUB_RUN_NUMBER"
+          "PATTERNS_VERSION=$version" >> $env:GITHUB_ENV
+          "PATTERNS_ROUND=$round" >> $env:GITHUB_ENV
+          Write-Host "Building $version+round-$round.$sha"
+          dotnet publish src/Patterns.App/Patterns.App.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=false `
+            -p:DebugType=embedded `
+            "-p:Version=$version" `
+            "-p:InformationalVersion=$version+round-$round.$sha" `
+            -o dist/win-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path dist/win-x64/createdump.exe)) { throw "createdump.exe is not beside the exe: the publish target did not place it (native crashes would leave no mini-dump)" }
 
       # The full bundle is the same exe plus a loose libvlc folder beside it (the app loads
       # libVLC from exeDir/libvlc/win-x64). Round 64: the payload is the exact package the
@@ -150,12 +167,15 @@ jobs:
       - name: Write the release manifest
         shell: pwsh
         run: |
-          $round = (Select-String -Path CHANGELOG.md -Pattern '`(round-\d+)`' | Select-Object -First 1).Matches[0].Groups[1].Value
+          # Round 79: the round is the changelog's newest header ('## Round NN — …'), never the first
+          # back-ticked `round-NN` in the prose (which was round-15, in the tag table's introduction).
+          $round = "round-$env:PATTERNS_ROUND"
           $module = (Get-Content integrations/companion-module-patterns/package.json -Raw | ConvertFrom-Json).version
           $manifest = [ordered]@{
             commit = $env:GITHUB_SHA
             ref = $env:GITHUB_REF_NAME
             round = $round
+            version = $env:PATTERNS_VERSION
             built = (Get-Date).ToUniversalTime().ToString('o')
             dotnet = (dotnet --version).Trim()
             libvlcsharp = '${{ steps.vlc.outputs.sharp }}'
@@ -281,7 +301,7 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    needs: [portable-exe, companion-module]
+    needs: [portable-exe, companion-module, windows-smoke]   # round 79: no Release without the Windows lane green — the exe was launched, the runtime checked, the desk's classes run on Windows
     permissions:
       contents: write
       actions: read
