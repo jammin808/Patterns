@@ -393,6 +393,17 @@ desk offers. A 3.12.0 deck ignores the row.
 
 ## 19. Round 74 additions
 
+**Groups are kinds and the tile FOCUSED means, module 3.16.0 (round 81).** The canvas key sends
+`CANVAS <letter> ON / OFF` (a desk before round 81 read `GROUP <letter>` for it and answers ERR to CANVAS —
+update the desk with the module; they ship from one tree); a fade or take to GROUPS means every screen of
+the ticked tiles' groups (main, confidence, info), a joined canvas being a canvas, not a group; a scoped
+take lands on its screens alone, as their own pictures. Two variables beside the take plan's:
+`take_focused` (the tile FOCUSED means, by its label; empty for the PGM tile, which is every armed screen)
+and `take_groups` (the ticked tiles' groups, what TICKED GROUPS takes to), read from STATE's
+`take.focusedLabel` and `take.groups`; `take_scope` can read *the main screens* and its kin; the
+`screen_ticked` feedback's words say TICKED GROUPS reads the tick. `CompanionModuleContractTests` holds
+the module's number to the desk's.
+
 **The master rate on the deck, module 3.15.0 (round 80).** Two variables beside the machine's: `master_fps` is
 the master rate in force — the setting, or the slowest display the show follows (a 50 Hz TV under a 60 fps show
 runs the show at 50); 0 when unlimited — and `master_rate` the words the desk uses (*50 fps — following Lobby

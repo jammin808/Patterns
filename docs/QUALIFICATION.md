@@ -565,6 +565,37 @@ committed. A step that fails is a row of `docs/OPEN.md` with the reading beside 
 |------|---------|-------|---------------------|-------------------------------------|--------|-------|
 |      |         |       |                     |                                     |        |       |
 
+## 23. The switcher wall's workflow (round 81)
+
+**Set up.** Three screens on the wall — two main, one confidence (SETUP → Screens: Role) — EDIT SAFE
+open, the outputs ON, the show log tailed (`patterns.showlog.jsonl`) and STATE open on a second screen
+(`curl` in a loop, or a deck on module 3.16.0 with `$(patterns:take_focused)` and `$(patterns:take_groups)`).
+
+**Do.** Each row is one press. Click tile 2's title, set the picker to FOCUSED, build a picture and TAKE.
+Tick tile 1 and TAKE with TICKED GROUPS. Set MAIN SCREENS and TAKE; set CONFIDENCE SCREENS and TAKE. Set
+ALL ARMED and TAKE. Click tile 2 (now OWN) and change one property; TAKE tile 2; TAKE tile 2 again; press
+SEND on tile 2, then TAKE with FOCUSED; press PROGRAM on tile 2. LOCK tile 2 and press the wall's TAKE
+with FOCUSED, then tile 2's own TAKE, then `SCREEN 2 TAKE` on the wire; unlock. Pick tile 3 in the
+EDITING TARGET drop-down and read the wall.
+
+**Pass.** The FOCUSED take changes tile 2 alone — OWN lights on it, the PGM miniatures of tiles 1 and 3
+and the programme's preview do not move, no other tile lights OWN, EDIT SAFE stays open. TICKED GROUPS
+with tile 1 ticked changes both main screens and not the confidence screen; MAIN SCREENS the same with no
+tick; CONFIDENCE SCREENS the confidence screen alone. ALL ARMED moves the programme and every tile that
+follows it; the OWN tiles keep their pictures. With tile 2 selected, the edit lights PVW on tile 2 and
+tile 2 alone; its TAKE lands the edit and the programme's preview is unchanged; the second press is
+refused with `already shows its own picture — nothing to take. SEND the programme's preview to its tile …`
+and the journal row says Refused; SEND puts the programme's preview on tile 2's PVW (the status says so)
+and the FOCUSED take lands it; PROGRAM puts tile 2 back on the programme. Every press on the locked tile
+is refused with `2 · … is locked — it keeps its picture` and nothing moves; after the unlock the same
+press lands. The drop-down highlights tile 3, the editors are on it, STATE's `take.focused` is its id
+and `take.focusedLabel` its label, and the deck's `take_focused` reads it. Every journal `Take` row with
+the outputs on reads Done · Changed · OutputsLive and its words name the screens taken.
+
+| date | machine | build / manifest hash | FOCUSED alone, nothing pinned | GROUPS by kind | ALL ARMED keeps OWN | edit on the tile pending and landed | refused with SEND | SEND then FOCUSED landed | LOCK refused everywhere | drop-down = highlight = STATE | result |
+|------|---------|-----------------------|-------------------------------|----------------|---------------------|--------------------------------------|-------------------|---------------------------|-------------------------|-------------------------------|--------|
+|      |         |                       |                               |                |                     |                                      |                   |                           |                         |                               |        |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute

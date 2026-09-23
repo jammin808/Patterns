@@ -10751,3 +10751,184 @@ headless desk. On the rig they are unread: the round is unwalked.
   rate's words, the count); `docs/REMOTE.md` and `docs/COMPANION.md` (with 80.1 and 80.3); QUALIFICATION §5
   (the follow in the mixed-refresh matrix); the tag table row 79 (`9e22fd0`); `docs/OPEN.md` — L11, L17,
   L18, L23 closed, L29 added.
+
+## 99. Round 81 — the switcher wall's workflow: groups are kinds, a scoped take lands alone, an OWN tile's preview is its own, focus and selection are one
+
+### 99.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** The maintainer's list from the rig, headed "Important usability
+fix … Switcher Wall — fine tuning the workflow and logic", six items, and two rules added mid-round: a
+verbal report from the show laptop, no files. `docs/field/` still holds only its README, so there is no
+"what the files said" this round; the ledger (`docs/OPEN.md`) was read and none of its open rows is this
+round's — the round adds one (§99.6). The six items, in the maintainer's words and then what each asked:
+
+1. *"Group" should mean and act on what kind of Group is ticked, eg: Confidence, Main, Info, etc. This
+   replaces the current Group action of cut/taking "joined" screens — joined screens should always be
+   treated as one canvas by default and not be considered a "group".* — GROUPS by kind; a canvas is a
+   canvas (81.1).
+2. *Cut/Take on each individual screen tile has stopped working — investigate and fix.* — The diagnosis
+   (§99.3, §99.4): not a dead key. Round 78 made a settled OWN tile's PVW follow the programme's preview,
+   and round 79 refused a press that would change nothing; a tile that already showed the preview as its
+   own answered "already shows this picture — nothing to take" and the words named neither SEND nor the
+   tile's own edit as the way. With the PVW rule of §99.4 the key does what the tile shows, and the
+   refusal, when it comes, says what to do.
+3. *Selecting "Focus" by the main cut/take should only send to the screen that is selected/being edited.* —
+   It did send there alone as the room saw it, and moved the programme underneath, pinning every other
+   screen to a copy of its old picture as OWN (round 15's model): OWN lit across the wall and the
+   programme's preview stopped reaching the other tiles. §99.3.
+4. *Editing a screen tile should concentrate on and only affect the selected screen tile. The exception is
+   screens that are not set to their "own", where anything in PGM Preview affects screens/screen tiles that
+   are not set to "own".* — §99.4.
+5. *If a screen tile is set to "Own", editing PGM does not affect its preview or program unless "Send" is
+   clicked in that tile, which sends the Preview from the programming PGM tile to the Preview of that
+   tile.* — §99.4.
+6. *When a screen tile is selected by drop down, or when the tile title is clicked — basically when a screen
+   tile is highlighted it is the focus of any editing or changes.* — §99.5.
+
+Mid-round: *"If a screen tile is not set to own, if its Preview is edited, that tile recognises the user
+wants to individually edit only that screen and automatically sets it to Own"* — round 67.5's rule, kept
+and now tested end to end (§99.4); *"Lock still means Lock and no take can happen on a screen/screen tile
+that has Lock selected"* — kept absolute on every path and tested on every scope (§99.3).
+
+Read against the standing brief: every item is the desk and the wire in step (the menus, STATE, the Eye,
+the deck, the assistant follow in 81.4); nothing here has a measurement — the changes are rules, and
+their proof is the headless desk's fields — so "no measurement this round" is the honest line (§99.6).
+
+### 99.2 Groups are kinds (81.1)
+
+**The claim.** Item 1. TICKED GROUPS meant the ticked joined canvases (round 15), GROUP A named a canvas on
+the wire, and the tile's foot line said MAIN / CONF / INFO — two senses of "group" on one wall.
+
+**The design.** One parser, `FadeScope`: `GROUPS` is every screen in the groups of the ticked tiles, a group
+being what a screen is for — `ScreenRoles.IsTakeKind`: main, confidence, info; a repeater names no group,
+a MIXED canvas none — and `GROUP MAIN` / `GROUP CONFIDENCE` / `GROUP INFO` is a group by kind with no tick
+needed. A joined canvas is `CANVAS A` (`GROUP A` is still read as one, for the cue sheets written before
+this round, and written back as CANVAS); `CANVASES` keeps the old meaning under its own name. `TakePlan`
+resolves the kinds against the rig (`TakeTarget.Kind`), the wall's picker has seven choices (ALL ARMED,
+FOCUSED, TICKED, TICKED GROUPS, MAIN / CONFIDENCE / INFO SCREENS) and the fade picker the same seven; the
+cue editor's place list, the OSC map (`/patterns/canvas/<letter>`, `/patterns/fade/canvas/<A>`), the wire
+writer, the cue validator's words and the Companion module's canvas key (`CANVAS <letter> ON / OFF`)
+follow. The refusals name the way: "Tick a tile in a group first — GROUPS takes to every screen of the
+ticked tiles' groups (Main, Confidence, Info)."; "No info screen on the wall."
+
+**The proof.** `FadeScopeTests` (parse, words, labels, the round trip through `GROUP CONFIDENCE`,
+`CANVAS C`, `CANVASES`), `TakePlanTests` (GROUPS takes every screen of the ticked tiles' kinds and a canvas
+is no group; a group by kind needs no tick and the rules still bind inside it), `OscMapTests`,
+`FadeScopeAppTests`, `TakeScopeAppTests`, `TakeRulesAppTests` on the desk; the module's node tests read
+`CANVAS A ON`; `lines.txt` regenerated.
+
+### 99.3 A scoped take lands alone (81.2)
+
+**The claim.** Item 3, and the second half of item 2. FOCUSED, TICKED, GROUPS, SCREEN n and GROUP A took
+by moving the programme to the preview under everything and pinning every target outside the scope to a
+copy of its old picture as OWN (`MergeScope`, round 15; `PinnedByTake`, round 67): the room saw the
+focused tile change and nothing else, and the desk saw OWN light on every other tile, the programme's
+preview stop reaching them, and the next full TAKE lift the pins.
+
+**The design.** `TakePlan.IsScoped` names the branch: every scope but the rig (and FOCUSED on the PGM tile,
+which is the rig) lands per target — `ShowActions.TakeScoped` through `SandboxService.SendToTargets(…,
+ownPicture: true)`, the same landing the tile's own key runs, once per taken target: each gets its PVW's
+picture as its own (OWN lights on it), the programme's air and preview stay, every other screen is
+untouched, no pin is set, EDIT SAFE stays open with the preview kept for the next one. A sting's ticket
+lands the same way when the clip ends (`LandWall` per target). A scoped take whose every target already
+shows its picture as its own is refused with the way out; one that only lights OWN says so
+(`ScopedWords`: "CUT — the preview is on 1 · Left, 3 · Lobby, as their own pictures; the programme and
+every other screen stay · held: 2 · Right (locked)."). ALL ARMED is untouched: the programme moves, an
+un-armed tile keeps its picture pinned as before, an OWN screen keeps its own (rounds 30 and 80) and
+PROGRAM on its tile puts it back. LOCK means lock on every path: a locked screen is in no scoped take's
+Taken, held with the reason; the tile's own TAKE and CUT, SCREEN n TAKE on the wire, FOCUSED, TICKED, a
+group by kind and TICKED GROUPS are refused or hold it by name; unlocking never moves a picture (PROGRAM
+puts the screen back on the programme). Two facts the tests now state: a tile's PROGRAM, TAKE and SEND
+focus that tile, and LOCK pins the picture beneath as the screen's own (round 67).
+
+**The proof.** `TakeScopeAppTests` rewritten to the model (FOCUSED lands on the selected tile alone as
+own, nothing pinned, the programme's air unchanged; ALL ARMED moves the programme and the OWN tile keeps
+its own until PROGRAM; a TICKED cut on two, the third untouched; GROUPS by kind; ARM inside a scope; the
+wire's SCREEN 3; the refusals); `ScopedTakeAppTests` (LOCK on every scope, and the same press landing
+once unlocked); `SwitcherRoundTripTests` (a take that leaves a tile alone leaves its staged picture for
+its own take); the ticket tests through the scoped landing under a sting; the help topic's Switcher
+passage and the plan's words under the picker ("the programme and 4 others untouched").
+
+### 99.4 An OWN tile's preview is its own (81.3)
+
+**The claim.** Items 4 and 5, and the first half of item 2. Round 78 had a settled OWN tile's PVW follow
+the programme's preview, on the grounds that this was what its TAKE put up: the OWN tile's miniature, its
+pane and its take moved with every edit of the programme — the opposite of what OWN was pressed for — and
+a press on a tile that already showed the preview was refused with words that named neither SEND nor the
+tile's own edit.
+
+**The design.** The mixer's rule. A target on its own picture (OWN) holds its own edited picture on its
+PVW, whether the audience has seen it or not and whether the editors are on it or not; a target that
+follows the programme holds the programme's preview; "pending" stays a light (the PVW badge, STATE's
+`take.pending`, the Eye's "not taken yet"), not a picture. `SandboxService.PvwPicture` is
+`LookService.Shown` on the edited state — the one rule the miniatures already drew — and the settled-own
+plumbing goes: `ShowSnapshot.SettledOwn`, the `settledOwn` parameters through `PublishSandbox`,
+`PublishBoth` and `Build`, the `PatternFor` branch, the transition-key comparison, the sandbox's settled
+set and its memo. A PVW never changes picture without a section changing now, so the transition keys need
+no extra witness. The programme's preview reaches an OWN tile in two ways only: SEND on its tile copies it
+onto the PVW (pending, then the tile's CUT / TAKE or a FOCUSED take puts it up), or the tile is selected
+and edited in place (its first edit makes a following tile its own — round 67.5, unchanged); PROGRAM puts
+it back on the programme. The words follow: "2 · Right already shows its own picture — nothing to take.
+SEND the programme's preview to its tile, or select the tile and edit it; PROGRAM puts it back on the
+programme."; the scoped wall take says the same for its targets; SEND's status says the programme's
+preview is on the tile's PVW; the tile's menu carries the reason on TAKE before the press; the help
+topics and the Switcher passage say the rule, and round 15's "everything outside the choice keeps its
+picture … the next full TAKE lifts it" line is gone.
+
+**The proof.** `OwnPreviewAppTests` (selecting edits nothing; the first edit makes the tile OWN and stages
+the edit; editing the programme never reaches it; its CUT puts its PVW up alone; settled, its TAKE and a
+FOCUSED take name SEND; SEND copies the programme's preview onto its PVW and the take lands it; PROGRAM
+puts it back); `TakeTruthAppTests` re-stated (a second take on an OWN tile needs SEND first; the editors
+leaving a tile do not change its PVW; the refusal words); `TakeScopeAppTests` and `ScopedTakeAppTests`
+where a settled OWN tile has nothing new to take; `TileLayoutTests` and `ScreenGroupTests` on the help.
+
+### 99.5 Focus and selection are one; STATE, the deck, the chrome (81.4)
+
+**The claim.** Item 6. The desk already had one selection (round 67.3): the EDITING TARGET picker, the
+tile's title and the wall's highlight move together, the editors follow, and FOCUSED means the highlighted
+tile. What was missing was the fact on the wire and the deck, and the chrome still describing round 15's
+model.
+
+**The design.** STATE's take row ends with `focused` (the id of the tile FOCUSED means, "" for the PGM tile
+— every armed screen), `focusedLabel` (its wall label) and `groups` (the ticked tiles' groups by kind —
+what TICKED GROUPS takes to), appended at the row's end as the wire's shape asks. The Companion module
+3.16.0 reads them into `take_focused` and `take_groups`; `take_scope` can read the groups by kind; the
+`screen_ticked` feedback says TICKED GROUPS reads the tick; `CompanionModule.Version` follows and the
+contract test holds it. The chrome says round 81's model: the wall's take-scope tooltip, the tick's, the
+PVW badge's (a take elsewhere leaves a staged picture waiting; ALL ARMED lands it), the title's (the tile
+is the focus), the Show panel's fade-scope tooltip and its wire examples; the assistant's place words and
+the cue sheet's "not a place to fade" say CANVAS A and GROUP MAIN / CONFIDENCE / INFO. The rule the test
+states: the picker on PROGRAM keeps a following tile highlighted — the programme's edits reach it, so
+FOCUSED still means it — and lets go of an OWN tile, whose picture the editors no longer touch.
+
+**The proof.** `FocusAppTests` (the picker, the title and the highlight as one selection; the plan under the
+picker and the Eye's desk node naming the tile; the PGM tile as the programme; the PROGRAM pick with a
+following and with an OWN tile; the take row's groups in wall order); the module's node test reads the
+new variables from the fixture and their blanks from an empty state.
+
+### 99.6 What the round did not do, and what is next
+
+No measurement this round: every unit is a rule, proved by the headless desk's fields; nothing here is a
+ladder or a governor. The desk's chrome and help changed on every page the wall's words reach; the phone
+remote's SCREENS tab was not re-read (its ▼ ▲ per screen are fades, unchanged). `GROUP <letter>` is still
+read for the cue sheets written before this round and written back as `CANVAS`; a cue sheet or a module
+saved by this round is refused by a desk before it — the new ledger row L30 (`docs/OPEN.md`): the module
+and the desk ship together from one tree, and no version gate exists on either side. The eight open rows
+stay as they were (L09, L10, L21, L22, L25, L26, L28, L29). Next, in order: the walk (§22) on the next
+build with the four files into `docs/field/`, now with §23's rows for this round's wall; then what the
+files say.
+
+**The closing sentence, the rig named.** The round's verb an output can show is a FOCUSED TAKE landing on
+one tile alone as its own picture: its row is the journal's `Take` row — *Done · Changed · OutputsLive*,
+"TAKE — the preview fades up on 2 · Right alone, as its own picture; the programme and every other screen
+stay." — read beside the open output windows on the headless desk in
+`ScopedTakeAppTests.AScopedTakeWithAnOutputOpenIsAFactRowReadBesideIt`, with STATE's `take.last` and the
+Eye's desk node carrying the same row. On the rig it is unread: the round is unwalked.
+
+### 99.7 The papers (81.5, 81.6)
+
+- 81.5: the closing sentence's test — the scoped take's journal row with an output open.
+- 81.6: this section; REVIEW round 81; CHANGELOG (with the evidence class); README (the ledger's entry,
+  the switcher's words, the fade places, the count); `docs/REMOTE.md` (SCREEN n TAKE's PVW rule, the take
+  row's `focused` / `focusedLabel` / `groups`) and `docs/COMPANION.md` (module 3.16.0); QUALIFICATION §23
+  (the wall's workflow on a rig); `docs/OPEN.md` (L30 added); the tag table row 80 (`359da2e`).

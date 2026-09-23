@@ -3117,3 +3117,73 @@ mute-first ask, and the crash gap's measurement on the rig.
 
 - Core 947, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 806 — 2,481; the module's 34 node tests.
 - Walk: unwalked.
+
+## Round 81 review — the switcher wall's workflow
+
+### 81.0 — the round opened
+
+- The maintainer's list from the rig ("Important usability fix … Switcher Wall — fine tuning the workflow
+  and logic"), six items, two rules added mid-round; a verbal report, no files in `docs/field/` (§99.1).
+  The ledger read: none of its open rows is this round's.
+
+### 81.1 — groups are kinds
+
+- **Done.** §99.2. `FadeScope` (GROUPS by kind, GROUP MAIN / CONFIDENCE / INFO, CANVAS A, CANVASES),
+  `ScreenRoles.IsTakeKind` / `KindOf`, `TakePlan` (kinds, `IsScoped`, the refusals), the wall's and the
+  fade's seven-choice pickers, the cue editor's places, the wire (`CANVAS <letter> ON / OFF`, GROUP
+  <letter> still read), the wire writer, the OSC map, the cue validator's words, the module's canvas key.
+- **Found on the way.** The module's node tests pinned `GROUP A ON`; `lines.txt` regenerated. The cue
+  editor's place row is built by line, not by pattern.
+
+### 81.2 — a scoped take lands alone
+
+- **Done.** §99.3. `ShowActions.TakeScoped` and `ScopedWords`, the sting's ticket landing per target,
+  LOCK absolute on every scope, the help topic's Switcher passage, the plan's words under the picker.
+- **Found on the way.** Two facts the old tests assumed the other way: a tile's PROGRAM, TAKE and SEND
+  focus that tile (so FOCUSED after a PROGRAM on tile c meant c), and LOCK pins the picture beneath as the
+  screen's own (round 67) — so a locked tile reads OWN, and unlocking never moves a picture. A scope
+  change publishes the runtime (the multiview's NEXT TAKE line) and a tick is published for the deck's
+  lights: a "nothing published" check reads the version after them. `TileLayoutTests` pinned the old
+  help's "the other sense is a joined canvas".
+
+### 81.3 — an OWN tile's preview is its own
+
+- **Done.** §99.4. `SandboxService.PvwPicture` = `LookService.Shown` on the edited state; the settled-own
+  plumbing removed from `ShowSnapshot`, `SnapshotBus` and the sandbox; the refusal words name SEND; the
+  tile's menu carries the reason before the press; SEND's status; the help topics; `OwnPreviewAppTests`.
+- **Found on the way.** Round 15's scope sentence in the Show help ("everything outside the choice keeps its
+  picture like an un-armed tile, and the next full TAKE lifts it") had survived 81.2; replaced. The
+  transition keys needed no witness once a PVW cannot change picture without a section changing.
+
+### 81.4 — focus and selection are one
+
+- **Done.** §99.5. STATE's `take.focused` / `focusedLabel` / `groups`; module 3.16.0 (`take_focused`,
+  `take_groups`, the words); the wall's, the tick's, the PVW badge's, the title's and the Show panel's
+  tooltips; the assistant's place words; the cue sheet's; `FocusAppTests`.
+- **Found on the way.** Selection was already one (round 67.3); the divergence was the chrome and the
+  wire, not the desk. `MainViewModel.RebuildEditTargets` is internal; the picker's targets are there after
+  the rig is built, so the test needs no call.
+
+### 81.5 — the round's verb, read beside an output
+
+- **Done.** `ScopedTakeAppTests.AScopedTakeWithAnOutputOpenIsAFactRowReadBesideIt`: a FOCUSED TAKE with
+  the outputs open, the journal's `Take` row Done · Changed · OutputsLive with the words naming the tile
+  alone, STATE's `take.last` and the Eye's desk node the same.
+
+### The review's items, answered
+
+- Item 1 (groups are kinds) — 81.1. Item 2 (the tile's CUT / TAKE "stopped working") — the diagnosis in
+  §99.1 and §99.4: the round-78 PVW rule and the round-79 refusal with words that named no way out; fixed
+  by 81.3's rule and words, and 81.2's landing. Item 3 (FOCUSED sends to the selected screen alone) —
+  81.2. Items 4 and 5 (editing concentrates on the selected tile; an OWN tile is reached by SEND alone) —
+  81.3. Item 6 (the highlighted tile is the focus) — 81.4. The mid-round rules: own-on-edit (round 67.5)
+  kept and tested end to end in 81.3; LOCK absolute on every path, tested on every scope in 81.2.
+- The ledger: no open row closed by this round; one added (L30, the CANVAS word and the pre-81 desk).
+  Closed rows: twenty-one; open: nine.
+
+### The suites
+
+- Core 948, Rendering 669, Devices 7, Audio 13, Audience 2, Assistant 37, App 810 — 2,486; the module's 34 node tests.
+- The App suite ran whole after 81.4 (809 green) and, after 81.5 added its one test with no source
+  changed, that class alone.
+- Walk: unwalked.

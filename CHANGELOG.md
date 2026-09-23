@@ -10,6 +10,33 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 81 — 2026-09-23 — the switcher wall's workflow: groups are kinds, a scoped take lands alone, an OWN tile's preview is its own, focus and selection are one
+
+`round-81` · PLAN §99 · REVIEW round 81 · 2,486 tests · module 3.16.0 · evidence: the maintainer's list from the rig (a verbal report; no files)
+
+- **Groups are kinds.** GROUPS takes to every screen of the ticked tiles' groups — a group is what a
+  screen is for: Main, Confidence, Info — and MAIN / CONFIDENCE / INFO SCREENS take to a group by name with
+  no tick; a joined canvas is a canvas (`CANVAS A` on the wire, `GROUP A` still read), never a group. The
+  wall's and the fade's pickers have seven choices; the cue editor, the OSC map, the cue validator and the
+  Companion module's canvas key follow.
+- **A scoped take lands alone.** FOCUSED, TICKED, TICKED GROUPS, a group by kind, SCREEN n and CANVAS A
+  land on those screens alone, as their own pictures (OWN lights up); the programme, its preview and every
+  other screen are untouched, nothing is pinned, EDIT SAFE stays open. Only ALL ARMED (and FOCUSED on the
+  PGM tile) moves the programme. LOCK means lock on every path — the tile's own keys, the wire, every
+  scope — with the reason named; unlocking never moves a picture.
+- **An OWN tile's preview is its own.** A tile on its own picture keeps its PVW to itself: the programme's
+  preview never reaches it until SEND copies it there, or the tile is selected and edited (its first edit
+  makes a following tile its own); its CUT / TAKE put up what its PVW shows, and a press with nothing new
+  says "already shows its own picture — SEND the programme's preview to its tile". The round-78 "settled"
+  rule and its plumbing are gone. PROGRAM puts a tile back on the programme.
+- **Focus and selection are one.** The EDITING TARGET picker, the tile's title and the wall's highlight are
+  one selection, and FOCUSED means it; STATE's take row ends with `focused`, `focusedLabel` and `groups`
+  (the ticked tiles' groups); Companion module 3.16.0 reads them (`take_focused`, `take_groups`); the
+  desk's tooltips, the help, the assistant's and the cue sheet's place words say round 81's model.
+- **The round's verb, read beside an output.** A FOCUSED TAKE with the outputs open leaves the journal's
+  `Take` row — Done · Changed · OutputsLive, the words naming the tile alone — read on the headless desk;
+  unwalked on the rig.
+
 ## Round 80 — 2026-09-21 — the ledger's rows that need no rig: the master rate follows the displays, the plan's OWN words, the module reads the descriptor version, one atomic write
 
 `round-80` · PLAN §98 · REVIEW round 80 · 2,481 tests · module 3.15.0 · evidence: the maintainer's "continue" and the ledger's rows that need no rig
