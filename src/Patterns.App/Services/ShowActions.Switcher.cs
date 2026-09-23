@@ -58,7 +58,7 @@ public sealed partial class ShowActions
                 var down = a.Kind == ShowActionKind.FadeToBlack;
                 if (FadeScope.Parse(a.Target) is not { } scope)
                 {
-                    return ActionResult.Refused($"'{a.Target}' is not a place to fade — leave it empty for every screen, or SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS, ID <screen id>.");
+                    return ActionResult.Refused($"'{a.Target}' is not a place to fade — leave it empty for every screen, or SCREEN 2, CANVAS A, GROUP CONFIDENCE, FOCUSED, TICKED, GROUPS, ID <screen id>.");
                 }
                 if (!ControlProtocol.TryParseSeconds(a.Value, out var asked)) return ActionResult.Refused($"'{a.Value}' is not a number of seconds for the fade.");
                 var ms = asked > 0 ? asked : (int)Math.Round(State.Transition.DurationMs);
@@ -176,7 +176,7 @@ public sealed partial class ShowActions
                 // as its own, lifted by the next full send. The same words a fade takes.
                 if (FadeScope.Parse(a.Target) is not { } scope)
                 {
-                    return ActionResult.Refused($"'{a.Target}' is not a place to take to — leave it empty for every armed screen, or SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS.");
+                    return ActionResult.Refused($"'{a.Target}' is not a place to take to — leave it empty for every armed screen, or SCREEN 2, CANVAS A, GROUP CONFIDENCE, FOCUSED, TICKED, GROUPS.");
                 }
                 // One rule (round 67): TakePlan says what this scope changes and what it holds — LOCKED never
                 // taken, ARM counting inside every scope, a repeater never, everything outside the scope kept —
@@ -325,9 +325,10 @@ public sealed partial class ShowActions
 
     /// <summary>
     /// The content targets a scope names on this rig, or why it names none: the focused tile, the
-    /// ticked tiles, the ticked tiles that are groups, a screen by wall number (the canvas it
-    /// renders through when it joined one), a group by wall letter, a target id in the rig. A
-    /// fade and a CUT / TAKE read the same words through here.
+    /// ticked tiles, every target in the ticked tiles' groups (round 81: a group is what a screen is
+    /// for — main, confidence, info), a group by kind, a screen by wall number (the canvas it renders
+    /// through when it joined one), a joined canvas by wall letter, the ticked canvases, a target id in
+    /// the rig. A fade and a CUT / TAKE read the same words through here.
     /// </summary>
     private (IReadOnlyList<string> Targets, string? Problem) FadeTargets(FadeScope scope)
     {
@@ -346,8 +347,19 @@ public sealed partial class ShowActions
             }
             case FadeScopeKind.Groups:
             {
-                var groups = (_s.TickedTargets?.Invoke() ?? Array.Empty<string>()).Where(ContentTargets.IsCanvasKey).ToList();
-                return groups.Count == 0 ? (Array.Empty<string>(), "Tick a group (a joined canvas) on the wall first.") : (groups, null);
+                var kinds = (_s.TickedTargets?.Invoke() ?? Array.Empty<string>()).Select(t => ScreenRoles.KindOf(State, t)).Where(ScreenRoles.IsTakeKind).Distinct(StringComparer.Ordinal).ToList();
+                if (kinds.Count == 0) return (Array.Empty<string>(), "Tick a tile in a group first — GROUPS fades every screen of the ticked tiles' groups (Main, Confidence, Info).");
+                return (geometry.Targets.Where(t => kinds.Contains(ScreenRoles.KindOf(State, t))).ToList(), null);
+            }
+            case FadeScopeKind.Group:
+            {
+                var ofKind = geometry.Targets.Where(t => ScreenRoles.KindOf(State, t) == scope.Arg).ToList();
+                return ofKind.Count == 0 ? (Array.Empty<string>(), $"No {scope.Arg} screen on the wall.") : (ofKind, null);
+            }
+            case FadeScopeKind.Canvases:
+            {
+                var canvases = (_s.TickedTargets?.Invoke() ?? Array.Empty<string>()).Where(ContentTargets.IsCanvasKey).ToList();
+                return canvases.Count == 0 ? (Array.Empty<string>(), "Tick a joined canvas on the wall first.") : (canvases, null);
             }
             case FadeScopeKind.Screen:
             {
@@ -356,13 +368,13 @@ public sealed partial class ShowActions
                 if (n < 1 || n > ordered.Count) return (Array.Empty<string>(), $"No screen {n} — the rig has {ordered.Count}.");
                 return (new[] { geometry.TargetOf(ordered[n - 1].Placement.ScreenId) }, null);
             }
-            case FadeScopeKind.Group:
+            case FadeScopeKind.Canvas:
             {
                 foreach (var key in geometry.Targets)
                 {
                     if (ContentTargets.IsCanvasKey(key) && geometry.LetterOf(key) == scope.Arg) return (new[] { key }, null);
                 }
-                return (Array.Empty<string>(), $"No group {scope.Arg} on the wall.");
+                return (Array.Empty<string>(), $"No canvas {scope.Arg} on the wall.");
             }
             default:
             {
@@ -449,7 +461,7 @@ public sealed partial class ShowActions
         var geometry = Rig.Geometry(State, _s.Screens.All);
         var rig = RigTargets(geometry);
         IReadOnlyList<string>? named = null;
-        if (scope.Kind is FadeScopeKind.Screen or FadeScopeKind.Group or FadeScopeKind.Target)
+        if (scope.Kind is FadeScopeKind.Screen or FadeScopeKind.Canvas or FadeScopeKind.Target)
         {
             var (targets, problem) = FadeTargets(scope);
             if (problem is not null) return new TakePlan { Scope = scope, Refusal = problem };
@@ -483,7 +495,8 @@ public sealed partial class ShowActions
             // (round 30's rule); the plan says so before the press instead of listing the target as if its picture would move.
             var keepsOwn = !mirror && ContentTargets.UsesOwnPattern(program, target) && !(_s.Sandbox.Active && _s.Sandbox.IsStaged(target));
             rig.Add(new TakeTarget(target, geometry.LabelFor(State, target), canvas, mirror,
-                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape, key, keepsOwn));
+                ScreenRoles.IsLocked(State, target), _s.Arming.IsArmed(target), ticked.Contains(target), shape, key, keepsOwn,
+                ScreenRoles.KindOf(State, target)));                                                     // round 81: the group it is in, by kind
         }
         return rig;
     }

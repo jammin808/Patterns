@@ -236,13 +236,13 @@ export function buildActions(ctx) {
 			callback: (a) => send(`FREEZE ${a.options.mode}`),
 		},
 		// A fade to black — or up again — over the seconds given (0 = the show's transition time), where the target says:
-		// empty = every screen (a blackout with a fade of its own); SCREEN 2, GROUP A, FOCUSED, TICKED or GROUPS fade that part alone.
+		// empty = every screen (a blackout with a fade of its own); SCREEN 2, CANVAS A, GROUP CONFIDENCE, FOCUSED, TICKED or GROUPS fade that part alone (round 81: a group is what a screen is for).
 		fade: {
 			name: 'Fade to black / fade up over a time — every screen, or one screen, a group, the focused or ticked tiles',
 			options: [
 				{ type: 'dropdown', id: 'dir', label: 'Direction', default: 'DOWN', choices: [{ id: 'DOWN', label: 'To black' }, { id: 'UP', label: 'Up (lift it)' }] },
 				{ type: 'number', id: 'secs', label: "Seconds (0 = the show's transition time)", default: 2, min: 0, max: 600, step: 0.5 },
-				text('target', 'Where (empty = every screen; SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS)'),
+				text('target', "Where (empty = every screen; SCREEN 2, CANVAS A, GROUP MAIN / CONFIDENCE / INFO, FOCUSED, TICKED, GROUPS — the ticked tiles' groups by kind)"),
 			],
 			callback: (a) => {
 				const where = clean(a.options.target)
@@ -258,7 +258,7 @@ export function buildActions(ctx) {
 		group: {
 			name: 'Canvas group on/off',
 			options: [text('letter', 'Canvas letter (A, B…)', 'A'), onOrOff('ON')],
-			callback: (a) => { const l = clean(a.options.letter); if (l) send(`GROUP ${l} ${a.options.mode}`) },
+			callback: (a) => { const l = clean(a.options.letter); if (l) send(`CANVAS ${l} ${a.options.mode}`) },   // round 81: a joined canvas is a canvas on the wire
 		},
 		// The audio playlist: play / resume the list, stop, step it, a track by its place or its name, the level.
 		audio: {

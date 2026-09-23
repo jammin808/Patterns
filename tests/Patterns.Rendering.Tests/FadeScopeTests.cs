@@ -25,11 +25,15 @@ public class FadeScopeTests
         Assert.Equal(FadeScope.Ticked, FadeScope.Parse("ticked"));
         Assert.Equal(FadeScope.Ticked, FadeScope.Parse("SELECTED"));
         Assert.Equal(FadeScope.Groups, FadeScope.Parse("GROUPS"));
-        Assert.Equal(FadeScope.Groups, FadeScope.Parse("canvases"));
+        Assert.Equal(FadeScope.Canvases, FadeScope.Parse("canvases"));                       // round 81: the ticked canvases, apart from the groups
         Assert.Equal(new FadeScope(FadeScopeKind.Screen, "2"), FadeScope.Parse("SCREEN 2"));
         Assert.Equal(new FadeScope(FadeScopeKind.Screen, "12"), FadeScope.Parse("screen  12"));
-        Assert.Equal(new FadeScope(FadeScopeKind.Group, "A"), FadeScope.Parse("group a"));
-        Assert.Equal(new FadeScope(FadeScopeKind.Group, "B"), FadeScope.Parse("CANVAS B"));
+        Assert.Equal(new FadeScope(FadeScopeKind.Canvas, "A"), FadeScope.Parse("group a"));      // round 81: a letter is a canvas, whichever word led it
+        Assert.Equal(new FadeScope(FadeScopeKind.Canvas, "B"), FadeScope.Parse("CANVAS B"));
+        Assert.Equal(FadeScope.GroupOf(ScreenRole.Confidence), FadeScope.Parse("group conf"));   // round 81: a group is what a screen is for
+        Assert.Equal(FadeScope.GroupOf(ScreenRole.Main), FadeScope.Parse("GROUP main"));
+        Assert.Equal(FadeScope.GroupOf(ScreenRole.Info), FadeScope.Parse("Group Info"));
+        Assert.Null(FadeScope.Parse("GROUP REPEATER"));                                          // a repeater draws its source: no group a take can reach
         Assert.Equal(new FadeScope(FadeScopeKind.Target, "a+b"), FadeScope.Parse("a+b"));
         Assert.Equal(new FadeScope(FadeScopeKind.Target, "DISPLAY1"), FadeScope.Parse("ID DISPLAY1"));
         Assert.Equal(new FadeScope(FadeScopeKind.Target, "b"), FadeScope.Parse("target b"));
@@ -54,7 +58,10 @@ public class FadeScopeTests
         Assert.Equal("TICKED", FadeScope.Ticked.Words);
         Assert.Equal("GROUPS", FadeScope.Groups.Words);
         Assert.Equal("SCREEN 2", FadeScope.Parse("screen 2")!.Value.Words);
-        Assert.Equal("GROUP A", FadeScope.Parse("canvas a")!.Value.Words);
+        Assert.Equal("CANVAS A", FadeScope.Parse("canvas a")!.Value.Words);
+        Assert.Equal("CANVAS A", FadeScope.Parse("group a")!.Value.Words);                      // written back as what it is
+        Assert.Equal("GROUP CONFIDENCE", FadeScope.Parse("group conf")!.Value.Words);
+        Assert.Equal("CANVASES", FadeScope.Canvases.Words);
         Assert.Equal("a+b", FadeScope.Parse("a+b")!.Value.Words);
         Assert.Equal("ID DISPLAY1", FadeScope.Parse("id DISPLAY1")!.Value.Words);
         Assert.Equal("every screen", FadeScope.Everything.Label);
@@ -62,10 +69,12 @@ public class FadeScopeTests
         Assert.Equal("the ticked screens", FadeScope.Ticked.Label);
         Assert.Equal("the ticked groups", FadeScope.Groups.Label);
         Assert.Equal("screen 2", FadeScope.Parse("SCREEN 2")!.Value.Label);
-        Assert.Equal("group A", FadeScope.Parse("group a")!.Value.Label);
+        Assert.Equal("canvas A", FadeScope.Parse("group a")!.Value.Label);
+        Assert.Equal("the confidence screens", FadeScope.Parse("group conf")!.Value.Label);
+        Assert.Equal("the ticked canvases", FadeScope.Canvases.Label);
         Assert.True(FadeScope.Everything.IsEverything);
         Assert.False(FadeScope.Focused.IsEverything);
-        foreach (var words in new[] { "", "FOCUSED", "TICKED", "GROUPS", "SCREEN 3", "GROUP C", "a+b", "ID DISPLAY1" })
+        foreach (var words in new[] { "", "FOCUSED", "TICKED", "GROUPS", "CANVASES", "SCREEN 3", "CANVAS C", "GROUP CONFIDENCE", "GROUP MAIN", "a+b", "ID DISPLAY1" })
         {
             Assert.Equal(words, FadeScope.Parse(words)!.Value.Words); // a round trip
         }
@@ -77,8 +86,9 @@ public class FadeScopeTests
         Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2", "2"), ControlProtocol.Parse("FADE 2 SCREEN 2").Action);
         Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2"), ControlProtocol.Parse("FADE SCREEN 2").Action);
         Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2", "1.5"), ControlProtocol.Parse("fade screen 2 1.5").Action);
-        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUP A"), ControlProtocol.Parse("FADE GROUP A").Action);
-        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUP A", "0.5"), ControlProtocol.Parse("FADE 500ms canvas a").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "CANVAS A"), ControlProtocol.Parse("FADE GROUP A").Action);      // round 81: a joined canvas is a canvas
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "CANVAS A", "0.5"), ControlProtocol.Parse("FADE 500ms canvas a").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUP CONFIDENCE", "2"), ControlProtocol.Parse("FADE 2 GROUP CONF").Action);   // a group by kind
         Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "FOCUSED"), ControlProtocol.Parse("FADE FOCUSED").Action);
         Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUPS"), ControlProtocol.Parse("FADE DOWN GROUPS").Action);
         Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "TICKED", "3"), ControlProtocol.Parse("FADE BLACK 3 TICKED").Action);
@@ -115,13 +125,14 @@ public class FadeScopeTests
         Assert.Equal("FADE 2 SCREEN 2", OscMap.ToLine(OscMessage.Of("/patterns/fade/screen/2", 2)));
         Assert.Equal("FADE SCREEN 3", OscMap.ToLine(OscMessage.Of("/patterns/fade/screen/3")));
         Assert.Equal("FADE 1.5 SCREEN 3", OscMap.ToLine(OscMessage.Of("/patterns/fade/screen/3/1.5")));
-        Assert.Equal("FADEUP GROUP A", OscMap.ToLine(OscMessage.Of("/patterns/fade/up/group/A")));
-        Assert.Equal("FADEUP 2 GROUP B", OscMap.ToLine(OscMessage.Of("/patterns/fade/up/canvas/B", 2)));   // a canvas is a group, in the wire's own words
+        Assert.Equal("FADEUP CANVAS A", OscMap.ToLine(OscMessage.Of("/patterns/fade/up/group/A")));      // round 81: a joined canvas is a canvas, whichever word led it
+        Assert.Equal("FADEUP 2 CANVAS B", OscMap.ToLine(OscMessage.Of("/patterns/fade/up/canvas/B", 2)));
+        Assert.Equal("FADE GROUP CONFIDENCE", OscMap.ToLine(OscMessage.Of("/patterns/fade/group/confidence")));   // a group by kind
         Assert.Equal("FADE 1.5 FOCUSED", OscMap.ToLine(OscMessage.Of("/patterns/fade/focused", 1.5)));
         Assert.Equal("FADE 2 TICKED", OscMap.ToLine(OscMessage.Of("/patterns/fade/ticked/2")));
         Assert.Equal("FADE GROUPS", OscMap.ToLine(OscMessage.Of("/patterns/fade/down/groups")));
         Assert.Equal("FADE SCREEN 2", OscMap.ToLine(OscMessage.Of("/patterns/fade", "SCREEN 2")));
-        Assert.Equal("FADEUP GROUP A", OscMap.ToLine(OscMessage.Of("/patterns/fade/up", "group a")));
+        Assert.Equal("FADEUP CANVAS A", OscMap.ToLine(OscMessage.Of("/patterns/fade/up", "group a")));
         Assert.Equal("FADE 2 FOCUSED", OscMap.ToLine(OscMessage.Of("/patterns/fade/2", "FOCUSED")));
 
         // The old addresses read exactly as they did.
@@ -164,7 +175,8 @@ public class FadeScopeTests
         state.Output.Placements.Add(new ScreenPlacement { ScreenId = "b", CustomLabel = "Stage left" });
         Assert.Equal("Fade to black — every screen", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack }));
         Assert.Equal("Fade to black — screen 2 over 2 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "SCREEN 2", Value = "2" }));
-        Assert.Equal("Fade up — group A", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "GROUP A" }));
+        Assert.Equal("Fade up — canvas A", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "GROUP A" }));
+        Assert.Equal("Fade up — the confidence screens", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "GROUP CONFIDENCE" }));
         Assert.Equal("Fade to black — the ticked screens over 1.5 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "TICKED", Value = "1.5" }));
         Assert.Equal("Fade to black — Stage left", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "ID b" }));
         Assert.Equal("Fade up — 'no such place'?", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "no such place" }));
@@ -181,6 +193,7 @@ public class FadeScopeTests
         Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeToBlack, "", ""), ctx).BrokenCount);
         Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeToBlack, "SCREEN 2", "2"), ctx).BrokenCount);
         Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeUp, "GROUP A", "0.5"), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeUp, "GROUP INFO", ""), ctx).BrokenCount);
         Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeUp, "ID b", ""), ctx).BrokenCount);
         Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeToBlack, "TICKED", ""), ctx).BrokenCount);
         var badPlace = Cue(ShowActionKind.FadeToBlack, "SCREEN", "");

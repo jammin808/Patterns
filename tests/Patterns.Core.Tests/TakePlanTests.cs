@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -13,11 +14,11 @@ public class TakePlanTests
 {
     private static IReadOnlyList<TakeTarget> Rig() => new[]
     {
-        new TakeTarget("s1", "1 · Main"),
-        new TakeTarget("s2", "2 · Comfort", Locked: true),
-        new TakeTarget("a+b", "A · Wall", IsCanvas: true, Ticked: true),
-        new TakeTarget("s3", "3 · Info", Armed: false, Ticked: true),
-        new TakeTarget("s4", "4 · Repeater", IsMirror: true),
+        new TakeTarget("s1", "1 · Main", Kind: "main"),
+        new TakeTarget("s2", "2 · Comfort", Locked: true, Kind: "confidence"),
+        new TakeTarget("a+b", "A · Wall", IsCanvas: true, Ticked: true, Kind: "main"),
+        new TakeTarget("s3", "3 · Info", Armed: false, Ticked: true, Kind: "info"),
+        new TakeTarget("s4", "4 · Repeater", IsMirror: true, Kind: "repeater"),
     };
 
     [Fact]
@@ -41,7 +42,7 @@ public class TakePlanTests
         Assert.Empty(one.Held);
         Assert.Equal(new[] { "s2", "a+b", "s3", "s4" }, one.Outside);
         Assert.Equal("on 1 · Main alone", one.Where);
-        Assert.Equal("→ 1 · Main · 4 outside the scope keep their picture", one.Words);
+        Assert.Equal("→ 1 · Main · the programme and 4 others untouched", one.Words);     // round 81: a scoped take lands on its target alone
 
         var pgm = TakePlan.Resolve(Rig(), FadeScope.Focused, focused: null);
         Assert.Equal(new[] { "s1", "a+b" }, pgm.Taken);
@@ -85,27 +86,51 @@ public class TakePlanTests
     }
 
     [Fact]
-    public void TickedGroupsTakesTheTickedCanvasesAlone()
+    public void GroupsTakesEveryScreenOfTheTickedTilesKindsAndACanvasIsNoGroup()
     {
+        // Round 81: the canvas (main) and the info screen are ticked — every main and every info target is in the
+        // scope: the main screen and the canvas take, the info screen is held (not armed), the confidence screen
+        // and the repeater are outside. A joined canvas is one target of its members' kind, never a group.
         var plan = TakePlan.Resolve(Rig(), FadeScope.Groups, focused: null);
-        Assert.Equal(new[] { "a+b" }, plan.Taken);
-        Assert.Empty(plan.Held);
-        Assert.Equal(4, plan.Outside.Count);
-        Assert.Equal("on the ticked groups: A · Wall", plan.Where);
+        Assert.Equal(new[] { "s1", "a+b" }, plan.Taken);
+        Assert.Equal(new[] { "s3" }, plan.Held.Select(h => h.Id));
+        Assert.Equal(new[] { "s2", "s4" }, plan.Outside);
+        Assert.Equal("on the main and info screens: 1 · Main, A · Wall, 3 · Info", plan.Where);
+        Assert.True(plan.IsScoped);
 
-        var none = TakePlan.Resolve(Rig().Select(t => t with { Ticked = t.Id == "s3" }).ToList(), FadeScope.Groups, null);
-        Assert.Equal("Tick a group (a joined canvas) on the wall first.", none.Refusal);
+        // A ticked repeater names no group; nothing ticked names none: refused with what to do.
+        var none = TakePlan.Resolve(Rig().Select(t => t with { Ticked = t.Id == "s4" }).ToList(), FadeScope.Groups, null);
+        Assert.Equal("Tick a tile in a group first — GROUPS takes to every screen of the ticked tiles' groups (Main, Confidence, Info).", none.Refusal);
+
+        // CANVASES is the old meaning under its own name: the ticked joined canvases alone.
+        var canvases = TakePlan.Resolve(Rig(), FadeScope.Canvases, focused: null);
+        Assert.Equal(new[] { "a+b" }, canvases.Taken);
+        Assert.Equal("on the ticked canvases: A · Wall", canvases.Where);
+        Assert.Equal("Tick a joined canvas on the wall first.", TakePlan.Resolve(Rig().Select(t => t with { Ticked = false }).ToList(), FadeScope.Canvases, null).Refusal);
+    }
+
+    [Fact]
+    public void AGroupByKindNeedsNoTickAndTheRulesStillBindInsideIt()
+    {
+        // GROUP MAIN: the main screen and the main canvas; GROUP CONFIDENCE: the one confidence screen is locked, so
+        // the plan is a refusal that says so; GROUP INFO: the info screen is not armed; a kind with no screen is none.
+        var main = TakePlan.Resolve(Rig(), FadeScope.GroupOf(ScreenRole.Main), focused: null);
+        Assert.Equal(new[] { "s1", "a+b" }, main.Taken);
+        Assert.Equal("on the main screens: 1 · Main, A · Wall", main.Where);
+        Assert.Equal("2 · Comfort is locked — it keeps its picture. Unlock it (LOCK on its tile) to take to it.", TakePlan.Resolve(Rig(), FadeScope.GroupOf(ScreenRole.Confidence), null).Refusal);
+        Assert.Equal("3 · Info is not armed — ARM it, or use the tile's own TAKE.", TakePlan.Resolve(Rig(), FadeScope.GroupOf(ScreenRole.Info), null).Refusal);
+        Assert.Equal("No info screen on the wall.", TakePlan.Resolve(Rig().Where(t => t.Kind != "info").ToList(), FadeScope.GroupOf(ScreenRole.Info), null).Refusal);
     }
 
     [Fact]
     public void NamedTargetsComeFromTheCallerAndARepeaterIsNeverTaken()
     {
-        var group = TakePlan.Resolve(Rig(), new FadeScope(FadeScopeKind.Group, "A"), focused: null, named: new[] { "a+b" });
-        Assert.Equal(new[] { "a+b" }, group.Taken);
-        Assert.Equal("on A · Wall alone", group.Where);
+        var canvas = TakePlan.Resolve(Rig(), new FadeScope(FadeScopeKind.Canvas, "A"), focused: null, named: new[] { "a+b" });
+        Assert.Equal(new[] { "a+b" }, canvas.Taken);
+        Assert.Equal("on A · Wall alone", canvas.Where);
 
-        var missing = TakePlan.Resolve(Rig(), new FadeScope(FadeScopeKind.Group, "B"), focused: null, named: null);
-        Assert.Equal("No group B on the wall.", missing.Refusal);
+        var missing = TakePlan.Resolve(Rig(), new FadeScope(FadeScopeKind.Canvas, "B"), focused: null, named: null);
+        Assert.Equal("No canvas B on the wall.", missing.Refusal);
 
         var mirror = TakePlan.Resolve(Rig(), new FadeScope(FadeScopeKind.Screen, "4"), focused: null, named: new[] { "s4" });
         Assert.Equal("4 · Repeater is a repeater — it draws its source's picture; take to its source.", mirror.Refusal);

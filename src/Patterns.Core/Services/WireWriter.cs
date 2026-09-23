@@ -90,8 +90,8 @@ public static class WireWriter
             ShowActionKind.ScreenLock => Join("LOCK", t, "ON"),
             ShowActionKind.ScreenUnlock => Join("LOCK", t, "OFF"),
             ShowActionKind.ScreenLockToggle => Join("LOCK", t),
-            ShowActionKind.CanvasOn => Join("GROUP", t, "ON"),
-            ShowActionKind.CanvasOff => Join("GROUP", t, "OFF"),
+            ShowActionKind.CanvasOn => Join("CANVAS", t, "ON"),      // round 81: a joined canvas is a canvas on the wire
+            ShowActionKind.CanvasOff => Join("CANVAS", t, "OFF"),
             ShowActionKind.RigSaveKnownGood => Join("RIG SAVE", v),
             ShowActionKind.EyeFocus => Join("EYE FOCUS", v),
             ShowActionKind.EyeNext => "EYE NEXT",

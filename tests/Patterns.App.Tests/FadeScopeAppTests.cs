@@ -223,7 +223,7 @@ public class FadeScopeAppTests
             var host = Panel(vm);
             var picker = host.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "FadeScopePicker");
             var tick = host.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "FadeAudioTick");
-            Assert.Equal(4, picker.ItemCount);
+            Assert.Equal(7, picker.ItemCount);   // round 81: the groups by kind joined the picker
             Assert.Same(vm.FadeScopes[0], picker.SelectedItem);
             Assert.Equal("EVERY SCREEN", vm.SelectedFadeScope.ToString());
             Assert.True(tick.IsChecked);
@@ -290,11 +290,18 @@ public class FadeScopeAppTests
             vm.FadeToBlackCommand.Execute(null);
             Assert.Contains("Tick the wall tiles", vm.StatusMessage);
 
-            // THE TICKED GROUPS with no canvas on the wall: refused with the reason, nothing changes.
-            tileB.IsSendTarget = true;
+            // THE TICKED GROUPS (round 81: the groups are what the screens are for) with nothing ticked: refused with
+            // what to do, nothing changes. Tick the right screen — a main screen — and every main screen fades.
             vm.SelectedFadeScope = vm.FadeScopes[3];
             vm.FadeToBlackCommand.Execute(null);
-            Assert.Contains("Tick a group", vm.StatusMessage);
+            Assert.Contains("Tick a tile in a group", vm.StatusMessage);
+            Assert.Empty(services.Bus.BlackTargets);
+            tileB.IsSendTarget = true;
+            vm.FadeToBlackCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(new[] { "a", "b", "c" }, services.Bus.BlackTargets.OrderBy(x => x));
+            vm.FadeUpCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             Assert.Empty(services.Bus.BlackTargets);
             tileB.IsSendTarget = false;
 

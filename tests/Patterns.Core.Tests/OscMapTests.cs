@@ -39,7 +39,7 @@ public class OscMapTests
             (Of("/patterns/outputs"), "OUTPUTS ON"), (Of("/patterns/outputs/off"), "OUTPUTS OFF"), (Of("/patterns/outputs", "no"), "OUTPUTS OFF"),
             (Of("/patterns/screen/2/1"), "SCREEN 2 ON"), (Of("/patterns/lock/1/0"), "LOCK 1 OFF"), (Of("/patterns/screen/2/toggle"), "SCREEN 2 TOGGLE"),
             (Of("/patterns/clock/seconds/on"), "CLOCK SECONDS ON"), (Of("/patterns/ticker"), "MESSAGE SCROLL TOGGLE"), (Of("/patterns/freeze", "yes"), "FREEZE ON"),
-            (Of("/patterns/cue/hold"), "CUE HOLD ON"), (Of("/patterns/group/a/off"), "GROUP A OFF"),
+            (Of("/patterns/cue/hold"), "CUE HOLD ON"), (Of("/patterns/group/a/off"), "CANVAS A OFF"),
         };
         foreach (var (m, line) in accepted)
         {
@@ -61,7 +61,8 @@ public class OscMapTests
             (Of("/patterns/next"), "NEXT"), (Of("/patterns/prev"), "PREV"), (Of("/patterns/back"), "PREV"),
             (Of("/patterns/screen/2", 1), "SCREEN 2 ON"), (Of("/patterns/screen/2"), "SCREEN 2 TOGGLE"), (Of("/patterns/screen/2/off"), "SCREEN 2 OFF"), (Of("/patterns/screen/x"), null), (Of("/patterns/screen"), null),
             (Of("/patterns/lock/1", 0), "LOCK 1 OFF"), (Of("/patterns/lock/1"), "LOCK 1 TOGGLE"), (Of("/patterns/lock/1/on"), "LOCK 1 ON"),
-            (Of("/patterns/group/a", 1), "GROUP A ON"), (Of("/patterns/group/B/off"), "GROUP B OFF"), (Of("/patterns/group"), null),
+            (Of("/patterns/group/a", 1), "CANVAS A ON"), (Of("/patterns/group/B/off"), "CANVAS B OFF"), (Of("/patterns/group"), null),   // round 81: a joined canvas is a canvas
+            (Of("/patterns/canvas/a", 1), "CANVAS A ON"), (Of("/patterns/canvas/B/off"), "CANVAS B OFF"),
             (Of("/patterns/audio/play"), "AUDIO PLAY"), (Of("/patterns/audio", "stop"), "AUDIO STOP"), (Of("/patterns/audio/x"), null),
             (Of("/patterns/music/play"), "MUSIC PLAY"), (Of("/patterns/music/play", 2), "MUSIC PLAY 2"), (Of("/patterns/music/play", "Interval bed"), "MUSIC PLAY Interval bed"),
             (Of("/patterns/music/play/3"), "MUSIC PLAY 3"), (Of("/patterns/music/pause"), "MUSIC PAUSE"), (Of("/patterns/music/next"), "MUSIC NEXT"), (Of("/patterns/music/2"), "MUSIC PLAY 2"),

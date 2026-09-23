@@ -204,7 +204,7 @@ public class TakeRulesAppTests
             // FOCUSED on the right screen: the words, the held set and the multiview follow the click at once.
             vm.SelectTileCommand.Execute(Tile(vm, "b"));
             vm.SelectedTakeScope = vm.TakeScopes[1];
-            Assert.Equal("→ 2 · Right · 2 outside the scope keep their picture", vm.TakePlanText);
+            Assert.Equal("→ 2 · Right · the programme and 2 others untouched", vm.TakePlanText);   // round 81: a scoped take lands on its target alone
             Assert.Equal(new[] { "a", "c" }, services.Bus.Current.TakeHeld!.OrderBy(x => x));
             Assert.Equal("NEXT TAKE → 2", MultiviewTally.PreviewTargets(services.Bus.Current, services.Bus.Sandbox));
 
@@ -212,7 +212,7 @@ public class TakeRulesAppTests
             vm.SelectedTakeScope = vm.TakeScopes[2];
             Assert.Equal("Tick the wall tiles first.", vm.TakePlanText);
             Tile(vm, "a").IsSendTarget = true;
-            Assert.Equal("→ 1 · Left · 2 outside the scope keep their picture", vm.TakePlanText);
+            Assert.Equal("→ 1 · Left · the programme and 2 others untouched", vm.TakePlanText);
             Assert.Equal(new[] { "b", "c" }, services.Bus.Current.TakeHeld!.OrderBy(x => x));
 
             // An ALL ARMED take leaves that tick exactly where the operator put it.

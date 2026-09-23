@@ -223,9 +223,9 @@ public static class CueValidator
                 case ShowActionKind.FadeToBlack:
                 case ShowActionKind.FadeUp:
                 {
-                    // Where: nothing (the rig), FOCUSED, TICKED, GROUPS, SCREEN n, GROUP A, or a target in the rig; how long: seconds, or the show's.
+                    // Where: nothing (the rig), FOCUSED, TICKED, GROUPS, GROUP <kind>, SCREEN n, CANVAS A, CANVASES, or a target in the rig; how long: seconds, or the show's.
                     var scope = FadeScope.Parse(a.Target);
-                    if (scope is null) Hard($"{where}: '{a.Target}' is not a place to fade — leave it empty for every screen, or SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS, ID <screen id>.");
+                    if (scope is null) Hard($"{where}: '{a.Target}' is not a place to fade — leave it empty for every screen, or SCREEN 2, CANVAS A, GROUP CONFIDENCE, FOCUSED, TICKED, GROUPS, ID <screen id>.");
                     else if (scope.Value.Kind == FadeScopeKind.Target && !ContentTargets.IsInRig(state, scope.Value.Arg)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     if (a.Value.Trim().Length > 0 && !(double.TryParse(a.Value.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var secs) && secs >= 0 && secs <= 600))
                         Hard($"{where}: '{a.Value}' is not a number of seconds for the fade.");

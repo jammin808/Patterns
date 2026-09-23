@@ -165,9 +165,10 @@ public static class OscMap
                 return Numbered("SCREEN", seg, m, seg2, "TOGGLE", toggles: true);
             }
             case "lock": return Numbered("LOCK", seg, m, seg2, "TOGGLE", toggles: true);
+            case "canvas":   // round 81: /patterns/canvas/<letter> — a joined canvas; /group/<letter> is read the same way
             case "group":
                 if (seg.Length == 0) return null;
-                return Sw($"GROUP {seg.ToUpperInvariant()}", Switch(m, seg2, "ON", toggles: false));
+                return Sw($"CANVAS {seg.ToUpperInvariant()}", Switch(m, seg2, "ON", toggles: false));
             // /patterns/audio/play · /patterns/audio/play 3 · /patterns/audio/play/3 · /patterns/audio/play "Walk-in" · /next · /prev · /volume 80 · /stop
             case "audio":
             case "track":

@@ -886,7 +886,11 @@ public sealed class CueEditor : Observable
                     new("", "Every screen (the blackout, faded)"),
                     new(FadeScope.Focused.Words, "The focused wall tile"),
                     new(FadeScope.Ticked.Words, "The ticked wall tiles"),
-                    new(FadeScope.Groups.Words, "The ticked groups"),
+                    new(FadeScope.Groups.Words, "The ticked tiles' groups (main, confidence, info)"),
+                    new(FadeScope.GroupOf(ScreenRole.Main).Words, "The main screens"),
+                    new(FadeScope.GroupOf(ScreenRole.Confidence).Words, "The confidence screens"),
+                    new(FadeScope.GroupOf(ScreenRole.Info).Words, "The info screens"),
+                    new(FadeScope.Canvases.Words, "The ticked joined canvases"),
                 };
                 var known = _s.Screens;
                 var groups = Rig.CanvasGroups(state, known);
@@ -895,7 +899,7 @@ public sealed class CueEditor : Observable
                     var key = CanvasNameConfig.KeyFor(groups[i].Select(m => m.ScreenId));
                     var letter = ((char)('A' + i)).ToString();
                     var name = state.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key)?.Name;
-                    items.Add(new PickItem($"GROUP {letter}", $"Group {letter} · {(string.IsNullOrWhiteSpace(name) ? $"Canvas {letter}" : name)}"));
+                    items.Add(new PickItem($"CANVAS {letter}", $"Canvas {letter} · {(string.IsNullOrWhiteSpace(name) ? $"Canvas {letter}" : name)}"));   // round 81: a joined canvas is a canvas, never a group
                 }
                 var n = 0;
                 foreach (var (placement, info) in Rig.OrderedLivePlacements(state, known))

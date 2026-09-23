@@ -11,7 +11,8 @@ namespace Patterns.Core.Services;
 /// <param name="Shape">Round 75: what the target is, in the wall's words — "a screen of its own", "a repeater of 1 · Left", "Canvas A of 2 · Right, 3 · Rear" — kept by a ticket at the press and said at its landing when the target is something else now. "" when the caller keeps no shapes.</param>
 /// <param name="KeepsOwn">Round 80: an armed target whose own picture is on the air and unchanged in the preview — a wall take leaves it as it is (round 30's rule), and the plan says so before the press instead of listing it as taken.</param>
 /// <param name="ShapeKey">Round 76: what the target is, structurally (<see cref="TakeShapes"/>) — "own", "mirror:a", "canvas:a|b" — the key a landing compares, so a label that changed during the clip never holds a landing and a member that joined or left always does. "" when the caller keeps no keys, and the words decide as in round 75.</param>
-public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "", string ShapeKey = "", bool KeepsOwn = false);
+/// <param name="Kind">Round 81: the group the target is in, by kind — main, confidence, info, repeater; "" for a canvas whose screens differ (<see cref="ScreenRoles.KindOf"/>). GROUPS takes to every target of the ticked tiles' kinds.</param>
+public sealed record TakeTarget(string Id, string Label, bool IsCanvas = false, bool IsMirror = false, bool Locked = false, bool Armed = true, bool Ticked = false, string Shape = "", string ShapeKey = "", bool KeepsOwn = false, string Kind = "");
 
 /// <summary>
 /// Round 76: a target's structural identity apart from its words. Round 75 compared the wall's words
@@ -54,10 +55,12 @@ public sealed record TakeHeld(string Id, string Label, string Reason)
 /// The rules, in the order they bind: LOCKED means locked — a locked target is never taken, whatever
 /// the scope says. ALL ARMED takes every armed target and no other. FOCUSED takes the tile being
 /// edited alone (the PGM tile focused is the programme: every armed screen). TICKED takes the ticked
-/// tiles alone; TICKED GROUPS the ticked joined canvases alone. SCREEN n, GROUP A and an id name their
-/// target. Inside any scope ARM still counts (an un-armed tile keeps the picture the audience sees) and a
-/// repeater is never taken (it draws its source). Everything outside the scope keeps its picture as an
-/// un-armed tile does, and the next full send lifts that.
+/// tiles alone; GROUPS every target in the groups of the ticked tiles (round 81: a group is what a
+/// screen is for — main, confidence, info — never a joined canvas); GROUP MAIN / CONFIDENCE / INFO a
+/// group by kind; CANVASES the ticked joined canvases. SCREEN n, CANVAS A and an id name their target.
+/// Inside any scope ARM still counts (an un-armed tile keeps the picture the audience sees) and a
+/// repeater is never taken (it draws its source). Round 81: a scoped take lands on its targets alone,
+/// as their own pictures — everything outside the scope is untouched.
 ///
 /// A plan that would change nothing is a refusal that names why, never a silent success: attempts are
 /// not facts, and "TAKE" with no screen moved is not a take.
@@ -72,7 +75,7 @@ public sealed record TakePlan
     /// <summary>Targets the scope names that the take leaves alone all the same — locked, not armed, a repeater — with the reason.</summary>
     public IReadOnlyList<TakeHeld> Held { get; init; } = Array.Empty<TakeHeld>();
 
-    /// <summary>Targets outside the scope: they keep their picture, and nothing more is said about them.</summary>
+    /// <summary>Targets outside the scope: untouched by the take (round 81 — a scoped take lands on its targets alone), and nothing more is said about them.</summary>
     public IReadOnlyList<string> Outside { get; init; } = Array.Empty<string>();
 
     /// <summary>Why nothing would change, or null when something would.</summary>
@@ -80,8 +83,11 @@ public sealed record TakePlan
 
     public bool IsRefused => Refusal is not null;
 
-    /// <summary>Every target the send must pin as its own picture: the held and the outside together.</summary>
+    /// <summary>The targets a full send must pin as their own picture (the held ones: un-armed, locked, a repeater); round 81: a scoped send pins nothing, it lands on its targets alone.</summary>
     public IReadOnlyList<string> Kept => Held.Select(h => h.Id).Concat(Outside).ToList();
+
+    /// <summary>Round 81: the take lands on its targets alone — every scope but the whole rig (and FOCUSED on the PGM tile, which is the rig).</summary>
+    public bool IsScoped { get; init; }
 
     /// <summary>"on every armed screen", "on 2 · Comfort alone", "on the ticked tiles: 1 · Main, A · Wall".</summary>
     public string Where { get; init; } = "";
@@ -100,7 +106,7 @@ public sealed record TakePlan
             var head = taken.Length > 0 ? $"→ {taken}" : "→ no screen changes its picture";
             var own = KeepsOwnLabels.Count == 0 ? "" : $" · {string.Join(", ", KeepsOwnLabels)} keep{(KeepsOwnLabels.Count == 1 ? "s its" : " their")} own picture (OWN)";
             var held = Held.Count == 0 ? "" : " · held: " + string.Join(", ", Held.Select(h => $"{h.Label} ({h.Reason})"));
-            var outside = Outside.Count == 0 ? "" : $" · {Outside.Count} outside the scope keep{(Outside.Count == 1 ? "s" : "")} {(Outside.Count == 1 ? "its" : "their")} picture";
+            var outside = Outside.Count == 0 ? "" : $" · the programme and {Outside.Count} other{(Outside.Count == 1 ? "" : "s")} untouched";
             return $"{head}{own}{held}{outside}";
         }
     }
@@ -120,7 +126,8 @@ public sealed record TakePlan
     /// <summary>
     /// Resolves the scope against the rig. <paramref name="focused"/> is the tile the desk has focused
     /// (null = the PGM tile, the programme); <paramref name="named"/> is what the caller resolved for
-    /// SCREEN n, GROUP A or an id — the rig's geometry is the caller's, never this class's.
+    /// SCREEN n, CANVAS A or an id — the rig's geometry is the caller's, never this class's. GROUPS and
+    /// GROUP &lt;kind&gt; resolve here, over each target's <see cref="TakeTarget.Kind"/>.
     /// </summary>
     public static TakePlan Resolve(IReadOnlyList<TakeTarget> rig, FadeScope scope, string? focused, IReadOnlyList<string>? named = null)
     {
@@ -149,9 +156,27 @@ public sealed record TakePlan
                     where = $"on the ticked tiles: {string.Join(", ", candidates.Select(t => t.Label))}";
                     break;
                 case FadeScopeKind.Groups:
+                {
+                    // Round 81: the groups are the kinds of the ticked tiles — tick one confidence monitor and every
+                    // confidence screen takes. A ticked repeater names no group (it draws its source), nor a MIXED canvas.
+                    var kinds = rig.Where(t => t.Ticked && ScreenRoles.IsTakeKind(t.Kind)).Select(t => t.Kind).Distinct(StringComparer.Ordinal).ToList();
+                    if (kinds.Count == 0) return Refused(scope, "Tick a tile in a group first — GROUPS takes to every screen of the ticked tiles' groups (Main, Confidence, Info).");
+                    candidates = rig.Where(t => kinds.Contains(t.Kind)).ToList();
+                    where = $"on the {KindWords(kinds)} screens: {string.Join(", ", candidates.Select(t => t.Label))}";
+                    break;
+                }
+                case FadeScopeKind.Group:
+                {
+                    // Round 81: a group by kind — GROUP MAIN / CONFIDENCE / INFO — every target of that kind.
+                    candidates = rig.Where(t => t.Kind == scope.Arg).ToList();
+                    if (candidates.Count == 0) return Refused(scope, $"No {scope.Arg} screen on the wall.");
+                    where = $"on the {scope.Arg} screens: {string.Join(", ", candidates.Select(t => t.Label))}";
+                    break;
+                }
+                case FadeScopeKind.Canvases:
                     candidates = rig.Where(t => t.Ticked && t.IsCanvas).ToList();
-                    if (candidates.Count == 0) return Refused(scope, "Tick a group (a joined canvas) on the wall first.");
-                    where = $"on the ticked groups: {string.Join(", ", candidates.Select(t => t.Label))}";
+                    if (candidates.Count == 0) return Refused(scope, "Tick a joined canvas on the wall first.");
+                    where = $"on the ticked canvases: {string.Join(", ", candidates.Select(t => t.Label))}";
                     break;
                 default:
                     if (named is null || named.Count == 0) return Refused(scope, $"No {scope.Label} on the wall.");
@@ -214,8 +239,13 @@ public sealed record TakePlan
             Outside = outside,
             Where = where,
             Refusal = refusal,
+            IsScoped = !everything,
         };
     }
+
+    /// <summary>"main", "main and confidence", "main, confidence and info".</summary>
+    private static string KindWords(IReadOnlyList<string> kinds)
+        => kinds.Count == 1 ? kinds[0] : string.Join(", ", kinds.Take(kinds.Count - 1)) + " and " + kinds[^1];
 
     private static TakePlan Refused(FadeScope scope, string why) => new() { Scope = scope, Refusal = why };
 

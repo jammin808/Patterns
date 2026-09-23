@@ -202,7 +202,7 @@ test('a press is one line of the wire, spelt as docs/REMOTE.md has it', async ()
 		['countdown_follow', { mode: 'ON' }, ['COUNTDOWN FOLLOW ON']],
 		['device_send', { device: '*', text: 'RELAY 1' }, ['DEVICE * RELAY 1']], ['device_send', { device: 'Companion', text: 'PAGE 3' }, ['DEVICE Companion PAGE 3']],
 		['screen', { n: 2, mode: 'OFF' }, ['SCREEN 2 OFF']], ['screen_look', { n: 2, look: 'Sponsor' }, ['SCREEN 2 LOOK Sponsor']], ['screen_program', { n: 2 }, ['SCREEN 2 PROGRAM']], ['screen_take', { n: 2, mode: 'TAKE' }, ['SCREEN 2 TAKE']], ['screen_take', { n: 3, mode: 'CUT' }, ['SCREEN 3 CUT']],
-		['screen_lock', { n: 1, mode: 'ON' }, ['LOCK 1 ON']], ['group', { letter: 'A', mode: 'ON' }, ['GROUP A ON']],
+		['screen_lock', { n: 1, mode: 'ON' }, ['LOCK 1 ON']], ['group', { letter: 'A', mode: 'ON' }, ['CANVAS A ON']],
 		['fade', { dir: 'DOWN', secs: 2, target: '' }, ['FADE 2']], ['fade', { dir: 'UP', secs: 0, target: 'SCREEN 2' }, ['FADEUP SCREEN 2']], ['fade', { dir: 'DOWN', secs: 1.5, target: 'GROUP A' }, ['FADE 1.5 GROUP A']],
 		['freeze', { mode: 'ON' }, ['FREEZE ON']], ['review', { mode: 'TOGGLE' }, ['REVIEW TOGGLE']], ['look_back', {}, ['LOOKBACK']],
 		['audio', { mode: 'NEXT' }, ['AUDIO NEXT']], ['audio_item', { n: 2 }, ['AUDIO PLAY 2']], ['audio_name', { name: 'Intro' }, ['AUDIO PLAY Intro']], ['audio_level', { n: 80 }, ['AUDIO VOL 80']],

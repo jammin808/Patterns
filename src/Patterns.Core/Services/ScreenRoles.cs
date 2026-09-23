@@ -26,6 +26,33 @@ public static class ScreenRoles
     /// <summary>The role's word on the wire and in a cue: main, confidence, info, repeater.</summary>
     public static string Word(ScreenRole role) => role.ToString().ToLowerInvariant();
 
+    /// <summary>Round 81: the kinds a take can reach as a group — main, confidence, info. A repeater draws its source and is no group of its own.</summary>
+    public static bool IsTakeKind(string kind) => kind is "main" or "confidence" or "info";
+
+    /// <summary>
+    /// Round 81: the group a target is in, by kind — the role's word for a screen (a feed screen has a role
+    /// too), the members' one word for a canvas whose screens agree, "" for a canvas whose screens differ
+    /// (MIXED on its tile) or a target not in the rig. GROUPS on the wall takes to every target of the ticked
+    /// tiles' kinds; a joined canvas is one target and never a group.
+    /// </summary>
+    public static string KindOf(ShowState state, string targetId)
+    {
+        if (targetId.Length == 0) return "";
+        if (ContentTargets.IsCanvasKey(targetId))
+        {
+            string? kind = null;
+            foreach (var id in ContentTargets.Members(targetId))
+            {
+                if (Find(state, id) is not { } member) return "";
+                var word = Word(member.Role);
+                if (kind is null) kind = word;
+                else if (kind != word) return "";
+            }
+            return kind ?? "";
+        }
+        return Find(state, targetId) is { } p ? Word(p.Role) : "";
+    }
+
     /// <summary>The wall tile's badge; empty for a main screen.</summary>
     public static string Badge(ScreenRole role) => role switch
     {

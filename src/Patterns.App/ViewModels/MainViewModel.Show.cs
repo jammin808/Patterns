@@ -845,13 +845,16 @@ public sealed partial class MainViewModel
         public override string ToString() => Label;
     }
 
-    /// <summary>Every screen (the blackout with a fade), the focused tile, the ticked tiles, the ticked groups — in that order; the first is the default.</summary>
+    /// <summary>Every screen (the blackout with a fade), the focused tile, the ticked tiles, the ticked groups by kind, then each group by kind (round 81) — in that order; the first is the default.</summary>
     public IReadOnlyList<FadeScopeChoice> FadeScopes { get; } = new[]
     {
         new FadeScopeChoice("EVERY SCREEN", ""),
         new FadeScopeChoice("THE FOCUSED SCREEN", FadeScope.Focused.Words),
         new FadeScopeChoice("THE TICKED SCREENS", FadeScope.Ticked.Words),
         new FadeScopeChoice("THE TICKED GROUPS", FadeScope.Groups.Words),
+        new FadeScopeChoice("THE MAIN SCREENS", FadeScope.GroupOf(ScreenRole.Main).Words),
+        new FadeScopeChoice("THE CONFIDENCE SCREENS", FadeScope.GroupOf(ScreenRole.Confidence).Words),
+        new FadeScopeChoice("THE INFO SCREENS", FadeScope.GroupOf(ScreenRole.Info).Words),
     };
 
     private FadeScopeChoice? _selectedFadeScope;
@@ -865,8 +868,9 @@ public sealed partial class MainViewModel
 
     /// <summary>
     /// Where the wall's CUT and TAKE land: every armed screen (ARM and LOCK on the tiles decide), the
-    /// focused tile, the ticked tiles, or the ticked groups — everything outside the choice keeps
-    /// its picture like an un-armed tile, and the next full send lifts it. The first is the default.
+    /// focused tile, the ticked tiles, the ticked tiles' groups by kind, or a group by kind (round 81:
+    /// main, confidence, info — never a joined canvas). A scoped take lands on those targets alone, as
+    /// their own pictures; the programme and every other screen are untouched. The first is the default.
     /// </summary>
     public IReadOnlyList<FadeScopeChoice> TakeScopes { get; } = new[]
     {
@@ -874,6 +878,9 @@ public sealed partial class MainViewModel
         new FadeScopeChoice("FOCUSED", FadeScope.Focused.Words),
         new FadeScopeChoice("TICKED", FadeScope.Ticked.Words),
         new FadeScopeChoice("TICKED GROUPS", FadeScope.Groups.Words),
+        new FadeScopeChoice("MAIN SCREENS", FadeScope.GroupOf(ScreenRole.Main).Words),
+        new FadeScopeChoice("CONFIDENCE SCREENS", FadeScope.GroupOf(ScreenRole.Confidence).Words),
+        new FadeScopeChoice("INFO SCREENS", FadeScope.GroupOf(ScreenRole.Info).Words),
     };
 
     private FadeScopeChoice? _selectedTakeScope;
@@ -985,7 +992,7 @@ public sealed partial class MainViewModel
                 {
                     // The ticks were the scope only when the take read them: an ALL ARMED or FOCUSED take
                     // leaves a tick set the operator prepared for a fade exactly as it was (round 67).
-                    if (FadeScope.Parse(action.Target) is { Kind: FadeScopeKind.Ticked or FadeScopeKind.Groups }) ClearSendTargets();
+                    if (FadeScope.Parse(action.Target) is { Kind: FadeScopeKind.Ticked or FadeScopeKind.Groups or FadeScopeKind.Canvases }) ClearSendTargets();
                     Raise(nameof(IsSandboxActive));
                     RebuildEditTargets(); // a scoped send pins / lifts own patterns — OWN follows
                 }

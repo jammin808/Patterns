@@ -70,7 +70,7 @@ public class TakeScopeAppTests
 
             // The picker sits on the wall beside CUT and TAKE and starts on every armed screen.
             var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "TakeScopePicker");
-            Assert.Equal(4, picker.ItemCount);
+            Assert.Equal(7, picker.ItemCount);                                                   // round 81: the groups by kind joined the picker
             Assert.Same(vm.TakeScopes[0], picker.SelectedItem);
             Assert.True(picker.IsEffectivelyVisible);
             Assert.True(picker.IsEnabled);
@@ -130,11 +130,9 @@ public class TakeScopeAppTests
             vm.CutCommand.Execute(null);
             Assert.Contains("Tick the wall tiles", vm.StatusMessage);
             vm.SelectedTakeScope = vm.TakeScopes[3];
-            Tile("a").IsSendTarget = true;
             vm.TakeCommand.Execute(null);
-            Assert.Contains("Tick a group", vm.StatusMessage);
+            Assert.Contains("Tick a tile in a group", vm.StatusMessage);                          // round 81: nothing ticked names no group
             Assert.Equal(before, services.Bus.Current.Version);
-            Tile("a").IsSendTarget = false;
 
             // The PGM tile focused means every armed screen: the pin on the second screen lifts.
             vm.SelectTileCommand.Execute(vm.SwitcherTiles.Single(t => t.IsProgramTile));

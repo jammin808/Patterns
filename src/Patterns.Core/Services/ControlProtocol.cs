@@ -485,6 +485,7 @@ public static class ControlProtocol
                 };
             }
 
+            case "CANVAS":   // round 81: a joined canvas is a canvas — CANVAS A ON / OFF; GROUP A stays readable for the sheets written before
             case "GROUP":
             {
                 var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
