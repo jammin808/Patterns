@@ -25,6 +25,7 @@ public sealed class OscService : IDisposable
     private volatile string _lastLine = "";
     private long _received;
     private long _sent;
+    private long _messageFaults;
     private bool _pushPending;
     private bool _stackHooked;
 
@@ -54,6 +55,9 @@ public sealed class OscService : IDisposable
 
     public long Received => Interlocked.Read(ref _received);
     public long Sent => Interlocked.Read(ref _sent);
+
+    /// <summary>Messages whose handling threw since the port opened: each was answered with /patterns/error and the listener carried on.</summary>
+    public long MessageFaults => Interlocked.Read(ref _messageFaults);
 
     /// <summary>Where feedback goes once the host resolved; null = nowhere.</summary>
     public IPEndPoint? FeedbackEndpoint => _feedback;
@@ -185,7 +189,7 @@ public sealed class OscService : IDisposable
                 Interlocked.Increment(ref _received);
                 foreach (var m in OscCodec.Decode(r.Buffer))
                 {
-                    await HandleAsync(m, r.RemoteEndPoint);
+                    await HandleOneAsync(m, r.RemoteEndPoint, ct);
                 }
             }
         }
@@ -205,6 +209,27 @@ public sealed class OscService : IDisposable
         {
             Log.Warn("OSC receive loop ended.", ex);
             _status = $"OSC stopped: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// One message, contained: a fault in its handling is that message's and never the listener's. The loop used to
+    /// end on the first exception that escaped a handler, and <see cref="Reconcile"/> only reopens the port when its
+    /// settings change — so one datagram on a port no token covers could close OSC for the rest of the show. The
+    /// sender hears /patterns/error; the log gets the first fault with its stack and every hundredth after it.
+    /// </summary>
+    private async Task HandleOneAsync(OscMessage m, IPEndPoint from, CancellationToken ct)
+    {
+        try
+        {
+            await HandleAsync(m, from);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            var faults = Interlocked.Increment(ref _messageFaults);
+            _lastLine = $"{m} → fault: {ex.GetType().Name}";
+            if (faults == 1 || faults % 100 == 0) Log.Warn($"OSC: handling a message failed ({faults} so far); the listener carries on — {Shorten(m.ToString())}", ex);
+            Reply(from, OscMessage.Of("/patterns/error", $"fault handling {m.Address} — {ex.GetType().Name}"));
         }
     }
 
