@@ -34,14 +34,29 @@ public abstract class Observable : INotifyPropertyChanged
     /// </summary>
     public void MarkPublished() => _published = true;
 
+    /// <remarks>
+    /// A number that is not finite is refused and the field keeps what it had: NaN and the infinities have no JSON,
+    /// so one of them anywhere in the show made every save, recovery record, twin mirror and publish of its section
+    /// throw from then on. <see cref="Math.Clamp(double, double, double)"/> passes NaN straight through, so a clamp in
+    /// a setter was never the guard; this is, for every serialised number at once.
+    /// </remarks>
     protected bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
+        if (!IsFinite(value)) return false;
         if (EqualityComparer<T>.Default.Equals(field, value)) return false;
         if (_published) ThrowPublished(name);
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         return true;
     }
+
+    /// <summary>False for a double or a float that is NaN or infinite; true for every other value, a null included.</summary>
+    private static bool IsFinite<T>(T value) => value switch
+    {
+        double d => double.IsFinite(d),
+        float f => float.IsFinite(f),
+        _ => true,
+    };
 
     protected void Raise([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
