@@ -477,6 +477,8 @@ public static class OscMap
                     case "toggle": return "COUNTDOWN TOGGLE";
                     case "to": case "at": case "until": return value.Length == 0 ? null : "COUNTDOWN TO " + value;
                     case "label": case "text": case "title": return value.Length == 0 ? null : "COUNTDOWN LABEL " + value;
+                    // /patterns/countdown/follow [1|0] · /patterns/countdown/follow/off — bare is on, as the wire's bare verb is.
+                    case "follow": case "plan": return Sw("COUNTDOWN FOLLOW", Switch(m, seg2, "ON", toggles: false));
                     case "":
                         // A bare /patterns/countdown with nothing to say flips it, like /patterns/logo.
                         if (value.Length == 0) return "COUNTDOWN TOGGLE";
@@ -489,6 +491,20 @@ public static class OscMap
                     default: return "COUNTDOWN START " + seg;   // /patterns/countdown/5
                 }
             }
+            // /patterns/plan/shift +2:00 · /patterns/plan/shift/+2:00 · /patterns/plan/slip -30 (a number is seconds, its
+            // sign kept) · /patterns/plan/resume · /patterns/plan/catchup — the Run surface's plan buttons, as the wire says them.
+            case "plan":
+                switch (seg.ToLowerInvariant())
+                {
+                    case "shift": case "slip": case "move":
+                    {
+                        var delta = seg2.Length > 0 ? seg2 : m.Text() ?? m.Number()?.ToString(CultureInfo.InvariantCulture) ?? "";
+                        return delta.Length == 0 ? null : "PLAN SHIFT " + delta;
+                    }
+                    case "resume": case "now": return "PLAN RESUME";
+                    case "catchup": case "catch": return "PLAN CATCHUP";
+                    default: return null;
+                }
             case "logo": return Sw("LOGO", Switch(m, seg, "TOGGLE", toggles: true));
             case "pip": return Sw("PIP", Switch(m, seg, "TOGGLE", toggles: true));
             case "pattern": return Named("PATTERN", m, seg);

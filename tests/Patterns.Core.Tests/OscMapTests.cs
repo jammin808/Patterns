@@ -198,4 +198,78 @@ public class OscMapTests
         Assert.Equal("", Assert.Single(none, m => m.Address == OscFeedback.Prefix + "web/page").Args[0]);
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/look/index"));
     }
+
+    /// <summary>A documented argument as a sample value the address would really carry.</summary>
+    private static object Sample(string placeholder) => placeholder.Trim('<', '>', '[', ']') switch
+    {
+        "±m:ss" => "+2:00",
+        "1|0" => 1,
+        "x" or "y" => 50,
+        "n" => 1,
+        "time" => "1:23",
+        "\"destination\"" => "Main",
+        "duck|replace|leave" => "duck",
+        "\"output\"" => "Speakers",
+        "seconds" => 2,
+        "name" => "Walk-in",
+        "kind" => "Bars",
+        _ => "1",
+    };
+
+    /// <summary>
+    /// Every address the OSC reference documents routes to a line the wire parses. /patterns/plan/shift, /resume and
+    /// /catchup were documented (here and in the plan) and refused as unknown addresses, and /patterns/countdown/follow
+    /// became "COUNTDOWN START follow": the map had no case for them, and nothing held the table to the map. A row may list several addresses; a documented argument is given a sample
+    /// value, and an address that takes none is asked bare.
+    /// </summary>
+    [Fact]
+    public void EveryDocumentedAddressRoutesToALineTheWireParses()
+    {
+        var unrouted = new List<string>();
+        var addresses = 0;
+        foreach (var (documented, _) in OscMap.Reference)
+        {
+            foreach (var part in documented.Split(',', StringSplitOptions.TrimEntries))
+            {
+                var words = part.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var address = words[0].Replace("<n>", "1", StringComparison.Ordinal);
+                if (!address.StartsWith(OscMap.Prefix, StringComparison.Ordinal)) continue;   // a row's shorthand for the addresses above it
+                addresses++;
+                var line = OscMap.ToLine(OscMessage.Of(address, words.Skip(1).Select(Sample).ToArray())) ?? OscMap.ToLine(OscMessage.Of(address));
+                if (line is null) unrouted.Add($"{part} — no line");
+                else if (ControlProtocol.Parse(line).Kind == RemoteCommandKind.Unknown) unrouted.Add($"{part} — \"{line}\" is not a wire line");
+            }
+        }
+        Assert.True(addresses >= 80, $"the reference's addresses were not found ({addresses})");
+        Assert.True(unrouted.Count == 0, "documented OSC addresses the desk refuses:\n" + string.Join("\n", unrouted));
+    }
+
+    [Fact]
+    public void ThePlanButtonsAreAddressesAndANumberIsSecondsWithItsSign()
+    {
+        Assert.Equal("PLAN SHIFT +2:00", OscMap.ToLine(Of("/patterns/plan/shift", "+2:00")));
+        Assert.Equal("PLAN SHIFT +2:00", OscMap.ToLine(Of("/patterns/plan/shift/+2:00")));
+        Assert.Equal("PLAN SHIFT -30", OscMap.ToLine(Of("/patterns/plan/slip", -30)));
+        Assert.Equal("PLAN SHIFT 90", OscMap.ToLine(Of("/patterns/plan/shift", 90f)));
+        Assert.Equal("PLAN RESUME", OscMap.ToLine(Of("/patterns/plan/resume")));
+        Assert.Equal("PLAN CATCHUP", OscMap.ToLine(Of("/patterns/plan/catchup")));
+        Assert.Null(OscMap.ToLine(Of("/patterns/plan/shift")));
+        Assert.Null(OscMap.ToLine(Of("/patterns/plan/sideways")));
+
+        var slip = ControlProtocol.Parse(OscMap.ToLine(Of("/patterns/plan/slip", -30))!);
+        Assert.Equal(ShowActionKind.PlanShift, slip.Action.Kind);
+        Assert.Equal("-0:30", slip.Action.Value);
+        Assert.Equal(ShowActionKind.PlanResume, ControlProtocol.Parse(OscMap.ToLine(Of("/patterns/plan/resume"))!).Action.Kind);
+        Assert.Equal(ShowActionKind.PlanCatchUp, ControlProtocol.Parse(OscMap.ToLine(Of("/patterns/plan/catchup"))!).Action.Kind);
+
+        // The countdown follows the plan from an address as well: bare is on, as the wire's bare verb is.
+        Assert.Equal("COUNTDOWN FOLLOW ON", OscMap.ToLine(Of("/patterns/countdown/follow")));
+        Assert.Equal("COUNTDOWN FOLLOW OFF", OscMap.ToLine(Of("/patterns/countdown/follow", 0)));
+        Assert.Equal("COUNTDOWN FOLLOW OFF", OscMap.ToLine(Of("/patterns/countdown/follow/off")));
+        Assert.Null(OscMap.ToLine(Of("/patterns/countdown/follow", "sideways")));
+        Assert.Equal("off", ControlProtocol.Parse(OscMap.ToLine(Of("/patterns/countdown/follow", 0))!).Action.Value);
+
+        // An infinite float is carried as a word the wire refuses, never as a slip.
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse(OscMap.ToLine(Of("/patterns/plan/shift", float.PositiveInfinity))!).Kind);
+    }
 }
