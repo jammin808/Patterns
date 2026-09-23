@@ -236,9 +236,9 @@ public sealed class PlayRoom
         if (token is { Length: > 0 } && _players.TryGetValue(token, out var known))
         {
             known.LastSeenUtc = now;
-            var wanted = CleanNick(nick);
+            var wanted = Allowed(CleanNick(nick));
             if (wanted.Length > 0 && wanted != known.Nick) known.Nick = Unique(wanted, known.Token);
-            if (group is not null) known.Group = CleanNick(group);
+            if (group is not null) known.Group = Allowed(CleanNick(group));
             Bump();
             return (known, false);
         }
@@ -247,9 +247,9 @@ public sealed class PlayRoom
             Token = Guid.NewGuid().ToString("N")[..16],
             JoinedUtc = now,
             LastSeenUtc = now,
-            Group = CleanNick(group),
+            Group = Allowed(CleanNick(group)),
         };
-        var name = CleanNick(nick);
+        var name = Allowed(CleanNick(nick));
         fresh.Nick = Unique(name.Length == 0 ? $"Guest {_players.Count + 1}" : name, fresh.Token);
         _players[fresh.Token] = fresh;
         Bump();
@@ -295,6 +295,21 @@ public sealed class PlayRoom
         while (s.Contains("  ")) s = s.Replace("  ", " ");
         return s.Length > NickMax ? s[..NickMax] : s;
     }
+
+    /// <summary>
+    /// A name a phone chose, or nothing when it holds a word on the room's list. A nickname and a group are drawn on the
+    /// wall — the leaderboard, a draughts seat — with no host between the phone and the room, so they meet the word
+    /// list an answer meets; a refused new name becomes a guest's, a refused rename keeps the name the phone had.
+    /// </summary>
+    private string Allowed(string name)
+    {
+        if (name.Length == 0 || !IsBlocked(name)) return name;
+        NamesRefused++;
+        return "";
+    }
+
+    /// <summary>Names and groups the word list turned away since the room opened.</summary>
+    public int NamesRefused { get; private set; }
 
     private string Unique(string nick, string token)
     {

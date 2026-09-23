@@ -105,4 +105,35 @@ public class AudienceTests
         Assert.Equal("1 join refused this minute (all from 10.0.0.1) — the room's own joins-per-minute reached", AudienceBudget.RefusedWords(1, 1, "10.0.0.1", AudienceNetwork.VenueNat));
         Assert.Contains("(3 of them from 10.0.0.2)", AudienceBudget.RefusedWords(5, 3, "10.0.0.2", AudienceNetwork.Flat));
     }
+
+    /// <summary>
+    /// A nickname and a group are drawn on the wall with no host between the phone and the room, so they meet the word
+    /// list an answer meets: a new phone with a listed word is a guest, a listed group is none, and a phone that renames
+    /// itself to a listed word keeps the name it had. The list is the room's own, matched as answers are matched.
+    /// </summary>
+    [Fact]
+    public void ANameOrGroupWithAListedWordNeverReachesTheWall()
+    {
+        var now = new DateTime(2026, 9, 23, 20, 0, 0, DateTimeKind.Utc);
+        var room = new PlayRoom("ABCD", "Gala", now) { BlockedWords = new[] { "rude" } };
+        room.UtcNow = () => now;
+
+        var fresh = room.TryJoin("Very RUDE person", null, "rudeboys");
+        Assert.StartsWith("Guest ", fresh.Player!.Nick, StringComparison.Ordinal);
+        Assert.Equal("", fresh.Player.Group);
+
+        var kept = room.TryJoin("Sam", null, "Table 4");
+        Assert.Equal("Sam", kept.Player!.Nick);
+        Assert.Equal("Table 4", kept.Player.Group);
+        var renamed = room.TryJoin("rude Sam", kept.Player.Token, "rude table");
+        Assert.Same(kept.Player, renamed.Player);
+        Assert.Equal("Sam", renamed.Player!.Nick);
+        Assert.Equal("", renamed.Player.Group);
+        var fine = room.TryJoin("Samantha", kept.Player.Token);
+        Assert.Equal("Samantha", fine.Player!.Nick);
+
+        Assert.Equal(4, room.NamesRefused);
+        Assert.DoesNotContain(room.Players, p => room.IsBlocked(p.Nick) || room.IsBlocked(p.Group));
+        Assert.DoesNotContain(room.Leaderboard(10), p => room.IsBlocked(p.Nick) || room.IsBlocked(p.Group));
+    }
 }
