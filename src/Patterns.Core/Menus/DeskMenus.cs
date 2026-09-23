@@ -249,19 +249,22 @@ public static class DeskMenus
     }
 
     /// <summary>
-    /// The tile's own CUT and TAKE (round 63): the preview to this one screen, as its own picture —
-    /// OWN lights up on it, the programme and every other screen stay. Live, because they are the
-    /// operator's press on the tile, exactly as the wall's keys are.
+    /// The tile's own CUT and TAKE (round 63): what its PVW shows — its own picture while it is OWN, else
+    /// the programme's preview (round 81) — to this one screen, as its own picture: OWN lights up on it,
+    /// the programme and every other screen stay. Live, because they are the operator's press on the
+    /// tile, exactly as the wall's keys are. A settled OWN tile has nothing new to put up, and the entry
+    /// says so before the press: SEND copies the programme's preview onto its PVW.
     /// </summary>
     private static List<MenuEntry> ScreenTakeEntries(DeskFacts d, ScreenFacts s, string target, Func<string, string> w)
     {
         var because = s.IsMirror ? "A repeater draws its source's picture and has none of its own."
-            : !d.SandboxOpen ? "EDIT SAFE is off — the preview is the air; there is nothing to take." : "";
+            : !d.SandboxOpen ? "EDIT SAFE is off — the preview is the air; there is nothing to take."
+            : s.Own && !s.Staged ? "It already shows its own picture — SEND the programme's preview to its PVW, or select the tile and edit it." : "";
         return new List<MenuEntry>
         {
-            new("screen.take", "TAKE — the preview to this screen alone, with the transition", MenuScope.Live, MenuTone.Live)
+            new("screen.take", "TAKE — what its PVW shows to this screen alone, with the transition", MenuScope.Live, MenuTone.Live)
             {
-                Detail = "It becomes the screen's own picture (OWN lights up); every other screen stays",
+                Detail = "Its own picture while it is OWN, else the programme's preview; it becomes the screen's own (OWN lights up) and every other screen stays",
                 Wire = w("TAKE"),
                 Action = new ShowAction(ShowActionKind.ScreenTake, target),
                 Because = because,

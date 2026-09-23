@@ -10,10 +10,10 @@ using Xunit;
 namespace Patterns.App.Tests;
 
 /// <summary>
-/// Round 78: attempts are not facts on the wall. A tile's PVW holds one picture — staged or edited and
-/// not yet seen, its own while the editors are on it, else the programme's preview — and a CUT / TAKE on
-/// the tile lands exactly that: a second take lands the new preview rather than copying the tile's own
-/// picture over itself, a take that would change nothing is refused with the way out, and every take says
+/// Round 78: attempts are not facts on the wall. A tile's PVW holds one picture — its own while it is OWN,
+/// else the programme's preview (round 81: an OWN tile is its own until SEND or PROGRAM says otherwise) —
+/// and a CUT / TAKE on the tile lands exactly that: a second take on an OWN tile needs SEND to bring the
+/// new preview first, a take that would change nothing is refused with the way out, and every take says
 /// when the outputs are off, so the desk never reports a fade-up nobody could see. The field pressed TAKE
 /// eleven times with the outputs off and read "fades up" eleven times.
 ///
@@ -68,7 +68,7 @@ public class TakeTruthAppTests
     }
 
     [AvaloniaFact]
-    public void ASecondTakeOnATileLandsTheNewPreviewNotTheTilesOldPicture()
+    public void ASecondTakeOnAnOwnTileNeedsSendFirstBecauseItsPvwIsItsOwn()
     {
         var b = TestApp.Boot();
         try
@@ -83,21 +83,35 @@ public class TakeTruthAppTests
             Assert.False(services.Sandbox.IsStaged("b"));                                   // on air: nothing pending on the tile
             Assert.False(Tile(vm, "b").IsStaged);
 
-            // The programme's preview moves on. The editors are on the programme, so the tile's PVW follows the
-            // preview — the miniature, the big pane pointed at the tile, and the take — where it used to hold the
-            // tile's own picture and the take copied that over itself, saying "fades up".
+            // The programme's preview moves on. The tile is OWN now, so its PVW keeps its own picture (round 81) — the
+            // miniature, the big pane pointed at the tile, and the take — and the programme's preview reaches it only
+            // when SEND copies it there: the same press again is refused with that way out, and spends nothing.
             vm.State.Pattern.Kind = PatternKind.ColorBars;
             Dispatcher.UIThread.RunJobs();
             Assert.Null(services.EditingTargetId);
             Assert.Equal("b", services.PreviewScreenId);
-            Assert.Equal(PatternKind.ColorBars, services.Bus.Sandbox!.PatternFor("b").Kind);
-            Assert.Equal(PatternKind.ColorBars, vm.PreviewPattern.Kind);
-            Assert.Equal(SandboxService.TakeEffect.Picture, services.Sandbox.EffectOf("b"));
+            Assert.Equal(PatternKind.LedWall, services.Bus.Sandbox!.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.LedWall, vm.PreviewPattern.Kind);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Sandbox!.PatternFor("a").Kind);   // a follows the programme: its PVW is the preview
+            Assert.Equal(SandboxService.TakeEffect.Nothing, services.Sandbox.EffectOf("b"));
+            var same = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b");
+            Assert.Equal(ActionStatus.Refused, same.Status);
+            Assert.Contains("already shows its own picture", same.Message);
+            Assert.Contains("SEND", same.Message);
+            Assert.Equal(PatternKind.LedWall, services.Bus.Current.PatternFor("b").Kind);
 
+            // SEND copies the programme's preview onto the tile's PVW — pending now — and the take lands it.
+            Tile(vm, "b").SendHereCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Sandbox.IsStaged("b"));
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Sandbox!.PatternFor("b").Kind);
+            Assert.Equal(SandboxService.TakeEffect.Picture, services.Sandbox.EffectOf("b"));
             var again = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b");
             Assert.True(again.Ok);
-            Assert.Contains("the preview fades up on", again.Message);
+            Assert.Contains("PVW", again.Message);
+            Assert.Contains("fades up", again.Message);
             Assert.Contains("alone", again.Message);
+            Assert.False(services.Sandbox.IsStaged("b"));
             Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);        // the programme and every other screen stay
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
@@ -129,7 +143,7 @@ public class TakeTruthAppTests
             Assert.Equal(SandboxService.TakeEffect.Nothing, services.Sandbox.EffectOf("b"));
             var refused = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b");
             Assert.Equal(ActionStatus.Refused, refused.Status);
-            Assert.Contains("already shows this picture", refused.Message);
+            Assert.Contains("already shows its own picture", refused.Message);
             Assert.Contains("nothing to take", refused.Message);
             Assert.Contains("SEND", refused.Message);
             Assert.NotNull(services.NextTake.Pending);                                         // a press that fails spends nothing
@@ -169,7 +183,7 @@ public class TakeTruthAppTests
             var idle = services.Actions.Execute(ShowActionKind.ScreenTake, ActionOrigin.Desk, "b");
             Assert.Equal(ActionStatus.Refused, idle.Status);
             Assert.Contains("already shows its own picture", idle.Message);
-            Assert.Contains("PROGRAM", idle.Message);
+            Assert.Contains("SEND", idle.Message);
 
             // One edit: pending. The miniature shows it, the programme's preview never moved, the take lands it.
             vm.ActivePattern.Kind = PatternKind.Focus;
@@ -185,11 +199,13 @@ public class TakeTruthAppTests
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);
             Assert.False(services.Sandbox.IsStaged("b"));
 
-            // Back on the programme: the tile's PVW follows the preview again, and the pane pointed at it agrees.
+            // Back on the programme: the tile is OWN, so its PVW stays its own picture (round 81) — the programme's
+            // preview reaches it only through SEND — while the tiles that follow show the preview.
             vm.SelectTileCommand.Execute(vm.SwitcherTiles[0]);
             Dispatcher.UIThread.RunJobs();
             Assert.Null(services.EditingTargetId);
-            Assert.Equal(PatternKind.LedWall, services.Bus.Sandbox!.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.LedWall, services.Bus.Sandbox!.PatternFor("a").Kind);
         }
         finally
         {

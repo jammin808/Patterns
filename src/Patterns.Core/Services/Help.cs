@@ -268,9 +268,9 @@ public static class HelpTopics
             {
                 "Open EDIT SAFE: the editors now change the PREVIEW; the program is frozen for the audience.",
                 "Build the next picture; check it on the PREVIEW pane, or with REVIEW on a multiview.",
-                "TAKE swaps it to air with the show's transition; CUT does it at once — where the picker beside them says: ALL ARMED, FOCUSED (the tile you clicked; the PGM tile means every armed screen), TICKED or TICKED GROUPS; everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it.",
+                "TAKE swaps it to air with the show's transition; CUT does it at once — where the picker beside them says: ALL ARMED, FOCUSED (the tile you clicked; the PGM tile means every armed screen), TICKED, TICKED GROUPS or MAIN / CONFIDENCE / INFO SCREENS — ALL ARMED moves the programme; every other choice lands on those screens alone, as their own pictures (OWN lights up), and the programme and every other screen stay.",
                 "ARM off on a tile keeps that target through the next TAKE; LOCK keeps it through looks, cues and stingers too.",
-                "SEND on a tile STAGES the preview there: that tile's PVW shows it, the room does not, and the tile is focused — so CUT or TAKE with FOCUSED puts it up on that tile and nowhere else. SEND TO TICKED is the live one.",
+                "SEND on a tile STAGES the preview there: that tile's PVW shows it, the room does not, and the tile is focused — so CUT or TAKE with FOCUSED puts it up on that tile and nowhere else. A tile on its own picture (OWN) keeps its PVW to itself: the programme's preview never reaches it until SEND copies it there, or you select the tile and edit it; PROGRAM on the tile puts it back on the programme. SEND TO TICKED is the live one.",
                 "→ PVW on a tile pulls what that target is showing on air back into the preview to change; on the PGM tile it pulls the programme itself. The tile stays focused, so SEND stages it straight back where it came from.",
                 "OWN gives a tile its own editable picture.",
                 "The tick on a tile is there with or without EDIT SAFE: it joins SEND TO TICKED, and the Show panel's FADE TO BLACK on THE TICKED SCREENS or THE TICKED GROUPS.",

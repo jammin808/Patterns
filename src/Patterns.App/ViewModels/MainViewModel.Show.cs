@@ -612,7 +612,7 @@ public sealed partial class MainViewModel
         Raise(nameof(IsSandboxActive));
         RebuildEditTargets(); // the target now shows its own pattern — OWN lights up
         SelectTarget(target); // the hand chose this tile: FOCUSED now means this one
-        StatusMessage = $"Staged on {tile.Title} — its PVW shows it and the audience does not. CUT or TAKE (FOCUSED) puts it up.";
+        StatusMessage = $"Staged on {tile.Title} — the programme's preview is on its PVW and the audience does not see it. CUT or TAKE on the tile, or FOCUSED, puts it up.";
     }
 
     /// <summary>

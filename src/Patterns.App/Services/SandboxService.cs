@@ -45,39 +45,38 @@ public sealed class SandboxService
         if (_program is null) return;
         _program.Blackout = _services.State.Blackout; // transport is never sandboxed
         // Round 79: one pair — no frame reads the new programme beside the old sandbox.
-        _services.Bus.PublishBoth(_program, _services.AirWatch, _services.State, _services.StateWatch, SettledOwn());
+        _services.Bus.PublishBoth(_program, _services.AirWatch, _services.State, _services.StateWatch);
     }
 
-    // ---- what a tile's PVW holds (round 78) --------------------------------------------------------
+    // ---- what a tile's PVW holds (round 78, round 81) ----------------------------------------------
 
     /// <summary>
-    /// The pictures a tile's PVW can hold, and so what its own CUT / TAKE lands — one rule, read by the
-    /// snapshot the miniatures draw (<see cref="SettledOwn"/>), by the take (<see cref="PvwPicture"/>),
-    /// by the menus and the Eye (<see cref="IsStaged"/>):
+    /// The picture a tile's PVW holds, and so what its own CUT / TAKE and a scoped wall take land — one rule,
+    /// read by the snapshot the miniatures draw (<see cref="ShowSnapshot.PatternFor"/>), by the take
+    /// (<see cref="PvwPicture"/>), by the menus, STATE and the Eye (<see cref="IsStaged"/>):
     ///
-    ///   pending  — a picture the audience has not seen: an own picture in the edited state that the frozen
-    ///              program lacks (SEND staged it) or has differently (the preview edited it). The PVW holds it.
-    ///   editing  — an own picture already on air, while the editors are on this target: the PVW shows the
-    ///              picture being worked on, exactly as the big PREVIEW pane and the editors do.
-    ///   settled  — an own picture already on air and no editor on it: the PVW follows the programme's
-    ///              preview, because that is what a TAKE on the tile puts up.
-    ///   programme — a target that follows the programme: the programme's preview.
+    ///   its own   — a target on its own picture (OWN) holds its own edited picture, whether the audience has
+    ///               seen it or not and whether the editors are on it or not. The programme's preview never
+    ///               reaches it: SEND on its tile copies the programme's preview onto its PVW; an edit with the
+    ///               tile selected changes it in place; PROGRAM puts it back on the programme.
+    ///   programme — a target that follows the programme holds the programme's preview; its first edit with
+    ///               the tile selected makes it its own (round 67.5).
+    ///   pending   — a light, not a picture: an own picture the audience has not seen (SEND staged it, an
+    ///               edit changed it) — the tile's PVW badge, STATE's pending row, the Eye's "not taken yet".
     ///
-    /// The field pressed TAKE eleven times on a settled tile: each press copied the tile's own picture over
-    /// itself and the desk said "fades up" each time. Attempts are not facts — a take lands what the PVW
-    /// shows, and a take that would change nothing is refused with the reason (<see cref="EffectOf"/>).
+    /// Round 78 had a settled OWN tile's PVW follow the programme's preview, so a take there put the
+    /// programme's preview up; the maintainer's rule (round 81) is the mixer's — an OWN tile is its own until
+    /// SEND or PROGRAM says otherwise. A take lands what the PVW shows, and a take that would change nothing
+    /// is refused with the reason and the way out (<see cref="EffectOf"/>).
     /// </summary>
     public bool IsStaged(string targetId)
         => Active && _program is not null && Pending(_services.State, _program, ScreenRoles.ResolveMirror(_services.State, targetId));
 
-    /// <summary>The picture this target's PVW shows while the sandbox is open — what a CUT / TAKE on its tile lands.</summary>
+    /// <summary>The picture this target's PVW shows — what a CUT / TAKE on its tile or a scoped wall take lands: its own picture while it is OWN, else the programme's preview (<see cref="LookService.Shown"/> on the edited state, the rule the miniatures draw too).</summary>
     public PatternConfig PvwPicture(string targetId)
     {
         var state = _services.State;
-        var resolved = ScreenRoles.ResolveMirror(state, targetId);
-        if (!Active || _program is null) return LookService.Shown(state, resolved);
-        if (Pending(state, _program, resolved) || resolved == _services.EditingTargetId) return LookService.Shown(state, resolved);
-        return state.Pattern;
+        return LookService.Shown(state, ScreenRoles.ResolveMirror(state, targetId));
     }
 
     /// <summary>What a CUT / TAKE on a tile would do to what the audience sees on its target.</summary>
@@ -191,8 +190,7 @@ public sealed class SandboxService
     private ShowState? _keysProgram;
 
     /// <summary>
-    /// <see cref="SamePicture"/> for the service's own asks. Every publish while the sandbox is open compares each own
-    /// picture with the air's (<see cref="SettledOwn"/>), every wall refresh asks each tile (<see cref="IsStaged"/>,
+    /// <see cref="SamePicture"/> for the service's own asks. Every wall refresh asks each tile (<see cref="IsStaged"/>,
     /// <see cref="PvwPicture"/>), the menus and the take ask again (<see cref="EffectOf"/>, <see cref="WouldChange"/>):
     /// each picture is serialised once per change of either root, not once per ask. The two trackers' change counters
     /// (<see cref="ChangeTracker.Version"/>) say when an identity can have moved — a frozen programme replaced counts
@@ -217,37 +215,6 @@ public sealed class SandboxService
     {
         if (!_pictureKeys.TryGetValue(picture, out var key)) _pictureKeys[picture] = key = JsonUtil.SerializeCompact(picture);
         return key;
-    }
-
-    private HashSet<string>? _settled;
-
-    /// <summary>
-    /// The settled targets for the sandbox's snapshot: own on both sides with the same picture, and not the
-    /// editing target. The same instance while the set has not changed, so the snapshot shares its
-    /// transition keys and no PVW fades for nothing.
-    /// </summary>
-    private IReadOnlyCollection<string>? SettledOwn()
-    {
-        var state = _services.State;
-        var program = _program!;
-        List<string>? found = null;
-        foreach (var a in state.Independent)
-        {
-            var id = a.ScreenId;
-            if (id == _services.EditingTargetId) continue;
-            if (!ContentTargets.UsesOwnPattern(state, id) || !ContentTargets.UsesOwnPattern(program, id)) continue;
-            var air = OwnPicture(program, id);
-            if (air is null || !Same(a.Pattern, air)) continue;
-            (found ??= new List<string>()).Add(id);
-        }
-        if (found is null)
-        {
-            _settled = null;
-            return null;
-        }
-        if (_settled is not null && _settled.Count == found.Count && found.TrueForAll(_settled.Contains)) return _settled;
-        _settled = new HashSet<string>(found, StringComparer.Ordinal);
-        return _settled;
     }
 
     /// <summary>
@@ -346,10 +313,10 @@ public sealed class SandboxService
     ///                  TO TICKED and a look sent to one screen both go this way.
     /// </summary>
     /// <param name="ownPicture">
-    /// Round 67: take what the tile's own PVW shows — round 78: <see cref="PvwPicture"/>, the one rule: a
-    /// picture staged or edited on the tile while the audience has not seen it, its own picture while the
-    /// editors are on it, else the programme's preview — rather than the programme's preview whatever the
-    /// tile holds. The tile's own CUT / TAKE go this way; SEND and SEND TO TICKED carry the programme's preview.
+    /// Round 67: take what the tile's own PVW shows — <see cref="PvwPicture"/>, the one rule: its own picture
+    /// while the target is OWN, else the programme's preview — rather than the programme's preview whatever the
+    /// tile holds. The tile's own CUT / TAKE and a scoped wall take (round 81) go this way; SEND and SEND TO
+    /// TICKED carry the programme's preview.
     /// </param>
     public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true, bool cut = false, bool ownPicture = false)
     {

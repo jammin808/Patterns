@@ -272,16 +272,16 @@ public sealed partial class ShowActions
                         : $"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
                 }
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
-                // Round 78: attempts are not facts. The tile's PVW holds one picture (SandboxService.PvwPicture: staged or
-                // edited and not yet seen, its own while the editors are on it, else the programme's preview) and the take
-                // lands exactly that — so a press that would put up what the screen already shows is refused with the
-                // reason and the way out, and spends no one-shot. A landing under a sting was validated at the press.
+                // Round 78: attempts are not facts. The tile's PVW holds one picture (SandboxService.PvwPicture — round 81:
+                // its own while it is OWN, else the programme's preview) and the take lands exactly that — so a press that
+                // would put up what the screen already shows is refused with the reason and the way out, and spends no
+                // one-shot. A landing under a sting was validated at the press.
                 var effect = _s.Sandbox.EffectOf(target);
                 if (!origin.IsAutomation && effect == SandboxService.TakeEffect.Nothing)
                 {
                     return ActionResult.Refused(_s.EditingTargetId == target
-                        ? $"{where} already shows its own picture — nothing to take. Edit it here, or put the editors on PROGRAM and TAKE to send the programme's preview to it."
-                        : $"{where} already shows this picture — nothing to take. Change the preview, or SEND a picture to this tile first.");
+                        ? $"{where} already shows its own picture — nothing to take. Edit it here, or SEND the programme's preview to its tile."
+                        : $"{where} already shows its own picture — nothing to take. SEND the programme's preview to its tile, or select the tile and edit it; PROGRAM puts it back on the programme.");
                 }
                 var pendingOne = _s.Sandbox.IsStaged(target);                                     // read before the send settles it
                 var nextOne = cutOne || origin == ActionOrigin.Stinger ? null : _s.NextTake.Pending;
@@ -344,8 +344,8 @@ public sealed partial class ShowActions
         if (!origin.IsAutomation && moving == 0)
         {
             return ActionResult.Refused(plan.Taken.Count == 1
-                ? $"Nothing to take {plan.Where} — it already shows this picture as its own. Change the preview, SEND a picture to its tile, or choose ALL ARMED."
-                : $"Nothing to take {plan.Where} — they already show this picture as their own. Change the preview, SEND a picture to their tiles, or choose ALL ARMED.");
+                ? $"Nothing to take {plan.Where} — it already shows its own picture. SEND the programme's preview to its tile, edit it there, or PROGRAM puts it back on the programme."
+                : $"Nothing to take {plan.Where} — they already show their own pictures. SEND the programme's preview to their tiles, edit them there, or PROGRAM puts them back on the programme.");
         }
         var next = cut || origin == ActionOrigin.Stinger ? null : _s.NextTake.Pending;
         if (next is { IsSting: true })

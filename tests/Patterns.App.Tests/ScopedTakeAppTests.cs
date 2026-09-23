@@ -118,7 +118,10 @@ public class ScopedTakeAppTests
             Assert.Contains("on 1 · Left alone", vm.StatusMessage);
             Assert.Contains("held: 2 · Right (locked)", vm.StatusMessage);
 
-            // MAIN SCREENS (a group by kind): the same — the unlocked main screen takes the new preview, the locked one is held.
+            // MAIN SCREENS (a group by kind): the same — the unlocked main screen (back on the programme first: an OWN tile's
+            // PVW is its own, round 81) takes the new preview, the locked one is held.
+            Tile("a").ProgramCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             vm.SelectedTakeScope = vm.TakeScopes[4];
             vm.State.Pattern.Kind = PatternKind.Focus;
             vm.TakeCommand.Execute(null);

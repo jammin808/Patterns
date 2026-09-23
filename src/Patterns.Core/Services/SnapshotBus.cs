@@ -80,14 +80,6 @@ public sealed class ShowSnapshot
     /// </summary>
     public IReadOnlyCollection<string> BlackTargets { get; init; } = Array.Empty<string>();
 
-    /// <summary>
-    /// Runtime-only (round 78), on the sandbox's snapshots alone: the targets whose own picture is
-    /// already on air and that no editor is on. Their PVW follows the programme's preview, because that
-    /// is what their next CUT / TAKE lands — a tile's PVW is the picture its take puts up, never the
-    /// picture the PGM miniature beside it already shows. Null on the programme's snapshots: an output
-    /// draws what is on air and never reads this.
-    /// </summary>
-    public IReadOnlyCollection<string>? SettledOwn { get; init; }
 
     /// <summary>This sink's target is faded to black on its own; the program (null) never is. Hot path: a plain loop over a short list.</summary>
     public bool IsBlack(string? targetId)
@@ -244,20 +236,7 @@ public sealed class ShowSnapshot
     /// ask exactly the same question — and two copies of this rule would answer differently the
     /// first time one of them was changed.
     /// </summary>
-    public PatternConfig PatternFor(string? targetId)
-    {
-        // Round 78: a settled own target's PVW is the programme's preview (see SettledOwn). Plain loop
-        // over a set that is empty or a few ids long, and only on the sandbox's snapshots.
-        if (SettledOwn is { Count: > 0 } settled && targetId is { Length: > 0 })
-        {
-            var resolved = ScreenRoles.ResolveMirror(State, targetId);
-            foreach (var id in settled)
-            {
-                if (id == resolved) return State.Pattern;
-            }
-        }
-        return LookService.Shown(State, targetId);
-    }
+    public PatternConfig PatternFor(string? targetId) => LookService.Shown(State, targetId);
 }
 
 /// <summary>
@@ -442,14 +421,13 @@ public sealed class SnapshotBus
     /// </summary>
     public ShowSnapshot? Sandbox => _pair.Sandbox;
 
-    /// <param name="settledOwn">Round 78: the targets whose PVW follows the programme's preview — see <see cref="ShowSnapshot.SettledOwn"/>. The same instance while the set has not changed, so the snapshot can share its transition keys.</param>
-    public void PublishSandbox(ShowState state, ChangeTracker? changes = null, IReadOnlyCollection<string>? settledOwn = null)
+    public void PublishSandbox(ShowState state, ChangeTracker? changes = null)
     {
         // The sandbox keeps a ticker line of its own, seeded from the program's when it opens:
         // a speed tried in the sandbox must never re-anchor the train that is on air.
         var pair = _pair;
         if (pair.Sandbox is null) _sandboxTicker = _ticker;
-        var snapshot = Build(state, ref _sandboxTicker, changes, out var dirty, settledOwn);
+        var snapshot = Build(state, ref _sandboxTicker, changes, out var dirty);
         _pair = new SnapshotPair(pair.Current, snapshot);
         SectionsPublished?.Invoke(state, dirty);
         Changed?.Invoke();
@@ -462,12 +440,11 @@ public sealed class SnapshotBus
     /// assignment: every sink's capture (<c>FrameInput.Capture</c>) reads one generation of both.
     /// <see cref="SectionsPublished"/> fires for each root, the programme first, once the pair is readable.
     /// </summary>
-    /// <param name="settledOwn">As <see cref="PublishSandbox"/>'s.</param>
-    public void PublishBoth(ShowState program, ChangeTracker? programChanges, ShowState sandbox, ChangeTracker? sandboxChanges, IReadOnlyCollection<string>? settledOwn = null)
+    public void PublishBoth(ShowState program, ChangeTracker? programChanges, ShowState sandbox, ChangeTracker? sandboxChanges)
     {
         var current = Build(program, ref _ticker, programChanges, out var programDirty);
         if (_pair.Sandbox is null) _sandboxTicker = _ticker;
-        var preview = Build(sandbox, ref _sandboxTicker, sandboxChanges, out var sandboxDirty, settledOwn);
+        var preview = Build(sandbox, ref _sandboxTicker, sandboxChanges, out var sandboxDirty);
         _pair = new SnapshotPair(current, preview);
         SectionsPublished?.Invoke(program, programDirty);
         SectionsPublished?.Invoke(sandbox, sandboxDirty);
@@ -490,7 +467,7 @@ public sealed class SnapshotBus
     private static readonly string[] TransitionKeySections = { nameof(ShowState.Pattern), nameof(ShowState.Independent), nameof(ShowState.Output) };
 
     /// <param name="dirty">The sections <paramref name="changes"/> named for this root — for <see cref="SectionsPublished"/>, raised by the caller once the snapshot is readable.</param>
-    private ShowSnapshot Build(ShowState state, ref TickerLine ticker, ChangeTracker? changes, out HashSet<string>? dirty, IReadOnlyCollection<string>? settledOwn = null)
+    private ShowSnapshot Build(ShowState state, ref TickerLine ticker, ChangeTracker? changes, out HashSet<string>? dirty)
     {
         var version = ++_version;
         var now = _clock();
@@ -562,13 +539,11 @@ public sealed class SnapshotBus
             UnarmedTargets = UnarmedTargets,
             TakeHeld = TakeHeld,
             BlackTargets = BlackTargets,
-            SettledOwn = settledOwn,
         };
         if (previous is not null && dirty is not null
             && !dirty.Overlaps(TransitionKeySections)
             && previous.Snapshot.State.Blackout == clone.Blackout
             && ReferenceEquals(previous.Snapshot.BlackTargets, snapshot.BlackTargets)
-            && ReferenceEquals(previous.Snapshot.SettledOwn, snapshot.SettledOwn)          // round 78: a PVW that changed its picture fades to it
             && ReferenceEquals(previous.Snapshot.PlaylistNow, snapshot.PlaylistNow))
         {
             snapshot.ShareTransitionKeysWith(previous.Snapshot);

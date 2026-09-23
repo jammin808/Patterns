@@ -28,9 +28,9 @@ public sealed partial class MainViewModel
 
     /// <summary>
     /// The pattern the PREVIEW pane shows, in the live model: the target's own, its source's when it repeats
-    /// one, else the program. Round 78: while the sandbox is open, the sandbox's PVW rule — a settled own
-    /// picture shows here only while the editors are on the target; otherwise the pane follows the
-    /// programme's preview like the tile's miniature, because that is what a TAKE puts up.
+    /// one, else the program. While the sandbox is open, the sandbox's PVW rule (round 81): its own picture
+    /// while the target is OWN, else the programme's preview — the picture the tile's miniature draws and a
+    /// TAKE puts up.
     /// </summary>
     public PatternConfig PreviewPattern
     {

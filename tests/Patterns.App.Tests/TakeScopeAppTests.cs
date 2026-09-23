@@ -173,7 +173,7 @@ public class TakeScopeAppTests
             var again = services.Bus.Current.Version;
             vm.TakeCommand.Execute(null);
             Assert.StartsWith("Nothing to take on the main screens", vm.StatusMessage);
-            Assert.Contains("ALL ARMED", vm.StatusMessage);
+            Assert.Contains("SEND", vm.StatusMessage);
             Assert.Equal(again, services.Bus.Current.Version);
             Assert.True(Tile("a").IsSendTarget, "a refused take spends no tick");
             Tile("a").IsSendTarget = false;
