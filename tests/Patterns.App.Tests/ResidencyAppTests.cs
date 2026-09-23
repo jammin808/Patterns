@@ -51,11 +51,13 @@ public class ResidencyAppTests
             Assert.Contains(residency.Holds, h => h.Key == "pic:" + stray && h.Reason == HoldReason.OnAir);
             Assert.Equal(Residency.Grace(MemoryBudget.ClassOf(MemoryBudget.MachineMB), MemoryPressure.None), residency.Grace);
 
-            // Half a minute on: the show names one (it stays, drawn or not), the other is idle with a clock running.
-            now += 30_000;
+            // Half the grace on — the grace is the machine's own (20 s under 8 GB, 60 s under 32, 180 above), so the step is
+            // read from it and never assumed: the show names one (it stays, drawn or not), the other is idle with a clock running.
+            var half = (long)(residency.Grace.TotalMilliseconds / 2);
+            now += half;
             residency.Poll(MemoryPressure.None);
             Assert.Contains(residency.Holds, h => h.Key == "pic:" + named && h.Reason == HoldReason.Named);
-            Assert.Contains(residency.Holds, h => h.Key == "pic:" + stray && h.Reason == HoldReason.Idle && h.IdleSeconds >= 29);
+            Assert.Contains(residency.Holds, h => h.Key == "pic:" + stray && h.Reason == HoldReason.Idle && h.IdleSeconds >= half / 1000 - 1);
             Assert.Contains("idle", residency.Words);
             Assert.Contains("named by the show", residency.Words);
 
