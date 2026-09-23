@@ -121,7 +121,14 @@ public static class StageTimer
         return true;
     }
 
-    /// <summary>"+60", "-30", "90": seconds, either sign; null for anything else.</summary>
+    /// <summary>
+    /// The longest span a wire word may name, either way: a week. Longer than any show day and far inside what a
+    /// <see cref="TimeSpan"/>, an int of seconds and the show file's numbers can hold — a slip, a nudge or a timer's
+    /// seconds past it is not a time but a probe, and is refused rather than carried into the show.
+    /// </summary>
+    public const double MaxWireSeconds = 7 * 24 * 3600;
+
+    /// <summary>"+60", "-30", "90": seconds, either sign, finite and no longer than <see cref="MaxWireSeconds"/>; null for anything else.</summary>
     public static double? ParseSeconds(string text)
     {
         var t = (text ?? "").Trim().Replace(" ", "");
@@ -136,8 +143,8 @@ public static class StageTimer
             minutes = true;
             t = t.EndsWith("min", StringComparison.OrdinalIgnoreCase) ? t[..^3] : t[..^1];
         }
-        return double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) && n > 0
-            ? sign * (minutes ? n * 60 : n)
-            : null;
+        if (!double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) || double.IsNaN(n) || n <= 0) return null;
+        var seconds = minutes ? n * 60 : n;
+        return double.IsFinite(seconds) && seconds <= MaxWireSeconds ? sign * seconds : null;
     }
 }

@@ -221,7 +221,11 @@ public static class CueTiming
     }
 
     /// <summary>"+7 min", "−2 min", "+40 s".</summary>
-    /// <summary>"+2:00", "-0:30", "+90", "-2m", "1:30" (forward): a slip of the plan as a wire verb says it; null for words that are not one.</summary>
+    /// <summary>
+    /// "+2:00", "-0:30", "+90", "-2m", "1:30" (forward): a slip of the plan as a wire verb says it; null for words that
+    /// are not one, and for a slip past <see cref="StageTimer.MaxWireSeconds"/> — the parts are added as whole numbers
+    /// that cannot wrap, so an enormous hour is refused and never read as a small one.
+    /// </summary>
     public static TimeSpan? ParseDelta(string? text)
     {
         var t = (text ?? "").Trim();
@@ -234,7 +238,7 @@ public static class CueTiming
         if (parts.Length is 2 or 3)
         {
             if (!parts.All(p => int.TryParse(p, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))) return null;
-            var n = parts.Select(p => int.Parse(p, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+            var n = parts.Select(p => (long)int.Parse(p, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
             seconds = parts.Length == 2 ? n[0] * 60 + n[1] : n[0] * 3600 + n[1] * 60 + n[2];
         }
         else if (StageTimer.ParseSeconds(body) is { } s)
@@ -245,7 +249,7 @@ public static class CueTiming
         {
             return null;
         }
-        if (seconds <= 0) return null;
+        if (seconds <= 0 || seconds > StageTimer.MaxWireSeconds) return null;
         return TimeSpan.FromSeconds(sign * seconds);
     }
 
