@@ -52,6 +52,63 @@ public class ScopedTakeAppTests
     private static bool Pinned(AppServices services, string target)
         => services.AirState.Independent.FirstOrDefault(x => x.ScreenId == target) is { PinnedByTake: true };
 
+    /// <summary>The outputs open on the fake screens (headless windows), so a take can be seen.</summary>
+    private static void GoLive(TestApp.Booted b)
+    {
+        var on = b.Services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
+        Assert.True(on.Ok, on.Message);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(b.Services.Outputs.IsLive);
+    }
+
+    /// <summary>
+    /// The round's verb an output can show, read beside the output it names: a FOCUSED TAKE lands on one tile alone
+    /// as its own picture with the outputs open, and the journal's row for it — Done, the pictures changed, the
+    /// outputs live, the words naming the tile alone — is the fact STATE's last-take row and the Eye's desk node carry.
+    /// </summary>
+    [AvaloniaFact]
+    public void AScopedTakeWithAnOutputOpenIsAFactRowReadBesideIt()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, window) = b;
+            Rig(b);
+            vm.IsSandboxActive = false;
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            vm.IsSandboxActive = true;
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            Settle();
+            GoLive(b);
+
+            vm.SelectTileCommand.Execute(vm.SwitcherTiles.Single(t => t.TargetId == "b"));
+            vm.SelectedTakeScope = vm.TakeScopes[1];
+            vm.TakeCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            var row = services.Journal.Tail(5).Last(e => e.Kind == "Take");
+            Assert.Equal("Done", row.Outcome);
+            Assert.Equal("OutputsLive", row.Visibility);
+            Assert.Equal("Changed", row.Effect);
+            Assert.StartsWith("TAKE — the preview fades up on 2 · Right alone, as its own picture; the programme and every other screen stay.", row.Message);
+            Assert.DoesNotContain("outputs are off", row.Message);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
+            Assert.True(services.Outputs.IsLive);
+            Assert.Contains("\"last\":{\"kind\":\"Take\",\"outcome\":\"Done\",\"effect\":\"Changed\",\"visibility\":\"OutputsLive\"", new CommandRouter(services).StateJson());
+            services.Eye.Refresh();
+            Assert.Contains(services.Eye.Graph.Find(EyeGraph.DeskId)!.Words,
+                w => w.StartsWith("Last take: TAKE ", StringComparison.Ordinal) && w.Contains("outputs live", StringComparison.Ordinal));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void ALockedScreenIsNeverTakenByAnyScopeAndTheWordsSayWhy()
     {
