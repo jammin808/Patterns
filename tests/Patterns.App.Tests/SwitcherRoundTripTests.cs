@@ -121,7 +121,7 @@ public class SwitcherRoundTripTests
     }
 
     [AvaloniaFact]
-    public void ATakeThatLeavesATileAloneDoesNotThrowAwayWhatIsStagedOnIt()
+    public void ATakeThatLeavesATileAloneLeavesWhatIsStagedOnItForItsOwnTake()
     {
         var b = TestApp.Boot();
         try
@@ -144,13 +144,18 @@ public class SwitcherRoundTripTests
             Assert.True(services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk, "focused").Ok);
             Dispatcher.UIThread.RunJobs();
 
-            // a took the new picture. c was left alone, so the audience's picture on it does not
-            // move — and the staging, which was not taken, leaves no residue: c follows the show
-            // again rather than quietly becoming a tile with a picture of its own.
+            // a took the new picture, as its own. c was left alone (round 81: a scoped take touches nothing
+            // else), so the audience's picture on it does not move, nothing is pinned on it, and the picture
+            // staged on its PVW is still there for its own CUT / TAKE.
             Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("a").Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
+            Assert.Equal(PatternKind.Grid, services.AirState.Pattern.Kind);
+            Assert.True(services.Sandbox.IsStaged("c"));
+            Assert.False(services.State.Independent.First(x => x.ScreenId == "c").PinnedByTake);
+            Tile(vm, "c").TakeHereCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("c").Kind);
             Assert.False(services.Sandbox.IsStaged("c"));
-            Assert.True(services.State.Independent.First(x => x.ScreenId == "c").PinnedByTake);
         }
         finally
         {

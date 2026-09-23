@@ -15,7 +15,8 @@ namespace Patterns.App.Tests;
 /// Round 17: "how do I allocate and change what group a screen is in?" — groups as in main
 /// screens, repeaters, info desks, NDI feeds. That is the screen's role (and the feed screens),
 /// set on SETUP → Screens; every wall tile now reads the group on its foot line, and a click there
-/// opens the Screens page on that screen. TICKED GROUPS keeps its other meaning, the joined canvases.
+/// opens the Screens page on that screen. Since round 81 TICKED GROUPS means the same thing: the
+/// ticked tiles' kinds, every screen of them; a joined canvas is a canvas (CANVAS A), not a group.
 /// </summary>
 public class ScreenGroupTests
 {
@@ -130,7 +131,9 @@ public class ScreenGroupTests
     {
         Assert.Contains("its group on the desk", HelpBodies.ScreenRoles);
         Assert.Contains("foot line", HelpBodies.ScreenRoles);
-        Assert.Contains("Groups, in both senses", HelpBodies.Switcher);
+        Assert.Contains("Groups are what a screen is for", HelpBodies.Switcher);                  // round 81: one sense
+        Assert.Contains("A joined canvas is not a group", HelpBodies.Switcher);
+        Assert.Contains("lands on those screens alone, as their own pictures", HelpBodies.Switcher);
         Assert.Contains("NDI, STREAM", HelpBodies.Switcher);
         var topic = HelpTopics.All.Single(t => t.Id == "screen-roles");
         Assert.Contains("groups", topic.Title);

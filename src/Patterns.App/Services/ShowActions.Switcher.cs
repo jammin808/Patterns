@@ -183,6 +183,9 @@ public sealed partial class ShowActions
                 // and a take that would move nothing is refused with the reason, never reported as done.
                 var plan = PlanTake(scope);
                 if (plan.IsRefused) return ActionResult.Refused(plan.Refusal!);
+                // Round 81: every scope but the rig lands on its targets alone, as their own pictures — the tile's own
+                // key, once per target — and the programme, its preview and every other screen are untouched.
+                if (plan.IsScoped) return TakeScoped(origin, cut, scope, plan);
                 // Round 79: attempts are not facts on the wall either. The plan says what the scope would move; whether that
                 // would change anything the audience sees is another question (SandboxService.WouldChange: each taken
                 // screen's landing picture against the air's, and the layers a take carries). A hand that presses TAKE over
@@ -324,6 +327,76 @@ public sealed partial class ShowActions
     }
 
     /// <summary>
+    /// Round 81: a scoped CUT / TAKE — FOCUSED on a tile, TICKED, GROUPS, a group by kind, SCREEN n, CANVAS A,
+    /// CANVASES, an id. The maintainer's rule from the rig: FOCUSED sends to the selected screen alone. Round 15's
+    /// model moved the programme to the preview under everything and pinned every other screen to a copy of its
+    /// old picture as OWN — the room saw one screen change and the wall lit OWN everywhere. Now each taken target
+    /// gets what its PVW shows as its own picture, exactly as its own tile's key lands it (SandboxService.PvwPicture,
+    /// SendToTargets), the programme's air and preview stay, no pin is set and EDIT SAFE stays open with the preview
+    /// kept for the next one. LOCK means lock: the plan's Taken never holds a locked target, a repeater or an
+    /// un-armed tile — they are Held, with the reason. A take whose every target already shows its picture as its
+    /// own is refused with the way out; one that only lights OWN says so.
+    /// </summary>
+    private ActionResult TakeScoped(ActionOrigin origin, bool cut, FadeScope scope, TakePlan plan)
+    {
+        var effects = plan.Taken.ToDictionary(t => t, t => _s.Sandbox.EffectOf(t), StringComparer.Ordinal);
+        var moving = effects.Values.Count(e => e != SandboxService.TakeEffect.Nothing);
+        if (!origin.IsAutomation && moving == 0)
+        {
+            return ActionResult.Refused(plan.Taken.Count == 1
+                ? $"Nothing to take {plan.Where} — it already shows this picture as its own. Change the preview, SEND a picture to its tile, or choose ALL ARMED."
+                : $"Nothing to take {plan.Where} — they already show this picture as their own. Change the preview, SEND a picture to their tiles, or choose ALL ARMED.");
+        }
+        var next = cut || origin == ActionOrigin.Stinger ? null : _s.NextTake.Pending;
+        if (next is { IsSting: true })
+        {
+            if (StingerLibrary.Find(State, next.StingId) is not { } sting)
+            {
+                _s.NextTake.Consume();
+                return ActionResult.Refused($"The sting '{next.StingName}' is not in the library any more — the one-shot is cleared; the next TAKE is the show's own.");
+            }
+            var ticket = TakeTicket.From(plan, StingTakeScope(scope, plan), sting.DisplayName, ShowClock.UtcNow);
+            if (!_s.Stingers.Fire(sting, afterOverride: StingerAfter.Take, ticket: ticket)) return ActionResult.Failed($"{_s.Stingers.Status} The one-shot stays for the next TAKE.");
+            _s.NextTake.Consume();
+            return ActionResult.Requested($"TAKE under the sting '{sting.DisplayName}' — the preview lands {plan.Where}, as {(plan.Taken.Count == 1 ? "its own picture" : "their own pictures")}, when the clip ends; the programme is unchanged." + UnseenNote());
+        }
+        if (next is not null) _s.NextTake.Consume();
+        ArmNextTransition(next);
+        var pending = plan.Taken.Count(t => _s.Sandbox.IsStaged(t));                        // read before the send settles it
+        _s.Sandbox.SendToTargets(plan.Taken, toAir: true, cut: cut, ownPicture: true);
+        var arrived = next is null ? "" : $" Arrived by {next.Words} (one shot).";
+        return ActionResult.Done(ScopedWords(cut, plan, effects, pending) + arrived + UnseenNote());
+    }
+
+    /// <summary>
+    /// The words of a scoped take that landed: the tiles it landed on (the taken ones, never the held), as whose
+    /// picture, the held ones with their reason, what only lit OWN, what was already there, and that the rest is untouched.
+    /// </summary>
+    private static string ScopedWords(bool cut, TakePlan plan, IReadOnlyDictionary<string, SandboxService.TakeEffect> effects, int pending)
+    {
+        var verb = cut ? "CUT" : "TAKE";
+        var one = plan.Taken.Count == 1;
+        var what = pending == 0 ? "the preview" : pending == plan.Taken.Count ? (one ? "the picture on its PVW" : "the pictures on their PVWs") : "the previews";
+        var on = $"on {string.Join(", ", plan.TakenLabels)}{(one ? " alone" : "")}";
+        var landed = cut
+            ? $"{verb} — {what} is {on}, as {(one ? "its own picture" : "their own pictures")}"
+            : $"{verb} — {what} fades up {on}, as {(one ? "its own picture" : "their own pictures")}";
+        var held = plan.Held.Count == 0 ? "" : $" · held: {string.Join(", ", plan.Held.Select(h => $"{h.Label} ({h.Reason})"))}";
+        var ownOnly = new List<string>();
+        var already = new List<string>();
+        for (var i = 0; i < plan.Taken.Count; i++)
+        {
+            var effect = effects[plan.Taken[i]];
+            if (effect == SandboxService.TakeEffect.OwnOnly) ownOnly.Add(plan.TakenLabels[i]);
+            else if (effect == SandboxService.TakeEffect.Nothing) already.Add(plan.TakenLabels[i]);
+        }
+        var notes = "";
+        if (ownOnly.Count > 0) notes += $" {string.Join(", ", ownOnly)} already showed it and {(ownOnly.Count == 1 ? "is" : "are")} now {(ownOnly.Count == 1 ? "its" : "their")} own (OWN).";
+        if (already.Count > 0) notes += $" {string.Join(", ", already)} already {(already.Count == 1 ? "shows" : "show")} it as {(already.Count == 1 ? "its" : "their")} own; nothing changed there.";
+        return $"{landed}; the programme and every other screen stay{held}.{notes}";
+    }
+
+    /// <summary>
     /// The content targets a scope names on this rig, or why it names none: the focused tile, the
     /// ticked tiles, every target in the ticked tiles' groups (round 81: a group is what a screen is
     /// for — main, confidence, info), a group by kind, a screen by wall number (the canvas it renders
@@ -431,6 +504,14 @@ public sealed partial class ShowActions
         var geometry = Rig.Geometry(State, _s.Screens.All);
         var landing = ticket.Land(RigTargets(geometry), id => WhereNow(geometry, id));
         if (landing.IsRefused) return ActionResult.Failed(landing.Refusal!);
+        if (ticket.Scope.Length > 0)
+        {
+            // Round 81: a scoped press lands per target, as the press would have — the programme untouched.
+            var pending = landing.Landed.Count(t => _s.Sandbox.IsStaged(t));
+            _s.Sandbox.SendToTargets(landing.Landed, toAir: true, cut: false, ownPicture: true);
+            var oneLanded = landing.Landed.Count == 1;
+            return ActionResult.Done($"TAKE — {(pending == 0 ? "the preview" : oneLanded ? "the picture on its PVW" : "the pictures on their PVWs")} fades up {ticket.Where}, as {(oneLanded ? "its own picture" : "their own pictures")}, as pressed under the sting '{ticket.Cover}'{landing.HeldWords}; the programme and every other screen stay.{UnseenNote()}");
+        }
         var already = _s.Sandbox.AlreadyOnAir(landing.Landed);                                        // round 78
         _s.Sandbox.SendAll(cut: false, landing.Kept);
         var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";

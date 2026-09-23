@@ -259,7 +259,7 @@ public class TileLayoutTests
     {
         Assert.Contains("▾ on the bar", HelpBodies.Switcher);
         Assert.Contains("▸ at the end of the row", HelpBodies.Switcher);
-        Assert.Contains("The other sense is a joined canvas", HelpBodies.Switcher);
+        Assert.Contains("A joined canvas is not a group", HelpBodies.Switcher);            // round 81: a canvas is a canvas, a group is a kind
         Assert.Contains("SETUP → Screens", HelpBodies.Switcher);
         Assert.Contains("▸ at the end of a tile's title row", HelpBodies.Modes);
     }
