@@ -333,7 +333,7 @@ public static class CueSheet
                 // The scope's own words, or a screen by its label — "Stage left" reads as ID <its id>.
                 if (FadeScope.Parse(target) is { } scope) return (scope.Words, null);
                 var labelled = state.Output.Placements.FirstOrDefault(p => string.Equals(p.CustomLabel, target, StringComparison.OrdinalIgnoreCase));
-                return labelled is not null ? ($"ID {labelled.ScreenId}", null) : (target, $"'{target}' is not a place to fade — every screen (blank), SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS, or a screen's label.");
+                return labelled is not null ? ($"ID {labelled.ScreenId}", null) : (target, $"'{target}' is not a place to fade — every screen (blank), SCREEN 2, CANVAS A, GROUP MAIN / CONFIDENCE / INFO, FOCUSED, TICKED, GROUPS, or a screen's label.");
             }
             case TargetKind.Track:
                 // A row by its name or file becomes its id (a rename or a re-order never breaks the cue); a number or a folder's file is used as written.

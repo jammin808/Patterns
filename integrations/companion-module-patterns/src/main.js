@@ -15,7 +15,7 @@ import { emptyState, showSignature, upcoming, variableValues } from './state.js'
 import { KNOWN_PROTOCOL, Navigator, payload } from './nav.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.15.0'
+export const MODULE_VERSION = '3.16.0'
 
 /** How long a question to the desk waits for its answer before the key gives up. */
 export const ASK_TIMEOUT_MS = 5000

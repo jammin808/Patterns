@@ -106,7 +106,7 @@ public static class ControlProtocol
             scope = after;
             return true;
         }
-        // The scope whole (SCREEN 2, GROUP A, FOCUSED…), the show's own time.
+        // The scope whole (SCREEN 2, CANVAS A, GROUP CONFIDENCE, FOCUSED…), the show's own time.
         if (FadeScope.Parse(t) is { } whole && !(words.Length == 1 && TryParseSeconds(words[0], out _)))
         {
             scope = whole;

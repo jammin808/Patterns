@@ -538,6 +538,9 @@
     ],
     "outside": 0,
     "refusal": "",
+  "focused": "s2",
+  "focusedLabel": "2 \u00b7 Side",
+  "groups": ["main", "confidence"],
     "next": {
       "set": true,
       "words": "STING Whoosh",

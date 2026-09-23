@@ -623,11 +623,14 @@ public sealed partial class ShowActions
         if (next.Kind is not null || next.Scene is not null || next.Direction is not null) _s.Bus.TransitionOnNextPublish(next.Kind, next.Scene, next.Direction);
     }
 
-    /// <summary>STATE's take row (round 67): the wall's scope, the plan it makes, and the next take's one-shot.</summary>
+    /// <summary>STATE's take row (round 67): the wall's scope, the plan it makes, the next take's one-shot; round 81: the tile FOCUSED means and the ticked tiles' groups.</summary>
     public object TakeRow()
     {
         var words = _s.TakeScopeWords?.Invoke() ?? "";
         var plan = PlanTake(FadeScope.Parse(words) ?? FadeScope.Everything);
+        var focused = _s.FocusedTarget?.Invoke() ?? "";
+        var ticked = _s.TickedTargets?.Invoke() ?? Array.Empty<string>();
+        var groups = ticked.Select(t => ScreenRoles.KindOf(State, t)).Where(ScreenRoles.IsTakeKind).Distinct(StringComparer.Ordinal).ToArray();
         return new
         {
             scope = words,
@@ -647,6 +650,9 @@ public sealed partial class ShowActions
             last = LastTake is { } lt                                                                  // round 79: the last take as a fact row — what it did, and whether anybody saw it
                 ? new { kind = lt.Kind.ToString(), outcome = lt.Result.Status.ToString(), effect = lt.Result.Effect.ToString(), visibility = lt.Result.Visibility.ToString(), atUtc = lt.AtUtc, words = lt.Result.Message }
                 : null,
+            focused,                                                                                     // round 81: the tile FOCUSED means — the one highlighted on the wall, under the editors; "" is the PGM tile, every armed screen
+            focusedLabel = focused.Length == 0 ? "" : Rig.Geometry(State, _s.Screens.All).LabelFor(State, focused),
+            groups,                                                                                      // round 81: the ticked tiles' groups by kind — what TICKED GROUPS takes to
         };
     }
 

@@ -98,7 +98,7 @@
                   </Border>
                   <!-- PVW (round 78): a picture waits on this tile's PVW that the audience has not seen — staged by SEND or edited in the preview; CUT / TAKE here puts it up -->
                   <Border Classes="roleBadge pvwBadge" IsVisible="{Binding IsStaged}"
-                          ToolTip.Tip="A picture is waiting on this tile's PVW — staged by SEND, or edited in the preview — and the audience has not seen it. CUT / TAKE on this tile puts it up; a wall TAKE that leaves this tile alone drops it">
+                          ToolTip.Tip="A picture is waiting on this tile's PVW — staged by SEND, or edited in the preview — and the audience has not seen it. CUT / TAKE on this tile puts it up, ALL ARMED lands it with the rest, and a take to other tiles leaves it waiting">
                     <TextBlock Text="PVW" />
                   </Border>
                 </StackPanel>
@@ -106,7 +106,7 @@
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectTileCommand}"
                         CommandParameter="{Binding}"
-                        ToolTip.Tip="Click: the big PROGRAM and PREVIEW panes show this target, and the editors work on it">
+                        ToolTip.Tip="Click: this tile is the focus — the big PROGRAM and PREVIEW panes show it, the editors work on it (its first edit makes it its own), and CUT / TAKE with FOCUSED lands here alone">
                   <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                              Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
                 </Button>
@@ -115,7 +115,7 @@
                      PGM's, with its buttons that much lower -->
                 <ToggleButton Grid.Column="3" Name="TileTick" Classes="wall tick" Content="✓" IsChecked="{Binding IsSendTarget, Mode=TwoWay}"
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
-                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. THE TICKED GROUPS means the ticked joined canvases (A, B… — screens dragged flush together on SETUP → Screens); a screen's own group — Main, Confidence, Info, Repeater, an NDI or stream feed — reads on its tile's foot line, and a click there sets it" />
+                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. THE TICKED GROUPS means every screen of the ticked tiles' groups — Main, Confidence, Info — and the wall's TICKED GROUPS take lands on them alone; a screen's group — Main, Confidence, Info, Repeater, an NDI or stream feed — reads on its tile's foot line, and a click there sets it; a joined canvas (A, B… — screens dragged flush together on SETUP → Screens) is one tile and one target, not a group" />
                 <!-- OUTPUT: the screen on or off, live — a wall button that fits the tile (the switch it replaces hung outside it) -->
                 <ToggleButton Grid.Column="4" Classes="wall output" Content="OUT" IsChecked="{Binding Enabled, Mode=TwoWay}"
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
@@ -196,7 +196,7 @@
     </StackPanel>
     <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
               ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"
-              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (TICKED GROUPS means the ticked joined canvases — screens dragged flush together on SETUP → Screens — not the roles on the tiles' foot lines). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
+              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: the programme moves — ARM and LOCK on the tiles decide which screens follow it; FOCUSED: the wall tile highlighted — clicked, or picked as the editing target (the PGM tile means every armed screen); TICKED: the tiles ticked on the wall; TICKED GROUPS: every screen of the ticked tiles' groups (Main, Confidence, Info); MAIN / CONFIDENCE / INFO SCREENS: a group by name. Every choice but ALL ARMED lands on those screens alone, as their own pictures (OWN lights up) — the programme and every other screen stay; LOCK holds a screen through every one" />
     <!-- What the next press does, from the same plan the verb runs (round 67): the targets taken, then what is held and why —
          or the refusal it would meet, in the hold colour -->
     <TextBlock Name="TakePlanText" Classes="hint" FontSize="10" MaxWidth="240" TextTrimming="CharacterEllipsis"

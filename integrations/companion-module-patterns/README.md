@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.15.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.16.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.15.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.16.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
 page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
 module shows the wrong or missing token as a bad-config status with the words.
@@ -94,6 +94,13 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.16.0** — groups are kinds (round 81): the canvas key sends `CANVAS <letter> ON / OFF` (a desk before round 81
+  read `GROUP <letter>` for it and answers ERR to CANVAS — update the desk); a fade or take to GROUPS means every
+  screen of the ticked tiles' groups (main, confidence, info), a joined canvas being a canvas, not a group; a scoped
+  take lands on its screens alone, as their own pictures. Two variables beside the take plan's: `take_focused` (the
+  tile FOCUSED means, by its label; empty for the PGM tile) and `take_groups` (the ticked tiles' groups, what TICKED
+  GROUPS takes to), read from STATE's `take.focusedLabel` and `take.groups`; `take_scope` can read the main /
+  confidence / info screens.
 - **3.15.0** — the desk's descriptor version read (round 80): every NAV and MENU reply's `protocol` is read into
   `desk_protocol`; a desk that speaks a newer descriptor than this module knows (1) shows a warning on the
   connection and the keys keep working on what they understand. Two variables beside the machine's:

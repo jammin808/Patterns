@@ -351,10 +351,14 @@ test('round 67 — the next take and the group on the deck: TAKE NEXT and SCREEN
 	assert.equal(v.take_next, 'STING Whoosh')
 	assert.equal(v.take_scope, 'every screen')
 	assert.equal(v.take_words, '→ 1 · Main wall · 1 held (locked)')
+	assert.equal(v.take_focused, '2 · Side')                                                  // round 81: the tile FOCUSED means
+	assert.equal(v.take_groups, 'main, confidence')                                            // round 81: what TICKED GROUPS takes to
 	assert.equal(v.screen_2_group, 'info')
 	const none = variableValues(emptyState())
 	assert.equal(none.take_next, '')
 	assert.equal(none.take_words, '')
+	assert.equal(none.take_focused, '')
+	assert.equal(none.take_groups, '')
 	const quiet = await boot({ state: emptyState() })
 	assert.equal(askFeedback(quiet, 'take_next_set', {}), false)
 	assert.equal(askFeedback(quiet, 'take_next_sting', {}), false)

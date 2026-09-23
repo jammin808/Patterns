@@ -245,6 +245,8 @@ export function variableValues(s) {
 		take_scope: s.take?.scopeLabel ?? '',
 		take_words: s.take?.refusal ? s.take.refusal : (s.take?.words ?? ''),
 		take_landing: s.take?.landing?.words ?? '',
+		take_focused: s.take?.focusedLabel ?? '',
+		take_groups: (s.take?.groups ?? []).join(', '),
 		editing_target: s.editing?.label ?? '',
 		editing_kind: s.editing?.kind ?? '',
 		editing_editor: s.editing?.editor ?? '',

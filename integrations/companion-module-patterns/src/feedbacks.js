@@ -20,7 +20,7 @@ export function buildFeedbacks(ctx) {
 		screen_group_is: bool('Screen is in the group … (main, confidence, info, repeater)', style('screen', 'group'), [screenN, { type: 'dropdown', id: 'group', label: 'Group', default: 'confidence', choices: [
 			{ id: 'main', label: 'Main' }, { id: 'confidence', label: 'Confidence' }, { id: 'info', label: 'Info' }, { id: 'repeater', label: 'Repeater' },
 		] }], (fb) => s().screens?.some((x) => x.n === fb.options.n && norm(x.role) === norm(fb.options.group)) === true),
-		screen_ticked: bool('Screen is ticked on the wall (a TICKED take, a fade or SEND TO TICKED reads it)', style('screen', 'armed'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.ticked) === true),
+		screen_ticked: bool('Screen is ticked on the wall (a TICKED take, TICKED GROUPS — every screen of its group — a fade or SEND TO TICKED reads it)', style('screen', 'armed'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && x.ticked) === true),
 		// Round 69: the screen names a sound output — its picture's sound follows to it.
 		screen_sound_out: bool("Screen names a sound output — its picture's sound follows to it (round 69)", style('screen', 'sound'), [screenN], (fb) => s().screens?.some((x) => x.n === fb.options.n && Boolean(x.audioOut)) === true),
 		take_next_set: bool('A one-shot is pending — the next TAKE arrives by a transition or a sting of its own', style('take', 'next'), [], () => s().take?.next?.set === true),
