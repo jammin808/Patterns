@@ -200,7 +200,7 @@ public sealed class PlayRoom
     /// <summary>The most phones the room seats; a full room forgets its long-gone before it turns one away.</summary>
     public int MaxPlayers { get; set; } = int.MaxValue;
     public TimeSpan IdleForget { get; set; } = TimeSpan.FromHours(3);
-    public IReadOnlyList<string> BlockedWords { get; set; } = DefaultBlocked;
+    public IReadOnlyList<string> BlockedWords { get; set; } = WordList.Default;
     public long Rev { get; private set; }
     public IReadOnlyList<PlayQuestion> Questions => _questions;
     public IReadOnlyList<PlayMessage> Messages => _messages;
@@ -209,8 +209,6 @@ public sealed class PlayRoom
     public int PlayerCount => _players.Count;
     public Draughts Draughts { get; private set; } = Draughts.New();
     public PathStory Path { get; set; } = PathStory.Sample();
-
-    private static readonly string[] DefaultBlocked = { "fuck", "shit", "cunt", "nigger", "faggot" };
 
     /// <summary>Four letters no phone mistypes: no I, no O, no digits.</summary>
     public static string NewCode(Random rng)
@@ -480,11 +478,8 @@ public sealed class PlayRoom
         return s.Length > WordsMax ? s[..WordsMax] : s;
     }
 
-    public bool IsBlocked(string text)
-    {
-        var lower = text.ToLowerInvariant();
-        return BlockedWords.Any(w => w.Length > 0 && lower.Contains(w, StringComparison.Ordinal));
-    }
+    /// <summary>Round 83: whole words, with an entry's own wildcards saying otherwise (<see cref="WordList"/>) — "Scunthorpe" passes, "you cunt" does not.</summary>
+    public bool IsBlocked(string text) => WordList.Matches(text, BlockedWords);
 
     public PlayResults Results(PlayQuestion q)
     {

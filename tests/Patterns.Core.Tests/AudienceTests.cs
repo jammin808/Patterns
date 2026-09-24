@@ -118,7 +118,7 @@ public class AudienceTests
         var room = new PlayRoom("ABCD", "Gala", now) { BlockedWords = new[] { "rude" } };
         room.UtcNow = () => now;
 
-        var fresh = room.TryJoin("Very RUDE person", null, "rudeboys");
+        var fresh = room.TryJoin("Very RUDE person", null, "the rude boys");
         Assert.StartsWith("Guest ", fresh.Player!.Nick, StringComparison.Ordinal);
         Assert.Equal("", fresh.Player.Group);
 
