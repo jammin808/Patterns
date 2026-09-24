@@ -49,7 +49,8 @@ public sealed class PlayheadStore
     {
         try
         {
-            AtomicFile.WriteAllText(_path, JsonUtil.SerializeCompact(record));
+            // Round 83: rewritten every second while a clip plays — a power cut loses that second at most, so no flush to the disk on each.
+            AtomicFile.WriteAllText(_path, JsonUtil.SerializeCompact(record), durable: false);
         }
         catch (Exception ex)
         {

@@ -181,6 +181,8 @@ public sealed class CheckFacts
     public int RetiringDecoders { get; init; }
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
+    /// <summary>Round 83: what the recovery store found wrong at boot, or "" — the record unreadable and its backup read, or no backup either.</summary>
+    public string RecoveryProblem { get; init; } = "";
 
     /// <summary>The heartbeat beacon is going out (this is the main machine).</summary>
     public bool BeaconSending { get; init; }
@@ -590,6 +592,11 @@ public static class SuperCheck
             ? new CheckRow(s, "Watchdog", f.WatchdogRestarts > 0 ? CheckLight.Amber : CheckLight.Green, f.WatchdogRestarts > 0 ? $"on · {f.WatchdogRestarts} restart(s)" : "on",
                 f.WatchdogRestarts > 0 ? "it restarted the app — see patterns.watchdog.log" : "")
             : new CheckRow(s, "Watchdog", CheckLight.Amber, "off", "a crash would end the show — switch it on below"));
+        if (f.RecoveryProblem.Length > 0)
+        {
+            // Round 83: the record is written keeping the one before it; a read that had to fall back is said here, since a disk or a stick losing writes shows nowhere else.
+            rows.Add(new CheckRow(s, "Recovery record", CheckLight.Amber, "unreadable at boot", f.RecoveryProblem + "; if this repeats, the disk or the stick is losing writes"));
+        }
         if (f.BeaconSending) rows.Add(new CheckRow(s, "Beacon", CheckLight.Green, "sending", "a second machine can watch this one"));
         if (f.BeaconListening)
         {

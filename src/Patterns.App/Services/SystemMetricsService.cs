@@ -659,6 +659,7 @@ public sealed class SystemMetricsService : IDisposable
             ManagedMB = s?.ManagedMB ?? -1,
             WatchdogEnabled = state.Watchdog.Enabled,
             WatchdogRestarts = HealthMonitor.Restarts,
+            RecoveryProblem = _services.Recovery.Problem,                                            // round 83: a record read from its backup, or lost
             BeaconSending = _services.Beacon.Sending,
             BeaconListening = _services.Beacon.Listening,
             BeaconWatch = _services.Beacon.WatchText,

@@ -37,6 +37,56 @@ public class AtomicFileTests
         }
     }
 
+    [Fact]
+    public void TheRecoveryRecordKeepsTheOneBeforeItAndReadsItWhenTheRecordIsTorn()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-recovery-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var store = new RecoveryStore(dir);
+            var main = Path.Combine(dir, "patterns.recovery.json");
+            Assert.Null(store.Read());                                          // no record: a clean exit, no problem
+            Assert.Equal("", store.Problem);
+
+            store.Write(live: true, audioPlaying: false, airLook: "One");
+            store.Write(live: true, audioPlaying: true, airLook: "Two");
+            Assert.Equal("Two", store.Read()!.AirLook);
+            Assert.Equal("", store.Problem);
+            Assert.Equal("One", JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(main + ".bak"))!.AirLook);
+            Assert.False(File.Exists(AtomicFile.TempPath(main)));
+
+            File.WriteAllText(main, "{\"Live\":tr");                          // torn: a power cut, or a stick whose move was not atomic
+            var put = store.Read();
+            Assert.NotNull(put);
+            Assert.Equal("One", put!.AirLook);
+            Assert.Contains("unreadable at boot", store.Problem);
+            Assert.Contains("before it", store.Problem);
+
+            File.WriteAllText(main + ".bak", "not a record either");
+            Assert.Null(store.Read());
+            Assert.Contains("no readable backup", store.Problem);
+
+            store.Write(live: false, audioPlaying: false, airLook: "Three");    // the next write heals both
+            Assert.Equal("Three", store.Read()!.AirLook);
+            Assert.Equal("", store.Problem);
+
+            store.Clear();
+            Assert.False(File.Exists(main));
+            Assert.False(File.Exists(main + ".bak"));
+            Assert.Null(store.Read());
+            Assert.Equal("", store.Problem);
+
+            AtomicFile.WriteAllText(main, "quick", durable: false);             // the playhead's way: whole, moved, no flush
+            Assert.Equal("quick", File.ReadAllText(main));
+            Assert.False(File.Exists(AtomicFile.TempPath(main)));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     /// <summary>
     /// The fence: no source under src/ writes a ".tmp" beside a target by hand. Two files may — the output-ownership
     /// seam writes through its own file abstraction (its tests inject a failing one), and the management download

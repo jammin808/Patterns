@@ -209,21 +209,51 @@ public sealed record RunPlace(string? StandbyCueId, string? LastCueId, DateTime?
 public sealed class RecoveryStore
 {
     private readonly string _path;
+    private readonly string _backup;
 
-    public RecoveryStore(string directory) => _path = Path.Combine(directory, "patterns.recovery.json");
+    public RecoveryStore(string directory)
+    {
+        _path = Path.Combine(directory, "patterns.recovery.json");
+        _backup = _path + ".bak";
+    }
 
+    /// <summary>Round 83: what the last read found wrong, or "" — a record unreadable at boot and read from the one before it, or one with no readable backup either; the Super Check's row.</summary>
+    public string Problem { get; private set; } = "";
+
+    /// <summary>
+    /// The record, or null when a clean exit cleared it. A record that cannot be read (a power cut mid-move, a stick
+    /// whose move is not atomic) is not "no crash": the one written before it is read instead (round 83), and the
+    /// problem is kept for the Super Check so a disk that loses writes is seen.
+    /// </summary>
     public RecoverySnapshot? Read()
     {
+        Problem = "";
+        if (!File.Exists(_path)) return null;
         try
         {
-            if (!File.Exists(_path)) return null;
             return JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(_path));
         }
         catch (Exception ex)
         {
             Log.Warn("Recovery file unreadable.", ex);
-            return null;
         }
+        if (File.Exists(_backup))
+        {
+            try
+            {
+                var previous = JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(_backup));
+                Problem = "the recovery record was unreadable at boot; the one written before it was put back instead";
+                Log.Warn(Problem);
+                return previous;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Recovery backup unreadable too.", ex);
+            }
+        }
+        Problem = "the recovery record was unreadable at boot and had no readable backup — the last air was not put back";
+        Log.Warn(Problem);
+        return null;
     }
 
     /// <summary>The plain record: what was live, and nothing about the picture. Used by tests and by an install's own bookkeeping.</summary>
@@ -235,12 +265,12 @@ public sealed class RecoveryStore
     /// <summary>The record as its file holds it — compact, stamped now: the record holds a whole show state, and it is made while a show is running.</summary>
     public static string Serialize(RecoverySnapshot snapshot) => JsonUtil.SerializeCompact(snapshot with { UpdatedUtc = DateTime.UtcNow });
 
-    /// <summary>A record already serialised, onto the disk whole: a temp file moved over the old one, so a reader never sees half a record.</summary>
+    /// <summary>A record already serialised, onto the disk whole: flushed, then moved over the old one with the old one kept as .bak, so a reader never sees half a record and a torn one has a whole predecessor.</summary>
     public void WriteJson(string json)
     {
         try
         {
-            AtomicFile.WriteAllText(_path, json);
+            AtomicFile.WriteAllTextKeepingBackup(_path, json);
         }
         catch (Exception ex)
         {
@@ -253,6 +283,7 @@ public sealed class RecoveryStore
         try
         {
             File.Delete(_path);
+            File.Delete(_backup);                                                         // a clean exit leaves no record to resurrect from the backup
         }
         catch
         {
