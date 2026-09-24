@@ -30,7 +30,7 @@ public static class OscMap
         ("/patterns/screen/<n>/cut", "SCREEN n CUT — the same, instantly"),
         ("/patterns/screen/<n>/pvw/look <name>", "SCREEN n PVW LOOK name — the look's picture staged on that screen's PVW in the preview; the audience sees nothing until CUT or TAKE (also /pvw/preset <name>, /pvw/pattern <kind>, /pvw/library <name>, /pvw/program, /pvw/reset — the look on air's picture back; bare /pvw is → PVW, its picture into the preview to edit)"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
-        ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
+        ("/patterns/canvas/<letter> 1|0", "CANVAS A ON / OFF — a joined canvas; /patterns/group/<letter> is read the same way"),
         ("/patterns/audio/play [n|name]", "AUDIO PLAY — the audio playlist plays: a track by its place or its name, or the list resumes (also /patterns/audio/play/<n>)"),
         ("/patterns/audio/stop, /patterns/audio/next, /patterns/audio/prev", "AUDIO STOP / NEXT / PREV"),
         ("/patterns/audio/volume <level>", "AUDIO VOL: an integer is percent (0–125), a float from 0.0 to 1.0 is a fader"),
