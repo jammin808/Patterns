@@ -79,6 +79,8 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private double _latestClock = -1;
     private Patterns.Rendering.Media.FramePool? _pool;
     private volatile int _framesReceived;
+    private volatile int _framesRefused;
+    private volatile string _lastRefusal = "";
     private long _lastFrameUtcTicks;
     private long _frameClockBits = BitConverter.DoubleToInt64Bits(-1);
     private volatile bool _createFailed;
@@ -156,9 +158,33 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         }
     }
 
+    /// <summary>
+    /// Round 83: why a frame the runtime described cannot be copied — an empty raster, a colour format the receiver did
+    /// not ask for, a stride below a row — or null. The copy reads by the runtime's stride and never past a row, so a
+    /// frame described wrongly is refused here rather than read past its buffer. Pure, so the guard is a unit test.
+    /// </summary>
+    public static string? FrameShapeProblem(int xres, int yres, int strideBytes, int fourCc)
+    {
+        if (xres <= 0 || yres <= 0) return "an empty raster";
+        if (fourCc != FourCcBgra && fourCc != NdiInterop.FourCcBgrx) return "a colour format the receiver did not ask for";
+        var row = (long)xres * 4;
+        if (strideBytes < row) return $"a stride of {strideBytes} bytes below the row's {row}";
+        return null;
+    }
+
+    /// <summary>How many frames the runtime described wrongly and the receiver refused (round 83), and the last reason.</summary>
+    public int FramesRefused => _framesRefused;
+
     private unsafe void PublishFrame(in NdiInterop.VideoFrameV2 frame)
     {
-        if (frame.Data == IntPtr.Zero || frame.Xres <= 0 || frame.Yres <= 0) return;
+        if (frame.Data == IntPtr.Zero) return;
+        var problem = FrameShapeProblem(frame.Xres, frame.Yres, frame.LineStrideInBytes, frame.FourCc);
+        if (problem is not null)
+        {
+            _framesRefused++;
+            _lastRefusal = problem;
+            return;
+        }
 
         // BGRX_BGRA colour format delivers either fourCC; both are BGRA-layout bytes.
         var alpha = frame.FourCc == FourCcBgra ? SKAlphaType.Unpremul : SKAlphaType.Opaque;
@@ -298,13 +324,16 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
 
     public double DurationSeconds => 0;
 
-    public string StatusText => _createFailed
+    public string StatusText => (_createFailed
         ? "NDI receive failed — is the runtime installed?"
         : _framesReceived == 0
             ? $"Connecting to {_sourceName}…"
             : IsPlaying
                 ? "Receiving"
-                : "No frames — sender offline?";
+                : "No frames — sender offline?") + Refusals;
+
+    /// <summary>The source's card carries the refusals (round 83): a sender whose frames are described wrongly is seen, not silently dropped.</summary>
+    private string Refusals => _framesRefused > 0 ? $" · {_framesRefused} frame{(_framesRefused == 1 ? "" : "s")} refused ({_lastRefusal})" : "";
 
     public void Dispose()
     {
