@@ -28,13 +28,51 @@ public sealed record HttpLimits(
 /// in a query string that a browser's history, a proxy's log or a screenshot keeps) — or the
 /// fault, with the status that answers it. Pure, so every shape a port can be sent is a unit test.
 /// </summary>
-public sealed record HttpHead(string Method, string Path, int ContentLength, bool ClientHeader, int HeaderCount, string Fault = "", string Status = "", string Token = "", string Pass = "")
+public sealed record HttpHead(string Method, string Path, int ContentLength, bool ClientHeader, int HeaderCount, string Fault = "", string Status = "", string Token = "", string Pass = "", string Origin = "", string Host = "", string SecFetchSite = "")
 {
     /// <summary>The header that carries the show's pairing token.</summary>
     public const string TokenHeader = "X-Patterns-Token";
 
     /// <summary>The header that carries the Install page's admin passcode.</summary>
     public const string PassHeader = "X-Patterns-Pass";
+
+    /// <summary>Round 83: the cookie the desk's own pages keep the pairing token in, so their pictures (an img tag sends no header) can present it.</summary>
+    public const string TokenCookie = "patterns.token";
+
+    /// <summary>
+    /// Round 83: whether the request came from a browser page of another origin — a cross-site or same-site
+    /// Sec-Fetch-Site (same-site is another origin on this host: another port, another app), or an Origin that is
+    /// not this desk's own Host ("null", a sandboxed or file page, included). With neither header, as a curl, a
+    /// device or a script sends, it is not cross-site; the desk's own pages are same-origin and never are.
+    /// </summary>
+    public bool CrossSite => IsCrossSite(Origin, Host, SecFetchSite);
+
+    public static bool IsCrossSite(string origin, string host, string secFetchSite)
+    {
+        var site = secFetchSite.Trim().ToLowerInvariant();
+        if (site is "cross-site" or "same-site") return true;
+        if (site == "same-origin") return false;
+        var o = origin.Trim();
+        if (o.Length == 0) return false;
+        if (o.Equals("null", StringComparison.OrdinalIgnoreCase)) return true;
+        var scheme = o.IndexOf("://", StringComparison.Ordinal);
+        var authority = scheme >= 0 ? o[(scheme + 3)..] : o;
+        var slash = authority.IndexOf('/');
+        if (slash >= 0) authority = authority[..slash];
+        return !authority.Equals(host.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The pairing token a Cookie header carries, or "".</summary>
+    public static string CookieToken(string cookieHeader)
+    {
+        foreach (var part in cookieHeader.Split(';'))
+        {
+            var eq = part.IndexOf('=');
+            if (eq <= 0) continue;
+            if (part[..eq].Trim().Equals(TokenCookie, StringComparison.Ordinal)) return part[(eq + 1)..].Trim();
+        }
+        return "";
+    }
 
     public bool Ok => Fault.Length == 0;
 
@@ -66,7 +104,11 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
         var contentLength = 0;
         var clientHeader = false;
         var token = "";
+        var cookieToken = "";
         var pass = "";
+        var origin = "";
+        var host = "";
+        var site = "";
         var headers = 0;
         for (var i = 1; i < lines.Length; i++)
         {
@@ -95,8 +137,25 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
             {
                 pass = value;
             }
+            else if (name.Equals("Cookie", StringComparison.OrdinalIgnoreCase))
+            {
+                cookieToken = CookieToken(value);
+            }
+            else if (name.Equals("Origin", StringComparison.OrdinalIgnoreCase))
+            {
+                origin = value;
+            }
+            else if (name.Equals("Host", StringComparison.OrdinalIgnoreCase))
+            {
+                host = value;
+            }
+            else if (name.Equals("Sec-Fetch-Site", StringComparison.OrdinalIgnoreCase))
+            {
+                site = value;
+            }
         }
-        return new HttpHead(method, path, contentLength, clientHeader, headers, Token: token, Pass: pass);
+        // The header's token first; the cookie is the pages' way for the requests a browser sends with no header of theirs.
+        return new HttpHead(method, path, contentLength, clientHeader, headers, Token: token.Length > 0 ? token : cookieToken, Pass: pass, Origin: origin, Host: host, SecFetchSite: site);
 
         static HttpHead Bad(string fault, string status) => new("", "", 0, false, 0, fault, status);
     }

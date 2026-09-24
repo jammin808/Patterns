@@ -1434,6 +1434,9 @@ public static class ControlProtocol
     /// <summary>The answer to an AUTH whose token is not the show's.</summary>
     public const string WrongToken = "wrong token — the pairing token is on the desk's Remote page, TRUST";
 
+    /// <summary>Round 83: a browser page from another origin posted to the desk — refused whatever the pairing, since the desk's own pages are same-origin and a deliberate client sends X-Patterns-Client.</summary>
+    public const string CrossSite = "a page from another origin cannot run the show — the desk's own pages and any client of yours send X-Patterns-Client";
+
     public static string Err(string reason) => "ERR " + reason;
 }
 

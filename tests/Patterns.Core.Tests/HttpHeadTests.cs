@@ -41,6 +41,44 @@ public class HttpHeadTests
     }
 
     [Fact]
+    public void TheHeadCarriesOriginHostAndFetchSiteAndTheCookiesTokenWhenNoHeaderHasOne()
+    {
+        var head = HttpHead.Parse("POST /api/cmd HTTP/1.1\r\nHost: desk:9696\r\nOrigin: http://evil.example\r\nSec-Fetch-Site: cross-site\r\nCookie: a=1; patterns.token=K7QM-3XWD-P9RA; b=2\r\n", HttpLimits.Control);
+        Assert.True(head.Ok);
+        Assert.Equal("desk:9696", head.Host);
+        Assert.Equal("http://evil.example", head.Origin);
+        Assert.Equal("cross-site", head.SecFetchSite);
+        Assert.Equal("K7QM-3XWD-P9RA", head.Token);
+        Assert.True(head.CrossSite);
+
+        var both = HttpHead.Parse("GET /api/state HTTP/1.1\r\nHost: desk\r\nX-Patterns-Token: FROM-HEADER\r\nCookie: patterns.token=FROM-COOKIE\r\n", HttpLimits.Control);
+        Assert.Equal("FROM-HEADER", both.Token);                                    // the header first, the cookie is the img tags' way
+        Assert.False(both.CrossSite);
+
+        var bare = HttpHead.Parse("GET / HTTP/1.1\r\nHost: desk\r\n", HttpLimits.Control);
+        Assert.Equal("", bare.Token);
+        Assert.Equal("", bare.Origin);
+        Assert.False(bare.CrossSite);
+
+        Assert.Equal("K7", HttpHead.CookieToken("x=1; patterns.token = K7 ; y=2"));
+        Assert.Equal("", HttpHead.CookieToken("patterns.tokenx=1; =2; nothing"));
+    }
+
+    [Fact]
+    public void ARequestIsCrossSiteByItsFetchSiteOrAnOriginThatIsNotThisHostAndNeverWithoutEither()
+    {
+        Assert.False(HttpHead.IsCrossSite("", "desk:9696", ""));                          // a curl, a device, a script
+        Assert.False(HttpHead.IsCrossSite("http://desk:9696", "desk:9696", ""));           // the desk's own page
+        Assert.False(HttpHead.IsCrossSite("http://DESK:9696/", "desk:9696", "same-origin"));
+        Assert.True(HttpHead.IsCrossSite("http://desk:8080", "desk:9696", ""));            // another app on this host
+        Assert.True(HttpHead.IsCrossSite("http://evil.example", "desk:9696", ""));
+        Assert.True(HttpHead.IsCrossSite("null", "desk:9696", ""));                       // a file: or sandboxed page
+        Assert.True(HttpHead.IsCrossSite("", "desk:9696", "cross-site"));
+        Assert.True(HttpHead.IsCrossSite("", "desk:9696", "same-site"));
+        Assert.False(HttpHead.IsCrossSite("", "desk:9696", "none"));                      // a typed address, a bookmark
+    }
+
+    [Fact]
     public void EveryShapeThatIsNotARequestIsAStatusNotAWait()
     {
         var limits = HttpLimits.Audience;

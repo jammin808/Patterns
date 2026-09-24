@@ -833,6 +833,24 @@ public sealed partial class ControlService : IDisposable
                 contentType = "text/plain";
                 payload = "The audience pages answer on the audience port — Remote page, AUDIENCE.";
             }
+            else if (!audience && method == "POST" && request.CrossSite && !clientHeader)
+            {
+                // Round 83: a page from another origin — any site the browser on this machine or the LAN has open —
+                // cannot post to the desk, paired or loopback or not. The desk's own pages are same-origin, and a
+                // deliberate client sends X-Patterns-Client, which a cross-origin page cannot without the CORS
+                // permission the desk never grants. A curl or a device sends neither header and is not touched.
+                status = "403 Forbidden";
+                contentType = "application/json";
+                payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.CrossSite))}}}";
+            }
+            else if (!audience && !paired && method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?", StringComparison.Ordinal)
+                                                                 || path.StartsWith("/pgm.jpg", StringComparison.Ordinal) || path.StartsWith("/mv.jpg", StringComparison.Ordinal)))
+            {
+                // Round 83: with a token set, the state and the pictures are the show's too — a header, or the pages' cookie for their img tags; never a query string.
+                status = "403 Forbidden";
+                contentType = "application/json";
+                payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.NotPaired))}}}";
+            }
             else if (audience && method == "GET" && (path == "/" || path == "/index.html"))
             {
                 payload = PlayPage;
@@ -1493,7 +1511,9 @@ public sealed partial class ControlService : IDisposable
 var st = null, rev = 0, standbyId = '';
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
 function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
-function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} return true; }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns.token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
+function hdr(){ return {'X-Patterns-Client':'run-page', 'X-Patterns-Token':tok()}; }
+function gate(r){ if (r.status === 403) { if (pair()) location.reload(); throw new Error('not paired'); } return r; }
 function cmd(c, again) {
   return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'run-page', 'X-Patterns-Token':tok()} })
     .then(function(r){ if (r.status === 403 && !again && pair()) return cmd(c, true); return r.json().then(function(j){ document.getElementById('err').textContent = j.ok ? '' : j.msg; }); })
@@ -1534,11 +1554,11 @@ function render(s) {
   });
 }
 function poll() {
-  fetch('/api/state?since=' + rev).then(function(r){ return r.json(); })
+  fetch('/api/state?since=' + rev, { headers: hdr() }).then(gate).then(function(r){ return r.json(); })
     .then(function(s){ render(s); document.getElementById('err').textContent=''; poll(); })
     .catch(function(){ document.getElementById('err').textContent = 'Connection lost — retrying…'; setTimeout(poll, 1500); });
 }
-fetch('/api/state').then(function(r){ return r.json(); }).then(function(s){ render(s); poll(); });
+fetch('/api/state', { headers: hdr() }).then(gate).then(function(r){ return r.json(); }).then(function(s){ render(s); poll(); });
 setInterval(function(){ var i=document.getElementById('pgm'); var n=new Image(); n.onload=function(){ i.src=n.src; }; n.src='/pgm.jpg?t='+Date.now(); }, 2000);
 </script>
 </body>

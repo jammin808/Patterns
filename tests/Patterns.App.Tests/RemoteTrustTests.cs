@@ -269,9 +269,16 @@ public class RemoteTrustTests
             var pad = Http(port, "POST", "/api/arcade/key", "1 A TAP");
             Assert.Equal("403 Forbidden", pad.Status);
 
-            // The pages themselves, the state and the pictures are reading: open.
+            // The pages themselves are open; the state and the pictures are the show's too (round 83): the header, or the pages' cookie for their img tags.
             Assert.Equal("200 OK", Http(port, "GET", "/").Status);
-            Assert.Equal("200 OK", Http(port, "GET", "/api/state").Status);
+            var stateRefused = Http(port, "GET", "/api/state");
+            Assert.Equal("403 Forbidden", stateRefused.Status);
+            Assert.Contains("not paired", stateRefused.Body);
+            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("X-Patterns-Token", Token)).Status);
+            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("Cookie", "patterns.token=" + Token)).Status);
+            Assert.Equal("403 Forbidden", Http(port, "GET", "/pgm.jpg").Status);
+            Assert.Equal("403 Forbidden", Http(port, "GET", "/mv.jpg?w=320").Status);
+            Assert.Equal("200 OK", Http(port, "GET", "/pgm.jpg", "", ("Cookie", "patterns.token=" + Token)).Status);
 
             // A token in the URL is not a token: nothing reads query strings for credentials, and the route is not even there.
             Assert.NotEqual("200 OK", Http(port, "POST", "/api/cmd?token=" + Token, "BLACKOUT OFF").Status);
@@ -288,6 +295,55 @@ public class RemoteTrustTests
         {
             ControlService.TrustLoopback = trusted;
             vm.State.Control.Token = "";
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void APageFromAnotherOriginCannotPostToTheDeskWhileACurlAndTheDesksOwnPageCan()
+    {
+        var (services, vm) = Boot();
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = true;                                        // the show machine's own browser: trusted, and still not a way in for another site's page
+        try
+        {
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            Dispatcher.UIThread.RunJobs();
+            var port = vm.State.Control.HttpPort;
+
+            var evil = Http(port, "POST", "/api/cmd", "BLACKOUT ON", ("Origin", "http://evil.example"));
+            Assert.Equal("403 Forbidden", evil.Status);
+            Assert.Contains("another origin", evil.Body);
+            Assert.Equal("403 Forbidden", Http(port, "POST", "/api/cmd", "BLACKOUT ON", ("Sec-Fetch-Site", "same-site")).Status);
+            Assert.Equal("403 Forbidden", Http(port, "POST", "/api/cmd", "BLACKOUT ON", ("Origin", "null")).Status);
+            Assert.Equal("403 Forbidden", Http(port, "POST", "/api/cmd", "STATUS", ("Origin", "http://evil.example")).Status);
+            Assert.Equal("403 Forbidden", Http(port, "POST", "/api/stage/ack", "some-id", ("Origin", "http://evil.example")).Status);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.State.Blackout);
+
+            var own = Http(port, "POST", "/api/cmd", "BLACKOUT ON", ("Origin", "http://test"), ("Sec-Fetch-Site", "same-origin"));
+            Assert.Equal("200 OK", own.Status);                                     // the desk's own page: same origin as the Host it was served from
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.State.Blackout);
+
+            var curl = Http(port, "POST", "/api/cmd", "BLACKOUT OFF");
+            Assert.Equal("200 OK", curl.Status);                                    // a curl, a device, a script: no Origin, not touched
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.State.Blackout);
+
+            // A deliberate client sends X-Patterns-Client and passes whatever its origin: a browser cannot send that header cross-origin without a CORS grant the desk never gives.
+            var client = Http(port, "POST", "/api/cmd", "BLACKOUT ON", ("Origin", "http://tool.example"), ("X-Patterns-Client", "tool"));
+            Assert.Equal("200 OK", client.Status);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.State.Blackout);
+            Assert.Equal("200 OK", Http(port, "POST", "/api/cmd", "BLACKOUT OFF").Status);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.State.Blackout);
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
             Dispatcher.UIThread.RunJobs();
         }
     }
