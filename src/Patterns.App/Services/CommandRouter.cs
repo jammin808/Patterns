@@ -52,6 +52,12 @@ public sealed class CommandRouter : IRouter
                 var answer = await UiThread.InvokeAsync(() => _services.Assistant.AskAsync(question));
                 return ControlProtocol.Ok(JsonUtil.SerializeCompact(new { sent = answer.Sent, status = answer.Status, inScope = answer.Reply?.InScope ?? false, reply = answer.Reply?.Reply ?? "" }));
             }
+            if (cmd.Kind == RemoteCommandKind.EyeAt)
+            {
+                // The record at an instant, the page untouched: the journal and the metrics file are read on a worker,
+                // never on the UI thread, and the reply waits for that read.
+                return await UiThread.InvokeAsync(() => _services.Eye.JsonAtAsync(cmd.Text));
+            }
             return await UiThread.InvokeAsync(() => Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp)));
         }
         catch (Exception ex)
@@ -111,8 +117,6 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Actions.CommissionJson());
             case RemoteCommandKind.EyeStatus:
                 return ControlProtocol.Ok(_services.Eye.Json());
-            case RemoteCommandKind.EyeAt:
-                return _services.Eye.JsonAt(cmd.Text);                                          // round 84: the record at an instant, the page untouched
             case RemoteCommandKind.MidiStatus:
                 return ControlProtocol.Ok(_services.MidiLearn.Json());
             case RemoteCommandKind.NavStatus:

@@ -174,8 +174,8 @@ public sealed partial class MainViewModel
 
     public string EyeReplayButton => EyeReplaying ? "NOW" : "REPLAY";
 
-    /// <summary>The strip's line: the instant, the rows in its window, how the desk was doing then.</summary>
-    public string EyeReplayWords => _services.Eye.Moment is { } m ? EyeReplay.Words(m) : "";
+    /// <summary>The strip's line: the instant, the rows in its window, how the desk was doing then — or that the record is still being read.</summary>
+    public string EyeReplayWords => _services.Eye.Moment is { } m ? EyeReplay.Words(m) : _services.Eye.Reading ? "Reading the record on a worker — the picture relights when it is read." : "";
 
     /// <summary>The record's reach, first stamp to last, in the desk's clock.</summary>
     public string EyeReplaySpan => _services.Eye.Record is { IsEmpty: false, FirstUtc: { } first, LastUtc: { } last }

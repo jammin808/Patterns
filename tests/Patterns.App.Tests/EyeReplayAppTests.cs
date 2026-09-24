@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -19,6 +20,13 @@ public class EyeReplayAppTests
     private static string Send(CommandRouter router, string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
 
     private static string Csv(AppServices services) => Path.Combine(services.Store.BaseDirectory, "patterns.metrics.csv");
+
+    /// <summary>The record is read on a worker (round 85): runs the desk until the read has landed on the page.</summary>
+    private static void Read(AppServices services)
+    {
+        if (services.Eye.ReplayRead is { } read) TestApp.Pump(read.ContinueWith(_ => true, TaskScheduler.Default));
+        Dispatcher.UIThread.RunJobs();
+    }
 
     [AvaloniaFact]
     public void TheReplayRelightsThePageFromTheRecordAndLeavesTheRailLive()
@@ -51,9 +59,11 @@ public class EyeReplayAppTests
             // EYE REPLAY <time>: the record opens there; the page's picture is the record's, the rail's is the desk's.
             var at30 = ReplayTime.Stamp(t0.AddSeconds(30));
             var reply = Send(router, "EYE REPLAY " + at30);
-            Assert.StartsWith("OK Replay ", reply);
-            Assert.Contains("rows in the 30 s before", reply);
+            Assert.StartsWith("OK Reading the record", reply);                                                        // the files are read on a worker
             Assert.True(services.Eye.Replaying);
+            Read(services);
+            Assert.False(services.Eye.Reading);
+            Assert.Contains("rows in the 30 s before", vm.EyeReplayWords);
             Assert.Equal(t0.AddSeconds(30), services.Eye.ReplayAtUtc);
             Assert.NotSame(services.Eye.Graph, services.Eye.Shown);
             Assert.Equal(services.Eye.Graph.Nodes.Select(n => n.Id), services.Eye.Shown.Nodes.Select(n => n.Id));     // the structure of now
@@ -139,7 +149,7 @@ public class EyeReplayAppTests
             Assert.Contains("EYE REPLAY OFF", menu);
 
             // The tick rebuilding the structure keeps the lights of then on it: a device that joins now is in the replay, grey, with the reason.
-            Send(router, "EYE REPLAY " + at30);
+            Assert.StartsWith("OK Replay ", Send(router, "EYE REPLAY " + at30));                                          // the record is read: at once
             Assert.Equal(CheckLight.Red, services.Eye.Shown.Find(EyeGraph.DeskId)!.Light);
             var device = DeviceProfiles.Preset(DeviceProfile.Companion, 1);
             device.Name = "Replay Deck";
@@ -187,12 +197,14 @@ public class EyeReplayAppTests
             // One sample alone is a record (the refusal above is a journal row now, too); ON opens at the record's last stamp.
             var t = new DateTime(2026, 9, 24, 19, 0, 0, DateTimeKind.Utc);
             File.WriteAllLines(Csv(services), new[] { MetricsCsv.Header, MetricsCsv.Line(new MetricSample { Utc = t, P95FrameMs = 9, OutputFps = 60, WorstFrameMs = 12, RenderFaults = 1 }) });
-            Assert.StartsWith("OK Replay ", Send(router, "EYE REPLAY ON"));
+            Assert.StartsWith("OK Reading the record", Send(router, "EYE REPLAY ON"));
             Assert.True(services.Eye.Replaying);
+            Read(services);
+            Assert.False(services.Eye.Reading);
             Assert.Equal(services.Eye.Record.LastUtc, services.Eye.ReplayAtUtc);
             Assert.Contains(services.Eye.Record.Samples, s => s.Utc == t);
 
-            // At the sample's own instant the desk wears it: a render fault with no sample before it is red.
+            // At the sample's own instant the desk wears it: a render fault with no sample before it is red. The record is read, so the time lands at once.
             Assert.StartsWith("OK Replay " + t.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture), Send(router, "EYE REPLAY " + ReplayTime.Stamp(t)));
             Assert.Equal(t, services.Eye.ReplayAtUtc);
             Assert.Equal(CheckLight.Red, services.Eye.Shown.Find(EyeGraph.DeskId)!.Light);

@@ -169,24 +169,36 @@ public sealed class EyeService
         return Graph.Lines();
     }
 
-    // ---- the replay (round 84) ----------------------------------------------------------------
+    // ---- the replay (round 84; the record read off the desk's thread, round 85) ----------------
 
     /// <summary>The journal rows a replay reads back — the newest; a four-megabyte journal holds fewer.</summary>
     private const int JournalRows = 20000;
 
+    /// <summary>The metrics lines read per file — a fence over a file the writer rotates at a megabyte, never reached by a healthy one.</summary>
+    private const int MetricsLines = 60000;
+
     private ReplayRecord? _record;
     private EyeGraph? _replayed;
+    private TaskCompletionSource? _read;
+    private int _generation;
+    private DateTime? _openAt;
 
-    /// <summary>True while the page shows the record instead of the picture of now.</summary>
-    public bool Replaying => _record is not null;
+    /// <summary>True while the page shows the record instead of the picture of now — from the press, through the read, until NOW.</summary>
+    public bool Replaying => _record is not null || _read is not null;
 
-    /// <summary>The record the replay reads; empty while the replay is closed.</summary>
+    /// <summary>True while the record is being read on a worker; the strip says so and the scrub bar waits.</summary>
+    public bool Reading => _read is not null;
+
+    /// <summary>The read in flight — the tests and the wire await it; null when none.</summary>
+    public Task? ReplayRead => _read?.Task;
+
+    /// <summary>The record the replay reads; empty while the replay is closed or the record is still being read.</summary>
     public ReplayRecord Record => _record ?? ReplayRecord.Empty;
 
     /// <summary>The instant the replay stands at (UTC) — the record's last stamp when it opens with ON.</summary>
     public DateTime ReplayAtUtc { get; private set; }
 
-    /// <summary>The moment shown; null while the replay is closed.</summary>
+    /// <summary>The moment shown; null while the replay is closed or the record is still being read.</summary>
     public ReplayMoment? Moment { get; private set; }
 
     /// <summary>
@@ -206,22 +218,78 @@ public sealed class EyeService
         return Open(at);
     }
 
+    /// <summary>
+    /// Opens the replay. A record already read is shown at once; otherwise the files are read on a worker — the
+    /// desk's thread never parses a journal — and the picture relights when the read lands, at the time asked for
+    /// or at the record's last stamp. The record is the files as they stood at the press: a row or a sample stamped
+    /// after it — the press's own journal row among them — is not in it, so ON opens on what happened before the
+    /// press, never on the press. A desk with neither file is refused with the reason before any read.
+    /// </summary>
     private ActionResult Open(DateTime? atUtc)
     {
         EnsureRead();
-        var record = _record ?? Load();
-        if (record.IsEmpty) return ActionResult.Refused("Nothing to replay — the journal and the metrics file hold no rows yet.");
-        _record = record;
-        Show(atUtc ?? record.LastUtc ?? DateTime.UtcNow);
-        return ActionResult.Done("Replay " + EyeReplay.Words(Moment!));
+        if (_record is { } record)
+        {
+            Show(atUtc ?? record.LastUtc ?? DateTime.UtcNow);
+            return ActionResult.Done("Replay " + EyeReplay.Words(Moment!));
+        }
+        if (!File.Exists(_s.Journal.Path) && !File.Exists(MetricsPath("")) && !File.Exists(MetricsPath(".old")))
+        {
+            return ActionResult.Refused("Nothing to replay — the journal and the metrics file hold no rows yet.");
+        }
+        _openAt = atUtc;
+        if (_read is not null) return ActionResult.Requested("Reading the record — the picture relights when it is read.");
+        var generation = ++_generation;
+        var pressedUtc = DateTime.UtcNow;
+        var read = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _read = read;
+        Moved();
+        _ = ReadAsync(read, generation, pressedUtc);
+        return ActionResult.Requested("Reading the record on a worker — the picture relights when it is read.");
+    }
+
+    private async Task ReadAsync(TaskCompletionSource read, int generation, DateTime untilUtc)
+    {
+        ReplayRecord? record = null;
+        try
+        {
+            record = await Task.Run(() => Load(generation, untilUtc));
+        }
+        catch (OperationCanceledException)
+        {
+            // Closed, or opened again, before the read ended: this read's record is nobody's.
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The replay could not read the record.", ex);
+        }
+        try
+        {
+            if (!ReferenceEquals(_read, read)) return;                              // a close or a later open outran this read
+            _read = null;
+            if (record is null)
+            {
+                Moved();
+                return;
+            }
+            _record = record;
+            Show(_openAt ?? record.LastUtc ?? DateTime.UtcNow);
+        }
+        finally
+        {
+            read.TrySetResult();
+        }
     }
 
     private ActionResult Close()
     {
-        if (_record is null) return ActionResult.Done("The picture of now — the replay was not open.");
+        if (_record is null && _read is null) return ActionResult.Done("The picture of now — the replay was not open.");
+        _generation++;                                                              // a read in flight sees it and stops
+        _read = null;
         _record = null;
         _replayed = null;
         Moment = null;
+        _openAt = null;
         Moved();
         return ActionResult.Done("The picture of now.");
     }
@@ -240,12 +308,23 @@ public sealed class EyeService
         Show(_record.Clamp(ReplayAtUtc + by));
     }
 
-    /// <summary>EYE AT &lt;time&gt;: the picture as the record has it at that instant, as one wire reply — the operator's view untouched; the record read afresh while the replay is closed.</summary>
-    public string JsonAt(string words)
+    /// <summary>
+    /// EYE AT &lt;time&gt;: the picture as the record has it at that instant, as one wire reply — the operator's view
+    /// untouched. The replay's record when it is open, the read in flight when there is one, else a read of its own
+    /// on a worker; the desk's thread parses nothing either way.
+    /// </summary>
+    public async Task<string> JsonAtAsync(string words)
     {
         if (!ReplayTime.TryParse(words, DateTime.UtcNow, out var at)) return ControlProtocol.Err(NotATime((words ?? "").Trim()));
         EnsureRead();
-        var moment = EyeReplay.At(_record ?? Load(), at);
+        var record = _record;
+        if (record is null && _read is { } pending)
+        {
+            await pending.Task;
+            record = _record;
+        }
+        record ??= await Task.Run(() => Load(-1, DateTime.UtcNow));
+        var moment = EyeReplay.At(record, at);
         return ControlProtocol.Ok(EyeJson.Write(EyeReplay.Apply(Graph, moment), Placement, FocusId, Lens, moment));
     }
 
@@ -257,24 +336,52 @@ public sealed class EyeService
         Moved();
     }
 
-    /// <summary>The record from the desk's own files: the journal's newest rows and the metrics file with the one it rotated out before it.</summary>
-    private ReplayRecord Load()
+    /// <summary>
+    /// The record from the desk's own files: the journal's newest rows and the metrics file with the one it rotated
+    /// out before it, both bounded, and nothing stamped at or after <paramref name="untilUtc"/> — the instant of the
+    /// press or the ask, so the record is the files as they stood then. Runs on a worker; <paramref name="generation"/>
+    /// is the open it serves, and a close or a later open moves the generation so the read stops between lines (−1
+    /// reads to the end, for a query).
+    /// </summary>
+    private ReplayRecord Load(int generation, DateTime untilUtc)
     {
+        var rows = _s.Journal.Tail(JournalRows).Where(r => r.AtUtc < untilUtc).ToList();
+        Stale(generation);
         var samples = new List<MetricSample>();
-        foreach (var name in new[] { "patterns.metrics.csv.old", "patterns.metrics.csv" })
+        foreach (var suffix in new[] { ".old", "" })
         {
-            var path = Path.Combine(_s.Store.BaseDirectory, name);
+            var path = MetricsPath(suffix);
             try
             {
-                if (File.Exists(path)) samples.AddRange(MetricsCsv.Parse(File.ReadLines(path)));
+                if (File.Exists(path)) samples.AddRange(MetricsCsv.Parse(Bounded(File.ReadLines(path), generation)).Where(sample => sample.Utc < untilUtc));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Log.Warn($"The replay could not read {name}.", ex);
+                Log.Warn($"The replay could not read patterns.metrics.csv{suffix}.", ex);
             }
         }
-        return ReplayRecord.From(_s.Journal.Tail(JournalRows), samples);
+        Stale(generation);
+        return ReplayRecord.From(rows, samples);
     }
+
+    private IEnumerable<string> Bounded(IEnumerable<string> lines, int generation)
+    {
+        var n = 0;
+        foreach (var line in lines)
+        {
+            if (++n > MetricsLines) yield break;
+            if ((n & 1023) == 0) Stale(generation);
+            yield return line;
+        }
+    }
+
+    /// <summary>Stops a read whose open has been closed or replaced since; a query's read (−1) is never stopped.</summary>
+    private void Stale(int generation)
+    {
+        if (generation >= 0 && generation != Volatile.Read(ref _generation)) throw new OperationCanceledException("the replay closed before the record was read");
+    }
+
+    private string MetricsPath(string suffix) => Path.Combine(_s.Store.BaseDirectory, "patterns.metrics.csv" + suffix);
 
     private static string NotATime(string words) => $"'{words}' is not a time — ON, OFF, a clock time (20:14 or 20:14:03) or an ISO 8601 stamp (2026-09-24T20:14:03Z).";
 
