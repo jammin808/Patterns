@@ -12,7 +12,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   tab you were on is remembered, and the page waits on `GET /api/state?since=<rev>` so it
   changes the moment the show does. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
-  every command answers `OK`, `OK <json>` or `ERR <reason>`. On connect — and on every
+  every command answers `OK`, `OK <json>` or `ERR <reason>`; a line that makes the desk fault
+  behind the wire is answered `ERR the desk faulted on this line (<type>) — fault #n, logged` and
+  the connection stays, the fault in `patterns.log` (round 83). On connect — and on every
   change — the server pushes `STATE <json>` so controllers can show live feedback. Each
   connection has one writer on the desk's side (round 65): replies come back in the order the
   lines were sent, `STATE` pushes are latest-wins behind them — a slow deck gets the newest
@@ -303,7 +305,8 @@ clock with labels and on-air tally. Each tile is drawn at its target's real shap
 canvas is one wide tile, a screen inside one shows its own half — the same picture the wall
 shows; a target with no display attached falls back to 16:9. `GET /mv.jpg` returns the current
 frame for anything else (tally lights, dashboards); `GET /mv.jpg?w=1280` renders at that width
-(320–1920; default 1024).
+(320–1920; default 1024). On a paired desk the picture wants the token like a verb — `X-Patterns-Token`
+from a script, or the pages' own cookie — so an img tag on another host cannot present it (round 83).
 
 ## The cue stack on a tablet
 
@@ -504,14 +507,14 @@ key or two; the Patterns module (TCP) for the full feedback.
 
 ## HTTP API (anything else)
 
-- `GET /api/state` → the state JSON; `GET /api/state?since=<rev>` waits (up to 25 s) for the next change.
+- `GET /api/state` → the state JSON; `GET /api/state?since=<rev>` waits (up to 25 s) for the next change. On a paired desk it wants the token — the header, or the pages' cookie `patterns-token` (round 83).
 - `GET /api/cues` → the caller's cue list with notes, summaries, broken reasons and each cue's plan (planned start and length, follow delay, mark).
 - `GET /api/stage?since=<rev>` → the stage payload (`STAGE STATUS`), waiting up to the long-poll's limit for a change past `rev`; the `/stage` and `/timer` pages live on it.
 - `POST /api/stage/ack` with the message id as the body → `{"ok":true}` once; `{"ok":false,"reason":…}` for a message already seen or unknown.
 - `GET /api/arcade` → the arcade's status (`ARCADE STATUS`) — on a desk that hears arcade nodes, their list; `POST /api/arcade/key` with `<pad> <button> DOWN|UP|TAP` as the body → `{"ok":…,"msg":…}`; the phone pad at `/pad` is built on both.
 - **The audience port.** The phones' calls below answer only on the audience listener (Remote page → AUDIENCE; `AUDIENCE ON [port]`, default 9701, off by default, bindable to one address) — a socket that carries the play pages and nothing else: `/`, `/play`, `GET /api/play/state`, `POST /api/play/join|answer|say|vote|draughts`. Everything else — `/api/cmd`, the state, the pictures, `/host`, `/api/admin` — answers 404 there, and the control port answers 404 for the phones' paths. Put the audience port on the audience network and never the control port. Budgets: the seats (`AudienceMaxPlayers`), joins per address per minute, answers, messages, votes and moves per phone per minute, phones waiting at once, connections in all and per address; past one, a phone is told to slow down or that the room is full, and the show is untouched. A venue whose Wi-Fi puts every phone behind one address (a NAT gateway, a captive portal's proxy) would meet the per-address budgets by the twentieth join: the Remote page's Network picker has a **venue NAT** profile that opens them to the room and leaves the per-phone ones standing, and the room's line says when joins were refused from one address, with the fix named. `AUDIENCE STATUS` reads the listener, the seats, the connections, the waiting phones, the network profile, the refusals and the budgets.
 - `POST /api/play/join` `{"nick","group","token","room"}` → `{"ok","token","nick","group","room","show"}`; `GET /api/play/state?token=&since=<seq>&rev=<rev>` → what one phone sees (the question and its own answer, its messages past `since`, the leaderboard, the path, the draughts board), waiting on the room's revision; `POST /api/play/answer` `{"token","question","choices":[],"scale","words"}`; `POST /api/play/say` `{"token","text"}`; `POST /api/play/vote` `{"token","option"}`; `POST /api/play/draughts` `{"token","action":"seat|move|leave","side","from","to"}`; `POST /api/play/host` with the admin passcode as the body → the host's JSON; `GET /api/play` → `PLAY STATUS`; `GET /api/play/feed.csv` → the room as lines for the message overlay's feed.
-- `GET /pgm.jpg` → the program as a JPEG thumbnail.
+- `GET /pgm.jpg` → the program as a JPEG thumbnail; paired, the token as for `/api/state`.
 - `GET /api/screens/<n>/edid.bin` → the planned screen's EDID (round 65.8) as bytes — an E-EDID 1.4 base block, a CTA-861 extension, a DisplayID 2.0 extension when the raster is past 4095 pixels; `edid.hex` the same as hex pairs, `edid.txt` the summary (the plan, the timing, what it advertises, its SHA-256, how to use it). Reading: no token. Load it as the custom EDID of the processor input or the PC's port the screen's link lands on, and the desk's signal view says whether the display presents it.
 - `POST /api/cmd` with a command line as the body → `{"ok":true|false,"msg":"…"}`. Cue commands
   (`CUE …`, `STOPALL`) need an `X-Patterns-Client: <anything>` header, so a page from another
@@ -520,7 +523,11 @@ key or two; the Patterns module (TCP) for the full feedback.
   answer is `403` with `{"ok":false,"msg":"ERR not paired …"}` and nothing runs; the queries
   (`STATUS`, `CUE LIST`, `MENU …`) never need it, and neither does a browser on the desk's own
   machine. `POST /api/stage/ack` and `POST /api/arcade/key` want the same header. A token in the
-  URL is not read.
+  URL is not read. A POST from a browser page of another origin — an `Origin` that is not this
+  desk's, or a cross-site or same-site `Sec-Fetch-Site` — is refused with `ERR a page from another
+  origin cannot run the show …` unless it carries `X-Patterns-Client`, which a page cannot send
+  cross-origin without a CORS grant the desk never gives; a curl or a device sends neither header
+  and is not touched (round 83).
 
 `curl -d "LOOK Walk-in" http://<ip>:9696/api/cmd`
 `curl -H "X-Patterns-Client: curl" -d "CUE STANDBY NEXT" http://<ip>:9696/api/cmd`

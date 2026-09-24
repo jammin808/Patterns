@@ -3258,3 +3258,58 @@ mute-first ask, and the crash gap's measurement on the rig.
 
 - Core 986, Rendering 669, Devices 8, Audio 13, Audience 2, Assistant 37, App 810 — 2,525; the module's 34 node tests.
 - Walk: unwalked (no platform path touched).
+
+## Round 83 review — the ledger's rows that are code
+
+### 83.0 — the round opened
+
+- The maintainer's "continue to round 83": the six ledger rows round 82's papers named as code the size of
+  a screen with a test, each re-read against the head before its unit (§101.1). `docs/field/` has no files.
+
+### 83.1 — a fault behind the wire is answered ERR and logged
+
+- **Done.** §101.2. `Faults.IsIoEnd`, `FaultThrottle`, the per-line catch and the HTTP `500`, the REMOTE row,
+  `CommandRouter.FaultOn`.
+
+### 83.2 — a page from another origin cannot run the show; STATE and the pictures wait for the token
+
+- **Done.** §101.3. `HttpHead.CrossSite` over `Origin`, `Host` and `Sec-Fetch-Site`; every POST from another
+  origin refused without the client header; the state and the pictures paired, by the header or the
+  pages' cookie; the run page's poll and its pairing.
+
+### 83.3 — a sidecar reaches the disk before its move; the recovery record keeps the one before it
+
+- **Done.** §101.4. `AtomicFile` flushes before the move (`durable`, the playhead opting out); the recovery
+  record's `.bak`, read when the record is torn, the problem on a Super Check row; `Clear` removes both.
+
+### 83.4 — the word list matches whole words
+
+- **Done.** §101.5. `WordList` with the wildcard grammar and the defaults in it; `PlayRoom.IsBlocked` reads it.
+
+### 83.5 — the feed capped, its failure one line, the ticker through the word list
+
+- **Done.** §101.6. `FeedParser.MaxBytes` on the client and the file, `Parse` with its problem, `Moderate`
+  with the count on the status line, `Faults.Brief` on the status and in the log.
+
+### 83.6 — the NDI receiver refuses a frame described wrongly
+
+- **Done.** §101.7. `NdiReceiver.FrameShapeProblem` before the copy; refusals counted on the source's status.
+
+### 83.7 — the cookie's name is not a sidecar's (found on the way)
+
+- **Done.** §101.9. `patterns-token`; the support-bundle fence unchanged and green.
+
+### The ledger's rows, answered
+
+- **Closed:** L31 (83.1), L32 (83.2 — the cross-origin rule, the state and the pictures paired), L34 (83.3),
+  L37 (83.4), L39 (83.5 — the cap, the first line, the moderation), L41 (83.6).
+- **Added:** L42 — the network defaults and a token minted on first run, the design half of L32; L43 — a feed
+  over `http://` altered in transit.
+- **Not measured:** the flush's cost per recovery write on a disk and a stick; QUALIFICATION §24 asks the
+  walk for it.
+- Closed rows: twenty-seven; open: sixteen.
+
+### The suites
+
+- Core 998, Rendering 670, Devices 8, Audio 13, Audience 2, Assistant 37, App 812 — 2,540; the module's 34 node tests.
+- Walk: unwalked — 83.3 touches the record a restart reads; QUALIFICATION §24's row is the walk's.

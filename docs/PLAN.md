@@ -11107,3 +11107,173 @@ the wire document has since round 81.
   `docs/REMOTE.md` (the week ceiling on PLAN SHIFT and TIMER ADD, the plan and countdown-follow OSC addresses,
   the faulted message's answer); the tag table row 81 (`55a2b53`); `docs/OPEN.md` — L31–L41 added, none
   closed. The module is unchanged (3.16.0); `docs/COMPANION.md` and QUALIFICATION have nothing to carry.
+
+## 101. Round 83 — the ledger's rows that are code: a fault behind the wire is answered, a page from another origin cannot run the show, a sidecar reaches the disk, the word list on whole words, the feed capped and moderated, the NDI receiver's copy guarded
+
+### 101.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** The maintainer's "continue to round 83", after round 82's papers
+named the six ledger rows that are code the size of a screen with a test: the findings of the handed-in
+review (round 82) that its patch set did not write — L31, L32, L34, L37, L39 and L41. Each row was re-read
+against the head before its unit was designed, and each unit's claim below is what the code did on the
+head, not what the row said. No files have arrived in `docs/field/`; there is nothing to read as what the
+files said. Every unit's fence is a test in the suite it belongs to; the one cost the round adds and could
+not measure — the flush to the disk before a sidecar's move — is written as such in §101.8.
+
+### 101.2 A fault behind the wire is answered ERR and logged, never a silent disconnect (83.1, L31)
+
+**The claim.** The TCP handler's loop and the HTTP handler's request each ran under one catch that treated
+every exception as a routine disconnect. The router converts its own faults into an `ERR` line, but the
+parse before it, the greeting and any throw outside the router's catch escaped to that outer catch: the
+connection closed, nothing was logged, and the sender learned nothing. Round 82.1 removed the one input
+known to reach it (`PLAN SHIFT` past a clock); the shape stayed.
+
+**The design.** `Faults.IsIoEnd` tells a socket's end — cancellation, disposal, an I/O or socket error —
+from a fault, which is anything else. The TCP loop parses and routes each line under its own catch: a fault
+answers `ERR the desk faulted on this line (<type>) — fault #n, logged` and the loop carries on, so the
+fault is the line's and never the connection's; the HTTP handler runs its routes under one catch and
+answers `500` with the same `ERR` in the JSON. Both outer catches log anything that is not a socket's end.
+A `FaultThrottle` counts every fault and writes the first with its stack, then one a minute with the count,
+so a fault that repeats on every line can neither fill `patterns.log` nor hide in it; the count is on the
+Super Check's REMOTE row ("Wire faults", amber). The reply names the exception's type and the count — never
+the line, which may carry a token, and never the stack. `CommandRouter.FaultOn` is the seam the fault test
+uses: a predicate that throws before the router's own catch, the way a parser throws outside it.
+
+**The proof.** `FaultsTests` (the classifier over the socket's exceptions and the faults, the brief, the
+throttle's first-then-one-a-minute with the count); `WireFaultAppTests` over a real loopback wire — the
+`ERR` line with the count, the next line answered `OK PONG` on the same connection, the HTTP `500` with the
+`ERR` JSON, the count on the check facts and the row.
+
+### 101.3 A page from another origin cannot run the show; STATE and the pictures wait for the token (83.2, L32)
+
+**The claim.** A browser on the show machine is loopback, so trusted with a token set, and `X-Patterns-Client`
+was demanded for cue verbs alone: a page from any site open in that browser could post `BLACKOUT ON` to
+`/api/cmd`, since a browser sends the desk's port a form post from anywhere. `/api/state`, `/pgm.jpg` and
+`/mv.jpg` answered anyone with a token set.
+
+**The design.** The HTTP head carries `Origin`, `Host` and `Sec-Fetch-Site`, and `HttpHead.CrossSite` says when
+a request came from a browser page of another origin: a cross-site or same-site fetch site (same-site is
+another origin on this host — another port, another app), or an `Origin` that is not the desk's own `Host`
+(`null`, a file or sandboxed page, included). Every `POST` on the control port from such a page is refused
+without the client header, paired or not: the desk's own pages are same-origin, and a deliberate client's
+header cannot be sent cross-origin without a CORS grant the desk never gives. A curl, a device or a script
+sends neither header and is not touched, so the wire document's curl lines stand. With a token set, the
+state and the pictures are the show's too: the header, or the pairing token in the pages' own cookie
+(`patterns-token`, `SameSite=Strict`) for the img tags a browser sends with no header of theirs — never a
+query string, as round 65 ruled and its test still asserts. The run page sends the token on its state
+poll, sets the cookie when it pairs, and a `403` on the poll asks to pair and reloads. What this costs: a
+dashboard on another host that read `/mv.jpg` by an img tag alone loses the picture on a paired desk; it
+presents the header from a script, or the desk stays unpaired on a trusted network as before.
+
+**The proof.** `HttpHeadTests` (the fields, the cookie's token behind the header's, the cross-site table);
+`RemoteTrustTests` — the state and the pictures `403` unpaired and `200` with the header or the cookie
+(`/pgm.jpg` rendered on the headless desk), a cross-origin post refused by `Origin`, by `Sec-Fetch-Site`
+and by a null origin with loopback trusted, while the same-origin page, the curl and the client with the
+header run the show.
+
+### 101.4 A sidecar reaches the disk before its move; the recovery record keeps the one before it (83.3, L34)
+
+**The claim.** `AtomicFile` wrote the temp file with `File.WriteAllText` and moved it: the move could land
+and the bytes not, so a power cut left an empty file with the record's name. The recovery record — the
+sidecar a restart reads to put the air back — had no backup, and one that could not be read was "no crash".
+On a FAT32 or exFAT stick, which the README names, a replacing move is not atomic and no flush mends that.
+
+**The design.** The temp file is flushed to the disk before the move (`FileStream.Flush(flushToDisk: true)`)
+for every record a restart reads; a writer that comes round again within a second may say `durable: false`,
+and the playhead does, since its next write is a second away and a power cut loses that second at most.
+The recovery record is written keeping the one before it as `.bak`; a record that cannot be read at boot is
+read from its backup, and the problem is kept on the store and said on a Super Check row ("Recovery
+record", amber, "unreadable at boot"), because a disk that loses writes shows nowhere else; a record with no
+readable backup either says so rather than reading as "no crash"; `Clear` removes both. `File.Replace` was
+not taken: `File.Move(overwrite: true)` is one `MoveFileEx` with replace on Windows, atomic on NTFS, and the
+backup is what covers the sticks.
+
+**The proof.** `AtomicFileTests` — the ladder, the torn record read from its backup with the problem's words,
+the backup unreadable too, the next write healing both, `Clear` leaving nothing, the playhead's undurable
+write; the source fence still holds every temp-then-move write to the helper; the restart, handover and
+takeover tests unchanged and green.
+
+### 101.5 The word list matches whole words, and an entry's own wildcards say otherwise (83.4, L37)
+
+**The claim.** `PlayRoom.IsBlocked` matched a listed word inside any longer one, so "Scunthorpe" was refused
+with the word it holds, and since 82.5 a nickname and a group met it as an answer does.
+
+**The design.** `WordList` (Core) matches whole words: a word is a run of letters and digits, punctuation
+and spaces are the boundaries, case never matters. An entry says otherwise with its own wildcard — `fuck*`
+a word that starts so, `*fuck` one that ends so, `*fuck*` one that holds it anywhere — and an entry with a
+space is a phrase, whole words in order. The defaults are written in that grammar, so the strongest words
+still catch their compounds while a place name passes; the list is the maintainer's to change on the room.
+`PlayRoom.IsBlocked` reads it, so names, groups, answers, messages and (§101.6) the ticker meet one rule.
+
+**The proof.** `WordListTests` — the whole word, the wildcards, the phrase, the empties, the defaults over
+Scunthorpe and Penistone; `AudienceTests`' listed-word case reads whole words now.
+
+### 101.6 The feed is capped, its failure is one line, and the ticker meets the word list (83.5, L39)
+
+**The claim.** The feed's `HttpClient` had a timeout and no size, so a document was buffered whole up to the
+client's 2 GB; `FeedParser.Parse` logged a parser's exception with its message, which for an unclosed XML
+document is the document; the service put the same message on the status line; and the ticker's items
+reached the wall with no moderation.
+
+**The design.** `FeedParser.MaxBytes` (2 MB) is the client's buffer size and the file path's check, so a
+document past it is refused before it is read whole. `Parse` has an overload that returns the problem —
+the exception's type and first line (`Faults.Brief`), never the document — and logs the same; the service
+logs the first line too, with the stack only for a fault that is not the feed's own (not a request, I/O,
+timeout, size or format failure), and puts the first line on the status. The items meet the room's word
+list through `FeedParser.Moderate`: the held-back ones are counted on the status line ("2 held back by the
+word list"), and a feed whose every item was held says so. A slow parse of a small malformed document is
+still seconds, off the UI thread as before; the cap bounds the size, not the parser.
+
+**The proof.** `FeedModerationTests` — the moderation and its count, the cap's value, a torn RSS document's
+problem as one short line, a good feed's empty problem.
+
+### 101.7 The NDI receiver refuses a frame the runtime described wrongly (83.6, L41)
+
+**The claim.** `PublishFrame` checked the pointer, the width and the height and copied every row by the
+runtime's `LineStrideInBytes` for `Xres × 4` bytes: a stride below a row, or a colour format the receiver
+never asked for, was read past its buffer.
+
+**The design.** `NdiReceiver.FrameShapeProblem` — pure, so the guard is a unit test — names an empty raster,
+a colour format that is not the BGRA or BGRX the receiver asked for, or a stride below the row, and the
+copy runs only past it. Refusals are counted and named on the source's status ("3 frames refused (a stride
+of … below the row's …)"), which is the card's text, so a sender whose frames are described wrongly is seen
+rather than silently dropped.
+
+**The proof.** `NdiFrameShapeTests` (Rendering suite) — the good frame, the padded row, the short and the
+zero and the negative stride, the wrong format, the empty raster, and a width past an int refused rather
+than overflowed into acceptance.
+
+### 101.8 What the round did not do, and what is next
+
+- **L32's other half** stays: the defaults (control on, bound to every interface, no token, announced over
+  mDNS) and a token minted on first run are a design decision, re-opened as L42 with the rest of the row
+  closed by 83.2.
+- **L39's plain-HTTP feed** stays: a feed fetched over `http://` can be altered in transit; the row's fix
+  list did not name it and it is L43.
+- **No measurement this round** of the flush's cost: an fsync per recovery-record write on the show
+  laptop's disk and on a USB stick. The persistence lane carries it off the desk thread, the playhead opts
+  out, and the number is the walk's to read (`docs/QUALIFICATION.md` §24).
+- **Every reader.** The wire faults reach the log, the reply and the Super Check; STATE and the Eye do not
+  carry the count, since the reply itself tells the sender and the row tells the operator. The recovery
+  problem reaches the log and the Super Check; the recovery row of the Machine page does not exist and was
+  not made.
+- No verb an output can show landed: the round closes with no journal row, no log line and no Super Check
+  row to read beside an output, and this sentence says so.
+- 83.3 touches the record a restart reads, which is the process path: the round is unwalked until §24's
+  row is filled on the show laptop.
+
+### 101.9 The cookie's name is not a sidecar's (83.7, found on the way)
+
+**The claim.** The full run's one red: `SupportBundleFenceTests` reads every `patterns.*` constant in the core
+as a sidecar's file name and asks that each is bundled or named as never bundled — and the cookie's first
+name, `patterns.token`, read as one. **The design.** The cookie is `patterns-token`; the fence stands as it
+was, and the pages' `localStorage` key keeps its dot, since no fence reads the pages. **The proof.** The
+fence, green on the whole run; `HttpHeadTests` and `RemoteTrustTests` on the new name.
+
+### 101.10 The papers (83.8)
+
+- This section; REVIEW round 83; CHANGELOG (with the evidence class); README (the ledger's entry, the count);
+  `docs/REMOTE.md` (the faulted line's `ERR`, the cross-origin rule, the state and the pictures behind
+  pairing with the cookie); `docs/QUALIFICATION.md` §24 (the recovery record's backup on a stick, the
+  flush's cost); `docs/OPEN.md` — L31, L32, L34, L37, L39 and L41 closed, L42 and L43 added; the tag table
+  row 82 (`0b38328`). The module is unchanged (3.16.0).

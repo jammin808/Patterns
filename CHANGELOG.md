@@ -10,6 +10,36 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 83 — 2026-09-24 — the ledger's rows that are code: a fault behind the wire is answered, a page from another origin cannot run the show, a sidecar reaches the disk, whole words on the word list, the feed capped and moderated, the NDI receiver's copy guarded
+
+`round-83` · PLAN §101 · REVIEW round 83 · 2,540 tests · module unchanged (3.16.0) · evidence: the ledger's six code-sized rows from the handed-in review (round 82), each re-read against the head; the maintainer's "continue to round 83"
+
+- **A fault behind the wire is answered, never a silent disconnect (L31).** The TCP loop parses and routes each
+  line under its own catch and answers `ERR the desk faulted on this line (<type>) — fault #n, logged`; the HTTP
+  handler answers `500` with the same `ERR`; a socket's end is still routine and anything else leaves its trace,
+  the first with its stack and then one a minute with the count, which the Super Check's REMOTE row carries.
+- **A page from another origin cannot run the show (L32).** The HTTP head reads `Origin`, `Host` and
+  `Sec-Fetch-Site`; a POST from a browser page of another origin is refused without `X-Patterns-Client`, paired,
+  loopback or not, while a curl or a device sends neither header and is not touched. With a token set, `/api/state`,
+  `/pgm.jpg` and `/mv.jpg` want the token too — the header, or the pages' own cookie for their img tags; never a
+  query string.
+- **A sidecar reaches the disk before its move, and the recovery record keeps the one before it (L34).** `AtomicFile`
+  flushes the temp file to the disk before the move (the per-second playhead opts out); the recovery record is
+  written keeping `.bak`, a torn record is read from it, and the Super Check says so; no readable backup either
+  is said, not read as "no crash".
+- **The word list matches whole words (L37).** "Scunthorpe" passes; an entry's own wildcards — `fuck*`, `*fuck`,
+  `*fuck*` — say when a word that starts, ends or holds it is meant, and an entry with a space is a phrase; the
+  defaults are written in that grammar.
+- **The feed is capped, its failure is one line, and the ticker meets the word list (L39).** 2 MB on the client and
+  the file; the status line and the log get the exception's type and first line, never the document; items with
+  a listed word are held back and counted on the status.
+- **The NDI receiver refuses a frame described wrongly (L41).** A stride below a row or a colour format it never
+  asked for is refused before the copy, counted and named on the source's status.
+- **Found on the way.** The support-bundle fence read the pages' new cookie `patterns.token` as a sidecar's
+  name; the cookie is `patterns-token` and the fence stands (83.7). The ledger: six rows closed, two added (L42 the network defaults and a first-run
+  token, the design half of L32; L43 a feed over `http://`). No verb an output can show landed. Unwalked: 83.3
+  touches the record a restart reads; QUALIFICATION §24.
+
 ## Round 82 — 2026-09-24 — a handed-in review answered: time on the wire is finite, every number the show writes is finite, every documented OSC address routes, the OSC port survives a fault, the wall's names meet the word list, the parsers under a fixed-seed fuzz
 
 `round-82` · PLAN §100 · REVIEW round 82 · 2,525 tests · module unchanged (3.16.0) · evidence: a handed-in review of the code, the architecture and the resiliency with a fuzz harness of its own, its patch set written against round 80 and merged here, and the maintainer's "continue to round 82"

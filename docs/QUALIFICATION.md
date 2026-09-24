@@ -596,6 +596,25 @@ the outputs on reads Done · Changed · OutputsLive and its words name the scree
 |------|---------|-----------------------|-------------------------------|----------------|---------------------|--------------------------------------|-------------------|---------------------------|-------------------------|-------------------------------|--------|
 |      |         |                       |                               |                |                     |                                      |                   |                           |                         |                               |        |
 
+## 24. The recovery record's backup on a stick, and the flush's cost (round 83)
+
+**Set up.** The show laptop running from the USB stick the README names (FAT32 or exFAT), a clip on air
+with a timeline, `patterns.log` tailed, the Machine page open.
+
+**Do.** (1) Run five minutes with the clip playing; read the persistence lane's timing on the Machine page
+and the desk tick beside it — the recovery record is now flushed to the disk on each write, the playhead
+is not. (2) Pull the stick's power the hard way (the laptop's battery out, or the stick yanked) mid-show,
+twice. (3) Boot again each time and read the Super Check: a "Recovery record" row says the record was read
+from its backup; no row says it read whole.
+
+**Pass.** The air is put back after both pulls (the outputs open with the last picture, the clip resumes
+near its position). No boot reads as "no crash" with the outputs left closed. The lane's timing with the
+flush is written in the row; a figure past 50 ms a write on the stick is the number the next round governs.
+
+| date | machine | stick (filesystem) | lane timing with the flush | pulls | put back after each | Recovery row read | files |
+|------|---------|--------------------|----------------------------|-------|---------------------|-------------------|-------|
+|      |         |                    |                            |       |                     |                   |       |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute
