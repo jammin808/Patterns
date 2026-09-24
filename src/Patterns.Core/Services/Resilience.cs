@@ -223,7 +223,8 @@ public sealed class RecoveryStore
     /// <summary>
     /// The record, or null when a clean exit cleared it. A record that cannot be read (a power cut mid-move, a stick
     /// whose move is not atomic) is not "no crash": the one written before it is read instead (round 83), and the
-    /// problem is kept for the Super Check so a disk that loses writes is seen.
+    /// problem is kept for the Super Check so a disk that loses writes is seen. A file that parses to no record at
+    /// all — the literal null — is unreadable in the same sense (round 85): it holds no record, so the backup is read.
     /// </summary>
     public RecoverySnapshot? Read()
     {
@@ -231,7 +232,8 @@ public sealed class RecoveryStore
         if (!File.Exists(_path)) return null;
         try
         {
-            return JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(_path));
+            if (JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(_path)) is { } record) return record;
+            Log.Warn("Recovery file holds no record.");
         }
         catch (Exception ex)
         {
@@ -241,10 +243,13 @@ public sealed class RecoveryStore
         {
             try
             {
-                var previous = JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(_backup));
-                Problem = "the recovery record was unreadable at boot; the one written before it was put back instead";
-                Log.Warn(Problem);
-                return previous;
+                if (JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(_backup)) is { } previous)
+                {
+                    Problem = "the recovery record was unreadable at boot; the one written before it was put back instead";
+                    Log.Warn(Problem);
+                    return previous;
+                }
+                Log.Warn("Recovery backup holds no record either.");
             }
             catch (Exception ex)
             {
@@ -265,16 +270,33 @@ public sealed class RecoveryStore
     /// <summary>The record as its file holds it — compact, stamped now: the record holds a whole show state, and it is made while a show is running.</summary>
     public static string Serialize(RecoverySnapshot snapshot) => JsonUtil.SerializeCompact(snapshot with { UpdatedUtc = DateTime.UtcNow });
 
-    /// <summary>A record already serialised, onto the disk whole: flushed, then moved over the old one with the old one kept as .bak, so a reader never sees half a record and a torn one has a whole predecessor.</summary>
+    /// <summary>
+    /// A record already serialised, onto the disk whole: flushed, then moved over the old one with the old one kept as
+    /// .bak, so a reader never sees half a record and a torn one has a whole predecessor. The old one is kept only when
+    /// it is a record (round 85): a torn file rotated into .bak would bury the whole record the ladder exists to keep.
+    /// </summary>
     public void WriteJson(string json)
     {
         try
         {
-            AtomicFile.WriteAllTextKeepingBackup(_path, json);
+            AtomicFile.WriteAllTextKeepingBackup(_path, json, worthKeeping: IsRecord);
         }
         catch (Exception ex)
         {
             Log.Warn("Recovery file write failed.", ex);
+        }
+    }
+
+    /// <summary>True when the text is a whole record: it parses, and to something.</summary>
+    private static bool IsRecord(string text)
+    {
+        try
+        {
+            return JsonUtil.Deserialize<RecoverySnapshot>(text) is not null;
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 

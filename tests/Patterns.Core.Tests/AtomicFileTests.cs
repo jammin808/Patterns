@@ -30,6 +30,14 @@ public class AtomicFileTests
             Assert.Equal("two", File.ReadAllText(path + ".bak"));
             Assert.False(File.Exists(AtomicFile.TempPath(path)));
             Assert.Equal(path + ".tmp", AtomicFile.TempPath(path));
+
+            // Round 85: with a predicate the old one is kept only when it is whole — a torn file never goes over the backup.
+            AtomicFile.WriteAllTextKeepingBackup(path, "four", worthKeeping: old => old != "three");
+            Assert.Equal("four", File.ReadAllText(path));
+            Assert.Equal("two", File.ReadAllText(path + ".bak"));
+            AtomicFile.WriteAllTextKeepingBackup(path, "five", worthKeeping: old => old == "four");
+            Assert.Equal("five", File.ReadAllText(path));
+            Assert.Equal("four", File.ReadAllText(path + ".bak"));
         }
         finally
         {
@@ -70,6 +78,30 @@ public class AtomicFileTests
             store.Write(live: false, audioPlaying: false, airLook: "Three");    // the next write heals both
             Assert.Equal("Three", store.Read()!.AirLook);
             Assert.Equal("", store.Problem);
+
+            // Round 85 (P1-03): a torn record is never rotated over the whole one — the backup stays the last whole record
+            // through the writes after the tear — and a file that parses to no record (the literal null) reads the backup.
+            store.Write(live: true, audioPlaying: false, airLook: "Four");      // .bak = Three, whole
+            File.WriteAllText(main, "{\"Live\":tr");
+            store.Write(live: true, audioPlaying: true, airLook: "Five");       // the torn Four is not kept; Three stays as the backup
+            Assert.Equal("Five", store.Read()!.AirLook);
+            Assert.Equal("", store.Problem);
+            Assert.Equal("Three", JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(main + ".bak"))!.AirLook);
+            store.Write(live: true, audioPlaying: true, airLook: "Six");        // a whole Five is kept
+            Assert.Equal("Five", JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(main + ".bak"))!.AirLook);
+            File.WriteAllText(main, "null");
+            var fromNull = store.Read();
+            Assert.NotNull(fromNull);
+            Assert.Equal("Five", fromNull!.AirLook);
+            Assert.Contains("unreadable at boot", store.Problem);
+            File.WriteAllText(main + ".bak", "null");
+            Assert.Null(store.Read());
+            Assert.Contains("no readable backup", store.Problem);
+            store.Write(live: false, audioPlaying: false, airLook: "Seven");    // a null main is not kept either: the backup is the whole Seven only after the next write
+            Assert.Equal("Seven", store.Read()!.AirLook);
+            Assert.Equal("null", File.ReadAllText(main + ".bak"));
+            store.Write(live: false, audioPlaying: false, airLook: "Eight");
+            Assert.Equal("Seven", JsonUtil.Deserialize<RecoverySnapshot>(File.ReadAllText(main + ".bak"))!.AirLook);
 
             store.Clear();
             Assert.False(File.Exists(main));

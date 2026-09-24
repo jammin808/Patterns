@@ -34,16 +34,36 @@ public static class AtomicFile
     /// <summary>
     /// As <see cref="WriteAllText"/>, the old file kept as <c>.bak</c> first — the settings', the known-good rig's and
     /// (round 83) the recovery record's ladder: on a FAT32 or exFAT stick the replacing move is not atomic, and the
-    /// copy kept before it is a whole record whatever the move left behind.
+    /// copy kept before it is a whole record whatever the move left behind. With <paramref name="worthKeeping"/> the
+    /// old file is read and kept only when the predicate says it is whole: a torn record — the very thing the backup
+    /// is for — must never go over the whole one before it, or the ladder's last rung is the torn file twice.
     /// </summary>
-    public static void WriteAllTextKeepingBackup(string path, string content, bool durable = true)
+    public static void WriteAllTextKeepingBackup(string path, string content, bool durable = true, Func<string, bool>? worthKeeping = null)
     {
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
         var tmp = TempPath(path);
         WriteTemp(tmp, content, durable);
-        if (File.Exists(path)) File.Copy(path, path + ".bak", overwrite: true);
+        if (File.Exists(path) && Whole(path, worthKeeping)) File.Copy(path, path + ".bak", overwrite: true);
         File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>The old file is worth keeping when no predicate was given, or when it reads and the predicate says so; a file that cannot be read is not.</summary>
+    private static bool Whole(string path, Func<string, bool>? worthKeeping)
+    {
+        if (worthKeeping is null) return true;
+        try
+        {
+            return worthKeeping(File.ReadAllText(path));
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static void WriteTemp(string tmp, string content, bool durable)
