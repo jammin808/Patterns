@@ -641,6 +641,72 @@ public static class MetricsCsv
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Round 84: the file read back for the Eye's replay. Columns are read by name from the header (the first
+    /// line, and any later line that is a header again), so a file an older build wrote with fewer columns
+    /// reads with those it has and the rest at their "not measured" values; a torn line, an unreadable stamp
+    /// or a line before any header is skipped. Samples come back in the file's order.
+    /// </summary>
+    public static IReadOnlyList<MetricSample> Parse(IEnumerable<string> lines)
+    {
+        var samples = new List<MetricSample>();
+        Dictionary<string, int>? columns = null;
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            if (line.StartsWith("utc,", StringComparison.Ordinal))
+            {
+                columns = new Dictionary<string, int>(StringComparer.Ordinal);
+                var names = line.Split(',');
+                for (var i = 0; i < names.Length; i++) columns.TryAdd(names[i].Trim(), i);
+                continue;
+            }
+            if (columns is null) continue;
+            var fields = line.Split(',');
+            if (!columns.TryGetValue("utc", out var utcAt) || utcAt >= fields.Length
+                || !DateTime.TryParseExact(fields[utcAt].Trim(), "yyyy-MM-ddTHH:mm:ssK", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var utc))
+            {
+                continue;
+            }
+            var cols = columns;
+            double D(string name, double absent) => cols.TryGetValue(name, out var at) && at < fields.Length
+                && double.TryParse(fields[at], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : absent;
+            int I(string name) => (int)Math.Clamp(D(name, 0), int.MinValue, int.MaxValue);
+            samples.Add(new MetricSample
+            {
+                Utc = DateTime.SpecifyKind(utc, DateTimeKind.Utc),
+                CpuAppPct = D("cpuAppPct", -1),
+                CpuSystemPct = D("cpuSysPct", -1),
+                RamAppMB = D("ramAppMB", -1),
+                RamSystemPct = D("ramSysPct", -1),
+                VramUsedMB = D("vramUsedMB", -1),
+                GpuBusyPct = D("gpuBusyPct", -1),
+                OutputFps = D("outputFps", 0),
+                WorstFrameMs = D("worstFrameMs", 0),
+                SlowFrames = I("slowFrames"),
+                Threads = I("threads"),
+                Handles = I("handles"),
+                OnBattery = I("onBattery") == 1,
+                Faults = (long)D("faults", 0),
+                P95FrameMs = D("p95FrameMs", -1),
+                MissedSlots = I("missedSlots"),
+                SwitchWorstMs = D("switchWorstMs", -1),
+                SlowSwitches = I("slowSwitches"),
+                GoWorstMs = D("goWorstMs", -1),
+                LagWorstMs = D("lagWorstMs", -1),
+                RenderFaults = I("renderFaults"),
+                PrivateMB = D("privateMB", -1),
+                ManagedMB = D("managedMB", -1),
+                LiveAgeWorstMs = D("liveAgeWorstMs", -1),
+                RetiringMB = D("retiringMB", -1),
+                PoolStarved = I("poolStarved"),
+            });
+        }
+        return samples;
+    }
 }
 
 /// <summary>

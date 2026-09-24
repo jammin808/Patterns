@@ -311,6 +311,17 @@ public sealed class EyeGraph
 
     public static EyeGraph Empty { get; } = new(new List<EyeNode>(), new List<EyeEdge>());
 
+    /// <summary>
+    /// Round 84: the same things and links, in the same order, with other lights and words — a replayed
+    /// moment over the structure of now. The screens' wire numbers ride along so a replay resolves SCREEN n.
+    /// </summary>
+    public EyeGraph Relit(Func<EyeNode, EyeNode> relight, Func<EyeEdge, EyeEdge>? relink = null)
+    {
+        var graph = new EyeGraph(Nodes.Select(relight).ToList(), (relink is null ? Edges : Edges.Select(relink)).ToList());
+        foreach (var (id, number) in ScreenNumbers) graph.ScreenNumbers[id] = number;
+        return graph;
+    }
+
     public EyeNode? Find(string id) => _byId.TryGetValue(id, out var n) ? n : null;
 
     /// <summary>The things linked to one, either way, in the edges' order.</summary>
