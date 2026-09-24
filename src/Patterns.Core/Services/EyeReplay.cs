@@ -254,12 +254,12 @@ public static class EyeReplay
         return (light, sub, words);
     }
 
-    /// <summary>One line for the strip: the instant, the rows in its window, the desk's light then, and the last row before it when the window is empty.</summary>
+    /// <summary>One line for the strip: the instant, the rows in its window, the machine's light from the sample then (the desk node adds its rows to that), and the last row before it when the window is empty.</summary>
     public static string Words(ReplayMoment moment)
     {
         var desk = Health(moment.Sample, moment.Previous, moment.SampleAge);
         var rows = moment.Recent.Count switch { 0 => "no rows", 1 => "1 row", var n => $"{N(n)} rows" };
-        var line = $"{Clock(moment.AtUtc)} · {rows} in the 30 s before · desk {EyeGraph.Light(desk.Light)}: {desk.Sub}";
+        var line = $"{Clock(moment.AtUtc)} · {rows} in the 30 s before · machine {EyeGraph.Light(desk.Light)}: {desk.Sub}";
         if (moment.Recent.Count == 0 && moment.Last is { } last) line += $" · last row {Clock(last.AtUtc)} ({Ago(moment.AtUtc - last.AtUtc)} before): {last.Kind} {last.Target} {last.Outcome}".TrimEnd();
         return line;
     }

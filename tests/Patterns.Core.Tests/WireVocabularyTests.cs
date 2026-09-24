@@ -89,6 +89,9 @@ public class WireVocabularyTests
         ("EYE PREV", new(ShowActionKind.EyePrev)),
         ("EYE LENS control", new(ShowActionKind.EyeLens, "", "control")),
         ("EYE RESET", new(ShowActionKind.EyeReset)),
+        ("EYE REPLAY 20:14", new(ShowActionKind.EyeReplay, "", "20:14")),                        // round 84: the record at a time
+        ("EYE REPLAY ON", new(ShowActionKind.EyeReplay, "", "ON")),
+        ("EYE REPLAY OFF", new(ShowActionKind.EyeReplay, "", "OFF")),
         ("SCREEN 2 TESTROUTE ON", new(ShowActionKind.ScreenTestRoute, "2", "ON")),
         ("SCREEN 2 TEST ROUTE", new(ShowActionKind.ScreenTestRoute, "2")),
         ("SCREEN 2 RECEIVED 3840x2160 50 RGB 8", new(ShowActionKind.ScreenReceived, "2", "3840x2160 50 RGB 8")),
@@ -281,7 +284,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus, RemoteCommandKind.MidiStatus, RemoteCommandKind.NavStatus, RemoteCommandKind.NavDeck, RemoteCommandKind.Record },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus, RemoteCommandKind.NavStatus, RemoteCommandKind.NavDeck, RemoteCommandKind.Record },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -333,6 +336,10 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.EyeStatus, ControlProtocol.Parse("EYE STATUS").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("EYE FOCUS").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("EYE LENS").Kind);
+        Assert.Equal(RemoteCommandKind.EyeAt, ControlProtocol.Parse("EYE AT 20:14").Kind);          // round 84: the record at an instant
+        Assert.Equal("20:14", ControlProtocol.Parse("EYE AT 20:14").Text);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("EYE AT").Kind);              // a time is a value, never defaulted
+        Assert.Equal(new ShowAction(ShowActionKind.EyeReplay, "", "ON"), ControlProtocol.Parse("EYE REPLAY").Action);   // a bare REPLAY opens the record
         Assert.Equal(RemoteCommandKind.MidiStatus, ControlProtocol.Parse("MIDI").Kind);           // round 73: the map and what learn waits for
         Assert.Equal(RemoteCommandKind.MidiStatus, ControlProtocol.Parse("MIDI STATUS").Kind);
         Assert.Equal(RemoteCommandKind.MidiStatus, ControlProtocol.Parse("MIDI BINDINGS").Kind);

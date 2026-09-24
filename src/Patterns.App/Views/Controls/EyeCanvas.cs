@@ -112,7 +112,7 @@ public sealed class EyeCanvas : Control
             if (focus is not null)
             {
                 _kept ??= _camera.Target;
-                if (w > 0 && h > 0) _camera.FocusOn(_eye.Placement.Around(focus, _eye.Graph), w, h);
+                if (w > 0 && h > 0) _camera.FocusOn(_eye.Placement.Around(focus, _eye.Shown), w, h);
             }
             else
             {
@@ -124,7 +124,7 @@ public sealed class EyeCanvas : Control
         }
         else if (focus is not null && _eye.Rev != _revSeen && w > 0 && h > 0)
         {
-            _camera.FocusOn(_eye.Placement.Around(focus, _eye.Graph), w, h);
+            _camera.FocusOn(_eye.Placement.Around(focus, _eye.Shown), w, h);
         }
         _revSeen = _eye.Rev;
         StartAnimating();
@@ -155,7 +155,7 @@ public sealed class EyeCanvas : Control
         var h = Bounds.Height;
         ctx.FillRectangle(Paper, new Rect(0, 0, w, h));
         if (_eye is null) return;
-        var g = _eye.Graph;
+        var g = _eye.Shown;
         var p = _eye.Placement;
         if (g.Nodes.Count == 0)
         {
@@ -303,8 +303,8 @@ public sealed class EyeCanvas : Control
         var moving = _camera.Step(dt);
         if (_eye is not null)
         {
-            var hops = _eye.FocusId is { } f ? _eye.Graph.Hops(f) : null;
-            foreach (var n in _eye.Graph.Nodes)
+            var hops = _eye.FocusId is { } f ? _eye.Shown.Hops(f) : null;
+            foreach (var n in _eye.Shown.Nodes)
             {
                 var target = EyeGraph.EmphasisOf(n.Id, hops);
                 var current = _emphasis.TryGetValue(n.Id, out var c) ? c : target;
@@ -331,8 +331,8 @@ public sealed class EyeCanvas : Control
         var (wx, wy) = _camera.ViewToWorld(view.X, view.Y);
         var id = _eye.Placement.At(wx, wy);
         if (id is null) return null;
-        var n = _eye.Graph.Find(id);
-        return n is not null && _eye.Graph.Visible(n, _eye.Lens) ? n : null;
+        var n = _eye.Shown.Find(id);
+        return n is not null && _eye.Shown.Visible(n, _eye.Lens) ? n : null;
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

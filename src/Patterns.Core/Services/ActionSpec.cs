@@ -129,7 +129,7 @@ public static class ActionSpec
         ShowActionKind.ScreenTestRoute => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.ScreenReceived => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.RigSaveKnownGood => (TargetKind.None, ValueKind.Text),
-        ShowActionKind.EyeFocus or ShowActionKind.EyeLens => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.EyeFocus or ShowActionKind.EyeLens or ShowActionKind.EyeReplay => (TargetKind.None, ValueKind.Text),
         ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeReset => (TargetKind.None, ValueKind.None),
         ShowActionKind.MidiLearn or ShowActionKind.MidiForget => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MidiLearnOff => (TargetKind.None, ValueKind.None),
@@ -297,6 +297,7 @@ public static class ActionSpec
         ShowActionKind.EyePrev => "God's Eye — the previous problem",
         ShowActionKind.EyeLens => "God's Eye — a lens (all, video, control, audio, room, problems)",
         ShowActionKind.EyeReset => "God's Eye — the whole picture",
+        ShowActionKind.EyeReplay => "God's Eye — the replay (ON, OFF or a time)",
         ShowActionKind.MidiLearn => "MIDI learn — the next control moved on a surface is bound to a wire line",
         ShowActionKind.MidiLearnOff => "MIDI learn — cancel",
         ShowActionKind.MidiForget => "MIDI — forget every control bound to a wire line",
@@ -505,7 +506,7 @@ public static class ActionSpec
         ShowActionKind.ScreenAudio => "the rig's own wiring — which output a screen's sound leaves by is decided at set-up on the Screens page or from a remote; the route itself follows the picture, so a cue never has to move it",
         ShowActionKind.ScreenSignal => "the rig's own signal contract, decided at commissioning on the Screens page or from a remote — a running order never redefines what a link carries",
         ShowActionKind.RigSaveKnownGood => "the engineer's word that the rig is right, at commissioning — a running order never declares the rig commissioned",
-        ShowActionKind.EyeFocus or ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeLens or ShowActionKind.EyeReset
+        ShowActionKind.EyeFocus or ShowActionKind.EyeNext or ShowActionKind.EyePrev or ShowActionKind.EyeLens or ShowActionKind.EyeReset or ShowActionKind.EyeReplay
             => "the operator's own eye — a running order never moves what the desk is looking at",
         ShowActionKind.MidiLearn or ShowActionKind.MidiLearnOff or ShowActionKind.MidiForget
             => "the operator's own mapping of a control surface — a running order never binds or unbinds a control",

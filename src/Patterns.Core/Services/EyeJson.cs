@@ -3,7 +3,10 @@ namespace Patterns.Core.Services;
 /// <summary>The Eye on the wire (round 66): EYE / EYE STATUS answers the picture as one JSON object — the headline, the counts, the problems, the focus and the lens, every thing with its place and its words, every link with its light.</summary>
 public static class EyeJson
 {
-    public static string Write(EyeGraph g, EyePlacement p, string? focusId, EyeLens lens)
+    public static string Write(EyeGraph g, EyePlacement p, string? focusId, EyeLens lens) => Write(g, p, focusId, lens, null);
+
+    /// <summary>Round 84: the same JSON for a replayed moment — <c>replay</c>, <c>replayAt</c> and <c>moment</c> ride at the end of the row; false and empty for the picture of now.</summary>
+    public static string Write(EyeGraph g, EyePlacement p, string? focusId, EyeLens lens, ReplayMoment? moment)
     {
         var payload = new
         {
@@ -38,6 +41,9 @@ public static class EyeJson
                 };
             }).ToArray(),
             edges = g.Edges.Select(e => new { from = e.From, to = e.To, kind = e.Verb, light = EyeGraph.Light(e.Light), words = e.Words }).ToArray(),
+            replay = moment is not null,
+            replayAt = moment is null ? "" : ReplayTime.Stamp(moment.AtUtc),
+            moment = moment is null ? "" : EyeReplay.Words(moment),
         };
         return JsonUtil.SerializeCompact(payload);
     }

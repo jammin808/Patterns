@@ -5,7 +5,7 @@
              x:Class="Patterns.App.Views.Sections.EyeSection"
              Classes="hue-eye"
              x:DataType="vm:MainViewModel">
-  <Grid RowDefinitions="Auto,Auto,*" Margin="4,8,12,12">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="4,8,12,12">
     <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
       <TextBlock Classes="h1 neon-eye" Text="God's Eye" VerticalAlignment="Center" />
       <TextBlock Classes="label" Text="{Binding EyeHeadline}" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="900"
@@ -31,9 +31,26 @@
       <Button Classes="mini" Content="RESET" Command="{Binding EyeResetCommand}" ToolTip.Tip="The whole picture, nothing dimmed, the view you had before the focus — EYE RESET, or Esc" />
       <TextBlock Classes="label" Text="{Binding EyeProblemsWords}" VerticalAlignment="Center" Margin="8,0,0,0" />
       <TextBlock Classes="label" Text="{Binding EyeFocusWords}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="#F2D26B" />
+      <Border Width="1" Height="18" Background="#2A2F3A" Margin="6,0" />
+      <Button Classes="mini" Classes.on="{Binding EyeReplaying}" Content="{Binding EyeReplayButton}" Command="{Binding EyeReplayCommand}"
+              ToolTip.Tip="The same picture relit from the journal and the metrics file at an instant — the rail stays on now; press again for the picture of now — EYE REPLAY ON / OFF" />
     </StackPanel>
 
-    <Grid Grid.Row="2" ColumnDefinitions="*,300" MinHeight="420">
+    <!-- Round 84: the replay strip — the scrub bar over the record, a step either way, the moment's words. -->
+    <Border Grid.Row="2" Classes="panel" CornerRadius="8" Padding="10,6" Margin="0,0,0,8" IsVisible="{Binding EyeReplaying}">
+      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBlock Classes="h2" Text="REPLAY" VerticalAlignment="Center" Foreground="#F2D26B" />
+        <Button Classes="mini" Content="◀ 30 s" Command="{Binding EyeReplayStepCommand}" CommandParameter="-30" ToolTip.Tip="Thirty seconds earlier in the record" />
+        <Slider Minimum="0" Maximum="1" Width="360" VerticalAlignment="Center" Value="{Binding EyeReplayPosition, Mode=TwoWay}"
+                ToolTip.Tip="Drag: the instant the picture is relit at — the record's first stamp at the left, its last at the right" />
+        <Button Classes="mini" Content="30 s ▶" Command="{Binding EyeReplayStepCommand}" CommandParameter="30" ToolTip.Tip="Thirty seconds later in the record" />
+        <TextBlock Classes="label" Text="{Binding EyeReplaySpan}" VerticalAlignment="Center" />
+        <TextBlock Classes="label" Text="{Binding EyeReplayWords}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="700" Foreground="#E6EAF2"
+                   ToolTip.Tip="The instant, how many journal rows the thirty seconds before it hold, and how the desk was doing then — the same words EYE AT answers" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,300" MinHeight="420">
       <Border Classes="panel" CornerRadius="10" ClipToBounds="True">
         <ctl:EyeCanvas Name="Canvas" />
       </Border>
@@ -78,6 +95,12 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+            </StackPanel>
+            <StackPanel Spacing="4" IsVisible="{Binding EyeReplaying}">
+              <TextBlock Classes="h2" Text="IN THE RECORD" />
+              <TextBlock Classes="hint" TextWrapping="Wrap" Text="The journal's rows of the thirty seconds before the instant, newest first — what the replay paints the things with." />
+              <TextBlock Classes="label" Text="{Binding EyeReplayText}" TextWrapping="Wrap" IsVisible="{Binding HasEyeReplayRows}" />
+              <TextBlock Classes="label" Text="No rows in this window." IsVisible="{Binding !HasEyeReplayRows}" />
             </StackPanel>
           </StackPanel>
         </ScrollViewer>

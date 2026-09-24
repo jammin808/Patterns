@@ -69,6 +69,7 @@ public sealed class EyeService
         Graph = EyeGraph.Build(facts);
         Placement = EyeLayout.Place(Graph);
         if (FocusId is not null && Graph.Find(FocusId) is null) FocusId = null;           // the focused thing left the picture
+        if (_record is not null && Moment is { } moment) _replayed = EyeReplay.Apply(Graph, moment);   // round 84: the structure of now, the lights of then
         Moved();
         return true;
     }
@@ -82,34 +83,34 @@ public sealed class EyeService
     public ActionResult Focus(string words)
     {
         EnsureRead();
-        var id = Graph.Resolve(words);
+        var id = Shown.Resolve(words);
         if (id is null) return ActionResult.Refused($"The Eye has nothing called '{words.Trim()}'.");
         FocusId = id;
         Moved();
-        var n = Graph.Find(id)!;
+        var n = Shown.Find(id)!;
         return ActionResult.Done($"Eye on {n.Label} — {n.Sub}.");
     }
 
     public ActionResult Next()
     {
         EnsureRead();
-        var id = Graph.Next(FocusId);
+        var id = Shown.Next(FocusId);
         if (id is null) return ActionResult.Done("Nothing red or amber in the picture.");
         FocusId = id;
         Moved();
-        var n = Graph.Find(id)!;
-        return ActionResult.Done($"Problem {Graph.ProblemIndex(id) + 1} of {Graph.Problems.Count}: {n.Label} — {n.Sub}.");
+        var n = Shown.Find(id)!;
+        return ActionResult.Done($"Problem {Shown.ProblemIndex(id) + 1} of {Shown.Problems.Count}: {n.Label} — {n.Sub}.");
     }
 
     public ActionResult Prev()
     {
         EnsureRead();
-        var id = Graph.Prev(FocusId);
+        var id = Shown.Prev(FocusId);
         if (id is null) return ActionResult.Done("Nothing red or amber in the picture.");
         FocusId = id;
         Moved();
-        var n = Graph.Find(id)!;
-        return ActionResult.Done($"Problem {Graph.ProblemIndex(id) + 1} of {Graph.Problems.Count}: {n.Label} — {n.Sub}.");
+        var n = Shown.Find(id)!;
+        return ActionResult.Done($"Problem {Shown.ProblemIndex(id) + 1} of {Shown.Problems.Count}: {n.Label} — {n.Sub}.");
     }
 
     public ActionResult SetLens(string word)
@@ -151,14 +152,131 @@ public sealed class EyeService
         problems = Graph.Problems.Count,
         focus = FocusId ?? "",
         lens = Lens.ToString().ToLowerInvariant(),
+        replay = Replaying,                                                                 // round 84: the page shows the record, not now
+        replayAt = Replaying ? ReplayTime.Stamp(ReplayAtUtc) : "",
     };
 
-    /// <summary>The picture in words for the assistant's brief.</summary>
+    /// <summary>The picture in words for the assistant's brief — the picture of now, with one line first while the page replays the record, so the assistant never mistakes then for now.</summary>
     public IReadOnlyList<string> BriefLines()
     {
         EnsureRead();
+        if (Moment is { } m)
+        {
+            var lines = new List<string>(Graph.Nodes.Count + Graph.Edges.Count + 2) { $"The Eye page is replaying the record at {ReplayTime.Stamp(ReplayAtUtc)} — {EyeReplay.Words(m)}. The lines below are the picture of now." };
+            lines.AddRange(Graph.Lines());
+            return lines;
+        }
         return Graph.Lines();
     }
+
+    // ---- the replay (round 84) ----------------------------------------------------------------
+
+    /// <summary>The journal rows a replay reads back — the newest; a four-megabyte journal holds fewer.</summary>
+    private const int JournalRows = 20000;
+
+    private ReplayRecord? _record;
+    private EyeGraph? _replayed;
+
+    /// <summary>True while the page shows the record instead of the picture of now.</summary>
+    public bool Replaying => _record is not null;
+
+    /// <summary>The record the replay reads; empty while the replay is closed.</summary>
+    public ReplayRecord Record => _record ?? ReplayRecord.Empty;
+
+    /// <summary>The instant the replay stands at (UTC) — the record's last stamp when it opens with ON.</summary>
+    public DateTime ReplayAtUtc { get; private set; }
+
+    /// <summary>The moment shown; null while the replay is closed.</summary>
+    public ReplayMoment? Moment { get; private set; }
+
+    /// <summary>
+    /// What the page, its side card and the operator's eye verbs read: the replayed moment while the replay is
+    /// open, else the picture of now. The rail, STATE's counts, EYE on the wire and the assistant's facts read
+    /// <see cref="Graph"/>: the replay is the operator's reading, never the room's truth.
+    /// </summary>
+    public EyeGraph Shown => _replayed ?? Graph;
+
+    /// <summary>EYE REPLAY [ON | OFF | &lt;time&gt;]: the record opened at its last stamp or at a time, or closed.</summary>
+    public ActionResult Replay(string words)
+    {
+        var w = (words ?? "").Trim();
+        if (w.Length == 0 || w.Equals("ON", StringComparison.OrdinalIgnoreCase)) return Open(null);
+        if (w.Equals("OFF", StringComparison.OrdinalIgnoreCase) || w.Equals("NOW", StringComparison.OrdinalIgnoreCase) || w.Equals("LIVE", StringComparison.OrdinalIgnoreCase)) return Close();
+        if (!ReplayTime.TryParse(w, DateTime.UtcNow, out var at)) return ActionResult.Refused(NotATime(w));
+        return Open(at);
+    }
+
+    private ActionResult Open(DateTime? atUtc)
+    {
+        EnsureRead();
+        var record = _record ?? Load();
+        if (record.IsEmpty) return ActionResult.Refused("Nothing to replay — the journal and the metrics file hold no rows yet.");
+        _record = record;
+        Show(atUtc ?? record.LastUtc ?? DateTime.UtcNow);
+        return ActionResult.Done("Replay " + EyeReplay.Words(Moment!));
+    }
+
+    private ActionResult Close()
+    {
+        if (_record is null) return ActionResult.Done("The picture of now — the replay was not open.");
+        _record = null;
+        _replayed = null;
+        Moment = null;
+        Moved();
+        return ActionResult.Done("The picture of now.");
+    }
+
+    /// <summary>The scrub bar: the replay moved to a position of the record (0 its first stamp, 1 its last). Not a verb — a drag is the operator's hand on the view, like a pan.</summary>
+    public void Scrub(double position)
+    {
+        if (_record is null) return;
+        Show(_record.AtPosition(position, ReplayAtUtc));
+    }
+
+    /// <summary>The replay stepped by a span, held inside the record.</summary>
+    public void Step(TimeSpan by)
+    {
+        if (_record is null) return;
+        Show(_record.Clamp(ReplayAtUtc + by));
+    }
+
+    /// <summary>EYE AT &lt;time&gt;: the picture as the record has it at that instant, as one wire reply — the operator's view untouched; the record read afresh while the replay is closed.</summary>
+    public string JsonAt(string words)
+    {
+        if (!ReplayTime.TryParse(words, DateTime.UtcNow, out var at)) return ControlProtocol.Err(NotATime((words ?? "").Trim()));
+        EnsureRead();
+        var moment = EyeReplay.At(_record ?? Load(), at);
+        return ControlProtocol.Ok(EyeJson.Write(EyeReplay.Apply(Graph, moment), Placement, FocusId, Lens, moment));
+    }
+
+    private void Show(DateTime atUtc)
+    {
+        ReplayAtUtc = atUtc;
+        Moment = EyeReplay.At(_record!, atUtc);
+        _replayed = EyeReplay.Apply(Graph, Moment);
+        Moved();
+    }
+
+    /// <summary>The record from the desk's own files: the journal's newest rows and the metrics file with the one it rotated out before it.</summary>
+    private ReplayRecord Load()
+    {
+        var samples = new List<MetricSample>();
+        foreach (var name in new[] { "patterns.metrics.csv.old", "patterns.metrics.csv" })
+        {
+            var path = Path.Combine(_s.Store.BaseDirectory, name);
+            try
+            {
+                if (File.Exists(path)) samples.AddRange(MetricsCsv.Parse(File.ReadLines(path)));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warn($"The replay could not read {name}.", ex);
+            }
+        }
+        return ReplayRecord.From(_s.Journal.Tail(JournalRows), samples);
+    }
+
+    private static string NotATime(string words) => $"'{words}' is not a time — ON, OFF, a clock time (20:14 or 20:14:03) or an ISO 8601 stamp (2026-09-24T20:14:03Z).";
 
     private void Moved()
     {

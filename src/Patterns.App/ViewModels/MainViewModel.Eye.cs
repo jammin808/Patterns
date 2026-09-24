@@ -19,7 +19,7 @@ public sealed partial class MainViewModel
 
     public EyeService Eye => _services.Eye;
 
-    public string EyeHeadline => _services.Eye.Graph.Headline;
+    public string EyeHeadline => _services.Eye.Shown.Headline;
 
     public string EyeWord => _services.Eye.RailWord;
 
@@ -37,7 +37,7 @@ public sealed partial class MainViewModel
     {
         get
         {
-            var g = _services.Eye.Graph;
+            var g = _services.Eye.Shown;
             if (g.Nodes.Count == 0) return "";
             if (g.Problems.Count == 0) return "Nothing red or amber.";
             var at = _services.Eye.FocusId is { } f ? g.ProblemIndex(f) : -1;
@@ -46,7 +46,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    public string EyeFocusWords => _services.Eye.FocusId is { } f && _services.Eye.Graph.Find(f) is { } n ? $"Eye on {n.Label}" : "The whole picture";
+    public string EyeFocusWords => _services.Eye.FocusId is { } f && _services.Eye.Shown.Find(f) is { } n ? $"Eye on {n.Label}" : "The whole picture";
 
     /// <summary>The thing selected on the picture (a click), "" for none. The selection is the side card's; the focus is the camera's.</summary>
     public string EyeSelectedId
@@ -61,7 +61,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    public EyeNode? EyeSelected => _eyeSelectedId.Length > 0 ? _services.Eye.Graph.Find(_eyeSelectedId) : null;
+    public EyeNode? EyeSelected => _eyeSelectedId.Length > 0 ? _services.Eye.Shown.Find(_eyeSelectedId) : null;
 
     public bool HasEyeSelection => EyeSelected is not null;
 
@@ -83,7 +83,7 @@ public sealed partial class MainViewModel
     {
         get
         {
-            var g = _services.Eye.Graph;
+            var g = _services.Eye.Shown;
             if (EyeSelected is not { } n) return Array.Empty<EyeContactRow>();
             var rows = new List<EyeContactRow>();
             foreach (var id in g.Neighbours(n.Id))
@@ -162,9 +162,56 @@ public sealed partial class MainViewModel
     public RelayCommand EyeAskCommand => _eyeAsk ??= new RelayCommand(() =>
     {
         if (EyeSelected is not { } n) return;
-        var menu = EyeMenus.For(MenuFacts(), _services.Eye.Graph, n);
+        var menu = EyeMenus.For(MenuFacts(), _services.Eye.Shown, n);
         var ask = menu.Flatten().FirstOrDefault(e => e.Id == (n.IsProblem ? "eye.why" : "eye.ask")) ?? menu.Flatten().First(e => e.Scope == MenuScope.Ask);
         StatusMessage = AskAssistant(ask.Question) ?? StatusMessage;
+    });
+
+    // ---- the replay (round 84) ----------------------------------------------------------------
+
+    /// <summary>True while the page shows the record at an instant instead of the picture of now; the rail stays live.</summary>
+    public bool EyeReplaying => _services.Eye.Replaying;
+
+    public string EyeReplayButton => EyeReplaying ? "NOW" : "REPLAY";
+
+    /// <summary>The strip's line: the instant, the rows in its window, how the desk was doing then.</summary>
+    public string EyeReplayWords => _services.Eye.Moment is { } m ? EyeReplay.Words(m) : "";
+
+    /// <summary>The record's reach, first stamp to last, in the desk's clock.</summary>
+    public string EyeReplaySpan => _services.Eye.Record is { IsEmpty: false, FirstUtc: { } first, LastUtc: { } last }
+        ? $"{first.ToLocalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} → {last.ToLocalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)}"
+        : "";
+
+    /// <summary>The scrub bar: 0 at the record's first stamp, 1 at its last; a drag moves the replay without a verb.</summary>
+    public double EyeReplayPosition
+    {
+        get => _services.Eye.Replaying ? _services.Eye.Record.Position(_services.Eye.ReplayAtUtc) : 1;
+        set
+        {
+            if (!_services.Eye.Replaying) return;
+            _services.Eye.Scrub(value);
+            RaiseEye();
+        }
+    }
+
+    /// <summary>The rows of the window, newest first, as the card lists them.</summary>
+    public string EyeReplayText => _services.Eye.Moment is { } m ? string.Join("\n", m.Recent.Select(EyeReplay.Line).Reverse()) : "";
+
+    public bool HasEyeReplayRows => _services.Eye.Moment is { Recent.Count: > 0 };
+
+    private RelayCommand? _eyeReplay;
+
+    /// <summary>REPLAY / NOW — through the action layer, so a key, a menu line and the wire do the same.</summary>
+    public RelayCommand EyeReplayCommand => _eyeReplay ??= new RelayCommand(() => RunEyeVerb(new ShowAction(ShowActionKind.EyeReplay, "", EyeReplaying ? "OFF" : "ON")));
+
+    private RelayCommand<string>? _eyeReplayStep;
+
+    /// <summary>The replay stepped by a number of seconds (negative for back), held inside the record.</summary>
+    public RelayCommand<string> EyeReplayStepCommand => _eyeReplayStep ??= new RelayCommand<string>(seconds =>
+    {
+        if (!double.TryParse(seconds, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s)) return;
+        _services.Eye.Step(TimeSpan.FromSeconds(s));
+        RaiseEye();
     });
 
     private void RunEyeVerb(ShowAction action)
@@ -194,7 +241,14 @@ public sealed partial class MainViewModel
         Raise(nameof(EyeLenses));
         Raise(nameof(EyeProblemsWords));
         Raise(nameof(EyeFocusWords));
-        if (_eyeSelectedId.Length > 0 && _services.Eye.Graph.Find(_eyeSelectedId) is null) _eyeSelectedId = "";   // the selected thing left the picture
+        Raise(nameof(EyeReplaying));
+        Raise(nameof(EyeReplayButton));
+        Raise(nameof(EyeReplayWords));
+        Raise(nameof(EyeReplaySpan));
+        Raise(nameof(EyeReplayPosition));
+        Raise(nameof(EyeReplayText));
+        Raise(nameof(HasEyeReplayRows));
+        if (_eyeSelectedId.Length > 0 && _services.Eye.Shown.Find(_eyeSelectedId) is null) _eyeSelectedId = "";   // the selected thing left the picture
         RaiseEyeSelection();
     }
 

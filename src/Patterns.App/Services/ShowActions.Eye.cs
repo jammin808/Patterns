@@ -13,6 +13,7 @@ public sealed partial class ShowActions
         ShowActionKind.EyePrev => _s.Eye.Prev(),
         ShowActionKind.EyeLens => _s.Eye.SetLens(a.Value),
         ShowActionKind.EyeReset => _s.Eye.Reset(),
+        ShowActionKind.EyeReplay => _s.Eye.Replay(a.Value),
         _ => null,
     };
 }

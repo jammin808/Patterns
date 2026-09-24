@@ -98,6 +98,7 @@ public static class WireWriter
             ShowActionKind.EyePrev => "EYE PREV",
             ShowActionKind.EyeLens => Join("EYE LENS", v),
             ShowActionKind.EyeReset => "EYE RESET",
+            ShowActionKind.EyeReplay => Join("EYE REPLAY", v),
             ShowActionKind.NextTransition => v.Equals("CLEAR", StringComparison.OrdinalIgnoreCase) ? "TAKE NEXT" : Join("TAKE NEXT", v),
             ShowActionKind.MidiLearn => Join("MIDI LEARN", v),
             ShowActionKind.MidiLearnOff => "MIDI LEARN OFF",

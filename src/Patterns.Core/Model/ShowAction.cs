@@ -442,6 +442,8 @@ public enum ShowActionKind
     EyePrev,
     EyeLens,
     EyeReset,
+    /// <summary>Round 84: the Eye's replay — ON opens the record at its last stamp, OFF puts the picture of now back, a time (20:14, 20:14:03 or an ISO 8601 stamp) opens it there. Desk-only.</summary>
+    EyeReplay,
     /// <summary>
     /// Round 73: MIDI learn armed for a wire line (Value) — the next control moved on any open
     /// surface is bound to it, into the Interactive area's own table, saved with the show.

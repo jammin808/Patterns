@@ -242,7 +242,7 @@ public class EyeReplayTests
         var r = Record();
         var words = EyeReplay.Words(EyeReplay.At(r, S(30)));
         Assert.Contains("5 rows in the 30 s before", words, StringComparison.Ordinal);
-        Assert.Contains("desk amber: p95 frame 31 ms · 2 slow frames", words, StringComparison.Ordinal);
+        Assert.Contains("machine amber: p95 frame 31 ms · 2 slow frames", words, StringComparison.Ordinal);
         Assert.StartsWith(S(30).ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture), words, StringComparison.Ordinal);
 
         words = EyeReplay.Words(EyeReplay.At(r, S(70)));

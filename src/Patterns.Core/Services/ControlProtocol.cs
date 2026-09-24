@@ -53,6 +53,8 @@ public enum RemoteCommandKind
     CommissionStatus,
     /// <summary>EYE / EYE STATUS (round 66): the God's Eye — every thing of the show with its place, light and words, every link with its light, the headline, the counts, the problems, the focus and the lens — as JSON.</summary>
     EyeStatus,
+    /// <summary>EYE AT &lt;time&gt; (round 84): the God's Eye as the record has it at that instant — the journal's rows and the metrics file's sample relit over the structure of now — as JSON; Text carries the time. The operator's view is untouched.</summary>
+    EyeAt,
     /// <summary>MIDI / MIDI STATUS (round 73): the MIDI surfaces, every control bound and the line learn waits for, as JSON.</summary>
     MidiStatus,
     /// <summary>NAV / NAV STATUS (round 74): the rails and pages, the desk's page, the settings column, the decks' whereabouts — as JSON.</summary>
@@ -1155,6 +1157,8 @@ public static class ControlProtocol
 
             // "EYE" (round 66): the God's Eye — bare or STATUS reads the whole picture as JSON; FOCUS <words>, NEXT,
             // PREV, LENS <name> and RESET move the operator's eye (desk-only: a cue never moves what the desk looks at).
+            // Round 84: REPLAY [ON | OFF | <time>] opens the record on the page or closes it; AT <time> reads the record
+            // at an instant as JSON without moving the page. A bare AT is unknown: a time is a value, never defaulted.
             case "EYE":
             {
                 var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
@@ -1168,6 +1172,8 @@ public static class ControlProtocol
                     "PREV" or "PREVIOUS" or "BACK" => Act(ShowActionKind.EyePrev),
                     "LENS" or "PLANE" => rest.Length > 0 ? Act(ShowActionKind.EyeLens, "", rest) : Unknown(s),
                     "RESET" or "HOME" or "ALL" => Act(ShowActionKind.EyeReset),
+                    "REPLAY" => Act(ShowActionKind.EyeReplay, "", rest.Length > 0 ? rest : "ON"),
+                    "AT" => rest.Length > 0 ? Query(RemoteCommandKind.EyeAt, rest) : Unknown(s),
                     _ => Unknown(s),
                 };
             }

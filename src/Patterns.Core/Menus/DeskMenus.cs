@@ -1316,6 +1316,8 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
                     new MenuEntry("eye.next", "Next problem", MenuScope.Go, MenuTone.Go) { Detail = "The Eye focuses the next thing that needs a look", Wire = "EYE NEXT", Action = new ShowAction(ShowActionKind.EyeNext), Route = new MenuRoute("Eye") },
                     new MenuEntry("eye.prev", "Previous problem", MenuScope.Go, MenuTone.Go) { Wire = "EYE PREV", Action = new ShowAction(ShowActionKind.EyePrev), Route = new MenuRoute("Eye") },
                     new MenuEntry("eye.reset", "Whole picture", MenuScope.Go, MenuTone.Go) { Detail = "The camera fits everything", Wire = "EYE RESET", Action = new ShowAction(ShowActionKind.EyeReset), Route = new MenuRoute("Eye") },
+                    new MenuEntry("eye.replay", "Replay the record", MenuScope.Go, MenuTone.Go) { Detail = "The picture relit from the journal and the metrics file at an instant — the scrub bar on the Eye page; the rail stays on now", Wire = "EYE REPLAY ON", Action = new ShowAction(ShowActionKind.EyeReplay, "", "ON"), Route = new MenuRoute("Eye") },
+                    new MenuEntry("eye.live", "Back to now", MenuScope.Go, MenuTone.Go) { Detail = "The replay closes; the page shows the picture of now", Wire = "EYE REPLAY OFF", Action = new ShowAction(ShowActionKind.EyeReplay, "", "OFF"), Route = new MenuRoute("Eye") },
                 }));
                 break;
             case "Assistant":

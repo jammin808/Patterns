@@ -111,6 +111,8 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Actions.CommissionJson());
             case RemoteCommandKind.EyeStatus:
                 return ControlProtocol.Ok(_services.Eye.Json());
+            case RemoteCommandKind.EyeAt:
+                return _services.Eye.JsonAt(cmd.Text);                                          // round 84: the record at an instant, the page untouched
             case RemoteCommandKind.MidiStatus:
                 return ControlProtocol.Ok(_services.MidiLearn.Json());
             case RemoteCommandKind.NavStatus:
@@ -152,6 +154,7 @@ public sealed class CommandRouter : IRouter
             case ShowActionKind.CueDelete:
             case ShowActionKind.PresetSave:
             case ShowActionKind.LowerThirdNew:
+            case ShowActionKind.EyeReplay:                                                       // round 84: the moment's words — a controller shows where the replay stands
                 return result.Ok ? ControlProtocol.Ok(result.Message.Length > 0 ? result.Message : null) : ControlProtocol.Err(result.Message);
             default:
                 return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);

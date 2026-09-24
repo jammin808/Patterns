@@ -378,7 +378,7 @@ public class EyeTests
     [Fact]
     public void TheEyeVerbsAreTheDesksAlone()
     {
-        foreach (var kind in new[] { ShowActionKind.EyeFocus, ShowActionKind.EyeNext, ShowActionKind.EyePrev, ShowActionKind.EyeLens, ShowActionKind.EyeReset })
+        foreach (var kind in new[] { ShowActionKind.EyeFocus, ShowActionKind.EyeNext, ShowActionKind.EyePrev, ShowActionKind.EyeLens, ShowActionKind.EyeReset, ShowActionKind.EyeReplay })
         {
             Assert.Contains("never moves what the desk is looking at", ActionSpec.DeskOnly(kind));
             Assert.StartsWith("God's Eye", ActionSpec.Label(kind));
