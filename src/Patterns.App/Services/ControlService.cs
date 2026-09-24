@@ -342,7 +342,16 @@ public sealed partial class ControlService : IDisposable
                 }
                 if (line is null) break;
                 if (line.Trim().Length == 0) continue;
-                var cmd = ControlProtocol.Parse(line);
+                RemoteCommand cmd;
+                try
+                {
+                    cmd = ControlProtocol.Parse(line);
+                }
+                catch (Exception ex) when (!Faults.IsIoEnd(ex))
+                {
+                    peer.Say(WireFault(ex, "TCP"));
+                    continue;
+                }
                 var token = _kernel.State.Control.Token;
                 if (cmd.Kind == RemoteCommandKind.Auth)
                 {
@@ -418,13 +427,22 @@ public sealed partial class ControlService : IDisposable
                     peer.Say(ControlProtocol.Err(ControlProtocol.NotPaired));
                     continue;
                 }
-                var response = await _router.ExecuteAsync(cmd, origin);
+                string response;
+                try
+                {
+                    response = await _router.ExecuteAsync(cmd, origin);
+                }
+                catch (Exception ex) when (!Faults.IsIoEnd(ex))
+                {
+                    response = WireFault(ex, "TCP");
+                }
                 peer.Say(response);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Disconnects are routine.
+            // Disconnects are routine; anything else is a fault and leaves its trace.
+            if (!Faults.IsIoEnd(ex)) WireFault(ex, "TCP");
         }
         finally
         {
@@ -451,6 +469,25 @@ public sealed partial class ControlService : IDisposable
     /// and want the gate.
     /// </summary>
     public static bool TrustLoopback { get; set; } = true;
+
+    /// <summary>Round 83: the faults behind the wire — not a socket's end — counted; the first is logged with its stack and then one a minute.</summary>
+    private readonly FaultThrottle _faults = new();
+
+    /// <summary>How many lines or requests made the desk fault behind the wire since start (the Super Check's REMOTE row).</summary>
+    public long FaultCount => _faults.Count;
+
+    /// <summary>
+    /// A fault behind the wire is that line's, never the connection's: counted, written to the log by the throttle,
+    /// and answered on the line so the sender learns the desk faulted rather than seeing the connection drop. The
+    /// answer names the exception's type and the count, never the line (a line may carry a token) and never the stack.
+    /// </summary>
+    private string WireFault(Exception ex, string where)
+    {
+        var write = _faults.Note(DateTime.UtcNow);
+        var n = _faults.Count;
+        if (write) Log.Error($"The {where} handler faulted (fault #{n}): {Faults.Brief(ex)}", ex);
+        return ControlProtocol.Err($"the desk faulted on this line ({ex.GetType().Name}) — fault #{n}, logged");
+    }
 
     /// <summary>Whether a connection may run a mutating verb: no token is set, or it is this machine's own, or it presented the token that is set now.</summary>
     internal static bool Paired(string token, string presented, bool loopback)
@@ -778,8 +815,10 @@ public sealed partial class ControlService : IDisposable
             var body = await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
 
             string status = "200 OK", contentType = "text/html; charset=utf-8";
-            string payload;
+            string payload = "";
             byte[]? binary = null;
+            try
+            {
             if (audience && !AudienceRoutes.Allows(method, path))
             {
                 // The trust boundary: the audience port answers the play pages and their calls, nothing else — not a command, not the state, not a picture.
@@ -1110,15 +1149,25 @@ public sealed partial class ControlService : IDisposable
                 contentType = "text/plain";
                 payload = "Not found";
             }
+            }
+            catch (Exception ex) when (!Faults.IsIoEnd(ex))
+            {
+                // Round 83: a fault in a route is that request's — answered, counted and logged, never a dropped connection.
+                status = "500 Internal Server Error";
+                contentType = "application/json";
+                binary = null;
+                payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(WireFault(ex, "HTTP"))}}}";
+            }
 
             var bytes = binary ?? Encoding.UTF8.GetBytes(payload);
             var head = $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
             await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
             await stream.WriteAsync(bytes, ct);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Broken sockets are routine for one-shot HTTP.
+            // Broken sockets are routine for one-shot HTTP; anything else is a fault and leaves its trace.
+            if (!Faults.IsIoEnd(ex)) WireFault(ex, "HTTP");
         }
         finally
         {

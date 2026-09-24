@@ -686,6 +686,7 @@ public sealed class SystemMetricsService : IDisposable
             RemoteToken = PairingToken.Needed(state.Control.Token),
             OscOpen = state.Control.Enabled && state.Control.OscEnabled,                                  // round 79: the port that cannot pair
             OscPort = state.Control.OscPort,
+            WireFaults = _services.Control.FaultCount,                                                 // round 83: the faults behind the wire
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             Advice = Suggestions,

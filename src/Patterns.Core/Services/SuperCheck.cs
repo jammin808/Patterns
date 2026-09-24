@@ -232,6 +232,8 @@ public sealed class CheckFacts
     /// <summary>Round 79: whether OSC is listening (remote control on, OSC in ticked) — the one control port that has no session to pair.</summary>
     public bool OscOpen { get; init; }
     public int OscPort { get; init; }
+    /// <summary>Round 83: how many lines or requests made the desk fault behind the wire since start — each answered ERR, the first logged with its stack and then one a minute.</summary>
+    public long WireFaults { get; init; }
 
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
@@ -987,6 +989,12 @@ public static class SuperCheck
         {
             rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Amber, $"{where} · open on every interface",
                 "FIX: anyone on any network this machine is on can run the show — Remote page, TRUST: NEW TOKEN and pair the decks and phones, or bind the control ports to the control network's address"));
+        }
+        if (f.WireFaults > 0)
+        {
+            // Round 83: a fault behind the wire is answered ERR on the line and logged; the row says it happened, so the log is read.
+            rows.Add(new CheckRow("REMOTE", "Wire faults", CheckLight.Amber, $"{f.WireFaults} since start",
+                "a line or a request made the desk fault behind the wire — answered ERR; the first, then one a minute, is in patterns.log"));
         }
     }
 

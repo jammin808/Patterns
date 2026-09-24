@@ -23,9 +23,17 @@ public sealed class CommandRouter : IRouter
         _services = services;
     }
 
+    /// <summary>
+    /// Round 83: the seam the wire's fault tests use — a predicate that makes a command throw before the router's own
+    /// catch can see it, the way a parser or a greeting throws outside it, so a handler can be shown to answer ERR and
+    /// carry on. Null on a desk.
+    /// </summary>
+    public static Func<RemoteCommand, bool>? FaultOn { get; set; }
+
     /// <summary>Runs one command on the UI thread; returns the protocol response line.</summary>
     public async Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin = null)
     {
+        if (FaultOn?.Invoke(cmd) == true) throw new InvalidOperationException("a fault injected at the router's seam");
         try
         {
             // The arcade's status from a desk is the arcade nodes' — asked on their wires, off the UI thread.
