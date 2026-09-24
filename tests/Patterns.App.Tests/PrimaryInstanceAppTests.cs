@@ -101,6 +101,58 @@ public class PrimaryInstanceAppTests
         }
     }
 
+    /// <summary>
+    /// Round 85 (P1-04): the boot's newer-schema guard holds through the handover. A second desk on a folder whose show
+    /// file a newer build wrote owns the folder when the first has gone — the record, the music — but saving stays off
+    /// and the file is never written over, and the words say which.
+    /// </summary>
+    [AvaloniaFact]
+    public void ASecondDeskThatComesToOwnAFileFromANewerBuildKeepsSavingOff()
+    {
+        var lease = new FakeLease();
+        AppServices.LeaseFactory = _ => lease;
+        TestApp.Booted b;
+        try
+        {
+            b = TestApp.Boot(prepare: dir =>
+            {
+                var newer = new ShowState { Name = "From tomorrow", SchemaVersion = ShowState.CurrentSchemaVersion + 2 };
+                newer.Pattern.Kind = PatternKind.ColorBars;
+                File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), Patterns.Core.Services.JsonUtil.Serialize(newer));
+            });
+        }
+        finally
+        {
+            AppServices.LeaseFactory = null;
+        }
+        try
+        {
+            var (services, vm, _) = b;
+            Assert.True(services.Kernel.NewerSchema > 0);
+            Assert.False(services.IsPrimaryInstance);
+            Assert.False(services.Persistence.Autosave);
+            var asWritten = File.ReadAllText(services.Store.SettingsPath);
+
+            lease.Free = true;
+            services.PollPrimary();
+            Assert.True(services.IsPrimaryInstance);                                          // the folder is this desk's: the record, the music
+            Assert.False(services.Persistence.Autosave);                                      // the newer file is still never written over
+            Assert.Contains("\"primary\":true", new CommandRouter(services).StateJson());
+            Assert.Contains("newer Patterns", vm.StatusMessage);
+            Assert.Contains("saving stays off", vm.StatusMessage);
+
+            vm.State.Pattern.Kind = PatternKind.LedWall;
+            Dispatcher.UIThread.RunJobs();
+            services.SaveNow();
+            TestApp.FlushFiles(services);
+            Assert.Equal(asWritten, File.ReadAllText(services.Store.SettingsPath));          // byte for byte as the newer build left it
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void ASecondDesksExitLeavesTheFirstDesksRecoveryRecordAlone()
     {

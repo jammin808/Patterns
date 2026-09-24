@@ -1163,6 +1163,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
         if (!owned) return;
         _primaryInstance = true;
+        if (Kernel.NewerSchema > 0)
+        {
+            // Round 85 (P1-04): the folder is this desk's now, but the show file came from a newer build — the boot's
+            // guard holds through the handover: it is still run as read and never written over, and the words say so.
+            Spotify.PokeNow();
+            const string held = "This desk owns the show folder now — the first window has gone: the break music is this desk's to run, but this show file was saved by a newer Patterns, so saving stays off and it is not written over — open it with the build that wrote it, or SAVE AS a copy for this one.";
+            Log.Info(held);
+            Notify(held);
+            return;
+        }
         _autosave = true;
         Persistence.Autosave = true;
         SaveNow();
