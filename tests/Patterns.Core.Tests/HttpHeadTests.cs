@@ -43,7 +43,7 @@ public class HttpHeadTests
     [Fact]
     public void TheHeadCarriesOriginHostAndFetchSiteAndTheCookiesTokenWhenNoHeaderHasOne()
     {
-        var head = HttpHead.Parse("POST /api/cmd HTTP/1.1\r\nHost: desk:9696\r\nOrigin: http://evil.example\r\nSec-Fetch-Site: cross-site\r\nCookie: a=1; patterns.token=K7QM-3XWD-P9RA; b=2\r\n", HttpLimits.Control);
+        var head = HttpHead.Parse("POST /api/cmd HTTP/1.1\r\nHost: desk:9696\r\nOrigin: http://evil.example\r\nSec-Fetch-Site: cross-site\r\nCookie: a=1; patterns-token=K7QM-3XWD-P9RA; b=2\r\n", HttpLimits.Control);
         Assert.True(head.Ok);
         Assert.Equal("desk:9696", head.Host);
         Assert.Equal("http://evil.example", head.Origin);
@@ -51,7 +51,7 @@ public class HttpHeadTests
         Assert.Equal("K7QM-3XWD-P9RA", head.Token);
         Assert.True(head.CrossSite);
 
-        var both = HttpHead.Parse("GET /api/state HTTP/1.1\r\nHost: desk\r\nX-Patterns-Token: FROM-HEADER\r\nCookie: patterns.token=FROM-COOKIE\r\n", HttpLimits.Control);
+        var both = HttpHead.Parse("GET /api/state HTTP/1.1\r\nHost: desk\r\nX-Patterns-Token: FROM-HEADER\r\nCookie: patterns-token=FROM-COOKIE\r\n", HttpLimits.Control);
         Assert.Equal("FROM-HEADER", both.Token);                                    // the header first, the cookie is the img tags' way
         Assert.False(both.CrossSite);
 
@@ -60,8 +60,8 @@ public class HttpHeadTests
         Assert.Equal("", bare.Origin);
         Assert.False(bare.CrossSite);
 
-        Assert.Equal("K7", HttpHead.CookieToken("x=1; patterns.token = K7 ; y=2"));
-        Assert.Equal("", HttpHead.CookieToken("patterns.tokenx=1; =2; nothing"));
+        Assert.Equal("K7", HttpHead.CookieToken("x=1; patterns-token = K7 ; y=2"));
+        Assert.Equal("", HttpHead.CookieToken("patterns-tokenx=1; =2; nothing"));
     }
 
     [Fact]

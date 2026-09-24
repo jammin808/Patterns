@@ -1511,7 +1511,7 @@ public sealed partial class ControlService : IDisposable
 var st = null, rev = 0, standbyId = '';
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
 function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
-function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns.token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns-token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
 function hdr(){ return {'X-Patterns-Client':'run-page', 'X-Patterns-Token':tok()}; }
 function gate(r){ if (r.status === 403) { if (pair()) location.reload(); throw new Error('not paired'); } return r; }
 function cmd(c, again) {

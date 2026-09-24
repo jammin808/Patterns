@@ -275,10 +275,10 @@ public class RemoteTrustTests
             Assert.Equal("403 Forbidden", stateRefused.Status);
             Assert.Contains("not paired", stateRefused.Body);
             Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("X-Patterns-Token", Token)).Status);
-            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("Cookie", "patterns.token=" + Token)).Status);
+            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("Cookie", "patterns-token=" + Token)).Status);
             Assert.Equal("403 Forbidden", Http(port, "GET", "/pgm.jpg").Status);
             Assert.Equal("403 Forbidden", Http(port, "GET", "/mv.jpg?w=320").Status);
-            Assert.Equal("200 OK", Http(port, "GET", "/pgm.jpg", "", ("Cookie", "patterns.token=" + Token)).Status);
+            Assert.Equal("200 OK", Http(port, "GET", "/pgm.jpg", "", ("Cookie", "patterns-token=" + Token)).Status);
 
             // A token in the URL is not a token: nothing reads query strings for credentials, and the route is not even there.
             Assert.NotEqual("200 OK", Http(port, "POST", "/api/cmd?token=" + Token, "BLACKOUT OFF").Status);

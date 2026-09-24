@@ -37,7 +37,7 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
     public const string PassHeader = "X-Patterns-Pass";
 
     /// <summary>Round 83: the cookie the desk's own pages keep the pairing token in, so their pictures (an img tag sends no header) can present it.</summary>
-    public const string TokenCookie = "patterns.token";
+    public const string TokenCookie = "patterns-token";
 
     /// <summary>
     /// Round 83: whether the request came from a browser page of another origin — a cross-site or same-site
