@@ -177,7 +177,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `CUE STANDBY NEXT` / `PREV` / `<number>` / `<name>` | Put a cue on standby — changes nothing on air |
 | `CUE HOLD ON` / `OFF` | A latched GO inhibit and nothing else |
 | `CUE ARM ON` / `OFF` | Arm / disarm the stack — accepted only when the Remote page allows remotes to arm |
-| `PLAN SHIFT <±m:ss>` | The day slips: every planned start from the standby cue on moves by the delta — `+2:00`, `-0:30`, `+90`, `-2m` (`SLIP` / `MOVE` are the same, and `PLAN +2:00` alone) — the Run surface's −1 MIN / +1 MIN as any delta; journaled as PlanShift; a caller node sends it to the desk it follows |
+| `PLAN SHIFT <±m:ss>` | The day slips: every planned start from the standby cue on moves by the delta — `+2:00`, `-0:30`, `+90`, `-2m` (`SLIP` / `MOVE` are the same, and `PLAN +2:00` alone) — the Run surface's −1 MIN / +1 MIN as any delta; journaled as PlanShift; a caller node sends it to the desk it follows. The delta is finite and at most a week (`+168:00:00`): past that, or NaN or an infinity, the line is refused as unknown, never clamped or wrapped (round 82) |
 | `PLAN RESUME` | "We resume now": the standby cue's planned start becomes the clock and the rest of the day moves with it (RESUME NOW on the Run surface) |
 | `PLAN CATCHUP` | The lateness made up before the next break, lunch or end by squeezing the planned lengths in proportion, never below 30 s a cue (CATCH UP on the Run surface) |
 | `CUE LIST` | `OK <json>` — the whole list with notes, summaries, broken reasons and each cue's plan (`plannedStart`, `plannedSeconds`, `followSeconds`, `mark`); `listRev` changes when the list does |
@@ -203,7 +203,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `CALIBRATE STATUS` | `OK <json>` — `running`, `progress` (0–1), `status`, `solved`, `applied`, `canvas` (`width`, `height`), `projectors` (each `id`, `name`, `x`, `y`, `mesh`, `coverage`, `residualPx`, `words`) and the `report`. `CALIBRATION` and `CAL` are aliases of the verb |
 | `NODES` | `OK <json>` — the nodes the beacon hears: `me` (this instance's `kind`, `machine`, `instance`, `link`), `linked` (callers on this desk's link), `nodes` (each `instance`, `kind` — desk, caller, timer, arcade — `name`, `address`, `show`, `live`, `fresh`, `link`, `http`, `heardSecondsAgo`) |
 | `TIMER PAUSE` / `RESUME` | The stage timer (the countdown overlay's clock) holds its remaining seconds, and runs on again from them |
-| `TIMER ADD <seconds>` / `TIMER MINUS <seconds>` | The clock nudged — `TIMER ADD 90`, `TIMER ADD 1:30`, `TIMER MINUS 30`; `TIMER +60` and `TIMER -30` are the same |
+| `TIMER ADD <seconds>` / `TIMER MINUS <seconds>` | The clock nudged — `TIMER ADD 90`, `TIMER ADD 1:30`, `TIMER MINUS 30`; `TIMER +60` and `TIMER -30` are the same. A nudge is finite and at most a week: past that, or NaN or an infinity, the line is refused (round 82) |
 | `TIMER FLASH` | The stage pages blink for three seconds — the speaker's eye to the clock |
 | `STAGE <words>` / `STAGE MESSAGE <words>` | A message to the speaker's stage page, kept until the page's ACK; the receipt reaches the desk's status line |
 | `STAGE CREW <words>` | The same to the crew's page |
@@ -465,6 +465,10 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/clock [1\|0\|12\|24]` | CLOCK ON / OFF — the clock overlay; no argument toggles; 12 or 24 sets the hours (also `/patterns/clock/24`, `/patterns/clock/on`); `/patterns/clock/seconds [1\|0]` and `/patterns/clock/date [1\|0]` the seconds and the date line |
 | `/patterns/message [1\|0\|"text"]` | MESSAGE ON / OFF — the message overlay; no argument toggles; a text puts the words on (also `/patterns/message/text "…"`, `/patterns/msg/Doors/open`); `/patterns/message/scroll [1\|0]` (or `/patterns/ticker`) makes it a ticker |
 | `/patterns/countdown <minutes>` | COUNTDOWN START — a duration from now (also `/patterns/countdown/start 5`, `/patterns/countdown/start/2:30`, `/patterns/timer/10`); `/patterns/countdown` with nothing to say, `/patterns/countdown/toggle` or `/patterns/countdown "toggle"` flips it; `/patterns/countdown/to "19:30"` (or `/to/19:30`) a time of day; `/patterns/countdown/stop`; `/patterns/countdown/label "DOORS IN"` |
+| `/patterns/countdown/follow [1\|0]` (also `/patterns/countdown/plan`) | COUNTDOWN FOLLOW ON / OFF — the countdown follows the running order; bare means ON (round 82) |
+| `/patterns/plan/shift <±m:ss>` (also `/slip`, `/move`; `/patterns/plan/shift/+2:00`; a number argument is seconds, its sign kept) | PLAN SHIFT — the day slips by the delta, refused past a week as on the TCP port (round 82) |
+| `/patterns/plan/resume` (also `/patterns/plan/now`) | PLAN RESUME (round 82) |
+| `/patterns/plan/catchup` (also `/patterns/plan/catch`) | PLAN CATCHUP (round 82) |
 | `/patterns/logo [1\|0]` · `/patterns/pip [1\|0]` | LOGO / PIP ON / OFF; no argument toggles |
 | `/patterns/overlays/off` | OVERLAYS OFF — every overlay off in one message |
 | `/patterns/pattern <kind>` | PATTERN — the kind of picture on air (also `/patterns/pattern/Grid`) |
@@ -478,7 +482,9 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 
 Answers go to whoever sent the message, from the same port: `/patterns/pong` for a ping,
 `/patterns/status <json>` for a status, `/patterns/error <text>` when a command is refused (the
-same `ERR …` sentence the TCP port would write) or an address is not one Patterns knows. With
+same `ERR …` sentence the TCP port would write) or an address is not one Patterns knows, and
+`/patterns/error <text>` naming the exception when a message's own handling threw — that message's fault,
+counted, the port carrying on (round 82). With
 **Feedback to** set to a host or address and a port (default 9699), every change sends one bundle
 there — throttled to 200 ms like the STATE pushes — carrying `/patterns/state/live i`,
 `/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/audio/track s`, `/audio/next s`, `/audio/n i`, `/audio/count i`, `/audio/remaining i`, `/audio/items/<n> s` (1…8), `/music i`, `/music/now s`,

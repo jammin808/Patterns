@@ -10,6 +10,36 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 82 — 2026-09-24 — a handed-in review answered: time on the wire is finite, every number the show writes is finite, every documented OSC address routes, the OSC port survives a fault, the wall's names meet the word list, the parsers under a fixed-seed fuzz
+
+`round-82` · PLAN §100 · REVIEW round 82 · 2,525 tests · module unchanged (3.16.0) · evidence: a handed-in review of the code, the architecture and the resiliency with a fuzz harness of its own, its patch set written against round 80 and merged here, and the maintainer's "continue to round 82"
+
+- **A span of time on the wire is finite and at most a week.** `PLAN SHIFT +99999999999999999999` threw out of the
+  parser and closed the connection unlogged; `PLAN SHIFT +1193047:00:00` wrapped to +31:44; `TIMER ADD +Infinity`
+  was accepted. `StageTimer.MaxWireSeconds` is the one ceiling, and `ParseSeconds` and `ParseDelta` refuse NaN,
+  the infinities and anything past it.
+- **Every number the show writes is finite.** An infinity on a paused stage timer made every save, recovery
+  record, twin mirror and publish of the Stage section throw; 108 of the model's 119 serialised numbers kept NaN.
+  `Observable.Set` refuses a number that is not finite, with a reflection fence over the whole model.
+- **Every documented OSC address routes.** `/patterns/plan/shift`, `/resume`, `/catchup` and
+  `/patterns/countdown/follow` were in the reference and refused by the map; a fence now holds every row of the
+  reference to a line the wire parses.
+- **The OSC port survives a fault.** A message whose handling throws is answered `/patterns/error`, counted and
+  logged once per hundred; the port carries on where it used to close for the rest of the show.
+- **The wall's names meet the word list.** A phone's nickname and group pass the room's word list before the
+  leaderboard or a draughts seat draws them; `NamesRefused` counts the refusals.
+- **The parsers under a fixed-seed fuzz.** The wire's line, every module line with a hostile number, an HTTP head,
+  the twin's lines, a management reply, an OSC datagram, an mDNS packet, a beacon, an EDID and 20,000 hostile OSC
+  messages — no throw, from a seed that names the same input everywhere.
+- **Made to fit.** The patch set's seven code units are 82.1–82.7 with their author's reasoning in each commit
+  and the subjects renumbered; its own papers were written under the switcher wall's numbers and are replaced by
+  this round's. The OSC reference's canvas row now says CANVAS, as the map and the wire have since round 81 (82.8).
+- **Found on the way.** A residency test that held only on 8 GB or more steps the grace it reads (L38 for the
+  twenty-six others). Eleven rows to the ledger, L31–L41: the handlers' swallowed faults, the network defaults, the
+  management channel, the sidecars' write-through, the log, the twin's transport, the word list's substring match,
+  the host-dependent tests, the feed, the stored credentials, the NDI receiver's stride; none closed. No verb an
+  output can show landed. Unwalked: no platform path touched.
+
 ## Round 81 — 2026-09-23 — the switcher wall's workflow: groups are kinds, a scoped take lands alone, an OWN tile's preview is its own, focus and selection are one
 
 `round-81` · PLAN §99 · REVIEW round 81 · 2,486 tests · module 3.16.0 · evidence: the maintainer's list from the rig (a verbal report; no files)

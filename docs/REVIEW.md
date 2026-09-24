@@ -3187,3 +3187,74 @@ mute-first ask, and the crash gap's measurement on the rig.
 - The App suite ran whole after 81.4 (809 green) and, after 81.5 added its one test with no source
   changed, that class alone.
 - Walk: unwalked.
+
+## Round 82 review — a handed-in review answered
+
+### 82.0 — the round opened
+
+- A review handed in against `359da2e` with its patch set (eight commits, its own "round 81", one round behind
+  this tree's): the build and the seven suites run on a clean Linux machine (one red, §100.8), the network
+  surfaces read, and a fuzz harness of its own run over every parser that reads from outside the desk; the
+  maintainer's "continue to round 82". The bundle's tree built and its Core and Devices suites passed; a trial
+  merge onto the head built and passed them too, conflicting in the five paper files alone. The seven code
+  units cherry-picked as 82.1–82.7 with their author's bodies; the patch set's papers not merged — their numbers
+  were the switcher wall's — and written again here under this round's. `docs/field/` has no files (§100.1).
+
+### 82.1 — a span of time on the wire is finite and at most a week
+
+- **Done.** §100.2. `StageTimer.MaxWireSeconds`; `ParseSeconds` and `ParseDelta` refuse NaN, the infinities and
+  anything past a week, and add their parts as longs.
+
+### 82.2 — every number the show writes is finite
+
+- **Done.** §100.3. `Observable.Set` refuses a double or float that is not finite; the reflection fence over the
+  model's 119 serialised numbers.
+
+### 82.3 — every documented OSC address routes
+
+- **Done.** §100.4. The map's `plan` case and the countdown's `follow`; the fence over every row of
+  `OscMap.Reference`, which named all four before the fix.
+
+### 82.4 — a fault in one OSC message is that message's
+
+- **Done.** §100.5. `HandleOneAsync`, `MessageFaults`, `/patterns/error`; the Devices suite's first OSC test.
+
+### 82.5 — a phone's name meets the word list
+
+- **Done.** §100.6. `PlayRoom.Allowed`, `NamesRefused`.
+
+### 82.6 — the parsers under a fixed-seed fuzz
+
+- **Done.** §100.7. `UntrustedInputFuzzTests`, six tests, under half a second, over round 81's `lines.txt`.
+
+### 82.7 — a test that read the host's memory (found on the way)
+
+- **Done.** §100.8. The residency test steps half the grace it reads.
+
+### 82.8 — the OSC reference's canvas row says what the map does
+
+- **Done.** §100.9. `/patterns/canvas/<letter>` in the row, the group spelling named as read the same way; the
+  fence from 82.3 walks it.
+
+### The review's items, answered
+
+- **Correct and done:** the parser's throw, the wrap, the infinity and the model's NaN (82.1, 82.2); the OSC
+  reference's unrouted addresses (82.3); the OSC loop's fragility (82.4); the unmoderated names (82.5); the
+  host-dependent residency test (82.7).
+- **Correct, not done this round, on the ledger:** the handlers' swallowed faults (L31); the network defaults and
+  the unpaired pictures (L32); the management channel (L33); the sidecars' write-through (L34); the log (L35); the
+  twin's transport and binds (L36); the word list's substring match (L37); the other host-dependent tests (L38);
+  the feed (L39); the stored credentials (L40); the NDI receiver's unchecked stride (L41). Each row was read
+  against the head before it was taken: all eleven hold as written, with one understatement — the management
+  channel's row says no signature is checked, which is right, and the package's SHA-256 is checked against the
+  download, which the row does not say; the hash rides in the same reply the row distrusts, so the row stands.
+- **Not taken as findings:** two of the harness's hits were text a UTF-8 socket cannot deliver (lone surrogates);
+  the XML entity expansion and the mDNS pointer loop were already refused; the assistant's design (proposals
+  applied only from the page's own button, cue actions from a curated list) was read and agreed with.
+- **Found reading the patch set against the head:** the OSC reference's canvas row (82.8).
+- The ledger: L31–L41 added, none closed — closed rows: twenty-one; open: twenty.
+
+### The suites
+
+- Core 986, Rendering 669, Devices 8, Audio 13, Audience 2, Assistant 37, App 810 — 2,525; the module's 34 node tests.
+- Walk: unwalked (no platform path touched).

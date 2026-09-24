@@ -10932,3 +10932,178 @@ Eye's desk node carrying the same row. On the rig it is unread: the round is unw
   the switcher's words, the fade places, the count); `docs/REMOTE.md` (SCREEN n TAKE's PVW rule, the take
   row's `focused` / `focusedLabel` / `groups`) and `docs/COMPANION.md` (module 3.16.0); QUALIFICATION §23
   (the wall's workflow on a rig); `docs/OPEN.md` (L30 added); the tag table row 80 (`359da2e`).
+
+## 100. Round 82 — a handed-in review answered: time on the wire is finite, the model's numbers are finite, every documented OSC address routes, the OSC port survives a fault, the wall's names meet the word list, the parsers under a fixed-seed fuzz
+
+### 100.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** A review handed in against round 80's head (`359da2e`) — the
+codebase, the architecture and the resiliency read and rated, the build and all seven suites run on a clean
+Linux machine with the .NET 10 SDK, and a fuzz harness of its own run over every parser that reads from
+outside the desk — with its patch set: the findings it could close in code, written as eight commits on
+`359da2e` and handed in as a bundle, a patch and the review's own report, and the maintainer's "continue to
+round 82". The review called its round "round 81". It was written beside this tree's round 81 (the switcher
+wall's workflow) and one round behind it, so its papers took numbers that round had already used — PLAN §99,
+REVIEW round 81, a CHANGELOG round 81, ledger rows from L30, the tag table row 80. Its seven code units are
+on the branch as 82.1–82.7, each commit body the author's own reasoning, each subject renumbered; the papers
+are this round's own. No files have arrived in `docs/field/`; there is nothing to read as what the files said.
+
+**How the patch set was read before it landed.** The bundle's own tree built clean under the analyzers and
+its Core and Devices suites passed. A trial merge onto this tree's head built and passed the same suites and
+the residency test, with conflicts in the five paper files alone: the code of the two rounds touches no
+common line. The report's findings were then read against the head, one by one: every one holds (§100.10
+says which landed and which are ledger rows), and the one place the head had moved from the picture the
+review saw is the OSC reference's canvas row (§100.9).
+
+**What the review's harness found.** Twenty thousand inputs to each of eight parsers and three hundred
+thousand OSC messages through the map and the parser: one throw — `PLAN SHIFT +99999999999999999999` out of
+`TimeSpan` — and, following it, two quieter faults behind it (§100.2), one class of fault in the model
+(§100.3), four documented OSC addresses the map never routed (§100.4). The rest held: no hang, no input over
+a hundred milliseconds, the mDNS pointer loop refused, the XML entity expansion refused by the runtime's own
+limit, OSC's reads span-checked, the NDI receiver's `unsafe` reads bounds-checked. The receiver's copy is not
+checked but trusted: it copies by the runtime's own size and stride and never asks that the stride covers a
+row (L41). Two of the harness's hits were text a UTF-8 socket cannot deliver and are not findings.
+
+### 100.2 A span of time on the wire is finite and at most a week (82.1)
+
+**The claim.** Three words reached past what a clock holds. `PLAN SHIFT +99999999999999999999` (or `1e308`, or
+`Infinity`) threw from `CueTiming.ParseDelta` — `TimeSpan.FromSeconds` out of range — and the TCP and HTTP
+handlers closed the connection as a routine disconnect with nothing logged. `PLAN SHIFT +1193047:00:00` added its
+parts as ints, wrapped, and landed as a slip of +31:44. `TIMER ADD +Infinity` passed `StageTimer.ParseSeconds`
+(`NumberStyles.Float` reads the word) and, on a paused stage timer, became a remainder of Infinity (§100.3).
+
+**The design.** `StageTimer.MaxWireSeconds`, a week, inclusive either way, is the one ceiling. `ParseSeconds`
+refuses NaN, the infinities and anything past it; `ParseDelta` adds its parts as longs and refuses a total past it.
+Every caller — PLAN SHIFT and its bare form, TIMER ADD / MINUS / +n, the executor's own re-read, the OSC map's
+nudges — sees null and refuses in its own words. A week is longer than any show day and far inside what a
+`TimeSpan`, an int of seconds and the show file hold.
+
+**The proof.** `WireDurationTests`: fifteen lines past a clock parse as Unknown and none throws; ordinary slips and
+nudges, the week itself included, land exactly; the wrap cases are refused.
+
+### 100.3 Every number the show writes is finite (82.2)
+
+**The claim.** `System.Text.Json` has no NaN and no infinity. On a paused stage timer, `TIMER ADD +Infinity` set
+`StageConfig.PausedRemainingSeconds` to Infinity; from then every save, recovery record, twin mirror, and every
+publish in which the Stage section was dirty threw, until something wrote over the value — reproduced on the
+model: `JsonUtil.Serialize` and `SnapshotClone.Clone` both throw. A reflection scan of the model found 108 of its
+119 serialised numbers keeping NaN (`Math.Clamp` passes NaN through, so no setter's clamp was a guard) and two
+keeping an infinity.
+
+**The design.** `Observable.Set` refuses a double or a float that is not finite: the field keeps its value and
+nothing is raised. One guard at the door every serialised setter goes through; a setter that clamps an infinity
+first still lands its bound. The refusal is silent by design — a setter has no reply line — and the wire's
+parsers (§100.2) are the place that says no with words; a value that reaches a setter non-finite has already
+passed a parser that should have refused it, which is what §100.7's fuzz guards.
+
+**The proof.** `ModelNumbersFiniteTests`: a fence over every public serialised double and float on every
+`Observable` in the core — finite against both infinities, unchanged against NaN, and failing if it finds fewer
+than 119; finite values still land and clamp; the paused timer's case keeps its remainder and the show serialises
+and clones.
+
+### 100.4 Every documented OSC address routes (82.3)
+
+**The claim.** `OscMap.Reference` documented `/patterns/plan/shift`, `/resume`, `/catchup` (and §65 named OSC as
+a way to slip the plan) and `/patterns/countdown/follow`. The map had no `plan` case, so the first three were
+refused as unknown addresses; `follow` fell to the countdown's default and became `COUNTDOWN START follow`. The
+wire and the module had the verbs from round 79 — the "every reader" rule with nothing holding the table to the map.
+
+**The design.** The map routes `/patterns/plan/shift|slip|move` with the delta as a segment, a word or a number
+(seconds, sign kept), `/patterns/plan/resume|now`, `/patterns/plan/catchup|catch`, and
+`/patterns/countdown/follow|plan` through the map's own switch words, bare meaning on as the wire's bare verb does.
+
+**The proof.** `OscMapTests`: a fence walks every address in every row of the reference, gives each documented
+argument a sample value, and asserts the message routes to a line the wire parses — it named all four before the
+fix and fails below 80 addresses; the plan buttons and the follow switch in each spelling, with their refusals.
+
+### 100.5 A fault in one OSC message is that message's (82.4)
+
+**The claim.** `OscService.ReceiveLoop` awaited each message's handling inside the loop: the first exception to
+escape a handler ended the loop, and `Reconcile` reopens the port only when its settings change. OSC is UDP on a
+port no pairing token covers — one datagram whose handling threw closed OSC for the rest of the show. After 82.1
+the harness finds no such datagram; this is the containment for the next one.
+
+**The design.** `HandleOneAsync` contains each message: counted (`MessageFaults`), answered with
+`/patterns/error` naming the exception, logged with its stack the first time and every hundredth after, and the
+loop carries on; cancellation still ends it. The answer is sent from inside the catch, so a sender whose reply
+path itself faults is caught by the same block and never reaches the loop.
+
+**The proof.** `OscServicePureTests` — the Devices suite's first test of the OSC port, a fake host, a router whose
+BLACKOUT throws, a real socket on loopback: the fault is answered and counted, the next PING is answered
+`/patterns/pong`, and a second fault is a second message's. Before the change it times out on the first reply.
+
+### 100.6 A phone's name meets the word list before the wall draws it (82.5)
+
+**The claim.** An answer and a SAY meet the room's word list and the moderation queue; a nickname and a group went
+straight to the wall — the leaderboard's top ten, a draughts seat — with no host between the phone and the room.
+
+**The design.** `PlayRoom.Join` passes both through `Allowed`: a name holding a word on the room's list is refused
+and counted (`NamesRefused`); a new phone joins as a guest, a refused group is none, a refused rename keeps the
+name the phone had. The list's substring match is unchanged and is L37.
+
+**The proof.** `AudienceTests`: the guest, the empty group, the kept name, the ordinary rename, the count, and no
+player or leaderboard row with a listed word.
+
+### 100.7 The parsers under a fixed-seed fuzz (82.6)
+
+**The design.** The review's harness, as a fence in the Core suite: `UntrustedInputFuzzTests`, from a fixed
+xorshift seed (`System.Random` is fenced, and a failure must name the same input everywhere) — the wire's line
+(mutations of the module's `lines.txt` and noise); every number in every module line replaced with one past a
+clock, an int or the show file, each refused or parsed and any slip or nudge that parses reading back inside a
+week; an HTTP head under both limits as text and bytes; the twin's line, JOIN and CHALLENGE; a management reply;
+an OSC datagram and bundle; an mDNS packet with a self-pointing name; a beacon; an EDID; twenty thousand OSC
+messages with hostile arguments through the map and the parser. Under half a second. The module's `lines.txt`
+it reads is round 81's (3.16.0, the `take_focused` and `take_groups` lines included): the fence runs over the
+vocabulary as it is on this head, not as the review saw it.
+
+### 100.8 A test that read the host's memory (82.7, found on the way)
+
+**The claim.** `ResidencyAppTests` stepped its clock thirty seconds and expected an idle picture still held — true
+only where the grace is sixty seconds or more, a machine of 8 GB or more. On the review's 4 GB machine the grace is
+twenty seconds and the test failed: the one red of 806 App tests, and the path a small show laptop runs is the one
+CI's 16 GB runners never take. Twenty-six more test files read `MemoryBudget.MachineMB` (L38).
+
+**The design.** The test steps half the grace it reads from the service, on any machine.
+
+### 100.9 The OSC reference's canvas row says what the map does (82.8)
+
+**The claim.** Round 81.1 made a joined canvas a canvas: the wire writes `CANVAS A ON / OFF`, the map routes
+`/patterns/canvas/<letter>` and reads `/patterns/group/<letter>` the same way, and `docs/REMOTE.md` says so.
+The reference's row still documented `/patterns/group/<letter>` as `GROUP A ON / OFF`. The fence from 82.3
+walks the row and it routed — to CANVAS — so the fence held; the words a reader of the reference saw were a
+round old. Found reading the patch set's fence against the head: the one place the head had moved from the
+picture the review saw.
+
+**The design.** The row names `/patterns/canvas/<letter>` and says the group spelling is read the same way, as
+the wire document has since round 81.
+
+**The proof.** The fence from 82.3 over every row of the reference, on the head.
+
+### 100.10 What the round did not do, and what is next
+
+- The TCP and HTTP handlers still treat every exception as a routine disconnect (L31); 82.1 removed the one
+  input known to reach it and 82.6 fences the parsers, but a router fault still closes a connection unlogged.
+  No fence this round: nothing in the vocabulary throws after 82.1, and the handlers have no router seam to
+  inject one.
+- The network defaults, the management channel, the sidecars' write-through, the log, the twin's transport,
+  the word list's substring match, the host-dependent tests, the feed, the stored credentials and the NDI
+  receiver's stride are rows L32–L41 with what closes each. Six of the eleven rows are code the size of a
+  screen with a test — the handlers' fault logging (L31), the client header on every mutating verb with
+  pairing on the state and picture routes (the code half of L32), the flush before the move and the recovery
+  record's backup (L34), whole-word matching (L37), the feed's size cap with the status line trimmed and the
+  ticker through the word list (L39), the stride guard (L41) — and are the next round's candidates. The
+  management channel (L33), a token minted on first run (the other half of L32), the twin's transport (L36)
+  and a sealed store for the credentials (L40) are design decisions and stay as rows until one is taken.
+- The review's own rating of the codebase is not carried: it refers to a scale set earlier in the review's
+  conversation, which was not handed in.
+- No verb an output can show landed: the round closes with no journal row, no log line and no Super Check
+  row to read beside an output, and this sentence says so.
+- No platform path was touched: the round is unwalked by nature, and the walk (QUALIFICATION §22) is still
+  the next thing a build on the show laptop does.
+
+### 100.11 The papers (82.9)
+
+- This section; REVIEW round 82; CHANGELOG (with the evidence class); README (the ledger's entry, the count);
+  `docs/REMOTE.md` (the week ceiling on PLAN SHIFT and TIMER ADD, the plan and countdown-follow OSC addresses,
+  the faulted message's answer); the tag table row 81 (`55a2b53`); `docs/OPEN.md` — L31–L41 added, none
+  closed. The module is unchanged (3.16.0); `docs/COMPANION.md` and QUALIFICATION have nothing to carry.
