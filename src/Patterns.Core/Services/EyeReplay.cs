@@ -214,9 +214,11 @@ public static class EyeReplay
 
     /// <summary>
     /// The desk's light from the machine's sample in force at the instant: grey without a sample or with a
-    /// stale one; red for a render fault, a starved pool or a missed slot since the sample before, or a p95
-    /// frame past 50 ms; amber for a slow frame, a p95 past the hitch line or a desk on battery; else green.
-    /// The words carry the sample's numbers and when it was written.
+    /// stale one; red for a render fault or a missed slot in the sample's own minute (the budget counts both
+    /// over the last minute, so the sample's number is the count and is never read against the sample
+    /// before), for a pool starved since the sample before (that counter counts since the desk started), or
+    /// for a p95 frame past 50 ms; amber for a slow frame, a p95 past the hitch line or a desk on battery;
+    /// else green. The words carry the sample's numbers and when it was written.
     /// </summary>
     public static (CheckLight Light, string Sub, IReadOnlyList<string> Words) Health(MetricSample? sample, MetricSample? previous, TimeSpan? age)
     {
@@ -237,9 +239,9 @@ public static class EyeReplay
             if (l > light) light = l;
             reasons.Add(reason);
         }
-        var renderFaults = Rose(sample.RenderFaults, previous?.RenderFaults);
-        var starved = Rose(sample.PoolStarved, previous?.PoolStarved);
-        var missed = Rose(sample.MissedSlots, previous?.MissedSlots);
+        var renderFaults = sample.RenderFaults;                                           // the last minute's count, as written
+        var missed = sample.MissedSlots;                                                  // the last minute's count, as written
+        var starved = Rose(sample.PoolStarved, previous?.PoolStarved);                    // since the desk started: its rise
         if (renderFaults > 0) Mark(CheckLight.Red, Count(renderFaults, "render fault"));
         if (starved > 0) Mark(CheckLight.Red, $"pool starved {N(starved)}×");
         if (missed > 0) Mark(CheckLight.Red, Count(missed, "missed slot"));

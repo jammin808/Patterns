@@ -226,6 +226,14 @@ public class EyeReplayTests
         Assert.Equal("2 render faults", faulted.Sub);
         Assert.Equal(CheckLight.Red, EyeReplay.Health(steady with { MissedSlots = 1 }, null, TimeSpan.Zero).Light);
 
+        // Render faults and missed slots are the last minute's counts in every sample (the budget's window), so four
+        // after four is four faults, never "none": a sample is read as written, not against the sample before it.
+        var fourBefore = steady with { RenderFaults = 4, MissedSlots = 3 };
+        var fourAgain = EyeReplay.Health(steady with { RenderFaults = 4, MissedSlots = 3 }, fourBefore, TimeSpan.Zero);
+        Assert.Equal(CheckLight.Red, fourAgain.Light);
+        Assert.Equal("4 render faults · 3 missed slots", fourAgain.Sub);
+        Assert.Equal(CheckLight.Red, EyeReplay.Health(steady with { RenderFaults = 1 }, steady with { RenderFaults = 6 }, TimeSpan.Zero).Light);   // fewer than before is still a fault
+
         // A counter that counts since the desk started reads by its rise since the sample before.
         var starvedBefore = steady with { PoolStarved = 5 };
         Assert.Equal(CheckLight.Green, EyeReplay.Health(starvedBefore, starvedBefore, TimeSpan.Zero).Light);
