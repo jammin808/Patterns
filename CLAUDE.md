@@ -95,7 +95,7 @@ Windows runner has no GPU, no audio endpoint and one display; what it cannot see
 | The rig record | `docs/QUALIFICATION.md` (the matrices, and §22 the walk), `docs/SOAK.md`, `docs/DRILL.md` (two-machine scenarios, unrun until a second machine is on the bench) |
 | The still-open ledger | `docs/OPEN.md` — cumulative; nothing leaves it until a row names the unit that closed it |
 | The machine's files per report | `docs/field/round-NN/` (`docs/field/README.md` says which four and how) |
-| Research and assessments | `docs/EYE.md`, `docs/WEB-VIDEO.md`, `docs/MEMORY-RESEARCH.md`, `docs/ROADMAP-ASSESSMENT.md`, `docs/GENERALISATION.md`, `docs/NODES.md` |
+| Research and assessments | `docs/EYE.md`, `docs/CONNECTOMICS.md`, `docs/WEB-VIDEO.md`, `docs/MEMORY-RESEARCH.md`, `docs/ROADMAP-ASSESSMENT.md`, `docs/GENERALISATION.md`, `docs/NODES.md` |
 
 ## How a round opens
 

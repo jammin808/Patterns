@@ -10,6 +10,30 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 84 — 2026-09-24 — the connectomics transfer: the Eye replayed from the record, and synthetic shows as a fence
+
+`round-84` · PLAN §102 · REVIEW round 84 · 2,575 tests · module unchanged (3.16.0) · evidence: web research at the maintainer's ask — the Google Research post on the complete fruit-fly brain map, read as method (`docs/CONNECTOMICS.md`) — and the maintainer's "sounds good, go ahead" on the assessment
+
+- **The Eye replayed.** REPLAY on the Eye page relights the structure of now from what the desk recorded —
+  the journal's rows and the metrics file's samples — at an instant: a screen shows the outcome of the rows
+  that named it in the thirty seconds before (green Done, amber Refused, red Failed), a device its receipts,
+  the desk the machine's sample and the cues and looks nothing else claims, and a thing the record does not
+  mention is grey and says so; the links are grey, because the record holds things, not links. A scrub bar
+  and two 30 s steps move the instant; the strip says the instant, the rows in its window and how the
+  machine was doing; the card lists the rows newest first; NOW puts the picture of now back. The rail,
+  STATE's counts and `EYE` stay on now. On the wire `EYE REPLAY [ON|OFF|<time>]` (a desk-only verb that
+  answers with the moment's words) and `EYE AT <time>` (the record at an instant as JSON, the page
+  unmoved); STATE's eye row carries `replay` and `replayAt`; the Eye menu, the help and the assistant's
+  brief carry it. The Companion module is unchanged: a scrub is not a key.
+- **Synthetic shows as a fence.** A fixed-seed generator draws rigs the hand-written tests never did — two
+  to seven screens, canvases, repeaters, locks, screens switched off, own pictures, ticks, un-armed tiles, a
+  focus — and runs five hundred and twenty of them through the take resolver under every scope, the show
+  file's round trip, the frozen clone and the shown-picture rule, with the doctrine's invariants asserted
+  on each; eight more take once on the live desk with the desk's own plan as the oracle for the air. It
+  found no defect; its first catch was its author's write on the frozen clone, which H3's fence refused.
+- **The research note.** `docs/CONNECTOMICS.md`: the post as method, the four transfers, the two taken, the
+  two left (the problems queue's memory — L44; the Eye in a browser), what does not transfer.
+
 ## Round 83 — 2026-09-24 — the ledger's rows that are code: a fault behind the wire is answered, a page from another origin cannot run the show, a sidecar reaches the disk, whole words on the word list, the feed capped and moderated, the NDI receiver's copy guarded
 
 `round-83` · PLAN §101 · REVIEW round 83 · 2,540 tests · module unchanged (3.16.0) · evidence: the ledger's six code-sized rows from the handed-in review (round 82), each re-read against the head; the maintainer's "continue to round 83"

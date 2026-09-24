@@ -3313,3 +3313,57 @@ mute-first ask, and the crash gap's measurement on the rig.
 
 - Core 998, Rendering 670, Devices 8, Audio 13, Audience 2, Assistant 37, App 812 — 2,540; the module's 34 node tests.
 - Walk: unwalked — 83.3 touches the record a restart reads; QUALIFICATION §24's row is the walk's.
+
+## Round 84 review — the connectomics transfer
+
+### 84.0 — the round opened
+
+- The maintainer's question with the Google Research post, the assessment's four transfers, and the
+  maintainer's "sounds good, go ahead" on the two proposed as one round (§102.1; `docs/CONNECTOMICS.md`).
+  `docs/field/` has no files. The post could not be re-read from the build environment (its network
+  policy denies `research.google`); the note says so and states the method without the post's figures.
+
+### 84.1 — the Eye replayed in the core
+
+- **Done.** §102.2. `ReplayRecord`, `ReplayMoment`, `EyeReplay.At` / `Apply` / `NodesFor` / `Health` /
+  `LightOf` / `Words` / `Line`, `EyeGraph.Relit`, `MetricsCsv.Parse`, `ReplayTime`; `EyeReplayTests`.
+- **Decided on the way:** a counter that counts since the desk started reads by its rise since the sample
+  before, and the session's fault count is words, never a light — a fault an hour ago must not paint every
+  later moment red.
+
+### 84.2 — the replay on the desk, the wire, the menus and the help
+
+- **Done.** §102.3. `EyeService.Shown` and the replay verbs, the page's strip and card, `EYE REPLAY`,
+  `EYE AT`, STATE's and the JSON's fields, the Eye menu's two lines, the help, the brief's line;
+  `EyeReplayAppTests`, the vocabulary fences.
+- **Found and fixed on the way:** the router answered a bare `OK` for `EYE REPLAY` — its default for an
+  action — and the moment's words never reached the wire; `EyeReplay` joined the verbs that answer with
+  their words (the navigator's, the build verbs'). The strip said "desk amber" for the machine's sample
+  while the desk node stood red from a failed cue; the strip now says "machine", which is what the sample
+  speaks for, and the desk node adds its rows to that.
+- **Not carried:** the Companion module (a scrub is not a key; the wire has the verbs); the assistant does
+  not drive the replay (its brief says when the page is replaying; `EYE AT` is the agent's question).
+
+### 84.3 — synthetic shows as a fence
+
+- **Done.** §102.4. `SyntheticShowTests` — twelve seeds as a theory over every scope, five hundred in one
+  fact with the shapes reached asserted, eight for the model; `SyntheticTakeAppTests` — eight rigs on the
+  live desk with the desk's plan as the oracle.
+- **What it found:** no defect in the resolver or the model on five hundred and twenty rigs. Its first catch
+  was its own author: the test wrote on the frozen clone to prove it apart and H3's fence refused the write
+  — the fact the test now asserts, beside a live write that never reaches the clone.
+
+### The ledger's rows, answered
+
+- **Closed:** none.
+- **Added:** L44 — the Eye's problems queue has no memory: a problem seen and understood is not dismissable
+  and greets the operator on every walk (the post's proofreading queue, not transferred this round).
+- **Not measured:** the record's read on the REPLAY press (the journal's newest rows and the metrics file
+  on the desk's thread); §102.5 says what moves it to a worker if a report names it.
+- Closed rows: twenty-seven; open: seventeen.
+
+### The suites
+
+- Core 1,030, Rendering 670, Devices 8, Audio 13, Audience 2, Assistant 37, App 815 — 2,575; the module's 34 node tests.
+- Walk: not owed — no platform path was touched and no verb an output can show landed; the replay is a
+  desk-only reading and the fence is tests. The papers say so rather than point at a row.

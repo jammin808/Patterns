@@ -11277,3 +11277,211 @@ fence, green on the whole run; `HttpHeadTests` and `RemoteTrustTests` on the new
   pairing with the cookie); `docs/QUALIFICATION.md` §24 (the recovery record's backup on a stick, the
   flush's cost); `docs/OPEN.md` — L31, L32, L34, L37, L39 and L41 closed, L42 and L43 added; the tag table
   row 82 (`0b38328`). The module is unchanged (3.16.0).
+
+## 102. Round 84 — the connectomics transfer: the Eye replayed from the record, and synthetic shows as a fence
+
+### 102.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** The maintainer's question — "Could Patterns take anything useful
+from this?" — with a link to the Google Research post on the complete male fruit-fly brain map, and the
+maintainer's "sounds good, go ahead" on the assessment's proposal: web research at the maintainer's ask,
+then the maintainer's word. No files have arrived in `docs/field/` since round 78; there is nothing to
+read as what the files said. The post's method, the transfers considered, the two taken and the two left
+are `docs/CONNECTOMICS.md`, recorded the way the Eye's research was in round 66 (`docs/EYE.md`).
+
+**The assessment, in one paragraph.** Strip the neuroscience away and the post is a way of working: a
+complete map of structure first; activity laid over the structure as a separate layer, never confused
+with it; verification as a stage that counts as work; synthetic exercise of the map to find where the map
+or the model is wrong; a release with the tools to read it. Patterns has the map (the God's Eye, round 66).
+Two of the other four transferred as code this round — the activity layer as the Eye's replay of what the
+desk recorded, and the synthetic exercise as a fence of generated rigs — and two are recorded, not built:
+a problems queue with a memory (the ledger's L44) and the Eye in a browser with the view in the URL
+(§102.5). The scale and the reconstruction do not transfer: the Eye has tens of things typed by the desk,
+not tens of thousands segmented from an image.
+
+**What every unit was read against.** The standing brief's chain: a fact that changes reaches the desk,
+the menus, STATE, the Eye, the wire, the deck and the assistant in the same round, or the paper says which
+it did not reach and why (§102.3 says: the deck, and why). The doctrine's first line — attempts are not
+facts — is the replay's whole rule (§102.2). "Measured, then governed": the round adds no ladder, governor
+or fence over a measurement; the one cost it adds and did not measure is written as such (§102.5).
+
+### 102.2 The Eye replayed in the core (84.1)
+
+**The claim.** After a bad moment the desk has two records — the journal (`patterns.showlog.jsonl`, every
+action with its origin, outcome, visibility and effect) and the metrics file (`patterns.metrics.csv`, a
+machine sample every thirty seconds) — and no way to read either as a picture. The Eye shows now; the
+question after the show is "what was the picture at 20:14?".
+
+**The design.** `ReplayRecord` is the journal's rows and the metrics file's samples, sorted once, with
+`FirstUtc`, `LastUtc`, `Span`, `Clamp`, `Position` and `AtPosition` for a scrub bar, `SamplesAt` (the last
+sample at or before an instant, and the one before it), `RowsBetween` (bounded, the newest kept) and
+`LastRowAt`. `EyeReplay.At` makes a `ReplayMoment`: the sample in force, the sample before it, the rows of
+the thirty seconds before the instant, the last row before it whatever the window. `EyeReplay.Apply`
+keeps every node and link of the Eye of now, in order, and replaces the lights and the words from the
+record alone:
+
+| The thing | Its light and words in the replay |
+|---|---|
+| A screen | The worst outcome of the rows that named it in the window — by id (`screen:<id>`), by its wire number (`SCREEN 2`, through `EyeGraph.ScreenNumbers`), as a member of a canvas key (`a+b` lights every member drawn), or by its exact label; its sub is the last row's verb and outcome, its words every row's line |
+| A device | The same, from its receipts (`DeviceReceipt` rows name the device) |
+| The desk | The machine's sample: grey without one or with one older than ninety seconds (three sample periods); red for a render fault, a starved pool or a missed slot that rose since the sample before, or a p95 frame past 50 ms; amber for a slow frame, a p95 past the hitch line (25 ms) or a desk on battery; green otherwise — plus the rows nothing else claims (a cue, a look, a lower third, a refused take), which can raise it |
+| Anything else | Grey, "no record in the last 30 s" — the record says nothing about it in that window |
+| A link | Grey: the record holds things, not links |
+| An outcome word the replay does not know | Grey, never green |
+
+`Done`, `Requested`, `Solved` and `Settled` are green; `Refused`, `DoneWithWarnings`, `Skipped` and
+`Partial` amber; `Failed` and `FailedLate` red. A counter that counts since the desk started (`poolStarved`,
+`renderFaults`, `missedSlots` in some builds) reads by its rise since the sample before, so a fault an hour
+ago does not paint every later moment red; `faults` (the session's count) is words, never a light. The
+graph's own machinery does the rest: `Problems`, `Worst`, `Headline` and the counts are computed by the
+constructor, so a replayed picture has its own problems queue and headline for free.
+
+`EyeGraph.Relit` is the one way to a graph with other lights — the private constructor stays, and the
+screens' wire numbers ride along so `SCREEN n` resolves in a replay too. `MetricsCsv.Parse` reads the file
+back by column name (the header is the first line and any later line that is a header again), so an older
+build's file and a torn line read for what they have and the rest sits at "not measured". `ReplayTime`
+reads a clock time (`20:14`, `20:14:03` — today's in the desk's zone, yesterday's when it lies ahead of
+now) or an ISO 8601 stamp (a `Z` or an offset honoured, none read as the desk's zone) and refuses every
+other word: a time is a value, and a word that is not one is unknown. `ReplayTime.Stamp` writes the stamp
+the wire gives back.
+
+**The proof.** `EyeReplayTests` (twelve facts): the record sorted and spanned with the scrub-bar maths and
+the empty record's answers; the moment's sample, window and last row at four instants and the bound on the
+rows; the structure relit — the same ids in the same order, every link grey, a screen lit by id, by number
+and as a canvas member, a device by its receipt, the desk amber from its sample and carrying the cue, a
+display grey with the reason, the problems queue and the headline of the replayed picture, the live
+structure untouched, the numbers riding along; the picture before the rows; the empty record all grey with
+the reason; the health rule case by case including the rise-since-before rule and faults as words; the
+strip's and a row's words; `NodesFor` by id, number, label, canvas and the fall-back to the desk; the
+outcome words; the CSV read back including a torn line, an older header and a line before any header; the
+time's shapes and its refusals.
+
+### 102.3 The replay on the desk, the wire, the menus and the help (84.2)
+
+**The design.** `EyeService` gains the replay: `Replaying`, `Record`, `ReplayAtUtc`, `Moment`, and `Shown`
+— the replayed graph while the replay is open, else the picture of now. The page, its side card and the
+operator's eye verbs (FOCUS, NEXT, PREV) read `Shown`; the rail, STATE's counts and headline, `EYE` on the
+wire and the assistant's facts read `Graph`. The replay is the operator's reading, never the room's truth:
+one air. `Replay(words)` runs `EYE REPLAY [ON | OFF | <time>]` — ON opens the record at its last stamp, a
+time opens it there, OFF (NOW, LIVE) closes it; an empty record is refused with the reason; the record is
+read once on the press (the journal's newest twenty thousand rows, the metrics file and the one it rotated
+out) and kept until the replay closes. `Scrub(position)` and `Step(span)` move the instant without a verb:
+a drag is the operator's hand on the view, like a pan, and a verb per slider tick would write a journal row
+per pixel into the very record the replay reads. `JsonAt(words)` answers `EYE AT <time>` — the record at
+an instant as the Eye's JSON — without moving the page, reading the record afresh when the replay is
+closed. `Refresh()` re-applies the moment to a rebuilt structure, so a thing that joins now appears in the
+replay grey with the reason and a thing that left is gone from it.
+
+On the page: REPLAY / NOW in the toolbar; a replay strip with `◀ 30 s`, the scrub bar (0 the record's first
+stamp, 1 its last), `30 s ▶`, the record's reach and the moment's words (the instant, the rows in its
+window, the machine's light and why); IN THE RECORD on the side card, the window's rows newest first. On the
+wire: `EYE REPLAY` is a desk-only action (a running order never moves what the desk is looking at) that
+answers with the moment's words, like the navigator's verbs — a controller shows where the replay stands;
+`EYE AT <time>` is a query; a bare `EYE AT` is unknown. STATE's eye row carries `replay` and `replayAt` at
+its end; the Eye's JSON carries `replay`, `replayAt` and `moment` at its end (false and empty for the
+picture of now). The Eye menu offers "Replay the record" (`EYE REPLAY ON`) and "Back to now"
+(`EYE REPLAY OFF`); the help topic's body, its steps and its wire line carry the replay; the brief's first
+line says when the page is replaying and keeps the picture of now below it, so the assistant never
+mistakes then for now.
+
+**The chain, reader by reader.** The desk (the page, the strip, the card), the right-click menus (the Eye
+menu's two lines), STATE (`replay`, `replayAt`), the Eye (it is the Eye), the wire (`EYE REPLAY`, `EYE AT`,
+the JSON's fields), the help and the assistant (the brief's line) — reached. The Run strip is not: it reads
+the air, and the replay changes nothing on it. The deck is not: the Companion module is unchanged — a scrub
+is not a key, the wire has the verbs for any controller that wants them, and STATE's two fields are there
+for a module that chooses to show them.
+
+**The proof.** `EyeReplayAppTests` (two facts): rows written to the desk's own journal and samples to its
+metrics file; `EYE REPLAY <time>` opening the record there with the page's picture the record's (the desk
+red from the failed cue, the last row on its sub, the take at the window's edge outside it, everything
+else grey with the reason) while the rail's line and word stay the desk's; the view model's words, rows,
+span and position; STATE's row ending in `replay` and `replayAt`; `EYE` saying `replay:false`; `EYE AT`
+answering the record at another instant with the page unmoved; the refusals of a word that is not a time
+and the unknown bare `AT`; the scrub bar to the first stamp, a step held inside the record, the bar to the
+last; NEXT walking the replayed picture; the brief's first line; the menu's two lines by `MENU PAGE Eye`;
+the verb desk-only; a device that joins now grey in the replay with the lights of then kept; NOW putting
+the picture of now back with the row and the brief following. The second fact: an empty record refused,
+ON opening at the record's last stamp, and a render fault with no sample before it red at its own instant.
+`WireVocabularyTests` carries `EyeAt` in the wire's non-action set, the three `EYE REPLAY` lines through
+the recorder's round trip, `EYE AT 20:14` as a query with its text, `EYE AT` unknown and a bare `EYE REPLAY`
+as ON; `EyeTests` counts `EyeReplay` among the desk's own verbs with a God's Eye label.
+
+### 102.4 Synthetic shows as a fence (84.3)
+
+**The claim.** The hand-written tests draw the rigs their authors thought of: three screens, one locked,
+one confidence. The take resolver (round 67), the take ticket (round 72), the shown-picture rule and the
+frozen clone (H3) are the rules the wall runs on, and they had never met a rig nobody drew — a repeater
+inside a canvas of mixed roles with an own picture, a locked canvas member ticked and un-armed.
+
+**The design.** `SyntheticShowTests` generates rigs from a fixed seed (xorshift64, the fuzz tests' own
+shape): two to seven screens of four sizes, each dragged flush against the one before with a 40 % chance
+(so they join a canvas through `RigGeometry.Build`) or set apart, roles drawn main 50 % / confidence 20 % /
+info 15 % / repeater 15 % (a repeater mirrors the screen before it), switched off 10 %, locked 20 %; then,
+over the geometry's targets, own pictures on 30 % of screens and canvases (any pattern kind), ticks on
+40 %, un-armed 20 %, and a focus on one target or none. The rig as a take sees it is derived the way the
+desk derives it (`ShowActions.RigTargets`): the geometry's targets in wall order, each with `Locked` from
+`ScreenRoles.IsLocked`, `IsMirror` from the placement's `MirrorOf`, `KeepsOwn` from `UsesOwnPattern`, `Kind`
+from `ScreenRoles.KindOf`, the shape key from `TakeShapes`. Every rig is resolved under every scope — the
+whole rig, FOCUSED, TICKED, GROUPS, CANVASES, GROUP MAIN / CONFIDENCE / INFO, every target by id, an id the
+rig has not got, `SCREEN 9` with nothing named — and the invariants asserted on each plan:
+
+- a locked target, a repeater and an un-armed target are never in `Taken`, whatever the scope;
+- the candidates a scope names are the rule's (the focused one, the ticked ones, the kinds of the ticked
+  take-kinds, the kind named, the ticked canvases, the named ids the rig has); nothing named is a refusal;
+- `Taken` is the armed, unlocked, non-repeater candidates in wall order; `Held` the rest of the candidates
+  with the one reason each, locked before repeater before not armed; `Outside` the rest of the rig;
+- `Taken`, `Held` and `Outside` partition the rig, each id once, in wall order; `Kept` is the held and the
+  outside;
+- a plan with nothing taken is a refusal that names why and, with one held candidate, names it; a refused
+  plan's `Words` are its refusal;
+- the whole rig is never scoped and has no outside; every other scope is scoped;
+- one label, one shape and one key per taken target, in order; the OWN words for the taken that keep their
+  own picture; every held target named with its reason in `Words`;
+- the same rig makes the same plan twice (compared as JSON).
+
+Twelve seeds run as a theory (a failure names its seed) and five hundred more in one fact, which also
+asserts the generator reached the shapes the fence is for (more than fifty canvases, fifty repeaters and a
+hundred refusals). The model holds on eight more seeds: the show file round-trips through `JsonUtil`; the
+frozen clone is equal and apart — a write on it is refused by the snapshot fence, a write on the live show
+never reaches it; the shown-picture rule answers the programme for the empty, the null and an unknown
+target, a repeater's source for a repeater, and the assignment for an own picture, with every target's
+kind one of the five words; and a lock never moves a picture — locked, a target shows what it showed, and
+unlocked again, still.
+
+`SyntheticTakeAppTests` runs the same idea on the live desk: eight seeds, two to four screens with roles,
+locks, un-armed tiles and ticks from the seed, one scoped press each (FOCUSED, TICKED, TICKED GROUPS or a
+group by kind). The desk's own plan, read before the press, is the oracle for the air after it: every
+taken target shows the preview as its own picture, every held or outside target and the programme keep
+theirs, a refused plan moves nothing (the snapshot's version unchanged) and its refusal is on the status
+line; the run asserts it met both landings and refusals.
+
+**What the fence found.** No defect in the resolver or the model on five hundred and twenty rigs; its first
+catch was its own author — the test wrote on the clone to prove it apart, and H3's fence refused the write,
+which is the fact the test now asserts. The fence's value is the rigs it will draw against the next change
+to the wall's rules.
+
+### 102.5 What the round did not do, and what is next
+
+- **The module is unchanged (3.16.0).** A scrub is not a key; the wire has `EYE REPLAY` and `EYE AT` for
+  any controller, and STATE's `replay` and `replayAt` for a module that shows them.
+- **The assistant does not drive the replay.** It answers from the picture of now and its brief says when
+  the page is replaying; `EYE AT <time>` is the question an agent asks.
+- **No measurement this round.** The record is read on the REPLAY press, on the desk's thread — the
+  journal's newest rows and the metrics file the way the history page reads them at boot. Its cost was not
+  measured; a number is not claimed. If a report names the press as slow, the read moves to a worker the
+  way the show file's parse did (round 56.6).
+- **The problems queue's memory** is L44 in the ledger, not a unit: a dismiss needs a home (the show, the
+  machine or the session) and a rule for when a dismissed problem returns; that is a design first.
+- **The Eye in the browser** — a page over the same `EYE` JSON with the focus and the lens in the URL —
+  waits for a round with a bench: a second reader of the picture should be walked on a phone beside the
+  wall before it is called done.
+- **No platform path touched, no verb an output can show.** The replay changes nothing on the air and the
+  fence is tests: the closing sentence's row is not owed this round, and the papers say so rather than
+  point at a row.
+
+### 102.6 The papers (84.4)
+
+- This section; REVIEW round 84; CHANGELOG (with the evidence class); README (the ledger's entry, the
+  count); `docs/CONNECTOMICS.md` (the research note, listed beside the Eye's in `CLAUDE.md`);
+  `docs/REMOTE.md` (`EYE REPLAY`, `EYE AT`, the JSON's and STATE's new fields); `docs/OPEN.md` — L44 added,
+  none closed; the tag table row 83 (`71de914`). The module is unchanged (3.16.0).
