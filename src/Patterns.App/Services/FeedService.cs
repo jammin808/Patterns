@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using Patterns.Core.Model;
+using Patterns.Core.Play;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;
@@ -10,7 +11,8 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class FeedService : IDisposable
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(12) };
+    // Round 83: a feed past FeedParser.MaxBytes is refused by the client before it is buffered — a pathological document is seconds and 2 GB otherwise.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(12), MaxResponseContentBufferSize = FeedParser.MaxBytes };
 
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
@@ -69,22 +71,43 @@ public sealed class FeedService : IDisposable
             string status;
             try
             {
-                var content = source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                              source.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                    ? await Http.GetStringAsync(source)
-                    : await File.ReadAllTextAsync(source);
+                string content;
+                if (source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || source.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    content = await Http.GetStringAsync(source);
+                }
+                else
+                {
+                    var length = new FileInfo(source).Length;
+                    if (length > FeedParser.MaxBytes) throw new InvalidDataException($"the feed file is {length / 1024} KB; {FeedParser.MaxBytes / 1024} KB is the most");
+                    content = await File.ReadAllTextAsync(source);
+                }
 
-                var items = FeedParser.Parse(content, kind, source, DateTime.Now, maxItems);
-                text = FeedParser.Join(items, separator);
-                status = items.Count > 0
-                    ? $"Feed OK — {items.Count} item{(items.Count == 1 ? "" : "s")}, updated {DateTime.Now:HH:mm:ss}"
+                var items = FeedParser.Parse(content, kind, source, DateTime.Now, maxItems, out var problem);
+                // Round 83: the ticker meets the room's word list as a phone's answer does; what it held back is on the status line.
+                var (kept, held) = FeedParser.Moderate(items, WordList.Default);
+                text = FeedParser.Join(kept, separator);
+                var heldWords = held > 0 ? $", {held} held back by the word list" : "";
+                status = kept.Count > 0
+                    ? $"Feed OK — {kept.Count} item{(kept.Count == 1 ? "" : "s")}{heldWords}, updated {DateTime.Now:HH:mm:ss}"
+                    : problem.Length > 0 ? $"Feed error: {problem}"
+                    : held > 0 ? $"Feed loaded — every item held back by the word list ({held})."
                     : "Feed loaded but empty.";
             }
             catch (Exception ex)
             {
-                Log.Warn($"Feed fetch failed for '{source}'.", ex);
+                // Round 83: the status line and the log get the exception's first line — a parser's message can be the size of the document — and the stack only for a fault that is not the feed's own.
+                var brief = Faults.Brief(ex);
+                if (ex is HttpRequestException or IOException or OperationCanceledException or InvalidDataException or FormatException or UnauthorizedAccessException)
+                {
+                    Log.Warn($"Feed fetch failed for '{source}': {brief}");
+                }
+                else
+                {
+                    Log.Warn($"Feed fetch failed for '{source}': {brief}", ex);
+                }
                 text = "";
-                status = $"Feed error: {ex.Message}";
+                status = $"Feed error: {brief}";
             }
 
             await UiThread.InvokeAsync(() =>

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Xml.Linq;
 using Patterns.Core.Model;
+using Patterns.Core.Play;
 
 namespace Patterns.Core.Services;
 
@@ -24,8 +25,16 @@ public static class FeedParser
         return FeedKind.Csv;
     }
 
+    /// <summary>The most bytes a feed may be, over the wire or from a file: a document past it is refused before it is read whole (round 83).</summary>
+    public const long MaxBytes = 2 * 1024 * 1024;
+
     public static IReadOnlyList<string> Parse(string content, FeedKind kind, string sourceNameHint, DateTime localNow, int maxItems)
+        => Parse(content, kind, sourceNameHint, localNow, maxItems, out _);
+
+    /// <summary>As above, with what went wrong when nothing parsed: the exception's type and first line, never a message the size of the document (round 83).</summary>
+    public static IReadOnlyList<string> Parse(string content, FeedKind kind, string sourceNameHint, DateTime localNow, int maxItems, out string problem)
     {
+        problem = "";
         if (kind == FeedKind.Auto) kind = Detect(content, sourceNameHint);
         try
         {
@@ -39,9 +48,23 @@ public static class FeedParser
         }
         catch (Exception ex)
         {
-            Log.Warn("Feed parse failed.", ex);
+            problem = Faults.Brief(ex);
+            Log.Warn($"Feed parse failed: {problem}");
             return Array.Empty<string>();
         }
+    }
+
+    /// <summary>Round 83: the items a listed word keeps off the wall, counted, and the rest — the ticker meets the room's word list as a phone's answer does.</summary>
+    public static (IReadOnlyList<string> Kept, int HeldBack) Moderate(IReadOnlyList<string> items, IReadOnlyList<string> words)
+    {
+        var kept = new List<string>(items.Count);
+        var held = 0;
+        foreach (var item in items)
+        {
+            if (WordList.Matches(item, words)) held++;
+            else kept.Add(item);
+        }
+        return (kept, held);
     }
 
     public static string Join(IReadOnlyList<string> items, string separator)

@@ -1,4 +1,5 @@
 using Patterns.Core.Model;
+using Patterns.Core.Play;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -270,5 +271,29 @@ public class FeedParserTests
     {
         Assert.Equal("a — b", FeedParser.Join(new[] { "a", "b" }, " — "));
         Assert.Equal("a   •   b", FeedParser.Join(new[] { "a", "b" }, ""));
+    }
+}
+
+/// <summary>Round 83 (L39): the ticker meets the word list, the feed has a size, and a feed that will not parse is one line on the status and in the log, never the document.</summary>
+public class FeedModerationTests
+{
+    [Fact]
+    public void TheTickerMeetsTheWordListAndAFeedThatWillNotParseIsOneLineNotADocument()
+    {
+        var (kept, held) = FeedParser.Moderate(new[] { "Doors open 7pm", "What a load of bullshit", "Scunthorpe win 2-1" }, WordList.Default);
+        Assert.Equal(new[] { "Doors open 7pm", "Scunthorpe win 2-1" }, kept);
+        Assert.Equal(1, held);
+        Assert.Equal(2L * 1024 * 1024, FeedParser.MaxBytes);
+
+        var torn = "<rss><channel><item><title>" + new string('x', 20000) + "</item>";      // unclosed tags: a parser's message names the document
+        var items = FeedParser.Parse(torn, FeedKind.Rss, "feed.xml", new DateTime(2026, 9, 24, 12, 0, 0), 10, out var problem);
+        Assert.Empty(items);
+        Assert.StartsWith("XmlException", problem, StringComparison.Ordinal);
+        Assert.True(problem.Length <= 200, problem);
+        Assert.DoesNotContain("\n", problem);
+
+        var fine = FeedParser.Parse("one\ntwo", FeedKind.Csv, "notes.txt", new DateTime(2026, 9, 24, 12, 0, 0), 10, out var none);
+        Assert.Equal(2, fine.Count);
+        Assert.Equal("", none);
     }
 }
