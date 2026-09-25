@@ -250,9 +250,15 @@ public class RemoteTrustTests
             Dispatcher.UIThread.RunJobs();
             Assert.False(services.State.Blackout);
 
+            // Round 85 (P1-02): a query wants the token too — STATUS answers the JSON /api/state has asked it for since round 83 — and so does the cue list.
             var query = Http(port, "POST", "/api/cmd", "STATUS");
-            Assert.Equal("200 OK", query.Status);                              // a query needs no token
-            Assert.Contains("\"ok\":true", query.Body);
+            Assert.Equal("403 Forbidden", query.Status);
+            Assert.Contains("not paired", query.Body);
+            var queryPaired = Http(port, "POST", "/api/cmd", "STATUS", ("X-Patterns-Token", Token));
+            Assert.Equal("200 OK", queryPaired.Status);
+            Assert.Contains("\"ok\":true", queryPaired.Body);
+            Assert.Equal("403 Forbidden", Http(port, "GET", "/api/cues").Status);
+            Assert.Equal("200 OK", Http(port, "GET", "/api/cues", "", ("Cookie", "patterns-token=" + Token)).Status);
 
             var wrong = Http(port, "POST", "/api/cmd", "BLACKOUT ON", ("X-Patterns-Token", "K7QM-3XWD-P9RB"));
             Assert.Equal("403 Forbidden", wrong.Status);
@@ -399,14 +405,23 @@ public class RemoteTrustTests
             wire.Send("PING");
             Assert.Equal("OK PONG", wire.ReadResponse());
 
-            // Every page that runs a verb sends the token it keeps and asks for it on a 403.
-            foreach (var path in new[] { "/", "/run", "/stage", "/pad" })
+            // Every page that runs a verb sends the token it keeps and asks for it on a 403; round 85: the pages that read the
+            // state (the remote, the admin) send it on those reads too, and the pages with a picture set it as the cookie.
+            foreach (var path in new[] { "/", "/run", "/stage", "/pad", "/admin" })
             {
                 var page = Http(vm.State.Control.HttpPort, "GET", path);
                 Assert.Equal("200 OK", page.Status);
                 Assert.Contains("X-Patterns-Token", page.Body);
                 Assert.Contains("patterns.token", page.Body);
                 Assert.Contains("403", page.Body);
+            }
+            foreach (var path in new[] { "/", "/admin" })
+            {
+                Assert.Contains("fetch('/api/state', { headers: hdr() })", Http(vm.State.Control.HttpPort, "GET", path).Body);
+            }
+            foreach (var path in new[] { "/", "/run", "/multiview" })
+            {
+                Assert.Contains("patterns-token=", Http(vm.State.Control.HttpPort, "GET", path).Body);
             }
 
             // Round 85 (P1-06): a bind that is not an address opens nothing — never every interface — and says why.

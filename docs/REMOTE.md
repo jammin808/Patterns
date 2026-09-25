@@ -30,10 +30,15 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 > the trust model of most stage-control protocols — and Super Check's Remote row reads amber for
 > it. With a token set, a connection presents it before the desk runs a mutating verb:
 > `AUTH <token>` on the wire (the Companion module sends it after `HELLO` from its **Pairing
-> token** field), the `X-Patterns-Token` header on the web (the phone, run, stage and pad pages
-> ask for it once and keep it in the browser). Reading — `STATE`, `STATUS`, `PING`, `HELLO`,
-> `CUE LIST`, the `MENU` queries, the pages themselves — never needs it, and connections from the
-> desk's own machine never do. A mutating verb without it answers `ERR not paired …` and runs
+> token** field), the `X-Patterns-Token` header on the web (the phone, run, stage, pad, admin and
+> multiview pages ask for it once and keep it in the browser, as a header for their calls and as the
+> cookie `patterns-token` for their pictures). On the wire, reading — `STATE`, `STATUS`, `PING`,
+> `HELLO`, `CUE LIST`, the `MENU` queries — never needs it: a TCP line is not a browser, and a
+> Companion presents `AUTH` before it asks anything. On the web everything wants it (round 83 the
+> state and the pictures, round 85 every `/api/cmd` line and `/api/cues`) except the pages
+> themselves, the EDID files and the audience port, because a browser on the network is the way a
+> stranger's page reads a desk. Connections from the desk's own machine never need it, either way. A
+> mutating verb without it answers `ERR not paired …` and runs
 > nothing; NEW TOKEN cuts every paired remote off until the new token is typed into it. The token
 > is this desk's own: saved with the show but never mirrored to the twin (the Control section stays
 > on each machine — secrets do not travel the link), so type the same token into a standby for it
@@ -510,7 +515,7 @@ key or two; the Patterns module (TCP) for the full feedback.
 ## HTTP API (anything else)
 
 - `GET /api/state` → the state JSON; `GET /api/state?since=<rev>` waits (up to 25 s) for the next change. On a paired desk it wants the token — the header, or the pages' cookie `patterns-token` (round 83).
-- `GET /api/cues` → the caller's cue list with notes, summaries, broken reasons and each cue's plan (planned start and length, follow delay, mark).
+- `GET /api/cues` → the caller's cue list with notes, summaries, broken reasons and each cue's plan (planned start and length, follow delay, mark). On a paired desk it wants the token as `/api/state` does (round 85).
 - `GET /api/stage?since=<rev>` → the stage payload (`STAGE STATUS`), waiting up to the long-poll's limit for a change past `rev`; the `/stage` and `/timer` pages live on it.
 - `POST /api/stage/ack` with the message id as the body → `{"ok":true}` once; `{"ok":false,"reason":…}` for a message already seen or unknown.
 - `GET /api/arcade` → the arcade's status (`ARCADE STATUS`) — on a desk that hears arcade nodes, their list; `POST /api/arcade/key` with `<pad> <button> DOWN|UP|TAP` as the body → `{"ok":…,"msg":…}`; the phone pad at `/pad` is built on both.
@@ -521,10 +526,12 @@ key or two; the Patterns module (TCP) for the full feedback.
 - `POST /api/cmd` with a command line as the body → `{"ok":true|false,"msg":"…"}`. Cue commands
   (`CUE …`, `STOPALL`) need an `X-Patterns-Client: <anything>` header, so a page from another
   origin cannot fire cues; everything else works without it. With a pairing token set (Remote
-  page, TRUST) every mutating command needs `X-Patterns-Token: <token>` as well — without it the
-  answer is `403` with `{"ok":false,"msg":"ERR not paired …"}` and nothing runs; the queries
-  (`STATUS`, `CUE LIST`, `MENU …`) never need it, and neither does a browser on the desk's own
-  machine. `POST /api/stage/ack` and `POST /api/arcade/key` want the same header. A token in the
+  page, TRUST) every command needs `X-Patterns-Token: <token>` as well — without it the
+  answer is `403` with `{"ok":false,"msg":"ERR not paired …"}` and nothing runs; since round 85
+  the queries (`STATUS`, `CUE LIST`, `MENU …`) want it too, because `STATUS` answers the JSON that
+  `/api/state` has asked the token for since round 83 — only the wire's queries stay open, and a
+  browser on the desk's own machine never needs it. `POST /api/stage/ack` and `POST /api/arcade/key`
+  want the same header. A token in the
   URL is not read. A POST from a browser page of another origin — an `Origin` that is not this
   desk's, or a cross-site or same-site `Sec-Fetch-Site` — is refused with `ERR a page from another
   origin cannot run the show …` unless it carries `X-Patterns-Client`, which a page cannot send

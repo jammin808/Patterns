@@ -872,10 +872,11 @@ public sealed partial class ControlService : IDisposable
                 contentType = "application/json";
                 payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.CrossSite))}}}";
             }
-            else if (!audience && !paired && method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?", StringComparison.Ordinal)
+            else if (!audience && !paired && method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?", StringComparison.Ordinal) || path == "/api/cues"
                                                                  || path.StartsWith("/pgm.jpg", StringComparison.Ordinal) || path.StartsWith("/mv.jpg", StringComparison.Ordinal)))
             {
                 // Round 83: with a token set, the state and the pictures are the show's too — a header, or the pages' cookie for their img tags; never a query string.
+                // Round 85 (P1-02): the cue list is the show's as much as the state is; it wants the token the same way.
                 status = "403 Forbidden";
                 contentType = "application/json";
                 payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.NotPaired))}}}";
@@ -1171,9 +1172,12 @@ public sealed partial class ControlService : IDisposable
                 var cmd = ControlProtocol.Parse(body);
                 var httpOrigin = new ActionOrigin(OriginKind.Http, "", client.Client.RemoteEndPoint?.ToString() ?? "");
                 string response;
-                if (!paired && !ControlProtocol.IsQuery(cmd))
+                if (!paired)
                 {
-                    // A mutating verb without the show's token: 403 with the wire's words, and the pages ask for the token on it.
+                    // Without the show's token: 403 with the wire's words, and the pages ask for the token on it. Round 85 (P1-02):
+                    // a query too — STATUS answers the same JSON that /api/state has asked the token for since round 83, so a line
+                    // from another machine wants it whatever it says; the wire keeps its queries open (a TCP line is not a browser,
+                    // and a Companion presents AUTH before it asks anything), and the desk's own browsers are exempt as before.
                     status = "403 Forbidden";
                     response = ControlProtocol.Err(ControlProtocol.NotPaired);
                 }
@@ -1611,11 +1615,20 @@ setInterval(function(){ var i=document.getElementById('pgm'); var n=new Image();
 <img id="mv" src="/mv.jpg" alt="multiview">
 <div id="err"></div>
 <script>
-var img = document.getElementById('mv');
+var img = document.getElementById('mv'), asked = false;
+function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
+function cookie(t){ try { document.cookie = 'patterns-token=' + encodeURIComponent(t) + '; path=/; SameSite=Strict'; } catch (e) {} }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} cookie(t.trim()); return true; }
+if (tok()) cookie(tok());
 setInterval(function () {
   var next = new Image();
   next.onload = function(){ img.src = next.src; document.getElementById('err').textContent=''; };
-  next.onerror = function(){ document.getElementById('err').textContent = 'Connection lost — retrying…'; };
+  next.onerror = function(){
+    document.getElementById('err').textContent = 'Connection lost — retrying…';
+    if (asked) return;
+    asked = true;
+    fetch('/mv.jpg?w=320').then(function(r){ if (r.status === 403) { document.getElementById('err').textContent = 'This desk asks for its pairing token.'; if (pair()) location.reload(); } else { asked = false; } }).catch(function(){ asked = false; });
+  };
   next.src = '/mv.jpg?w=' + Math.min(1920, Math.max(320, Math.round(window.innerWidth * (window.devicePixelRatio || 1)))) + '&t=' + Date.now();
 }, 1000);
 </script>

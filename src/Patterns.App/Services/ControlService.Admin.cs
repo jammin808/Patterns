@@ -96,6 +96,10 @@ var pass = '', st = null, rev = 0, polling = false;
 try { pass = sessionStorage.getItem('patterns.admin') || ''; } catch (e) {}
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
 function err(t){ document.getElementById('err').textContent = t || ''; }
+function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns-token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
+function hdr(){ return {'X-Patterns-Token':tok()}; }
+function gate(r){ if (r.status === 403) { err('This desk asks for its pairing token.'); if (pair()) location.reload(); throw new Error('not paired'); } return r; }
 function post(line) {
   return fetch('/api/admin', { method:'POST', body: pass + '\n' + line, headers:{'X-Patterns-Client':'admin'} })
     .then(function(r){ return r.json(); });
@@ -152,11 +156,11 @@ function render(s) {
   document.getElementById('mgmt').textContent = i.management || '';
 }
 function poll() {
-  fetch('/api/state?since=' + rev).then(function(r){ return r.json(); })
+  fetch('/api/state?since=' + rev, { headers: hdr() }).then(gate).then(function(r){ return r.json(); })
     .then(function(s){ render(s); err(''); poll(); })
-    .catch(function(){ err('Connection lost — retrying…'); setTimeout(poll, 1500); });
+    .catch(function(e){ if (!(e && e.message === 'not paired')) { err('Connection lost — retrying…'); setTimeout(poll, 1500); } });
 }
-fetch('/api/state').then(function(r){ return r.json(); }).then(function(s){ render(s); });
+fetch('/api/state', { headers: hdr() }).then(gate).then(function(r){ return r.json(); }).then(function(s){ render(s); }).catch(function(){ /* the gate asked, or the desk is away: the poll says so */ });
 if (pass) { unlock(); } else { showMain(false); }
 </script>
 </body>

@@ -338,7 +338,9 @@ var TABS = ['show', 'cues', 'looks', 'screens', 'audio', 'lower', 'overlays', 's
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
 function err(t){ document.getElementById('err').textContent = t || ''; }
 function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
-function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} return true; }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns-token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
+function hdr(){ return {'X-Patterns-Token':tok()}; }
+function gate(r){ if (r.status === 403) { err('This desk asks for its pairing token.'); if (pair()) location.reload(); throw new Error('not paired'); } return r; }
 function cmd(c, again) {
   return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'phone', 'X-Patterns-Token':tok()} })
     .then(function(r){ if (r.status === 403 && !again && pair()) return cmd(c, true); return r.json().then(function(j){ err(j.ok ? '' : j.msg); }); })
@@ -597,13 +599,13 @@ function render(s) {
   document.getElementById('where').textContent = 'Connected to ' + location.host + ' · state ' + rev;
 }
 function poll() {
-  fetch('/api/state?since=' + rev).then(function(r){ return r.json(); })
+  fetch('/api/state?since=' + rev, { headers: hdr() }).then(gate).then(function(r){ return r.json(); })
     .then(function(s){ render(s); document.getElementById('dot').classList.add('ok'); err(''); poll(); })
-    .catch(function(){ document.getElementById('dot').classList.remove('ok'); err('Connection lost — retrying…'); setTimeout(poll, 1500); });
+    .catch(function(e){ document.getElementById('dot').classList.remove('ok'); if (!(e && e.message === 'not paired')) { err('Connection lost — retrying…'); setTimeout(poll, 1500); } });
 }
-fetch('/api/state').then(function(r){ return r.json(); })
+fetch('/api/state', { headers: hdr() }).then(gate).then(function(r){ return r.json(); })
   .then(function(s){ render(s); document.getElementById('dot').classList.add('ok'); poll(); })
-  .catch(function(){ err('Connection lost — retrying…'); setTimeout(poll, 1500); });
+  .catch(function(e){ if (!(e && e.message === 'not paired')) { err('Connection lost — retrying…'); setTimeout(poll, 1500); } });
 </script>
 </body>
 </html>
