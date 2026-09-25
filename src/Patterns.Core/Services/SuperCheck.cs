@@ -229,6 +229,10 @@ public sealed class CheckFacts
     public string RemoteUrl { get; init; } = "";
     /// <summary>The address the control ports are bound to; "" is every interface.</summary>
     public string RemoteBind { get; init; } = "";
+    /// <summary>Round 85: why the control ports are closed — the bind is not an address; "" when they are open or off.</summary>
+    public string RemoteBindProblem { get; init; } = "";
+    /// <summary>Round 85: why the audience listener is closed — its bind is not an address; "" when it is open or off.</summary>
+    public string AudienceBindProblem { get; init; } = "";
     /// <summary>Whether a pairing token is set, so a remote must present it before a mutating verb runs.</summary>
     public bool RemoteToken { get; init; }
     /// <summary>Round 79: whether OSC is listening (remote control on, OSC in ticked) — the one control port that has no session to pair.</summary>
@@ -982,7 +986,13 @@ public static class SuperCheck
             return;
         }
         var where = f.RemoteUrl.Length > 0 ? f.RemoteUrl : "on";
-        if (f.RemoteToken)
+        if (f.RemoteBindProblem.Length > 0)
+        {
+            // Round 85: a bind that is not an address opens nothing — the web remote, the wire and OSC are closed until it is one.
+            rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Red, "closed — the bind is not an address",
+                $"FIX: {f.RemoteBindProblem} (Remote page, Bind to); the web remote, the wire and OSC stay closed until it binds"));
+        }
+        else if (f.RemoteToken)
         {
             // Paired: a remote presents the show's token before a verb runs, whatever network it is on.
             rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Green, $"{where} · paired"));
@@ -1003,6 +1013,12 @@ public static class SuperCheck
             rows.Add(new CheckRow("REMOTE", "Wire faults", CheckLight.Amber, $"{f.WireFaults} since start",
                 "a line or a request made the desk fault behind the wire — answered ERR; the first, then one a minute, is in patterns.log"));
         }
+        if (f.AudienceBindProblem.Length > 0)
+        {
+            // Round 85: the room's socket fails closed on its own bind; a row only then — the remote row says what the network trusts otherwise.
+            rows.Add(new CheckRow("REMOTE", "Audience", CheckLight.Red, "closed — the bind is not an address",
+                $"FIX: {f.AudienceBindProblem} (Remote page, AUDIENCE); the play pages answer nowhere until it binds"));
+        }
     }
 
     /// <summary>
@@ -1013,6 +1029,12 @@ public static class SuperCheck
     private static void Osc(CheckFacts f, List<CheckRow> rows)
     {
         if (!f.RemoteEnabled || !f.OscOpen) return;
+        if (f.RemoteBindProblem.Length > 0)
+        {
+            // Round 85: OSC binds where the control ports do, so their closed bind closes it too.
+            rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Red, $"port {f.OscPort} · closed — the bind is not an address", "OSC binds where the control ports do; the remote row's FIX opens both"));
+            return;
+        }
         if (f.RemoteBind.Length > 0)
         {
             rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Green, $"port {f.OscPort} · open on {f.RemoteBind} only", "OSC cannot pair; the bind keeps it to the control network"));

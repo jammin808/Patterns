@@ -186,7 +186,7 @@ public sealed partial class ControlService : IDisposable
     public IReadOnlyList<string> AudienceUrls()
     {
         var cfg = _kernel.State.Control;
-        if (!cfg.Enabled || !cfg.AudienceEnabled) return Array.Empty<string>();
+        if (!cfg.Enabled || !cfg.AudienceEnabled || AudienceBindProblem.Length > 0) return Array.Empty<string>();   // round 85: closed on a bind that is not an address — no door to name
         if (IPAddress.TryParse(cfg.AudienceBind, out var bound)) return new[] { $"http://{bound}:{cfg.AudiencePort}/" };
         return RemoteUrls().Select(u => u.Replace($":{cfg.HttpPort}/", $":{cfg.AudiencePort}/")).ToList();
     }
@@ -200,6 +200,8 @@ public sealed partial class ControlService : IDisposable
         if (key == _activeKey) return;
         _activeKey = key;
         StartFailed = false;
+        BindProblem = "";
+        AudienceBindProblem = "";
         ForgetRemoteUrls();
 
         StopListeners();
@@ -209,12 +211,23 @@ public sealed partial class ControlService : IDisposable
             return;
         }
 
+        if (!BindAddress.TryParse(cfg.Bind, out var boundTo, out var bindProblem))
+        {
+            // Round 85 (P1-06): a bind that is not an address opens nothing — never every interface, which on a desk
+            // with two networks would put the control ports on the audience's — and the status, the Super Check and
+            // the log say why. Not a start failure to retry: the setting is wrong until it is changed, and a change
+            // moves the key above.
+            BindProblem = bindProblem;
+            _status = $"Remote control closed — {bindProblem}.";
+            Log.Warn(_status);
+            return;
+        }
         _cts = new CancellationTokenSource();
         try
         {
             // Round 65: the control ports bind where the Remote page says — every interface, or the
             // control network's own address on a desk with two, so the audience network never sees them.
-            var controlBind = IPAddress.TryParse(cfg.Bind, out var boundTo) ? boundTo : IPAddress.Any;
+            var controlBind = boundTo ?? IPAddress.Any;
             _tcp = new TcpListener(controlBind, cfg.TcpPort);
             _tcp.Start();
             _ = AcceptLoop(_tcp, HandleTcpClient, _cts.Token);
@@ -226,12 +239,22 @@ public sealed partial class ControlService : IDisposable
             _status = $"Web remote on port {cfg.HttpPort} · Companion (TCP) on port {cfg.TcpPort}{(controlBind.Equals(IPAddress.Any) ? "" : $" at {controlBind} only")}.";
             if (cfg.AudienceEnabled)
             {
-                // The room's own socket: the play pages and nothing else, on the audience network's address when the hub has one.
-                var bind = IPAddress.TryParse(cfg.AudienceBind, out var address) ? address : IPAddress.Any;
-                _audience = new TcpListener(bind, cfg.AudiencePort);
-                _audience.Start();
-                _ = AcceptLoop(_audience, HandleAudienceClient, _cts.Token);
-                _status += $" Audience on port {cfg.AudiencePort}{(bind.Equals(IPAddress.Any) ? "" : $" at {bind}")} — the play pages only.";
+                if (!BindAddress.TryParse(cfg.AudienceBind, out var audienceBind, out var audienceProblem))
+                {
+                    // Round 85: the room's socket fails closed the same way, on its own bind, the control ports untouched.
+                    AudienceBindProblem = audienceProblem;
+                    _status += $" Audience closed — {audienceProblem}.";
+                    Log.Warn($"Audience listener closed — {audienceProblem}.");
+                }
+                else
+                {
+                    // The room's own socket: the play pages and nothing else, on the audience network's address when the hub has one.
+                    var bind = audienceBind ?? IPAddress.Any;
+                    _audience = new TcpListener(bind, cfg.AudiencePort);
+                    _audience.Start();
+                    _ = AcceptLoop(_audience, HandleAudienceClient, _cts.Token);
+                    _status += $" Audience on port {cfg.AudiencePort}{(bind.Equals(IPAddress.Any) ? "" : $" at {bind}")} — the play pages only.";
+                }
             }
             if (_startFailures > 0) Log.Info($"{_status} (after {_startFailures} failed {(_startFailures == 1 ? "try" : "tries")})");
             else Log.Info(_status);
@@ -254,6 +277,12 @@ public sealed partial class ControlService : IDisposable
 
     /// <summary>Round 77: the last start failed (a port held by another process); the desk's poll asks again.</summary>
     public bool StartFailed { get; private set; }
+
+    /// <summary>Round 85: why the control ports are closed — the bind is not an address — or "" while they bind (or remote control is off).</summary>
+    public string BindProblem { get; private set; } = "";
+
+    /// <summary>Round 85: why the audience listener is closed — its bind is not an address — or "" while it binds (or it is off).</summary>
+    public string AudienceBindProblem { get; private set; } = "";
 
     private static async Task AcceptLoop(TcpListener listener, Func<TcpClient, CancellationToken, Task> handler, CancellationToken ct)
     {

@@ -160,6 +160,15 @@ public class OscAppTests
             Assert.Contains("/patterns/blackout/offf", error.Text());
             Assert.True(services.State.Blackout);
 
+            // Round 85 (P1-06): a bind that is not an address closes the port — never every interface — and the status says why.
+            cfg.Bind = "10.0.0";
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith("OSC closed — '10.0.0' is not an address", services.Osc.Status);
+            using (var again = new UdpClient(new IPEndPoint(IPAddress.Loopback, oscPort)))
+            {
+                Assert.NotNull(again);                                                             // the port is free: nothing is listening on it
+            }
+
             // The bind cleared: the port re-opens on every interface, and the status says so no more.
             cfg.Bind = "";
             Dispatcher.UIThread.RunJobs();

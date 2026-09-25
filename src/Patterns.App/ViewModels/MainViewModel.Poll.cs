@@ -354,9 +354,9 @@ public sealed partial class MainViewModel
 
     private void PollRemote()
     {
-        RemoteStatus = State.Control.Enabled
-            ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
-            : "Remote control off.";
+        RemoteStatus = !State.Control.Enabled ? "Remote control off."
+            : _services.Control.BindProblem.Length > 0 ? $"Remote: closed — {_services.Control.BindProblem}."     // round 85: never every interface by mistake
+            : $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}";
         OscStatus = _services.Osc.StatusLine;
         CompanionText = CompanionStrip();
     }

@@ -108,12 +108,19 @@ public sealed class OscService : IDisposable
             return;
         }
 
+        if (!BindAddress.TryParse(cfg.Bind, out var bound, out var problem))
+        {
+            // Round 85 (P1-06): a bind that is not an address opens nothing here either — OSC cannot pair, so every
+            // interface is the one thing a typo must never give it — and the status says why until the setting changes.
+            _status = $"OSC closed — {problem}.";
+            Log.Warn(_status);
+            return;
+        }
         _cts = new CancellationTokenSource();
         try
         {
             // Round 79: the desk's bind address (round 65) holds for OSC as it does for the wire and the web — the one
             // control port that cannot pair is the one that most needs to stay on the control network.
-            var bound = IPAddress.TryParse(cfg.Bind, out var address) ? address : null;
             _udp = new UdpClient(new IPEndPoint(bound ?? IPAddress.Any, cfg.OscPort));
             _ = ReceiveLoop(_udp, _cts.Token);
             _status = $"OSC in on port {cfg.OscPort}{(bound is null ? "" : $" on {bound} only")} · {ResolveFeedback(cfg.OscFeedbackHost, cfg.OscFeedbackPort, cfg.OscPort)}.";

@@ -409,15 +409,67 @@ public class RemoteTrustTests
                 Assert.Contains("403", page.Body);
             }
 
+            // Round 85 (P1-06): a bind that is not an address opens nothing — never every interface — and says why.
+            vm.State.Control.Bind = "10.0.0";
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith("Remote control closed — '10.0.0' is not an address", services.Control.Status);
+            Assert.StartsWith("'10.0.0' is not an address", services.Control.BindProblem);
+            Assert.False(services.Control.StartFailed);                                            // not a failure to retry: the setting is wrong until it is changed
+            using (var probe = new TcpClient())
+            {
+                Assert.ThrowsAny<SocketException>(() => Pump(probe.ConnectAsync(IPAddress.Loopback, vm.State.Control.TcpPort)));
+            }
+            using (var probe = new TcpClient())
+            {
+                Assert.ThrowsAny<SocketException>(() => Pump(probe.ConnectAsync(IPAddress.Loopback, vm.State.Control.HttpPort)));
+            }
+            var closedRow = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Remote control");
+            Assert.Equal(CheckLight.Red, closedRow.Light);
+            Assert.Equal("closed — the bind is not an address", closedRow.Value);
+            Assert.Contains("'10.0.0' is not an address", closedRow.Note);
+
+            // The audience listener fails closed the same way, on its own bind, with the control ports untouched.
+            vm.State.Control.Bind = "";
+            vm.State.Control.AudienceEnabled = true;
+            vm.State.Control.AudiencePort = FreePort();
+            vm.State.Control.AudienceBind = "phones";
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.Control.AudienceListening);
+            Assert.Contains("Audience closed — 'phones' is not an address", services.Control.Status);
+            Assert.StartsWith("Web remote on port", services.Control.Status);
+            Assert.Empty(services.Control.AudienceUrls());
+            using (var stillOpen = new Wire(vm.State.Control.TcpPort))
+            {
+                stillOpen.Send("PING");
+                Assert.Equal("OK PONG", stillOpen.ReadResponse());
+            }
+            var audienceRow = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Audience");
+            Assert.Equal(CheckLight.Red, audienceRow.Light);
+            Assert.Contains("'phones' is not an address", audienceRow.Note);
+            vm.State.Control.AudienceBind = "";
+            Dispatcher.UIThread.RunJobs();
+            for (var i = 0; i < 400 && !services.Control.AudienceListening; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(5);
+            }
+            Assert.True(services.Control.AudienceListening);
+            Assert.NotEmpty(services.Control.AudienceUrls());
+            Assert.DoesNotContain(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Audience");
+            vm.State.Control.AudienceEnabled = false;
+
             vm.State.Control.Bind = "";
             Dispatcher.UIThread.RunJobs();
             Assert.DoesNotContain("only", services.Control.Status);
+            Assert.DoesNotContain("closed", services.Control.Status);
             services.Control.ForgetRemoteUrls();
             Assert.Contains($"http://localhost:{vm.State.Control.HttpPort}/", services.Control.RemoteUrls());
         }
         finally
         {
             vm.State.Control.Bind = "";
+            vm.State.Control.AudienceBind = "";
+            vm.State.Control.AudienceEnabled = false;
             Dispatcher.UIThread.RunJobs();
         }
     }

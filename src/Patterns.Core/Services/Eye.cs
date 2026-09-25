@@ -694,14 +694,17 @@ public sealed class EyeGraph
         {
             // Round 79: OSC has no session to pair, so the show's token never covers it — open on every interface it is
             // amber with the way out, as the super-check's row is; bound to the control network's address it is green.
+            var problem = BindAddress.Problem(osc.Bind);                                     // round 85: a bind that is not an address closes the port
             var open = osc.Bind.Length == 0;
-            var light = open ? CheckLight.Amber : CheckLight.Green;
+            var light = problem.Length > 0 ? CheckLight.Red : open ? CheckLight.Amber : CheckLight.Green;
             Add(new EyeNode("osc", EyeKind.Osc, EyePlane.Control, 0, "OSC", $"port {osc.Port}" + (osc.Words.Length > 0 ? " · " + osc.Words : ""), light)
             {
                 Route = new MenuRoute("Remote"),
-                Words = open
-                    ? new[] { "open on every interface — OSC cannot pair, so the token does not cover it; bind the control ports to the control network's address, or turn OSC in off when it is not needed" }
-                    : new[] { $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" },
+                Words = problem.Length > 0
+                    ? new[] { $"closed — {problem}; the port opens when the Remote page's Bind to is an address or empty" }
+                    : open
+                        ? new[] { "open on every interface — OSC cannot pair, so the token does not cover it; bind the control ports to the control network's address, or turn OSC in off when it is not needed" }
+                        : new[] { $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" },
             });
             Link("osc", DeskId, EyeEdgeKind.Controls, light);
         }
