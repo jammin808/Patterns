@@ -615,6 +615,26 @@ flush is written in the row; a figure past 50 ms a write on the stick is the num
 |------|---------|--------------------|----------------------------|-------|---------------------|-------------------|-------|
 |      |         |                    |                            |       |                     |                   |       |
 
+## 25. The recovery record's ladder after a tear (round 85)
+
+**Set up.** As §24: the show laptop running from the USB stick, a clip on air with a timeline,
+`patterns.log` tailed, the Machine page open, a file browser on the show folder.
+
+**Do.** (1) Pull the stick's power the hard way mid-show; boot; read the Super Check — a "Recovery record"
+row says the record was read from its backup, and the air is put back. (2) Let the desk run a minute:
+the next writes put a whole record over the torn one, and `patterns.recovery.json.bak` still parses
+(open it: a JSON object, not the torn text). (3) Pull again; boot; the row again says the backup was read
+and the air is put back. (4) With the desk closed, write the four letters `null` into
+`patterns.recovery.json`; boot; the row says the backup was read; the air is put back.
+
+**Pass.** The air is put back after every pull and after the null; no boot reads as "no crash" with the
+outputs left closed; the backup file parses at every step. A fail is a boot with the outputs closed or a
+backup that holds the torn text.
+
+| Build | Date | Machine | Stick | Pull 1 | Pull 2 | The null | Result |
+|---|---|---|---|---|---|---|---|
+| | | | | | | | unwalked |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute

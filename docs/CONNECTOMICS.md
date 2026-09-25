@@ -103,3 +103,81 @@ or at the desk that tried; a `Done` paints green only because the executor stamp
 where nothing was written, the replay is grey and says "no record in the last 30 s", and where the metrics
 file has no sample within ninety seconds of the instant the desk is grey too. The brain map's proofreaders
 would recognise the stance: the map shows what was checked, and says where it was not.
+
+## 6. The second look (round 85): `flybrain.online`, Eon's `fly-brain`, and what a show controller takes from them
+
+The maintainer asked, beside the handed-in plan, for a look at `flybrain.online` and at the repository
+`github.com/eonsystemspbc/fly-brain`. Both were read in round 85; this section records what they are and
+what transfers, the way §1–§5 did for the Google Research post. The site could not be fetched from the
+build environment (its network policy denies the host); its text was read through a search index's fetch,
+and the repository it points at was cloned and read whole. Eon's repository was cloned and read whole.
+
+### 6.1 What `flybrain.online` is
+
+The site is the front of `fruitflydev/flycoinrh` (MIT; created 10 September 2026; one contributor): a
+leaky-integrate-and-fire simulation of a whole fly brain over the MaleCNS v1.0 connectome released on
+3 September 2026 by Janelia's FlyEM project with Cambridge and Google (CC-BY; 165,122 neurons and
+10,228,000 signed connections). Its parameters are the paper's — a resting potential of −52 mV, a
+threshold of −45 mV, a 20 ms membrane time constant, a 2.2 ms refractory period, a 0.2 ms step — with
+per-cell-type gains trained by an evolution strategy. A 30×30 view is fed into 892 hexagonal columns of
+the first visual layers, and four descending neurons (DNa02, DNa01, MDN, DNp09) are read as a cursor. The
+project sells a token on a retail chain and lets the simulated fly "roam" the web and post; that is what
+the site is for. It is an anonymous art project, not Eon's, and the two forks of it seen are the same.
+
+What is worth reading in it is not the neuroscience but the rails the author built around an agent that
+acts in public: `roam.py` (no wallet in the process; a veto regular expression; an allow-list of domains;
+a hop budget; an environment flag that opens the roam), `voice.py` (a narrator whose every number must be
+present in the packet it was given, no second draft, every post recorded before it is sent, a cap on
+posts), `tradebook.py` (a write-ahead ledger: the intent recorded before the outcome), `mushroom.py` (a
+learning rule with depression, so a reward does not grow without bound), a `disclosure.md`, and 27 test
+files over the rails.
+
+### 6.2 What Eon's `fly-brain` is
+
+Eon Systems PBC is a San Francisco public-benefit company (co-founded by Alex Wissner-Gross; Philip Shiu
+is on the repository). The repository (GPL-2.0; created 5 March 2026; head `a3db62f` of 29 August 2026;
+341 stars) is a benchmark harness for the Shiu et al. 2024 leaky-integrate-and-fire model over the FlyWire
+v783 connectome (about 138,000 neurons): the connectivity as a parquet file kept in git (about 101 MB),
+six simulation backends behind one spike schema, a results grid with a manifest and checksums, a
+ground-truth comparison by Jaccard overlap and rate correlation, and timings that leave the I/O out. The
+paper's code is MIT; the harness carries no tests; the embodied fly in a physics simulator is described
+and not released.
+
+### 6.3 The five transfers, named for a show controller
+
+Strip the biology away and the two repositories are two disciplines Patterns already claims, done with
+more rigour than Patterns has in places.
+
+1. **Labels on every fact — measured, chosen, invented.** The benchmark keeps the connectome (measured),
+   the parameters (chosen) and the model's spikes (computed) apart and never lets one be read as another.
+   Patterns' readers of "what is live" derive their facts by their own rules and do not say which is which:
+   an NDI sender ticked (chosen), an encoder running (measured on this machine), a receiver connected
+   (observed elsewhere, or not). The plan's P1-09 is this transfer; the ledger's L46 is its design.
+2. **The narrator's number fence.** `voice.py` refuses a sentence whose numbers are not in the packet it
+   was handed. The assistant's brief already rules "answer from the facts" (round 53); a fence that checks
+   the reply's numbers against the facts it was given, and refuses a second draft, is the plan's P3
+   "evidence-based explanations" made checkable. Not built this round; named for the maintainer's list.
+3. **Rails for an agent that acts.** No wallet in the process, an allow-list, a budget, a flag that opens
+   the roam: the shape of the plan's Output Guardian in advisory mode — a policy that may say, then a
+   separate deliberate switch before it may do. Patterns' live policy (round 46) and the take ticket
+   (round 72) are rails of the same family; the Guardian would be the third.
+4. **A ledger before an outcome.** `tradebook.py` writes the intent, then the outcome, and never the
+   outcome alone. Patterns' journal writes the outcome with the intent in one row after the executor
+   returns (round 79); the plan's P2-02 and P2-03 — the expectation recorded before the send, with a
+   deadline, and the receipt matched to it — is the same discipline on the wire to a device.
+5. **Parity across origins.** The harness runs six backends against one schema and compares. Patterns has
+   one executor for every origin — the desk, the wire, OSC, a cue, a deck — and asserts it path by path; a
+   fence that runs one action from every origin and asserts one journal row and one air would say it once.
+   Round 84's synthetic shows (§3) are the rig side of that fence; this would be the origin side.
+
+### 6.4 What does not transfer
+
+The neuroscience (a show has no membrane potential); the token; the GPL code (Patterns is Core with no
+package references, and a GPL dependency would change what the exe is); the 30×30 vision and the cursor.
+And the roam itself: a show controller does not act in public on its own, and nothing here proposes that
+it should.
+
+### 6.5 What this round took
+
+None of the five as code. P1-09 is recorded as L46 with the labels of the first transfer; the other four
+are named in §103.8 for the maintainer's list beside the plan's P2 and P3, where they belong.

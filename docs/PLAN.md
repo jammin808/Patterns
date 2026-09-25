@@ -11485,3 +11485,208 @@ to the wall's rules.
   count); `docs/CONNECTOMICS.md` (the research note, listed beside the Eye's in `CLAUDE.md`);
   `docs/REMOTE.md` (`EYE REPLAY`, `EYE AT`, the JSON's and STATE's new fields); `docs/OPEN.md` — L44 added,
   none closed; the tag table row 83 (`71de914`). The module is unchanged (3.16.0).
+
+## 103. Round 85 — the handed-in plan's Phase 0: nine reported defects read against the head, seven fixed, two designed; the second look at the connectomics transfer
+
+### 103.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** A handed-in plan document — "Patterns: Show Brain Development
+Plan", prepared 24 September 2026 against the head `f4f9d3c` (round 84's papers) — with nine reported
+defects (P1-01 … P1-09), a P2 list for a "minimum dependable show brain", a P3 list, and phases 0–5 with
+exit gates; beside it the maintainer's ask to research `flybrain.online` and the `eonsystemspbc/fly-brain`
+repository; and the maintainer's "go ahead" on the proposal to open round 85 as the plan's Phase 0 —
+every reported defect reproduced, fixed or marked not applicable with evidence — with the two replay items
+first and the research recorded as a section of the connectomics note. Evidence class: a handed-in
+critique, web research at the maintainer's ask, the maintainer's word. No files have arrived in
+`docs/field/` since round 78; there is nothing to read as what the files said.
+
+**Phase 0, as the plan asks for it.** The plan's exit gate for its Phase 0 is "the agreed backlog reflects
+actual current code". Each of the nine was read against the head before anything was written; the table
+is the round's spine.
+
+| Item | The plan's claim | Read against the head | This round |
+|---|---|---|---|
+| P1-01 | Browser pairing is incomplete across the remote, admin, run and multiview pages | Confirmed — a regression of 83.2: `/api/state` began to want the token; the remote and admin pages kept polling it bare and showed "Connection lost" for ever on a paired desk reached from another machine; the multiview page had no way to present it | Fixed, 85.6 (§103.7) |
+| P1-02 | One state-access policy across HTTP, TCP and the query routes | Confirmed on the web: `POST /api/cmd` with `STATUS` and `GET /api/cues` answered without the token that `/api/state` wants, and `STATUS` answers the same JSON | Fixed on the web, 85.6; the wire's queries kept open, and the reason written once (§103.7) |
+| P1-03 | The recovery record's fallback and backup rotation | Confirmed: a main file that parses to the literal `null` returned "no record" without reading the backup; every write rotated the main into `.bak`, whole or torn | Fixed, 85.3 (§103.4) |
+| P1-04 | The newer-schema read-only guard is lost at lease promotion | Confirmed: `PollPrimary` set autosave on and saved at once, whatever the file's schema | Fixed, 85.4 (§103.5) |
+| P1-05 | A display change silently recreates a running encoder | Confirmed in `StreamService`: the encoder's key carries the effective master rate, which follows the displays since round 80; a change of the rate stops and recreates the encoder mid-stream with no word to the operator | Designed, not built — L45 (§103.8) |
+| P1-06 | A malformed OSC bind falls back to every interface | Confirmed, and wider than OSC: the control ports and the audience socket did the same | Fixed for all three, 85.5 (§103.6) |
+| P1-07 | The replay reads rolling counts as cumulative | Confirmed — the author's own round-84 defect: four faults after four faults read as none | Fixed, 85.1 (§103.2) |
+| P1-08 | The replay reads its files on the UI thread | Confirmed — round 84's §102.5 had written it as the round's one unmeasured cost | Fixed, 85.2 (§103.3) |
+| P1-09 | Output facts are not one consistent set | A design-level ask; the readers of "what is live" each derive their facts by their own rule, and a requested output is not told from an active or an observed one in one place | Designed, not built — L46 (§103.8) |
+
+**What every unit was read against.** The doctrine's fourth line — fail closed on the wire: an unknown
+word refused, never defaulted; every listener honouring the bind address or named as an exemption — is
+85.5's and 85.6's whole rule. "Attempts are not facts" is 85.1's (a count read as what it was written as)
+and L46's. The standing brief's chain — a fact that changes reaches the desk, STATE, the Eye, the wire and
+the assistant in the same round, or the paper says which it did not reach — is answered per unit below;
+the one reader nothing here reaches is the Companion module, which speaks the wire and needed no new word.
+
+### 103.2 The replay's fault counts read as the minute's own (85.1 — P1-07)
+
+**The defect.** `EyeReplay.Health` read `RenderFaults` and `MissedSlots` by their rise since the sample
+before, as it reads the pool-starved count. Those two are not cumulative: `FrameBudget.Read` sums each
+output's misses and faults over the last minute, and `MetricSample` sums the outputs, so every sample
+already holds a rolling minute. A sample of four faults after a sample of four faults read as a rise of
+none — green — and the desk's own round-84 test had not drawn that case.
+
+**The rule now.** A rolling count is displayed as written; the machine is red for a render fault or a missed
+slot in the sample's own minute. The pool-starved count is cumulative since the desk started and keeps its
+rise since the sample before. The session's fault count stays words and never a light (round 84's decision
+stands: a fault an hour ago must not paint every later moment red). An interval with no sample stays grey
+and says so.
+
+**Proof.** `EyeReplayTests` — four faults after four faults is red with "4 render faults · 3 missed slots";
+one fault after six is red; the pool-starved rise is unchanged.
+
+### 103.3 The replay's record read on a worker (85.2 — P1-08)
+
+**The cost.** `EYE REPLAY` read the journal's tail and the metrics file inside the verb, on the desk's
+thread; on a show laptop with a year of journal and a megabyte of metrics the press froze the desk for the
+parse. §102.5 had named it as the round's unmeasured cost; the plan named it P1-08.
+
+**The shape.** `Open` answers `Requested` ("Reading the record on a worker — the picture relights when it
+is read") and the strip says so; `ReadAsync` runs `Load` under `Task.Run` and, back on the UI thread, sets
+the record and shows the moment asked for or the record's last stamp. The read is bounded — the journal's
+newest 20,000 rows, 60,000 metrics lines per file — and stoppable: `NOW` or a second open moves an
+integer generation the worker checks between lines (`Volatile.Read`), and a record nobody wants is thrown
+away with an `OperationCanceledException` the caller swallows on purpose. No `CancellationTokenSource`
+field, so the service owns nothing disposable (CA1001). A desk with neither file is refused before any
+read, as before; a loaded record is shown at once, `Done("Replay …")` as in round 84.
+
+**The record is the files as they stood at the press.** The executor journals the verb after it returns,
+so a worker read that started at the press would find the press's own row and `ON` would open on the press
+instead of on what happened before it — the App test caught it. `Load` takes the press's instant and reads
+nothing stamped at or after it; `EYE AT` reads to the instant of the ask.
+
+**`EYE AT`** waits for a read in flight, reads the loaded record while the replay is open, and otherwise
+reads on a worker of its own; the router awaits it on `ExecuteAsync`'s async path (the synchronous dispatch
+could not). The router answers `Requested` with the moment's words as it answers `Done`.
+
+**Every reader.** The desk (the strip's reading words, the page relit when the read lands), the wire
+(`EYE REPLAY`'s `OK Reading …`, `EYE AT` awaited), STATE (unchanged fields), the Eye (the page), the
+assistant (the brief's line unchanged), the module (nothing new to say). `docs/REMOTE.md` carries the
+new answer.
+
+**Proof.** `EyeReplayAppTests` pumps the read and asserts the `Requested` reply, the strip's reading words,
+the relit picture, that a re-open of a loaded record answers `Replay` at once, and (the catch above) that
+`ON` opens on the record's last stamp before the press. No measurement of the read's cost this round: the
+build environment has no year of journal to time, and the cost is now off the thread the show runs on.
+
+### 103.4 The recovery record's ladder holds (85.3 — P1-03)
+
+**Two gaps.** `RecoveryStore.Read` returned `JsonUtil.Deserialize`'s result straight from the main file: a
+file that parses to the literal `null` answers null with no exception, and the backup beside it — a whole
+record — was never read. `AtomicFile.WriteAllTextKeepingBackup` copied the main into `.bak` before every
+move, unconditionally: after a power cut left the main torn, the next write rotated the torn file over the
+whole record the ladder exists to keep, and the next tear had nothing to fall back to.
+
+**The rule now.** A null from either file is unreadable in the round-83 sense: the main's falls through to
+the backup with the round-83 problem words (the Super Check's amber row), a null backup is "no readable
+backup". The helper takes an optional predicate on the old text; the recovery store passes one that says
+the old file is a record (it parses, and to something), and only then is it kept — a file that cannot be
+read is not. The settings store and the known-good rig keep the unconditional copy: their callers did not
+ask, and their files are not written between a crash and a restart.
+
+**Proof.** `AtomicFileTests` exercises the predicate on the helper and walks the store through a tear, the
+next write (the backup stays the last whole record), a whole write (rotated), a null main (the backup
+read, the problem kept), a null backup (none readable), and the writes after (a null main is not kept
+either). The Core recovery, persistence and bundle tests and the App recovery, restart and
+primary-instance tests pass. The walk: QUALIFICATION §25, unwalked.
+
+### 103.5 A second desk that comes to own a newer build's file keeps saving off (85.4 — P1-04)
+
+**The defect.** Round 79's guard keeps autosave off for a show file a newer build wrote. Round 78's poll
+makes a second desk the folder's owner the moment the first has gone — and turned autosave on and saved
+at once, whatever the schema: the guard held at boot and fell at the handover.
+
+**The rule now.** `PollPrimary` checks the kernel's `NewerSchema` after it takes the lease: the desk is the
+primary as before — the recovery record its to keep or clear, the break music its to run, STATE's
+continuity `primary` — but with a newer file autosave stays off, nothing is saved, and the words say so
+with the same SAVE AS way out as at boot. Autosave needs both the lease and a schema this build writes.
+
+**Proof.** `PrimaryInstanceAppTests` boots a second desk on a folder whose show file carries a schema two
+ahead, frees the lease, polls, and asserts primary, autosave still off, the words, and the file byte for
+byte as the newer build left it after an edit and a `SaveNow`.
+
+### 103.6 A bind that is not an address opens nothing (85.5 — P1-06)
+
+**The defect, wider than the plan's.** The three listeners read the Remote page's bind settings with
+`IPAddress.TryParse` and fell back to `IPAddress.Any` when the words did not parse: a typo in the control
+network's address — "10.0.0" for 10.0.0.5, or a name — put the control ports, the OSC port (which cannot
+pair) and the audience socket on every interface, the very thing the bind exists to prevent on a desk
+with two networks. The plan named OSC; the other two did the same.
+
+**The rule now.** Core's `BindAddress` reads the setting one way: "" is every interface, an IP address is
+that address, anything else is a problem in words; an IPv4 address must have all four parts, because the
+parser's shorthand ("10.0.0" as 10.0.0.0, "1" as 0.0.0.1) is a typo here. On a problem the listener opens
+nothing, keeps its key (a change of the setting reconciles again; it is not a start failure to retry) and
+says why. The audience listener fails closed on its own bind with the control ports untouched.
+
+**Every reader.** The status line ("Remote control closed — '10.0.0' is not an address — bind to one
+address (10.0.0.5) or leave it empty for every interface", "OSC closed — …", "Audience closed — …"); the
+log; the Remote line on the desk; the Super Check's REMOTE row red with the FIX, the OSC row red beside it
+and an Audience row red only when its bind is wrong; the Eye's OSC node red with the words; the audience
+URLs empty while its socket is closed. STATE has no row for the listeners and the Companion module has no
+word for them; the deck learns it the way the deck learns any closed port — its connection fails — and
+the Super Check's row is what the desk shows for it.
+
+**Proof.** `BindAddressTests` (Core) over the accepted and refused words, the three red rows and their
+absence when everything binds, and the Eye's OSC node red, amber and green; `RemoteTrustTests` boots the
+desk with a bad bind and proves both control ports refuse a connection and the row is red, then a bad
+audience bind alone closes the audience socket with the wire still answering, and both reopen when the
+setting is fixed; `OscAppTests` proves the OSC port is free while closed and reopens.
+
+### 103.7 The pages send the token on every read; every `/api/cmd` line and `/api/cues` want it (85.6 — P1-01, P1-02)
+
+**P1-01.** 83.2 made `/api/state` and the pictures want the token on a paired desk, and left the remote and
+admin pages polling `/api/state` bare. The remote and admin pages now send `X-Patterns-Token` on their
+state fetches and, on a 403, ask for the token once and reload, as the run page has since round 83; the
+remote page's `pair()` sets the cookie too, so its pictures follow; the multiview page sets the cookie from
+the kept token and, when a picture is refused, probes once, asks and reloads.
+
+**P1-02, and the policy written once.** On the web, with a token set, everything wants it from a machine
+other than the desk's own — the state and the pictures (round 83), every `/api/cmd` line and `/api/cues`
+(this round) — except the pages themselves, the EDID files and the audience port. On the wire the queries
+stay open, on purpose: a TCP line is not a browser — round 83's threat was a stranger's page using a
+browser on the network as its reader — and a Companion presents `AUTH` before it asks anything. The
+policy is one paragraph in `docs/REMOTE.md` (Trust), repeated in its HTTP section and on
+`ControlConfig.Token`. The plan's "endpoint inventory" is that paragraph: the pages, the EDID files and the
+audience port are the deliberately public subset, and the test names each.
+
+**Proof.** `RemoteTrustTests`: `STATUS` refused bare and answered with the header, `/api/cues` refused bare
+and answered with the cookie, the admin page among the pages that carry the token, the remote and admin
+pages fetching the state with the header, the remote, run and multiview pages setting the cookie.
+
+### 103.8 What the round did not do, and what is next
+
+- **P1-05 — the stream's rate held through a display change (L45).** Confirmed and designed, not built:
+  the encoder's rate is held from its start; a later move of the master rate marks the stream "rate moved —
+  RESTART to follow" on the Stream page, STATE, the Eye's stream node and the Super Check, and never
+  restarts by itself; `STREAM RESTART`, a journaled verb, applies it. Not built this round because it
+  changes what a running stream does on the air and wants a bench with a receiver watching — the plan's
+  own words: "a deliberate operator decision".
+- **P1-09 — one set of output facts (L46).** Designed, not built: one `OutputFacts` record published beside
+  the snapshot — per destination its kind, requested, active and observed as separate fields, each with its
+  source and age, and "missing feedback is not success" as a rule — read by `ShownLive`, the audio matrix's
+  picture-derived routes, the maintenance protection and the Eye's stream and NDI nodes. It is the plan's
+  foundation for P2-01 and P2-03 and the connectomics note's first transfer (measured, chosen, invented as
+  labels on a fact); it is a round of its own.
+- **The plan's P2 and P3** — the operational dependency model, stable identities and execution correlation,
+  result expectations, the impact preview, versioned topology, fault-injected sequences, verification
+  memory, the assistant's evidence-based explanations, fallback assessment, the durable Air process, the
+  Output Guardian — are not started. The note's §6 says which of them the two repositories read this round
+  speak to, and how.
+- **The wire's queries** stay open to an unpaired TCP connection; §103.7 says why. If a report names a
+  reader on the network that is not a browser and not a Companion, the row is L42's.
+- **No measurement this round:** the replay's read time (§103.3), the flush's cost (§24, still owed a
+  walk). The plan's Phase 1 exit gate — "representative rig rehearsal confirms affected paths" — is the
+  maintainer's next build.
+
+### 103.9 The papers (85.7)
+
+- This section; REVIEW round 85; CHANGELOG (with the evidence class); README (the ledger's entry, the
+  count); `docs/CONNECTOMICS.md` §6 (the second look); `docs/REMOTE.md` (the pairing policy in 85.6, the
+  replay's reading answer here); `docs/QUALIFICATION.md` §25 (the ladder's walk); `docs/OPEN.md` — L45 and
+  L46 added, none closed; the tag table row 84 (`f4f9d3c`). The module is unchanged (3.16.0).

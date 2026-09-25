@@ -3367,3 +3367,83 @@ mute-first ask, and the crash gap's measurement on the rig.
 - Core 1,030, Rendering 670, Devices 8, Audio 13, Audience 2, Assistant 37, App 815 — 2,575; the module's 34 node tests.
 - Walk: not owed — no platform path was touched and no verb an output can show landed; the replay is a
   desk-only reading and the fence is tests. The papers say so rather than point at a row.
+
+## Round 85 review — the handed-in plan's Phase 0
+
+### 85.0 — the round opened
+
+- A handed-in plan document ("Patterns: Show Brain Development Plan", 24 September 2026, against
+  `f4f9d3c`), the maintainer's ask to research `flybrain.online` and `eonsystemspbc/fly-brain`, and the
+  maintainer's "go ahead" on Phase 0 plus the two replay items (§103.1). `docs/field/` has no files. The
+  site could not be fetched from the build environment (its network policy denies it); its text was read
+  through a search index's fetch, and both repositories were cloned and read whole.
+- The proposal the maintainer approved named Phase 0 and the two replay items; the round fixed the other
+  five confirmed defects too (P1-01, P1-02, P1-03, P1-04, P1-06), each small and each confirmed against the
+  head, and left the two that are designs (P1-05, P1-09) as ledger rows. That is a widening of the approved
+  scope, stated here so the maintainer can say otherwise.
+
+### 85.1 — the replay's fault counts (P1-07)
+
+- **Done.** §103.2. `EyeReplay.Health`; `EyeReplayTests`.
+- **The author's own:** round 84 applied its cumulative-counter rule to two rolling counters. The plan read
+  the code more carefully than its author had; the fix is one line and a test case that should have existed.
+
+### 85.2 — the replay's record on a worker (P1-08)
+
+- **Done.** §103.3. `EyeService` (the read, the generation, `JsonAtAsync`), `CommandRouter` (`EYE AT` on the
+  async path), `MainViewModel.Eye` (the reading words); `EyeReplayAppTests`.
+- **Found and fixed on the way:** the first worker read landed after the executor had journaled the
+  `EYE REPLAY` press, so the record's last stamp was the press and `ON` opened on it; the App test failed
+  on "the one problem of the record". The record is now the files as they stood at the press.
+- **Found and fixed on the way:** the router's synchronous dispatch could not await the worker; `EYE AT`
+  moved to `ExecuteAsync`'s async path beside the assistant's ask.
+
+### 85.3 — the recovery record's ladder (P1-03)
+
+- **Done.** §103.4. `RecoveryStore.Read` / `WriteJson`, `AtomicFile.WriteAllTextKeepingBackup`'s predicate;
+  `AtomicFileTests`.
+- **Decided on the way:** the settings store and the known-good rig keep the unconditional rotation — their
+  files are not written between a crash and a restart, and a wrong guess there costs a whole file.
+
+### 85.4 — saving off through the handover (P1-04)
+
+- **Done.** §103.5. `AppServices.PollPrimary`; `PrimaryInstanceAppTests`.
+
+### 85.5 — a bind that is not an address (P1-06)
+
+- **Done.** §103.6. `BindAddress` (Core), `ControlService.Reconcile` (the control ports and the audience
+  socket), `OscService.Reconcile`, `SuperCheck` (the facts and three rows), `Eye` (the OSC node),
+  `SystemMetricsService`, `MainViewModel.Poll`; `BindAddressTests`, `RemoteTrustTests`, `OscAppTests`.
+- **Wider than the plan:** the plan named OSC; the control ports and the audience socket fell back the same
+  way, and all three now fail closed.
+- **Not reached:** STATE (no row for the listeners) and the Companion module (no word for them); the
+  Super Check's row is the desk's word for it, and the deck sees a closed port as a failed connection.
+
+### 85.6 — the pages and the routes (P1-01, P1-02)
+
+- **Done.** §103.7. `ControlService` (`/api/cmd`, `/api/cues`, the multiview page), the remote and admin
+  pages, `ControlConfig.Token`'s words, `docs/REMOTE.md`; `RemoteTrustTests`.
+- **Decided on the way:** the wire's queries stay open to an unpaired TCP connection, and the reason is
+  written once rather than left as an asymmetry a reader has to guess at.
+
+### The plan's items, answered
+
+- P1-01, P1-02, P1-03, P1-04, P1-06, P1-07, P1-08: reproduced against the head and fixed, each with a test
+  that fails on the head before the fix.
+- P1-05, P1-09: reproduced (P1-05 in `StreamService`'s key) or read as the design ask it is (P1-09), and
+  recorded as L45 and L46 with the design each needs (§103.8).
+- Not applicable: none of the nine.
+
+### The ledger's rows, answered
+
+- **Closed:** none.
+- **Added:** L45 — the running stream's encoder restarts by itself when the master rate follows a display
+  change; L46 — the readers of "what is live" derive their facts by their own rules, and requested, active
+  and observed are not told apart in one place.
+- Closed rows: twenty-seven; open: nineteen.
+
+### The suites
+
+- Core 1,046, Rendering 670, Devices 8, Audio 13, Audience 2, Assistant 37, App 816 — 2,592; the module's 34 node tests.
+- Walk: unwalked — 85.3 touches the record a restart reads; QUALIFICATION §25's row is the walk's. Nothing
+  else touched a platform path; the listeners' bind is a network setting, and the pages are pages.

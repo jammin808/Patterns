@@ -10,6 +10,36 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 85 — 2026-09-25 — the handed-in plan's Phase 0: nine reported defects read against the head, seven fixed, two designed
+
+`round-85` · PLAN §103 · REVIEW round 85 · 2,592 tests · module unchanged (3.16.0) · evidence: a handed-in plan document ("Patterns: Show Brain Development Plan", 24 September 2026, against `f4f9d3c`), web research at the maintainer's ask (`flybrain.online` and `eonsystemspbc/fly-brain` — `docs/CONNECTOMICS.md` §6), and the maintainer's "go ahead"
+
+- **The replay reads its counts as written, and reads its files on a worker (P1-07, P1-08).** A render
+  fault or a missed slot in a sample's own minute paints the machine red — four faults after four faults
+  no longer read as none — and the pool-starved count alone keeps its rise. `EYE REPLAY` answers
+  `OK Reading the record on a worker — the picture relights when it is read` and the strip says so until the
+  read lands; the read is bounded and stopped by NOW or a second open; the record is the files as they
+  stood at the press, so ON opens on what happened before it; `EYE AT` waits for a read in flight.
+- **The recovery record's ladder holds (P1-03).** A record that parses to nothing reads the backup, and a
+  torn record is never rotated over the whole one before it: the backup is kept only when it is a record.
+- **Saving stays off through the handover (P1-04).** A second desk that comes to own a folder whose show
+  file a newer build wrote becomes the primary — the record, the music — with autosave off and the words
+  saying so; the newer file is never written over.
+- **A bind that is not an address opens nothing (P1-06, wider than asked).** The control ports, the OSC port
+  and the audience socket refuse to open on a bind that is not an IP address — never every interface — and
+  say why on the status line, the Remote line, the Super Check (three red rows with the FIX) and the Eye's
+  OSC node; the audience socket fails closed on its own bind with the control ports untouched.
+- **The pages carry the token on every read, and the web has one policy (P1-01, P1-02).** The remote,
+  admin and multiview pages send the token on their state and picture fetches and ask for it once on a
+  403; on a paired desk every `/api/cmd` line and `/api/cues` want it from another machine, as `/api/state`
+  has since round 83; the wire's queries stay open, and `docs/REMOTE.md` says why in one paragraph.
+- **Two designed, not built.** L45: the stream's rate held through a display change, a restart deliberate
+  (P1-05). L46: one set of output facts — requested, active, observed as separate fields with a source and
+  an age each, read by every reader of "what is live" (P1-09).
+- **The second look at the connectomics transfer.** `docs/CONNECTOMICS.md` §6: what `flybrain.online` and
+  Eon's `fly-brain` are, the five transfers named for a show controller (labels on facts, the narrator's
+  number fence, rails for autonomy, a ledger before an outcome, parity across origins), and what does not.
+
 ## Round 84 — 2026-09-24 — the connectomics transfer: the Eye replayed from the record, and synthetic shows as a fence
 
 `round-84` · PLAN §102 · REVIEW round 84 · 2,575 tests · module unchanged (3.16.0) · evidence: web research at the maintainer's ask — the Google Research post on the complete fruit-fly brain map, read as method (`docs/CONNECTOMICS.md`) — and the maintainer's "sounds good, go ahead" on the assessment
