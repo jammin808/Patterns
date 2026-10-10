@@ -169,7 +169,7 @@ public class VideoClockTests
         Assert.Equal(ShowActionKind.VideoRestart, ControlProtocol.Parse("clip top").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO END soon").Kind);
-        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO PAUSE").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO SLOW").Kind);   // round 86 made PAUSE a verb; an unknown word is still refused
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class VideoClockTests
         Assert.Equal("VIDEO END 2.5", OscMap.ToLine(OscMessage.Of("/patterns/vt/end", 2.5f)));
         Assert.Equal("VIDEO RESTART", OscMap.ToLine(OscMessage.Of("/patterns/video/restart")));
         Assert.Equal("VIDEO RESTART", OscMap.ToLine(OscMessage.Of("/patterns/clip/start")));
-        Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/video/pause")));
+        Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/video/slow")));   // round 86 made pause an address; an unknown one is still refused
         Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/video")));
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/video/end"));
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/video/restart"));

@@ -3447,3 +3447,47 @@ mute-first ask, and the crash gap's measurement on the rig.
 - Core 1,046, Rendering 670, Devices 8, Audio 13, Audience 2, Assistant 37, App 816 — 2,592; the module's 34 node tests.
 - Walk: unwalked — 85.3 touches the record a restart reads; QUALIFICATION §25's row is the walk's. Nothing
   else touched a platform path; the listeners' bind is a network setting, and the pages are pages.
+
+## Round 86 review — the clip's transport for another app
+
+### 86.0 — the round opened
+
+- The maintainer's ask, carried from Stagewatch: how long the clip is, how long until its end, a skip to its last
+  ten seconds, so the other app can instruct Patterns (§104.1). A read of the head found the first three already
+  here (`video` in STATE, `VIDEO END`); the round built what an instructing app was missing — the transport, a
+  clock it can count down by itself, and a hello on the port it listens on. `docs/field/` has no files.
+
+### 86.1 — the transport
+
+- **Done.** §104.2. `IPlayheadSource`, `VlcFrameSource` (`_operatorPaused`, `Rate`, `IsPaused`, `SetPaused`),
+  `VideoClock.TryParseSeek` / `SeekTarget`, four kinds, `ControlProtocol`, `ShowActions.VideoTransport`, the
+  writer, the cue side, the menus, the panel, the phone, OSC, Help; `VideoTransportTests`, `VideoTransportAppTests`.
+- **Found and fixed on the way:** `VIDEO RESTART twice` (any word after RESTART) used to restart; a word after a
+  bare transport verb is now refused, as the wire refuses every other unknown word.
+- **Answered:** `VIDEO STOP` is never `OUTPUTS OFF` — bare `STOP` keeps that meaning and a test holds both.
+
+### 86.2 — the precise clock
+
+- **Done.** §104.3. `CommandRouter.VideoRow` (eight fields at the row's end), `VideosRow`, `VideoSequence`,
+  `AppServices.VideoSeq`, `VideoEngine.Clips`, `OscFeedback`.
+
+### 86.3 — the hello
+
+- **Done.** §104.4. `ShowBusHello`, `BeaconService` (`BuildHello`, `ReconcileHello`, the tick, the unchanged-key
+  path, dispose).
+- **Found and fixed on the way:** with the beacon's own settings unchanged, `Reconcile` returned before the timer
+  could be started for the hello alone — a desk with the beacon off would never have said hello.
+
+### 86.4 — the module (3.17.0)
+
+- **Done.** `video_transport`, `video_seek`, the PAUSE and PLAY presets, `lines.txt`, the module test's table.
+- **Found on the way, not fixed:** `npm run lines` writes an empty file on Windows (its "am I the main module"
+  check compares a `file://` URL with a backslashed path); the file was regenerated through `allLines()`. The
+  script is the module's; a one-line fix (`pathToFileURL(process.argv[1]).href`) is left for the module's round.
+
+### The review's items, answered
+
+- The ask's three questions: the length and what is left — `video.lengthMs` / `remainingMs` (and the whole
+  seconds as before); the skip — `VIDEO END 10` (unchanged) or `VIDEO SEEK END 10`.
+
+Walk: unwalked (§104.7).

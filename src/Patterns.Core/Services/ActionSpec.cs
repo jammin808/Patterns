@@ -82,6 +82,8 @@ public enum ValueKind
     Hours,
     /// <summary>A time of day, HH:mm, 24-hour.</summary>
     ClockTime,
+    /// <summary>Round 86: a point in the clip on air — from the top (1:23, 83) or from the end (END, END 5).</summary>
+    ClipPoint,
     /// <summary>A kind of picture — a <see cref="Model.PatternKind"/> by name (Grid, ColorBars, Media, Particles, Fractal…).</summary>
     PatternKind,
     /// <summary>A web address (https://…) or a local HTML file.</summary>
@@ -197,6 +199,7 @@ public static class ActionSpec
         ShowActionKind.RunMonitor => (TargetKind.Monitor, ValueKind.None),
         ShowActionKind.RunMonitorOff => (TargetKind.None, ValueKind.None),
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
+        ShowActionKind.VideoSeek => (TargetKind.None, ValueKind.ClipPoint),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         ShowActionKind.Take or ShowActionKind.Cut => (TargetKind.Place, ValueKind.Transition),
         ShowActionKind.NextTransition => (TargetKind.None, ValueKind.Transition),
@@ -397,6 +400,10 @@ public static class ActionSpec
         ShowActionKind.RunMonitorOff => "Run monitor off",
         ShowActionKind.VideoToEnd => "Video — jump to its last seconds",
         ShowActionKind.VideoRestart => "Video — restart from the top",
+        ShowActionKind.VideoPlay => "Video — play on (after a pause or a stop)",
+        ShowActionKind.VideoPause => "Video — pause where it is",
+        ShowActionKind.VideoSeek => "Video — move to a point",
+        ShowActionKind.VideoStop => "Video — stop: back to the top, held",
         // The desk's own: named for the journal and a refusal, never offered to a cue.
         ShowActionKind.Take => "TAKE",
         ShowActionKind.Cut => "CUT",
@@ -475,6 +482,7 @@ public static class ActionSpec
         ShowActionKind.WebArm, ShowActionKind.WebMark,
         ShowActionKind.DeckNext, ShowActionKind.DeckPrev, ShowActionKind.DeckPage,
         ShowActionKind.VideoRestart, ShowActionKind.VideoToEnd,
+        ShowActionKind.VideoPlay, ShowActionKind.VideoPause, ShowActionKind.VideoSeek, ShowActionKind.VideoStop,
         ShowActionKind.DeviceSend,
         ShowActionKind.Announce, ShowActionKind.AnnounceOff, ShowActionKind.AdvertPlay, ShowActionKind.AdvertOff,
         ShowActionKind.ScheduleOn, ShowActionKind.ScheduleOff,

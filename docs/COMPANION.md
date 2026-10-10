@@ -466,3 +466,13 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `rotate_left` / `rotate_right` step the level the desk reported (`audio_level_step`,
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
+
+## Round 86 — the clip's transport (module 3.17.0)
+
+- **Video — pause, play on or stop the clip on air** (`video_transport`): `VIDEO PAUSE`, `VIDEO PLAY`, `VIDEO STOP`.
+  STOP is the clip's (back to its top, held) — never the outputs; bare `STOP` on the wire is still OUTPUTS OFF.
+- **Video — move the clip on air to a point** (`video_seek`): from the top (`83`, `1:23`) → `VIDEO SEEK 1:23`, or
+  from the end (seconds before it) → `VIDEO SEEK END 5`. Anything that is not a number or a clock time is not sent.
+- Presets under **Presenter**: *VT ⏸ PAUSE* and *VT ▶ PLAY* beside *LAST 10 s* and *⟲ TOP*.
+- The key that reads the clip (`$(patterns:video_chip)`) says *VT PAUSED 2:28* while it is paused.
+

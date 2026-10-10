@@ -512,6 +512,29 @@ public sealed class VideoEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Round 86: every mounted clip with a timeline — its key, its playhead and whether it loops,
+    /// held for the standby or not — for STATE's videos[] (UI thread). A capture has no timeline and
+    /// is left out; a decoder on its way out answers nothing and is skipped.
+    /// </summary>
+    public IReadOnlyList<(string Key, IPlayheadSource Source, bool Loops, bool PreRoll)> Clips()
+    {
+        var list = new List<(string, IPlayheadSource, bool, bool)>();
+        foreach (var (key, mount) in _mounts)
+        {
+            try
+            {
+                if (!mount.Source.CanSeek) continue;
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+            list.Add((key, mount.Source, mount.Loop, mount.PreRoll));
+        }
+        return list;
+    }
+
     private readonly Dictionary<string, (double Seconds, DateTime RecordedUtc, bool Loops)> _resumes = new(StringComparer.Ordinal);
 
     /// <summary>Round 76: clips still waiting to be moved to where they would be by now — a mount not open yet, a decoder not playing yet.</summary>
@@ -775,6 +798,8 @@ public sealed class VlcFrameSource : IMountedSource
     private volatile bool _mute;
     private volatile float _volumePct;
     private volatile bool _held;
+    // Round 86: an operator's pause (VIDEO PAUSE / STOP) — apart from the standby's hold, which GO releases and an operator never does.
+    private volatile bool _operatorPaused;
 
     // Frames handed to render sinks may be recorded into GPU-deferred canvases that read the
     // pixels at flush time — so each decoded frame becomes its own immutable SKImage, and
@@ -1045,6 +1070,7 @@ public sealed class VlcFrameSource : IMountedSource
     {
         if (!_held) return;
         _held = false;
+        _operatorPaused = false;
         if (_disposed) return;
         try
         {
@@ -1279,6 +1305,71 @@ public sealed class VlcFrameSource : IMountedSource
             {
                 return 0;
             }
+        }
+    }
+
+    /// <summary>The decoder's speed (1 = real time); 1 for a capture, or a player on its way out.</summary>
+    public double Rate
+    {
+        get
+        {
+            if (_disposed || _isCapture) return 1;
+            try
+            {
+                var r = _player.Rate;
+                return r > 0 && float.IsFinite(r) ? r : 1;
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+    }
+
+    /// <summary>Paused by an operator, and still paused in the decoder (an ended or closed clip is not "paused").</summary>
+    public bool IsPaused
+    {
+        get
+        {
+            if (!_operatorPaused || _disposed) return false;
+            try
+            {
+                return _player.State == VLCState.Paused;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// An operator's pause or play-on. Refused (false) for a capture, a clip held for the standby
+    /// (GO owns that hold), and a play-on of an ended clip — that is RESTART's.
+    /// </summary>
+    public bool SetPaused(bool paused)
+    {
+        if (_disposed || _isCapture || _held) return false;
+        try
+        {
+            var state = _player.State;
+            if (paused)
+            {
+                if (state is VLCState.Ended or VLCState.Stopped or VLCState.Error) return false;
+                _player.SetPause(true);
+                _operatorPaused = true;
+                return true;
+            }
+            if (state is VLCState.Ended or VLCState.Stopped or VLCState.Error) return false;
+            _player.SetPause(false);
+            _operatorPaused = false;
+            ApplyAudio();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Pausing a clip failed.", ex);
+            return false;
         }
     }
 

@@ -216,6 +216,7 @@ public sealed class CommandRouter : IRouter
     private object? VideoRow()
     {
         var r = _services.VideoOnAir();
+        var seq = _services.VideoSeq(r);
         if (r is null) return null;
         return new
         {
@@ -235,7 +236,45 @@ public sealed class CommandRouter : IRouter
             loops = r.Loops,                                               // a loop never comes out
             @out = r.InLast(VideoClock.OutWarningSeconds),                 // the last ten seconds
             call = VideoClock.Call(r),                                     // "OUT IN 7"
+            // Round 86: the precise clock for another app counting the clip down by itself (Stagewatch's VT countdown) —
+            // milliseconds, null where there is no honest number, and seq to know when to resync.
+            key = r.Key,
+            positionMs = (long)Math.Round(r.PositionSeconds * 1000),
+            lengthMs = r.HasLength ? (long)Math.Round(r.LengthSeconds * 1000) : (long?)null,                 // null until the decoder says
+            remainingMs = r.HasLength && !r.Loops ? (long)Math.Round(r.RemainingSeconds * 1000) : (long?)null, // null for a loop or an unknown length
+            paused = r.Paused,                                             // an operator's VIDEO PAUSE / STOP
+            rate = Math.Round(r.Rate, 3),                                  // what is left in wall time is remainingMs / rate
+            seekable = r.CanSeek,
+            seq,                                                           // moves on every discontinuity: a new clip, a pause, a seek, the end
         };
+    }
+
+    /// <summary>
+    /// Round 86: every mounted clip with a timeline, the one on air first marked — STATE videos[]. The
+    /// program can show one clip while a layer, a screen of its own or the standby's pre-roll holds others.
+    /// </summary>
+    private object[] VideosRow()
+    {
+        var onAir = _services.VideoOnAir()?.Key;
+        return _services.Video.Clips().Select(c =>
+        {
+            var length = c.Source.DurationSeconds;
+            var position = c.Source.PositionSeconds;
+            return (object)new
+            {
+                key = c.Key,
+                onAir = c.Key == onAir,
+                preRoll = c.PreRoll,
+                positionMs = (long)Math.Round(position * 1000),
+                lengthMs = length > 0 ? (long)Math.Round(length * 1000) : (long?)null,
+                remainingMs = length > 0 && !c.Loops ? (long)Math.Round(Math.Max(0, length - position) * 1000) : (long?)null,
+                playing = c.Source.IsPlaying,
+                paused = c.Source.IsPaused,
+                ended = c.Source.IsEnded,
+                loops = c.Loops,
+                rate = Math.Round(c.Source.Rate, 3),
+            };
+        }).ToArray();
     }
 
     /// <summary>The web page the program shows — what WEB KEY / CLICK / TYPE reach with no page named — with its service's actions; null when none.</summary>
@@ -692,6 +731,7 @@ public sealed class CommandRouter : IRouter
             masterFollows = s.Output.FollowDisplays,
             masterFpsEffective = masterRate.Effective,
             masterRate = masterRate.Words,
+            videos = VideosRow(),                                          // round 86: every mounted clip with a timeline (video is the one on air)
         };
         return JsonSerializer.Serialize(payload);
     }

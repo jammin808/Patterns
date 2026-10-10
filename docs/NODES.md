@@ -392,3 +392,15 @@ state (the frozen snapshot), capability boundaries (the kernel and its contracts
 readers everywhere a wire comes in. If Patterns is the connective tissue, the audience room
 crashing must not touch the switching, and a phone must never reach programme control. The
 breadth is legitimate exactly as long as that stays true.
+
+## The show network beyond Patterns (round 86)
+
+Patterns' own nodes find each other on the beacon (UDP 9700). Other show apps — Stagewatch (the timer
+and show-calling app), its presenter PCs, AGMessage (board ↔ research messaging) — meet on **UDP 9928**,
+and from round 86 a Patterns desk says hello there too (`{"t":"patterns",…}`, `docs/REMOTE.md` → *The show
+network's hello*): who it is, where its wire is, what it can do — never the show. Patterns never sends on
+another app's behalf, and no other app sends on 9700, so a standby twin can never mistake one for a main
+machine. A caller app drives the clip through the wire it already speaks — `VIDEO PLAY`, `PAUSE`, `STOP`,
+`SEEK`, `END`, `RESTART` — and reads it from STATE's `video` row (`positionMs`, `lengthMs`, `remainingMs`,
+`paused`, `rate`, `seq`).
+

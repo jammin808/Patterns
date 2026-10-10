@@ -162,6 +162,9 @@ public static class OscFeedback
                 list.Add(OscMessage.Of(Prefix + "video/remaining", isClip ? Int(video, "remaining") : 0));
                 list.Add(OscMessage.Of(Prefix + "video/text", isClip ? Str(video, "text") : ""));
                 list.Add(OscMessage.Of(Prefix + "video/out", isClip ? Bit(video, "out") : 0));
+                // Round 86: the transport's state, and the clip's count of discontinuities — a desk that counts down by itself resyncs when it moves.
+                list.Add(OscMessage.Of(Prefix + "video/paused", isClip ? Bit(video, "paused") : 0));
+                list.Add(OscMessage.Of(Prefix + "video/seq", isClip ? Int(video, "seq") : 0));
             }
             // The install: the schedule's switch, the programme on, the override on and until when, the next change.
             if (root.TryGetProperty("install", out var install) && install.ValueKind == JsonValueKind.Object)

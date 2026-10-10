@@ -69,6 +69,9 @@ public static class OscMap
         ("/patterns/deck/page <n>", "DECK PAGE n — the deck on air turns to page n (also /patterns/deck/page/<n>, /patterns/deck <n>)"),
         ("/patterns/video/end [seconds]", "VIDEO END — the clip on air jumps to its last seconds (none: ten) — the rehearsal's skip (also /patterns/video/end/5, /patterns/vt/end)"),
         ("/patterns/video/restart", "VIDEO RESTART — the clip on air plays again from its start (also /patterns/video/start, /patterns/vt/restart)"),
+        ("/patterns/video/play, /patterns/video/pause", "VIDEO PLAY / PAUSE — the clip on air plays on, or holds where it is (also /patterns/vt/…)"),
+        ("/patterns/video/stop", "VIDEO STOP — the clip back to its top and held until PLAY; the outputs stay on"),
+        ("/patterns/video/seek <point>", "VIDEO SEEK — the clip on air to a point: seconds or 1:23 from the top, or end [n] from its end (also /patterns/video/seek/83, /patterns/video/seek/end/5)"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/device/<name> <text>", "DEVICE name text — a line to a device of the Interactive area (also /patterns/device \"name\" \"text\", /patterns/send/…; * is the first device)"),
         ("/patterns/announce <name|words>", "ANNOUNCE — an announcement of the Install page by name, else the words as a free-text announcement (also /patterns/announce/<name>); /patterns/announce/off ends it"),
@@ -363,6 +366,21 @@ public static class OscMap
                     }
                     case "restart": case "start": case "top": case "begin": case "rewind":
                         return "VIDEO RESTART";
+                    case "play": case "resume":
+                        return "VIDEO PLAY";
+                    case "pause": case "hold":
+                        return "VIDEO PAUSE";
+                    case "stop":
+                        return "VIDEO STOP";
+                    case "seek": case "goto":
+                    {
+                        // /patterns/video/seek 83 · /seek "1:23" · /seek/83 · /seek/end · /seek/end/5 · /seek "end 5"
+                        var point = seg2.Length > 0
+                            ? (seg3.Length > 0 ? seg2 + " " + seg3 : seg2)
+                            : m.Number()?.ToString(CultureInfo.InvariantCulture) ?? m.Text() ?? "";
+                        if (point.Equals("end", StringComparison.OrdinalIgnoreCase) && m.Number() is { } n) point = "end " + n.ToString(CultureInfo.InvariantCulture);
+                        return point.Length > 0 && VideoClock.TryParseSeek(point, out _, out _) ? "VIDEO SEEK " + point.ToUpperInvariant() : null;
+                    }
                     default:
                         return null;
                 }

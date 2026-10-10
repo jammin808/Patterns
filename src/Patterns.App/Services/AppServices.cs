@@ -2206,6 +2206,12 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public VideoReading? VideoOnAir()
         => VideoClock.Read(Bus.Current, InputBus.For, Stingers is { ClipActive: true });
 
+    private readonly VideoSequence _videoSeq = new();
+
+    /// <summary>Round 86: STATE video.seq for this reading — the clip's count of discontinuities (UI thread; a monotonic clock).</summary>
+    public long VideoSeq(VideoReading? reading)
+        => _videoSeq.Next(reading, System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency);
+
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
     public static string StableFolderKey(string path)
     {

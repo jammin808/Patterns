@@ -143,6 +143,10 @@
           <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <Button Classes="mini" Content="⟲ RESTART" Command="{Binding VideoRestartCommand}"
                     ToolTip.Tip="The clip plays again from its start (VIDEO RESTART on the wire)" />
+            <Button Classes="mini" Content="⏯" Command="{Binding VideoPlayPauseCommand}"
+                    ToolTip.Tip="The program's clip holds where it is, silent — press again to play on (VIDEO PAUSE / VIDEO PLAY on the wire). A playlist item or a stinger runs on its own clock and is not paused." />
+            <Button Classes="mini" Content="⏹" Command="{Binding VideoStopCommand}"
+                    ToolTip.Tip="The clip goes back to its top and holds there until ⏯ — the outputs stay on (VIDEO STOP on the wire; bare STOP is still OUTPUTS OFF)" />
             <Button Classes="chip" Content="⏭ LAST 10 s" Command="{Binding VideoToEndCommand}"
                     ToolTip.Tip="Rehearsal: the clip jumps to its last ten seconds — its end still plays, the out is still heard, and whatever follows it (the next playlist item, a stinger's ending) happens for real (VIDEO END on the wire; VIDEO END 30 for the last thirty)" />
           </StackPanel>

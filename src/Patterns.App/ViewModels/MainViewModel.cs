@@ -93,6 +93,9 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         SavePresetCommand = new RelayCommand(SaveUserPreset);
         VideoToEndCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoToEnd, ActionOrigin.Desk)));
         VideoRestartCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoRestart, ActionOrigin.Desk)));
+        // Round 86: one key for the clip's pause — PLAY when it is paused, PAUSE when it plays; STOP puts it back to its top, held.
+        VideoPlayPauseCommand = new RelayCommand(() => Report(_services.Actions.Execute(_services.VideoOnAir() is { Paused: true } ? ShowActionKind.VideoPlay : ShowActionKind.VideoPause, ActionOrigin.Desk)));
+        VideoStopCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoStop, ActionOrigin.Desk)));
         BrowseLogoCommand = new RelayCommand(() => _ = PickFileAsync("Choose logo (PNG with alpha)", FilePickerFileTypes.ImageAll, p => State.Brand.LogoPath = p));
         BrowseLayerImageCommand = new RelayCommand<LayerConfig>(layer =>
         {
@@ -502,6 +505,8 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     public RelayCommand SavePresetCommand { get; }
     public RelayCommand VideoToEndCommand { get; }
     public RelayCommand VideoRestartCommand { get; }
+    public RelayCommand VideoPlayPauseCommand { get; }
+    public RelayCommand VideoStopCommand { get; }
     public RelayCommand BrowseLogoCommand { get; }
     public RelayCommand<string> ApplyParticlePresetCommand { get; }
     public RelayCommand<string> ApplyCountdownLabelCommand { get; }

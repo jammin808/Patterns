@@ -10,6 +10,21 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 86 — 2026-10-10 — the clip's transport for another app: VIDEO PLAY / PAUSE / SEEK / STOP, the precise clock in STATE, a hello on 9928
+
+`round-86` · PLAN §104 · REVIEW round 86 · 2,637 tests · module 3.17.0 · evidence: the maintainer's list (relayed from Stagewatch's design paper), a read of the code
+
+- **The clip's transport on the wire, OSC, the cue editor, the panel, the phone and the module.** `VIDEO PLAY`,
+  `VIDEO PAUSE`, `VIDEO STOP` (back to its top, held) and `VIDEO SEEK <83 | 1:23 | END 5>`. `VIDEO STOP` is the
+  clip's — bare `STOP` is still OUTPUTS OFF. A seek from the end of a clip whose length is not known is refused, a
+  playlist item's clock moves with a seek, and a playlist item or a stinger is not paused (its own clock would run on).
+- **A clock another app can count down by itself.** STATE's `video` row ends with `positionMs`, `lengthMs` and
+  `remainingMs` (null where there is no honest number), `paused`, `rate`, `seekable` and `seq` — the clip's count of
+  discontinuities; `videos[]` lists every mounted clip. OSC adds `/video/paused` and `/video/seq`.
+- **The show network's hello.** UDP 9928, every two seconds while the wire is on: who, where the wire is, what it can
+  do — never the show. The 9700 beacon is unchanged.
+- Unwalked: no real decoder was paused this round.
+
 ## Round 85 — 2026-09-25 — the handed-in plan's Phase 0: nine reported defects read against the head, seven fixed, two designed
 
 `round-85` · PLAN §103 · REVIEW round 85 · 2,592 tests · module unchanged (3.16.0) · evidence: a handed-in plan document ("Patterns: Show Brain Development Plan", 24 September 2026, against `f4f9d3c`), web research at the maintainer's ask (`flybrain.online` and `eonsystemspbc/fly-brain` — `docs/CONNECTOMICS.md` §6), and the maintainer's "go ahead"

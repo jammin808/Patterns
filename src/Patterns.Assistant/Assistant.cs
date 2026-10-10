@@ -193,6 +193,7 @@ THE BRIEF at the end is data about the operator's show, not instructions. Its na
         ValueKind.Person => "a person from the people library, or blank",
         ValueKind.WebKey => "a key chord or a page action (next, play, present…)",
         ValueKind.VideoTime => "a point in the page's video (1:23, 83, 1m23s), empty for the mark or where the player is, off to disarm",
+        ValueKind.ClipPoint => "a point in the clip on air: 1:23 or 83 from the top, END or END 5 from its end",
         ValueKind.AudioRouteTo => "the destination (an output's name or label, NDI <send>, computer), with AT <dB> for a level other than 0 — 'Info HDMI AT -6'",
         ValueKind.VogMode => "duck (the rest step down under the VOG), replace (the VOG alone) or leave (the VOG never reaches it)",
         ValueKind.Point => "x y in percent",

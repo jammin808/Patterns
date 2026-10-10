@@ -70,6 +70,19 @@ internal sealed class FakeSource : IMountedSource
     public double PositionSeconds => Position;
     public bool CanSeek => Seekable && !Disposed;
 
+    /// <summary>Round 86: an operator's pause as the real source keeps it — refused for a held pre-roll and for a play-on of an ended clip.</summary>
+    public bool Paused;
+    public double Speed = 1;
+    public bool IsPaused => Paused && !Disposed && !Ended;
+    public double Rate => Speed;
+
+    public bool SetPaused(bool paused)
+    {
+        if (Disposed || Held || Ended) return false;
+        Paused = paused;
+        return true;
+    }
+
     public bool Seek(double seconds)
     {
         if (!CanSeek) return false;

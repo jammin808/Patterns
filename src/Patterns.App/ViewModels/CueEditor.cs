@@ -287,6 +287,7 @@ public sealed class ActionRow : Observable
         ValueKind.Look => "which look's picture lands on that screen alone",
         ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
         ValueKind.VideoTime => "a point in the video — 1:23 · 83 · 1m23s · 0 for the top — empty for the mark set (or where the player is now); off disarms",
+        ValueKind.ClipPoint => "a point in the clip — 1:23 · 83 from the top, END or END 5 from its end",
         ValueKind.AudioRouteTo => "the destination — an output's name or its label, NDI <send>, computer — with AT <dB> for a level: Info HDMI AT -6",
         ValueKind.VogMode => "duck · replace · leave",
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",

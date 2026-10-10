@@ -126,6 +126,8 @@ public sealed partial class ControlService
   <div id="vtrow" class="grid row2" hidden>
     <button onclick="cmd('VIDEO RESTART')">⟲ Clip from the top</button>
     <button class="warm" onclick="cmd('VIDEO END')">⏭ Last 10 s</button>
+    <button onclick="cmd('VIDEO PAUSE')">⏸ Pause</button>
+    <button onclick="cmd('VIDEO PLAY')">▶ Play on</button>
   </div>
   <div class="sec">TRANSPORT</div>
   <div class="grid row3">

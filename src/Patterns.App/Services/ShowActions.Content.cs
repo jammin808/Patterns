@@ -43,6 +43,11 @@ public sealed partial class ShowActions
             case ShowActionKind.VideoToEnd:
             case ShowActionKind.VideoRestart:
                 return VideoJump(a);
+            case ShowActionKind.VideoPlay:
+            case ShowActionKind.VideoPause:
+            case ShowActionKind.VideoStop:
+            case ShowActionKind.VideoSeek:
+                return VideoTransport(a);
             case ShowActionKind.ScreenLook:
             {
                 // The look's picture for this target alone, as its own pattern: every other target stays,
@@ -452,6 +457,69 @@ public sealed partial class ShowActions
         if (!source.Seek(target)) return ActionResult.Failed($"'{reading.Name}' would not move.");
         if (reading.Role == VideoRole.Playlist) _s.Playlist.EndCurrentIn(Math.Min(before, reading.LengthSeconds));
         return ActionResult.Done($"'{reading.Name}' to its last {before:0.#} s — {VideoClock.Format(target)} of {VideoClock.Format(reading.LengthSeconds)}.");
+    }
+
+    /// <summary>
+    /// Round 86: the clip on air's transport — PLAY, PAUSE, STOP (back to the top, held) and SEEK —
+    /// from the panel, a cue, the wire, OSC or another app (Stagewatch's VT countdown). A playlist item
+    /// and a stinger run on clocks of their own: a pause would leave them running under a frozen
+    /// picture, so PAUSE and STOP refuse them with the reason; SEEK moves a playlist item's clock
+    /// with the picture, as VIDEO END does. A take that would change nothing is refused.
+    /// </summary>
+    private ActionResult VideoTransport(ShowAction a)
+    {
+        var reading = _s.VideoOnAir();
+        if (reading is null)
+        {
+            return ActionResult.Refused("No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.");
+        }
+        var source = Patterns.Rendering.Media.InputBus.For(reading.Key);
+        if (source is null || !source.CanSeek)
+        {
+            return ActionResult.Failed($"'{reading.Name}' cannot be moved — a live source, or its decoder is not open yet.");
+        }
+        var ownClock = reading.Role is VideoRole.Playlist or VideoRole.Stinger;
+        switch (a.Kind)
+        {
+            case ShowActionKind.VideoPause:
+            {
+                if (ownClock) return ActionResult.Refused($"'{reading.Name}' is a {(reading.Role == VideoRole.Playlist ? "playlist item" : "stinger's clip")} — its own clock keeps running, so it is not paused (VIDEO END or SEEK move it).");
+                if (reading.Ended && !reading.Loops) return ActionResult.Refused($"'{reading.Name}' has ended — VIDEO RESTART plays it from the top.");
+                if (reading.Paused) return ActionResult.Refused($"'{reading.Name}' is already paused at {VideoClock.Format(reading.PositionSeconds)}.");
+                if (!source.SetPaused(true)) return ActionResult.Failed($"'{reading.Name}' would not pause.");
+                return ActionResult.Done($"'{reading.Name}' paused at {VideoClock.Format(reading.PositionSeconds)}.");
+            }
+            case ShowActionKind.VideoPlay:
+            {
+                if (reading.Ended && !reading.Loops) return ActionResult.Refused($"'{reading.Name}' has ended — VIDEO RESTART plays it from the top.");
+                if (!reading.Paused) return ActionResult.Refused($"'{reading.Name}' is already playing.");
+                if (!source.SetPaused(false)) return ActionResult.Failed($"'{reading.Name}' would not play on.");
+                return ActionResult.Done($"'{reading.Name}' plays on from {VideoClock.Format(reading.PositionSeconds)}.");
+            }
+            case ShowActionKind.VideoStop:
+            {
+                if (ownClock) return ActionResult.Refused($"'{reading.Name}' is a {(reading.Role == VideoRole.Playlist ? "playlist item" : "stinger's clip")} — its own clock keeps running, so it is not stopped (VIDEO RESTART puts it back to the top).");
+                if (reading.Paused && reading.PositionSeconds < 0.05) return ActionResult.Refused($"'{reading.Name}' is already stopped at its top.");
+                if (!source.Seek(0)) return ActionResult.Failed($"'{reading.Name}' would not go back to its top.");
+                if (!source.SetPaused(true)) return ActionResult.Failed($"'{reading.Name}' went back to its top but would not hold there.");
+                return ActionResult.Done($"'{reading.Name}' stopped — back to its top, held. VIDEO PLAY runs it.");
+            }
+            default:
+            {
+                if (!VideoClock.TryParseSeek(a.Value, out var point, out var fromEnd))
+                {
+                    return ActionResult.Refused($"VIDEO SEEK wants a point from the top (1:23, 83) or from the end (END, END 5) — not '{a.Value}'.");
+                }
+                if (VideoClock.SeekTarget(point, fromEnd, reading.HasLength ? reading.LengthSeconds : 0) is not { } target)
+                {
+                    return ActionResult.Failed($"'{reading.Name}' has not said how long it is yet — a point from its end cannot be counted; try again in a moment.");
+                }
+                if (!source.Seek(target)) return ActionResult.Failed($"'{reading.Name}' would not move.");
+                if (reading.Role == VideoRole.Playlist && reading.HasLength) _s.Playlist.EndCurrentIn(Math.Max(0, reading.LengthSeconds - target));
+                var of = reading.HasLength ? $" of {VideoClock.Format(reading.LengthSeconds)}" : "";
+                return ActionResult.Done($"'{reading.Name}' to {VideoClock.Format(target)}{of}{(reading.Paused ? " — still paused" : "")}.");
+            }
+        }
     }
 
     /// <summary>Round 77: " The picture is mirrored, turned 90°." for a media picture with adjustments; "" otherwise — a recall's and a take's words carry it, so a saved mirror never surprises the wall.</summary>

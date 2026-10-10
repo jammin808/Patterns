@@ -201,6 +201,12 @@ public static class CueSummary
             case ShowActionKind.VideoToEnd:
                 return VideoClock.TryParseBeforeEnd(a.Value, out var before) ? $"Video: to its last {before:0.#} s" : $"Video: to its last '{a.Value}' (not seconds)";
             case ShowActionKind.VideoRestart: return "Video: restart from the top";
+            case ShowActionKind.VideoPlay: return "Video: play on";
+            case ShowActionKind.VideoPause: return "Video: pause";
+            case ShowActionKind.VideoStop: return "Video: stop (back to the top, held)";
+            case ShowActionKind.VideoSeek:
+                return !VideoClock.TryParseSeek(a.Value, out var point, out var fromEnd) ? $"Video: to '{a.Value}' (not a point)"
+                    : fromEnd ? $"Video: to {point:0.#} s before its end" : $"Video: to {VideoClock.Format(point)}";
             case ShowActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
             case ShowActionKind.Announce:
             {

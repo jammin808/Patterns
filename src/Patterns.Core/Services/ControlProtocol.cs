@@ -761,7 +761,9 @@ public static class ControlProtocol
                 };
             }
 
-            // The clip on air: "VIDEO END", "VIDEO END 5", "VT END", "VIDEO RESTART", "CLIP START" — the rehearsal's skip and the top.
+            // The clip on air: "VIDEO END", "VIDEO END 5", "VT END", "VIDEO RESTART", "CLIP START" — the rehearsal's skip and the top;
+            // round 86: "VIDEO PLAY", "VIDEO PAUSE", "VIDEO SEEK 1:23", "VIDEO SEEK END 5", "VIDEO STOP" — the clip's transport.
+            // VIDEO STOP is the clip's stop and nothing else: bare STOP stays OUTPUTS OFF.
             case "VIDEO":
             case "VT":
             case "CLIP":
@@ -784,7 +786,23 @@ public static class ControlProtocol
                     case "TOP":
                     case "BEGIN":
                     case "REWIND":
-                        return Act(ShowActionKind.VideoRestart);
+                        return words.Length == 1 ? Act(ShowActionKind.VideoRestart) : Unknown(s);
+                    case "PLAY":
+                    case "RESUME":
+                        return words.Length == 1 ? Act(ShowActionKind.VideoPlay) : Unknown(s);
+                    case "PAUSE":
+                    case "HOLD":
+                        return words.Length == 1 ? Act(ShowActionKind.VideoPause) : Unknown(s);
+                    case "STOP":
+                        return words.Length == 1 ? Act(ShowActionKind.VideoStop) : Unknown(s);
+                    case "SEEK":
+                    case "GOTO":
+                    case "AT":
+                    {
+                        var point = words.Length > 1 ? words[1] : "";
+                        if (!VideoClock.TryParseSeek(point, out _, out _)) return Unknown(s);
+                        return Act(ShowActionKind.VideoSeek, "", point);
+                    }
                     default:
                         return Unknown(s);
                 }

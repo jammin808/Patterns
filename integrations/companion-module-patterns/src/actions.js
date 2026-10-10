@@ -479,6 +479,25 @@ export function buildActions(ctx) {
 		// The clip on air — the caller's VT clock: the rehearsal's skip to its last seconds, and the top again.
 		video_end: { name: "Video — jump to the clip's last seconds (rehearsal)", options: [{ type: 'number', id: 'seconds', label: 'Seconds before the end', default: 10, min: 0, max: 3600 }], callback: (a) => send(`VIDEO END ${a.options.seconds}`) },
 		video_restart: { name: 'Video — the clip on air from the top', options: [], callback: () => send('VIDEO RESTART') },
+		// Round 86: the clip's transport. VIDEO STOP is the clip's stop (back to its top, held) — never the outputs, which bare STOP is.
+		video_transport: {
+			name: 'Video — pause, play on or stop the clip on air',
+			options: [{ type: 'dropdown', id: 'mode', label: 'Transport', default: 'PAUSE', choices: [{ id: 'PAUSE', label: 'Pause where it is' }, { id: 'PLAY', label: 'Play on' }, { id: 'STOP', label: 'Stop: back to its top, held' }] }],
+			callback: (a) => send(`VIDEO ${a.options.mode}`),
+		},
+		video_seek: {
+			name: 'Video — move the clip on air to a point',
+			options: [
+				{ type: 'dropdown', id: 'from', label: 'Counted from', default: 'TOP', choices: [{ id: 'TOP', label: 'The top (seconds or 1:23)' }, { id: 'END', label: 'The end (seconds before it)' }] },
+				{ type: 'textinput', id: 'point', label: 'Point (83, 1:23 — or seconds before the end)', default: '10' },
+			],
+			callback: (a) => {
+				// A number or a clock time only: anything else would be refused by the desk, so it never goes out.
+				const raw = clean(a.options.point)
+				if (!/^\d{1,5}(\.\d+)?$|^\d{1,2}(:\d{1,2}){1,2}(\.\d+)?$/.test(raw)) return
+				send(a.options.from === 'END' ? `VIDEO SEEK END ${raw}` : `VIDEO SEEK ${raw}`)
+			},
+		},
 		// VOG / STING name the same library by the same number and only assert the kind: a key that says VOG never fires a stinger.
 		vog: { name: 'Fire VOG (by number, Audio-page order)', options: [{ type: 'number', id: 'n', label: 'Library number (Audio page order)', default: 1, min: 1, max: 32 }], callback: (a) => send(`VOG ${a.options.n}`) },
 		vog_name: { name: 'Fire VOG (by name)', options: [text('name', 'VOG name')], callback: (a) => { const n = clean(a.options.name); if (n) send(`VOG ${n}`) } },

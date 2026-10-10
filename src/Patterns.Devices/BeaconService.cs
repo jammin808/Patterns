@@ -18,6 +18,10 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     private readonly IDispatchTimer _timer;
     private UdpClient? _sender;
     private UdpClient? _listener;
+    // Round 86: the show network's hello on 9928 (ShowBusHello) — its own socket, on whenever the wire is, bound to the wire's address.
+    private UdpClient? _hello;
+    private string _helloKey = "";
+    private long _ticks;
     private CancellationTokenSource? _cts;
     private volatile IPEndPoint? _target;
     private string _activeKey = "";
@@ -62,9 +66,52 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     /// <summary>The health line's words while listening — alive, silent, stood down; "" otherwise.</summary>
     public string WatchText => Listening ? BeaconWatch.Describe(_last, _lastSeenUtc, DateTime.UtcNow) : "";
 
+    /// <summary>Round 86: whether the show network's hello is going out (the wire is on and reachable from the network).</summary>
+    public bool Announcing => _hello is not null;
+
+    /// <summary>Round 86: this machine's hello for the other show apps — who, where its wire is, what it can do; no token, no show data.</summary>
+    public ShowBusHello BuildHello()
+    {
+        var c = _services.State.Control;
+        return new ShowBusHello
+        {
+            Id = Instance,
+            Name = MachineName,
+            Machine = Environment.MachineName,
+            Web = c.Enabled ? c.HttpPort : 0,
+            Wire = c.Enabled ? c.TcpPort : 0,
+            Role = NodeKinds.Wire(_services.Profile),
+        };
+    }
+
+    /// <summary>Round 86: opens / closes the hello's socket to match the wire (UI thread). A wire bound to one address says hello from that address only.</summary>
+    private void ReconcileHello()
+    {
+        var c = _services.State.Control;
+        var on = ShowBusHello.MayAnnounce(c.Enabled, c.Bind);
+        var key = $"{on}|{c.Bind}";
+        if (key == _helloKey) return;
+        _helloKey = key;
+        _hello?.Dispose();
+        _hello = null;
+        if (!on) return;
+        try
+        {
+            var local = c.Bind.Length > 0 && IPAddress.TryParse(c.Bind, out var bind) && !bind.Equals(IPAddress.Any) ? new IPEndPoint(bind, 0) : new IPEndPoint(IPAddress.Any, 0);
+            _hello = new UdpClient(local) { EnableBroadcast = true };
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The show network's hello could not open a socket.", ex);
+            _hello = null;
+            _helloKey = "";   // asked again on the next change
+        }
+    }
+
     /// <summary>Opens / closes the sender and the listener to match the config (UI thread).</summary>
     public void Reconcile()
     {
+        ReconcileHello();
         var cfg = _services.State.Watchdog;
         // Nodes find each other on the beacon: a node always sends and hears, and so does a desk
         // that accepts callers — the Machine page's own switches add to that, never take from it.
@@ -72,7 +119,13 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
         var send = cfg.BeaconEnabled || nodes;
         var listen = cfg.BeaconListen || nodes;
         var key = $"{send}|{cfg.BeaconHost}|{cfg.BeaconPort}|{listen}|{cfg.BeaconListenPort}";
-        if (key == _activeKey) return;
+        if (key == _activeKey)
+        {
+            // The beacon is as it was; the hello may have come or gone with the wire, and it ticks on the same timer.
+            if (_sender is not null || _listener is not null || _hello is not null) _timer.Start();
+            else _timer.Stop();
+            return;
+        }
         _activeKey = key;
         BindFailed = false;
         Stop();
@@ -114,7 +167,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
             }
         }
         _status = notes.Count == 0 ? "Beacon off." : string.Join(" · ", notes) + ".";
-        if (_sender is not null || _listener is not null)
+        if (_sender is not null || _listener is not null || _hello is not null)
         {
             _timer.Start();
             Tick();
@@ -168,6 +221,27 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
 
     private void Tick()
     {
+        ReconcileHello();
+        // The hello every other second (ShowBusHello.Every); the beacon every second.
+        if (_hello is { } hello && Interlocked.Increment(ref _ticks) % 2 == 1)
+        {
+            var bytes = BuildHello().ToBytes();
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    hello.Send(bytes, new IPEndPoint(IPAddress.Broadcast, ShowBusHello.Port));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // closed by a reconcile between the build and the send — the next tick uses the new socket
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("The show network's hello failed.", ex);
+                }
+            }, CancellationToken.None);
+        }
         var sender = _sender;
         var to = _target;
         if (sender is not null && to is not null)
@@ -349,6 +423,8 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     public void Dispose()
     {
         Stop();
+        _hello?.Dispose();
+        _hello = null;
         _timer.Dispose();
     }
 }

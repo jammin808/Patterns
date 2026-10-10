@@ -900,6 +900,11 @@ fault containment, and settings that can never brick startup.
   playlist moves on, a stinger runs its ending); ⟲ RESTART plays it from the top. `VIDEO END
   [seconds]` and `VIDEO RESTART` on the wire, `/patterns/video/end` over OSC, two cue actions,
   Companion 2.4.0's VT clock key that reads what is left and goes red for the out.
+  Round 86: the clip's transport for another app — ⏯ and ⏹ beside them on the panel, `VIDEO PLAY`,
+  `VIDEO PAUSE`, `VIDEO STOP` (back to its top, held — bare `STOP` is still the outputs) and `VIDEO SEEK
+  1:23` / `VIDEO SEEK END 5`; STATE's `video` row carries the clock in milliseconds with `paused`, `rate`
+  and a `seq` that moves on every jump, so Stagewatch counts a VT down by itself; a hello on UDP 9928
+  tells the show network where the wire is.
 - **Field research, the operational review and the multi-core answer** — round 12 went to the
   places operators talk (ControlBooth, the vMix, Resolume and NewTek forums, the QLab list, AVS
   Forum, the Companion issue tracker, the production companies' own field guides) and wrote up the

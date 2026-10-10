@@ -170,6 +170,8 @@ export function buildPresets() {
 	add('video_clock', key('Presenter', 'VT clock — what is left of the clip on air (red for its last ten seconds); press for its last ten seconds', '$(patterns:video_chip)', '18', press('video_end', { seconds: 10 }), [vtOn, vtOut]))
 	add('video_end', key('Presenter', "VT — jump to the clip's last ten seconds (rehearsal)", 'VT\n⏭ LAST 10 s', '14', press('video_end', { seconds: 10 }), [vtOn, vtOut]))
 	add('video_restart', key('Presenter', 'VT — the clip on air from the top', 'VT\n⟲ TOP', '14', press('video_restart'), [vtOn]))
+	add('video_pause', key('Presenter', 'VT — pause the clip on air where it is', 'VT\n⏸ PAUSE', '14', press('video_transport', { mode: 'PAUSE' }), [vtOn]))
+	add('video_play', key('Presenter', 'VT — play the paused clip on', 'VT\n▶ PLAY', '14', press('video_transport', { mode: 'PLAY' }), [vtOn]))
 	const webOn = litAs('web_on_air', { word: '' }, 'presenter', 'on')
 	const webArmed = litAs('web_armed', {}, 'presenter', 'on')
 	add('web_vt_arm', key('Web page', 'Armed VT — ARM (at the mark, else where the player is): $(patterns:web_armed)', 'ARM\nVT', '14', press('web_vt', { mode: 'arm', time: '', page: '' }), [webArmed]))

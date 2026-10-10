@@ -378,10 +378,18 @@ public static class CueValidator
                 }
                 case ShowActionKind.VideoToEnd:
                 case ShowActionKind.VideoRestart:
+                case ShowActionKind.VideoPlay:
+                case ShowActionKind.VideoPause:
+                case ShowActionKind.VideoSeek:
+                case ShowActionKind.VideoStop:
                 {
                     if (a.Kind == ShowActionKind.VideoToEnd && !VideoClock.TryParseBeforeEnd(a.Value, out _))
                     {
                         Hard($"{where}: the seconds before the end must be a number (blank = 10) — not '{a.Value}'.");
+                    }
+                    if (a.Kind == ShowActionKind.VideoSeek && !VideoClock.TryParseSeek(a.Value, out _, out _))
+                    {
+                        Hard($"{where}: the point must be a time from the top (1:23, 83) or from the end (END, END 5) — not '{a.Value}'.");
                     }
                     if (MediaLocator.FindActiveMedia(sim, MediaSource.Video) is null && MediaLocator.FindActivePlaylist(sim) is null)
                     {

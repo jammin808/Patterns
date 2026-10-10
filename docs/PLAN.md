@@ -11690,3 +11690,126 @@ pages fetching the state with the header, the remote, run and multiview pages se
   count); `docs/CONNECTOMICS.md` §6 (the second look); `docs/REMOTE.md` (the pairing policy in 85.6, the
   replay's reading answer here); `docs/QUALIFICATION.md` §25 (the ladder's walk); `docs/OPEN.md` — L45 and
   L46 added, none closed; the tag table row 84 (`f4f9d3c`). The module is unchanged (3.16.0).
+
+## 104. Round 86 — the clip's transport for another app: VIDEO PLAY / PAUSE / SEEK / STOP, the precise clock in STATE, and the show network's hello on 9928
+
+### 104.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** The maintainer's ask, carried from the other app it works beside:
+Stagewatch (the maintainer's stage timer and show-calling app, a node of the same show network) reads the
+clip on air to count a VT down on the speaker's screen and to skip it to its last ten seconds, and the ask
+was for Patterns to be told the rest — how long the clip is, how long until its end, a skip to the last ten
+seconds — "so Stagewatch can instruct Patterns". A read of this tree at the head (2746612) answered most of it
+already: `VideoClock` and STATE's `video` row carry the length and what is left, and `VIDEO END [n]` is the skip.
+What was missing is the transport another app needs to drive a clip — play, pause, seek, stop — and a clock it
+can count down by itself between pushes without guessing. Evidence class: the maintainer's list (relayed from
+the other app's design paper, `ECOSYSTEM.md` of Stagewatch: "Show Bus v1"), a read of the code. No files have
+arrived in `docs/field/` since round 78; there is nothing to read as what the files said.
+
+**OPEN.md.** No row closed; three added (L47–L49, §104.7).
+
+**Read against the standing brief.** "Cutting-edge interaction with … external controllers" and "every
+reader": the verbs reach the wire, OSC, the cue editor, the desk's keys and right-click menu, the phone page,
+the Companion module (3.17.0), the assistant's words and STATE. Fail closed: `VIDEO STOP` is the clip's stop and
+never the outputs — bare `STOP` stays `OUTPUTS OFF` and a test says so; an unknown word after `VIDEO` is refused;
+a seek from the end of a clip whose length is not known is refused, never guessed; a pause of a clip that runs on
+its own clock (a playlist item, a stinger) is refused with the reason rather than left running under a frozen
+picture. No measurement this round: the transport adds no work to the render path (§104.6).
+
+### 104.2 The transport (86.1)
+
+`IPlayheadSource` gains `Rate`, `IsPaused` and `SetPaused(bool)`, defaulted, so a source that has neither keeps
+working. `VlcFrameSource` keeps an operator's pause apart from the standby's hold: `_operatorPaused` beside
+`_held`; `SetPaused` refuses a capture, a held pre-roll (GO owns that hold, an operator never does) and a play-on
+of an ended clip (that is RESTART's); `Release` clears an operator's pause with the hold; `IsPaused` is the flag
+*and* the decoder's Paused state, so an ended or closed clip never reads paused. `Rate` reads `_player.Rate`, 1
+when it is not a finite positive number.
+
+The verbs, in the wire's grammar beside `VIDEO END` / `RESTART` (`VT` and `CLIP` are aliases throughout):
+
+| Line | Kind | Refused when |
+|---|---|---|
+| `VIDEO PLAY` (`RESUME`) | `VideoPlay` | no clip; ended (RESTART is the verb); already playing |
+| `VIDEO PAUSE` (`HOLD`) | `VideoPause` | no clip; a playlist item or a stinger (own clock); ended; already paused |
+| `VIDEO STOP` | `VideoStop` | as PAUSE; already stopped at its top |
+| `VIDEO SEEK <point>` (`GOTO`, `AT`) | `VideoSeek` | no clip; a point that is not one; from the end while the length is unknown |
+
+A point is `83`, `83.5`, `2.5s`, `1:23`, `1:02:03`, `top` from the top, or `END` / `END n` from the end (none =
+ten, as VIDEO END) — `VideoClock.TryParseSeek`; where it lands is `VideoClock.SeekTarget`: clamped to the clip;
+from the end never before the top (a clip shorter than the gap starts again); null from the end with no length.
+A playlist item's clock moves with a seek (`EndCurrentIn`), as VIDEO END's does. `VIDEO STOP` is a seek to the top
+and a pause — not `HoldAtStart`, which belongs to the standby's pre-roll and the engine's bookkeeping of it.
+Every other word after `VIDEO`, and any word after `PLAY` / `PAUSE` / `STOP` / `RESTART`, is refused (RESTART used
+to ignore what followed it; the doctrine's fourth line now holds there too).
+
+The readers: the executor (`ShowActions.VideoTransport`), the writer, the cue sheet's words, the summary, the
+validator (a hard error for a point that is not one), `ActionSpec` (`ValueKind.ClipPoint`, the labels, the cue
+kinds), the cue editor's hint, the assistant's value words, the desk menu's THE CLIP group (Pause, Play on, Stop),
+the Show panel's ⏯ and ⏹ beside ⟲ RESTART and ⏭ LAST 10 s (`VideoPlayPauseCommand`, `VideoStopCommand`), the
+phone page's ⏸ / ▶, OSC (`/patterns/video/play|pause|stop|seek`), Help's video-clock topic, and the module.
+
+### 104.3 The precise clock in STATE (86.2)
+
+The `video` row keeps every field it had (tests match it by substring) and ends with `key`, `positionMs`,
+`lengthMs` (null until the decoder says), `remainingMs` (null for a loop or an unknown length — no honest number),
+`paused`, `rate`, `seekable` and `seq`. `seq` is `VideoSequence`, pure: it moves on a discontinuity — a new clip,
+the clip leaving, a start, a pause, a play-on, the end, the length learned or changed, the speed changed, the
+place more than 1.5 s from where the last reading and the elapsed time put it — and never for the playhead
+running on. A caller counts down from the push it holds and resyncs when `seq` moves: whole state, latest wins,
+durations not wall clocks. The chip reads *VT PAUSED 2:28* and the ten-second call is silent while paused.
+`videos[]`, at the end of STATE, lists every mounted clip with a timeline (`VideoEngine.Clips`, UI thread) with the
+same nulls, the one on air marked `onAir` and the standby's pre-roll `preRoll`. OSC feedback adds
+`/video/paused` and `/video/seq` after `/video/out`.
+
+### 104.4 The show network's hello (86.3)
+
+`ShowBusHello` (Core) and `BeaconService.BuildHello` / `ReconcileHello`: every other second of the beacon's tick,
+`{"t":"patterns","v":1,"id","name","machine","web","wire","role","caps":[…],"proto":1}` to the broadcast address
+on UDP 9928 — the port Stagewatch and its peers listen on. No token, no show name, no look, nothing on air. It goes
+out while the wire is on and the network can reach it (`MayAnnounce`: a loopback bind says nothing), from the
+wire's own address when it is bound to one, on its own socket — the 9700 beacon is untouched and is still read by
+Patterns alone, so no other app's packet can reach a standby twin's watchdog. The hello rides the beacon's timer;
+`Reconcile`'s unchanged-beacon path now keeps the timer running for the hello alone.
+
+### 104.5 The proof
+
+`VideoTransportTests` (Core): the verbs and their aliases parse; the refusals (no point, a word, a negative, a
+point past a day, words after PLAY / PAUSE / STOP / RESTART); `STOP` is still `OutputsOff` and `VIDEO STOP` is not;
+the writer and the parser agree; seek targets (from the end, a short clip, an unknown length refused, clamped,
+from the top with no length); the paused words; `VideoSequence` (running on, jitter, pause, held, a seek while
+paused, a new clip, leaving, twice the speed expected); the feedback's two new addresses; OSC's six addresses
+and its arguments; the cue sheet, the spec and the summary; the hello's exact keys and size; `MayAnnounce`.
+`VideoTransportAppTests` (App, headless): the wire drives a fake decoder through PAUSE / PLAY / SEEK / STOP with
+the refusals, STATE's new fields, `seq` moving and holding, `videos[]`, an unknown length, a loop, the panel's keys,
+no clip on air; the hello names the wire and not the show. `WireVocabularyTests` gains the five lines; two
+round-13 assertions that PAUSE was not a verb now name a word that is still unknown (`VIDEO SLOW`). The module:
+`video_transport` and `video_seek`, two presets, `lines.txt` regenerated (five lines added), the module test's
+table.
+
+### 104.6 What the round did not do
+
+- **No real decoder was paused.** libVLC's pause, its `Rate` and a seek's landing (the nearest keyframe) were
+  exercised through the fake only; the walk below is the first time a real clip pauses. Round 86 is `unwalked`.
+- **No pause for a playlist item or a stinger.** Their own clocks would run on under a frozen picture; a pause that
+  holds the sequencer's clock too is a design, written as L48.
+- **No `ON <key>` target.** The transport acts on the clip on air; `videos[]` reads the others, and driving one by
+  its key is L49.
+- **The hello is not heard here.** Patterns' Nodes page stays the beacon's; showing Stagewatch and its peers there
+  is a later round's.
+- **No measurement.** The transport and the row add no work to a sink's draw: STATE is built on the UI thread when
+  a controller listens, as before; `seq` is a comparison per build.
+
+### 104.7 The ledger
+
+- **L47** (new, low): the hello on 9928 has not been heard on a real network — a broadcast from a machine with two
+  networks, a firewall's prompt, Stagewatch's listener reading it. Closes with a walk row and a Stagewatch node
+  listed by its hello.
+- **L48** (new, low): VIDEO PAUSE / STOP refuse a playlist item and a stinger; a pause that holds the sequencer's
+  clock (and a stinger's ending) with the picture would let them pause too.
+- **L49** (new, low): the transport acts on the clip on air alone; `VIDEO … ON <key>` for a layer's or a screen's
+  own clip, read from `videos[]`, is not built.
+
+The tag table row 85 (`2746612`); the module moves to 3.17.0.
+
+**Walk:** unwalked — the next build on the rig: put a clip on the program, `VIDEO PAUSE` / `PLAY` / `SEEK 1:00` /
+`SEEK END 5` / `STOP` from a phone, read the panel's row, the Run chip and STATE's `positionMs` and `seq` beside it.

@@ -30,7 +30,9 @@ public sealed record VideoReading(
     bool Playing,
     bool Ended,
     bool Loops,
-    bool CanSeek)
+    bool CanSeek,
+    double Rate = 1,
+    bool Paused = false)
 {
     /// <summary>The decoder has said how long the clip is (it may not, in the first frames).</summary>
     public bool HasLength => LengthSeconds > 0;
@@ -86,7 +88,7 @@ public static class VideoClock
         else if (snap.PlaylistNow is { IsVideo: true } now && wanted.Key == InputKeys.Video(now.Path)) role = VideoRole.Playlist;
 
         return new VideoReading(wanted.Key, wanted.Target, role, source.PositionSeconds, source.DurationSeconds,
-            source.IsPlaying, source.IsEnded, wanted.Loop, source.CanSeek);
+            source.IsPlaying, source.IsEnded, wanted.Loop, source.CanSeek, source.Rate, source.IsPaused);
     }
 
     /// <summary>"0:07", "3:30", "1:02:15" — what a caller reads from a metre; never a millisecond.</summary>
@@ -113,9 +115,10 @@ public static class VideoClock
     public static string Times(VideoReading r)
     {
         if (r.Ended && !r.Loops) return "ended";
-        if (!r.HasLength) return Format(r.PositionSeconds);
+        var paused = r.Paused ? " · paused" : "";
+        if (!r.HasLength) return Format(r.PositionSeconds) + paused;
         var head = $"{Format(r.PositionSeconds)} / {Format(r.LengthSeconds)}";
-        return r.Loops ? head + " · loop" : $"{head} · {Format(r.RemainingSeconds)} left";
+        return (r.Loops ? head + " · loop" : $"{head} · {Format(r.RemainingSeconds)} left") + paused;
     }
 
     /// <summary>The one line every surface shows: "VT sponsor.mp4 · 1:02 / 3:30 · 2:28 left".</summary>
@@ -126,13 +129,52 @@ public static class VideoClock
     {
         var word = r.IsAudioOnly && r.Role is not (VideoRole.Stinger or VideoRole.Playlist) ? "AUDIO" : "VT";
         if (r.Ended && !r.Loops) return word + " ENDED";
+        if (r.Paused) return $"{word} PAUSED {Format(r.HasLength && !r.Loops ? r.RemainingSeconds : r.PositionSeconds)}";
         if (!r.HasLength) return $"{word} {Format(r.PositionSeconds)}";
         return r.Loops ? $"{word} LOOP {Format(r.PositionSeconds)}" : $"{word} {Format(r.RemainingSeconds)}";
     }
 
     /// <summary>The caller's call in the last seconds: "OUT IN 10", "OUT IN 3"; "" before that.</summary>
     public static string Call(VideoReading r)
-        => r.InLast(OutWarningSeconds) ? $"OUT IN {Math.Max(1, (int)Math.Ceiling(r.RemainingSeconds))}" : "";
+        => r.InLast(OutWarningSeconds) && !r.Paused ? $"OUT IN {Math.Max(1, (int)Math.Ceiling(r.RemainingSeconds))}" : "";
+
+    /// <summary>The longest point VIDEO SEEK names: a day. Anything past a clip's end is clamped by the decoder to its end.</summary>
+    public const double MaxSeekSeconds = 24 * 3600;
+
+    /// <summary>
+    /// VIDEO SEEK's value: a point from the top — "83", "83.5", "1:23", "1:02:03", "top" — or from
+    /// the end — "END", "END 5" (blank = ten, as VIDEO END). False for anything else: a word, a
+    /// negative, a point past a day. <paramref name="fromEnd"/> says which.
+    /// </summary>
+    public static bool TryParseSeek(string? value, out double seconds, out bool fromEnd)
+    {
+        seconds = 0;
+        fromEnd = false;
+        var t = (value ?? "").Trim();
+        if (t.Length == 0) return false;
+        var words = t.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (words[0].Equals("END", StringComparison.OrdinalIgnoreCase))
+        {
+            fromEnd = true;
+            return TryParseBeforeEnd(words.Length > 1 ? words[1] : "", out seconds);
+        }
+        if (t.EndsWith("s", StringComparison.OrdinalIgnoreCase) && !t.Contains(':')) t = t[..^1].Trim();
+        if (!WebVt.TryParseTime(t, out var at) || double.IsNaN(at) || at < 0 || at > MaxSeekSeconds) return false;
+        seconds = at;
+        return true;
+    }
+
+    /// <summary>
+    /// Where a seek lands on a clip of <paramref name="lengthSeconds"/> (0 = not known yet): from the
+    /// top, clamped to the clip; from the end, never before the top — a clip shorter than the gap
+    /// starts again. Null when the point is from the end and the length is not known: nothing to
+    /// count back from, so the seek is refused rather than guessed.
+    /// </summary>
+    public static double? SeekTarget(double seconds, bool fromEnd, double lengthSeconds)
+    {
+        if (fromEnd) return lengthSeconds > 0 ? Math.Max(0, lengthSeconds - seconds) : null;
+        return lengthSeconds > 0 ? Math.Clamp(seconds, 0, lengthSeconds) : Math.Max(0, seconds);
+    }
 
     /// <summary>
     /// "10", "5", "2.5", "" → the seconds before the end VIDEO END means; false for a word or a

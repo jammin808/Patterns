@@ -317,6 +317,26 @@ public enum ShowActionKind
     VideoToEnd,
     /// <summary>The clip on air plays again from its start; an ended clip comes back.</summary>
     VideoRestart,
+    /// <summary>Round 86: the clip on air, paused by an operator, plays on from where it stopped. A clip already playing is refused (nothing would change).</summary>
+    VideoPlay,
+    /// <summary>
+    /// Round 86: the clip on air holds where it is, silent, until VIDEO PLAY. The program's or a
+    /// layer's clip only: a playlist item and a stinger run on clocks of their own, so they are
+    /// refused rather than left to run on under a frozen picture.
+    /// </summary>
+    VideoPause,
+    /// <summary>
+    /// Round 86: the clip on air moves to a point — from the top (Value "1:23", "83") or from the end
+    /// ("END 5"). Refused from the end while the length is not known; a playlist item's clock moves
+    /// with it, as VIDEO END's does.
+    /// </summary>
+    VideoSeek,
+    /// <summary>
+    /// Round 86: the clip on air goes back to its top and holds there, paused, until VIDEO PLAY — a
+    /// transport's stop. Never the outputs: bare STOP is OUTPUTS OFF and stays so. The same roles as
+    /// <see cref="VideoPause"/>.
+    /// </summary>
+    VideoStop,
     /// <summary>The clock overlay flips.</summary>
     ClockToggle,
     /// <summary>Value = 12 or 24: the clock's hours.</summary>
