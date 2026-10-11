@@ -673,7 +673,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         CueStack.Changed += ReconcileInputs;
         CueStack.Changed += FollowPlan;
         Stage = new StageService(this);
-        WatchdogBeat.Live = () => OutputsLive || CueStack?.Armed == true;   // round 87: the watchdog's shorter hang rule while live
+        _liveHook = () => OutputsLive || CueStack?.Armed == true;          // round 87: the watchdog's shorter hang rule while live
+        WatchdogBeat.Live = _liveHook;                                      // round 88.1: released at shutdown, or it roots the closed desk
         Kernel.StagewatchChanged += Stage.Bump;                  // round 87: a Stagewatch frame moves the stage pages
         // Round 88 (Show Bus 1.2): this desk's own context goes to a linked Stagewatch; an approved line another app's
         // assistant proposed to this desk runs through the wire's own path — the desk's fences and refusals still apply.
@@ -2416,6 +2417,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>How long the exit waits for the final save to reach the disk before it goes on without it (round 65).</summary>
     public static TimeSpan ExitSaveWait { get; set; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>The watchdog's "is the desk live" hook this desk installed (a static points at it until shutdown).</summary>
+    private Func<bool>? _liveHook;
+
     public void Shutdown()
     {
         if (_shutDown) return;
@@ -2424,6 +2428,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // The statics that pointed at this desk let go of it: a closed desk is reclaimed whole (the census counts it).
         if (ReferenceEquals(Rendering.RenderPipeline.FirstPreviewFrame, _firstPreviewFrame)) Rendering.RenderPipeline.FirstPreviewFrame = null;
         if (ReferenceEquals(Instance, this)) Instance = null!;
+        if (_liveHook is not null && ReferenceEquals(WatchdogBeat.Live, _liveHook)) WatchdogBeat.Live = static () => false;
         foreach (var vm in ViewModelsAlive()) vm.OnWindowClosed();   // the desk's own timers and hooks, whether or not a window was attached or closed first
 
         // 1. What the room sees and hears ends first: the outputs' pictures, a calibration pattern
