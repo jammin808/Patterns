@@ -181,7 +181,7 @@ public class VideoTransportTests
         Assert.Equal(1, root.GetProperty("proto").GetInt32());
         Assert.Contains("video.seek", root.GetProperty("caps").EnumerateArray().Select(e => e.GetString()));
         var names = root.EnumerateObject().Select(p => p.Name).ToHashSet();
-        Assert.Equal(new HashSet<string> { "t", "v", "id", "name", "machine", "web", "wire", "role", "caps", "proto" }, names);
+        Assert.Equal(new HashSet<string> { "t", "v", "id", "name", "machine", "web", "wire", "role", "caps", "proto", "host", "ports", "clock", "inst" }, names);
         Assert.True(hello.ToBytes().Length < 1024);
         Assert.Equal(9928, ShowBusHello.Port);
     }

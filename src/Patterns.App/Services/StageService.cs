@@ -44,11 +44,30 @@ public sealed class StageService
 
     private DateTime LocalNow => UtcNow().ToLocalTime();
 
-    /// <summary>The timer as it stands, on the countdown's clock.</summary>
-    public StageTime Time() => StageTimer.Evaluate(_s.AirState.Countdown, _s.AirState.Stage, LocalNow, UtcNow());
+    /// <summary>
+    /// The timer as it stands: a linked Stagewatch's time while it answers (round 87 — one room, one timer), else this
+    /// desk's countdown on its own clock. A Stagewatch gone quiet holds the time back (idle) rather than freezing a
+    /// number on the speaker's screen; past the drop it is forgotten and this desk's own timer runs.
+    /// </summary>
+    public StageTime Time()
+    {
+        var follow = _s.FollowedStagewatch;
+        if (follow.Frame is { } frame && follow.State != ShowBusState.Gone)
+            return follow.State == ShowBusState.Live ? StageFollow.Time(frame, follow.FrameAtSeconds, ShowClock.Seconds) : StageTime.Idle;
+        return StageTimer.Evaluate(_s.AirState.Countdown, _s.AirState.Stage, LocalNow, UtcNow());
+    }
+
+    /// <summary>Round 87: the Stagewatch the stage follows, by name — "" when it runs its own.</summary>
+    public string Following => _s.FollowedStagewatch is { Frame: not null, State: not ShowBusState.Gone } f ? f.Name : "";
+
+    /// <summary>Round 87: the refusal for a verb that would move this desk's timer while it follows a Stagewatch's.</summary>
+    private ActionResult? FollowingRefusal(string verb) => Following is { Length: > 0 } name
+        ? ActionResult.Refused($"The stage timer follows Stagewatch {name} — {verb} it there (Nodes page: the link).")
+        : null;
 
     public ActionResult Pause()
     {
+        if (FollowingRefusal("pause") is { } refused) return refused;
         var ok = false;
         _s.EditAir(air => ok = StageTimer.Pause(air.Countdown, air.Stage, LocalNow, UtcNow()));
         Bump();
@@ -57,6 +76,7 @@ public sealed class StageService
 
     public ActionResult Resume()
     {
+        if (FollowingRefusal("resume") is { } refused) return refused;
         var ok = false;
         _s.EditAir(air => ok = StageTimer.Resume(air.Countdown, air.Stage, UtcNow()));
         Bump();
@@ -66,6 +86,7 @@ public sealed class StageService
     /// <summary>"+60", "-30", "2m": seconds onto what is left.</summary>
     public ActionResult Add(string words)
     {
+        if (FollowingRefusal("add time to") is { } refused) return refused;
         var seconds = StageTimer.ParseSeconds(words);
         if (seconds is null) return ActionResult.Refused($"'{words}' is not a number of seconds (+60, -30, 2m).");
         var ok = false;
@@ -139,6 +160,7 @@ public sealed class StageService
                 StageTimerPhase.Over => $"Stage timer OVER by {StageTimer.Format(-time.RemainingSeconds)}",
                 _ => $"Stage timer {time.Text} ({time.Colour})",
             };
+            if (Following is { Length: > 0 } name) timer += $" — following Stagewatch {name}";
             var unseen = _s.AirState.Stage.Messages.Count(m => m.AckUtc is null);
             return unseen == 0 ? timer + "." : $"{timer} · {unseen} message{(unseen == 1 ? "" : "s")} waiting on a receipt.";
         }
@@ -171,6 +193,7 @@ public sealed class StageService
             pendingSpeaker = Pending("speaker")?.Text ?? "",
             pendingCrew = Pending("crew")?.Text ?? "",
             flash = air.Stage.FlashUntilUtc is { } until && until > UtcNow(),
+            follows = Following,                                                     // round 87: "" or the Stagewatch the timer follows
         };
     }
 
@@ -178,7 +201,22 @@ public sealed class StageService
     public string DeckSignature()
     {
         var time = Time();
-        return $"{time.Phase}|{time.Colour}|{Pending("speaker")?.Id}|{Pending("crew")?.Id}";
+        return $"{time.Phase}|{time.Colour}|{Pending("speaker")?.Id}|{Pending("crew")?.Id}|{Following}";
+    }
+
+    private object? FollowJson()
+    {
+        var f = _s.FollowedStagewatch;
+        if (f.Name.Length == 0 && f.Address.Length == 0) return null;
+        return new
+        {
+            name = f.Name,
+            state = f.State.ToString().ToLowerInvariant(),
+            words = StageFollow.Words(f),
+            title = f.Frame?.Title ?? "",
+            next = f.Frame?.Next ?? "",
+            message = f.Frame?.Message ?? "",
+        };
     }
 
     public string StatusJson()
@@ -205,8 +243,8 @@ public sealed class StageService
                 text = time.Text,
                 colour = time.Colour,
                 progress = Math.Round(time.Progress01, 4),
-                label = air.Countdown.Label,
-                paused = air.Stage.Paused,
+                label = Following.Length > 0 ? _s.FollowedStagewatch.Frame?.Title ?? "" : air.Countdown.Label,
+                paused = Following.Length > 0 ? time.Phase == StageTimerPhase.Paused : air.Stage.Paused,
                 amber = air.Stage.AmberSeconds,
                 red = air.Stage.RedSeconds,
             },
@@ -224,6 +262,8 @@ public sealed class StageService
                 armed = stack?.Armed ?? false,
             },
             sees = new { speakerSegment = air.Stage.SpeakerSeesSegment, crewSegment = air.Stage.CrewSeesSegment, speakerClock = air.Stage.SpeakerSeesClock },
+            // Round 87: one room, one timer — when a Stagewatch is linked the timer above is its, and the pages say so.
+            follows = FollowJson(),
             presets = air.Stage.Presets.ToArray(),
             messages = air.Stage.Messages.TakeLast(20).Select(m => new { id = m.Id, text = m.Text, channel = m.Channel, sentUtc = m.SentUtc, ackUtc = m.AckUtc, flash = m.Flash, from = m.From, seen = m.AckUtc is not null }).ToArray(),
             pendingSpeaker = Pending("speaker") is { } sp ? new { id = sp.Id, text = sp.Text, flash = sp.Flash } : null,

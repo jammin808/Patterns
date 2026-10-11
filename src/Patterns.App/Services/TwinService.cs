@@ -656,6 +656,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     }
                     if (_stream is not null)
                     {
+                        SendMyContext();                                                          // round 88: a node's own context to its desk, every five seconds
                         var seq = Interlocked.Increment(ref _beat);
                         _ = Task.Run(() => TryWriteToMain(TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, Clock().Ticks, Interlocked.Read(ref _lastMainSentTicks), Interlocked.Read(ref _lastMainReceivedTicks)).Format())), CancellationToken.None);
                     }

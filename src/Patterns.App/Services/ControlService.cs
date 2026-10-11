@@ -54,6 +54,9 @@ public sealed partial class ControlService : IDisposable
             if (!_pushPending) return;
             _pushPending = false;
             var json = _router.StateJson();
+            // Round 87: a push that would repeat the last one word for word is skipped (counted) — a peer that connected
+            // since heard the whole STATE as its greeting, so nobody misses a thing.
+            if (!_pushGate.ShouldPush(json)) return;
             Broadcast("STATE " + json);       // each peer's one writer takes it, latest-wins: nothing blocks here
         };
         void Moved()
@@ -75,6 +78,10 @@ public sealed partial class ControlService : IDisposable
     }
 
     private long _rev; // bumped on the UI thread, read by the HTTP long-poll threads
+    private readonly StatePushGate _pushGate = new();
+
+    /// <summary>Round 87: STATE pushes skipped because they would have repeated the last one exactly.</summary>
+    public long RepeatedPushesSkipped => _pushGate.Skipped;
     private bool _stackHooked;
     private readonly DispatcherTimer _clockTimer;
     private int _longPollers;
@@ -349,6 +356,12 @@ public sealed partial class ControlService : IDisposable
             // Greet with current state so feedback initialises immediately — the first line the peer hears.
             var hello = await _router.StateJsonAsync();
             peer.Say("STATE " + hello);
+            // Round 87 (Show Bus 1.1 §7): on a paired desk the second line is a nonce, used once — AUTH-PROOF answers it
+            // and the token never crosses the network. NONCE asks for a fresh one at any time.
+            var nonce = WireProof.NewNonce();
+            var greetLoopback = client.Client.RemoteEndPoint is IPEndPoint near && IPAddress.IsLoopback(near.Address);
+            if (!Paired(_kernel.State.Control.Token, "", greetLoopback)) peer.Say("NONCE " + nonce);   // only a connection that has something to prove hears one
+            var helloName = "";
 
             var endpoint = client.Client.RemoteEndPoint?.ToString() ?? "";
             var origin = new ActionOrigin(OriginKind.Tcp, "", endpoint);
@@ -371,43 +384,77 @@ public sealed partial class ControlService : IDisposable
                 }
                 if (line is null) break;
                 if (line.Trim().Length == 0) continue;
+                var readAt = ClockPing.Ms(ShowClock.UtcNow);                          // t2 of a clock exchange: when the line was read
+                // Round 87 (Show Bus 1.1 §3): "@a1 <line>" carries a request id; every answer to the line names it.
+                var (rid, body) = WireReceipt.Split(line, out var malformed);
+                void Reply(string reply) => peer.Say(WireReceipt.Tag(reply, rid));
+                if (malformed)
+                {
+                    peer.Say(ControlProtocol.Err(WireReceipt.Malformed));
+                    continue;
+                }
                 RemoteCommand cmd;
                 try
                 {
-                    cmd = ControlProtocol.Parse(line);
+                    cmd = ControlProtocol.Parse(body);
                 }
                 catch (Exception ex) when (!Faults.IsIoEnd(ex))
                 {
-                    peer.Say(WireFault(ex, "TCP"));
+                    Reply(WireFault(ex, "TCP"));
                     continue;
                 }
                 var token = _kernel.State.Control.Token;
-                if (cmd.Kind == RemoteCommandKind.Auth)
+                if (cmd.Kind == RemoteCommandKind.Ping && ClockPing.Stamp(cmd.Text) is { } t1)
                 {
-                    // The connection presents the show's pairing token: the port answers, the router never sees it.
-                    if (PairingToken.Matches(token, cmd.Text))
+                    // Round 87 (Show Bus 1.1 §5): the clock exchange, answered here so t2 is the moment the line was read.
+                    Reply(ClockPing.Pong(t1, readAt, ClockPing.Ms(ShowClock.UtcNow)));
+                    continue;
+                }
+                if (cmd.Kind == RemoteCommandKind.Nonce)
+                {
+                    nonce = WireProof.NewNonce();
+                    Reply(ControlProtocol.Ok(nonce));
+                    continue;
+                }
+                if (cmd.Kind is RemoteCommandKind.Auth or RemoteCommandKind.AuthProof)
+                {
+                    // The connection proves the show's pairing token: the port answers, the router never sees it.
+                    // Round 87: AUTH-PROOF answers this connection's nonce; plain AUTH (the token itself) only from this machine.
+                    var proof = cmd.Kind == RemoteCommandKind.AuthProof;
+                    if (!PairingToken.Needed(token))
                     {
-                        presented = cmd.Text;
+                        Reply(ControlProtocol.Ok("open — this desk asks for no token"));
+                    }
+                    else if (!proof && !(loopback && PlainAuthOnLoopback))
+                    {
+                        Reply(ControlProtocol.Err(WireProof.UseProof));
+                    }
+                    else if (proof ? WireProof.Verify(token, nonce, helloName, cmd.Text) : PairingToken.Matches(token, cmd.Text))
+                    {
+                        presented = proof ? token : cmd.Text;
                         wrongTokens = 0;
                         lock (_gate)
                         {
                             if (_decks.TryGetValue(client, out var deck)) _decks[client] = deck with { Paired = true };   // round 66: the Eye reads it
+                            _pairedAddresses[PairedKey(client)] = DateTime.UtcNow;                                         // round 87: OSC from here may move the show
                         }
-                        peer.Say(ControlProtocol.Ok("paired"));
-                    }
-                    else if (!PairingToken.Needed(token))
-                    {
-                        peer.Say(ControlProtocol.Ok("open — this desk asks for no token"));
+                        Reply(ControlProtocol.Ok("paired"));
                     }
                     else if (++wrongTokens >= WrongTokensBeforeClose)
                     {
-                        peer.Say(ControlProtocol.Err(ControlProtocol.WrongToken + " — closed"));
+                        Reply(ControlProtocol.Err(ControlProtocol.WrongToken + " — closed"));
                         await peer.FlushAsync(LastWordWait);
                         break;
                     }
                     else
                     {
-                        peer.Say(ControlProtocol.Err(ControlProtocol.WrongToken));
+                        Reply(ControlProtocol.Err(ControlProtocol.WrongToken));
+                    }
+                    if (proof)
+                    {
+                        // A nonce is used once, right or wrong: the next proof answers a fresh one.
+                        nonce = WireProof.NewNonce();
+                        if (!Paired(token, presented, loopback)) peer.Say("NONCE " + nonce);
                     }
                     continue;
                 }
@@ -417,6 +464,7 @@ public sealed partial class ControlService : IDisposable
                     // and the Remote page lists the deck with the module it runs.
                     var (name, module) = CompanionWords.ParseHello(cmd.Text);
                     origin = new ActionOrigin(OriginKind.Tcp, name, endpoint);
+                    helloName = name;                                                   // round 87: what AUTH-PROOF's HMAC covers with the nonce
                     lock (_gate)
                     {
                         _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow) { Paired = Paired(token, presented, loopback) };
@@ -428,7 +476,7 @@ public sealed partial class ControlService : IDisposable
                     {
                         // Round 75: the action feed and the deck's whereabouts are a connection's standing, not a
                         // question — an unpaired connection hears what the operator does no more than it moves the show.
-                        peer.Say(ControlProtocol.Err(ControlProtocol.NotPaired));
+                        Reply(ControlProtocol.Err(ControlProtocol.NotPaired));
                         continue;
                     }
                     // Round 74: the deck's own facts — where its navigator is, whether it is recording a button —
@@ -446,14 +494,14 @@ public sealed partial class ControlService : IDisposable
                             else _recording.Remove(peer);
                         }
                     }
-                    peer.Say(ControlProtocol.Ok(cmd.Kind == RemoteCommandKind.NavDeck ? "at " + cmd.Text : recording ? "recording — the desk's actions follow as ACTION lines" : "recording off"));
+                    Reply(ControlProtocol.Ok(cmd.Kind == RemoteCommandKind.NavDeck ? "at " + cmd.Text : recording ? "recording — the desk's actions follow as ACTION lines" : "recording off"));
                     ArmPush();
                     continue;
                 }
                 if (!ControlProtocol.IsQuery(cmd) && !Paired(token, presented, loopback))
                 {
                     // A mutating verb from a connection that has not paired: refused in the wire's words, nothing run.
-                    peer.Say(ControlProtocol.Err(ControlProtocol.NotPaired));
+                    Reply(ControlProtocol.Err(ControlProtocol.NotPaired));
                     continue;
                 }
                 string response;
@@ -465,7 +513,7 @@ public sealed partial class ControlService : IDisposable
                 {
                     response = WireFault(ex, "TCP");
                 }
-                peer.Say(response);
+                Reply(response);
             }
         }
         catch (Exception ex)
@@ -498,6 +546,29 @@ public sealed partial class ControlService : IDisposable
     /// and want the gate.
     /// </summary>
     public static bool TrustLoopback { get; set; } = true;
+
+    /// <summary>
+    /// Round 87: plain AUTH (the token itself on the line) is taken from this machine only — a remote proves the token
+    /// with AUTH-PROOF against its nonce. Off in the tests that play a remote machine from loopback.
+    /// </summary>
+    public static bool PlainAuthOnLoopback { get; set; } = true;
+
+    /// <summary>Round 87: the addresses that proved the token on the wire or the web, and when — the machines OSC may move the show from on a paired desk.</summary>
+    private readonly Dictionary<string, DateTime> _pairedAddresses = new(StringComparer.Ordinal);
+
+    /// <summary>How long an address that paired once stays trusted for OSC after its last proof.</summary>
+    public static readonly TimeSpan PairedAddressKept = TimeSpan.FromHours(12);
+
+    /// <summary>Round 87: the addresses that proved the token lately (OscGate reads them).</summary>
+    public IReadOnlyCollection<string> PairedAddresses()
+    {
+        var now = DateTime.UtcNow;
+        lock (_gate)
+        {
+            foreach (var old in _pairedAddresses.Where(p => now - p.Value > PairedAddressKept).Select(p => p.Key).ToList()) _pairedAddresses.Remove(old);
+            return _pairedAddresses.Keys.ToList();
+        }
+    }
 
     /// <summary>Round 83: the faults behind the wire — not a socket's end — counted; the first is logged with its stack and then one a minute.</summary>
     private readonly FaultThrottle _faults = new();
@@ -601,6 +672,9 @@ public sealed partial class ControlService : IDisposable
 
     private static string Address(TcpClient client) => client.Client.RemoteEndPoint is IPEndPoint ep ? ep.Address.ToString() : "?";
 
+    /// <summary>Round 87: an address as OSC's gate compares it — IPv4 written plainly even when the socket saw it mapped into IPv6.</summary>
+    private static string PairedKey(TcpClient client) => client.Client.RemoteEndPoint is IPEndPoint ep ? OscGate.Normal(ep.Address) : "?";
+
     /// <summary>A refusal logged once a minute per address and door: a flood is one line, not a thousand.</summary>
     private void SaidBusy(string door, string address, int open)
     {
@@ -616,6 +690,28 @@ public sealed partial class ControlService : IDisposable
         try
         {
             using var stream = client.GetStream();
+            // Round 88: read what the client sent first (a little, briefly) — a socket closed with its request unread is
+            // reset by Windows, and the client sees a reset instead of the 503 it should retry on.
+            using (var drain = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                drain.CancelAfter(TimeSpan.FromMilliseconds(500));
+                var sink = new byte[4096];
+                var taken = 0;
+                try
+                {
+                    while (taken < 16 * 1024)
+                    {
+                        var n = await stream.ReadAsync(sink, drain.Token);
+                        if (n <= 0) break;
+                        taken += n;
+                        if (Encoding.ASCII.GetString(sink, 0, n).Contains("\r\n\r\n", StringComparison.Ordinal)) break;
+                    }
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // a client that sent nothing more: answer it anyway
+                }
+            }
             var words = Encoding.UTF8.GetBytes("busy");
             var head = $"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: {words.Length}\r\nRetry-After: 2\r\nConnection: close\r\n\r\n";
             await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
@@ -746,7 +842,7 @@ public sealed partial class ControlService : IDisposable
     /// head's seconds, with whatever of the body came along with it. Null when the client sent
     /// nothing, or went quiet; a fault when it sent more head than a request has.
     /// </summary>
-    private static async Task<(byte[] Head, byte[] Extra, string Fault)?> ReadHeadAsync(NetworkStream stream, HttpLimits limits, CancellationToken ct)
+    private static async Task<(byte[] Head, byte[] Extra, string Fault)?> ReadHeadAsync(Stream stream, HttpLimits limits, CancellationToken ct)
     {
         using var timed = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timed.CancelAfter(TimeSpan.FromSeconds(limits.HeadSeconds));
@@ -773,7 +869,7 @@ public sealed partial class ControlService : IDisposable
     }
 
     /// <summary>The body: the bytes the head's read brought along, then the rest up to the content length, within the body's seconds; as many as came when the client stopped short.</summary>
-    private static async Task<string> ReadBodyAsync(NetworkStream stream, byte[] rest, int contentLength, HttpLimits limits, CancellationToken ct)
+    private static async Task<string> ReadBodyAsync(Stream stream, byte[] rest, int contentLength, HttpLimits limits, CancellationToken ct)
     {
         if (contentLength <= 0) return "";
         var body = new byte[contentLength];
@@ -801,7 +897,7 @@ public sealed partial class ControlService : IDisposable
     }
 
     /// <summary>A short answer with a status and a line of plain text — the faults, before any route.</summary>
-    private static async Task WriteShortAsync(NetworkStream stream, string status, string words, CancellationToken ct)
+    private static async Task WriteShortAsync(Stream stream, string status, string words, CancellationToken ct)
     {
         var bytes = Encoding.UTF8.GetBytes(words);
         var head = $"HTTP/1.1 {status}\r\nContent-Type: text/plain\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n";
@@ -811,10 +907,43 @@ public sealed partial class ControlService : IDisposable
 
     private async Task HandleHttp(TcpClient client, bool audience, CancellationToken ct)
     {
+        System.Net.Security.SslStream? tls = null;
         try
         {
-            using var stream = client.GetStream();
+            using var raw = client.GetStream();
+            Stream stream = raw;
             var limits = audience ? AudienceLimits : ControlLimits;
+            var refusePlain = false;
+            // Round 88 (Show Bus 1.2 §10): one door for both — a connection whose first byte opens a TLS handshake gets TLS
+            // with this desk's certificate; plain HTTP keeps working unless HTTPS is required, when only this machine may
+            // stay plain. The audience port stays plain HTTP: a room of phones cannot be asked to trust a certificate.
+            if (!audience)
+            {
+                var first = await PeekFirstByteAsync(client, limits, ct);
+                if (first is null) return;
+                var plainLoopback = TrustLoopback && client.Client.RemoteEndPoint is IPEndPoint ep0 && IPAddress.IsLoopback(ep0.Address);
+                if (TlsSniff.IsTls(first.Value))
+                {
+                    if (_kernel.Tls.Certificate is not { } certificate) return;                      // no certificate: nothing to answer a handshake with (the Super Check says why)
+                    tls = new System.Net.Security.SslStream(raw, leaveInnerStreamOpen: true);
+                    using var handshake = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    handshake.CancelAfter(TimeSpan.FromSeconds(limits.HeadSeconds));
+                    try
+                    {
+                        await tls.AuthenticateAsServerAsync(new System.Net.Security.SslServerAuthenticationOptions { ServerCertificate = certificate, ClientCertificateRequired = false }, handshake.Token);
+                    }
+                    catch (Exception ex) when (ex is System.Security.Authentication.AuthenticationException or IOException or OperationCanceledException)
+                    {
+                        // A browser that has not trusted the certificate yet closes the handshake: routine, said once a minute.
+                        if (_busySaid.Allow("tls:" + Address(client), 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
+                            Log.Info($"Web remote: a TLS handshake from {Address(client)} did not complete ({ex.Message}) — a browser that has not trusted this desk's certificate yet does that.");
+                        return;
+                    }
+                    stream = tls;
+                    Interlocked.Increment(ref _tlsConnections);
+                }
+                else refusePlain = TlsSniff.RefusePlain(_kernel.State.Control.RequireHttps, isTls: false, plainLoopback);   // said once the request is read, so the client hears it
+            }
 
             // The head as bytes, bounded and timed; the body as the bytes its content length says,
             // never as characters — a name with an accent is more bytes than characters, and a
@@ -833,6 +962,12 @@ public sealed partial class ControlService : IDisposable
                 await WriteShortAsync(stream, request.Status, request.Fault, ct);
                 return;
             }
+            if (refusePlain)
+            {
+                await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
+                await WriteShortAsync(stream, "403 Forbidden", TlsSniff.UseHttps, ct);
+                return;
+            }
             var method = request.Method;
             var path = request.Path;
             var clientHeader = request.ClientHeader;
@@ -841,6 +976,10 @@ public sealed partial class ControlService : IDisposable
             // port has no verbs to gate.
             var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
             var paired = audience || Paired(_kernel.State.Control.Token, request.Token, loopback);
+            if (!audience && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
+            {
+                lock (_gate) _pairedAddresses[PairedKey(client)] = DateTime.UtcNow;    // round 87: a machine that proved the token on the web may use OSC too
+            }
             var body = await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
 
             string status = "200 OK", contentType = "text/html; charset=utf-8";
@@ -872,7 +1011,7 @@ public sealed partial class ControlService : IDisposable
                 contentType = "application/json";
                 payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.CrossSite))}}}";
             }
-            else if (!audience && !paired && method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?", StringComparison.Ordinal) || path == "/api/cues"
+            else if (!audience && !paired && method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?", StringComparison.Ordinal) || path == "/api/cues" || path == "/api/context"
                                                                  || path.StartsWith("/pgm.jpg", StringComparison.Ordinal) || path.StartsWith("/mv.jpg", StringComparison.Ordinal)))
             {
                 // Round 83: with a token set, the state and the pictures are the show's too — a header, or the pages' cookie for their img tags; never a query string.
@@ -888,6 +1027,25 @@ public sealed partial class ControlService : IDisposable
             else if (method == "GET" && (path == "/" || path == "/index.html"))
             {
                 payload = _kernel.IsDesk ? RemotePage : NodePage();      // a node's front door is its own, never the desk's remote
+            }
+            else if (!audience && method == "GET" && path == "/tls")
+            {
+                // Round 88 (Show Bus 1.2 §10): how to trust this desk's certificate, its fingerprint to compare by eye.
+                payload = TlsPage.Html(_kernel.Beacon.MachineName, _kernel.Tls.Fingerprint, _kernel.Tls.Protection, _kernel.State.Control.HttpPort, _kernel.State.Control.RequireHttps, _kernel.Tls.Problem);
+            }
+            else if (!audience && method == "GET" && path == "/tls.cer")
+            {
+                if (_kernel.Tls.Certificate is { } cert)
+                {
+                    contentType = "application/pkix-cert";
+                    binary = TlsIdentity.PublicDer(cert);
+                }
+                else
+                {
+                    status = "404 Not Found";
+                    contentType = "text/plain";
+                    payload = "This desk has no certificate: " + _kernel.Tls.Problem;
+                }
             }
             else if (method == "GET" && (path == "/multiview" || path == "/mv"))
             {
@@ -924,6 +1082,12 @@ public sealed partial class ControlService : IDisposable
                     }
                 }
                 payload = await _router.StateJsonAsync();
+            }
+            else if (method == "GET" && path == "/api/context")
+            {
+                // Round 87 (Show Bus 1.1 §6): this desk as another app's assistant or Eye reads it — the Eye's picture in the shared shape.
+                contentType = "application/json";
+                payload = await _router.ContextJsonAsync();
             }
             else if (method == "GET" && path == "/api/cues")
             {
@@ -1169,10 +1333,17 @@ public sealed partial class ControlService : IDisposable
             else if (method == "POST" && path == "/api/cmd")
             {
                 contentType = "application/json";
-                var cmd = ControlProtocol.Parse(body);
+                // Round 87 (Show Bus 1.1 §3): "@a1 <line>" — the id comes back in the JSON so a sender matches the answer.
+                var (rid, line) = WireReceipt.Split(body, out var malformedId);
+                var cmd = ControlProtocol.Parse(line);
                 var httpOrigin = new ActionOrigin(OriginKind.Http, "", client.Client.RemoteEndPoint?.ToString() ?? "");
                 string response;
-                if (!paired)
+                if (malformedId)
+                {
+                    status = "400 Bad Request";
+                    response = ControlProtocol.Err(WireReceipt.Malformed);
+                }
+                else if (!paired)
                 {
                     // Without the show's token: 403 with the wire's words, and the pages ask for the token on it. Round 85 (P1-02):
                     // a query too — STATUS answers the same JSON that /api/state has asked the token for since round 83, so a line
@@ -1192,7 +1363,9 @@ public sealed partial class ControlService : IDisposable
                     response = await _router.ExecuteAsync(cmd, httpOrigin);
                 }
                 var ok = response.StartsWith("OK", StringComparison.Ordinal);
-                payload = $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)}}}";
+                payload = rid.Length > 0
+                    ? $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)},\"id\":{System.Text.Json.JsonSerializer.Serialize(rid)}}}"
+                    : $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)}}}";
             }
             else
             {
@@ -1214,6 +1387,7 @@ public sealed partial class ControlService : IDisposable
             var head = $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
             await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
             await stream.WriteAsync(bytes, ct);
+            await stream.FlushAsync(ct);
         }
         catch (Exception ex)
         {
@@ -1222,7 +1396,30 @@ public sealed partial class ControlService : IDisposable
         }
         finally
         {
+            if (tls is not null) await tls.DisposeAsync();
             client.Dispose();
+        }
+    }
+
+    private long _tlsConnections;
+
+    /// <summary>Round 88: web remote connections that came in over TLS since start (the Super Check's TLS row).</summary>
+    public long TlsConnections => Interlocked.Read(ref _tlsConnections);
+
+    /// <summary>The connection's first byte without taking it (TLS or not decides how it is read); null when nothing came in time.</summary>
+    private static async Task<byte?> PeekFirstByteAsync(TcpClient client, HttpLimits limits, CancellationToken ct)
+    {
+        using var timed = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timed.CancelAfter(TimeSpan.FromSeconds(limits.HeadSeconds));
+        var one = new byte[1];
+        try
+        {
+            var n = await client.Client.ReceiveAsync(one.AsMemory(), SocketFlags.Peek, timed.Token);
+            return n == 1 ? one[0] : null;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return null;                                                                       // a connection that said nothing: closed, as a quiet head is
         }
     }
 

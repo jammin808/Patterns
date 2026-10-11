@@ -28,6 +28,13 @@ public static class PairingToken
         return string.Join('-', Enumerable.Range(0, Length / 4).Select(i => symbols.Substring(i * 4, 4)));
     }
 
+    /// <summary>
+    /// Round 87: the token a desk starts with — a fresh one on its first run (no settings file yet), so a new desk is
+    /// paired by default and fails closed; "" otherwise: an existing settings file keeps its choice, open included, and a
+    /// node (a caller, a stage timer, an arcade) keeps its pages open to the phones that use them.
+    /// </summary>
+    public static string ForFirstRun(bool firstRun, bool isDesk) => firstRun && isDesk ? New() : "";
+
     /// <summary>Whether remotes must present a token: one is set.</summary>
     public static bool Needed(string? configured) => Normal(configured).Length > 0;
 

@@ -477,6 +477,13 @@ public sealed class ShowFacts
     /// the same picture the operator sees on the Eye page, never a guess.
     /// </summary>
     public IReadOnlyList<string> Eye { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Round 87: the show network — the other show apps this desk hears (Stagewatch, AGMessage, Slides agents) with their
+    /// light and headline, and for a linked Stagewatch its own things, its last lines, the verbs it takes with their
+    /// risk and the apps it hears. Another app's evidence, read the Eye's way: unknown stays unknown, verbs are proposed.
+    /// </summary>
+    public IReadOnlyList<string> ShowNetwork { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -711,6 +718,13 @@ public static class ShowBrief
                 // page, and EYE FOCUS <thing> on the wire puts their eye on it.
                 sb.AppendLine("The God's Eye — the whole show as one picture (each thing with its light: red is wrong now, amber needs a look, green is right, grey is off or unknown; the links say what feeds, drives, shows or controls what; the problems are worst first). Answer 'what is wrong?' from the problems in this order and 'what does X depend on?' from its links, never from a guess; EYE FOCUS <thing> on the wire puts the operator's eye on it:");
                 foreach (var line in facts.Eye) sb.Append("  ").AppendLine(line);
+            }
+            if (facts.ShowNetwork.Count > 0)
+            {
+                // Round 87: the other show apps — what Stagewatch (the room's timer and crew cues), AGMessage (the
+                // meeting's backchannel) and the presenter PCs say about themselves, in their own published words.
+                sb.AppendLine("The show network — the other show apps this desk hears, each with its light and its own headline; for the Stagewatch this desk is linked to, its things, its last lines and the verbs it takes (high risk is never pre-ticked). It is that app's evidence, read like the Eye: answer from it, say unknown where it says grey, and propose — never run — a verb for another app; the operator sends it there:");
+                foreach (var line in facts.ShowNetwork) sb.Append("  ").AppendLine(line);
             }
         }
         else

@@ -2273,6 +2273,14 @@ public sealed class ControlConfig : Observable
     /// </summary>
     public string Token { get => _token; set => Set(ref _token, (value ?? "").Trim()); }
 
+    private bool _requireHttps;
+    /// <summary>
+    /// Round 88 (Show Bus 1.2 §10): the web remote refuses plain HTTP from other machines — only https:// (the same port;
+    /// the first byte tells TLS from plain) — while this machine's own browsers may stay plain. Off by default: turning it
+    /// on asks every tablet to trust the desk's certificate first (the /tls page says how). The audience port is exempt.
+    /// </summary>
+    public bool RequireHttps { get => _requireHttps; set => Set(ref _requireHttps, value); }
+
     private bool _announce = true;
     /// <summary>Announce this process on the network (mDNS, _patterns._tcp) so a Companion lists it under "Desk on the network" instead of asking for an address. On by default; a deliberate switch for a network that must stay quiet.</summary>
     public bool Announce { get => _announce; set => Set(ref _announce, value); }
@@ -2311,7 +2319,65 @@ public sealed class ControlConfig : Observable
     /// <summary>Where OSC feedback goes on every change — a host name or address; empty sends none (replies still go to whoever sent a command).</summary>
     public string OscFeedbackHost { get => _oscFeedbackHost; set => Set(ref _oscFeedbackHost, (value ?? "").Trim()); }
     public int OscFeedbackPort { get => _oscFeedbackPort; set => Set(ref _oscFeedbackPort, Math.Clamp(value, 1, 65535)); }
+
+    private string _oscAllow = "";
+    /// <summary>
+    /// Round 87: on a paired desk, the addresses OSC may move the show from besides those that paired on the wire or
+    /// the web ("10.0.0.9, 10.0.0.12"). OSC cannot pair, so a paired desk takes its verbs only from a machine that has
+    /// proved the token another way, or one named here; its queries stay open. Empty: only the paired machines.
+    /// </summary>
+    public string OscAllow { get => _oscAllow; set => Set(ref _oscAllow, (value ?? "").Trim()); }
+
+    /// <summary>Round 87: the link to a Stagewatch on the show network — off until it is turned on here.</summary>
+    public StagewatchLinkConfig Stagewatch { get; init; } = new();
 }
+
+/// <summary>
+/// Round 87: the desk's link to a Stagewatch (Show Bus 1.1). Off by default. With no address the desk follows the first
+/// Stagewatch it hears on the show network. The key is a Stagewatch API key (swk_…) — a secret by its name, masked in
+/// every bundle, never mirrored to a twin (it lives under Control), sent only in a header and never in a URL.
+/// </summary>
+public sealed class StagewatchLinkConfig : Observable
+{
+    private bool _enabled;
+    private string _host = "";
+    private string _apiKey = "";
+    private bool _followStage = true;
+
+    /// <summary>Link to a Stagewatch: its timer on the stage pages, its things on the Eye, its context in the assistant's brief.</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    /// <summary>"host:port" or "host" (port 9924); empty follows the first Stagewatch heard on the show network.</summary>
+    public string Host { get => _host; set => Set(ref _host, (value ?? "").Trim()); }
+
+    /// <summary>The Stagewatch API key this desk presents (Authorization: Bearer) — a read or node key is enough.</summary>
+    public string ApiKey { get => _apiKey; set => Set(ref _apiKey, (value ?? "").Trim()); }
+
+    /// <summary>The stage pages and the stage timer node show the Stagewatch's time instead of this desk's own countdown.</summary>
+    public bool FollowStage { get => _followStage; set => Set(ref _followStage, value); }
+
+    /// <summary>
+    /// Round 88 (Show Bus 1.2 §10): the Stagewatch certificates this desk has pinned, by node ("node:&lt;id&gt;" or
+    /// "addr:&lt;host&gt;:&lt;port&gt;"). Not secrets — a fingerprint is public — but this machine's own trust: never mirrored.
+    /// </summary>
+    public ShowCollection<CertificatePin> Pins { get; init; } = new();
+
+    /// <summary>What the link compares to know the pins moved.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string PinsKey => string.Join(";", Pins.Select(p => p.Key + "=" + p.Fingerprint));
+
+    /// <summary>Pin (or re-pin, after ACCEPT) a node's certificate (UI thread).</summary>
+    public void SetPin(string key, string fingerprint)
+    {
+        if (key.Length == 0 || !Services.TlsFingerprint.IsValid(fingerprint)) return;
+        foreach (var old in Pins.Where(p => p.Key == key).ToList()) Pins.Remove(old);
+        while (Pins.Count >= 64) Pins.RemoveAt(0);
+        Pins.Add(new CertificatePin(key, fingerprint, DateTime.UtcNow));
+    }
+}
+
+/// <summary>Round 88: one pinned certificate — whose (a node id or an address), its fingerprint, and when it was pinned.</summary>
+public sealed record CertificatePin(string Key, string Fingerprint, DateTime PinnedUtc);
 
 /// <summary>How a device is reached: an Arduino on a serial port, or a Raspberry Pi, ESP32 or show controller over IP.</summary>
 public enum DeviceLink

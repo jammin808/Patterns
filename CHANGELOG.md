@@ -10,6 +10,43 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 88 — 2026-10-11 — Show Bus 1.2: a timer node follows its desk's Stagewatch, nodes say what they are, TLS on the web remote with pinned certificates, the shared approval queue
+
+`round-88` · PLAN §106 · REVIEW round 88 · 2,702 tests · module 3.18.0 (unchanged) · evidence: the maintainer's list, the contract `docs/SHOWBUS.md` (1.2)
+
+- **One room, one timer, on every node.** A desk relays the Stagewatch it follows to its timer and caller nodes over
+  the twin — the frame and its age, never a key — so a node's stage follows with no link of its own.
+- **Nodes say what they are.** `CONTEXT` and `/api/context` on a node give its role, its desk link, the Stagewatch it
+  follows and what its stage shows or where its stack stands; the desk's Eye draws each node from it.
+- **HTTPS on the web remote, same port.** A certificate made at the first start (its key sealed to the Windows user),
+  TLS when the connection opens with a handshake, plain HTTP as before unless the Remote page requires HTTPS; `/tls`
+  says how to trust it; the hello names its fingerprint.
+- **The Stagewatch link over TLS, pinned.** Trusted on first use, a changed certificate refused (CERTIFICATE CHANGED on
+  the Nodes page and the Eye) until ACCEPT.
+- **The shared approval queue.** With a Stagewatch approval desk linked (a node key), the assistant's proposals go there
+  and land here once approved; another app's approved wire line runs through the wire's own fences.
+- Unwalked (`docs/QUALIFICATION.md` §27).
+
+## Round 87 — 2026-10-11 — Show Bus 1.1: the show network heard, the Stagewatch link, receipts, the clock exchange, pairing by proof; the watchdog quicker while live
+
+`round-87` · PLAN §105 · REVIEW round 87 · 2,688 tests · module 3.18.0 · evidence: the maintainer's list (given across the show network's three apps), a handed-in assessment (two read-only surveys of this tree and of the apps' links), the contract `docs/SHOWBUS.md`
+
+- **The show network, heard.** Every other show app's hello on UDP 9928 — Stagewatch, its Slides agents, AGMessage —
+  on the Nodes page (THE SHOW NETWORK) and the Eye's CONTROL plane: heard grey, quiet amber, gone red. The hello gains
+  `host`, `ports`, `clock` and `inst`, and its `id` is now the install's.
+- **One room, one timer.** Link to a Stagewatch (Nodes page; off by default; the key in a header, never a URL): the
+  stage and timer pages follow its time and colours and say so; pause and add-time are its; a Stagewatch gone quiet
+  shows no time rather than a frozen one. The Eye draws its departments and timer from the context it publishes, and
+  the assistant's brief reads them — by the Eye's rule, so all of it works with no key and no internet.
+- **The wire, for other apps.** Any line may carry `@id` and its answer names it; `PING <t1>` is a clock exchange;
+  `CONTEXT` / `GET /api/context` give this desk in the shared shape (the Eye's picture, the last lines, the verbs with
+  their risk, the apps it hears). STATE ends with a `bus` row; the module reads six new variables.
+- **Strengthened.** The token never crosses the network (`NONCE` / `AUTH-PROOF`; plain AUTH from this machine only;
+  the module 3.18.0 answers the nonce); a new desk is paired from its first run; OSC's verbs on a paired desk come only
+  from paired machines or the OSC ALLOW list; the watchdog ends a hung desk in ten seconds while the outputs are live;
+  a STATE push that would repeat the last is skipped.
+- Unwalked: no real Stagewatch on a real network this round (`docs/QUALIFICATION.md` §26).
+
 ## Round 86 — 2026-10-10 — the clip's transport for another app: VIDEO PLAY / PAUSE / SEEK / STOP, the precise clock in STATE, a hello on 9928
 
 `round-86` · PLAN §104 · REVIEW round 86 · 2,637 tests · module 3.17.0 · evidence: the maintainer's list (relayed from Stagewatch's design paper), a read of the code

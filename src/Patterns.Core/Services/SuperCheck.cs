@@ -1040,6 +1040,12 @@ public static class SuperCheck
             rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Green, $"port {f.OscPort} · open on {f.RemoteBind} only", "OSC cannot pair; the bind keeps it to the control network"));
             return;
         }
+        if (f.RemoteToken)
+        {
+            // Round 87: on a paired desk OSC's verbs come only from machines that proved the token another way, or the allow-list.
+            rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Green, $"port {f.OscPort} · verbs from paired machines only", "OSC cannot pair; on this paired desk it moves the show only for a machine that paired on the wire or the web, or one on OSC ALLOW"));
+            return;
+        }
         rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Amber, $"port {f.OscPort} · open on every interface",
             "FIX: OSC cannot pair, so the show's token does not cover it — anyone on any network this machine is on can drive the show over it: bind the control ports to the control network's address (Remote page), or untick OSC in when it is not needed"));
     }

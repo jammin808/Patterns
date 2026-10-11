@@ -11813,3 +11813,215 @@ The tag table row 85 (`2746612`); the module moves to 3.17.0.
 
 **Walk:** unwalked — the next build on the rig: put a clip on the program, `VIDEO PAUSE` / `PLAY` / `SEEK 1:00` /
 `SEEK END 5` / `STOP` from a phone, read the panel's row, the Run chip and STATE's `positionMs` and `seq` beside it.
+
+## 105. Round 87 — Show Bus 1.1: the show network heard, the Stagewatch link, receipts, the clock exchange, pairing by proof; the watchdog quicker while live
+
+### 105.1 What opened the round, and what the files said
+
+**The requester and the evidence class.** The maintainer's list, given at Stagewatch's desk for the whole show
+network: "go ahead with 1–7 across all; strengthen Patterns as suggested; consider how each app's AI can understand
+what is happening across all connected apps and devices — especially the Eye; how much can be done if AI is
+offline?" — with a handed-in assessment: two read-only surveys of this tree and of the three apps' links (what
+Patterns does that its sibling should copy, where Patterns is weaker; what each pair of apps says to the other and
+what it does not). The contract all three apps implement was written first, in Stagewatch, and is copied here as
+`docs/SHOWBUS.md` (Show Bus 1.1). No files have arrived in `docs/field/` since round 78; there is nothing to read as
+what the files said.
+
+**OPEN.md.** No row closed (L47, the hello on a real network, stays open — §105.8); five added (L50–L54).
+
+**Read against the standing brief.** "AI integration is considered at each step" and "every reader": the other apps
+reach the Eye, the Nodes page, STATE, the module, the assistant's brief and the wire; the Eye's rule — the picture is
+computed, the model only reads it — is the answer to "if AI is offline" (§105.6). Fail closed: plain AUTH from
+another machine is refused, a malformed request id is refused unrun, a context or a frame that is not one is
+dropped, a Stagewatch gone quiet shows no time rather than a frozen one, a new desk is paired. Measured, then
+governed: the faster hang rule is a constant chosen against the budgets the desk already measures (§105.7); no
+ladder or governor lands this round.
+
+### 105.2 The show network heard (87.1)
+
+`ShowBusPeers` (Core, pure, thread-safe): a hello's bytes, its source address and the time in; a peer out —
+kind, id, name, host, address, `ports`, caps, proto, clock — kept by id and door, live ≤ 6 s, stale ≤ 12 s, gone
+after, forgotten after a minute (`ShowBusLiveness`). A hello from before 1.1 is read by its top-level doors
+(Patterns' `web`/`wire`, Stagewatch's `port`). `BeaconService` listens on UDP 9928 with reuse-address (the port is
+shared on a machine with Stagewatch and AGMessage), on the control bind address when set, while remote control is
+on; it ignores its own hello by the new `inst` field. The hello gains `host`, `ports`, `clock` and `inst`; its `id`
+is this install's (`ShowBusIdentity`, `patterns.node-id` beside the settings, in the support bundle) and it goes to
+loopback as well as broadcast. `ShowBusView` is the one projection: the Eye's `ShowApps` facts, the Nodes page's
+cards (`ShowAppCard`), the context's `peers` and the brief's lines; another Patterns is left to the beacon's cards.
+The Eye draws an app as `EyeKind.ShowApp` on CONTROL tier 2 (heard grey, stale amber, gone red, linked in its own
+context's light, its headline as the sub-line) and, for a linked Stagewatch, up to twelve of its own things as
+`ShowAppItem` on tier 3 with its links (the reds and ambers first). Liveness is 2 s / 6 s / 12 s everywhere Patterns
+talks to another app (the twin keeps its own: its reasons are Patterns-to-Patterns).
+
+### 105.3 Receipts and the clock exchange (87.2, 87.3)
+
+`WireReceipt`: `@<id> <line>` (1–32 of letters, digits, `-`, `_`) and every answer to the line names it after its
+first word (`OK @a1 …`, `ERR @a1 …`); STATE pushes are never tagged; a malformed id is refused unrun. `/api/cmd` takes
+the prefix in its body and returns `"id"`. `ClockPing`: `PING <t1>` answered `OK PONG t1 t2 t3` on the wire (t2 when the
+line was read, t3 when answered — the show clock's Unix ms, which never steps back), and with t2 = t3 from the web or
+OSC; bare `PING` is as before. The Stagewatch link uses the same arithmetic (`LinkClock`) on Stagewatch's
+`{"cmd":"ping","t"}` / `{"type":"pong","t","t2","t3"}`.
+
+### 105.4 The context (87.4)
+
+`ShowContext` (the shared shape, `docs/SHOWBUS.md` §6) and `ShowContextBuilder.FromEye`: this desk's light is the worst
+of its own things, the headline the Eye's, items and links the Eye's nodes and edges with another app's things left
+out, `recent` the journal's last twenty rows in words, `commands` a curated list of fourteen verbs with their risk,
+`peers` one hop. `CONTEXT` on the wire (a query: the wire's reads stay open, as STATE's do), `GET /api/context` on the
+web with the token as `/api/state` wants it. No secret reaches it: the facts the Eye is built from carry none, and the
+journal has held none since round 75. `ShowContext.Parse` bounds what another app may hand the Eye (200 items, 20
+lines, 32 peers) and reads any light it does not know as grey.
+
+### 105.5 Pairing by proof (87.5) and the module (3.18.0)
+
+`WireProof`: a paired desk says `NONCE <hex>` (16 random bytes) as the second line of every connection; `AUTH-PROOF
+<hex>` = HMAC-SHA256(key = the token as compared, message = nonce + the HELLO name) pairs it in constant time; a nonce
+answers one proof, right or wrong, and a fresh one is said after a wrong one; `NONCE` asks for one. Plain `AUTH` is
+taken from loopback only (`ControlService.PlainAuthOnLoopback`, off in the tests that play a remote). An open desk
+says no nonce, so the round-86 greeting is unchanged for it. The module answers the nonce, falls back to plain AUTH
+after 1.5 s for a desk before round 87, and holds RECORD ON until it has said its proof. `AUTH`, `AUTH-PROOF` and
+`NONCE` from the web or OSC are refused with the reason (pairing is a connection's; the web sends the header).
+
+### 105.6 The Stagewatch link, one room one timer, and the AI's view (87.6)
+
+`StagewatchLinkService` (one per process, in the kernel; reconciled by the nodes' poll each second): off by default
+(`Control.Stagewatch` — local, never mirrored; its `ApiKey` a secret by name). It dials the typed address or the
+first live Stagewatch heard, opens `/ws` with the key in an `Authorization: Bearer` header, reads state frames
+(`StagewatchFrame`), beats and exchanges clocks every 2 s, reads `/api/context` every 5 s, drops after 12 s of silence
+and redials with backoff and jitter; it publishes one immutable `StagewatchSight` at a time and never touches the UI
+thread except to post a "changed". `StageService.Time` follows the sight while it is live (`StageFollow.Time`: a
+countdown counts on from the frame; a frame from a stuck Stagewatch shows no time), holds the time back while stale,
+and falls back to its own countdown once gone; pause, resume and add are refused while following; STAGE STATUS, STATE's
+`stage.follows` and the pages say whom they follow. The brief carries `ShowFacts.ShowNetwork` (`ShowBusView.BriefLines`)
+under the Eye's rule: another app's words are its evidence, unknown stays unknown, verbs are proposed to the operator.
+
+**With AI offline.** Everything above runs without a key and without the internet: the hello, the link, the frames,
+the receipts, the clock exchange, the contexts, the lights, the headlines, the Eye's picture of the other apps and
+the stage following Stagewatch. A key adds the assistant reading those words — never the picture itself.
+
+### 105.7 Strengthening (87.7)
+
+- **The live hang rule.** `SupervisorPolicy.LiveHangTimeout` = 10 s while the child beats `LiveBeat` (3: outputs live
+  or the stack armed — `BeatFor`, the handover's 2 wins); 30 s otherwise; the beat's timer now runs at Normal priority,
+  above input and render, so a desk busy drawing is not mistaken for a hung one. Ten seconds is past every stall the
+  desk measures (the tick budget's 4 ms housekeeping, a page switch, a save) and short enough for a room.
+- **OSC on a paired desk** (`OscGate`): verbs only from loopback, an address that proved the token on the wire or the
+  web in the last twelve hours (`ControlService.PairedAddresses`), or the Remote page's OSC ALLOW list; questions stay
+  open; the refusal is `/patterns/error … not paired`, counted (`OscService.Refused`). The Eye's OSC node and the Super
+  Check's row are green on a paired desk with that reason.
+- **A desk paired from its first run** (`PairingToken.ForFirstRun`): no settings file on a desk → a fresh token; a file
+  that exists keeps its choice, open included; a node's pages stay open to its phones.
+- **The supervisor's hygiene**: the banned sleeps (its back-off; the stand-down's three datagrams) wait on a signal
+  nobody sets, its words read local time from UTC, and its log rotates by one rename.
+- **A STATE push that would repeat the last** is skipped and counted (`StatePushGate`,
+  `ControlService.RepeatedPushesSkipped`).
+
+### 105.8 What the round did not do
+
+- **Delta STATE.** Not measured, so not built: the cost of a whole row set per change has no number yet, and the
+  wire's tests match STATE by substring (L54).
+- **TLS on the web**, and the Stagewatch key over plain HTTP (L53).
+- **A node's own context**, and the desk's followed Stagewatch reaching its timer nodes over the twin (L51, L52).
+- **Cross-app approvals**: another app's assistant may propose a verb in words; there is no shared approval queue
+  between the apps yet (Show Bus's "then" phase, Stagewatch's `docs/ECOSYSTEM.md`).
+- **A walk.** §26 of `docs/QUALIFICATION.md`; the round is unwalked (L47, L50).
+
+## 106. Round 88 — Show Bus 1.2: a timer node follows its desk's Stagewatch, a node says what it is, TLS on the web remote with pinned certificates, and the shared approval queue as a client
+
+### 106.1 What opened the round
+
+**The requester and the evidence class.** The maintainer's list, given at Stagewatch's desk for the whole show
+network: "Work on these: Patterns timer nodes don't pass on the Stagewatch link, and don't publish a summary of their
+own. No encrypted connections (HTTPS) on any app's web pages yet. No shared approval queue across apps." The contract
+moved to Show Bus 1.2 in Stagewatch's master (`docs/SHOWBUS.md` §10 encrypted connections, §11 the shared approval
+queue; the hello's `tls`, the cap `approvals`) and is copied here. No files have arrived in `docs/field/`.
+
+**OPEN.md.** Closed L51 and L52; L53 closed for the web (the wire's half stays open as L55); added L55 and L56.
+
+**Read against the standing brief.** Every reader: a node's context reaches its desk's Eye, the shared shape and any
+app's assistant; the relay reaches the node's stage pages, STAGE STATUS and its context; TLS reaches the hello, the
+Remote page, the Super Check's words (the log), the Nodes page and the Eye (CERTIFICATE CHANGED on the linked
+Stagewatch's card); the approval queue reaches the Assistant page's chips, the journal and the log. Fail closed: a
+certificate that is not the pinned one is refused until the operator accepts it; one that contradicts the hello is
+refused; plain HTTP from another machine is refused when HTTPS is required; an approved line runs through the wire's
+own path, so its fences still refuse. Measured, then governed: no ladder or governor lands this round.
+
+### 106.2 The desk's Stagewatch on its nodes (88.1, closes L51)
+
+The twin carries a new word, `STAGEWATCH <json>` (main → a follower, with the live word once a second): a
+`StagewatchRelay` — the followed Stagewatch's name, the desk's state of it (live, stale, gone), the last frame and its
+age when it left. Never a key or an address: a node cannot dial the Stagewatch from what it is handed. The node places
+the frame where it would have arrived (`ToSight`: received minus age), and the relay's own silence makes it stale after
+6 s and gone after 12 — a desk that stops relaying does not leave a node showing a frozen time. `StageSightChoice`: a
+node's own link wins while it is on and heard; else the desk's relay. `NodeHost.FollowedStagewatch` is the choice, so the
+node's `/stage`, `/timer`, STAGE STATUS and its context follow the desk's Stagewatch with no key on the node.
+
+### 106.3 A node says what it is (88.2, closes L52)
+
+`NodeContextBuilder.Build` (Core, pure): the node in §6's shape — a `node` item (its role), `desk` (the twin's words and
+light: in step green, connecting or silent amber, refused red), `stagewatch` (its own link or "relayed by the desk"),
+`stage` (what a timer shows) or `stack` (a caller's standby, last, armed), `arcade` when it has one; links node → desk
+and stage → stagewatch; the journal's last twenty rows; the verbs it answers itself, with risk. `CONTEXT` and
+`/api/context` on a node answer it (`NodeRouter.ContextJsonAsync`) instead of "ask the desk". A follower sends it to its
+desk every five seconds as a new twin word, `CONTEXT <json>`; the desk keeps one per node (forgotten a minute after it
+stops) and `ShowBusView.Nodes` draws each as a "Patterns node" card on the Eye's CONTROL plane with its things inside,
+in the context's peers row and in the assistant's brief.
+
+### 106.4 TLS on the web remote (88.3, closes L53 for the web)
+
+- **The certificate** (`TlsIdentity`, Core): made at the first start — ECDSA P-256, five years, subject the desk's
+  name, SANs the machine's name, `localhost` and its addresses at the time; renewed a month before it runs out.
+  `TlsCertificateService` (App) keeps it beside the settings as `patterns.tls.json`: on Windows the PKCS#12 bytes sealed
+  with DPAPI to this Windows user (a copy of the folder carries no usable key); elsewhere (the Ubuntu CI) in a file
+  only its owner reads, and the Remote page and the log say the key is not sealed. A file that cannot be read is
+  replaced by a new certificate, and every client that pinned the old one sees CERTIFICATE CHANGED — the truth.
+- **One door for both** (`TlsSniff`): the control HTTP port peeks the first byte; `0x16` is a TLS handshake and gets
+  the certificate, anything else is plain HTTP as before. Nothing that works today breaks; a browser or an app that
+  wants TLS uses `https://` on the same port. The hello carries `tls` (the fingerprint, `sha256:` + 64 hex) and
+  `ports.https` (the same port). The audience port stays plain HTTP: a room of phones cannot be asked to trust a
+  certificate — named here and in REMOTE.md as the exemption.
+- **Require HTTPS** (Remote page, off by default): plain HTTP from another machine is answered 403 with the way to
+  `https://` once its request is read (refusing unread made the client see a reset, not the answer — found by the
+  App test; the web remote's "busy" 503 had the same fault and is fixed with it). This machine's own browsers may stay
+  plain (`TrustLoopback`).
+- **`/tls` and `/tls.cer`**: the fingerprint to compare by eye and how to trust the certificate once on Windows, macOS,
+  iOS and Android; the certificate itself, without its key.
+
+### 106.5 The Stagewatch link over TLS, pinned (88.4)
+
+`CertificatePins.Check(pinned, presented, advertised)`: pinned and the same → go on; pinned and different → **Changed**
+(refused, CERTIFICATE CHANGED on the Nodes page's line and on the Stagewatch's Eye card, ACCEPT on the Nodes page makes
+the new one the pin); nothing pinned and the hello's fingerprint is another → **Mismatch** (refused); nothing pinned
+and nothing contradicts → **FirstUse** (go on, and pin once an authenticated answer came over it — the key's first
+`/api/context` read). The link dials `wss://` and `https://` when the Stagewatch's hello names a certificate (or a pin
+is already held for a typed address); the pins live in `Control.Stagewatch.Pins` (this machine's trust; never mirrored).
+
+### 106.6 The approval queue, as a client (88.5)
+
+When the linked Stagewatch's hello has the cap `approvals` and the link has a key, `StagewatchLinkService` posts this
+desk's own context every five seconds (`POST /api/peers/context`, which also binds a node key to this desk's id) and
+every two seconds: posts the assistant's proposals waiting to go (`POST /api/proposals`), reads what became of them
+(`GET /api/proposals?from=<id>`) and collects what was approved for this desk (`GET
+/api/proposals?target=<id>&state=approved`), runs each once and answers `POST /api/proposals/<id>/result {ok, words}`.
+The Assistant page's APPLY sends to the desk while one is live (the chip reads "waiting for approval on Stagewatch Hall
+A", then "applied — …" or "rejected"); the proposal itself never leaves this desk — the line it sends is `APPLY <local
+id>: <kind> "<title>"` and an approved one is applied here exactly as APPLY would (`DeskApprovals`). An approved line that
+is not one of this desk's proposals — another app's assistant proposing a wire verb to Patterns — runs through the
+wire's own path (`ControlProtocol.Parse` → the router, origin "approval desk"), so its refusals stand. With no desk, the
+Assistant page applies locally as before.
+
+### 106.7 With AI offline
+
+The relay, the node contexts, the certificate, TLS, the pins and the queue are LAN traffic and rules; none needs a key or
+the internet. A key adds the assistant's proposals to the queue — the queue itself, and a human's approval, do not.
+
+### 106.8 What the round did not do
+
+- **STARTTLS on the wire and TLS on the twin link** (§10's "may"): pairing by proof keeps the token off both; show
+  data still crosses them in the clear on the control network (L55).
+- **The audience port's TLS**: deliberately plain (above).
+- **A walk**: no real Stagewatch 2.16 with its queue and its TLS on a real network yet; §27 of `docs/QUALIFICATION.md`
+  (L56).
+- **The tag table's row for round 87**: round 87 is not committed yet, so it has no last commit to name; the row
+  is written with round 87's commit.
+

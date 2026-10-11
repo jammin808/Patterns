@@ -673,6 +673,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         CueStack.Changed += ReconcileInputs;
         CueStack.Changed += FollowPlan;
         Stage = new StageService(this);
+        WatchdogBeat.Live = () => OutputsLive || CueStack?.Armed == true;   // round 87: the watchdog's shorter hang rule while live
+        Kernel.StagewatchChanged += Stage.Bump;                  // round 87: a Stagewatch frame moves the stage pages
+        // Round 88 (Show Bus 1.2): this desk's own context goes to a linked Stagewatch; an approved line another app's
+        // assistant proposed to this desk runs through the wire's own path — the desk's fences and refusals still apply.
+        Kernel.Stagewatch.OwnContext = ContextJson;
+        Kernel.Stagewatch.RunApprovedLine = async line =>
+        {
+            var answer = await Router.ExecuteAsync(ControlProtocol.Parse(line), new ActionOrigin(OriginKind.Tcp, "approval desk"));
+            return (answer.StartsWith("OK", StringComparison.Ordinal), answer);
+        };
         Kernel.Air = this;                                       // the beacon packet and the nodes page read the desk's air from here on
         GpuService.RecordAppliedPath(State);
 
@@ -890,6 +900,37 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     /// <summary>What the audience is seeing: the frozen program while the sandbox is open, else the live state.</summary>
     public ShowState AirState => Sandbox.ProgramState ?? State;
+
+    /// <summary>Round 87: the machines that proved the token lately — OSC's gate on a paired desk.</summary>
+    public IReadOnlyCollection<string> PairedAddresses() => Control.PairedAddresses();
+
+    /// <summary>Round 87: the other show apps as this desk shows them — the Eye's CONTROL plane, the Nodes page, the context's peers.</summary>
+    public IReadOnlyList<EyeShowApp> ShowApps(DateTime utcNow)
+    {
+        var refused = Kernel.Stagewatch.PendingFingerprint.Length > 0;
+        var whose = Kernel.Stagewatch.PendingPinKey;
+        bool Refused(EyeShowApp a) => refused && a.KindWords == "Stagewatch" && (whose.StartsWith("node:", StringComparison.Ordinal) ? a.Id == whose[5..] : a.Linked);
+        return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.Sight)
+            // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
+            .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
+            .Concat(ShowBusView.Nodes(Twin.NodeContexts(utcNow), utcNow))                // round 88: the desk's own nodes, each from its own context (L52)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Round 87 (Show Bus 1.1 §6): this desk in the shared context shape (UI thread) — the Eye's picture, the journal's
+    /// last twenty lines, the verbs a peer may propose with their risk, and the apps it hears one hop away. No token, no
+    /// key, no path: what another app's assistant may read.
+    /// </summary>
+    public string ContextJson()
+    {
+        Eye.Refresh();
+        var now = DateTime.UtcNow;
+        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowApps(now))).ToJson();
+    }
+
+    /// <summary>Round 87: the Stagewatch the stage timer follows, when its link is on and following is on.</summary>
+    public StagewatchSight FollowedStagewatch => State.Control.Stagewatch.FollowStage ? Kernel.Stagewatch.Sight : StagewatchSight.None;
 
     /// <summary>
     /// The lower third on air has been edited since it went there: EDIT SAFE holds the copy the
@@ -1765,6 +1806,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Machine = MachineLinesForBrief(),
             Commissioning = CommissioningLinesForBrief(),
             Eye = EyeLinesForBrief(),
+            ShowNetwork = ShowBusView.BriefLines(ShowApps(DateTime.UtcNow)),           // round 87: the other show apps, a linked Stagewatch's own words
         };
     }
 

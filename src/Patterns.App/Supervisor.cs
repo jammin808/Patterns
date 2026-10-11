@@ -89,6 +89,9 @@ public static class WatchdogBeat
         get => _value;
         set => _value = value;
     }
+
+    /// <summary>Round 87: whether the desk is live (outputs on air or the stack armed) — handed in by the desk's services; false before them.</summary>
+    public static Func<bool> Live { get; set; } = static () => false;
 }
 
 /// <summary>
@@ -165,7 +168,7 @@ internal static class Supervisor
                 if (started is null)
                 {
                     WLog($"Could not start the app: {startError}");
-                    StandDown($"The watchdog could not start the app at {DateTime.Now:HH:mm}: {startError} — see patterns.watchdog.log", "could-not-start");
+                    StandDown($"The watchdog could not start the app at {LocalNow:HH:mm}: {startError} — see patterns.watchdog.log", "could-not-start");
                     return 1;
                 }
                 child = started;
@@ -206,13 +209,14 @@ internal static class Supervisor
                 // Before the first beat the startup deadline judges the child, after it the hang
                 // timeout (round 65): a child that wedges in the graphics device, a takeover or the
                 // desk's construction never beats at all, and used to be waited for forever.
-                var phase = SupervisorPolicy.Phase(child.StartedUtc, ticks, DateTime.UtcNow);
+                var live = child.LastBeatLive;                                   // round 87: a live desk is judged by the shorter timeout
+                var phase = SupervisorPolicy.Phase(child.StartedUtc, ticks, DateTime.UtcNow, live);
                 if (phase is SupervisorPolicy.ChildPhase.Starting or SupervisorPolicy.ChildPhase.Beating) continue;
                 {
                     startupHang = phase == SupervisorPolicy.ChildPhase.StartupHang;
                     WLog(startupHang
                         ? $"No first heartbeat in {SupervisorPolicy.StartupDeadline.TotalSeconds:0}s — the app never became a desk; ending it."
-                        : $"UI heartbeat silent for {SupervisorPolicy.HangTimeout.TotalSeconds:0}s — ending the hung app.");
+                        : $"UI heartbeat silent for {SupervisorPolicy.HangTimeoutFor(live).TotalSeconds:0}s{(live ? " with the outputs live" : "")} — ending the hung app.");
                     killedForHang = true;
                     child.Kill();
                     break;
@@ -242,7 +246,7 @@ internal static class Supervisor
                 if (UpdateApply.Verdict(exitCode, killedForHang, ranFor) == "rollback")
                 {
                     var back = UpdateApply.RollBack(proving, Path.GetDirectoryName(exe)!, Array.Empty<string>());
-                    var note = $"Update to {provingVersion} rolled back at {DateTime.Now:HH:mm}: the new build {(killedForHang ? "hung" : $"exited with {exitCode}")} after {ranFor.TotalSeconds:0} s — {back.Message}";
+                    var note = $"Update to {provingVersion} rolled back at {LocalNow:HH:mm}: the new build {(killedForHang ? "hung" : $"exited with {exitCode}")} after {ranFor.TotalSeconds:0} s — {back.Message}";
                     WLog(note);
                     UpdateApply.WriteNote(updatesDir, note);
                     WatchdogMarker.Write(new SettingsStore().BaseDirectory, note);
@@ -250,7 +254,7 @@ internal static class Supervisor
                     restarts++;
                     continue;   // the old build, straight away
                 }
-                var kept = $"Updated to {provingVersion} at {DateTime.Now:HH:mm} — the old files are in {proving}";
+                var kept = $"Updated to {provingVersion} at {LocalNow:HH:mm} — the old files are in {proving}";
                 WLog(kept);
                 UpdateApply.WriteNote(updatesDir, kept);
                 provingBackup = null;
@@ -271,7 +275,7 @@ internal static class Supervisor
 
                 case SupervisorAction.GiveUp:
                     WLog("Crash loop: too many restarts in a short window. Standing down — check patterns.log.");
-                    StandDown($"The watchdog gave up at {DateTime.Now:HH:mm} after {restarts} restart{(restarts == 1 ? "" : "s")} in a short window — see patterns.watchdog.log", "gave-up");
+                    StandDown($"The watchdog gave up at {LocalNow:HH:mm} after {restarts} restart{(restarts == 1 ? "" : "s")} in a short window — see patterns.watchdog.log", "gave-up");
                     return exitCode == 0 ? 1 : exitCode;
 
                 default:
@@ -300,9 +304,8 @@ internal static class Supervisor
                         if (detail.Length > 0) WLog($"The app's own note: {detail}");
                         if (dump.Length > 0) WLog($"Mini-dump written: {dump}");
                     }
-#pragma warning disable RS0030 // the supervisor's restart back-off, on its own main thread: waiting is this thread's job
-                    Thread.Sleep(verdict.Delay);
-#pragma warning restore RS0030
+                    // Round 87: the back-off waits on a signal nobody sets — the banned sleep's pragma is gone, the wait the same.
+                    BackOff.Wait(verdict.Delay);
                     break;
             }
         }
@@ -319,6 +322,7 @@ internal static class Supervisor
         private readonly ManualResetEventSlim _exited = new(false);
         private long _lastBeatTicks;
         private volatile bool _handoverAsked;
+        private volatile bool _lastBeatLive;
 
         private ChildRun(Process process, AnonymousPipeServerStream pipe)
         {
@@ -339,6 +343,9 @@ internal static class Supervisor
 
         /// <summary>The child beat the handover byte: it asks for a replacement beside it.</summary>
         public bool HandoverAsked => _handoverAsked;
+
+        /// <summary>Round 87: the child's last beat said its outputs were live or its stack armed.</summary>
+        public bool LastBeatLive => _lastBeatLive;
 
         /// <summary>A replacement was tried for this child and failed; a second ask starts nothing more — the child carries on and says so itself.</summary>
         public bool HandoverRefused { get; set; }
@@ -429,6 +436,7 @@ internal static class Supervisor
                     {
                         Interlocked.Exchange(ref run._lastBeatTicks, DateTime.UtcNow.Ticks);
                         if (one[0] == SupervisorPolicy.HandoverBeat) run._handoverAsked = true;
+                        run._lastBeatLive = one[0] == SupervisorPolicy.LiveBeat;
                     }
                 }
                 catch
@@ -504,17 +512,17 @@ internal static class Supervisor
         var info = UpdatePackage.Inspect(request.Package, Path.GetFileName(exe));
         if (!info.Ok)
         {
-            var refused = $"Update refused at {DateTime.Now:HH:mm}: {string.Join("; ", info.Problems)}";
+            var refused = $"Update refused at {LocalNow:HH:mm}: {string.Join("; ", info.Problems)}";
             WLog(refused);
             UpdateApply.WriteNote(updatesDir, refused);
             return (null, info.Version);
         }
-        var backup = UpdateApply.BackupFolderFor(updatesDir, DateTime.Now);
+        var backup = UpdateApply.BackupFolderFor(updatesDir, LocalNow);
         WLog($"Applying update {info.Version} from {info.FileName}: {info.Files.Count} file(s), the old ones into {backup}.");
         var report = UpdateApply.Run(request.Package, appDir, backup, Path.GetFileName(exe));
         if (!report.Ok)
         {
-            var failed = $"Update to {info.Version} failed at {DateTime.Now:HH:mm}: {report.Message}";
+            var failed = $"Update to {info.Version} failed at {LocalNow:HH:mm}: {report.Message}";
             WLog(failed);
             UpdateApply.WriteNote(updatesDir, failed);
             return (null, info.Version);
@@ -551,6 +559,12 @@ internal static class Supervisor
         }
     }
 
+    /// <summary>Round 87: the supervisor's own clock for its words — the local time, read from UTC (DateTime.Now is fenced in src/).</summary>
+    private static DateTime LocalNow => DateTime.UtcNow.ToLocalTime();
+
+    /// <summary>Round 87: what the restart back-off waits on — never set, so a wait is exactly its delay, and no sleep is called.</summary>
+    private static readonly ManualResetEventSlim BackOff = new(false);
+
     private static string? _logDirectory;
 
     /// <summary>The supervisor logs to its own file — no write races with the child's patterns.log.</summary>
@@ -562,10 +576,10 @@ internal static class Supervisor
             var path = Path.Combine(_logDirectory, "patterns.watchdog.log");
             if (File.Exists(path) && new FileInfo(path).Length > 512 * 1024)
             {
-                File.Copy(path, path + ".old", overwrite: true);
-                File.WriteAllText(path, "");
+                // Round 87: rotated by one rename — the old half whole or not moved, never a copy cut short and an emptied log.
+                File.Move(path, path + ".old", overwrite: true);
             }
-            File.AppendAllText(path, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
+            File.AppendAllText(path, $"{LocalNow:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
         }
         catch
         {

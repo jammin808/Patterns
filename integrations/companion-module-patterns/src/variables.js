@@ -207,6 +207,12 @@ export function variableDefinitions() {
 		stage_next: 'The running order — the cue next',
 		stage_pending: "The speaker's stage page — a message waiting for its ACK, or empty",
 		stage_pending_crew: "The crew's stage page — a message waiting for its ACK, or empty",
+		stage_follows: 'The Stagewatch the stage timer follows, by name — empty when it runs its own (round 87)',
+		showbus_heard: 'How many other show apps the desk hears on the show network — Stagewatch, AGMessage, Slides agents (round 87)',
+		stagewatch_state: 'The Stagewatch link — off, live, stale or gone (round 87)',
+		stagewatch_name: 'The Stagewatch the desk is linked to, by name (round 87)',
+		stagewatch_headline: "The linked Stagewatch's own headline — its live item, time left and what it is waiting on (round 87)",
+		stagewatch_light: "The linked Stagewatch's worst light — red, amber, green or grey (round 87)",
 		// Round 74: where the desk is, and the Navigator's keys.
 		desk_page: "The desk — the page it is on (Run while the Run surface is up)",
 		desk_rail: 'The desk — the rail of its page (SHOW, PLAN, BUILD, SETUP, ADMIN)',

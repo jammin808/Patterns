@@ -61,12 +61,14 @@ public sealed partial class ControlService
     let remaining = t.remaining;
     if (t.phase === 'running' || t.phase === 'over') remaining = t.remaining - (now - Date.parse(state.serverUtc)) / 1000;
     const time = el('time');
-    time.className = 'time ' + (t.phase === 'idle' ? 'off' : (remaining <= t.red ? 'red' : remaining <= t.amber ? 'amber' : 'green')) + (t.phase === 'paused' ? ' paused' : '');
+    // Round 87: following a Stagewatch, its own colour words; else this desk's thresholds.
+    const follows = state.follows && state.follows.state === 'live' ? state.follows : null;
+    time.className = 'time ' + (t.phase === 'idle' ? 'off' : (follows ? t.colour : (remaining <= t.red ? 'red' : remaining <= t.amber ? 'amber' : 'green'))) + (t.phase === 'paused' ? ' paused' : '');
     time.textContent = t.phase === 'idle' ? '--:--' : fmt(remaining);
     el('label').textContent = t.phase === 'idle' ? '' : (t.paused ? 'PAUSED' : (t.label || ''));
     const bar = el('bar'); bar.className = 'bar ' + time.className.replace('time ', '').split(' ')[0];
     el('fill').style.width = (t.phase === 'idle' ? 0 : Math.min(100, Math.max(0, t.progress * 100))) + '%';
-    el('show').textContent = state.show || '';
+    el('show').textContent = state.follows ? state.follows.words : (state.show || '');
     el('clock').textContent = (view === 'crew' || state.sees.speakerClock) ? state.clock : '';
     const s = state.segment;
     if ((view === 'crew' && state.sees.crewSegment) || (view === 'speaker' && state.sees.speakerSegment)) {
@@ -209,9 +211,10 @@ public sealed partial class ControlService
     let remaining = t.remaining;
     if (t.phase === 'running' || t.phase === 'over') remaining = t.remaining - (now - Date.parse(state.serverUtc)) / 1000;
     const time = el('time');
-    time.className = 'time ' + (t.phase === 'idle' ? 'off' : (remaining <= t.red ? 'red' : remaining <= t.amber ? 'amber' : 'green'));
+    const follows = state.follows && state.follows.state === 'live' ? state.follows : null;
+    time.className = 'time ' + (t.phase === 'idle' ? 'off' : (follows ? t.colour : (remaining <= t.red ? 'red' : remaining <= t.amber ? 'amber' : 'green')));
     time.textContent = t.phase === 'idle' ? '--:--' : fmt(remaining);
-    el('tline').textContent = t.phase === 'idle' ? 'no timer running' : t.paused ? 'PAUSED — ' + (t.label || '') : (t.label || '') + ' · amber at ' + fmt(t.amber) + ', red at ' + fmt(t.red);
+    el('tline').textContent = (state.follows ? state.follows.words.toUpperCase() + ' — ' : '') + (t.phase === 'idle' ? 'no timer running' : t.paused ? 'PAUSED — ' + (t.label || '') : (t.label || '') + (follows ? '' : ' · amber at ' + fmt(t.amber) + ', red at ' + fmt(t.red)));
     el('pause').textContent = t.paused ? 'RESUME' : 'PAUSE';
     const s = state.segment;
     el('seg').textContent = s.name ? ('NOW ' + (s.number ? s.number + ' ' : '') + s.name + (s.remaining !== null ? ' · ' + (s.overran ? 'over' : fmt(s.remaining) + ' left') : '') + (s.next ? ' · NEXT ' + s.next + (s.nextAt ? ' at ' + s.nextAt : '') : '') + (s.offset ? ' · ' + s.offset : '')) : '';

@@ -307,6 +307,13 @@ export function variableValues(s) {
 		stage_next: stage.next ?? '',
 		stage_pending: stage.pendingSpeaker ?? '',
 		stage_pending_crew: stage.pendingCrew ?? '',
+		stage_follows: stage.follows ?? '',
+		// Round 87: the show network — the other apps heard, and the Stagewatch link.
+		showbus_heard: String(s.bus?.heard ?? 0),
+		stagewatch_state: s.bus?.stagewatch?.state ?? 'off',
+		stagewatch_name: s.bus?.stagewatch?.name ?? '',
+		stagewatch_headline: s.bus?.stagewatch?.headline ?? '',
+		stagewatch_light: s.bus?.stagewatch?.light ?? 'grey',
 		...bankVariables(s),
 	}
 }

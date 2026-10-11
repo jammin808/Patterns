@@ -21,6 +21,10 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     // Round 86: the show network's hello on 9928 (ShowBusHello) — its own socket, on whenever the wire is, bound to the wire's address.
     private UdpClient? _hello;
     private string _helloKey = "";
+    // Round 87: the show network's hellos heard — every other app's, on its own socket sharing UDP 9928 with any other listener on this machine.
+    private UdpClient? _helloIn;
+    private string _helloInKey = "";
+    private CancellationTokenSource? _helloInCts;
     private long _ticks;
     private CancellationTokenSource? _cts;
     private volatile IPEndPoint? _target;
@@ -69,17 +73,29 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     /// <summary>Round 86: whether the show network's hello is going out (the wire is on and reachable from the network).</summary>
     public bool Announcing => _hello is not null;
 
+    /// <summary>Round 87: the other show apps heard on UDP 9928 — Stagewatch, its Slides agents, AGMessage, other Patterns.</summary>
+    public ShowBusPeers ShowBus { get; } = new();
+
+    /// <summary>Round 87: whether this desk is listening for the show network's hellos.</summary>
+    public bool HearingShowBus => _helloIn is not null;
+
     /// <summary>Round 86: this machine's hello for the other show apps — who, where its wire is, what it can do; no token, no show data.</summary>
     public ShowBusHello BuildHello()
     {
         var c = _services.State.Control;
+        var id = _services.ShowBusId;
         return new ShowBusHello
         {
-            Id = Instance,
+            Id = id.Length > 0 ? id : Instance,
+            Instance = Instance,
             Name = MachineName,
             Machine = Environment.MachineName,
+            Host = Environment.MachineName,
             Web = c.Enabled ? c.HttpPort : 0,
             Wire = c.Enabled ? c.TcpPort : 0,
+            Ports = new ShowBusPorts { Http = c.Enabled ? c.HttpPort : 0, Wire = c.Enabled ? c.TcpPort : 0, Osc = c.Enabled && c.OscEnabled ? c.OscPort : 0, Https = c.Enabled && _services.TlsFingerprint.Length > 0 ? c.HttpPort : 0 },
+            Tls = _services.TlsFingerprint is { Length: > 0 } fp ? fp : null,                    // round 88: the certificate the web remote serves, so another app can pin it
+            Clock = ClockPing.Ms(ShowClock.UtcNow),
             Role = NodeKinds.Wire(_services.Profile),
         };
     }
@@ -108,10 +124,79 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
         }
     }
 
+    /// <summary>
+    /// Round 87: opens / closes the listener for the other apps' hellos (UI thread) — on while remote control is on, on
+    /// the control bind address when one is set (a loopback-bound desk hears this machine's apps only). The port is
+    /// shared (reuse-address): Stagewatch, AGMessage and this desk may all listen on one machine.
+    /// </summary>
+    private void ReconcileHelloListener()
+    {
+        var c = _services.State.Control;
+        var bindOk = BindAddress.TryParse(c.Bind, out var bound, out _);
+        var key = c.Enabled && bindOk ? $"on|{c.Bind}" : "";
+        if (key == _helloInKey) return;
+        _helloInKey = key;
+        _helloInCts?.Cancel();
+        _helloInCts?.Dispose();
+        _helloInCts = null;
+        try { _helloIn?.Close(); } catch (ObjectDisposedException) { /* already closed */ }
+        _helloIn = null;
+        if (key.Length == 0) return;
+        try
+        {
+            var socket = new UdpClient(AddressFamily.InterNetwork);
+            socket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            socket.Client.Bind(new IPEndPoint(bound is { AddressFamily: AddressFamily.InterNetwork } b ? b : IPAddress.Any, ShowBusHello.Port));
+            _helloIn = socket;
+            _helloInCts = new CancellationTokenSource();
+            _ = HelloLoop(socket, _helloInCts.Token);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The show network's hellos cannot be heard: port 9928 would not open.", ex);
+            _helloIn = null;
+            _helloInKey = "";   // asked again on the next change
+        }
+    }
+
+    private async Task HelloLoop(UdpClient socket, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                UdpReceiveResult r;
+                try
+                {
+                    r = await socket.ReceiveAsync(ct);
+                }
+                catch (SocketException)
+                {
+                    await Task.Delay(10, ct);
+                    continue;
+                }
+                ShowBus.Hear(r.Buffer, OscGate.Normal(r.RemoteEndPoint.Address), DateTime.UtcNow, Instance);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // stopped: the token was cancelled
+        }
+        catch (ObjectDisposedException)
+        {
+            // stopped: the socket was closed under the receive
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Log.Warn("The show network's hello listener ended.", ex);
+        }
+    }
+
     /// <summary>Opens / closes the sender and the listener to match the config (UI thread).</summary>
     public void Reconcile()
     {
         ReconcileHello();
+        ReconcileHelloListener();
         var cfg = _services.State.Watchdog;
         // Nodes find each other on the beacon: a node always sends and hears, and so does a desk
         // that accepts callers — the Machine page's own switches add to that, never take from it.
@@ -222,6 +307,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     private void Tick()
     {
         ReconcileHello();
+        ReconcileHelloListener();
         // The hello every other second (ShowBusHello.Every); the beacon every second.
         if (_hello is { } hello && Interlocked.Increment(ref _ticks) % 2 == 1)
         {
@@ -231,6 +317,15 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
                 try
                 {
                     hello.Send(bytes, new IPEndPoint(IPAddress.Broadcast, ShowBusHello.Port));
+                    // Round 87 (Show Bus 1.1 §2): and to this machine, where a broadcast does not always come back to a listener on another socket.
+                    try
+                    {
+                        hello.Send(bytes, new IPEndPoint(IPAddress.Loopback, ShowBusHello.Port));
+                    }
+                    catch (SocketException)
+                    {
+                        // A socket bound to one network address cannot reach loopback on some stacks: the broadcast went, which is the hello's job.
+                    }
                 }
                 catch (ObjectDisposedException)
                 {
@@ -388,12 +483,12 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
             using var udp = new UdpClient { EnableBroadcast = true };
             var bytes = beacon.ToBytes();
             var to = new IPEndPoint(address, cfg.BeaconPort);
+            // Round 87: the three datagrams 100 ms apart wait on a signal nobody sets — the same pause, no banned sleep.
+            using var apart = new ManualResetEventSlim(false);
             for (var i = 0; i < 3; i++)
             {
                 udp.Send(bytes, to);
-#pragma warning disable RS0030 // the supervisor's last word at stand-down: three datagrams 100 ms apart on its own thread, which has nothing else to do
-                Thread.Sleep(100);
-#pragma warning restore RS0030
+                apart.Wait(100);
             }
         }
         catch (Exception ex)
@@ -425,6 +520,11 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
         Stop();
         _hello?.Dispose();
         _hello = null;
+        _helloInCts?.Cancel();
+        _helloInCts?.Dispose();
+        _helloInCts = null;
+        _helloIn?.Dispose();
+        _helloIn = null;
         _timer.Dispose();
     }
 }

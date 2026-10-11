@@ -104,12 +104,16 @@ public sealed class App : Application
         try
         {
             var pipe = new AnonymousPipeClientStream(PipeDirection.Out, pipeHandle);
-            var timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
+            // Round 87: the beat runs above input and render, so a desk busy drawing is never taken for a hung one —
+            // a desk that cannot run a Normal-priority timer in ten seconds is hung for the audience too.
+            var timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1), Avalonia.Threading.DispatcherPriority.Normal);
             timer.Tick += (_, _) =>
             {
                 try
                 {
-                    pipe.WriteByte(WatchdogBeat.Value);   // alive — or alive and asking to be replaced (round 76)
+                    // Alive — or alive and asking to be replaced (round 76) — or, round 87, alive with the outputs live or
+                    // the stack armed, which the watchdog judges by the shorter live hang timeout.
+                    pipe.WriteByte(SupervisorPolicy.BeatFor(WatchdogBeat.Value, WatchdogBeat.Live()));
                     pipe.Flush();
                 }
                 catch

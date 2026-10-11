@@ -179,7 +179,8 @@ public class VideoTransportAppTests
             var json = hello.ToJson();
             Assert.Equal(services.State.Control.TcpPort, hello.Wire);
             Assert.Equal(services.State.Control.HttpPort, hello.Web);
-            Assert.Equal(services.Beacon.Instance, hello.Id);
+            Assert.Equal(services.Kernel.ShowBusId, hello.Id);                       // round 87: the install's id; the process rides as inst
+            Assert.Equal(services.Beacon.Instance, hello.Instance);
             Assert.DoesNotContain("Secret AGM", json);
             if (services.State.Control.Token.Length > 0) Assert.DoesNotContain(services.State.Control.Token, json);
         }

@@ -359,6 +359,19 @@ public sealed partial class MainViewModel
             : $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}";
         OscStatus = _services.Osc.StatusLine;
         CompanionText = CompanionStrip();
+        TlsText = TlsLine();
+    }
+
+    private string _tlsText = "";
+
+    /// <summary>Round 88: the Remote page's HTTPS line — the certificate's fingerprint, how its key is kept, and the connections that used it.</summary>
+    public string TlsText { get => _tlsText; private set => Set(ref _tlsText, value); }
+
+    private string TlsLine()
+    {
+        var tls = _services.Kernel.Tls;
+        if (tls.Fingerprint.Length == 0) return "HTTPS: off — " + (tls.Problem.Length > 0 ? tls.Problem : "no certificate yet.");
+        return $"HTTPS on the same port as the web remote · certificate {TlsFingerprint.Short(tls.Fingerprint)} ({tls.Protection}) · {_services.Control.TlsConnections} connection(s) over TLS since start · /tls says how to trust it";
     }
 
     private string _companionText = "";

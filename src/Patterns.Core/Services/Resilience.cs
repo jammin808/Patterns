@@ -38,6 +38,16 @@ public sealed class SupervisorPolicy
     public static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
+    /// Round 87: how long silence counts as a hang while the outputs are live or the stack is armed — the child says so
+    /// with <see cref="LiveBeat"/>. An audience looking at a frozen wall is a minute too long at thirty seconds; ten is
+    /// past any honest stall the desk measures (the tick budget, a page switch, a save) and short enough to matter.
+    /// </summary>
+    public static readonly TimeSpan LiveHangTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>The hang timeout for a child whose last beat said it was live, or not.</summary>
+    public static TimeSpan HangTimeoutFor(bool live) => live ? LiveHangTimeout : HangTimeout;
+
+    /// <summary>
     /// Exit code the app uses to ask the supervisor for an immediate relaunch (the Admin
     /// tab's Restart button, applying a GPU change). Restarted with no backoff delay, but
     /// still counted against the crash-loop window so a restart storm can't flap forever.
@@ -67,6 +77,12 @@ public sealed class SupervisorPolicy
     /// <summary>The heartbeat byte of a child that is alive and asks to be replaced (round 76): start the next desk now, beside this one.</summary>
     public const byte HandoverBeat = 2;
 
+    /// <summary>Round 87: the heartbeat byte of a child that is alive with its outputs live or its stack armed — judged by <see cref="LiveHangTimeout"/>.</summary>
+    public const byte LiveBeat = 3;
+
+    /// <summary>Round 87: the byte the child beats — the handover ask wins, then live, then plain alive.</summary>
+    public static byte BeatFor(byte asked, bool live) => asked == HandoverBeat ? HandoverBeat : live ? LiveBeat : AliveBeat;
+
     /// <summary>
     /// How long a desk that asked to be replaced waits for the replacement's ask before it takes
     /// its place back — the supervisor gone, a replacement that never became a desk. The startup
@@ -75,9 +91,9 @@ public sealed class SupervisorPolicy
     /// </summary>
     public static readonly TimeSpan HandoverPatience = TimeSpan.FromSeconds(90);
 
-    /// <summary>Hung = the child was beating and then went silent past the timeout.</summary>
-    public static bool IsHung(DateTime? lastBeatUtc, DateTime utcNow)
-        => lastBeatUtc is { } beat && utcNow - beat > HangTimeout;
+    /// <summary>Hung = the child was beating and then went silent past the timeout (its live one when its last beat said live).</summary>
+    public static bool IsHung(DateTime? lastBeatUtc, DateTime utcNow, bool live = false)
+        => lastBeatUtc is { } beat && utcNow - beat > HangTimeoutFor(live);
 
     /// <summary>
     /// How long a child may run before its first heartbeat (round 65). The runtime, the
@@ -107,9 +123,9 @@ public sealed class SupervisorPolicy
     /// as a hang, so the backoff and the crash-loop cap apply to a start that never finishes
     /// exactly as to a desk that froze.
     /// </summary>
-    public static ChildPhase Phase(DateTime startedUtc, DateTime? lastBeatUtc, DateTime utcNow)
+    public static ChildPhase Phase(DateTime startedUtc, DateTime? lastBeatUtc, DateTime utcNow, bool live = false)
     {
-        if (lastBeatUtc is { } beat) return utcNow - beat > HangTimeout ? ChildPhase.Hung : ChildPhase.Beating;
+        if (lastBeatUtc is { } beat) return utcNow - beat > HangTimeoutFor(live) ? ChildPhase.Hung : ChildPhase.Beating;
         return utcNow - startedUtc > StartupDeadline ? ChildPhase.StartupHang : ChildPhase.Starting;
     }
 
@@ -713,4 +729,35 @@ public static class VideoDecodingChoice
                 : $"Auto: {now}. The run after a native fault decodes in software and says so here.",
         };
     }
+}
+
+/// <summary>
+/// Round 87: who may move the show over OSC. OSC is UDP with no session, so it cannot present the token: on a desk
+/// with no token it is open as before (bound to the control network by the bind address, round 79); on a paired desk
+/// its mutating verbs are taken only from this machine, from an address that has proved the token on the wire or the
+/// web, or from one the operator named (Remote page, OSC ALLOW). Its queries (PING, STATUS) stay open, as the wire's do.
+/// Pure: the addresses are handed in.
+/// </summary>
+public static class OscGate
+{
+    public static bool Allows(string token, System.Net.IPAddress from, bool trustLoopback, IReadOnlyCollection<string> pairedAddresses, string allowList)
+    {
+        if (!PairingToken.Needed(token)) return true;
+        if (trustLoopback && System.Net.IPAddress.IsLoopback(from)) return true;
+        var who = Normal(from);
+        if (pairedAddresses.Contains(who)) return true;
+        return AllowList(allowList).Contains(who);
+    }
+
+    /// <summary>The allow-list as addresses: commas, semicolons or spaces between them; anything that is not an address is left out.</summary>
+    public static IReadOnlySet<string> AllowList(string? words)
+        => (words ?? "").Split(new[] { ',', ';', ' ', '	' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(w => System.Net.IPAddress.TryParse(w, out var a) ? Normal(a) : "")
+            .Where(w => w.Length > 0).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>An address as compared: IPv4 written plainly even when it came mapped into IPv6.</summary>
+    public static string Normal(System.Net.IPAddress a) => (a.IsIPv4MappedToIPv6 ? a.MapToIPv4() : a).ToString();
+
+    /// <summary>The refusal an unpaired sender hears on /patterns/error.</summary>
+    public const string NotPaired = "not paired — on a paired desk OSC moves the show only from a machine that paired on the wire or the web, or one on the Remote page's OSC ALLOW list";
 }

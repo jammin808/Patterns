@@ -76,7 +76,50 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
+    <!-- Round 87: the show network (Show Bus 1.1) — the other show apps, and the link to a Stagewatch. -->
+    <TextBlock Classes="h2" Text="THE SHOW NETWORK" />
+    <TextBlock Classes="hint" Text="{Binding ShowBusLine}" TextWrapping="Wrap" />
+    <ItemsControl ItemsSource="{Binding ShowApps}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="svc:ShowAppCard">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" BorderBrush="{Binding Hue}" BorderThickness="1"
+                  ToolTip.Tip="Another show app heard on UDP 9928 — teal Stagewatch, violet AGMessage, sky a Slides agent; amber once quiet, dark red once gone">
+            <StackPanel>
+              <TextBlock FontWeight="SemiBold" Foreground="{Binding Hue}">
+                <Run Text="{Binding KindLabel}" />
+                <Run Text=" " />
+                <Run Text="{Binding Name}" />
+              </TextBlock>
+              <TextBlock Classes="label" Text="{Binding Line}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <CheckBox Content="Link to a Stagewatch — its timer on the stage pages, its things on the Eye, its context in the assistant's brief"
+              IsChecked="{Binding State.Control.Stagewatch.Enabled}"
+              ToolTip.Tip="Off by default. With no address the desk follows the first Stagewatch it hears on the show network. One room, one timer: the stage pages show the Stagewatch's time while it answers" />
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding State.Control.Stagewatch.Enabled}">
+      <TextBlock Classes="label" Text="Address" VerticalAlignment="Center" Margin="0,0,8,0" />
+      <TextBox Grid.Column="1" Text="{Binding State.Control.Stagewatch.Host}" Watermark="host:port — empty finds one on the show network"
+               ToolTip.Tip="A Stagewatch's address and web port (9924 when left out). Empty: the first Stagewatch heard on UDP 9928" />
+      <TextBlock Grid.Row="1" Classes="label" Text="Key" VerticalAlignment="Center" Margin="0,6,8,0" />
+      <TextBox Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" Text="{Binding State.Control.Stagewatch.ApiKey}" PasswordChar="•" Watermark="swk_… — a node key made on the Stagewatch (a read key follows the timer only; the approval queue needs node)"
+               ToolTip.Tip="Made in Stagewatch: Settings → Remote → API keys. Sent in the Authorization header, never in a URL; masked in every bundle, never mirrored to a twin" />
+    </Grid>
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasPendingCertificate}" Margin="0,4,0,0">
+      <TextBlock Text="CERTIFICATE CHANGED — the Stagewatch now shows another certificate; the link refuses it until you accept" Foreground="#FFB020" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
+      <Button Content="ACCEPT" Command="{Binding AcceptCertificateCommand}"
+              ToolTip.Tip="Round 88: only when you know why it changed (the Stagewatch was reinstalled, its certificate renewed). Compare the fingerprint on its Settings → Remote first" />
+    </StackPanel>
+    <CheckBox Content="The stage timer follows the Stagewatch (one room, one timer)" IsChecked="{Binding State.Control.Stagewatch.FollowStage}"
+              IsVisible="{Binding State.Control.Stagewatch.Enabled}"
+              ToolTip.Tip="The stage and timer pages show the Stagewatch's time and colours while it answers; quiet, the time is held back; gone, this desk's own countdown runs. Pause and add-time are the Stagewatch's then" />
+
     <TextBlock Classes="hint tip"
-               Text="How the pieces find each other: every Patterns sends a beacon once a second (UDP, port 9700 by default) and hears the others'; a node always does, a desk does while it accepts callers. A caller node presses LINK on the desk it follows and joins with that desk's twin key; the desk's Nodes page counts it under LINKED and its Machine page's TWIN line names it. NODES on the wire lists every card as JSON." />
+               Text="How the pieces find each other: every Patterns sends a beacon once a second (UDP, port 9700 by default) and hears the others'; a node always does, a desk does while it accepts callers. A caller node presses LINK on the desk it follows and joins with that desk's twin key; the desk's Nodes page counts it under LINKED and its Machine page's TWIN line names it. NODES on the wire lists every card as JSON. The other show apps (Stagewatch, AGMessage, Slides agents) say hello on UDP 9928 every two seconds — who they are and where their doors are, never what the show is (docs/SHOWBUS.md)." />
   </StackPanel>
 </UserControl>

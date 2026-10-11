@@ -69,6 +69,12 @@ public sealed class AssistantChip : Observable
         AppliedText = words;
         IsApplied = true;
     }
+
+    /// <summary>Round 88 (Show Bus 1.2 §11): sent to the approval desk — APPLY gives way to the proposal's state there.</summary>
+    public void MarkSent(string words) => MarkApplied(words);
+
+    /// <summary>Round 88: the proposal's state at the approval desk moved (pending, approved, rejected, applied…).</summary>
+    public void Said(string words) => AppliedText = words;
 }
 
 /// <summary>One row of the conversation: the operator's words, or the assistant's with its questions and proposals.</summary>
@@ -374,6 +380,24 @@ public sealed class AssistantPage : Observable
     {
         if (chip.IsApplied || !chip.Proposal.CanApply) return;
         var p = chip.Proposal;
+        // Round 88 (Show Bus 1.2 §11): with an approval desk linked (a Stagewatch with the queue), the proposal goes there
+        // and the operator approves it in one place for every app; it comes back approved and lands here as APPLY would.
+        var link = _services.Kernel.Stagewatch;
+        if (link.ApprovalsLive)
+        {
+            link.Approvals.Add(p.KindLabel, p.Title, p.Summary.Length > 0 ? p.Summary : p.Title, "review",
+                () => (true, ApplyHere(chip, p)), chip.Said);
+            chip.MarkSent("sending to the approval desk…");
+            Status = $"Sent to the approval desk: {p.KindLabel} \"{p.Title}\" — it lands here once approved there.";
+            _desk.StatusMessage = Status;
+            return;
+        }
+        ApplyHere(chip, p);
+    }
+
+    /// <summary>APPLY itself (UI thread): the proposal into the show; the words it lands with.</summary>
+    private string ApplyHere(AssistantChip chip, AssistantProposal p)
+    {
         var draws = ProposalDraws(p);
         var opened = false;
         if (draws)
@@ -394,5 +418,6 @@ public sealed class AssistantPage : Observable
         chip.MarkApplied(report.Summary + where);
         Status = "Applied: " + report.Summary + where;
         _desk.StatusMessage = "Applied: " + report.Summary + where;
+        return report.Summary + where;
     }
 }

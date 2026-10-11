@@ -295,6 +295,9 @@ public sealed class NodeRouter : IRouter
 
     public Func<long>? Rev { get; set; }
 
+    /// <summary>Round 88 (closes L52): the node's own context — no more "ask the desk".</summary>
+    public Task<string> ContextJsonAsync() => UiThread.InvokeAsync(_host.ContextJson).GetTask();
+
     public async Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin = null)
     {
         try
@@ -531,6 +534,13 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         if (NodeKinds.RunsArcade(kind)) _arcade = BuildArcade();
         CueStack = new CueStackService(Kernel, this);
         Stage = new StageService(this);
+        Kernel.StagewatchChanged += Stage.Bump;                  // round 87: a timer node can follow a Stagewatch too
+        Kernel.Stagewatch.OwnContext = ContextJson;              // round 88: a node says what it is, in the shared shape (closes L52)
+        Kernel.Stagewatch.RunApprovedLine = async line =>
+        {
+            var answer = await NewRouter().ExecuteAsync(ControlProtocol.Parse(line), new ActionOrigin(OriginKind.Tcp, "approval desk"));
+            return (answer.StartsWith("OK", StringComparison.Ordinal), answer);
+        };
         if (IsFollower)
         {
             Twin = new TwinService(Kernel, this);
@@ -721,6 +731,67 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     // ---- IStageHost ----
 
     public ShowState AirState => State;
+
+    /// <summary>
+    /// Round 87: the Stagewatch this timer follows, when following is on. Round 88 (closes L51): its own link while that is
+    /// on and heard, else the Stagewatch its desk follows, relayed over the twin — one room, one timer, without a key on
+    /// every node.
+    /// </summary>
+    public StagewatchSight FollowedStagewatch => State.Control.Stagewatch.FollowStage
+        ? StageSightChoice.Choose(State.Control.Stagewatch.Enabled, Kernel.Stagewatch.Sight, Twin?.RelayedStagewatch ?? StagewatchSight.None)
+        : StagewatchSight.None;
+
+    /// <summary>Round 88: a relayed frame landed — the stage pages read again.</summary>
+    public void StagewatchRelayed() => Stage.Bump();
+
+    public string? OwnContextJson() => ContextJson();
+
+    /// <summary>
+    /// Round 88 (closes L52): this node in Show Bus §6's shape — its role, its desk link, the Stagewatch its stage follows
+    /// (its own link or the desk's relay), what its stage shows or where its stack stands, its journal's last lines and
+    /// the verbs it answers itself. UI thread.
+    /// </summary>
+    public string ContextJson()
+    {
+        var twin = Twin;
+        var sight = FollowedStagewatch;
+        var deskLight = twin is null ? CheckLight.Grey : twin.Phase switch
+        {
+            TwinPhase.InStep => CheckLight.Green,
+            TwinPhase.Connecting or TwinPhase.MainSilent or TwinPhase.Listening => CheckLight.Amber,
+            TwinPhase.Refused => CheckLight.Red,
+            _ => CheckLight.Grey,
+        };
+        var stageWords = "";
+        if (IsFollower)
+        {
+            var t = Stage.Time();
+            stageWords = t.Phase == StageTimerPhase.Idle ? "idle" : $"{t.Text} — {t.Phase.ToString().ToLowerInvariant()}";
+            if (sight.Following) stageWords += $" (Stagewatch {sight.Name}'s time)";
+        }
+        var stack = Kind == NodeKind.Caller ? CueStack : null;
+        var stackWords = stack is null ? "" : string.Join(" · ", new[]
+        {
+            stack.StandbyCue is { } sb ? $"standby {sb.Number} {sb.Name}".Trim() : "",
+            stack.LastCue is { } last ? $"last {last.Number} {last.Name}".Trim() : "",
+            stack.Armed ? "armed" : "not armed",
+        }.Where(w => w.Length > 0));
+        var facts = new NodeContextFacts
+        {
+            Role = NodeKinds.Wire(Kind),
+            DeskName = twin?.MainName ?? "",
+            DeskWords = twin?.Status ?? "",
+            DeskLight = deskLight,
+            Linked = twin?.IsLinkedToDesk ?? false,
+            Stagewatch = sight,
+            StagewatchViaDesk = sight.Address == "via the desk",
+            StageWords = stageWords,
+            StackWords = stackWords,
+            StackLight = stack is null ? CheckLight.Grey : stack.Armed ? CheckLight.Green : CheckLight.Grey,
+            Arcade = HasArcade,
+        };
+        return NodeContextBuilder.Build(Kernel.ShowBusId, Kernel.Beacon.MachineName, DateTime.UtcNow, facts, Kernel.Journal.Tail(ShowContext.MaxRecent)).ToJson();
+    }
 
     CueStackService IStageHost.CueStack => CueStack;
 

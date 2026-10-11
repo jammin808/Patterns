@@ -398,7 +398,7 @@ public class NavAppTests
             while (true)
             {
                 var line = TestApp.Pump(Task.Run(() => _reader.ReadLine())) ?? throw new IOException("the desk closed the connection");
-                if (!line.StartsWith("STATE ", StringComparison.Ordinal)) return line;
+                if (!line.StartsWith("STATE ", StringComparison.Ordinal) && !line.StartsWith("NONCE ", StringComparison.Ordinal)) return line;   // round 87: a nonce is not an answer
             }
         }
 

@@ -635,6 +635,50 @@ backup that holds the torn text.
 |---|---|---|---|---|---|---|---|
 | | | | | | | | unwalked |
 
+## 26. The show network, the proof and the live hang rule (round 87)
+
+**Set up.** The show laptop with a pairing token set (Remote page, TRUST), a second machine on the control network
+running Stagewatch with an API key made for this desk, Companion 3.18.0 on a third machine (or the second), a clip
+on air with the outputs live, `patterns.watchdog.log` tailed.
+
+**Do.** (1) Nodes page: THE SHOW NETWORK lists the Stagewatch within four seconds; tick the link, leave the address
+empty, type the key — the page reads "following …" and `/stage` on a phone shows the Stagewatch's time and colours.
+(2) Pull the Stagewatch's network cable: within six seconds the stage page holds its time back ("gone quiet"); plug
+it back: within a few seconds it follows again. (3) The Companion deck pairs (the Remote page lists it paired) — a
+packet capture of the deck's connection shows no token. (4) From a fourth address not paired and not on OSC ALLOW,
+send `/patterns/blackout 1`: `/patterns/error` answers "not paired", nothing moves. (5) Freeze the desk's UI thread
+(the Machine page's test hang, or a debugger break) with the outputs live: the watchdog log says "silent for 10 s with
+the outputs live" and the desk comes back with the air put back.
+
+**Pass.** Every step as written; the hang ends inside fifteen seconds of the freeze. A fail is a stage page that shows
+a frozen time, a token in the capture, a verb that ran from the stranger, or a hang that waits thirty seconds live.
+
+| Build | Date | Machine | Stagewatch heard | Follow / quiet / back | Deck paired, no token on the wire | OSC stranger refused | Live hang | Result |
+|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | unwalked |
+
+## 27. TLS, the pins, the approval queue and the node relay (round 88)
+
+**Set up.** The show laptop (the desk) with a timer node on a second machine linked to it, Stagewatch 2.16 on a third
+with a node key made for this desk, a tablet on the control network.
+
+**Do.** (1) On the tablet open `http://<desk>:9696/tls`, download the certificate and trust it; open
+`https://<desk>:9696/` — no warning; the fingerprint matches the Remote page's. (2) Tick Require HTTPS: the tablet's
+`http://` is refused with the way to `https://`; the desk's own browser still opens `http://localhost:9696/`. (3) Link the
+desk to the Stagewatch (Nodes page, the node key): the Nodes page says "pinned"; reinstall or renew the Stagewatch's
+certificate: CERTIFICATE CHANGED on the Nodes page and the Eye until ACCEPT. (4) The timer node's stage shows the
+Stagewatch's time with no link of its own; the desk's Eye shows the node's card with its stage line. (5) Ask the
+assistant for a look; APPLY: the chip waits; approve it on the Stagewatch: the look lands in the preview on the desk and
+the chip says applied.
+
+**Pass.** Every step as written. A fail is a tablet that still warns after trusting, a changed certificate that
+connects without ACCEPT, a node showing its own countdown while the desk follows, or a proposal that lands before it is
+approved.
+
+| Build | Date | Machine | Tablet trusts / Require HTTPS | Pin / changed / ACCEPT | Node follows by relay, its card on the Eye | Approved proposal lands | Result |
+|---|---|---|---|---|---|---|---|
+| | | | | | | | unwalked |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute

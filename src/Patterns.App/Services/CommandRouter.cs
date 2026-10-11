@@ -80,7 +80,20 @@ public sealed class CommandRouter : IRouter
         switch (cmd.Kind)
         {
             case RemoteCommandKind.Ping:
+                // Round 87: "PING <t1>" from the web or OSC is the clock exchange too (t2 = t3: no line to read apart from its answer).
+                if (ClockPing.Stamp(cmd.Text) is { } t1)
+                {
+                    var now = ClockPing.Ms(ShowClock.UtcNow);
+                    return ClockPing.Pong(t1, now, now);
+                }
                 return ControlProtocol.Ok("PONG");
+            case RemoteCommandKind.Auth:
+            case RemoteCommandKind.AuthProof:
+            case RemoteCommandKind.Nonce:
+                // Round 87: pairing is a connection's, and only the wire has connections — the web sends X-Patterns-Token on each request.
+                return ControlProtocol.Err("AUTH, AUTH-PROOF and NONCE are the wire's (TCP); the web sends X-Patterns-Token with each request");
+            case RemoteCommandKind.Context:
+                return ControlProtocol.Ok(ContextJson());
             case RemoteCommandKind.Status:
                 return ControlProtocol.Ok(StateJson());
             case RemoteCommandKind.Unknown:
@@ -732,8 +745,37 @@ public sealed class CommandRouter : IRouter
             masterFpsEffective = masterRate.Effective,
             masterRate = masterRate.Words,
             videos = VideosRow(),                                          // round 86: every mounted clip with a timeline (video is the one on air)
+            bus = ShowBusRow(),                                            // round 87: the show network — the other apps heard, the Stagewatch link
         };
         return JsonSerializer.Serialize(payload);
+    }
+
+    /// <summary>Round 87: the show network for a deck's keys — the apps heard, and the Stagewatch the stage timer follows.</summary>
+    private object ShowBusRow()
+    {
+        var now = DateTime.UtcNow;
+        var apps = _services.ShowApps(now);
+        var link = _services.Kernel.Stagewatch;
+        var sight = link.Sight;
+        var linked = apps.FirstOrDefault(a => a.Linked);
+        return new
+        {
+            heard = apps.Count(a => a.State == ShowBusState.Live),
+            apps = ShowBusView.Peers(apps).Select(p => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline }).ToArray(),
+            stagewatch = new
+            {
+                on = _services.State.Control.Stagewatch.Enabled,
+                state = sight.Name.Length == 0 && sight.Address.Length == 0 ? "off" : sight.State.ToString().ToLowerInvariant(),
+                name = sight.Name,
+                following = _services.Stage.Following.Length > 0,
+                title = sight.Frame?.Title ?? "",
+                text = sight.State == ShowBusState.Live ? sight.Frame?.Text ?? "" : "",
+                light = linked?.Context?.Light ?? "grey",
+                headline = linked?.Context?.Headline ?? "",
+                clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
+                words = link.Status,
+            },
+        };
     }
 
     /// <summary>The weather chip for remotes: on air, the view, the place, the line the desk reads, the figure alone, the source and the status.</summary>
@@ -861,6 +903,12 @@ public sealed class CommandRouter : IRouter
 
     /// <summary>Builds StateJson from any thread.</summary>
     public Task<string> StateJsonAsync() => UiThread.InvokeAsync(StateJson).GetTask();
+
+    /// <summary>Round 87 (Show Bus 1.1 §6): this desk in the shared shape — the Eye's picture, the journal's last lines, the verbs with their risk, the peers one hop away.</summary>
+    public string ContextJson() => _services.ContextJson();
+
+    /// <summary>Builds ContextJson from any thread.</summary>
+    public Task<string> ContextJsonAsync() => UiThread.InvokeAsync(ContextJson).GetTask();
 
     /// <summary>The caller's whole list with notes — GET /api/cues and CUE LIST, refetched when listRev changes.</summary>
     public string CueListJson()

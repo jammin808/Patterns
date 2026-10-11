@@ -37,6 +37,18 @@ public interface ITwinHost
 
     /// <summary>The receipts of every line sent since the mark, once each has landed or timed out.</summary>
     Task<IReadOnlyList<DeviceReceipt>> DeviceConfirmSince(long mark);
+
+    /// <summary>Round 88: the Stagewatch this process's stage follows — a desk relays it to its followers.</summary>
+    StagewatchSight FollowedStagewatch => StagewatchSight.None;
+
+    /// <summary>Round 88: a follower heard a new relayed Stagewatch frame — its stage pages read again.</summary>
+    void StagewatchRelayed()
+    {
+        // a desk has no relay to hear
+    }
+
+    /// <summary>Round 88: this process's own context (Show Bus §6) for its desk; null when it has none.</summary>
+    string? OwnContextJson() => null;
 }
 
 /// <summary>
@@ -84,6 +96,9 @@ public interface IStageHost
     void EditAir(Action<ShowState> edit);
     void Notify(string message);
     event Action? SnapshotPublished;
+
+    /// <summary>Round 87: the Stagewatch the stage timer follows — <see cref="StagewatchSight.None"/> when there is none, or following is off.</summary>
+    StagewatchSight FollowedStagewatch => StagewatchSight.None;
 }
 
 /// <summary>

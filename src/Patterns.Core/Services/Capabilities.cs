@@ -71,6 +71,9 @@ public interface IRouter
     Task<string> StateJsonAsync();
 
     Task<string> CueListJsonAsync();
+
+    /// <summary>Round 87: the process in Show Bus 1.1's shared context shape — the desk's; a node has none to give yet.</summary>
+    Task<string> ContextJsonAsync() => Task.FromResult("{\"ok\":false,\"msg\":\"no context on this node — ask the desk\"}");
 }
 
 /// <summary>What the audience room asks of the desk: the edit scope, and the audience port's facts from the wire.</summary>

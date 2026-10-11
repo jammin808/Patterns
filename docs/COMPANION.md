@@ -208,7 +208,8 @@ working and lacks the one action.
 **The pairing token, version 3.5.0.** A desk with a pairing token set (Remote page, TRUST) runs a
 verb only from a connection that presented it. The connection's config gains a **Pairing token**
 field; when it is filled the module sends `AUTH <token>` straight after `HELLO`, and the desk
-answers `OK paired`. Without one nothing more is said, and an open desk needs nothing. A refusal
+answers `OK paired` (round 87, module 3.18.0: the module answers the desk's `NONCE` with `AUTH-PROOF`
+instead, and the token stays off the network — see the round 87 section). Without one nothing more is said, and an open desk needs nothing. A refusal
 over trust — `ERR not paired` when the desk asks for a token the config lacks, `ERR wrong token`
 when it is not this desk's — sets the connection's status to bad config with the words, so the
 Companion UI says what to type rather than a key going quietly dead; `$(patterns:last_error)`
@@ -466,6 +467,18 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `rotate_left` / `rotate_right` step the level the desk reported (`audio_level_step`,
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
+
+## Round 87 — pairing by proof, and the show network (module 3.18.0)
+
+- **The token never crosses the network.** A desk with a pairing token says `NONCE <hex>` right after its greeting;
+  with the **Pairing token** field filled the module answers `AUTH-PROOF <hex>` — HMAC-SHA256 with the token (no
+  dashes or spaces, upper case) as the key over the nonce and this connection's label (the HELLO name) — and the desk
+  answers `OK paired`. A desk before round 87 says no nonce: plain `AUTH <token>` follows after a second and a half,
+  as before. A round 87 desk takes plain `AUTH` from its own machine only, so a deck on another machine needs 3.18.0.
+- **The show network as variables**: `$(patterns:showbus_heard)` (other show apps heard on UDP 9928),
+  `$(patterns:stagewatch_state)` (off, live, stale, gone), `$(patterns:stagewatch_name)`,
+  `$(patterns:stagewatch_headline)` (the linked Stagewatch's own headline), `$(patterns:stagewatch_light)` and
+  `$(patterns:stage_follows)` (the Stagewatch the stage timer follows, or empty).
 
 ## Round 86 — the clip's transport (module 3.17.0)
 

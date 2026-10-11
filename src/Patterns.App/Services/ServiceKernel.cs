@@ -66,6 +66,20 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
     public BeaconService Beacon { get; }
 
+    /// <summary>Round 87: this install's id on the show network — the same across restarts, kept beside the settings.</summary>
+    public string ShowBusId { get; }
+
+    string IBeaconHost.TlsFingerprint => State.Control.Enabled ? Tls.Fingerprint : "";
+
+    /// <summary>Round 87: the link to a Stagewatch (Show Bus 1.1) — its timer, its context, its clock.</summary>
+    public StagewatchLinkService Stagewatch { get; }
+
+    /// <summary>Round 88 (Show Bus 1.2 §10): this install's certificate for the web remote's TLS, made at the first start.</summary>
+    public TlsCertificateService Tls { get; }
+
+    /// <summary>Round 87: a Stagewatch frame or context landed, or the link came or went (UI thread): the stage pages read again.</summary>
+    public event Action? StagewatchChanged;
+
     IBeaconIdentity IMdnsHost.BeaconIdentity => Beacon;
 
     ShowFacts IAssistantHost.Facts() => Facts();
@@ -138,7 +152,15 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         Startup.Begin(StartupBudget.ProcessStartedAt);
         if (StartupBudget.ProcessStartedAt != 0) Startup.Mark(StartupBudget.Avalonia);
 
+        var firstRun = preloaded is null && !File.Exists(Store.SettingsPath) && !File.Exists(Store.SettingsPath + ".bak");
         State = preloaded ?? Store.Load();
+        // Round 87: a desk's first run is paired from the start (fail closed) — the token is on the Remote page, TRUST.
+        // A settings file that exists keeps its choice, open included; a node's pages stay as they were.
+        if (PairingToken.ForFirstRun(firstRun, profile == NodeKind.Desk) is { Length: > 0 } token)
+        {
+            State.Control.Token = token;
+            Log.Info("First run: this desk is paired from the start — the pairing token is on the Remote page, TRUST.");
+        }
         Startup.Mark(StartupBudget.Settings);   // already marked by Main when it read them: kept as Main's
         State.Blackout = false;
         State.Tone.Enabled = false;             // a tone must never auto-start with the app
@@ -156,13 +178,23 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
         AssistantKeys = new AssistantKeyStore(Store.BaseDirectory);
         Assistant = new AssistantService(this, AssistantKeys);
+        ShowBusId = ShowBusIdentity.LoadOrCreate(Store.BaseDirectory);   // round 87: before the beacon, whose hello says it
         Beacon = new BeaconService(this);
+        Tls = new TlsCertificateService(Store.BaseDirectory, Beacon.MachineName);
+        // Round 87: the link to a Stagewatch — off until the Nodes page turns it on; the nodes' poll reconciles it each second.
+        Stagewatch = new StagewatchLinkService(() => State.Control.Stagewatch, now => Beacon.ShowBus.Snapshot(now), () => StagewatchChanged?.Invoke())
+        {
+            SelfId = ShowBusId,                                                 // round 88: the id this desk posts its context and its proposals under
+            SelfName = Beacon.MachineName,
+        };
         Mdns = new MdnsService(this);
         Nodes = new NodesService(this);
     }
 
     public void Dispose()
     {
+        Stagewatch.Dispose();
+        Tls.Dispose();
         Mdns.Dispose();
         Beacon.Dispose();
     }

@@ -28,9 +28,13 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 > **Trust.** The Remote page's TRUST block decides who may run the show (round 65). With no
 > pairing token set, anyone on the network can control the show while remote control is enabled —
 > the trust model of most stage-control protocols — and Super Check's Remote row reads amber for
-> it. With a token set, a connection presents it before the desk runs a mutating verb:
-> `AUTH <token>` on the wire (the Companion module sends it after `HELLO` from its **Pairing
-> token** field), the `X-Patterns-Token` header on the web (the phone, run, stage, pad, admin and
+> it. With a token set, a connection proves it before the desk runs a mutating verb: on the wire
+> (round 87) the desk says `NONCE <hex>` as its second line and the connection answers
+> `AUTH-PROOF <hex>` — HMAC-SHA256 with the token (no dashes or spaces, upper case) as the key over
+> the nonce followed by the name it gave in `HELLO`, lowercase hex — so the token itself never
+> crosses the network (the Companion module 3.18.0 does this from its **Pairing token** field);
+> plain `AUTH <token>` is taken from the desk's own machine only. A new desk is paired from its
+> first run (round 87): the token is on the Remote page, TRUST. On the web, the `X-Patterns-Token` header (the phone, run, stage, pad, admin and
 > multiview pages ask for it once and keep it in the browser, as a header for their calls and as the
 > cookie `patterns-token` for their pictures). On the wire, reading — `STATE`, `STATUS`, `PING`,
 > `HELLO`, `CUE LIST`, the `MENU` queries — never needs it: a TCP line is not a browser, and a
@@ -44,8 +48,11 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 > on each machine — secrets do not travel the link), so type the same token into a standby for it
 > to answer the same remotes after a handover. **Bind to** puts the web remote, the wire and OSC on
 > one address — the control network's, on a desk with two — so the audience network never sees the
-> control ports. OSC has no session to pair, so the token never covers it: Super Check paints an
-> open OSC port amber until it is bound or off. Turn remote control off
+> control ports. OSC has no session to pair, so the token cannot cover it directly: on a desk with
+> no token Super Check paints an open OSC port amber until it is bound or off; on a paired desk
+> (round 87) OSC's verbs are taken only from this machine, from an address that proved the token
+> on the wire or the web in the last twelve hours, or from the Remote page's **OSC ALLOW** list —
+> its questions (`/patterns/ping`, `/patterns/status`) stay open, as the wire's do. Turn remote control off
 > on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`, `UPDATE APPLY` and
 > the `/admin` page — sits behind the Install page's passcode (`docs/INSTALLS.md`), which rides in
 > the `X-Patterns-Pass` header and never in a URL.
@@ -199,9 +206,14 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `MENU SCREEN <n>` / `MENU PGM` / `MENU PREVIEW` / `MENU CUE <number\|name\|standby>` / `MENU LOOK <name>` / `MENU LT <n\|name>` / `MENU PERSON <name>` / `MENU LAYER 1\|2` / `MENU CLOCK` (`LOGO`, `MESSAGE`, `PIP`, `WEATHER`, `BADGE`, `INFO`, `COUNTDOWN`) / `MENU MONITOR` / `MENU TRANSPORT` | `OK <json>` — the right-click menu the desk would show for that thing, as the desk builds it now: `kind`, `subject`, `title`, `subtitle`, `tone`, `hue`, then `groups[]` (`heading`, `tone`, `note`) of `entries[]` — each with `id`, `text`, `detail`, `scope` (preview, live, stack, go, ask), `tone`, `wire` (the line that does it, "" when the wire has no word), `because` (why it cannot be chosen now; `enabled` false), `on` (the tick), `page` and `item` for a go-to, `question` for an ask, and `children[]` for a drawer. A tablet or a script offers the desk's own choices and sends the entry's `wire` back; the desk's own edits (a cue's look, a layer's source, a tile's ARM) have no wire line yet and are the desk's to press. Round 73: every menu ends with a `MIDI` group (scope `learn`) — a `midi.learn` drawer whose children are the menu's own wire lines with `wire` = `MIDI LEARN <line>` (`on` when a control is bound or the learn waits for it; `detail` names the control), a `midi.forget:…` entry per bound line and `midi.learn.off` while a learn waits; `MENU TRANSPORT` is the RUN surface's own buttons (GO, standby, HOLD, BLACKOUT, STOP ALL, NEXT, BACK) as a menu. Round 74: every entry carries `menu` (the MENU words that open the thing's own menu — `MENU LOOK Walk-in` on a look's entry) and `takesText` (true when the line holds a `*` where a deck's text goes); the cue menu gains "Delete this cue" and the look menu "Delete this look" (`because` names the cues that still use it). `MENU PAGE <name>` (a page's header, or a rail's name for its first page) answers the page's own menu — a group per kind of thing on it (its looks, cues, designs, people, kinds, presets, media, screens, overlays, tracks, games), each entry with its line, its tick and its `menu` words; a BUILD group of the page's build verbs (`LOOK SAVE *`, `LOOK UPDATE`, `CUE ADD *`, `PRESET SAVE *`, an `LT NEW * FROM <preset>` drawer) with `takesText`; and a GO TO group (`NAV <page>`, and `NAV SETTINGS TOGGLE` where the page has a column) — so a deck lays a page out from the desk's own facts. Every reply carries `protocol` (round 75), the descriptor's version. Bare `MENU` is the programme's; a stranger answers `ERR` with what MENU takes |
 | `STOPALL` | Stops the audio track, break music, any VOG or stinger (a clip or a held frame reverts, no ending runs) and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
-| `AUTH <token>` | Presents the show's pairing token (Remote page, TRUST): `OK paired`, `ERR wrong token …`, or `OK open …` on a desk that asks for none. Five wrong tokens close the connection; a mutating verb before it answers `ERR not paired …` |
+| `AUTH <token>` | Presents the show's pairing token (Remote page, TRUST): `OK paired`, `ERR wrong token …`, or `OK open …` on a desk that asks for none. Five wrong tokens close the connection; a mutating verb before it answers `ERR not paired …`. Round 87: from the desk's own machine only — another machine answers `ERR plain AUTH is for this machine only …` and proves the token with `AUTH-PROOF` |
+| `AUTH-PROOF <hex>` | Round 87: proves the token without sending it — `hex` = lowercase hex of HMAC-SHA256(key = the token as compared, upper case without dashes or spaces; message = the connection's nonce followed by its `HELLO` name, "" before a HELLO). `OK paired`, `ERR wrong token` (counted with AUTH's five), `OK open …` on a desk that asks for none. A nonce answers one proof, right or wrong: after a wrong one the desk says a fresh `NONCE <hex>` line |
+| `NONCE` | Round 87: `OK <hex>` — a fresh nonce for this connection's next `AUTH-PROOF`. A paired desk also says `NONCE <hex>` unasked as the second line of every connection, right after the greeting STATE |
+| `CONTEXT` | Round 87: `OK <json>` — this desk in Show Bus 1.1's shared context shape (`docs/SHOWBUS.md` §6): `v`, `node` (`t` patterns, `id` this install's, `name`), `at`, `light` (the worst of the desk's own things), `headline` (the Eye's), `items` and `links` (the Eye's nodes and edges — another app's things are left out, that app says them), `recent` (the journal's last twenty rows in words), `commands` (the verbs a peer or an assistant may propose, each with `risk` low, review or high) and `peers` (the other show apps heard, one hop). No token, no key. `GET /api/context` on the web, with the token as `/api/state` wants it |
+| `@<id> <line>` | Round 87 (Show Bus 1.1 §3): any line may carry a request id (1–32 of letters, digits, `-`, `_`); every answer to it names the id after its first word — `OK @a1 …`, `ERR @a1 …` — so a sender matches an answer to the line it sent. A line starting `@` with an id that is not one is refused unrun. `/api/cmd` takes the same prefix in its body and gives the id back as `"id"` |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
+| `PING <t1>` | Round 87 (Show Bus 1.1 §5): the clock exchange — `OK PONG <t1> <t2> <t3>`: the caller's stamp echoed, then the desk's Unix milliseconds when it read the line and when it answered (the show clock: never steps back). With t4 when the answer lands, offset = ((t2 − t1) + (t3 − t4)) / 2 |
 | `TWIN STATUS` | `OK <json>` — the twin link: `role` (off, main, standby), `phase` (listening, connecting, inStep, mainSilent, tookOver, refused), `words` (the Machine page's line), `main` (the main's name as a standby knows it), `standbys` (the names a main has in step), `holder` (the standby that has the show, or empty), `launcher` (what the standby process the main runs is doing, or empty), `takeOverCue` and `takeBackCue` (the wall switch cues, or empty), `clock` (the peer's clock against this desk's as the beats measured it — `offsetMs`, `roundTripMs`, `samples`, `apart` past two seconds, `followed` on a caller or a timer whose room clock reads the desk's frame, and its `roomOffsetMs` — or null before an exchange closed), `clocks` (on a main: each peer's `name`, `offsetMs` and `apart`), `handover` (the last handover run here — `id`, `kind` takeOver or takeBack, `shape` sameMachine or acrossMachines, `stage`, `complete`, `stopped` with the reason, `awaiting` — the standby's answer to the hand-back, overdue or not, or the operator's switch, or empty — and the `trail` of stages with its stops, resumptions and notes — or null). The hand-back is answered: HANDBACK carries the handover's id, the standby answers RELEASED by it after closing its outputs, and the main counts the standby released on that answer (or, on one machine, its marker gone or its process gone), never on the line having been written; a claim made under a takeover the main already took back is answered with the hand-back again, not a hold. A takeover by itself needs a fence that answers: the wall-switch cue must send to a box that confirms at Accepted or better; a take-back whose route nobody's box vouches for is two presses, the room switched by hand between them. A main needs a key: one with none is given one before its port opens, and a join that cannot prove it is refused whatever it claims. Every BEAT carries its sender's wall clock and the echo of the last beat heard — its stamp and the arrival — so each side measures the other's clock as NTP does, believes the exchange with the shortest round trip, and says on its line when the clocks are two seconds apart; a caller or a stage timer node reads the desk's absolute times on the desk's clock. The key is never on the wire (link version 2): a joiner's JOIN carries a nonce, the main answers CHALLENGE with a nonce of its own and its proof of the key over the joiner's, and the joiner answers PROOF over the main's — a main that cannot prove the key gets no proof and no standby. The SHOW and SECTION lines carry the mirrored sections only — the twin's key, the admin passcode, the management token, the remote's ports and the machine's other own sections never travel — and the show's credentials (a projector's password, the weather key) travel unless the main's TWIN block says not to send them, in which case the standby keeps the ones typed on it |
 | `TWIN TAKEOVER` | The standby twin runs the show from here: the takeover is marked on disk, a hung main on this machine is ended and confirmed gone, its hold on the outputs lifts, what the main had on air goes on with the caller's place, and the wall switch cue (Machine page, TWIN) fires — `ERR` on a desk that is not a standby, and `ERR` with the reason when the hung main cannot be ended or the takeover cannot be marked on disk (the outputs stay held). A cue that sends to a box that answers is confirmed by the box's receipt, not by having fired: the outputs open once it has said yes (the verb answers `OK` as requested and the words follow on the status line); by itself, a box that said no or nothing refuses the takeover and the hold stays, and a box that cannot answer at all (a UDP datagram) is not a fence for taking over by itself |
 | `TWIN TAKEOVER FORCE` | The same over a refusal: taken over anyway, the reason in the words — by hand only; nothing takes over by itself this way |
@@ -580,5 +592,59 @@ listen on (Stagewatch, its presenter PCs, a messenger such as AGMessage):
   what the show is, a caller reads from STATE with the pairing token like any remote.
 - It goes out only while the wire is on, and only for a wire the network can reach: a wire bound to
   loopback says nothing; a wire bound to one address says hello from that address alone.
-- Another app's hellos are not heard here: the Nodes page stays the beacon's.
+- Round 87: the hello gains Show Bus 1.1's words — `host`, `ports` (`http`, `wire`, `osc`: only those served),
+  `clock` (Unix ms as sent), `inst` (this process, which a machine ignores coming back) — and `id` is now this
+  install's, kept beside the settings (`patterns.node-id`), so a renamed desk is still the same node. The old
+  top-level `web`, `wire` and `machine` stay for a reader from round 86. It goes to this machine's loopback too.
+
+## Show Bus 1.2 (round 88): nodes, TLS, the approval queue
+
+- **HTTPS on the control HTTP port.** The port reads the connection's first byte: a TLS handshake (`0x16`) gets TLS
+  with this install's certificate (ECDSA P-256, self-signed, made at the first start, its key sealed with DPAPI on
+  Windows); anything else is plain HTTP as before. The hello says `"tls":"sha256:<64 hex>"` and `ports.https` (the same
+  port). `GET /tls` — the fingerprint and how to trust the certificate on each kind of device; `GET /tls.cer` — the
+  certificate (DER, no key). **Require HTTPS** (Remote page, `Control.RequireHttps`, off by default): plain HTTP from
+  another machine answers `403` with the way to `https://`; this machine may stay plain. Exempt: the audience port
+  (plain HTTP; phones cannot be asked to trust a certificate), the wire and the twin link (L55).
+- **The Stagewatch link over TLS.** When Stagewatch's hello names a certificate the link dials `wss://`/`https://` and
+  pins the certificate per Stagewatch (`node:<id>`, or `addr:<host>:<port>` for a typed address) on its first
+  authenticated answer. A different certificate later is refused — CERTIFICATE CHANGED on the Nodes page and the Eye —
+  until ACCEPT on the Nodes page. A certificate that is not the one the hello names is refused.
+- **The approval queue (Stagewatch's cap `approvals`; a `node` key).** Every 5 s the desk posts its own context to
+  `POST /api/peers/context`. Every 2 s it posts waiting proposals to `POST /api/proposals` (`{"from":{"t":"patterns",
+  "id":<this install's id>,"name"},"target":{"t":"patterns","id":<the same>},"line":"APPLY <local id>: <kind> \"<title>\"",
+  "reason","risk":"review"}`), reads `GET /api/proposals?from=<id>` and `GET /api/proposals?target=<id>&state=approved`,
+  runs each approved one once and answers `POST /api/proposals/<id>/result` with `{"ok":true|false,"words":"…"}`. An
+  approved line that is not an `APPLY` of this desk's runs through the wire's own path, its refusals intact.
+- **Nodes.** `CONTEXT` / `/api/context` on a caller, timer or arcade node answer the node's own context; a follower
+  sends it to its desk over the twin (`CONTEXT <json>`, every 5 s) and the desk's Eye draws it as a "Patterns node".
+  The desk relays the Stagewatch it follows to its followers (`STAGEWATCH <json>`, once a second: the frame and its
+  age, never a key or an address).
+
+## The show network (round 87, Show Bus 1.1)
+
+The contract between Patterns, Stagewatch, AGMessage and their micro-apps is `docs/SHOWBUS.md` (the master copy
+is Stagewatch's). What Patterns does with it:
+
+- **Hears every hello on UDP 9928** (a shared port: Stagewatch and AGMessage may listen on the same machine), on
+  the control bind address when one is set. Each app is kept by its id and door: live while heard, stale after
+  6 s of silence, gone after 12 s, forgotten after a minute. The Nodes page's THE SHOW NETWORK lists them (teal
+  Stagewatch, violet AGMessage, sky a Slides agent), the Eye draws them on its CONTROL plane (heard grey, stale
+  amber, gone red, linked with the app's own light), the context's `peers` and the assistant's brief read them.
+  Another Patterns is left to the beacon's node cards.
+- **Links to a Stagewatch** (Nodes page; off by default; with no address it follows the first Stagewatch it
+  hears). The desk opens Stagewatch's WebSocket (`ws://host:port/ws?cid=patterns&page=/patterns`) with the key
+  (a Stagewatch API key, `swk_…`) in an `Authorization: Bearer` header — never in the URL — and reads its state
+  frames; every two seconds it sends `{"cmd":"ping","t":…}` (the beat and the clock exchange) and every five it
+  reads `GET /api/context` with the same header. Stale after 6 s of silence (the stage holds its time back), dropped
+  and redialled after 12 s, the redial from half a second to five with jitter. The key is a secret by its name
+  (`Control.Stagewatch.ApiKey`): masked in every bundle, never mirrored to a twin.
+- **One room, one timer.** While a linked Stagewatch answers, `/stage`, `/timer`, STAGE STATUS, STATE's `stage`
+  block and the stage timer node show its time, its colours and its title; the pages say "following Stagewatch
+  Hall A". `TIMER PAUSE`, `RESUME` and `ADD` are refused then ("run it there"); STAGE messages stay this desk's.
+  A Stagewatch whose frame says its show is stuck (`live:false`) shows no time rather than a frozen one.
+- **STATE's `bus` row** (at the end): `heard`, `apps[]` (`kind`, `id`, `name`, `light`, `headline`) and
+  `stagewatch` (`on`, `state` off / live / stale / gone, `name`, `following`, `title`, `text`, `light`,
+  `headline`, `clock`, `words`). The module reads `showbus_heard`, `stagewatch_state`, `stagewatch_name`,
+  `stagewatch_headline`, `stagewatch_light` and `stage_follows`.
 

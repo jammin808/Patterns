@@ -34,6 +34,10 @@ public enum EyeKind
     AudioOut,
     Room,
     Stream,
+    /// <summary>Round 87: another show app heard on the show network (Stagewatch, AGMessage, a Slides agent).</summary>
+    ShowApp,
+    /// <summary>Round 87: one of another app's own things, drawn from the context it publishes (a Stagewatch's timer, its departments).</summary>
+    ShowAppItem,
 }
 
 /// <summary>What a link of the Eye is: the word between the two things it joins.</summary>
@@ -126,6 +130,18 @@ public sealed class EyeFacts
     public IReadOnlyList<EyeAudioRoute> AudioRoutes { get; init; } = Array.Empty<EyeAudioRoute>();
     public EyeStack? Stack { get; init; }
     public EyeAssistant? Assistant { get; init; }
+    /// <summary>Round 87: the other show apps heard on the show network's hello (UDP 9928), with what each one's context says when this desk reads it.</summary>
+    public IReadOnlyList<EyeShowApp> ShowApps { get; init; } = Array.Empty<EyeShowApp>();
+}
+
+/// <summary>
+/// Round 87: another show app — its kind's words ("Stagewatch"), its id, its name, where it stands on the network
+/// (live, stale, gone), whether this desk is linked to it, and — when its context is read — its light, its headline,
+/// its things and its own peers. Its things are drawn as its own nodes; its light is its own context's, never a guess.
+/// </summary>
+public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBusState State, bool Linked, string Words)
+{
+    public ShowContext? Context { get; init; }
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -190,7 +206,8 @@ public sealed record EyeDeck(string Name, string Module, string Address, bool Pa
 public sealed record EyeCompanion(string Host, string Address, bool Fresh, string Version);
 
 /// <summary>OSC as the Eye sees it (round 79: <paramref name="Bind"/> is the address the control ports are bound to, "" for every interface — OSC cannot pair, so an unbound port is amber).</summary>
-public sealed record EyeOsc(int Port, string Words, string Bind = "");
+/// <summary>OSC in: its port, its words, its bind; round 87: whether the desk is paired (then OSC's verbs come only from paired machines or the allow-list).</summary>
+public sealed record EyeOsc(int Port, string Words, string Bind = "", bool Paired = false);
 
 /// <summary>The twin link as this process sees it: Role "main" / "standby" / "" (alone), the other machine's name, the phase's words and light.</summary>
 public sealed record EyeTwin(string Role, string Phase, string OtherName, string Words, CheckLight Light);
@@ -695,7 +712,7 @@ public sealed class EyeGraph
             // Round 79: OSC has no session to pair, so the show's token never covers it — open on every interface it is
             // amber with the way out, as the super-check's row is; bound to the control network's address it is green.
             var problem = BindAddress.Problem(osc.Bind);                                     // round 85: a bind that is not an address closes the port
-            var open = osc.Bind.Length == 0;
+            var open = osc.Bind.Length == 0 && !osc.Paired;                                  // round 87: a paired desk takes OSC's verbs only from paired machines
             var light = problem.Length > 0 ? CheckLight.Red : open ? CheckLight.Amber : CheckLight.Green;
             Add(new EyeNode("osc", EyeKind.Osc, EyePlane.Control, 0, "OSC", $"port {osc.Port}" + (osc.Words.Length > 0 ? " · " + osc.Words : ""), light)
             {
@@ -704,7 +721,9 @@ public sealed class EyeGraph
                     ? new[] { $"closed — {problem}; the port opens when the Remote page's Bind to is an address or empty" }
                     : open
                         ? new[] { "open on every interface — OSC cannot pair, so the token does not cover it; bind the control ports to the control network's address, or turn OSC in off when it is not needed" }
-                        : new[] { $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" },
+                        : osc.Paired
+                            ? new[] { "OSC cannot pair, so on this paired desk its verbs come only from machines that proved the token on the wire or the web, or the Remote page's OSC ALLOW list; its questions stay open" }
+                            : new[] { $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" },
             });
             Link("osc", DeskId, EyeEdgeKind.Controls, light);
         }
@@ -747,6 +766,57 @@ public sealed class EyeGraph
             Add(new EyeNode(id, EyeKind.Node, EyePlane.Control, 2, $"{kind} {n.Name}".Trim(), sub, light) { Words = new[] { kind + " node", n.Words }.Where(w => w.Length > 0).ToList(), Route = new MenuRoute("Nodes") });
             if (n.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, n.Fresh ? "linked" : "gone quiet");
             else Link(id, DeskId, EyeEdgeKind.Hears, light, n.Fresh ? "heard on the beacon" : "gone quiet");
+        }
+
+        // Round 87: the other show apps, and the things a linked one's context names. Heard and not linked is grey (as a
+        // node heard on the beacon); stale amber; gone red; linked with a context, the context's own light and headline.
+        foreach (var app in f.ShowApps.OrderBy(a => a.KindWords, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var id = "app:" + app.Id;
+            if (ids.Contains(id)) continue;
+            var ctx = app.Context;
+            var light = app.State switch
+            {
+                ShowBusState.Gone => CheckLight.Red,
+                ShowBusState.Stale => CheckLight.Amber,
+                _ => ctx is not null ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
+            };
+            var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
+            var sub = ctx is not null && app.State == ShowBusState.Live && ctx.Headline.Length > 0 ? ctx.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
+            var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
+            if (app.Words.Length > 0) words.Add(app.Words);
+            if (ctx is not null)
+            {
+                foreach (var r in ctx.Recent.TakeLast(3)) words.Add(r.Text);
+                foreach (var peer in ctx.Peers.Take(6)) words.Add($"hears {ShowBusPeers.KindWords(peer.Kind)} {peer.Name} — {peer.Light}{(peer.Headline.Length > 0 ? ": " + peer.Headline : "")}");
+            }
+            Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light) { Words = words, Route = new MenuRoute("Nodes") });
+            if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, app.State == ShowBusState.Live ? "linked" : state);
+            else Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state);
+            if (ctx is null || app.State == ShowBusState.Gone) continue;
+            // Its own things, one tier out — at most a dozen, the reds and ambers first, so a busy app does not drown the picture.
+            var items = ctx.Items.OrderByDescending(i => ShowContext.LightOf(i.Light) == CheckLight.Red).ThenByDescending(i => ShowContext.LightOf(i.Light) == CheckLight.Amber).Take(12).ToList();
+            var itemIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in items)
+            {
+                var itemId = $"{id}:{item.Id}";
+                if (!itemIds.Add(item.Id) || ids.Contains(itemId)) continue;
+                var itemLight = ShowContext.LightOf(item.Light);
+                Add(new EyeNode(itemId, EyeKind.ShowAppItem, EyePlane.Control, 3, item.Label.Length > 0 ? item.Label : item.Id, item.State, itemLight)
+                {
+                    Words = new[] { $"{app.KindWords} {app.Name}: {item.Kind}", item.State }.Where(w => w.Length > 0).ToList(),
+                    Route = new MenuRoute("Nodes"),
+                });
+            }
+            var linked = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var l in ctx.Links)
+            {
+                if (!itemIds.Contains(l.From) || !itemIds.Contains(l.To) || !Enum.TryParse<EyeEdgeKind>(l.Kind, true, out var kind)) continue;
+                Link($"{id}:{l.From}", $"{id}:{l.To}", kind, ShowContext.LightOf(l.Light));
+                linked.Add(l.From);
+                linked.Add(l.To);
+            }
+            foreach (var item in itemIds.Where(i => !linked.Contains(i))) Link(id, $"{id}:{item}", EyeEdgeKind.Serves, CheckLight.Grey);
         }
 
         // Sound: sources, outputs, the routes between them.

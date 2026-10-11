@@ -83,6 +83,8 @@ public static class SupportBundle
         // Round 79: where every clip was when the desk last wrote it, and the quality ladder's settled level — the two
         // sidecars a "the video came back from the wrong place" or "the effects looked coarse" report is read with.
         PlayheadStore.FileName, QualityProfileStore.FileName,
+        // Round 87: this install's id on the show network — what another app's logs name this desk by.
+        ShowBusIdentity.FileName,
     };
 
     /// <summary>

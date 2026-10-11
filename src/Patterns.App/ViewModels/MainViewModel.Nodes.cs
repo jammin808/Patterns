@@ -30,15 +30,30 @@ public sealed partial class MainViewModel
 
     public string NodesIdentity => _services.Nodes.Identity;
 
+    /// <summary>Round 87: the other show apps heard on the show network.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<ShowAppCard> ShowApps => _services.Nodes.ShowApps;
+
+    /// <summary>Round 87: the show network's line and the Stagewatch link's words.</summary>
+    public string ShowBusLine => _services.Nodes.ShowBusLine;
+
     public string NodesLinkWords => _services.Twin.Status;
+
+    /// <summary>Round 88: the Stagewatch's certificate changed and waits for ACCEPT.</summary>
+    public bool HasPendingCertificate => _services.Kernel.Stagewatch.PendingFingerprint.Length > 0;
+
+    private RelayCommand? _acceptCertificate;
+
+    public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _services.Kernel.Stagewatch.AcceptPendingCertificate());
 
     /// <summary>On the desk's tick: the beacons onto the cards, the rail's word when it moved.</summary>
     private void PollNodes()
     {
         _services.Nodes.Poll();
-        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}";
+        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}";
         if (now == _nodesSeen) return;
         _nodesSeen = now;
+        Raise(nameof(ShowBusLine));
+        Raise(nameof(HasPendingCertificate));
         Raise(nameof(NodesWord));
         Raise(nameof(NodesLine));
         Raise(nameof(NodesHue));

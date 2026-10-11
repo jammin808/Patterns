@@ -287,6 +287,8 @@ public sealed partial class MainViewModel
         EyeKind.AudioSource => "audio source",
         EyeKind.AudioOut => "audio output",
         EyeKind.Room => "audience room",
+        EyeKind.ShowApp => "show app",
+        EyeKind.ShowAppItem => "another app's",
         _ => "stream",
     };
 }

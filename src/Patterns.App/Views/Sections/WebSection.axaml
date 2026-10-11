@@ -43,6 +43,10 @@
       <TextBlock Classes="hint tip"
                  Text="With a token set, a remote presents it before the desk runs its verbs: Companion's connection has a Pairing token field (the module sends AUTH after HELLO); the phone, run, stage and pad pages ask for it once and keep it. Reading — STATE, STATUS, the pages themselves — never needs it, and this machine's own browsers never do. NEW TOKEN cuts every paired remote off until it is typed again. Bind to the control network's address on a desk with two networks, and the audience network never sees these ports. Super Check's Remote row reads amber while the desk is open on every interface." />
 
+      <CheckBox Content="Require HTTPS from other machines (https:// on the same port; this machine may stay plain)" IsChecked="{Binding State.Control.RequireHttps}"
+                ToolTip.Tip="Round 88: plain http:// and plain WebSockets from another machine are refused. Every tablet must trust this desk's certificate first — open /tls on it. The audience port is exempt (phones cannot be asked to trust a certificate)" />
+      <TextBlock Classes="label" Text="{Binding TlsText}" TextWrapping="Wrap" />
+
       <TextBlock Classes="h2" Text="COMPANION" />
       <CheckBox Content="Announce this desk on the network (mDNS) — Companion lists it under 'Desk on the network', no address to type" IsChecked="{Binding State.Control.Announce}"
                 ToolTip.Tip="On by default. Off, a Companion connection needs this machine's IP typed in; nothing else changes" />
@@ -85,6 +89,11 @@
                  ToolTip.Tip="Every change sends one bundle of /patterns/state/… messages here (the tablet running TouchOSC, the desk running Companion); replies to a command go to whoever sent it either way" />
         <NumericUpDown Grid.Column="7" Minimum="1" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
                        Value="{Binding State.Control.OscFeedbackPort, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The port the feedback host listens on" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding State.Control.OscEnabled}" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="OSC ALLOW" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding State.Control.OscAllow, Mode=TwoWay}" Watermark="addresses OSC may move the show from on a paired desk — 10.0.0.9, 10.0.0.12"
+                 ToolTip.Tip="OSC cannot pair. With a pairing token set, its verbs come only from this machine, from a machine that proved the token on the wire or the web, or from an address listed here; its questions (PING, STATUS) stay open. Empty: only the paired machines" />
       </Grid>
       <TextBlock Classes="label" Text="{Binding OscStatus}" TextWrapping="Wrap" />
       <TextBlock Classes="hint tip"

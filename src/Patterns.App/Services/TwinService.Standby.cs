@@ -160,6 +160,10 @@ public sealed partial class TwinService
                 _lastHeardUtc = now;
                 if (IsFollowerNode) AdoptLive(msg.Payload);
                 break;
+            case TwinWord.Stagewatch:
+                _lastHeardUtc = now;
+                if (IsFollowerNode) AdoptStagewatch(msg.Payload);
+                break;
             case TwinWord.Refused:
                 _phase = TwinPhase.Refused;
                 _note = msg.Payload;

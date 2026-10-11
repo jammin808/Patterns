@@ -19,8 +19,14 @@ public enum RemoteCommandKind
     Status,
     /// <summary>"HELLO FOH deck" — the connection names itself (Text); history reads "GO from FOH deck". Nothing runs.</summary>
     Hello,
-    /// <summary>"AUTH &lt;token&gt;" — the connection presents the show's pairing token (Text). Answered by the port that holds the connection, never the router; nothing runs.</summary>
+    /// <summary>"AUTH &lt;token&gt;" — the connection presents the show's pairing token (Text). Answered by the port that holds the connection, never the router; nothing runs. Round 87: from this machine only.</summary>
     Auth,
+    /// <summary>Round 87: "AUTH-PROOF &lt;hex&gt;" — the token proved against the connection's nonce (Text): HMAC-SHA256(token, nonce + HELLO name). Answered by the port; nothing runs.</summary>
+    AuthProof,
+    /// <summary>Round 87: NONCE — a fresh nonce for this connection's next AUTH-PROOF. Answered by the port.</summary>
+    Nonce,
+    /// <summary>Round 87: CONTEXT — this desk in Show Bus 1.1's shared shape (docs/SHOWBUS.md §6), for another app's assistant or Eye.</summary>
+    Context,
     /// <summary>CUE LIST — the caller's stack as JSON rows.</summary>
     CueList,
     /// <summary>TWIN STATUS — the twin link's role, phase and words as JSON.</summary>
@@ -257,7 +263,11 @@ public static class ControlProtocol
             case "NEXT": return Act(ShowActionKind.PresenterNext);
             case "PREV": case "BACK": return Act(ShowActionKind.PresenterPrev);
             case "STATUS": return Query(RemoteCommandKind.Status);
-            case "PING": return Query(RemoteCommandKind.Ping);
+            // Round 87: "PING <t1>" is the clock exchange (ClockPing); a bare PING is answered as before.
+            case "PING": return Query(RemoteCommandKind.Ping, arg);
+            case "NONCE": return arg.Length == 0 ? Query(RemoteCommandKind.Nonce) : Unknown(s);
+            case "AUTH-PROOF": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.AuthProof, arg);
+            case "CONTEXT": return arg.Length == 0 || arg.Equals("STATUS", StringComparison.OrdinalIgnoreCase) ? Query(RemoteCommandKind.Context) : Unknown(s);
             // "STOPALL" as one token: an older build parses "STOP ALL" as STOP and closes the outputs.
             case "STOPALL": return Act(ShowActionKind.StopAll);
             case "HELLO": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.Hello, arg);

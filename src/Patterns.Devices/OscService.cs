@@ -59,6 +59,14 @@ public sealed class OscService : IDisposable
     /// <summary>Messages whose handling threw since the port opened: each was answered with /patterns/error and the listener carried on.</summary>
     public long MessageFaults => Interlocked.Read(ref _messageFaults);
 
+    private long _refused;
+
+    /// <summary>Round 87: verbs refused because the desk is paired and the sender is not (nothing ran).</summary>
+    public long Refused => Interlocked.Read(ref _refused);
+
+    /// <summary>Round 87: this machine's own senders need no proof — the wire's rule (ControlService.TrustLoopback); the tests turn it off.</summary>
+    public static bool ControlTrustsLoopback { get; set; } = true;
+
     /// <summary>Where feedback goes once the host resolved; null = nowhere.</summary>
     public IPEndPoint? FeedbackEndpoint => _feedback;
 
@@ -250,6 +258,16 @@ public sealed class OscService : IDisposable
             return;
         }
         var cmd = ControlProtocol.Parse(line);
+        // Round 87: OSC cannot pair. On a desk with a token its verbs come only from this machine, from an address that
+        // proved the token on the wire or the web, or from one on the allow-list; its queries (PING, STATUS) stay open.
+        var control = _services.State.Control;
+        if (!ControlProtocol.IsQuery(cmd) && !OscGate.Allows(control.Token, from.Address, ControlTrustsLoopback, _services.PairedAddresses(), control.OscAllow))
+        {
+            Interlocked.Increment(ref _refused);
+            _lastLine = $"{m} → {line} → refused: not paired";
+            Reply(from, OscMessage.Of("/patterns/error", OscGate.NotPaired));
+            return;
+        }
         var response = await _router.ExecuteAsync(cmd, new ActionOrigin(OriginKind.Osc, "", from.ToString()));
         _lastLine = $"{m} → {line} → {Shorten(response)}";
         if (cmd.Kind == RemoteCommandKind.Ping)

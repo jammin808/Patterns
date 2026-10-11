@@ -124,8 +124,9 @@ public class PairingTokenTests
     }
 
     /// <summary>
-    /// Round 79: OSC has no session, so the token never covers it — an open OSC port is amber with the fix even on
-    /// a paired desk, green with the reason once the control ports are bound, and no row at all while OSC is off.
+    /// Round 79: OSC has no session, so the token never covers it — an open OSC port is amber with the fix, green with
+    /// the reason once the control ports are bound, and no row at all while OSC is off. Round 87: on a paired desk OSC's
+    /// verbs come only from machines that proved the token another way (OscGate), so open there is green with that reason.
     /// </summary>
     [Fact]
     public void TheOscRowSaysThePortCannotPairAndWhatKeepsItToTheControlNetwork()
@@ -135,7 +136,13 @@ public class PairingTokenTests
         Assert.Null(Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true }));
         Assert.Null(Row(new CheckFacts { RemoteEnabled = false, OscOpen = true, OscPort = 9698 }));
 
-        var open = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698 });
+        var paired = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698 });
+        Assert.NotNull(paired);
+        Assert.Equal(CheckLight.Green, paired!.Light);
+        Assert.Equal("port 9698 · verbs from paired machines only", paired.Value);
+        Assert.Contains("cannot pair", paired.Note);
+
+        var open = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = false, OscOpen = true, OscPort = 9698 });
         Assert.NotNull(open);
         Assert.Equal(CheckLight.Amber, open!.Light);
         Assert.Equal("port 9698 · open on every interface", open.Value);

@@ -905,6 +905,19 @@ fault containment, and settings that can never brick startup.
   1:23` / `VIDEO SEEK END 5`; STATE's `video` row carries the clock in milliseconds with `paused`, `rate`
   and a `seq` that moves on every jump, so Stagewatch counts a VT down by itself; a hello on UDP 9928
   tells the show network where the wire is.
+  Round 87: **the show network** (Show Bus 1.1, [`docs/SHOWBUS.md`](docs/SHOWBUS.md)) — the desk hears every other
+  show app's hello and lists it on the Nodes page and the Eye; it links to a Stagewatch (Nodes page) and the stage
+  pages follow its timer — one room, one timer — while the Eye draws its departments and timer from the context it
+  publishes and the assistant reads them; `CONTEXT` and `/api/context` give this desk to another app's assistant in the
+  same shape; every wire line may carry `@id` and its answer names it; `PING <t1>` is a clock exchange. The pairing token
+  never crosses the network (`NONCE` / `AUTH-PROOF`), a new desk is paired from its first run, OSC's verbs on a paired
+  desk come only from paired machines or the OSC ALLOW list, and the watchdog ends a hung desk in ten seconds while the
+  outputs are live (thirty otherwise).
+  Round 88: **Show Bus 1.2** — a desk relays the Stagewatch it follows to its timer and caller nodes; every node answers
+  `CONTEXT` with its own summary and the desk's Eye draws it; the web remote serves **HTTPS on the same port** with a
+  certificate made at the first start (Remote page: Require HTTPS; `/tls` says how to trust it), the Stagewatch link
+  pins Stagewatch's certificate (a change is refused until ACCEPT); and with a Stagewatch approval desk linked, the
+  assistant's proposals are approved there and land here.
 - **Field research, the operational review and the multi-core answer** — round 12 went to the
   places operators talk (ControlBooth, the vMix, Resolume and NewTek forums, the QLab list, AVS
   Forum, the Companion issue tracker, the production companies' own field guides) and wrote up the

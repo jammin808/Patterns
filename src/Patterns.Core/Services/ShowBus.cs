@@ -18,13 +18,16 @@ public sealed record ShowBusHello
     /// <summary>How often a hello goes out: the other apps forget a node after a few missed.</summary>
     public static readonly TimeSpan Every = TimeSpan.FromSeconds(2);
 
-    /// <summary>What this machine can do for another app — the verbs and rows a caller may rely on.</summary>
-    public static readonly string[] Capabilities = { "video.clock", "video.end", "video.seek", "video.transport", "state" };
+    /// <summary>
+    /// What this machine can do for another app — the verbs and rows a caller may rely on. Round 87 adds Show Bus 1.1's
+    /// words (docs/SHOWBUS.md §2): video, the Eye, a context any app's assistant can read, receipts and the clock exchange.
+    /// </summary>
+    public static readonly string[] Capabilities = { "video", "video.clock", "video.end", "video.seek", "video.transport", "state", "eye", "context", "receipts", "clock" };
 
     /// <summary>The kind of node: "patterns" (other apps' kinds are "main" for Stagewatch, "agent", "messenger").</summary>
     [JsonPropertyName("t")] public string Kind { get; init; } = "patterns";
     [JsonPropertyName("v")] public int Version { get; init; } = 1;
-    /// <summary>A random id per process (the beacon's instance), so a machine ignores its own hello.</summary>
+    /// <summary>Round 87: this install's id (<see cref="ShowBusIdentity"/>), the same across restarts so a renamed desk is still the same node.</summary>
     [JsonPropertyName("id")] public string Id { get; init; } = "";
     /// <summary>How the machine names itself — the beacon's name.</summary>
     [JsonPropertyName("name")] public string Name { get; init; } = "";
@@ -36,8 +39,18 @@ public sealed record ShowBusHello
     /// <summary>The role: desk, caller, arcade, timer.</summary>
     [JsonPropertyName("role")] public string Role { get; init; } = "";
     [JsonPropertyName("caps")] public string[] Caps { get; init; } = Capabilities;
-    /// <summary>The wire's version as other apps read it.</summary>
+    /// <summary>The wire's version as other apps read it: 1 is Show Bus 1.1's contract.</summary>
     [JsonPropertyName("proto")] public int Proto { get; init; } = 1;
+    /// <summary>Round 87: the machine's name under Show Bus 1.1's word for it (the same as <see cref="Machine"/>).</summary>
+    [JsonPropertyName("host")] public string Host { get; init; } = "";
+    /// <summary>Round 87: the doors, by Show Bus 1.1's names — http, wire, osc; only those served.</summary>
+    [JsonPropertyName("ports")] public ShowBusPorts Ports { get; init; } = new();
+    /// <summary>Round 87: this machine's Unix time in ms as it sent the hello — a first rough offset; the clock exchange is the real one.</summary>
+    [JsonPropertyName("clock")] public long Clock { get; init; }
+    /// <summary>Round 87: this process (the beacon's instance), so a machine ignores its own hello coming back.</summary>
+    [JsonPropertyName("inst")] public string Instance { get; init; } = "";
+    /// <summary>Round 88 (Show Bus 1.2 §10): the fingerprint of this desk's certificate when the web remote serves TLS; absent otherwise.</summary>
+    [JsonPropertyName("tls")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Tls { get; init; }
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
 

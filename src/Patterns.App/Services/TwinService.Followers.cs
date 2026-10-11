@@ -200,7 +200,20 @@ public sealed partial class TwinService
             Log.Warn("Twin: the live word could not be written.", ex);
             return;
         }
-        _ = Task.Run(() => { foreach (var c in callers) if (!c.TryWrite(line)) Drop(c); }, CancellationToken.None);
+        // Round 88 (closes L51): the Stagewatch this desk follows, to its followers — the frame and its age, no key.
+        var relay = TwinMessage.Format(TwinWord.Stagewatch, StagewatchRelay.Of(_services.FollowedStagewatch, ShowClock.Seconds, Interlocked.Increment(ref _relaySeq)).ToJson());
+        _ = Task.Run(() => { foreach (var c in callers) if (!c.TryWrite(line) || !c.TryWrite(relay)) Drop(c); }, CancellationToken.None);
+    }
+
+    private long _relaySeq;
+
+    private readonly Dictionary<string, (string Name, ShowContext Context, DateTime AtUtc)> _nodeContexts = new(StringComparer.Ordinal);
+
+    /// <summary>Round 88 (closes L52): each linked node's own context as it last said it (UI thread), by its instance; forgotten a minute after it stops.</summary>
+    public IReadOnlyList<(string Name, ShowContext Context, DateTime AtUtc)> NodeContexts(DateTime utcNow)
+    {
+        foreach (var gone in _nodeContexts.Where(kv => utcNow - kv.Value.AtUtc > ShowBusLiveness.ForgetAfter).Select(kv => kv.Key).ToList()) _nodeContexts.Remove(gone);
+        return _nodeContexts.Values.ToList();
     }
 
     /// <summary>A line from a caller on the link (UI thread): its edit lands, its verb runs, its plan is kept for APPLY.</summary>
@@ -208,6 +221,11 @@ public sealed partial class TwinService
     {
         switch (msg.Word)
         {
+            case TwinWord.Context:
+            {
+                if (ShowContext.Parse(msg.Payload) is { } context) _nodeContexts[caller.Instance] = (caller.Name, context, DateTime.UtcNow);
+                return;
+            }
             case TwinWord.Section:
             {
                 if (!caller.IsCaller || !TwinSync.IsCallerSection(msg.Name))
@@ -321,6 +339,44 @@ public sealed partial class TwinService
     {
         var stored = Plans.FirstOrDefault(p => p.Instance == offer.Instance);
         if (stored is not null) Plans.Remove(stored);
+    }
+
+    private StagewatchRelay? _relay;
+    private double _relayAt;
+
+    /// <summary>Round 88 (closes L51): the Stagewatch the desk follows, as this node sees it through the relay (stale once the relay stops).</summary>
+    public StagewatchSight RelayedStagewatch => _relay is { } r && IsFollowerNode ? r.ToSight(_relayAt, ShowClock.Seconds) : StagewatchSight.None;
+
+    /// <summary>A node: the desk's relay landed.</summary>
+    private void AdoptStagewatch(string json)
+    {
+        if (StagewatchRelay.Parse(json) is not { } relay) return;
+        var was = _relay;
+        _relay = relay;
+        _relayAt = ShowClock.Seconds;
+        if (was is null || was.Frame?.Seq != relay.Frame?.Seq || was.State != relay.State) _services.StagewatchRelayed();
+    }
+
+    private double _contextSentAt = double.NegativeInfinity;
+
+    /// <summary>A node: its own context to the desk every five seconds while in step (the desk's Eye draws it).</summary>
+    private void SendMyContext()
+    {
+        if (!IsFollowerNode || _phase != TwinPhase.InStep || _stream is null || ShowClock.Seconds - _contextSentAt < 5) return;
+        _contextSentAt = ShowClock.Seconds;
+        string? json;
+        try
+        {
+            json = _services.OwnContextJson();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or JsonException)
+        {
+            Log.Warn("Twin: this node's context could not be written.", ex);
+            return;
+        }
+        if (json is null) return;
+        var line = TwinMessage.Format(TwinWord.Context, json);
+        _ = Task.Run(() => TryWriteToMain(line), CancellationToken.None);
     }
 
     /// <summary>A caller: the desk's stack as it runs there onto this desk's runtime, so the Run surface here reads the desk's standby, ARM and HOLD.</summary>

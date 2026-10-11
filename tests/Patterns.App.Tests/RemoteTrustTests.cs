@@ -85,7 +85,7 @@ public class RemoteTrustTests
             {
                 var line = Pump(_reader.ReadLineAsync());
                 Assert.NotNull(line);
-                if (!line!.StartsWith("STATE ")) return line;
+                if (!line!.StartsWith("STATE ") && !line.StartsWith("NONCE ")) return line;   // round 87: a paired desk's nonce is not an answer
             }
         }
 
@@ -95,7 +95,7 @@ public class RemoteTrustTests
             while (true)
             {
                 var line = Pump(_reader.ReadLineAsync());
-                if (line is null || !line.StartsWith("STATE ")) return line;
+                if (line is null || (!line.StartsWith("STATE ") && !line.StartsWith("NONCE "))) return line;
             }
         }
 

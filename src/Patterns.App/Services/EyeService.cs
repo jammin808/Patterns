@@ -584,7 +584,7 @@ public sealed class EyeService
             Companions = companions,
             WireClients = Math.Max(0, _s.Control.WireConnections - decks.Count),
             WebClients = _s.Control.HttpConnections,
-            Osc = state.Control.OscEnabled ? new EyeOsc(state.Control.OscPort, _s.Osc.StatusLine, state.Control.Bind) : null,   // round 79: the bind decides its light
+            Osc = state.Control.OscEnabled ? new EyeOsc(state.Control.OscPort, _s.Osc.StatusLine, state.Control.Bind, PairingToken.Needed(state.Control.Token)) : null,   // round 79: the bind decides its light; round 87: pairing gates its verbs
             Twin = twin,
             Nodes = nodes,
             Room = room,
@@ -595,6 +595,7 @@ public sealed class EyeService
             AudioRoutes = audioRoutes,
             Stack = stack,
             Assistant = new EyeAssistant(hasKey, hasKey ? "ready" : ""),
+            ShowApps = _s.ShowApps(DateTime.UtcNow),                                                     // round 87: the other show apps, and a linked Stagewatch's things
         };
     }
 

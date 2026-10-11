@@ -55,6 +55,14 @@ public interface INodesPage
     RelayCommand<TwinService.PlanOffer> DismissPlanCommand { get; }
     RelayCommand<NodeCard> LinkNodeCommand { get; }
     RelayCommand<NodeCard> OpenNodePagesCommand { get; }
+    /// <summary>Round 87: the other show apps heard on the show network (Stagewatch, AGMessage, Slides agents).</summary>
+    ObservableCollection<ShowAppCard> ShowApps { get; }
+    /// <summary>Round 87: how many apps are heard, and what the Stagewatch link is doing.</summary>
+    string ShowBusLine { get; }
+    /// <summary>Round 88: the Stagewatch's certificate changed and the link refuses it until ACCEPT.</summary>
+    bool HasPendingCertificate { get; }
+    /// <summary>Round 88: ACCEPT — the changed certificate becomes the pin.</summary>
+    RelayCommand AcceptCertificateCommand { get; }
 }
 
 /// <summary>What the Run surface asks of the view model it lives in: a line for the status strip, and the editor a row's OPEN IN EDITOR goes to.</summary>

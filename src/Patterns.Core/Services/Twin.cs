@@ -40,6 +40,14 @@ public enum TwinWord
     Proof,
     /// <summary>A standby → main: it closed its outputs and cleared its marker for the hand-back named — the handover id as the payload. The main's "old owner released" is this line, never the HANDBACK having been written.</summary>
     Released,
+    /// <summary>
+    /// Round 88 (closes L51): main → a follower, once a second with the live word: the Stagewatch the desk follows, as
+    /// <see cref="StagewatchRelay"/> JSON — the frame and its age, never a key or an address. A node with no link of its
+    /// own shows the same time the desk does.
+    /// </summary>
+    Stagewatch,
+    /// <summary>Round 88 (closes L52): a follower → main, every five seconds: its own context (Show Bus §6) — the desk's Eye draws its nodes from these.</summary>
+    Context,
 }
 
 /// <summary>
@@ -73,6 +81,8 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "CHALLENGE" => TwinWord.Challenge,
             "PROOF" => TwinWord.Proof,
             "RELEASED" => TwinWord.Released,
+            "STAGEWATCH" => TwinWord.Stagewatch,
+            "CONTEXT" => TwinWord.Context,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";

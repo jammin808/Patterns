@@ -41,6 +41,9 @@ public interface IOscHost : IShowHost
     IRouter Router { get; }
 
     ICueStackEvents? CueStackEvents { get; }
+
+    /// <summary>Round 87: the addresses that proved the show's token on the wire or the web lately — on a paired desk OSC moves the show only from those (or the allow-list).</summary>
+    IReadOnlyCollection<string> PairedAddresses() => Array.Empty<string>();
 }
 
 /// <summary>Who this process is on the network: the beacon's name for the machine and the instance minted at this start.</summary>
@@ -63,6 +66,15 @@ public interface IBeaconHost
     IAirReport Air { get; }
 
     ILinkReport Link { get; }
+
+    /// <summary>Round 87: this install's id on the show network (<see cref="ShowBusIdentity"/>); "" says the process's instance stands in.</summary>
+    string ShowBusId => "";
+
+    /// <summary>Round 88 (Show Bus 1.2 §10): the fingerprint of the web remote's certificate, "" when it serves no TLS.</summary>
+    string TlsFingerprint => "";
+
+    /// <summary>Round 88 (Show Bus 1.2 §11): this process can collect approved proposals from a desk — it says "approvals" is understood.</summary>
+    bool ApprovalsClient => false;
 }
 
 /// <summary>What the DNS-SD responder asks of the process: the show, the role, the link, who the beacon says we are, and the build's version for the advert.</summary>

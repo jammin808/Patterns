@@ -10,7 +10,7 @@ import { variableDefinitions } from '../src/variables.js'
 import { variableValues, emptyState } from '../src/state.js'
 import { connectionTarget, configFields, GROUPS } from '../src/config.js'
 import { COLOURS, STATES, style } from '../src/palette.js'
-import { MODULE_VERSION, pairingToken, trustProblem } from '../src/main.js'
+import { MODULE_VERSION, pairingToken, trustProblem, authProof } from '../src/main.js'
 import { NAV_SLOTS } from '../src/nav.js'
 
 const manifest = JSON.parse(readFileSync(new URL('../companion/manifest.json', import.meta.url), 'utf8'))
@@ -37,10 +37,22 @@ test('the module boots on the real base, says HELLO with its label and version, 
 	assert.ok(!Array.isArray(b.ctx.variableDefs), 'variable definitions are an object, as base 2 wants')
 })
 
-test('a pairing token in the config is presented with AUTH straight after HELLO; without one nothing more is said; a refusal over trust is a bad-config status with the words', async () => {
+test('a pairing token in the config answers the desk\'s NONCE with AUTH-PROOF (round 87), falls back to plain AUTH for an older desk; without one nothing more is said; a refusal over trust is a bad-config status with the words', async () => {
 	const paired = await boot({ config: { host: '10.0.0.5', port: 9697, token: ' k7qm-3xwd-p9ra ' } })
 	assert.equal(paired.lines()[0], `HELLO FOH deck module=${MODULE_VERSION}`)
-	assert.equal(paired.lines()[1], 'AUTH k7qm-3xwd-p9ra')
+	assert.ok(!paired.lines().some((l) => l.startsWith('AUTH')), 'nothing until the nonce, or the wait')
+	paired.socket.receive('STATE {}\nNONCE 00ff00ff00ff00ff00ff00ff00ff00ff\n')
+	const proof = paired.lines().find((l) => l.startsWith('AUTH-PROOF '))
+	assert.equal(proof, 'AUTH-PROOF ' + authProof('k7qm-3xwd-p9ra', '00ff00ff00ff00ff00ff00ff00ff00ff', 'FOH deck'))
+	assert.equal(authProof('k7qm-3xwd-p9ra', 'n', 'FOH deck'), authProof('K7QM3XWDP9RA', 'n', 'FOH deck'), 'dashes and case do not matter')
+	assert.match(proof, /^AUTH-PROOF [0-9a-f]{64}$/)
+	assert.ok(!paired.lines().some((l) => l.startsWith('AUTH k7qm')), 'the token itself never goes out to a desk that sent a nonce')
+	// An older desk sends no nonce: plain AUTH after the wait.
+	const older = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' } })
+	older.inst.nonceWaitMs = 0
+	older.socket.emit('status_change', InstanceStatus.Ok)
+	await new Promise((r) => setTimeout(r, 30))
+	assert.ok(older.lines().includes('AUTH k7qm-3xwd-p9ra'), 'the fallback for a desk before round 87')
 	const open = await boot()
 	assert.ok(!open.lines().some((l) => l.startsWith('AUTH')), 'no token, no AUTH')
 	assert.equal(pairingToken({}), '')
@@ -576,4 +588,20 @@ test('round 80 — a desk on the descriptor the module knows raises no warning a
 	await tick()
 	assert.equal(b.ctx.variables.desk_protocol, '1')
 	assert.ok(!b.ctx.statuses.some((s) => s.status === InstanceStatus.UnknownWarning))
+})
+
+test('round 87 — the show network and the Stagewatch link read as variables, and an older desk without the row reads the rest values', async () => {
+	const b = await boot()
+	const s = { ...JSON.parse(JSON.stringify(b.inst.state)), stage: { ...(b.inst.state.stage ?? {}), follows: 'Hall A' }, bus: { heard: 2, apps: [], stagewatch: { on: true, state: 'live', name: 'Hall A', headline: 'Keynote — 12:30 left', light: 'amber' } } }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.showbus_heard, '2')
+	assert.equal(b.ctx.variables.stagewatch_state, 'live')
+	assert.equal(b.ctx.variables.stagewatch_name, 'Hall A')
+	assert.equal(b.ctx.variables.stagewatch_headline, 'Keynote — 12:30 left')
+	assert.equal(b.ctx.variables.stagewatch_light, 'amber')
+	assert.equal(b.ctx.variables.stage_follows, 'Hall A')
+	const old = await boot()
+	assert.equal(old.ctx.variables.stagewatch_state, 'off')
+	assert.equal(old.ctx.variables.showbus_heard, '0')
+	assert.ok(old.ctx.variableDefs.stagewatch_headline, 'defined for the host')
 })

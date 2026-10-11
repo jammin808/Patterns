@@ -133,10 +133,11 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>On the tick: the words as they move.</summary>
     public void Poll()
     {
-        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}";
+        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}";
         if (now != _seen)
         {
             _seen = now;
+            Raise(nameof(HasPendingCertificate));
             Raise(nameof(ArcadeWords));
             Raise(nameof(ArcadeStatus));
             Raise(nameof(ArcadeBoard));
@@ -147,6 +148,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             Raise(nameof(NodesIdentity));
             Raise(nameof(NodesLinkWords));
             Raise(nameof(PlanWords));
+            Raise(nameof(ShowBusLine));
         }
         if (_host.HasRoom) PollRoom();
         if (HasRun)
@@ -306,6 +308,19 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     public string PlanWords => _host.Kind == NodeKind.Caller ? CuePlan.Count(State.Stacks) : "";
 
     public ObservableCollection<NodeCard> Nodes => _host.Kernel.Nodes.Nodes;
+
+    /// <summary>Round 87: the other show apps heard on the show network.</summary>
+    public ObservableCollection<ShowAppCard> ShowApps => _host.Kernel.Nodes.ShowApps;
+
+    /// <summary>Round 87: the show network's line and the Stagewatch link's words.</summary>
+    public string ShowBusLine => _host.Kernel.Nodes.ShowBusLine;
+
+    /// <summary>Round 88: the Stagewatch's certificate changed and waits for ACCEPT.</summary>
+    public bool HasPendingCertificate => _host.Kernel.Stagewatch.PendingFingerprint.Length > 0;
+
+    private RelayCommand? _acceptCertificate;
+
+    public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _host.Kernel.Stagewatch.AcceptPendingCertificate());
 
     /// <summary>Plans are offered to a desk; a node holds none.</summary>
     public ObservableCollection<TwinService.PlanOffer> Plans { get; } = new();

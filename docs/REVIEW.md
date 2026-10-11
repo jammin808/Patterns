@@ -3491,3 +3491,110 @@ mute-first ask, and the crash gap's measurement on the rig.
   seconds as before); the skip — `VIDEO END 10` (unchanged) or `VIDEO SEEK END 10`.
 
 Walk: unwalked (§104.7).
+
+## Round 87 review — Show Bus 1.1 across the show network, and the watchdog quicker while live
+
+### 87.0 — the round opened
+
+- The maintainer's list across Stagewatch, Patterns and AGMessage, with a handed-in assessment of this tree and the
+  three apps' links (§105.1). The contract, `docs/SHOWBUS.md`, copied from Stagewatch's master. `docs/field/` has no files.
+
+### 87.1 — the show network heard
+
+- **Done.** §105.2. `ShowBusPeers`, `ShowBusLiveness`, `ShowBusIdentity`, the hello's `host` / `ports` / `clock` /
+  `inst`, the 9928 listener in `BeaconService`, `ShowBusView`, `EyeShowApp` and the Eye's two kinds, the Nodes page's
+  THE SHOW NETWORK, `ShowAppCard`.
+- **Found on the way:** the hello's `id` was the process's instance, so another app saw a new node on every restart;
+  it is now the install's, and the instance rides as `inst`.
+
+### 87.2 / 87.3 — receipts and the clock exchange
+
+- **Done.** §105.3. `WireReceipt`, `ClockPing`, the wire handler's `Reply`, `/api/cmd`'s `"id"`, the router's timed PING.
+
+### 87.4 — the context
+
+- **Done.** §105.4. `ShowContext`, `ShowContextBuilder`, `CONTEXT`, `/api/context`, `IRouter.ContextJsonAsync`.
+
+### 87.5 — pairing by proof
+
+- **Done.** §105.5. `WireProof`, `NONCE` / `AUTH-PROOF`, `PlainAuthOnLoopback`, the module 3.18.0.
+- **Answered:** the greeting is unchanged on an open desk (no nonce), so a round-86 reader is not broken there; on a
+  paired desk the module ignores lines it does not know, and the wire's own tests skip the nonce as they skip STATE.
+
+### 87.6 — the Stagewatch link
+
+- **Done.** §105.6. `StagewatchLinkService`, `StagewatchFrame`, `StagewatchSight`, `StageFollow`,
+  `IStageHost.FollowedStagewatch`, the stage pages' follow line and colours, STATE's `bus` row, the module's six
+  variables, `ShowFacts.ShowNetwork`.
+- **Found and fixed on the way:** a WebSocket message was first gathered in a `MemoryStream`, which the threading
+  analyzers rightly fence (a synchronous write on an async path); it is an `ArrayBufferWriter`.
+
+### 87.7 — strengthening
+
+- **Done.** §105.7. `LiveHangTimeout`, `LiveBeat`, `BeatFor`, the beat at Normal priority; `OscGate`, `OscAllow`,
+  `PairedAddresses`; `PairingToken.ForFirstRun`; the supervisor's sleeps, clock and rotation; `StatePushGate`.
+- **Changed tests:** the wire vocabulary's list of non-action kinds (three new queries); the OSC row's test (a paired
+  desk's open OSC is now green with the gate's reason — the amber case kept for an open desk).
+
+### The review's items, answered
+
+- "1–7 across all": the contract's seven parts — discovery, receipts, frames' sequence, clock, liveness, context, keys —
+  are each in this tree where Patterns is a party (§105.2–105.6); the assessment's Patterns items are §105.7.
+- "Especially the Eye": another app's things are drawn on the Eye from its own published context, lit by its own
+  lights; the Eye's rule holds — the picture is computed, the assistant reads it.
+- "If AI is offline": everything but the assistant's reading of it (§105.6).
+
+Walk: unwalked (`docs/QUALIFICATION.md` §26).
+
+## Round 88 review — Show Bus 1.2: nodes on the show network, TLS with pins, the approval queue
+
+### 88.0 — the round opened
+
+- The maintainer's list: timer nodes and the Stagewatch link, a node's own summary, HTTPS on the web pages, a shared
+  approval queue (§106.1). The contract moved to Show Bus 1.2 in Stagewatch's master; copied here.
+
+### 88.1 — the relay (L51)
+
+- **Done.** §106.2. `TwinWord.Stagewatch`, `StagewatchRelay`, `StageSightChoice`, `TwinService.RelayedStagewatch`,
+  `NodeHost.FollowedStagewatch`.
+
+### 88.2 — a node's own context (L52)
+
+- **Done.** §106.3. `NodeContextBuilder`, `NodeContextFacts`, `NodeRouter.ContextJsonAsync`, `TwinWord.Context`,
+  `TwinService.NodeContexts`, `ShowBusView.Nodes`.
+
+### 88.3 — TLS on the web remote (L53, the web's half)
+
+- **Done.** §106.4. `TlsIdentity`, `TlsFingerprint`, `TlsSniff`, `TlsCertificateService`, `TlsPage`, the hello's
+  `tls` and `ports.https`, `Control.RequireHttps`, the Remote page's HTTPS line.
+- **Found and fixed on the way:** a plain request refused under Require HTTPS before its head was read was seen by
+  the client as a reset, not a 403 — the refusal now reads the request first.
+- **Found and fixed by the same reading:** the web remote's "busy" 503 (a port's ceiling) was written before the
+  request was read, so on Windows the client saw a reset, never the 503 it should retry on — round 87's
+  `TheWebRemoteKeepsSoManyConnectionsFromOneAddressAndSaysBusyWithA503`, recorded then as this machine's, was this.
+  `WriteBusyAsync` now reads the head (briefly, bounded) first; the test passes here.
+- **This machine's, as in round 87:** `TheControlWiresLinesAndTheTwinsFirstLineAreBoundedToo` and
+  `ALineThatNeverLeftIsSentAgainOnceAndThenTheNodeIsCalledUnreachable` (the twin's and the node wire's), and the two
+  audio-device tests; five more failed only under the whole suite's load and pass alone.
+
+### 88.4 — the link over TLS, pinned
+
+- **Done.** §106.5. `CertificatePins`, `PinVerdict`, `Control.Stagewatch.Pins` (a `ShowCollection` — the snapshot
+  fence caught a plain list on the way), ACCEPT on the Nodes page, the Eye card's CERTIFICATE CHANGED.
+
+### 88.5 — the approval queue as a client
+
+- **Done.** §106.6. `DeskProposals`, `DeskApprovals`, the link's queue, `AssistantPage`'s send, `RunApprovedLine`.
+- **Answered:** the desk never holds this desk's proposal or credentials: it sees words and an id; the apply is local.
+
+### The review's items, answered
+
+- "Timer nodes don't pass on the Stagewatch link": the desk relays the frame; a node with a link of its own keeps it.
+- "Don't publish a summary of their own": every node answers CONTEXT and sends it to its desk's Eye.
+- "No encrypted connections": the web remote serves TLS on its port with a pinned self-signed certificate; the wire's
+  half is L55.
+- "No shared approval queue": Patterns sends its assistant's proposals to a Stagewatch approval desk and runs what it
+  approves.
+
+Walk: unwalked (`docs/QUALIFICATION.md` §27).
+

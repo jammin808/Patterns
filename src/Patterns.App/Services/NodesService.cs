@@ -54,6 +54,8 @@ public sealed class NodesService
     /// <summary>From the desk's poll, once a second: the beacons heard onto the cards.</summary>
     public void Poll()
     {
+        _s.Stagewatch.Reconcile();                                                 // round 87: the Stagewatch link follows its settings
+        PollShowApps();
         var now = DateTime.UtcNow;
         var cards = NodeRegistry.Order(_s.Beacon.Peers().Select(p => NodeRegistry.Card(p.Beacon, p.From.Address, p.HeardUtc, now)));
         Fresh = cards.Count(c => c.Fresh);
@@ -63,6 +65,31 @@ public sealed class NodesService
         Rev++;
         Nodes.Clear();
         foreach (var c in cards) Nodes.Add(c);
+    }
+
+    /// <summary>Round 87: the other show apps heard on the show network (UDP 9928), as the Nodes page lists them.</summary>
+    public ObservableCollection<ShowAppCard> ShowApps { get; } = new();
+
+    private string _appsSeen = "";
+
+    /// <summary>Round 87: the show network's line — how many apps are heard, and the Stagewatch link's words.</summary>
+    public string ShowBusLine { get; private set; } = "";
+
+    private void PollShowApps()
+    {
+        var now = DateTime.UtcNow;
+        var apps = ShowBusView.Apps(_s.Beacon.ShowBus.Snapshot(now), now, _s.Stagewatch.Sight);
+        var cards = apps.Select(ShowAppCard.Of).ToList();
+        var link = _s.Stagewatch;
+        var extra = string.Join(" ", new[] { link.TlsWords, link.ApprovalWords }.Where(w => w.Length > 0).Select(w => w.EndsWith('.') ? w : w + "."));
+        var line = ShowAppCard.NetworkLine(cards.Count, _s.Beacon.HearingShowBus, link.Status) + (extra.Length > 0 ? " " + extra : "");   // round 88: TLS and the approval desk
+        var key = line + "|" + string.Join("|", cards.Select(c => c.Key));
+        if (key == _appsSeen) return;
+        _appsSeen = key;
+        ShowBusLine = line;
+        Rev++;
+        ShowApps.Clear();
+        foreach (var c in cards) ShowApps.Add(c);
     }
 
     /// <summary>Moves when the cards change — a deck's node keys are pushed on it.</summary>
