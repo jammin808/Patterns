@@ -3598,3 +3598,16 @@ Walk: unwalked (`docs/QUALIFICATION.md` §26).
 
 Walk: unwalked (`docs/QUALIFICATION.md` §27).
 
+
+### 88.1 — found after the push
+
+- **A closed desk was rooted by a static.** The CI lifecycle job (PATTERNS_LIFECYCLE_STRICT, 100 boots) read `desks = 1`
+  after a closed boot. A heap walk from the census's survivor found one root: a strong handle → the statics' array →
+  `Func<bool>` → `AppServices` — round 87's `WatchdogBeat.Live = () => OutputsLive || CueStack?.Armed == true`, never
+  released. Fixed beside the other statics that let go at `Shutdown()` (the desk keeps its hook and resets the static
+  only if it is still its own). The lifecycle test passes strict over 100 cycles on this machine. The census is the
+  fence: any new static that captures the desk fails it.
+- **The arcade test assumed an instant pause.** `ArcadeService.Key` holds a press and the engine reads it at its next
+  step, so `/api/arcade` may answer "playing" for one step after START. The test now waits (bounded, 15 s, with the last
+  status as its failure words) for "paused". The product is unchanged; the same test failed on round 86's build machine
+  for the same reason.

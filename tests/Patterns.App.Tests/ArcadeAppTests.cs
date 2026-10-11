@@ -128,7 +128,16 @@ public class ArcadeAppTests
             var pressed = TestApp.Pump(client.PostAsync("api/arcade/key", new StringContent("2 START DOWN")).ContinueWith(t => t.Result.Content.ReadAsStringAsync().Result));
             Assert.Contains("\"ok\":true", pressed);
             Assert.True(services.Arcade.Pressed(1).HasFlag(PadButtons.Start));
-            Assert.Contains("\"phase\":\"paused\"", TestApp.Pump(client.GetStringAsync("api/arcade")));   // START mid-match pauses
+            // START mid-match pauses — at the engine's next step (a press is held, the step reads it), so a slow build
+            // machine may answer one status before it: the status is waited for, bounded, never assumed instant.
+            var arcadeStatus = "";
+            bool Paused()
+            {
+                arcadeStatus = TestApp.Pump(client.GetStringAsync("api/arcade"));
+                return arcadeStatus.Contains("\"phase\":\"paused\"");
+            }
+            PumpUntil(Paused, () => arcadeStatus);
+            Assert.Contains("\"phase\":\"paused\"", arcadeStatus);
             TestApp.Pump(client.PostAsync("api/arcade/key", new StringContent("2 START UP")));
 
             // Pause and resume by the verbs, the house, and the title card; NDI asks for a runtime this machine may not have — a status, never a fault.

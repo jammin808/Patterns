@@ -26,6 +26,10 @@ is the Bitfocus Companion module, where its version moved.
 - **The shared approval queue.** With a Stagewatch approval desk linked (a node key), the assistant's proposals go there
   and land here once approved; another app's approved wire line runs through the wire's own fences.
 - Unwalked (`docs/QUALIFICATION.md` §27).
+- **88.1, after the push (the build machine's lifecycle job):** a closed desk stayed alive — round 87's watchdog hook
+  (`WatchdogBeat.Live`, a static) held a closure over the desk; the desk now lets go of it at shutdown, and the
+  lifecycle census is back at nought over 100 boots. The arcade test waits (bounded) for the pause START causes at the
+  engine's next step instead of assuming it is instant — the build machine answered one status before the step.
 
 ## Round 87 — 2026-10-11 — Show Bus 1.1: the show network heard, the Stagewatch link, receipts, the clock exchange, pairing by proof; the watchdog quicker while live
 
