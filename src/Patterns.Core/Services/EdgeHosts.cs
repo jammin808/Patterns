@@ -41,9 +41,6 @@ public interface IOscHost : IShowHost
     IRouter Router { get; }
 
     ICueStackEvents? CueStackEvents { get; }
-
-    /// <summary>Round 87: the addresses that proved the show's token on the wire or the web lately — on a paired desk OSC moves the show only from those (or the allow-list).</summary>
-    IReadOnlyCollection<string> PairedAddresses() => Array.Empty<string>();
 }
 
 /// <summary>Who this process is on the network: the beacon's name for the machine and the instance minted at this start.</summary>

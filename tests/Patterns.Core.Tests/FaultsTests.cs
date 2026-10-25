@@ -52,4 +52,30 @@ public class FaultsTests
         Assert.False(t.Note(now.AddSeconds(61)));
         Assert.Equal(5, t.Count);
     }
+
+    /// <summary>
+    /// A key is said once; at most the bound are said; the first new key past the bound answers Full once — the line that
+    /// says no more are named — and every key after it, new or said, is quiet. The set never grows past the bound.
+    /// </summary>
+    [Fact]
+    public void SaidOnceSaysEachKeyOnceUpToTheBoundThenSaysOnceThatItNamesNoMore()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SaidOnce(0));
+        var said = new SaidOnce(3);
+        Assert.Equal(3, said.Most);
+        Assert.Equal(SaidOnceAnswer.Say, said.Note("a"));
+        Assert.Equal(SaidOnceAnswer.Quiet, said.Note("a"));
+        Assert.Equal(SaidOnceAnswer.Say, said.Note("b"));
+        Assert.Equal(SaidOnceAnswer.Say, said.Note("c"));
+        Assert.Equal(SaidOnceAnswer.Full, said.Note("d"));
+        Assert.Equal(SaidOnceAnswer.Quiet, said.Note("e"));
+        Assert.Equal(SaidOnceAnswer.Quiet, said.Note("d"));
+        Assert.Equal(SaidOnceAnswer.Quiet, said.Note("a"));
+
+        var flood = new SaidOnce(64);
+        var answers = Enumerable.Range(0, 1000).Select(i => flood.Note(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"10.0.{i / 256}.{i % 256}"))).ToList();
+        Assert.Equal(64, answers.Count(a => a == SaidOnceAnswer.Say));
+        Assert.Equal(1, answers.Count(a => a == SaidOnceAnswer.Full));
+        Assert.Equal(SaidOnceAnswer.Full, answers[64]);
+    }
 }

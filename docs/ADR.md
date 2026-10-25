@@ -3,7 +3,9 @@
 One page per decision that shaped Patterns and would surprise a newcomer if it were only in the
 code. Each says what was decided, why, what it cost, and what would make us revisit it. The rounds
 that made them are in `docs/PLAN.md`; the tests that hold them are named. Numbered in the order
-they were written down (round 65), not the order they were made.
+they were written down (round 65), not the order they were made; a number a plan names for a
+decision before its record is written is held for it (ADR-016: what the wire shows before a
+connection pairs, the maintainer's call for round 91).
 
 ---
 
@@ -317,3 +319,54 @@ rule at the landing, by design): then the ticket carries the rule and the round'
 that verb is not a promise; or when a second deferred verb needs the same shape — then the ticket
 becomes the one type every deferred verb carries, not the switcher's own.
 
+## ADR-017 — A proof grants nothing to an address: on a paired desk OSC comes from this machine and OSC ALLOW
+
+**Decision.** A proof proves a key on the one connection that carried it — `AUTH-PROOF` against the
+wire's nonce, the token in the web remote's header, and whatever proof a later link speaks — and
+nothing follows from it to the address it came from: no door trusts that address for it, for an
+hour or for twelve. OSC is UDP with no session and cannot carry a proof, so on a paired desk its
+mutating verbs are taken from this machine (when the desk trusts its own, the wire's loopback rule)
+and from the addresses the operator lists on the Remote page's OSC ALLOW, and from nowhere else;
+its questions (`/patterns/ping`, `/patterns/status`) stay open, as the wire's do. The list is the
+operator's: nothing the desk hears adds to it. Each entry is one whole address, read as the bind
+address is (IPv4 in four dotted decimal parts); an entry that is not one is left out and named, never
+counted, and on a paired desk the OSC row and node are amber until it is fixed. A desk with no token
+keeps OSC open as before, kept to the control network by the bind address (ADR-003). A refused verb
+is answered on `/patterns/error` with the rule, counted on the Remote page's OSC line ("2 refused",
+the last "refused: not on OSC ALLOW") and logged once per address, at most 64 addresses, then one
+line that says no more are named; the Super Check's OSC row and the Eye's OSC node say the rule, how
+many addresses the list names, and — while the port listens on every interface — that a listed
+address is not a proof.
+
+**Why.** Round 87 let an address that proved the token on the wire or the web move the show over
+OSC for twelve hours after its last proof. On a venue network an address is not an identity: a
+DHCP lease passes it to the next laptop, a guest network or a NAT puts many machines behind one,
+and a datagram's source address is whatever its sender writes — no handshake checks it, so any
+machine on the segment could speak as a paired machine for twelve hours. The proof had proved a
+key on one TCP connection; carrying it to an address made the address the credential, which the
+doctrine's *fail closed on the wire* does not allow and the PeerLink profile's rule for every node
+(§13.18, "a proof grants nothing to an address") forbids. OSC ALLOW trusts an address too, and is
+no harder to spoof; the difference is whose decision it is — the operator's, named on the Remote
+page, the Super Check and the Eye, rather than one the desk made by itself from a proof on another
+door. The maintainer's answer ended the carry-over (round 89).
+
+**Cost.** A controller on another machine that moved the show over OSC because a deck or a page on
+that machine had paired stops at the first verb after the upgrade: it hears the refusal, the desk's
+log names its address once, and it works again when its address is on OSC ALLOW. No carry-over
+is kept for a desk mid-tour: the papers of round 89 name the change and the one-line fix. The list
+is kept on each machine, as the token is, so a standby lists its controllers before a handover. The
+bind reads its address by the same rule: a part written with a leading zero is now decimal (the
+parser had read "010" as 8) and a hex part is refused with the bind's words.
+
+**Revisit when.** OSC gains a session or a proof the desk can verify (OSC over TCP with the wire's
+pairing, a message signed with a key and a nonce): then a controller proves itself as the wire's do
+and the list becomes the fallback for the controllers that cannot; or OSC's verbs ride a proved link.
+
+**Held by.** `OscAppTests` (a machine that proved the token on the wire and on the web is refused
+over OSC from that address until it is listed; the refusal's words, the count on the status line,
+the line and one log line; questions open; this machine trusted as its own; an entry that is not an
+address named and amber), `ShowBusTests` (`OscGate.Allows` is handed no record of who proved the
+token; the list read as whole addresses, its left-out entries named; the bounded log lines),
+`FaultsTests` (`SaidOnce`: each key once, at most the bound, then one line), `PairingTokenTests` and
+`BindAddressTests` (the Super Check's OSC row and the Eye's OSC node; one address rule for the bind
+and the list).

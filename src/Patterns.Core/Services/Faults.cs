@@ -62,3 +62,55 @@ public sealed class FaultThrottle
         }
     }
 }
+
+/// <summary>What <see cref="SaidOnce.Note"/> says to write for a key.</summary>
+public enum SaidOnceAnswer
+{
+    /// <summary>Already said, or past the bound once its last line was written: write nothing.</summary>
+    Quiet,
+
+    /// <summary>The first time this key was noted, with room in the bound: write its line.</summary>
+    Say,
+
+    /// <summary>The first new key past the bound: write the one line that says later keys are no longer named.</summary>
+    Full,
+}
+
+/// <summary>
+/// The keys a log line has been written for — an address whose verb was refused, a kind of request from an address —
+/// each said once, at most <see cref="Most"/> of them. The first new key past the bound answers
+/// <see cref="SaidOnceAnswer.Full"/> once, so the log says that later keys are no longer named instead of seeming to have
+/// named them all; a flood of forged sources costs a bounded set and a bounded log. Thread-safe.
+/// </summary>
+public sealed class SaidOnce
+{
+    private readonly object _gate = new();
+    private readonly HashSet<string> _said = new(StringComparer.Ordinal);
+    private bool _full;
+
+    public SaidOnce(int most)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(most);
+        Most = most;
+    }
+
+    /// <summary>How many keys are named before the log says it names no more.</summary>
+    public int Most { get; }
+
+    /// <summary>Notes <paramref name="key"/> and says what to write for it.</summary>
+    public SaidOnceAnswer Note(string key)
+    {
+        lock (_gate)
+        {
+            if (_said.Contains(key)) return SaidOnceAnswer.Quiet;
+            if (_said.Count < Most)
+            {
+                _said.Add(key);
+                return SaidOnceAnswer.Say;
+            }
+            if (_full) return SaidOnceAnswer.Quiet;
+            _full = true;
+            return SaidOnceAnswer.Full;
+        }
+    }
+}

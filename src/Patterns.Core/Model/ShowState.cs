@@ -2329,9 +2329,11 @@ public sealed class ControlConfig : Observable
 
     private string _oscAllow = "";
     /// <summary>
-    /// Round 87: on a paired desk, the addresses OSC may move the show from besides those that paired on the wire or
-    /// the web ("10.0.0.9, 10.0.0.12"). OSC cannot pair, so a paired desk takes its verbs only from a machine that has
-    /// proved the token another way, or one named here; its queries stay open. Empty: only the paired machines.
+    /// On a paired desk, the addresses besides this machine OSC may move the show from ("10.0.0.9, 10.0.0.12"). OSC
+    /// cannot pair, and a proof on the wire or the web grants nothing to the address it came from, so a paired desk
+    /// takes OSC's verbs only from this machine or an address named here — the operator's list, which nothing the desk
+    /// hears adds to; its queries stay open. Each entry is one whole address (<see cref="Patterns.Core.Services.OscGate.Read"/>); one
+    /// that is not is left out and named. Empty: this machine only.
     /// </summary>
     public string OscAllow { get => _oscAllow; set => Set(ref _oscAllow, (value ?? "").Trim()); }
 

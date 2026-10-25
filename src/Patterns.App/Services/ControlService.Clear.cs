@@ -14,7 +14,7 @@ public sealed partial class ControlService
     /// </summary>
     private void SeenInClear(TcpClient client, string via)
     {
-        var address = PairedKey(client);
+        var address = AddressKey(client);
         if (!_kernel.TokenSeenInClear.Note(_kernel.State.Control.Token, address, via, DateTime.UtcNow)) return;
         var words = $"the pairing token arrived in clear from {address} ({TokenClearSightings.HowWords(via)}) — rotate it: NEW TOKEN (Remote page, TRUST)";
         Log.Warn("Remote: " + words + ".");

@@ -61,16 +61,22 @@ public sealed class OscService : IDisposable
 
     private long _refused;
 
-    /// <summary>Round 87: verbs refused because the desk is paired and the sender is not (nothing ran).</summary>
+    /// <summary>Verbs refused because the desk is paired and the sender is neither this machine nor on OSC ALLOW (nothing ran).</summary>
     public long Refused => Interlocked.Read(ref _refused);
 
-    /// <summary>Round 87: this machine's own senders need no proof — the wire's rule (ControlService.TrustLoopback); the tests turn it off.</summary>
+    /// <summary>The addresses whose refusal the log has named, each once, at most <see cref="OscGate.RefusedNamedMost"/>: a forged flood of sources is a bounded set and a few lines, and one line says when no more are named.</summary>
+    private readonly SaidOnce _refusedSaid = new(OscGate.RefusedNamedMost);
+
+    /// <summary>This machine's own senders need no proof — the wire's rule (ControlService.TrustLoopback); the tests turn it off.</summary>
     public static bool ControlTrustsLoopback { get; set; } = true;
 
     /// <summary>Where feedback goes once the host resolved; null = nowhere.</summary>
     public IPEndPoint? FeedbackEndpoint => _feedback;
 
-    /// <summary>The status with the counts and the last message, for the Remote page.</summary>
+    /// <summary>
+    /// The status with the counts — the verbs refused because the sender is not on OSC ALLOW among them — the entries
+    /// OSC ALLOW left out because they are not an address, and the last message: the Remote page's line, beside the list.
+    /// </summary>
     public string StatusLine
     {
         get
@@ -78,6 +84,10 @@ public sealed class OscService : IDisposable
             var s = _status;
             var received = Received;
             if (received > 0) s += $" {received} in, {Sent} out.";
+            var refused = Refused;
+            if (refused > 0) s += $" {refused} refused.";
+            var leftOut = OscGate.Read(_services.State.Control.OscAllow).LeftOut;
+            if (leftOut.Count > 0) s += $" OSC ALLOW: {OscGate.LeftOutWords(leftOut)}.";
             if (_lastLine.Length > 0) s += $" Last: {_lastLine}";
             return s;
         }
@@ -258,14 +268,16 @@ public sealed class OscService : IDisposable
             return;
         }
         var cmd = ControlProtocol.Parse(line);
-        // Round 87: OSC cannot pair. On a desk with a token its verbs come only from this machine, from an address that
-        // proved the token on the wire or the web, or from one on the allow-list; its queries (PING, STATUS) stay open.
+        // OSC cannot pair. On a desk with a token its verbs come only from this machine or an address on the allow-list —
+        // a proof on the wire or the web grants nothing to the address it came from; its queries (PING, STATUS) stay open.
         var control = _services.State.Control;
-        if (!ControlProtocol.IsQuery(cmd) && !OscGate.Allows(control.Token, from.Address, ControlTrustsLoopback, _services.PairedAddresses(), control.OscAllow))
+        if (!ControlProtocol.IsQuery(cmd) && !OscGate.Allows(control.Token, from.Address, ControlTrustsLoopback, control.OscAllow))
         {
             Interlocked.Increment(ref _refused);
-            _lastLine = WindowAddresses.RedactText($"{m} → {line} → refused: not paired");
-            Reply(from, OscMessage.Of("/patterns/error", OscGate.NotPaired));
+            _lastLine = WindowAddresses.RedactText($"{m} → {line} → refused: not on OSC ALLOW");
+            var address = OscGate.Normal(from.Address);
+            if (OscGate.RefusedLine(_refusedSaid.Note(address), address) is { } said) Log.Warn(said);
+            Reply(from, OscMessage.Of("/patterns/error", OscGate.NotListed));
             return;
         }
         var response = await _router.ExecuteAsync(cmd, new ActionOrigin(OriginKind.Osc, "", from.ToString()));

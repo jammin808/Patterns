@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Patterns.App.Services;
 using Patterns.Core.Services;
+using Patterns.Devices;
 using Xunit;
 
 namespace Patterns.App.Tests;
@@ -56,6 +59,35 @@ public class OscAppTests
             Thread.Sleep(5);
         }
         throw new TimeoutException("the message never came");
+    }
+
+    /// <summary>The next line from the wire that is not a STATE push.</summary>
+    private static string NextLine(StreamReader reader, int timeoutMs = 8000)
+    {
+        while (true)
+        {
+            var read = reader.ReadLineAsync();
+            PumpUntil(() => read.IsCompleted, timeoutMs);
+            var line = read.Result ?? throw new IOException("the wire closed");
+            if (!line.StartsWith("STATE ", StringComparison.Ordinal)) return line;
+        }
+    }
+
+    /// <summary>One request to the web remote, answered with its status line.</summary>
+    private static string HttpStatus(int port, string method, string path, params (string Name, string Value)[] headers)
+    {
+        using var client = new TcpClient();
+        var connect = client.ConnectAsync(IPAddress.Loopback, port);
+        PumpUntil(() => connect.IsCompleted);
+        using var stream = client.GetStream();
+        var head = new StringBuilder($"{method} {path} HTTP/1.1\r\nHost: localhost:{port}\r\nContent-Length: 0\r\n");
+        foreach (var (name, value) in headers) head.Append($"{name}: {value}\r\n");
+        stream.Write(Encoding.UTF8.GetBytes(head.Append("\r\n").ToString()));
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var first = reader.ReadLineAsync();
+        PumpUntil(() => first.IsCompleted);
+        var status = first.Result ?? "";
+        return status[(status.IndexOf(' ', StringComparison.Ordinal) + 1)..];
     }
 
     [AvaloniaFact]
@@ -176,6 +208,134 @@ public class OscAppTests
         }
         finally
         {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A proof grants nothing to an address (ADR-017). A machine that proved the token on the wire (AUTH-PROOF) and on the
+    /// web (the token header) is still refused over OSC from that address: the sender hears why, nothing runs, the Remote
+    /// page's line says "not on OSC ALLOW" and the log names the address once. Its questions stay open. The operator's
+    /// list lets it in; this machine moves the show when the desk trusts its own. The Super Check's OSC row and the Eye
+    /// say the rule and what the list names.
+    /// </summary>
+    [AvaloniaFact]
+    public void AProofOnTheWireOrTheWebGrantsItsAddressNothingOverOsc()
+    {
+        const string token = "K7QM-3XWD-P9RA";
+        var b = TestApp.Boot();
+        var (services, cfg) = (b.Services, b.Vm.State.Control);
+        var (trusted, plain, oscTrusted) = (ControlService.TrustLoopback, ControlService.PlainAuthOnLoopback, OscService.ControlTrustsLoopback);
+        ControlService.TrustLoopback = false;                                     // loopback plays another machine on every door
+        ControlService.PlainAuthOnLoopback = false;
+        OscService.ControlTrustsLoopback = false;
+        try
+        {
+            cfg.HttpPort = FreeTcpPort();
+            cfg.TcpPort = FreeTcpPort();
+            var oscPort = FreeUdpPort();
+            cfg.OscPort = oscPort;
+            cfg.OscEnabled = true;
+            cfg.Token = token;
+            Dispatcher.UIThread.RunJobs();
+
+            // The wire: AUTH-PROOF against this connection's nonce — paired.
+            using var wire = new TcpClient();
+            var connect = wire.ConnectAsync(IPAddress.Loopback, cfg.TcpPort);
+            PumpUntil(() => connect.IsCompleted);
+            using var stream = wire.GetStream();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var nonce = NextLine(reader);
+            Assert.StartsWith("NONCE ", nonce);
+            stream.Write(Encoding.UTF8.GetBytes("AUTH-PROOF " + WireProof.Proof(token, nonce["NONCE ".Length..], "") + "\n"));
+            Assert.Equal("OK paired", NextLine(reader));
+
+            // The web: the token in its header — answered as paired.
+            Assert.Equal("200 OK", HttpStatus(cfg.HttpPort, "GET", "/api/state", ("X-Patterns-Token", token)));
+
+            // OSC from the same address: refused, with the words; nothing ran; the line and the log say so, the log once.
+            using var sender = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+            var target = new IPEndPoint(IPAddress.Loopback, oscPort);
+            void Send(OscMessage m) => sender.Send(OscCodec.Encode(m), target);
+            var log = Path.Combine(b.Dir, "patterns.log");
+            int Said() => File.ReadAllLines(log).Count(l => l.Contains("OSC: a verb from 127.0.0.1 refused", StringComparison.Ordinal));
+            var saidBefore = Said();
+            var refusedBefore = services.Osc.Refused;
+
+            Send(OscMessage.Of("/patterns/blackout", 1));
+            var refused = Receive(sender, m => m.Address == "/patterns/error");
+            Assert.Equal(OscGate.NotListed, refused.Text());
+            Assert.False(services.State.Blackout);
+            Assert.Equal(refusedBefore + 1, services.Osc.Refused);
+            Assert.Contains("refused: not on OSC ALLOW", services.Osc.LastLine);
+            Send(OscMessage.Of("/patterns/blackout", 1));
+            Receive(sender, m => m.Address == "/patterns/error");
+            Assert.Equal(refusedBefore + 2, services.Osc.Refused);
+            Assert.Contains($" {refusedBefore + 2} refused.", services.Osc.StatusLine, StringComparison.Ordinal);   // the Remote page's line counts them
+            Assert.False(services.State.Blackout);
+            Assert.Equal(saidBefore + 1, Said());                                   // one line for the address, however often
+
+            // Its questions stay open, as the wire's do.
+            Send(OscMessage.Of("/patterns/ping"));
+            Receive(sender, m => m.Address == "/patterns/pong");
+            Send(OscMessage.Of("/patterns/status"));
+            Receive(sender, m => m.Address == "/patterns/status");
+
+            // The Super Check and the Eye: the paired desk's rule, and that the list names no one yet.
+            var row = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "OSC");
+            Assert.Equal(CheckLight.Green, row.Light);
+            Assert.Equal($"port {oscPort} · verbs from this machine and OSC ALLOW only", row.Value);
+            Assert.Contains(OscGate.PairedRule, row.Note);
+            Assert.Contains(OscGate.Listed(0), row.Note);
+            services.Eye.Refresh();
+            var eye = services.Eye.Graph.Find("osc");
+            Assert.NotNull(eye);
+            Assert.Contains(eye!.Words, w => w.Contains(OscGate.PairedRule, StringComparison.Ordinal) && w.Contains(OscGate.Listed(0), StringComparison.Ordinal));
+
+            // An entry that is not one whole address lets no one in: named on the Remote page's line, amber on the Super
+            // Check and the Eye, never counted as listed.
+            cfg.OscAllow = "127.0.0";
+            Dispatcher.UIThread.RunJobs();
+            Send(OscMessage.Of("/patterns/blackout", 1));
+            Receive(sender, m => m.Address == "/patterns/error");
+            Assert.False(services.State.Blackout);
+            Assert.Contains("OSC ALLOW: '127.0.0' is not an address — left out.", services.Osc.StatusLine, StringComparison.Ordinal);
+            var typo = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Item == "OSC");
+            Assert.Equal(CheckLight.Amber, typo.Light);
+            Assert.Contains(OscGate.Listed(0, new[] { "127.0.0" }), typo.Note);
+            services.Eye.Refresh();
+            Assert.Equal(CheckLight.Amber, services.Eye.Graph.Find("osc")!.Light);
+
+            // The operator's list lets the address in, and — the port open on every interface — says a listed address is not a proof.
+            cfg.OscAllow = "127.0.0.1";
+            Dispatcher.UIThread.RunJobs();
+            Send(OscMessage.Of("/patterns/blackout", 1));
+            PumpUntil(() => services.State.Blackout);
+            var listed = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Item == "OSC");
+            Assert.Equal(CheckLight.Green, listed.Light);
+            Assert.Contains(OscGate.Listed(1), listed.Note);
+            Assert.Contains("A listed address is not a proof", listed.Note);
+            Assert.DoesNotContain("left out", services.Osc.StatusLine, StringComparison.Ordinal);
+
+            // Off the list again, it is refused again; this machine, trusted as its own, moves the show unlisted.
+            cfg.OscAllow = "";
+            Dispatcher.UIThread.RunJobs();
+            Send(OscMessage.Of("/patterns/blackout", 0));
+            Receive(sender, m => m.Address == "/patterns/error");
+            Assert.True(services.State.Blackout);
+            OscService.ControlTrustsLoopback = true;
+            Send(OscMessage.Of("/patterns/blackout", 0));
+            PumpUntil(() => !services.State.Blackout);
+            Assert.Equal(saidBefore + 1, Said());                                   // still one line for the address
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            ControlService.PlainAuthOnLoopback = plain;
+            OscService.ControlTrustsLoopback = oscTrusted;
+            cfg.Token = "";
+            services.State.Blackout = false;
+            Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }
     }

@@ -18,6 +18,8 @@ public class BindAddressTests
     [InlineData("0.0.0.0", "0.0.0.0")]
     [InlineData("::1", "::1")]
     [InlineData("fe80::1", "fe80::1")]
+    [InlineData("010.0.0.5", "10.0.0.5")]          // a leading zero is decimal — the parser read it as octal, 8.0.0.5
+    [InlineData("192.168.001.010", "192.168.1.10")]
     public void AnAddressOrNothingBinds(string words, string? expected)
     {
         Assert.True(BindAddress.TryParse(words, out var address, out var problem));
@@ -33,6 +35,10 @@ public class BindAddressTests
     [InlineData("desk.local")]
     [InlineData("every interface")]
     [InlineData("10.0.0.5 only")]
+    [InlineData("0x0A.0.0.5")]          // hex to the parser, 10.0.0.5
+    [InlineData("10.0.0.5:80")]
+    [InlineData("1.2.3.4.5")]
+    [InlineData("10.0.-1.5")]
     public void AnythingElseIsAProblemAndNeverEveryInterface(string words)
     {
         Assert.False(BindAddress.TryParse(words, out var address, out var problem));
@@ -85,5 +91,67 @@ public class BindAddressTests
         Assert.Equal(CheckLight.Green, bound!.Light);
         var open = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698.") }).Find("osc");
         Assert.Equal(CheckLight.Amber, open!.Light);
+    }
+
+    /// <summary>
+    /// One rule for every address field the desk reads: the bind and each OSC ALLOW entry take one whole address, so a
+    /// typo is said as a typo in both and read as some other machine in neither.
+    /// </summary>
+    [Theory]
+    [InlineData("10.0.0.5", true)]
+    [InlineData("::ffff:10.0.0.5", true)]
+    [InlineData("010.0.0.5", true)]
+    [InlineData("10.0.0", false)]
+    [InlineData("10", false)]
+    [InlineData("0x0A.0.0.5", false)]
+    [InlineData("studio-mac.local", false)]
+    [InlineData("", false)]
+    public void TheBindAndTheOscAllowListReadAnAddressOneWay(string words, bool isAddress)
+    {
+        Assert.Equal(isAddress, BindAddress.TryAddress(words, out _));
+        Assert.Equal(isAddress, OscGate.Read(words).Addresses.Count == 1);
+        Assert.Equal(isAddress || words.Length == 0, BindAddress.Problem(words).Length == 0);
+        Assert.Equal(!isAddress && words.Length > 0, OscGate.Read(words).LeftOut.Count == 1);
+    }
+
+    /// <summary>
+    /// The Eye says what the Super Check says: on a paired desk OSC's verbs come only from this machine or OSC ALLOW
+    /// (a proof grants nothing to an address, ADR-017), bound or not, with what the list names; on a port open on every
+    /// interface with someone listed, that a listed address is not a proof; an entry that is not an address, amber.
+    /// </summary>
+    [Fact]
+    public void TheEyesOscNodeOnAPairedDeskSaysOnlyThisMachineAndTheAllowList()
+    {
+        var paired = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698.", "", Paired: true) }).Find("osc");
+        Assert.Equal(CheckLight.Green, paired!.Light);
+        var words = Assert.Single(paired.Words);
+        Assert.StartsWith("OSC cannot pair; " + OscGate.PairedRule, words, StringComparison.Ordinal);
+        Assert.Contains(OscGate.Listed(0), words, StringComparison.Ordinal);
+        Assert.DoesNotContain("proved the token", words, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("not a proof", words, StringComparison.Ordinal);                  // nobody listed
+
+        var listed = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698.", "", Paired: true, OscGate.Read("10.0.0.9")) }).Find("osc");
+        Assert.Equal(CheckLight.Green, listed!.Light);
+        words = Assert.Single(listed.Words);
+        Assert.Contains("OSC ALLOW names 1 address", words, StringComparison.Ordinal);
+        Assert.Contains("A listed address is not a proof", words, StringComparison.Ordinal);
+
+        var boundPaired = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698 on 10.0.0.5 only.", "10.0.0.5", Paired: true, OscGate.Read("10.0.0.8, 10.0.0.9")) }).Find("osc");
+        Assert.Equal(CheckLight.Green, boundPaired!.Light);
+        words = Assert.Single(boundPaired.Words);
+        Assert.StartsWith("open on 10.0.0.5 only — OSC cannot pair; the bind keeps it to the control network; " + OscGate.PairedRule, words, StringComparison.Ordinal);
+        Assert.Contains("OSC ALLOW names 2 addresses", words, StringComparison.Ordinal);
+        Assert.DoesNotContain("not a proof", words, StringComparison.Ordinal);                  // the bind keeps it to the control network
+
+        // An entry that is not an address: amber on a paired desk, named; on an unpaired one the list gates nothing.
+        var typo = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698 on 10.0.0.5 only.", "10.0.0.5", Paired: true, OscGate.Read("192.168.1")) }).Find("osc");
+        Assert.Equal(CheckLight.Amber, typo!.Light);
+        Assert.Contains("'192.168.1' is not an address — left out", Assert.Single(typo.Words), StringComparison.Ordinal);
+        var unpairedTypo = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698 on 10.0.0.5 only.", "10.0.0.5", Paired: false, OscGate.Read("192.168.1")) }).Find("osc");
+        Assert.Equal(CheckLight.Green, unpairedTypo!.Light);
+
+        var boundOpen = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698 on 10.0.0.5 only.", "10.0.0.5") }).Find("osc");
+        Assert.Equal("open on 10.0.0.5 only — OSC cannot pair; the bind keeps it to the control network", Assert.Single(boundOpen!.Words));
     }
 }

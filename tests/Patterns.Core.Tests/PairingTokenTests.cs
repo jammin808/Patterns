@@ -124,9 +124,12 @@ public class PairingTokenTests
     }
 
     /// <summary>
-    /// Round 79: OSC has no session, so the token never covers it — an open OSC port is amber with the fix, green with
-    /// the reason once the control ports are bound, and no row at all while OSC is off. Round 87: on a paired desk OSC's
-    /// verbs come only from machines that proved the token another way (OscGate), so open there is green with that reason.
+    /// OSC has no session, so the token never covers it — an open OSC port is amber with the fix, green with the reason
+    /// once the control ports are bound, and no row at all while OSC is off. On a paired desk OSC's verbs come only from
+    /// this machine or OSC ALLOW (a proof grants nothing to an address, ADR-017), so the row says that rule — bound or
+    /// not — and what the list names; none listed says a controller on another machine is refused until it is. Open on
+    /// every interface with someone listed, it says a listed address is not a proof; an entry that is not an address is
+    /// amber with the fix and named.
     /// </summary>
     [Fact]
     public void TheOscRowSaysThePortCannotPairAndWhatKeepsItToTheControlNetwork()
@@ -139,8 +142,27 @@ public class PairingTokenTests
         var paired = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698 });
         Assert.NotNull(paired);
         Assert.Equal(CheckLight.Green, paired!.Light);
-        Assert.Equal("port 9698 · verbs from paired machines only", paired.Value);
+        Assert.Equal("port 9698 · verbs from this machine and OSC ALLOW only", paired.Value);
         Assert.Contains("cannot pair", paired.Note);
+        Assert.Contains(OscGate.PairedRule, paired.Note);
+        Assert.Contains(OscGate.Listed(0), paired.Note);                                    // none listed: who is refused until one is
+        Assert.DoesNotContain("paired on the wire or the web", paired.Note);
+
+        Assert.DoesNotContain("not a proof", paired.Note);                                  // nobody listed: nobody to forge
+
+        var listed = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698, OscAllowed = 2 });
+        Assert.Equal(CheckLight.Green, listed!.Light);
+        Assert.Contains("OSC ALLOW names 2 addresses", listed.Note);
+        Assert.Contains(OscGate.PairedWords(2, Array.Empty<string>(), bound: false), listed.Note);
+        Assert.Contains("A listed address is not a proof", listed.Note);                   // what pairing does not cover: the source a datagram claims
+        Assert.Contains("bind the control ports", listed.Note);
+
+        // An entry that is not one whole address: amber, the fix first, the entry named and never counted.
+        var typo = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698, OscAllowed = 1, OscLeftOut = new[] { "192.168.1" } });
+        Assert.Equal(CheckLight.Amber, typo!.Light);
+        Assert.Equal("port 9698 · verbs from this machine and OSC ALLOW only", typo.Value);
+        Assert.StartsWith("FIX: write each OSC ALLOW entry as one whole address", typo.Note);
+        Assert.Contains("OSC ALLOW names 1 address; '192.168.1' is not an address — left out", typo.Note);
 
         var open = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = false, OscOpen = true, OscPort = 9698 });
         Assert.NotNull(open);
@@ -155,6 +177,21 @@ public class PairingTokenTests
         Assert.Equal(CheckLight.Green, bound!.Light);
         Assert.Equal("port 9698 · open on 10.0.0.5 only", bound.Value);
         Assert.Contains("cannot pair", bound.Note);
+        Assert.DoesNotContain("OSC ALLOW", bound.Note);                                    // an unpaired desk gates nothing by the list
+        var unpairedTypo = Row(new CheckFacts { RemoteEnabled = true, OscOpen = true, OscPort = 9698, RemoteBind = "10.0.0.5", OscLeftOut = new[] { "192.168.1" } });
+        Assert.Equal(CheckLight.Green, unpairedTypo!.Light);
+
+        // Bound and paired: the bind's reason, and the paired desk's rule beside it.
+        var boundPaired = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698, RemoteBind = "10.0.0.5", OscAllowed = 1 });
+        Assert.Equal(CheckLight.Green, boundPaired!.Light);
+        Assert.Equal("port 9698 · open on 10.0.0.5 only", boundPaired.Value);
+        Assert.Contains("the bind keeps it to the control network", boundPaired.Note);
+        Assert.Contains(OscGate.PairedRule, boundPaired.Note);
+        Assert.Contains("OSC ALLOW names 1 address", boundPaired.Note);
+        Assert.DoesNotContain("not a proof", boundPaired.Note);                             // the bind keeps it to the control network
+        var boundTypo = Row(new CheckFacts { RemoteEnabled = true, RemoteToken = true, OscOpen = true, OscPort = 9698, RemoteBind = "10.0.0.5", OscLeftOut = new[] { "10" } });
+        Assert.Equal(CheckLight.Amber, boundTypo!.Light);
+        Assert.Contains("'10' is not an address — left out", boundTypo.Note);
     }
 
     /// <summary>

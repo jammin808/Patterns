@@ -211,9 +211,19 @@ public sealed record EyeDeck(string Name, string Module, string Address, bool Pa
 /// <summary>A Companion heard on mDNS.</summary>
 public sealed record EyeCompanion(string Host, string Address, bool Fresh, string Version);
 
-/// <summary>OSC as the Eye sees it (round 79: <paramref name="Bind"/> is the address the control ports are bound to, "" for every interface — OSC cannot pair, so an unbound port is amber).</summary>
-/// <summary>OSC in: its port, its words, its bind; round 87: whether the desk is paired (then OSC's verbs come only from paired machines or the allow-list).</summary>
-public sealed record EyeOsc(int Port, string Words, string Bind = "", bool Paired = false);
+/// <summary>
+/// OSC as the Eye sees it: its port and words; <paramref name="Bind"/>, the address the control ports are bound to, ""
+/// for every interface (OSC cannot pair, so an unbound port of an unpaired desk is amber); whether the desk is paired
+/// (then OSC's verbs come only from this machine or the allow-list); and the allow-list as read (<see cref="OscGate.Read"/>).
+/// </summary>
+public sealed record EyeOsc(int Port, string Words, string Bind = "", bool Paired = false, OscAllowList? Allow = null)
+{
+    /// <summary>How many addresses the allow-list names.</summary>
+    public int Allowed => Allow?.Addresses.Count ?? 0;
+
+    /// <summary>The allow-list's entries that are not one whole address.</summary>
+    public IReadOnlyList<string> LeftOut => Allow?.LeftOut ?? Array.Empty<string>();
+}
 
 /// <summary>The twin link as this process sees it: Role "main" / "standby" / "" (alone), the other machine's name, the phase's words and light.</summary>
 public sealed record EyeTwin(string Role, string Phase, string OtherName, string Words, CheckLight Light);
@@ -718,8 +728,9 @@ public sealed class EyeGraph
             // Round 79: OSC has no session to pair, so the show's token never covers it — open on every interface it is
             // amber with the way out, as the super-check's row is; bound to the control network's address it is green.
             var problem = BindAddress.Problem(osc.Bind);                                     // round 85: a bind that is not an address closes the port
-            var open = osc.Bind.Length == 0 && !osc.Paired;                                  // round 87: a paired desk takes OSC's verbs only from paired machines
-            var light = problem.Length > 0 ? CheckLight.Red : open ? CheckLight.Amber : CheckLight.Green;
+            var open = osc.Bind.Length == 0 && !osc.Paired;                                  // a paired desk takes OSC's verbs only from this machine and the allow-list
+            var typo = osc.Paired && osc.LeftOut.Count > 0;                                 // a controller meant to be listed and refused: the Super Check's amber
+            var light = problem.Length > 0 ? CheckLight.Red : open || typo ? CheckLight.Amber : CheckLight.Green;
             Add(new EyeNode("osc", EyeKind.Osc, EyePlane.Control, 0, "OSC", $"port {osc.Port}" + (osc.Words.Length > 0 ? " · " + osc.Words : ""), light)
             {
                 Route = new MenuRoute("Remote"),
@@ -727,9 +738,11 @@ public sealed class EyeGraph
                     ? new[] { $"closed — {problem}; the port opens when the Remote page's Bind to is an address or empty" }
                     : open
                         ? new[] { "open on every interface — OSC cannot pair, so the token does not cover it; bind the control ports to the control network's address, or turn OSC in off when it is not needed" }
-                        : osc.Paired
-                            ? new[] { "OSC cannot pair, so on this paired desk its verbs come only from machines that proved the token on the wire or the web, or the Remote page's OSC ALLOW list; its questions stay open" }
-                            : new[] { $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" },
+                        : new[]
+                        {
+                            (osc.Bind.Length > 0 ? $"open on {osc.Bind} only — OSC cannot pair; the bind keeps it to the control network" : "OSC cannot pair")
+                                + (osc.Paired ? "; " + OscGate.PairedWords(osc.Allowed, osc.LeftOut, osc.Bind.Length > 0) : ""),
+                        },
             });
             Link("osc", DeskId, EyeEdgeKind.Controls, light);
         }

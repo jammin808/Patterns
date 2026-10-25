@@ -564,6 +564,9 @@ public sealed class SystemMetricsService : IDisposable
         var startup = _services.Startup;
         var startupPhases = startup.Phases;
 
+        // On a paired desk the machines besides this one OSC's verbs are taken from, and the entries that name none.
+        var oscAllow = OscGate.Read(state.Control.OscAllow);
+
         return new CheckFacts
         {
             AppVersion = version.Length > 0 ? $"Patterns {version}" : "",
@@ -694,6 +697,8 @@ public sealed class SystemMetricsService : IDisposable
             RemoteToken = PairingToken.Needed(state.Control.Token),
             OscOpen = state.Control.Enabled && state.Control.OscEnabled,                                  // round 79: the port that cannot pair
             OscPort = state.Control.OscPort,
+            OscAllowed = oscAllow.Addresses.Count,
+            OscLeftOut = oscAllow.LeftOut,
             WireFaults = _services.Control.FaultCount,                                                 // round 83: the faults behind the wire
             TokenSeenInClear = _services.Kernel.TokenSeenInClear.For(state.Control.Token),             // round 89: the token arrived unencrypted from these machines
             VideoPlayback = video,

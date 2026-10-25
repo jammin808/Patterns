@@ -167,8 +167,7 @@ public class ShowBusAppTests
             Assert.Equal("OK paired", wire.Say("AUTH-PROOF " + WireProof.Proof(Token, wire.Nonce, "Stagewatch")));
             Assert.Equal("OK @c3", wire.Say("@c3 BLACKOUT ON"));
             Dispatcher.UIThread.RunJobs();
-            Assert.True(services.State.Blackout);
-            Assert.Contains("127.0.0.1", services.Control.PairedAddresses());       // OSC from here may move the show now
+            Assert.True(services.State.Blackout);                                   // the proof is this connection's; its address earns nothing (OscAppTests)
 
             Assert.Matches("^OK [0-9a-f]{32}$", wire.Say("NONCE"));
             Assert.StartsWith("ERR a request id", wire.Say("@bad! STATUS"));

@@ -573,19 +573,110 @@ public class ShowBusTests
 
     // ---- strengthening: OSC, the watchdog, the first run, the push ---------------------------------
 
+    /// <summary>
+    /// OSC cannot pair, and a proof grants nothing to an address (ADR-017): on a paired desk its verbs come from this
+    /// machine (when the desk trusts its own) and the operator's OSC ALLOW list, and from nowhere else — the gate is
+    /// handed no record of who proved the token on the wire or the web, so none can widen it.
+    /// </summary>
     [Fact]
-    public void OnAPairedDeskOscMovesTheShowOnlyFromPairedMachinesOrTheAllowList()
+    public void OnAPairedDeskOscMovesTheShowOnlyFromThisMachineOrTheAllowList()
     {
+        const string token = "K7QM-3XWD-P9RA";
         var from = System.Net.IPAddress.Parse("10.0.0.9");
-        var paired = new[] { "10.0.0.12" };
-        Assert.True(OscGate.Allows("", from, false, Array.Empty<string>(), ""));                                   // an open desk: as before
-        Assert.False(OscGate.Allows("K7QM-3XWD-P9RA", from, false, paired, ""));
-        Assert.True(OscGate.Allows("K7QM-3XWD-P9RA", System.Net.IPAddress.Parse("10.0.0.12"), false, paired, ""));
-        Assert.True(OscGate.Allows("K7QM-3XWD-P9RA", System.Net.IPAddress.Parse("::ffff:10.0.0.12"), false, paired, ""));   // mapped
-        Assert.True(OscGate.Allows("K7QM-3XWD-P9RA", from, false, paired, "10.0.0.8, 10.0.0.9;bogus"));
-        Assert.True(OscGate.Allows("K7QM-3XWD-P9RA", System.Net.IPAddress.Loopback, true, paired, ""));
-        Assert.False(OscGate.Allows("K7QM-3XWD-P9RA", System.Net.IPAddress.Loopback, false, paired, ""));
+        Assert.True(OscGate.Allows("", from, false, ""));                                                          // an open desk: as before
+        Assert.False(OscGate.Allows(token, from, false, ""));                                                      // paired, unlisted: refused
+        Assert.False(OscGate.Allows(token, from, true, ""));                                                       // trusting loopback trusts no other machine
+        Assert.True(OscGate.Allows(token, from, false, "10.0.0.8, 10.0.0.9;bogus"));
+        Assert.True(OscGate.Allows(token, System.Net.IPAddress.Parse("::ffff:10.0.0.9"), false, "10.0.0.9"));      // mapped
+        Assert.True(OscGate.Allows(token, System.Net.IPAddress.Parse("10.0.0.9"), false, "::ffff:10.0.0.9"));      // listed mapped
+        Assert.False(OscGate.Allows(token, System.Net.IPAddress.Parse("10.0.0.90"), false, "10.0.0.9"));           // an address, never a prefix
+        Assert.True(OscGate.Allows(token, System.Net.IPAddress.Loopback, true, ""));
+        Assert.True(OscGate.Allows(token, System.Net.IPAddress.IPv6Loopback, true, ""));
+        Assert.False(OscGate.Allows(token, System.Net.IPAddress.Loopback, false, ""));
         Assert.Equal(new HashSet<string> { "10.0.0.8", "10.0.0.9" }, OscGate.AllowList("10.0.0.8, 10.0.0.9;bogus"));
+
+        // The words every reader says it with: the refusal names the list and the rule; the list's count reads plainly.
+        Assert.Contains("OSC ALLOW", OscGate.NotListed, StringComparison.Ordinal);
+        Assert.Contains("grants nothing to an address", OscGate.NotListed, StringComparison.Ordinal);
+        Assert.DoesNotContain("paired on the wire or the web, or", OscGate.NotListed, StringComparison.Ordinal);
+        Assert.Contains("grants nothing to an address", OscGate.PairedRule, StringComparison.Ordinal);
+        Assert.Equal("OSC ALLOW names no address, so a controller on another machine is refused until its address is listed", OscGate.Listed(0));
+        Assert.Equal("OSC ALLOW names 1 address", OscGate.Listed(1));
+        Assert.Equal("OSC ALLOW names 3 addresses", OscGate.Listed(3));
+        Assert.StartsWith("not paired — ", OscGate.NotListed, StringComparison.Ordinal);                        // the walk's words, and a controller's search
+    }
+
+    /// <summary>
+    /// The allow-list is read as the bind address is (<see cref="BindAddress.TryAddress"/>): one whole address per entry.
+    /// The parser's shorthand would take '192.168.1' as 192.168.0.1 and '10' as 0.0.0.10, and its octal '010' as 8, so a
+    /// typo would read as a listed address on every reader while the controller it meant stayed refused. Whatever is not
+    /// an address is left out, named and never counted.
+    /// </summary>
+    [Fact]
+    public void TheOscAllowListTakesWholeAddressesAndNamesWhatItLeftOut()
+    {
+        const string token = "K7QM-3XWD-P9RA";
+        var list = OscGate.Read("192.168.1, 10; studio-mac.local 10.0.0.9, 0x0A.0.0.7, 192.168.001.010, 10, ::ffff:10.0.0.12");
+        Assert.Equal(new HashSet<string> { "10.0.0.9", "192.168.1.10", "10.0.0.12" }, list.Addresses);
+        Assert.Equal(new[] { "192.168.1", "10", "studio-mac.local", "0x0A.0.0.7" }, list.LeftOut);           // each once, in the order written
+        Assert.Equal(list.Addresses, OscGate.AllowList("192.168.1, 10; studio-mac.local 10.0.0.9, 0x0A.0.0.7, 192.168.001.010, 10, ::ffff:10.0.0.12"));
+
+        Assert.False(OscGate.Allows(token, System.Net.IPAddress.Parse("192.168.0.1"), false, "192.168.1"));     // the shorthand never stands for an address
+        Assert.False(OscGate.Allows(token, System.Net.IPAddress.Parse("0.0.0.10"), false, "10"));
+        Assert.False(OscGate.Allows(token, System.Net.IPAddress.Parse("8.0.0.9"), false, "010.0.0.9"));          // never octal
+        Assert.True(OscGate.Allows(token, System.Net.IPAddress.Parse("10.0.0.9"), false, "010.0.0.9"));          // a leading zero is decimal
+
+        Assert.Equal("OSC ALLOW names 3 addresses; '192.168.1' is not an address — left out; '10' is not an address — left out; 'studio-mac.local' is not an address — left out; and 1 more",
+            OscGate.Listed(list.Addresses.Count, list.LeftOut));
+        var none = OscGate.Read("192.168.1");
+        Assert.Empty(none.Addresses);
+        Assert.Equal(OscGate.Listed(0) + "; '192.168.1' is not an address — left out", OscGate.Listed(0, none.LeftOut));
+        Assert.Empty(OscGate.Read("").LeftOut);
+        Assert.Empty(OscGate.Read(null).Addresses);
+    }
+
+    /// <summary>
+    /// The paired desk's OSC note, the one sentence the Super Check's row and the Eye's node share: the rule, its questions
+    /// open, what the list names — and, while the port listens on every interface with someone listed, that a listed
+    /// address is not a proof (a datagram's source is whatever its sender writes; only the bind narrows who can write it).
+    /// </summary>
+    [Fact]
+    public void APairedDesksOscNoteSaysAListedAddressIsNotAProofUntilThePortIsBound()
+    {
+        var unboundListed = OscGate.PairedWords(1, Array.Empty<string>(), bound: false);
+        Assert.StartsWith(OscGate.PairedRule + "; its questions stay open. OSC ALLOW names 1 address", unboundListed, StringComparison.Ordinal);
+        Assert.Contains("A listed address is not a proof", unboundListed, StringComparison.Ordinal);
+        Assert.Contains("bind the control ports", unboundListed, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("not a proof", OscGate.PairedWords(1, Array.Empty<string>(), bound: true), StringComparison.Ordinal);    // the bind keeps it to the control network
+        Assert.DoesNotContain("not a proof", OscGate.PairedWords(0, Array.Empty<string>(), bound: false), StringComparison.Ordinal);   // nobody listed: nobody to forge
+        Assert.Contains("'192.168.1' is not an address — left out", OscGate.PairedWords(0, new[] { "192.168.1" }, bound: true), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A refused verb names its address in the log once, for at most <see cref="OscGate.RefusedNamedMost"/> addresses; the
+    /// first new address past the bound writes one line that says no more are named, and nothing after it. A forged
+    /// flood of sources is a bounded set and a bounded log, and the log never seems to have named them all.
+    /// </summary>
+    [Fact]
+    public void RefusedVerbsNameEachAddressOnceAtMostTheBoundThenOneLineSaysNoMore()
+    {
+        var said = new SaidOnce(OscGate.RefusedNamedMost);
+        var lines = new List<string>();
+        for (var round = 0; round < 2; round++)
+        {
+            for (var i = 1; i <= 100; i++)
+            {
+                var address = $"10.0.0.{i}";
+                if (OscGate.RefusedLine(said.Note(address), address) is { } line) lines.Add(line);
+            }
+        }
+        Assert.Equal(OscGate.RefusedNamedMost + 1, lines.Count);
+        Assert.Equal(64, lines.Count(l => l.StartsWith("OSC: a verb from 10.0.", StringComparison.Ordinal) && l.EndsWith("Said once for this address.", StringComparison.Ordinal)));
+        Assert.Equal(64, lines.Take(64).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal("OSC: verbs refused from more than 64 addresses — no more addresses are named in this log; the Remote page's OSC line counts every refusal.", lines[^1]);
+        Assert.Contains("OSC: a verb from 10.0.0.1 refused", lines[0], StringComparison.Ordinal);
+        Assert.Null(OscGate.RefusedLine(SaidOnceAnswer.Quiet, "10.0.0.1"));
     }
 
     [Fact]

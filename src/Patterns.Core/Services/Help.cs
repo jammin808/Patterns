@@ -945,10 +945,11 @@ public static class HelpTopics
             {
                 "Remote page: OSC ON and the port; the feedback host and port.",
                 "Send /patterns/… addresses (the table is in docs/REMOTE.md); read /patterns/state/… for every change.",
+                "On a paired desk, list each controller's address under OSC ALLOW — pairing on the wire or the web grants it nothing over OSC.",
             },
             "/patterns/look <n|name> · /patterns/cue/go · /patterns/screen/<n>/look \"<name>\" · /patterns/blackout · /patterns/clock · /patterns/message \"text\" · /patterns/countdown 5 · /patterns/status",
             new[] { "Remote" },
-            new[] { "osc", "udp", "address", "feedback", "touchosc", "lighting desk", "port", "qlab", "clock", "countdown", "message" }),
+            new[] { "osc", "udp", "address", "feedback", "touchosc", "lighting desk", "port", "qlab", "clock", "countdown", "message", "osc allow", "not paired", "refused" }),
 
         new HelpTopic("interactive", HelpGroup.Control,
             "The Interactive area: Arduino, Raspberry Pi and devices over IP",

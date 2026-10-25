@@ -448,10 +448,10 @@ public sealed partial class ControlService : IDisposable
                     {
                         presented = proof ? token : cmd.Text;
                         wrongTokens = 0;
+                        // The proof is this connection's: its address earns nothing beyond it, for OSC or any other door (ADR-017).
                         lock (_gate)
                         {
                             if (_decks.TryGetValue(client, out var deck)) _decks[client] = deck with { Paired = true };   // round 66: the Eye reads it
-                            _pairedAddresses[PairedKey(client)] = DateTime.UtcNow;                                         // round 87: OSC from here may move the show
                         }
                         Reply(ControlProtocol.Ok("paired"));
                     }
@@ -570,23 +570,6 @@ public sealed partial class ControlService : IDisposable
     /// </summary>
     public static bool PlainAuthOnLoopback { get; set; } = true;
 
-    /// <summary>Round 87: the addresses that proved the token on the wire or the web, and when — the machines OSC may move the show from on a paired desk.</summary>
-    private readonly Dictionary<string, DateTime> _pairedAddresses = new(StringComparer.Ordinal);
-
-    /// <summary>How long an address that paired once stays trusted for OSC after its last proof.</summary>
-    public static readonly TimeSpan PairedAddressKept = TimeSpan.FromHours(12);
-
-    /// <summary>Round 87: the addresses that proved the token lately (OscGate reads them).</summary>
-    public IReadOnlyCollection<string> PairedAddresses()
-    {
-        var now = DateTime.UtcNow;
-        lock (_gate)
-        {
-            foreach (var old in _pairedAddresses.Where(p => now - p.Value > PairedAddressKept).Select(p => p.Key).ToList()) _pairedAddresses.Remove(old);
-            return _pairedAddresses.Keys.ToList();
-        }
-    }
-
     /// <summary>Round 83: the faults behind the wire — not a socket's end — counted; the first is logged with its stack and then one a minute.</summary>
     private readonly FaultThrottle _faults = new();
 
@@ -689,8 +672,8 @@ public sealed partial class ControlService : IDisposable
 
     private static string Address(TcpClient client) => client.Client.RemoteEndPoint is IPEndPoint ep ? ep.Address.ToString() : "?";
 
-    /// <summary>Round 87: an address as OSC's gate compares it — IPv4 written plainly even when the socket saw it mapped into IPv6.</summary>
-    private static string PairedKey(TcpClient client) => client.Client.RemoteEndPoint is IPEndPoint ep ? OscGate.Normal(ep.Address) : "?";
+    /// <summary>A peer's address as every per-address record keeps it — IPv4 written plainly even when the socket saw it mapped into IPv6 (<see cref="OscGate.Normal"/>).</summary>
+    private static string AddressKey(TcpClient client) => client.Client.RemoteEndPoint is IPEndPoint ep ? OscGate.Normal(ep.Address) : "?";
 
     /// <summary>A refusal logged once a minute per address and door: a flood is one line, not a thousand.</summary>
     private void SaidBusy(string door, string address, int open)
@@ -1035,10 +1018,6 @@ public sealed partial class ControlService : IDisposable
                 }
             }
             var notPaired = ControlProtocol.Err(refusal);
-            if (!audience && PairingToken.Needed(showToken) && PairingToken.Matches(showToken, presented))
-            {
-                lock (_gate) _pairedAddresses[PairedKey(client)] = DateTime.UtcNow;    // round 87: a machine that proved the token on the web may use OSC too
-            }
             var body = await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
 
             string status = "200 OK", contentType = "text/html; charset=utf-8";

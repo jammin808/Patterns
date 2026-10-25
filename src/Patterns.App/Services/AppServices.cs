@@ -920,9 +920,6 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>What the audience is seeing: the frozen program while the sandbox is open, else the live state.</summary>
     public ShowState AirState => Sandbox.ProgramState ?? State;
 
-    /// <summary>Round 87: the machines that proved the token lately — OSC's gate on a paired desk.</summary>
-    public IReadOnlyCollection<string> PairedAddresses() => Control.PairedAddresses();
-
     /// <summary>Round 87: the other show apps as this desk shows them — the Eye's CONTROL plane, the Nodes page, the context's peers.</summary>
     public IReadOnlyList<EyeShowApp> ShowApps(DateTime utcNow)
     {

@@ -732,32 +732,105 @@ public static class VideoDecodingChoice
 }
 
 /// <summary>
-/// Round 87: who may move the show over OSC. OSC is UDP with no session, so it cannot present the token: on a desk
-/// with no token it is open as before (bound to the control network by the bind address, round 79); on a paired desk
-/// its mutating verbs are taken only from this machine, from an address that has proved the token on the wire or the
-/// web, or from one the operator named (Remote page, OSC ALLOW). Its queries (PING, STATUS) stay open, as the wire's do.
-/// Pure: the addresses are handed in.
+/// Who may move the show over OSC. OSC is UDP with no session, so it cannot present a proof: on a desk with no token it
+/// is open as before (kept to the control network by the bind address, round 79); on a paired desk its mutating verbs
+/// are taken only from this machine or from an address the operator named (Remote page, OSC ALLOW), and its queries
+/// (PING, STATUS) stay open, as the wire's do. A proof on the wire or the web proves a key on that one connection and
+/// grants nothing to the address it came from (ADR-017): no machine reaches this list but by the operator's hand.
+/// Pure: the list is handed in.
 /// </summary>
 public static class OscGate
 {
-    public static bool Allows(string token, System.Net.IPAddress from, bool trustLoopback, IReadOnlyCollection<string> pairedAddresses, string allowList)
+    public static bool Allows(string token, System.Net.IPAddress from, bool trustLoopback, string allowList)
     {
         if (!PairingToken.Needed(token)) return true;
         if (trustLoopback && System.Net.IPAddress.IsLoopback(from)) return true;
-        var who = Normal(from);
-        if (pairedAddresses.Contains(who)) return true;
-        return AllowList(allowList).Contains(who);
+        return AllowList(allowList).Contains(Normal(from));
     }
 
-    /// <summary>The allow-list as addresses: commas, semicolons or spaces between them; anything that is not an address is left out.</summary>
-    public static IReadOnlySet<string> AllowList(string? words)
-        => (words ?? "").Split(new[] { ',', ';', ' ', '	' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(w => System.Net.IPAddress.TryParse(w, out var a) ? Normal(a) : "")
-            .Where(w => w.Length > 0).ToHashSet(StringComparer.Ordinal);
+    /// <summary>The addresses the allow-list names (<see cref="Read"/>).</summary>
+    public static IReadOnlySet<string> AllowList(string? words) => Read(words).Addresses;
+
+    /// <summary>
+    /// The allow-list as the desk reads it: commas, semicolons or spaces between entries, each entry one whole address
+    /// read as the bind address is (<see cref="BindAddress.TryAddress"/>), and every other entry left out and named —
+    /// never counted. The parser's shorthand would take '192.168.1' as 192.168.0.1, so a typo would read as a listed
+    /// address on the Super Check and the Eye while the controller it meant stayed refused.
+    /// </summary>
+    public static OscAllowList Read(string? words)
+    {
+        var addresses = new HashSet<string>(StringComparer.Ordinal);
+        var leftOut = new List<string>();
+        foreach (var w in (words ?? "").Split(Separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (BindAddress.TryAddress(w, out var a)) addresses.Add(Normal(a));
+            else if (!leftOut.Contains(w, StringComparer.Ordinal)) leftOut.Add(w);
+        }
+        return new OscAllowList(addresses, leftOut);
+    }
+
+    private static readonly char[] Separators = { ',', ';', ' ', '\t' };
 
     /// <summary>An address as compared: IPv4 written plainly even when it came mapped into IPv6.</summary>
     public static string Normal(System.Net.IPAddress a) => (a.IsIPv4MappedToIPv6 ? a.MapToIPv4() : a).ToString();
 
-    /// <summary>The refusal an unpaired sender hears on /patterns/error.</summary>
-    public const string NotPaired = "not paired — on a paired desk OSC moves the show only from a machine that paired on the wire or the web, or one on the Remote page's OSC ALLOW list";
+    /// <summary>The refusal an unlisted sender hears on /patterns/error; it opens "not paired —", the words a controller's operator searches for.</summary>
+    public const string NotListed = "not paired — on a paired desk OSC moves the show only from the desk's own machine or an address on its Remote page's OSC ALLOW list; pairing on the wire or the web grants nothing to an address";
+
+    /// <summary>The paired desk's rule as the Super Check and the Eye say it.</summary>
+    public const string PairedRule = "on this paired desk its verbs come only from this machine or an address on the Remote page's OSC ALLOW list — a proof on the wire or the web grants nothing to an address";
+
+    /// <summary>
+    /// What a listed address leaves open while the port listens on every interface: a datagram's source is whatever its
+    /// sender writes, so the list narrows who is believed, never who can write that address — only the bind does.
+    /// </summary>
+    public const string ListedNotProof = "a listed address is not a proof — any machine that reaches this port can write it as its source; bind the control ports to keep it to the control network";
+
+    /// <summary>What the allow-list names, in the readers' words: none listed says who is refused until one is; an entry that is not an address is named as left out.</summary>
+    public static string Listed(int count, IReadOnlyList<string>? leftOut = null)
+    {
+        var words = count switch
+        {
+            <= 0 => "OSC ALLOW names no address, so a controller on another machine is refused until its address is listed",
+            1 => "OSC ALLOW names 1 address",
+            _ => $"OSC ALLOW names {count} addresses",
+        };
+        return leftOut is { Count: > 0 } ? words + "; " + LeftOutWords(leftOut) : words;
+    }
+
+    /// <summary>The entries the list left out, each named as the typo it is: the first three, then how many more.</summary>
+    public static string LeftOutWords(IReadOnlyList<string> leftOut)
+    {
+        var named = string.Join("; ", leftOut.Take(LeftOutNamedMost).Select(w => $"'{(w.Length > 40 ? w[..40] + "…" : w)}' is not an address — left out"));
+        return leftOut.Count > LeftOutNamedMost ? $"{named}; and {leftOut.Count - LeftOutNamedMost} more" : named;
+    }
+
+    private const int LeftOutNamedMost = 3;
+
+    /// <summary>
+    /// A paired desk's OSC note after the port's own reason, the one sentence the Super Check's row and the Eye's node
+    /// share: the rule, that its questions stay open, what the list names and leaves out, and — while the port listens
+    /// on every interface and the list names someone — what a listed address does not prove.
+    /// </summary>
+    public static string PairedWords(int allowed, IReadOnlyList<string>? leftOut, bool bound)
+        => $"{PairedRule}; its questions stay open. {Listed(allowed, leftOut)}" + (allowed > 0 && !bound ? ". " + Capital(ListedNotProof) : "");
+
+    private static string Capital(string words) => words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
+
+    /// <summary>How many addresses the log names a refused verb for, each once, before one line says it names no more.</summary>
+    public const int RefusedNamedMost = 64;
+
+    /// <summary>
+    /// The log line for a refused verb, by what <see cref="SaidOnce"/> answered for its address: the address named the first
+    /// time, the one line past the bound that says later addresses are no longer named, and nothing otherwise.
+    /// </summary>
+    public static string? RefusedLine(SaidOnceAnswer said, string address) => said switch
+    {
+        SaidOnceAnswer.Say => $"OSC: a verb from {address} refused — this desk is paired and {address} is not on the Remote page's OSC ALLOW list (a proof on the wire or the web grants nothing to an address); list it there if that machine is yours. Said once for this address.",
+        SaidOnceAnswer.Full => $"OSC: verbs refused from more than {RefusedNamedMost} addresses — no more addresses are named in this log; the Remote page's OSC line counts every refusal.",
+        _ => null,
+    };
 }
+
+/// <summary>The OSC allow-list as read: the addresses it names, as compared, and the entries it left out because they are not one whole address.</summary>
+public sealed record OscAllowList(IReadOnlySet<string> Addresses, IReadOnlyList<string> LeftOut);

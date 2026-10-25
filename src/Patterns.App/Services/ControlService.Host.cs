@@ -17,8 +17,8 @@ public sealed partial class ControlService
     /// <summary>0 before this service listens for the machine's address changes, 1 while it does, 2 once <see cref="Dispose"/> ended it (never again).</summary>
     private int _namesWatched;
 
-    /// <summary>The addresses a request this desk did not grant by its name or page has been logged for: each once per kind, at most <see cref="ForeignSaidMost"/>.</summary>
-    private readonly HashSet<string> _foreignSaid = new(StringComparer.Ordinal);
+    /// <summary>The addresses a request this desk did not grant by its name or page has been logged for: each once per kind, at most <see cref="ForeignSaidMost"/>, and one line when no more are named.</summary>
+    private readonly SaidOnce _foreignSaid = new(ForeignSaidMost);
 
     private const int ForeignSaidMost = 64;
 
@@ -130,11 +130,14 @@ public sealed partial class ControlService
     /// </summary>
     private void ForeignSaid(TcpClient client, Foreign why, HttpHead request)
     {
-        var address = PairedKey(client);
-        lock (_gate)
+        var address = AddressKey(client);
+        var said = _foreignSaid.Note(why + "|" + address);
+        if (said == SaidOnceAnswer.Full)
         {
-            if (_foreignSaid.Count >= ForeignSaidMost || !_foreignSaid.Add(why + "|" + address)) return;
+            Log.Warn($"Web remote: requests answered as another machine's have been named for {ForeignSaidMost} addresses and kinds — no more are named in this log.");
+            return;
         }
+        if (said != SaidOnceAnswer.Say) return;
         Log.Warn(why switch
         {
             Foreign.Host => $"Web remote: a request from {address} named this desk {DeskNames.Shown(request.Host)}, which is not one of its names — answered as another machine's, with no trust for this machine and no pairing cookie (a page whose name was rebound to this machine does this). Said once for this address.",

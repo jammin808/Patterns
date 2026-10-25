@@ -98,7 +98,7 @@
       <Grid ColumnDefinitions="130,*" IsEnabled="{Binding State.Control.OscEnabled}" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="OSC ALLOW" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding State.Control.OscAllow, Mode=TwoWay}" Watermark="addresses OSC may move the show from on a paired desk — 10.0.0.9, 10.0.0.12"
-                 ToolTip.Tip="OSC cannot pair. With a pairing token set, its verbs come only from this machine, from a machine that proved the token on the wire or the web, or from an address listed here; its questions (PING, STATUS) stay open. Empty: only the paired machines" />
+                 ToolTip.Tip="OSC cannot pair. With a pairing token set, its verbs come only from this machine or from an address listed here — a machine that paired on the wire or the web is not trusted for OSC by its address, so list the controller here, by its whole address (10.0.0.9); an entry that is not one is left out and named on the line below; its questions (PING, STATUS) stay open. Empty: this machine only" />
       </Grid>
       <TextBlock Classes="label" Text="{Binding OscStatus}" TextWrapping="Wrap" />
       <TextBlock Classes="hint tip"

@@ -242,6 +242,10 @@ public sealed class CheckFacts
     /// <summary>Round 79: whether OSC is listening (remote control on, OSC in ticked) — the one control port that has no session to pair.</summary>
     public bool OscOpen { get; init; }
     public int OscPort { get; init; }
+    /// <summary>How many addresses the Remote page's OSC ALLOW names (<see cref="OscGate.Read"/>) — on a paired desk the only machines besides this one OSC's verbs are taken from.</summary>
+    public int OscAllowed { get; init; }
+    /// <summary>The OSC ALLOW entries left out because none is one whole address — each a controller the operator meant to list and did not.</summary>
+    public IReadOnlyList<string> OscLeftOut { get; init; } = Array.Empty<string>();
     /// <summary>Round 83: how many lines or requests made the desk fault behind the wire since start — each answered ERR, the first logged with its stack and then one a minute.</summary>
     public long WireFaults { get; init; }
     /// <summary>
@@ -1114,8 +1118,12 @@ public static class SuperCheck
     }
 
     /// <summary>
-    /// Round 79: OSC has no session, so the show's token never covers it — a port open on every interface is amber
-    /// with the fix, whatever the remote row says; bound to the control network's address it is green with the reason.
+    /// OSC has no session, so the show's token never covers it — a port open on every interface of an unpaired desk is
+    /// amber with the fix; bound to the control network's address it is green with the reason. On a paired desk its
+    /// verbs come only from this machine or OSC ALLOW (a proof grants nothing to an address), so the row says that rule
+    /// and what the list names — none listed says a controller on another machine is refused until it is; listed on a
+    /// port open on every interface, that a listed address is not a proof. An entry the list left out (not one whole
+    /// address) is amber with the fix: the controller it meant is refused while the operator believes it listed.
     /// Nothing while OSC is off: the remote row already says what the network trusts.
     /// </summary>
     private static void Osc(CheckFacts f, List<CheckRow> rows)
@@ -1127,15 +1135,19 @@ public static class SuperCheck
             rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Red, $"port {f.OscPort} · closed — the bind is not an address", "OSC binds where the control ports do; the remote row's FIX opens both"));
             return;
         }
-        if (f.RemoteBind.Length > 0)
+        var bound = f.RemoteBind.Length > 0;
+        var paired = f.RemoteToken ? "; " + OscGate.PairedWords(f.OscAllowed, f.OscLeftOut, bound) : "";
+        var typo = f.RemoteToken && f.OscLeftOut.Count > 0;
+        var light = typo ? CheckLight.Amber : CheckLight.Green;
+        var fix = typo ? "FIX: write each OSC ALLOW entry as one whole address (10.0.0.9) on the Remote page — " : "";
+        if (bound)
         {
-            rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Green, $"port {f.OscPort} · open on {f.RemoteBind} only", "OSC cannot pair; the bind keeps it to the control network"));
+            rows.Add(new CheckRow("REMOTE", "OSC", light, $"port {f.OscPort} · open on {f.RemoteBind} only", fix + "OSC cannot pair; the bind keeps it to the control network" + paired));
             return;
         }
         if (f.RemoteToken)
         {
-            // Round 87: on a paired desk OSC's verbs come only from machines that proved the token another way, or the allow-list.
-            rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Green, $"port {f.OscPort} · verbs from paired machines only", "OSC cannot pair; on this paired desk it moves the show only for a machine that paired on the wire or the web, or one on OSC ALLOW"));
+            rows.Add(new CheckRow("REMOTE", "OSC", light, $"port {f.OscPort} · verbs from this machine and OSC ALLOW only", fix + "OSC cannot pair" + paired));
             return;
         }
         rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Amber, $"port {f.OscPort} · open on every interface",
