@@ -140,6 +140,14 @@ public sealed class MediaPattern : IPatternRenderer
         {
             var key = InputKeys.Web(o.WebUrl);
             var page = InputBus.Resolve(key, f.Ctx.IsFadeSource);
+            // Round 89: a held page (kept, or written without its pass) shows its picture or black — never a card,
+            // whose words would name a page this machine cannot open.
+            var held = InputKeys.IsHeldWeb(key);
+            if (held && (page is null || page is IWebSource { Withheld: true } || page.FrameSize is null))
+            {
+                c.Clear(SKColors.Black);
+                return;
+            }
             var name = o.WebUrl.Length > 0 ? Patterns.Core.Services.WebAddress.ShortName(o.WebUrl) : "No web page";
             if (page is null)
             {
@@ -151,7 +159,8 @@ public sealed class MediaPattern : IPatternRenderer
             }
             if (!DrawInput(c, in f, o, page, bounds, o.Fit == FitMode.Tile ? FitMode.Fit : o.Fit, pc.FillAA(SKColors.White), key, out var placed))
             {
-                PlaceholderCard(c, in f, name, page.StatusText);
+                if (held) c.Clear(SKColors.Black);
+                else PlaceholderCard(c, in f, name, page.StatusText);
                 return;
             }
             // The desk clicks into the page through this box, and the room sees the pointer when

@@ -194,11 +194,14 @@ public static class ShowContextBuilder
         };
     }
 
-    /// <summary>A journal row as one line of words — who, what, the outcome; never a secret (the journal holds none since round 75).</summary>
+    /// <summary>
+    /// A journal row as one line of words — who, what, the outcome; never a secret (the journal holds none since round 75,
+    /// and a private page address in a row written before round 89 is said in public here).
+    /// </summary>
     public static ShowContextLine Line(ShowLogEntry e)
     {
         var what = string.Join(" ", new[] { e.Kind, e.Target }.Where(w => !string.IsNullOrWhiteSpace(w)));
-        var text = $"{what} — {e.Outcome}" + (string.IsNullOrWhiteSpace(e.Message) ? "" : ": " + e.Message) + (string.IsNullOrWhiteSpace(e.Origin) ? "" : $" ({e.Origin})");
+        var text = WindowAddresses.RedactText($"{what} — {e.Outcome}" + (string.IsNullOrWhiteSpace(e.Message) ? "" : ": " + e.Message) + (string.IsNullOrWhiteSpace(e.Origin) ? "" : $" ({e.Origin})"));
         return new ShowContextLine { At = ClockPing.Ms(e.AtUtc), Text = text.Length > 240 ? text[..240] : text };
     }
 }

@@ -88,18 +88,24 @@ public static class LayerRenderer
         var save = c.Save();
         bool drew;
         var picture = rect;
+        // A web layer's key is built once a frame and handed on. Round 89: a held page (kept, or written without its
+        // pass) shows its picture or a black box — never the placeholder's words, which would name a page this machine
+        // cannot open.
+        var webKey = l.Source == LayerSource.Web ? InputKeys.Web(l.WebUrl) : null;
+        var heldPage = webKey is not null && InputKeys.IsHeldWeb(webKey);
         try
         {
             if (corner > 0) c.ClipRoundRect(new SKRoundRect(rect, corner, corner), SKClipOperation.Intersect, antialias: true);
             else c.ClipRect(rect);
-            drew = DrawSource(c, in f, l, rect, alpha, drawScreen, out picture);
+            drew = DrawSource(c, in f, l, rect, alpha, drawScreen, webKey, out picture);
+            if (!drew && heldPage) c.DrawRect(rect, pc.Fill(SKColors.Black.WithAlpha(alpha)));
         }
         finally
         {
             c.RestoreToCount(save);
         }
 
-        if (!drew && f.Ctx.Sink is SinkKind.Preview or SinkKind.Monitor && !f.Ctx.InMultiview && !f.Ctx.InLayer)
+        if (!drew && !heldPage && f.Ctx.Sink is SinkKind.Preview or SinkKind.Monitor && !f.Ctx.InMultiview && !f.Ctx.InLayer)
         {
             // Nothing to show yet: the desk sees the box (a dashed frame and the name) to place it.
             using var dash = SKPathEffect.CreateDash(new[] { 8f, 6f }, 0);
@@ -153,8 +159,11 @@ public static class LayerRenderer
         _ => l.TargetId.Length == 0 ? "choose a screen" : "not in this rig",
     };
 
-    /// <summary>Draws the layer's picture inside its clipped box; <paramref name="picture"/> is where the picture itself landed (the box when nothing drew).</summary>
-    private static bool DrawSource(SKCanvas c, in PatternFrame f, LayerConfig l, SKRect rect, byte alpha, LayerScreenDrawer? drawScreen, out SKRect picture)
+    /// <summary>
+    /// Draws the layer's picture inside its clipped box; <paramref name="picture"/> is where the picture itself landed (the
+    /// box when nothing drew). <paramref name="webKey"/> is a web layer's key, built once by the caller for the frame.
+    /// </summary>
+    private static bool DrawSource(SKCanvas c, in PatternFrame f, LayerConfig l, SKRect rect, byte alpha, LayerScreenDrawer? drawScreen, string? webKey, out SKRect picture)
     {
         picture = rect;
         var crop = CropOf(l);
@@ -191,11 +200,12 @@ public static class LayerRenderer
                 {
                     LayerSource.Video => InputKeys.Video(l.VideoPath),
                     LayerSource.NdiFeed => InputKeys.Ndi(l.NdiSourceName),
-                    LayerSource.Web => InputKeys.Web(l.WebUrl),
+                    LayerSource.Web => webKey ?? InputKeys.Web(l.WebUrl),
                     LayerSource.Arcade => InputKeys.Arcade(),
                     _ => InputKeys.Capture(l.CaptureDevice),
                 };
                 var source = InputBus.Resolve(key, f.Ctx.IsFadeSource);
+                if (source is IWebSource { Withheld: true }) return false;
                 if (source?.FrameSize is not { } size || size.Width <= 0 || size.Height <= 0) return false;
                 var cropped = crop.SourceRect(size);
                 var dest = DrawUtil.Fit(new SKSizeI(Math.Max(1, (int)cropped.Width), Math.Max(1, (int)cropped.Height)), rect, l.Fit);

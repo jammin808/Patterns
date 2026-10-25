@@ -354,7 +354,7 @@ public static class WebPresets
         var seen = new HashSet<string>(StringComparer.Ordinal);
         void Add(string url)
         {
-            var normalized = WebAddress.Normalize(url);
+            var normalized = WindowAddresses.Held(WebAddress.Normalize(url));                  // round 89: the address beside its key carries no more than the key
             var key = Media.InputKeys.Web(normalized);
             if (key.Length > 0 && seen.Add(key)) list.Add((key, normalized));
         }
@@ -378,6 +378,7 @@ public static class WebPresets
         if (t.Length == 0) return false;
         if (t.Equals(key, StringComparison.OrdinalIgnoreCase) || t.Equals(url, StringComparison.OrdinalIgnoreCase)) return true;
         if (WebAddress.Normalize(t).Equals(url, StringComparison.OrdinalIgnoreCase)) return true;
+        if (t.Contains("://", StringComparison.Ordinal) && Media.InputKeys.Web(t).Equals(key, StringComparison.OrdinalIgnoreCase)) return true;   // round 89: a private address typed raw names the page its key holds
         if (nickname.Length > 0 && nickname.Equals(t, StringComparison.OrdinalIgnoreCase)) return true;
         var host = WebAddress.ShortName(url);
         if (host.Equals(t, StringComparison.OrdinalIgnoreCase) || host.Contains(t, StringComparison.OrdinalIgnoreCase)) return true;

@@ -48,6 +48,12 @@ public enum TwinWord
     Stagewatch,
     /// <summary>Round 88 (closes L52): a follower → main, every five seconds: its own context (Show Bus §6) — the desk's Eye draws its nodes from these.</summary>
     Context,
+    /// <summary>
+    /// Round 89: main → standby, on welcome and whenever it changes, and only while the twin carries the show's secrets:
+    /// the main's book of kept page addresses (<see cref="WebPassBook"/> JSON). The standby takes it into its own book, so
+    /// a page the show holds as <c>kept://…</c> opens on the standby when it takes the show; without it that page is black.
+    /// </summary>
+    Kept,
 }
 
 /// <summary>
@@ -83,6 +89,7 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "RELEASED" => TwinWord.Released,
             "STAGEWATCH" => TwinWord.Stagewatch,
             "CONTEXT" => TwinWord.Context,
+            "KEPT" => TwinWord.Kept,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";

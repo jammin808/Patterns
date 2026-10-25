@@ -44,6 +44,7 @@ public sealed class FakeWebSource : IWebSource
     public SKPoint? PointerNorm { get; set; }
     public DateTime? LastClickUtc { get; set; }
     public string CurrentUrl { get; private set; }
+    public bool Withheld { get; set; }
     public string Title { get; set; } = "A page";
     public double ZoomPct { get; set; } = 100;
     public bool IsMuted { get; set; }
@@ -351,5 +352,91 @@ public class WebSourceTests
         Assert.Equal(before, JsonUtil.SerializeIdentity(s.Pattern));
         s.Pattern.Media.WebUrl = "other.org";
         Assert.NotEqual(before, JsonUtil.SerializeIdentity(s.Pattern));
+    }
+
+    private static void AllBlack(SKBitmap bmp, SKRectI area, string what)
+    {
+        for (var y = area.Top; y < area.Bottom; y += 3)
+        {
+            for (var x = area.Left; x < area.Right; x += 3)
+            {
+                var p = bmp.GetPixel(x, y);
+                Assert.True(p.Red == 0 && p.Green == 0 && p.Blue == 0, $"{what}: ({x},{y}) is {p}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Round 89: a held page — kept on a machine, or written into the show without its pass — shows its picture or
+    /// black: never the card whose words would name a page this machine cannot open, never the pattern's background.
+    /// </summary>
+    [Fact]
+    public void AHeldPageWithNoPictureIsBlackNeverACard()
+    {
+        InputBus.Clear();
+        try
+        {
+            foreach (var address in new[] { "kept://10.0.0.5:9924/abcdefghijkl", "http://10.0.0.5:9924/w/q3x7m2k9p4abcdefghjk5n6r8t" })
+            {
+                var s = PageAsPattern(m =>
+                {
+                    m.WebUrl = address;
+                    m.BackgroundColor = "#FF0000";
+                });
+                var sink = new SinkState();
+                using var bmp = RenderWithSink(s, 320, 180, SinkKind.Preview, sink);
+                AllBlack(bmp, new SKRectI(0, 0, 320, 180), address);
+                Assert.DoesNotContain(sink.Hits, h => h.Kind == HitKind.WebPage);
+            }
+
+            // Mounted but withheld (it does not resolve here): black. Resolved: the page itself.
+            const string kept = "kept://10.0.0.5:9924/abcdefghijkl";
+            var key = InputKeys.Web(kept);
+            Assert.Equal("web:" + kept, key);
+            var page = new FakeWebSource(SKColors.Blue) { Withheld = true };
+            InputBus.Mount(key, page);
+            var shown = PageAsPattern(m => m.WebUrl = kept);
+            using (var withheld = RenderWithSink(shown, 320, 180, SinkKind.Output, new SinkState()))
+            {
+                AllBlack(withheld, new SKRectI(0, 0, 320, 180), "withheld");
+            }
+            page.Withheld = false;
+            using var resolved = RenderWithSink(shown, 320, 180, SinkKind.Output, new SinkState());
+            Assert.Equal(SKColors.Blue, resolved.GetPixel(160, 90));
+        }
+        finally
+        {
+            InputBus.Clear();
+        }
+    }
+
+    [Fact]
+    public void AHeldWebLayerWithNoPictureIsABlackBoxWithNoWords()
+    {
+        InputBus.Clear();
+        try
+        {
+            var s = PageAsLayer(l => l.WebUrl = "kept://10.0.0.5:9924/abcdefghijkl");
+            s.Overlays.Badge.Enabled = false;
+            var box = new SKRectI(384, 216, 896, 504);
+            foreach (var kind in new[] { SinkKind.Preview, SinkKind.Output })
+            {
+                var sink = new SinkState();
+                using var bmp = RenderWithSink(s, 1280, 720, kind, sink);
+                AllBlack(bmp, new SKRectI(box.Left + 2, box.Top + 2, box.Right - 2, box.Bottom - 2), $"{kind}'s box");   // no dashed frame, no "Layer 1 — …"
+                Assert.Equal(SKColors.Lime, bmp.GetPixel(100, 100));
+                Assert.DoesNotContain(sink.Hits, h => h.Kind == HitKind.WebPage);
+            }
+
+            // A plain page with no picture still shows the desk its box and words on the preview.
+            var plain = PageAsLayer();
+            plain.Overlays.Badge.Enabled = false;
+            using var waiting = RenderWithSink(plain, 1280, 720, SinkKind.Preview, new SinkState());
+            Assert.Contains(Enumerable.Range(0, 512).Select(dx => waiting.GetPixel(384 + dx, 360)), p => p != SKColors.Lime);
+        }
+        finally
+        {
+            InputBus.Clear();
+        }
     }
 }

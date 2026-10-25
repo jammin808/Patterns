@@ -156,7 +156,7 @@ public static class MediaLocator
             Media.WebPlayVia playVia = Media.WebPlayVia.Browser)
         {
             if (string.IsNullOrWhiteSpace(target)) return;
-            if (kind == WantedKind.Web) target = WebAddress.Normalize(target);
+            if (kind == WantedKind.Web) target = WindowAddresses.Held(WebAddress.Normalize(target));   // round 89: the mount's target is what its key says — never a pass
             var key = kind switch
             {
                 WantedKind.VideoFile => Media.InputKeys.Video(target),

@@ -12,11 +12,12 @@ public static class WebAddress
         return "https://" + s;
     }
 
-    /// <summary>A short name for a page — its host, or a local file's name — for labels and status lines.</summary>
+    /// <summary>A short name for a page — its host, or a local file's name — for labels and status lines. A held address's is its host (round 89).</summary>
     public static string ShortName(string url)
     {
         var s = (url ?? "").Trim();
         if (s.Length == 0) return "";
+        if (WindowAddresses.IsHeld(s)) return WindowAddresses.HostOf(s);
         if (Uri.TryCreate(Normalize(s), UriKind.Absolute, out var uri))
         {
             if (uri.IsFile) return LastSegment(Uri.UnescapeDataString(uri.LocalPath));

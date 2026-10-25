@@ -86,6 +86,12 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>The address the page is at now (after redirects) and its title, for the desk.</summary>
     string CurrentUrl { get; }
 
+    /// <summary>
+    /// Round 89: the page's address is held and does not open on this machine (kept on another, or written into the
+    /// show without its pass): the source opens nothing, and every picture of it is black — never a card with words.
+    /// </summary>
+    bool Withheld => false;
+
     string Title { get; }
 
     /// <summary>The browser zoom, 25–400 %. Applied live.</summary>

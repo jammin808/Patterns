@@ -96,6 +96,8 @@ public static class SupportBundle
         [SpotifyCredentialStore.FileName] = "the operator's Spotify credentials",
         [DirectOutput.FuseFileName] = "a fuse that exists only while a direct output is starting",
         [UpdatePackage.ManifestName] = "an update's manifest, not this desk's own record",
+        // Round 89: the kept page addresses are the passes themselves — the bundle masks them wherever else they appear.
+        [WebPassBook.FileName] = "private page addresses and their passes",
     };
 
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>
@@ -106,11 +108,15 @@ public static class SupportBundle
     /// <paramref name="secretValues"/> (round 76, <see cref="Secrets.ValuesOf"/>) are the show's own
     /// secret values, masked wherever they appear in a text entry — the log and the journal have no
     /// property names to redact by, and an older build may have written a passcode into either.
+    /// Round 89: every text entry also says each private page address in public
+    /// (<see cref="WindowAddresses.RedactText"/>), and the addresses this machine keeps
+    /// (<see cref="WebPassBook.FileName"/>, read here) join the masked values, whoever calls.
     /// </summary>
     public static IReadOnlyList<string> Build(string baseDirectory, string zipPath, string info, IReadOnlyCollection<string>? secretValues = null)
     {
         var included = new List<string>();
         var notes = new StringBuilder(info).AppendLine().AppendLine();
+        secretValues = WithKeptAddresses(baseDirectory, secretValues, notes);
         if (File.Exists(zipPath)) File.Delete(zipPath);
         using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
         {
@@ -131,7 +137,7 @@ public static class SupportBundle
                         text = reader.ReadToEnd();
                     }
                     if (name == "patterns.settings.json" || name == "patterns.recovery.json") text = Redact(text);
-                    text = Secrets.Scrub(text, secretValues);
+                    text = Secrets.Scrub(WindowAddresses.RedactText(text), secretValues);
                     var entry = zip.CreateEntry(name);
                     using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false)))
                     {
@@ -152,7 +158,7 @@ public static class SupportBundle
                     var entry = zip.CreateEntry("updates/" + UpdateApply.NoteName);
                     using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false)))
                     {
-                        writer.Write(Secrets.Scrub(File.ReadAllText(last), secretValues));
+                        writer.Write(Secrets.Scrub(WindowAddresses.RedactText(File.ReadAllText(last)), secretValues));
                     }
                     included.Add("updates/" + UpdateApply.NoteName);
                 }
@@ -165,11 +171,37 @@ public static class SupportBundle
             var infoEntry = zip.CreateEntry("bundle-info.txt");
             using (var writer = new StreamWriter(infoEntry.Open(), new UTF8Encoding(false)))
             {
-                writer.Write(notes.ToString());
+                writer.Write(Secrets.Scrub(WindowAddresses.RedactText(notes.ToString()), secretValues));
             }
             included.Add("bundle-info.txt");
         }
         return included;
+    }
+
+    /// <summary>
+    /// The caller's secret values and the addresses this machine's book keeps, longest first (a value that contains
+    /// another is masked whole). A book that cannot be read is noted; the redaction of private addresses still runs.
+    /// </summary>
+    private static IReadOnlyCollection<string>? WithKeptAddresses(string baseDirectory, IReadOnlyCollection<string>? secretValues, StringBuilder notes)
+    {
+        var path = Path.Combine(baseDirectory, WebPassBook.FileName);
+        if (!File.Exists(path)) return secretValues;
+        try
+        {
+            if (!WebPassBook.TryParse(File.ReadAllText(path), out var book))
+            {
+                notes.AppendLine(CultureInfo.InvariantCulture, $"{WebPassBook.FileName}: not read — its kept addresses are masked only where they read as private.");
+                return secretValues;
+            }
+            if (book.Count == 0) return secretValues;
+            return (secretValues ?? Array.Empty<string>()).Concat(book.SecretValues).Distinct(StringComparer.Ordinal)
+                .OrderByDescending(v => v.Length).ThenBy(v => v, StringComparer.Ordinal).ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            notes.AppendLine(CultureInfo.InvariantCulture, $"{WebPassBook.FileName}: could not be read — {ex.Message}");
+            return secretValues;
+        }
     }
 
     /// <summary>

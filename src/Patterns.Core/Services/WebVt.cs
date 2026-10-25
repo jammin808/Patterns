@@ -353,7 +353,7 @@ public static class WebVt
         void Add(string url, PageServicePick pick, bool autoPlay, double start, bool mute, int width, int height, double zoom, bool clean)
         {
             if (!autoPlay || string.IsNullOrWhiteSpace(url)) return;
-            var normalized = WebAddress.Normalize(url);
+            var normalized = WindowAddresses.Held(WebAddress.Normalize(url));                  // round 89: a pre-roll opens what the mount would, never a pass
             var key = Media.InputKeys.Web(normalized);
             if (key.Length == 0 || !seen.Add(key)) return;
             list.Add(new PreRoll.WebWant(key, normalized, WebPresets.Resolve(normalized, pick), start, mute, $"{width}x{height}", zoom, WebPresets.CleanCss(normalized, pick, clean)));
