@@ -503,7 +503,9 @@
     ],
     "holder": "",
     "clocks": "STANDBY-PC 0.3 s",
-    "apart": false
+    "apart": false,
+    "secrets": "ride",
+    "without": ""
   },
   "stage": {
     "timer": {

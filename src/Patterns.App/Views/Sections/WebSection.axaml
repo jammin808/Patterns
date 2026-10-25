@@ -12,6 +12,12 @@
     <CheckBox Content="Remote control on (web remote + Companion)" IsChecked="{Binding State.Control.Enabled}" />
     <CheckBox Content="Remotes may ARM the cue stack (CUE ARM ON / OFF, the Companion ARM key)" IsChecked="{Binding State.Control.RemotesMayArm}"
               ToolTip.Tip="Off by default: arming is a deliberate act at the desk. GO, standby and HOLD from a remote need the stack armed either way." />
+    <!-- Round 89: read by OSC and the twin's port whether or not remote control is on, so never greyed with it. -->
+    <Grid ColumnDefinitions="130,*" Margin="0,2,0,0">
+      <TextBlock Classes="label" Text="Bind to" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Control.Bind}" Watermark="every interface, or the control network's address on a desk with two"
+               ToolTip.Tip="The address the web remote, the Companion wire, OSC and the twin's port listen on — the twin's and OSC's whether or not remote control is on. Empty: every interface. An address: that network alone — the audience network never sees the control ports; the twin also listens on 127.0.0.1 for a standby on this machine" />
+    </Grid>
     <StackPanel IsEnabled="{Binding State.Control.Enabled}">
       <Grid ColumnDefinitions="130,*,16,Auto,8,90">
         <TextBlock Classes="label" Text="Web remote port" VerticalAlignment="Center" />
@@ -28,12 +34,7 @@
                  Text="The web remote drives presenter next/back, looks, transport, blackout, screens, the audio track, lower thirds and the web page on air — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens, canvas groups and page actions map straight onto Stream Deck keys with live feedback. Without a pairing token (TRUST, below) anyone on this network can control the show while enabled." />
 
       <TextBlock Classes="h2" Text="TRUST" />
-      <Grid ColumnDefinitions="130,*" Margin="0,2,0,0">
-        <TextBlock Classes="label" Text="Bind to" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding State.Control.Bind}" Watermark="every interface, or the control network's address on a desk with two"
-                 ToolTip.Tip="The address the web remote and the Companion wire listen on. Empty: every interface. An address: that network alone — the audience network never sees the control ports" />
-      </Grid>
-      <Grid ColumnDefinitions="130,*,8,Auto" Margin="0,4,0,0">
+      <Grid ColumnDefinitions="130,*,8,Auto" Margin="0,2,0,0">
         <TextBlock Classes="label" Text="Pairing token" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding State.Control.Token}" Watermark="empty: open — any device on the network runs the show" FontFamily="Consolas,monospace"
                  ToolTip.Tip="A remote proves this before the desk runs a verb: AUTH-PROOF against the desk's NONCE on the wire (plain AUTH from this machine only), X-Patterns-Token on the web — over https:// from another machine, or it crosses the network in clear and the desk says so here. Saved with the show" />

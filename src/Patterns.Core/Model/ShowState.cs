@@ -2077,7 +2077,7 @@ public sealed class WatchdogConfig : Observable
 /// </summary>
 public sealed class TwinConfig : Observable
 {
-    private bool _sendSecrets = true;
+    private bool _sendSecrets;
     private TwinRole _role;
     private int _port = 9699;
     private string _mainHost = "";
@@ -2115,10 +2115,13 @@ public sealed class TwinConfig : Observable
     public string TakeBackCue { get => _takeBackCue; set => Set(ref _takeBackCue, (value ?? "").Trim()); }
 
     /// <summary>
-    /// Whether the credentials the show carries — a projector's PJLink password, the weather key —
-    /// travel to the standby. On: the standby runs the show with nothing typed twice. Off: they are
-    /// blanked on the wire and the standby keeps the ones typed on it, for a link on a network that
-    /// is not the show's own. The twin's key, the admin passcode and the management token never travel either way.
+    /// Whether the secrets the show carries — a projector's PJLink password, the weather key, the
+    /// passes of its kept pages — travel to a standby on this machine. Off by default (round 89):
+    /// they are blanked on the wire and the standby keeps the ones typed on it. On: a standby whose
+    /// link never leaves this machine runs the show with nothing typed twice. A standby on another
+    /// machine is never sent them while the twin's link is plain — refused whatever this says, with
+    /// words on both desks (<see cref="Patterns.Core.Services.TwinSecrets"/>). The twin's key, the
+    /// admin passcode and the management token never travel either way.
     /// </summary>
     public bool SendSecrets { get => _sendSecrets; set => Set(ref _sendSecrets, value); }
 
@@ -2256,9 +2259,11 @@ public sealed class ControlConfig : Observable
     private string _token = "";
 
     /// <summary>
-    /// The address the control listeners bind — the web remote and the Companion wire; "" is every
-    /// interface. On a desk with two networks, the control network's own address, so the audience
-    /// network never sees the control ports at all (round 65).
+    /// The address the control listeners bind — the web remote, the Companion wire, OSC and (round
+    /// 89) the twin's port, whether or not remote control is on; "" is every interface. On a desk
+    /// with two networks, the control network's own address, so the audience network never sees
+    /// the control ports at all (round 65); the twin also listens on 127.0.0.1 beside a bound address,
+    /// for a standby on this machine. One that is not an address opens none of them.
     /// </summary>
     public string Bind { get => _bind; set => Set(ref _bind, (value ?? "").Trim()); }
 

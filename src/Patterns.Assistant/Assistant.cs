@@ -636,7 +636,10 @@ public static class ShowBrief
         {
             sb.AppendLine(s.Twin.Role == TwinRole.Main
                 ? "Twin: this desk is the main — a standby Patterns may follow it in step" + (s.Twin.LocalStandby ? ", and it runs one as a second process on this machine (TAKE BACK on the Machine page once that standby has run the show)." : ".")
-                : "Twin: this desk is a standby — it mirrors a main and its outputs are held closed until it takes the show over (TAKE OVER on the Machine page).");
+                  + (s.Twin.SendSecrets
+                      ? " It sends the show's secrets (device passwords, the weather key, kept pages) to a standby on this machine only — never over the plain link to another machine, where they are typed on the standby."
+                      : " It keeps the show's secrets (device passwords, the weather key, kept pages) on this desk: a standby has only the ones typed on it (SEND SECRETS on the Machine page sends them to a standby on this machine).")
+                : "Twin: this desk is a standby — it mirrors a main and its outputs are held closed until it takes the show over (TAKE OVER on the Machine page). Device passwords, the weather key and kept pages reach it only from a main on this machine with SEND SECRETS on; the twin's line says what it is without.");
         }
         if (facts is { ShowLock.Length: > 0 })
         {

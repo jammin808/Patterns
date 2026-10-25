@@ -58,6 +58,17 @@ public enum TwinWord
     /// before it proved the key lands.
     /// </summary>
     Kept,
+    /// <summary>
+    /// Round 89: main → standby, before the show on welcome and whenever it changes: whether the show's secrets ride
+    /// this link and, when they do not, what the main withholds (<see cref="TwinSecretsOffer"/> JSON — box ids and
+    /// whether there is a weather key, never a secret). Never to a caller or a stage timer.
+    /// </summary>
+    Secrets,
+    /// <summary>
+    /// Round 89: standby → main, whenever it changes and once on each link: what the standby is without of the secrets
+    /// its mirrored show uses (<see cref="TwinSecretsLack"/> JSON — counts only), so the main's line says it too.
+    /// </summary>
+    Lacks,
 }
 
 /// <summary>
@@ -94,6 +105,8 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "STAGEWATCH" => TwinWord.Stagewatch,
             "CONTEXT" => TwinWord.Context,
             "KEPT" => TwinWord.Kept,
+            "SECRETS" => TwinWord.Secrets,
+            "LACKS" => TwinWord.Lacks,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";
@@ -378,10 +391,14 @@ public static class TwinSync
     /// <summary>
     /// The show as it travels: the mirrored sections only — the machine's own (the twin's key, the
     /// admin passcode, the management token, the remote's ports) never leave this desk — and,
-    /// unless the main sends its credentials, a projector's password and the weather key blanked,
-    /// for a standby that has its own. A landing keeps whatever it already has where the wire is blank.
+    /// unless the secrets ride this link (<see cref="TwinSecrets.Rides"/>: a standby on this machine,
+    /// SEND SECRETS on), a projector's password and the weather key blanked, for a standby that has
+    /// its own. A landing keeps whatever it already has where the wire is blank.
     /// </summary>
-    public static string WireJson(ShowState state, bool sendSecrets)
+    public static string WireJson(ShowState state, bool sendSecrets) => WireNode(state, sendSecrets).ToJsonString(JsonUtil.CloneOptions);
+
+    /// <summary>The show as it travels (<see cref="WireJson"/>), as a tree — the AIR line carries one inside its record.</summary>
+    private static System.Text.Json.Nodes.JsonObject WireNode(ShowState state, bool sendSecrets)
     {
         var root = new System.Text.Json.Nodes.JsonObject();
         foreach (var pi in Roots)
@@ -390,7 +407,7 @@ public static class TwinSync
             root[pi.Name] = JsonSerializer.SerializeToNode(pi.GetValue(state), pi.PropertyType, JsonUtil.CloneOptions);
         }
         if (!sendSecrets) BlankSecrets(root);
-        return root.ToJsonString(JsonUtil.CloneOptions);
+        return root;
     }
 
     /// <summary>One section as it travels — its JSON, with its credentials blanked unless they are sent.</summary>
@@ -470,6 +487,42 @@ public static class TwinSync
         KeepSecrets(target, own);
         return true;
     }
+
+    /// <summary>
+    /// Round 89: the AIR line's payload as it travels — "null" without a record. The record's air is a whole show (the
+    /// frozen programme while EDIT SAFE is open, or a pinned look's), so it goes by the SHOW line's rule
+    /// (<see cref="WireJson"/>): the mirrored sections only — the twin's key, the pairing token, the admin passcode and
+    /// the rest of the machine's own never leave this desk — and a box's password and the weather key blanked unless the
+    /// secrets ride this link. The rest of the record names no secret; it is blanked by the same list all the same.
+    /// </summary>
+    public static string WireAirJson(RecoverySnapshot? record, bool sendSecrets)
+    {
+        if (record is null) return "null";
+        if (JsonSerializer.SerializeToNode(record with { Air = null }, JsonUtil.CloneOptions) is not System.Text.Json.Nodes.JsonObject root) return "null";
+        if (!sendSecrets) BlankSecrets(root);
+        root[nameof(RecoverySnapshot.Air)] = record.Air is { } air ? WireNode(air, sendSecrets) : null;
+        return root.ToJsonString(JsonUtil.CloneOptions);
+    }
+
+    /// <summary>
+    /// Round 89: a peer's air record landed on this desk for a takeover or a TAKE BACK — its air's mirrored sections as
+    /// they came, this machine's own sections (the twin, the remote, the admin, the install …) from this desk's show, and
+    /// a password or the weather key the wire left blank filled from this desk's own, as a SHOW landing keeps them. The
+    /// record given is never changed: the air is a copy.
+    /// </summary>
+    public static RecoverySnapshot? LandAir(RecoverySnapshot? record, ShowState own)
+    {
+        ArgumentNullException.ThrowIfNull(own);
+        if (record?.Air is not { } air) return record;
+        var landed = JsonUtil.Clone(air);
+        foreach (var pi in Roots)
+        {
+            if (!LocalSections.Contains(pi.Name)) continue;
+            ModelCopier.CopyValue(pi, JsonSerializer.Deserialize(SectionJson(own, pi.Name), pi.PropertyType, JsonUtil.CloneOptions), landed);
+        }
+        KeepSecrets(landed, OwnSecrets(own));
+        return record with { Air = landed };
+    }
 }
 
 /// <summary>Where the twin link stands, on either side.</summary>
@@ -535,9 +588,11 @@ public static class TwinWatch
     }
 
     /// <summary>The standby's line on the Machine page and the health line.</summary>
-    public static string DescribeStandby(TwinPhase phase, string mainName, DateTime? lastHeardUtc, long sectionsApplied, bool autoTakeOver, DateTime utcNow, string note = "", bool linked = false, string clock = "")
+    /// <param name="without">Round 89: what this standby is without of the show's secrets, in <see cref="TwinSecrets.OnStandby"/>'s words; said while it follows, while the main is silent and once it has the show.</param>
+    public static string DescribeStandby(TwinPhase phase, string mainName, DateTime? lastHeardUtc, long sectionsApplied, bool autoTakeOver, DateTime utcNow, string note = "", bool linked = false, string clock = "", string without = "")
     {
         var main = mainName.Length > 0 ? mainName : "the main";
+        var lacks = without.Length > 0 ? " · " + without : "";
         switch (phase)
         {
             case TwinPhase.Off:
@@ -551,14 +606,14 @@ public static class TwinWatch
             case TwinPhase.InStep:
                 return $"STANDBY for {main} — in step, heard {Age(lastHeardUtc, utcNow)}, {sectionsApplied} section{(sectionsApplied == 1 ? "" : "s")} mirrored · outputs held closed"
                        + (autoTakeOver ? " · takes over on silence." : " · TAKE OVER is yours.")
-                       + (clock.Length > 0 ? $" · {clock}" : "");
+                       + (clock.Length > 0 ? $" · {clock}" : "") + lacks;
             case TwinPhase.MainSilent:
                 var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
-                return $"MAIN {main} SILENT for {silent} — {(autoTakeOver ? "taking over…" : "TAKE OVER?")}" + (note.Length > 0 ? $" · {note}" : "");
+                return $"MAIN {main} SILENT for {silent} — {(autoTakeOver ? "taking over…" : "TAKE OVER?")}" + (note.Length > 0 ? $" · {note}" : "") + lacks;
             case TwinPhase.TookOver:
-                return linked
+                return (linked
                     ? $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show; {main} is back on the link and its TAKE BACK puts the show there again, or STAND BY AGAIN here."
-                    : $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show now. STAND BY AGAIN once {main} is back.";
+                    : $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show now. STAND BY AGAIN once {main} is back.") + lacks;
             default:
                 return phase.ToString();
         }
@@ -592,7 +647,9 @@ public static class TwinWatch
     }
 
     /// <summary>The main's line: the port, and each standby with when it was last heard and, when the beats have measured it, its clock against this desk's — and, when a standby has the show, that this desk's outputs wait on TAKE BACK. Clocks two seconds apart are said at the end, with the fix.</summary>
-    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "", IReadOnlyList<(string Name, TimeSpan Offset)>? clocks = null)
+    /// <param name="at">Round 89: " at 10.0.0.5 only" when the port binds the desk's one address; "" on every interface.</param>
+    /// <param name="without">Round 89: the standbys without the show's secrets, each in <see cref="TwinSecrets.OnMain"/>'s words (a sentence).</param>
+    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "", IReadOnlyList<(string Name, TimeSpan Offset)>? clocks = null, string at = "", IReadOnlyList<string>? without = null)
     {
         var tail = launcher.Length > 0 ? " " + launcher : "";
         // A hand-back that stopped short — at the wall switch, at the operator's own switch, at a
@@ -604,7 +661,7 @@ public static class TwinWatch
             return $"MAIN — the standby {holder} HAS THE SHOW; this desk's outputs are held closed. "
                    + (linked ? "TAKE BACK puts the show back here." : $"It is not on the link yet — TAKE BACK once it is, or OUTPUTS ON if it is gone.") + tail;
         }
-        if (standbys.Count == 0) return $"MAIN — listening for a standby on port {port}; none connected." + tail;
+        if (standbys.Count == 0) return $"MAIN — listening for a standby on port {port}{at}; none connected." + tail;
         var parts = standbys.Select(s =>
         {
             var note = clocks is not null && clocks.Any(c => c.Name == s.Name) ? LinkClock.Note(clocks.First(c => c.Name == s.Name).Offset, "its") : "";
@@ -613,6 +670,7 @@ public static class TwinWatch
                 : $"standby {s.Name} in step (heard {Age(s.LastBeatUtc, utcNow)}{(note.Length > 0 ? ", " + note : "")})";
         });
         var apart = clocks is null ? "" : string.Join(" ", clocks.Where(c => LinkClock.Apart(c.Offset)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
-        return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent." + (apart.Length > 0 ? " " + apart : "") + tail;
+        var lacks = without is { Count: > 0 } ? " " + string.Join(" ", without) : "";
+        return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent." + lacks + (apart.Length > 0 ? " " + apart : "") + tail;
     }
 }

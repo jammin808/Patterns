@@ -486,7 +486,8 @@ public sealed class EyeService
             var isMain = _s.Twin.Role == TwinRole.Main;
             var other = isMain ? (_s.Twin.StandbyNames is { Count: > 0 } standbys ? standbys[0] : "") : _s.Twin.MainName;
             var phase = _s.Twin.Phase;
-            var light = isMain
+            var light = _s.Twin.PortClosed ? CheckLight.Red                                               // round 89: no standby can join; the glance says PORT CLOSED
+                : isMain
                 ? (_s.Twin.StandbyNames.Count > 0 ? CheckLight.Green : CheckLight.Grey)
                 : phase switch
                 {
@@ -495,6 +496,7 @@ public sealed class EyeService
                     TwinPhase.MainSilent or TwinPhase.Refused => CheckLight.Red,
                     _ => CheckLight.Grey,
                 };
+            if (light == CheckLight.Green && _s.Twin.WithoutWords.Length > 0) light = CheckLight.Amber;   // round 89: a standby without the show's secrets; the words name what
             twin = new EyeTwin(isMain ? "main" : "standby", phase.ToString(), other, _s.Twin.GlanceWords, light);
         }
 

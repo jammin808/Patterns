@@ -669,6 +669,8 @@ public sealed class SystemMetricsService : IDisposable
             TwinRole = state.Twin.Role,
             TwinPhase = _services.Twin.Phase,
             TwinWords = _services.Twin.Status,
+            TwinWithout = _services.Twin.WithoutWords,                                                // round 89: a standby without the show's secrets
+            TwinPortClosed = _services.Twin.PortClosed,                                               // round 89: the port wanted and closed
             ShowLock = _services.ShowLock.Report,
             NdiRuntime = Patterns.Ndi.NdiSender.RuntimeAvailable,
             NdiSendersConfigured = senders.Count,

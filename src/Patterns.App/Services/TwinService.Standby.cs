@@ -56,10 +56,12 @@ public sealed partial class TwinService
                 await client.ConnectAsync(host, port, connectWait.Token);
                 var stream = client.GetStream();
                 await WriteLineAsync(stream, TwinMessage.Format(TwinWord.Join, join), cts.Token);
+                var sameMachine = SameMachineOf(client.Client.RemoteEndPoint, client.Client.LocalEndPoint);   // round 89: the socket's two addresses decide, never a name
                 await UiThread.InvokeAsync(() =>
                 {
                     _client = client;
                     _stream = stream;
+                    _linkSameMachine = sameMachine;
                     _mainProved = false;                                    // this dial's main has proved nothing yet
                     _unprovedSaid = false;
                     _dialling = false;
@@ -165,6 +167,7 @@ public sealed partial class TwinService
                 if (_welcome is not null && _welcome.Name.Length > 0) _mainName = _welcome.Name;
                 _lastHeardUtc = now;
                 _note = "";
+                _welcomedThisLink = true;
                 if (_phase == TwinPhase.TookOver) SendWhatIHave();
                 // A caller's own cues, planned before the desk's show lands over them: kept, and
                 // offered once the show is here — the desk decides.
@@ -187,6 +190,18 @@ public sealed partial class TwinService
                 if (!IsFollowerNode && WebPassBook.TryParse(msg.Payload, out var book))
                 {
                     _kernel.WebPasses.MergeFromTwin(book, theirsStand: _phase != TwinPhase.TookOver, _mainName.Length > 0 ? _mainName : "the main");
+                    _lackStale = true;
+                }
+                break;
+            case TwinWord.Secrets:
+                // Round 89: whether the show's secrets ride this link and, when not, what the main withholds — read against
+                // this desk's own show and book at the next beat. Kept through a takeover: the line keeps saying what is missing.
+                _lastHeardUtc = now;
+                if (!IsFollowerNode && TwinSecretsOffer.Parse(msg.Payload) is { } secrets)
+                {
+                    if (_secretsOffer is null || _secretsOffer.Why != secrets.Why) Log.Info($"Twin: {(_mainName.Length > 0 ? _mainName : "the main")} {(secrets.Rides ? "sends the show's secrets on this link" : secrets.Why == TwinSecrets.Plain ? "keeps the show's secrets: the link to another machine is plain" : "sends no secrets: SEND SECRETS is off there")}.");
+                    _secretsOffer = secrets;
+                    _lackStale = true;
                 }
                 break;
             case TwinWord.Refused:
@@ -211,6 +226,7 @@ public sealed partial class TwinService
             {
                 var ok = false;
                 RememberLanded(msg.Payload);
+                _lackStale = true;
                 _services.BulkEdit(() => ok = TwinSync.ApplyShow(_kernel.State, msg.Payload));
                 if (ok)
                 {
@@ -252,6 +268,7 @@ public sealed partial class TwinService
             {
                 var ok = false;
                 if (TwinSync.IsCallerSection(msg.Name)) _lastLanded[msg.Name] = msg.Payload;   // the desk's own: not an edit of this caller's to send back
+                _lackStale = true;
                 _services.BulkEdit(() => ok = TwinSync.ApplySection(_kernel.State, msg.Name, msg.Payload));
                 if (ok)
                 {
@@ -269,6 +286,7 @@ public sealed partial class TwinService
             case TwinWord.Air:
                 _mirroredAir = msg.Payload == "null" ? null : ReadAir(msg.Payload);
                 _lastHeardUtc = now;
+                _lackStale = true;                                                // the air names pages too
                 break;
             case TwinWord.Beat:
                 _lastHeardUtc = now;
@@ -291,9 +309,10 @@ public sealed partial class TwinService
 
     /// <summary>
     /// A standby that has the show, welcomed back by the main: its show and its air go to the main, for TAKE BACK — and
-    /// after them (round 89), under this desk's own SendSecrets, the passes of the pages they hold as kept://…, so a page
-    /// pasted here while it had the show opens on the main after TAKE BACK, and the main reads them against the show
-    /// that names them.
+    /// after them (round 89), the passes of the pages they hold as kept://…, so a page pasted here while it had the show
+    /// opens on the main after TAKE BACK, and the main reads them against the show that names them. The secrets ride back
+    /// by the same rule as out (<see cref="TwinSecrets.Rides"/>): this desk's own SEND SECRETS, and a link that never
+    /// leaves this machine; otherwise the show goes with its passwords and the weather key blanked, and no passes.
     /// </summary>
     private void SendWhatIHave()
     {
@@ -302,9 +321,10 @@ public sealed partial class TwinService
         var kept = "";
         try
         {
-            show = TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets));
-            air = AirLine();
-            if (_kernel.State.Twin.SendSecrets && _kernel.WebPasses.Book is { Count: > 0 } book && book.Only(NamedKeptIds()) is { Count: > 0 } cut)
+            var rides = TwinSecrets.Rides(_kernel.State.Twin.SendSecrets, _linkSameMachine, follower: false);
+            show = TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, rides));
+            air = AirLine(rides);
+            if (rides && _kernel.WebPasses.Book is { Count: > 0 } book && book.Only(NamedKeptIds()) is { Count: > 0 } cut)
             {
                 kept = KeptLine(cut);
             }
@@ -355,12 +375,49 @@ public sealed partial class TwinService
         }
     }
 
+    /// <summary>
+    /// Round 89 (UI thread, once a beat while something moved): what this standby is without, of the secrets the show it
+    /// mirrors uses — the main's last SECRETS word read against this desk's own boxes, weather key and book of kept pages
+    /// (the ones the show and the mirrored air name). A change is said once in the log; the line says it while it lasts.
+    /// </summary>
+    private void ReadLack()
+    {
+        if (!_lackStale || _phase is not (TwinPhase.InStep or TwinPhase.MainSilent or TwinPhase.TookOver)) return;   // read against a show the main sent, never the one before it landed
+        _lackStale = false;
+        var keptNotHere = 0;
+        if (_secretsOffer is { Rides: false })
+        {
+            var ids = new HashSet<string>(WebPassMigration.KeptIdsIn(_kernel.State), StringComparer.Ordinal);
+            if (_mirroredAir is { } air) ids.UnionWith(WebPassMigration.KeptIdsInText(JsonUtil.SerializeCompact(air)));
+            var book = _kernel.WebPasses.Book;
+            keptNotHere = ids.Count(id => book.Find(id) is null);
+        }
+        var lack = TwinSecretsLack.Of(_secretsOffer, _kernel.State, keptNotHere);
+        if (lack == _lack) return;
+        _lack = lack;
+        var main = _mainName.Length > 0 ? _mainName : "the main";
+        Log.Info(lack.Any ? $"Twin: this standby is {TwinSecrets.OnStandby(lack, _secretsOffer?.Why ?? TwinSecrets.Off, main)}." : "Twin: this standby has every secret the show it mirrors uses.");
+    }
+
+    /// <summary>Round 89: the LACKS word to the main whenever what this standby is without changed, and once on each link after the welcome.</summary>
+    private void SendLack()
+    {
+        if (IsFollowerNode || !_welcomedThisLink || !_mainProved || _secretsOffer is null) return;
+        var json = _lack.ToJson();
+        if (string.Equals(json, _lackSent, StringComparison.Ordinal)) return;
+        _lackSent = json;
+        var line = TwinMessage.Format(TwinWord.Lacks, json);
+        _ = Task.Run(() => TryWriteToMain(line), CancellationToken.None);
+    }
+
     private void CloseLink()
     {
         var client = _client;
         _client = null;
         _stream = null;
         _mainProved = false;
+        _welcomedThisLink = false;                                                // the next link is told what is missing again
+        _lackSent = "";
         try { client?.Dispose(); } catch { /* already down */ }
         // The next link measures the clocks afresh; the room clock keeps the last frame it knew — a jump would be worse than a stale offset.
         _linkClock = new LinkClock();

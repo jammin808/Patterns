@@ -82,6 +82,15 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     private SwitchByHand? _switchByHand;        // a take-back across machines whose route is the operator's own: the show is up here, the second press releases
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, TakenBack> _takenBack = new(StringComparer.Ordinal);   // instance → the takeover this desk took back and the hand-back that ended it
     private bool _keyBeingMade;
+    private bool _linkSameMachine;              // round 89: this dial's two ends are this machine — the socket's addresses
+    private bool _welcomedThisLink;             // round 89: the main welcomed this dial: a LACKS word may go
+    private TwinSecretsOffer? _secretsOffer;    // round 89: the main's last SECRETS word — kept through a takeover, so the line still says what is missing
+    private TwinSecretsLack _lack = TwinSecretsLack.None;   // round 89: what this standby is without, as last read
+    private bool _lackStale = true;             // the show, the book or the offer moved since it was read: read again at the next beat
+    private string _lackSent = "";              // the LACKS word this link was last sent; "" on a new link
+    private string _listenAt = "";              // round 89: " at 10.0.0.5 only (and 127.0.0.1, …)" while the port binds the desk's one address
+    private TcpListener? _loopbackListener;     // round 89: 127.0.0.1 beside a bound address, for a standby on this machine
+    private readonly HashSet<string> _refusedSaid = new(StringComparer.Ordinal);   // round 89 (UI thread): the standbys SEND SECRETS was refused for in words, while it stays on
 
     // ---- callers ----
     private bool _hosting;                                                          // the listener is open for callers (a main, or a desk that accepts them)
@@ -102,6 +111,13 @@ public sealed partial class TwinService : IDisposable, ILinkReport
 
     /// <summary>How a process is seen from outside; the tests answer without a process tree.</summary>
     public IProcessProbe Probe { get; set; } = new SystemProcessProbe();
+
+    /// <summary>
+    /// Round 89: whether both ends of a twin connection are this machine, from the socket's two addresses — the one fact
+    /// the show's secrets ride on (<see cref="TwinSecrets.SameMachine(System.Net.EndPoint?, System.Net.EndPoint?)"/>).
+    /// The tests answer "another machine" over loopback.
+    /// </summary>
+    public Func<EndPoint?, EndPoint?, bool> SameMachineOf { get; set; } = TwinSecrets.SameMachine;
 
     /// <summary>The most bytes the first line of a link may run to — a JOIN or a WELCOME — before the peer has proved itself.</summary>
     private const int JoinLineBytes = 64 * 1024;
@@ -249,7 +265,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             {
                 case TwinRole.Main:
                 {
-                    if (_listener is null) return "";
+                    if (_listener is null) return PortClosed ? "TWIN main · PORT CLOSED" : "";   // round 89: no standby can join; the line says why
                     if (_holder.Length > 0) return $"TWIN main · {_holder} HAS THE SHOW";
                     List<(string Name, DateTime Beat)> standbys;
                     lock (_gate)
@@ -259,17 +275,21 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     if (standbys.Count == 0) return "TWIN main · no standby";
                     var silent = standbys.Where(s => TwinWatch.IsSilent(s.Beat, now)).Select(s => s.Name).ToList();
                     var apart = ClockApartWords.Length > 0 ? " · CLOCKS APART" : "";
-                    return (silent.Count > 0 ? $"TWIN main · {string.Join(", ", silent)} SILENT" : $"TWIN main · {standbys.Count} standby in step") + apart;
+                    var without = string.Concat(StandbysWithout().Select(w => $" · {w.Name} {w.Lack.Glance}"));   // round 89: a standby without the show's secrets
+                    return (silent.Count > 0 ? $"TWIN main · {string.Join(", ", silent)} SILENT" : $"TWIN main · {standbys.Count} standby in step") + without + apart;
                 }
                 case TwinRole.Standby when !IsFollowerNode:                    // a follower links as a standby does, and its words below are its own
+                {
+                    var without = _lack.Any ? " · " + _lack.Glance : "";       // round 89: what this standby is without of the show's secrets
                     return _phase switch
                     {
-                        TwinPhase.TookOver => "TWIN standby · TOOK OVER",
-                        TwinPhase.MainSilent => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} SILENT",
-                        TwinPhase.InStep => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} heard {TwinWatch.Age(_lastHeardUtc, now)}" + GlanceClock("the main's"),
+                        TwinPhase.TookOver => "TWIN standby · TOOK OVER" + without,
+                        TwinPhase.MainSilent => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} SILENT" + without,
+                        TwinPhase.InStep => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} heard {TwinWatch.Age(_lastHeardUtc, now)}" + GlanceClock("the main's") + without,
                         TwinPhase.Refused => "TWIN standby · REFUSED",
                         _ => "TWIN standby · dialling",
                     };
+                }
                 default:
                     if (IsFollowerNode)
                     {
@@ -315,7 +335,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                         beats = _standbys.Select(s => (PeerLabel(s), s.LastBeatUtc)).ToList();
                         clocks = _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset)).ToList();
                     }
-                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote, clocks);
+                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote, clocks, _listenAt,
+                        StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why)).ToList());
                 case TwinRole.Off when _hosting:
                 {
                     List<string> callers;
@@ -325,6 +346,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     }
                     if (IsFollowerNode) return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now, timer: _kernel.Profile == NodeKind.Timer);
                     var held = _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK. " : "Twin off — ";
+                    // Round 89: the callers' port closed (a bind that is not an address, a port held) is said, after a standby's hold.
+                    if (_listener is null && _note.Length > 0) return _holder.Length > 0 ? held + _note : _note;
                     return callers.Count == 0
                         ? $"{held}callers may link on port {_kernel.State.Twin.Port}; none linked."
                         : $"{held}caller{(callers.Count == 1 ? "" : "s")} {string.Join(", ", callers)} linked; GO, STANDBY and HOLD from there run here." + PeerClockWords();
@@ -337,7 +360,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 {
                     var cfg = _kernel.State.Twin;
                     var auto = cfg.AutoTakeOver && TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0, DeviceConfirmation.FenceProblem(_kernel.State, cfg.TakeOverCue)) is null && !_note.StartsWith("not taken over", StringComparison.Ordinal);
-                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null, clock: LinkNote("the main's"));
+                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null, clock: LinkNote("the main's"), without: StandbyWithoutWords());
                 }
                 default:
                     return _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK." : "Twin off.";
@@ -353,11 +376,58 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     {
         get
         {
-            var words = _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
+            var words = _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? WithoutSentences() : Status;
             var apart = ClockApartWords;
             return apart.Length == 0 ? words : words.Length == 0 ? apart : apart + " · " + words;
         }
     }
+
+    /// <summary>Round 89: this standby's own words for what it is without of the show's secrets, and why; "" with nothing missing or on a follower.</summary>
+    private string StandbyWithoutWords()
+        => IsFollowerNode || !_lack.Any ? "" : TwinSecrets.OnStandby(_lack, _secretsOffer?.Why ?? TwinSecrets.Off, _mainName);
+
+    /// <summary>Round 89: the twin's words on the show's secrets while the link is in step — a standby's own, or a main's for each standby without them.</summary>
+    private string WithoutSentences() => _role switch
+    {
+        TwinRole.Main => string.Join(" ", StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why))),
+        TwinRole.Standby => StandbyWithoutWords(),
+        _ => "",
+    };
+
+    /// <summary>
+    /// Round 89: what the twin's link does with the show's secrets, for STATE and TWIN STATUS: "ride" (sent: a standby on
+    /// this machine, SEND SECRETS on), "off" (withheld: the setting), "plain" (withheld: another machine over the plain
+    /// link), or "" with no standby on the link. A main with several standbys says the one that withholds — another
+    /// machine's first.
+    /// </summary>
+    public string SecretsWord
+    {
+        get
+        {
+            if (_role == TwinRole.Main)
+            {
+                List<string> whys;
+                lock (_gate)
+                {
+                    whys = _standbys.Where(s => !s.IsFollower && !s.HoldsShow).Select(WhyFor).ToList();
+                }
+                return whys.Contains(TwinSecrets.Plain) ? TwinSecrets.Plain : whys.Contains(TwinSecrets.Off) ? TwinSecrets.Off : whys.Count > 0 ? TwinSecrets.Ride : "";
+            }
+            return _role == TwinRole.Standby && !IsFollowerNode ? _secretsOffer?.Why ?? "" : "";
+        }
+    }
+
+    /// <summary>
+    /// Round 89: what a standby is without of the show's secrets, in short words — on a standby its own ("2 device
+    /// passwords and 1 kept page"), on a main each standby's ("Backup: 2 device passwords"); "" when nothing is missing.
+    /// STATE's <c>twin.without</c>, the Super Check's twin light and the Eye's read it.
+    /// </summary>
+    public string WithoutWords => _role switch
+    {
+        TwinRole.Main => string.Join(" · ", StandbysWithout().Select(w => $"{w.Name}: {w.Lack.Words}")),
+        TwinRole.Standby when !IsFollowerNode => _lack.Words,
+        _ => "",
+    };
 
     /// <summary>The glance line's word on the clock: " · the desk's clock 0.8 s ahead", or "" within half a second.</summary>
     private string GlanceClock(string whose)
@@ -385,6 +455,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             holder = _holder,
             clocks = PeerClockWords().Trim(),
             apart = ClockApartWords.Length > 0,
+            secrets = SecretsWord,                                         // round 89: whether the show's secrets ride the link — appended at the end
+            without = WithoutWords,
         };
     }
 
@@ -426,6 +498,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     : _switchByHand is not null ? "the operator's switch — TAKE BACK again releases the standby" : "",
                 trail = _handover.Trail,
             },
+            secrets = SecretsWord,                                         // round 89: whether the show's secrets ride the link, and what a standby is without
+            without = WithoutWords,
         });
     }
 
@@ -458,7 +532,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             }
             return;
         }
-        var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}|{hostsCallers}|{_kernel.Profile}";
+        var bind = _kernel.State.Control.Bind;
+        var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}|{hostsCallers}|{_kernel.Profile}|{bind}";
         if (key == _activeKey) return;
         _activeKey = key;
         BindFailed = false;
@@ -466,6 +541,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         _role = cfg.Role;
         _note = "";
         // The standby process this desk runs: wanted by a main that asked for one, ended otherwise — unless it has the show.
+        // It dials 127.0.0.1 whatever the bind: the port listens there too (Listen), so its link never rides a network card.
         _launcher.Want(cfg.Role == TwinRole.Main && cfg.LocalStandby ? TwinHandover.StandbyHome(_kernel.Store.BaseDirectory) : null, cfg.Port, cfg.Key, _holder.Length > 0);
         _hosting = false;
         // A follower node — a caller, a stage timer: whatever its file's twin role says, it follows
@@ -491,18 +567,16 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             _cts = new CancellationTokenSource();
             try
             {
-                _listener = new TcpListener(IPAddress.Any, cfg.Port);
-                _listener.Start();
-                _ = AcceptLoop(_listener, _cts.Token);
-                Log.Info($"Twin: listening for caller nodes on port {cfg.Port}.");
+                if (Listen(cfg.Port, "the callers' port", _cts.Token)) Log.Info($"Twin: listening for caller nodes on port {cfg.Port}{_listenAt}.");
             }
             catch (Exception ex)
             {
-                _listener = null;
+                CloseListeners();
                 _note = $"Twin: the desk could not open port {cfg.Port} for callers — {ex.Message}";
                 Log.Warn(_note, ex);
                 _activeKey = "";
                 BindFailed = true;
+                PortClosed = true;
             }
             StartBeating(_cts);
             return;
@@ -515,18 +589,16 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 _cts = new CancellationTokenSource();
                 try
                 {
-                    _listener = new TcpListener(IPAddress.Any, cfg.Port);
-                    _listener.Start();
-                    _ = AcceptLoop(_listener, _cts.Token);
-                    Log.Info($"Twin: listening for a standby on port {cfg.Port}.");
+                    if (Listen(cfg.Port, "the main's port", _cts.Token)) Log.Info($"Twin: listening for a standby on port {cfg.Port}{_listenAt}.");
                 }
                 catch (Exception ex)
                 {
-                    _listener = null;
+                    CloseListeners();
                     _note = $"Twin: the main could not open port {cfg.Port} — {ex.Message}";
                     Log.Warn(_note, ex);
                     _activeKey = ""; // retried on the next change, and from the poll (round 77)
                     BindFailed = true;
+                    PortClosed = true;
                 }
                 StartBeating(_cts);
                 break;
@@ -546,6 +618,89 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         }
     }
 
+    /// <summary>
+    /// Round 89: the twin's port on the desk's bind address (the Remote page's Bind to, read whether or not remote
+    /// control is on) — every interface when it is empty, that one address otherwise, so the audience network never sees
+    /// the twin's port either — and on 127.0.0.1 beside a bound address: no other machine can reach loopback, and a
+    /// standby on this machine (the one this desk launches, one a previous main launched) dials it, so its link never
+    /// rides a network card whose cable can be pulled — a link that dropped with the card's address would be silence,
+    /// and a standby on this machine takes over by itself on silence. A bind that is not an address opens nothing, never
+    /// every interface: the line, the log and the Twin row say why, until the setting changes. False with the port
+    /// closed; an exception is a port another program holds.
+    /// </summary>
+    private bool Listen(int port, string what, CancellationToken ct)
+    {
+        CloseListeners();
+        if (!BindAddress.TryParse(_kernel.State.Control.Bind, out var bound, out var problem))
+        {
+            _note = $"Twin: {what} is closed — {problem} (Remote page, Bind to — read whether or not remote control is on); the twin listens on the desk's bind address or not at all.";
+            Log.Warn(_note);
+            PortClosed = true;
+            return false;
+        }
+        var everywhere = bound is null || bound.Equals(IPAddress.Any) || bound.Equals(IPAddress.IPv6Any);
+        var listener = new TcpListener(bound ?? IPAddress.Any, port);
+        try
+        {
+            listener.Start();
+        }
+        catch (SocketException)
+        {
+            listener.Dispose();
+            throw;
+        }
+        _listener = listener;
+        _ = AcceptLoop(listener, ct);
+        _listenAt = everywhere ? "" : $" at {bound} only";
+        if (bound is null || bound.Equals(IPAddress.Any) || bound.Equals(IPAddress.Loopback)) return true;   // 127.0.0.1 is in it already
+        try
+        {
+            var loopback = new TcpListener(IPAddress.Loopback, port);
+            try
+            {
+                loopback.Start();
+            }
+            catch (SocketException)
+            {
+                loopback.Dispose();
+                throw;
+            }
+            _loopbackListener = loopback;
+            _ = AcceptLoop(loopback, ct);
+            _listenAt += " (and 127.0.0.1, for a standby on this machine)";
+        }
+        catch (SocketException ex)
+        {
+            // The bound address is open; only a standby on this machine cannot join — said on the line and in the log.
+            _listenAt += $" — 127.0.0.1:{port} is held by another program, so a standby on this machine cannot join";
+            Log.Warn($"Twin: {what} is open{_listenAt}.", ex);
+        }
+        return true;
+    }
+
+    /// <summary>The twin's listeners closed: the bound address's and loopback's.</summary>
+    private void CloseListeners()
+    {
+        try { _listener?.Dispose(); } catch { /* already down */ }
+        try { _loopbackListener?.Dispose(); } catch { /* already down */ }
+        _listener = null;
+        _loopbackListener = null;
+        _listenAt = "";
+    }
+
+    /// <summary>Round 89: where the twin's port listens — its address and port — or null while it is closed (the tests read it).</summary>
+    public IPEndPoint? ListeningOn => _listener?.LocalEndpoint as IPEndPoint;
+
+    /// <summary>Round 89: the loopback listener beside a bound address, or null (the tests read it).</summary>
+    public IPEndPoint? AlsoListeningOn => _loopbackListener?.LocalEndpoint as IPEndPoint;
+
+    /// <summary>
+    /// Round 89: the twin's port was wanted and is closed — a bind that is not an address, or a port another program
+    /// holds — so no standby or caller can join. The Super Check's Twin row, the dashboard, the Eye and the glance read
+    /// it red; a main still being given a key, or a role on its way, is not closed.
+    /// </summary>
+    public bool PortClosed { get; private set; }
+
     private void Stop(bool sayGoodbye)
     {
         _cts?.Cancel();
@@ -562,8 +717,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             if (sayGoodbye) s.TryWrite(TwinMessage.Format(TwinWord.Bye));
             s.Dispose();
         }
-        try { _listener?.Dispose(); } catch { /* already down */ }
-        _listener = null;
+        CloseListeners();
+        PortClosed = false;
         _pendingSections.Clear();
         _pendingWhole = false;
         _pendingAir = false;
@@ -595,6 +750,9 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         _lastHeardUtc = null;
         _sectionsApplied = 0;
         _mirroredAir = null;
+        _secretsOffer = null;                                                    // a new role hears its own main's word
+        _lack = TwinSecretsLack.None;
+        _lackStale = true;
         _role = TwinRole.Off;
     }
 
@@ -632,6 +790,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     }
                     if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); }, CancellationToken.None);
                     SendLive();
+                    SendSecretsWord();
                     SendKept();
                     _launcher.Tick(standbyHoldsShow: _holder.Length > 0);
                     CheckMarker(force: false);
@@ -661,8 +820,10 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                         if (!TakeOver(ActionOrigin.Recovery).Ok) _nextAutoTakeOverUtc = now + TwinWatch.RetryAfterRefusal;
                         break;
                     }
+                    if (!IsFollowerNode) ReadLack();                                              // round 89: what this standby is without, read once a beat when something moved
                     if (_stream is not null)
                     {
+                        SendLack();
                         SendMyContext();                                                          // round 88: a node's own context to its desk, every five seconds
                         var seq = Interlocked.Increment(ref _beat);
                         _ = Task.Run(() => TryWriteToMain(TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, Clock().Ticks, Interlocked.Read(ref _lastMainSentTicks), Interlocked.Read(ref _lastMainReceivedTicks)).Format())), CancellationToken.None);

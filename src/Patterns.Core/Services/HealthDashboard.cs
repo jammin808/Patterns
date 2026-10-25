@@ -231,10 +231,11 @@ public static class HealthDashboard
     private static DashboardTile Watchdog(CheckFacts f)
     {
         // A twin in trouble outranks everything else on the tile: a main gone silent under a
-        // standby, a refused link, a desk that took the show and has not stood by again.
-        if (f.TwinRole != TwinRole.Off && f.TwinPhase is not (TwinPhase.InStep or TwinPhase.Listening))
+        // standby, a refused link, a desk that took the show and has not stood by again — and
+        // (round 89) a main whose port is closed, or a standby without the show's secrets.
+        if (f.TwinRole != TwinRole.Off && (f.TwinPhase is not (TwinPhase.InStep or TwinPhase.Listening) || f.TwinWithout.Length > 0 || f.TwinPortClosed))
         {
-            return new DashboardTile("watchdog", "WATCHDOG", SuperCheck.TwinLight(f.TwinPhase), SuperCheck.TwinValue(f.TwinRole, f.TwinPhase), f.TwinWords);
+            return new DashboardTile("watchdog", "WATCHDOG", SuperCheck.TwinLight(f.TwinPhase, f.TwinWithout, f.TwinPortClosed), SuperCheck.TwinValue(f.TwinRole, f.TwinPhase, f.TwinWithout, f.TwinPortClosed), f.TwinWords);
         }
         if (f.BeaconListening && f.BeaconWatch.StartsWith("MAIN MACHINE", StringComparison.Ordinal))
         {

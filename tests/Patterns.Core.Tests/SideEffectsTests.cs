@@ -27,6 +27,9 @@ public class SideEffectsTests
         Assert.False(SideEffectDomains.Touches(picture, SideEffectDomains.Devices));
         Assert.False(SideEffectDomains.Touches(picture, SideEffectDomains.Beacon));
 
+        var control = new HashSet<string> { nameof(ShowState.Control) };
+        Assert.True(SideEffectDomains.Touches(control, SideEffectDomains.Twin));                          // round 89: the twin's port listens on the remote's bind address
+
         var name = new HashSet<string> { nameof(ShowState.Name) };
         Assert.True(SideEffectDomains.Touches(name, SideEffectDomains.Twin));
         Assert.True(SideEffectDomains.Touches(name, SideEffectDomains.Beacon));

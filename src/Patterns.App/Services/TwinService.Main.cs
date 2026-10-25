@@ -22,6 +22,7 @@ public sealed partial class TwinService
     private void OnBuilt(ShowState state, HashSet<string>? dirty)
     {
         if (!ReferenceEquals(state, _kernel.State)) return;
+        _lackStale = true;                                                            // round 89: a password typed here, a page pasted: what a standby is without is read again
         if (IsFollowerNode)
         {
             if (_kernel.Profile == NodeKind.Caller) SendMyEdits(dirty);                  // a timer owns nothing of the show
@@ -74,13 +75,18 @@ public sealed partial class TwinService
         {
             standbys = _standbys.ToList();
         }
-        var lines = new List<string>();
+        // Round 89: each line in two forms where the secrets make a difference — blanked, and whole for a standby the
+        // secrets ride to (TwinSecrets.Rides: on this machine, SEND SECRETS on) — each peer is sent its own form.
+        var rides = standbys.Select(RidesFor).ToList();
+        var anyRides = rides.Contains(true);
+        var lines = new List<(string Blank, string Whole)>();
         var origins = new List<string?>();                                            // per section line: the peer whose edit it was, or null
         try
         {
             if (_pendingWhole)
             {
-                lines.Add(TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets)));
+                var blank = TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, sendSecrets: false));
+                lines.Add((blank, anyRides ? TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, sendSecrets: true)) : blank));
                 origins.Add(null);
                 _sectionsSent += TwinSync.MirroredSections.Count;
             }
@@ -88,12 +94,17 @@ public sealed partial class TwinService
             {
                 foreach (var section in TwinSync.Mirrored(_pendingSections))
                 {
-                    lines.Add(TwinMessage.Format(TwinWord.Section, TwinSync.WireSectionJson(_kernel.State, section, _kernel.State.Twin.SendSecrets), section));
+                    lines.Add(SectionLines(section, anyRides));
                     origins.Add(_echoSkip.TryGetValue(section, out var from) ? from : null);
                     _sectionsSent++;
                 }
             }
-            if (_pendingAir) lines.Add(AirLine());
+            if (_pendingAir)
+            {
+                // The air record holds a whole show while EDIT SAFE is open or a look is pinned: the SHOW line's rule.
+                var air = AirLine(rides: false);
+                lines.Add((air, anyRides ? AirLine(rides: true) : air));
+            }
         }
         catch (Exception ex)
         {
@@ -106,12 +117,13 @@ public sealed partial class TwinService
         if (lines.Count == 0 || standbys.Count == 0) return;
         _ = Task.Run(() =>
         {
-            foreach (var s in standbys)
+            for (var p = 0; p < standbys.Count; p++)
             {
+                var s = standbys[p];
                 for (var i = 0; i < lines.Count; i++)
                 {
                     if (i < origins.Count && origins[i] is { } from && from == s.Instance) continue;   // its own edit: it has it
-                    if (s.TryWrite(lines[i])) continue;
+                    if (s.TryWrite(rides[p] ? lines[i].Whole : lines[i].Blank)) continue;
                     Drop(s);
                     break;
                 }
@@ -119,19 +131,102 @@ public sealed partial class TwinService
         }, CancellationToken.None);
     }
 
-    private string AirLine() => TwinMessage.Format(TwinWord.Air, _air is null ? "null" : JsonUtil.SerializeCompact(_air));
+    /// <summary>Round 89: one section's line blanked, and whole when a peer is sent its secrets — the same line for a section that carries none.</summary>
+    private (string Blank, string Whole) SectionLines(string section, bool whole)
+    {
+        var blank = TwinMessage.Format(TwinWord.Section, TwinSync.WireSectionJson(_kernel.State, section, sendSecrets: false), section);
+        return (blank, whole && TwinSync.CarriesSecrets(section) ? TwinMessage.Format(TwinWord.Section, TwinSync.WireSectionJson(_kernel.State, section, sendSecrets: true), section) : blank);
+    }
+
+    /// <summary>Round 89: the show's secrets ride this peer's link — a standby, on this machine, SEND SECRETS on (UI thread).</summary>
+    private bool RidesFor(Standby s) => TwinSecrets.Rides(_kernel.State.Twin.SendSecrets, s.SameMachine, s.IsFollower);
+
+    /// <summary>Round 89: why the secrets ride a standby's link or not — another machine is refused first, whatever the setting.</summary>
+    private string WhyFor(Standby s) => TwinSecrets.Why(_kernel.State.Twin.SendSecrets, s.SameMachine);
+
+    /// <summary>
+    /// Round 89 (UI thread, each beat): each standby that follows is told whether the show's secrets ride its link and,
+    /// when they do not, what this desk withholds — again whenever that changes: the setting, a password typed or
+    /// cleared, the weather key. When the secrets come to ride a standby's link, the sections that carry them go on the
+    /// next flush — the one path sections take, so an older copy never lands after a newer — and it has them within the
+    /// second rather than at the next edit; its kept passes follow from SendKept. SEND SECRETS on, for a standby on
+    /// another machine, is refused with words in the log and on the desk, once per standby while it stays on — a link
+    /// that drops and joins again is not said again.
+    /// </summary>
+    private void SendSecretsWord()
+    {
+        if (_role != TwinRole.Main) return;
+        if (!_kernel.State.Twin.SendSecrets) _refusedSaid.Clear();
+        List<Standby> due;
+        lock (_gate)
+        {
+            due = _standbys.Where(s => !s.IsFollower && !s.HoldsShow).ToList();
+        }
+        if (due.Count == 0) return;
+        var cfg = _kernel.State.Twin;
+        var offers = new Dictionary<string, string>(StringComparer.Ordinal);
+        var resend = false;
+        foreach (var s in due)
+        {
+            if (cfg.SendSecrets && !s.SameMachine) SayRefused(s);
+            var why = WhyFor(s);
+            if (!offers.TryGetValue(why, out var offer)) offers[why] = offer = TwinSecretsOffer.For(_kernel.State, why).ToJson();
+            var rides = why == TwinSecrets.Ride;
+            if (rides && s.Rides == false) resend = true;
+            s.Rides = rides;
+            if (string.Equals(offer, s.SecretsOffer, StringComparison.Ordinal)) continue;
+            s.SecretsOffer = offer;
+            var line = TwinMessage.Format(TwinWord.Secrets, offer);
+            _ = Task.Run(() => { if (!s.TryWrite(line)) Drop(s); }, CancellationToken.None);
+        }
+        if (!resend) return;
+        foreach (var section in TwinSync.MirroredSections.Where(TwinSync.CarriesSecrets)) _pendingSections.Add(section);
+        ScheduleFlush();
+    }
+
+    /// <summary>
+    /// Round 89 (UI thread): SEND SECRETS refused for a standby on another machine — said in the log and on the desk once
+    /// per standby (its instance) while the setting stays on, so a link that keeps dropping and joining again says it once.
+    /// </summary>
+    private void SayRefused(Standby s)
+    {
+        if (!_refusedSaid.Add(s.Instance.Length > 0 ? s.Instance : $"{s.Machine}/{s.Name}")) return;
+        var words = TwinSecrets.Refused(s.Name);
+        Log.Warn(words);
+        _services.Notify(words);
+    }
+
+    /// <summary>Round 89: the standbys that said they are without some of the show's secrets, with why (UI thread) — a holder of the show and a follower never.</summary>
+    private List<(string Name, TwinSecretsLack Lack, string Why)> StandbysWithout()
+    {
+        lock (_gate)
+        {
+            return _standbys.Where(s => !s.IsFollower && !s.HoldsShow && s.Lack is { Any: true }).Select(s => (s.Name, s.Lack!, WhyFor(s))).ToList();
+        }
+    }
+
+    /// <summary>
+    /// The AIR line: this desk's air record as it travels (<see cref="TwinSync.WireAirJson"/>) — its air, a whole show
+    /// while EDIT SAFE is open or a look is pinned, by the SHOW line's rule: the machine's own sections never, the boxes'
+    /// passwords and the weather key only where the secrets ride (<paramref name="rides"/>).
+    /// </summary>
+    private string AirLine(bool rides) => TwinMessage.Format(TwinWord.Air, TwinSync.WireAirJson(_air, rides));
 
     /// <summary>Round 89: this desk's book of kept page addresses moved (any thread): each standby is sent its part on the UI thread.</summary>
-    private void OnKeptChanged() => UiThread.Post(SendKept);
+    private void OnKeptChanged() => UiThread.Post(() =>
+    {
+        _lackStale = true;                                                            // a standby's own book moved: what it is without is read again
+        SendKept();
+    });
 
     /// <summary>
     /// Round 89 (UI thread): the part of this main's book a standby needs — the passes of the private pages the show it
     /// is sent and the air record name as <c>kept://…</c>, never the rest of the book — to each standby that has not had
-    /// that part as it stands, and only while the twin carries the show's secrets (TwinConfig.SendSecrets). Never to a
-    /// caller or a stage timer (they never take the show), nor to a standby that holds the show: its air names its own
-    /// book's passes, and it is sent this part once TAKE BACK makes it a standby again. Called when the book moves and on
-    /// each beat, so a show that came to name a kept page, a standby that joined while the book moved or a setting
-    /// turned on has it within the second.
+    /// that part as it stands, and only where the show's secrets ride (<see cref="TwinSecrets.Rides"/>: a standby on this
+    /// machine, SEND SECRETS on). Never to a caller or a stage timer (they never take the show), nor to a standby that
+    /// holds the show: its air names its own book's passes, and it is sent this part once TAKE BACK makes it a standby
+    /// again. Called when the book moves and on each beat, so a show that came to name a kept page, a standby that
+    /// joined while the book moved or a setting turned on has it within the second.
     /// </summary>
     private void SendKept()
     {
@@ -141,6 +236,7 @@ public sealed partial class TwinService
         {
             due = _standbys.Where(s => !s.IsFollower && !s.HoldsShow).ToList();
         }
+        due.RemoveAll(s => !RidesFor(s));
         if (due.Count == 0) return;
         var cut = KeptCut();
         due.RemoveAll(s => ReferenceEquals(s.KeptSent, cut));
@@ -268,32 +364,50 @@ public sealed partial class TwinService
             // or its answer never did — is answered with the hand-back again, never with a hold: the
             // room may well be looking at this desk by now.
             var takenBack = join!.TookOver && !join.IsFollower && join.Handover.Length > 0 && _takenBack.TryGetValue(join.Instance, out var tb) && tb.Takeover == join.Handover ? tb : (TakenBack?)null;
-            standby = new Standby(client, stream, join.Name.Length > 0 ? join.Name : join.Machine, Clock()) { HoldsShow = join.TookOver && !join.IsFollower && takenBack is null, IsCaller = join.IsCaller, IsFollower = join.IsFollower, Instance = join.Instance, Machine = join.Machine, Handover = join.Handover };
+            standby = new Standby(client, stream, join.Name.Length > 0 ? join.Name : join.Machine, Clock())
+            {
+                HoldsShow = join.TookOver && !join.IsFollower && takenBack is null, IsCaller = join.IsCaller, IsFollower = join.IsFollower, Instance = join.Instance, Machine = join.Machine, Handover = join.Handover,
+                SameMachine = SameMachineOf(client.Client.RemoteEndPoint, client.Client.LocalEndPoint),   // round 89: what the socket says, never what the join claims
+            };
             if (takenBack is { } stale) Log.Warn($"Twin: the standby {standby.Name} claimed the show under a takeover this desk took back at {stale.AtUtc.ToLocalTime():HH:mm:ss} — told the hand-back again.");
             // The welcome and the whole show, read on the UI thread — the show is its own. A standby
             // that ran the show while this desk was away gets the welcome and nothing to mirror: its
             // show is the newer one, and this desk holds its outputs until TAKE BACK.
-            var (welcome, show, air, kept) = await UiThread.InvokeAsync(() =>
+            var (welcome, show, air, kept, secrets) = await UiThread.InvokeAsync(() =>
             {
                 var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _kernel.State.Name);
                 if (standby.HoldsShow && _switchByHand is { } byHand && byHand.Instance == standby.Instance) _holderLinked = true;   // back on the link mid hand-back: this desk's picture is up on purpose, no hold
                 else if (standby.HoldsShow) Hold(standby.Name, null, linked: true);
                 // A standby that stands by again — no claim — while its answer to the hand-back is awaited: that is the answer.
                 if (!join.TookOver && !standby.IsFollower && _releaseWait is { } wait && wait.Instance == standby.Instance) CompleteRelease(wait, "it stands by again");
-                // Round 89: the passes of the pages the show names ride the welcome, before the show, only where the show's
-                // secrets do — never to a follower, nor to a standby that holds the show (SendKept).
+                // Round 89: the show's secrets ride the welcome only where they ride the link (TwinSecrets.Rides: a standby
+                // on this machine, SEND SECRETS on) — the passes of the pages the show names before the show, the boxes'
+                // passwords and the weather key in it. A standby that follows is told first, in the SECRETS word, whether
+                // they ride and what it is not sent; a follower is told nothing and sent none; a standby that holds the
+                // show is sent no show and no passes (SendKept).
+                var rides = RidesFor(standby);
                 var keptLine = "";
-                if (!standby.IsFollower && !standby.HoldsShow && _kernel.State.Twin.SendSecrets)
+                var secretsLine = "";
+                if (!standby.IsFollower && !standby.HoldsShow)
                 {
-                    var cut = KeptCut();
-                    standby.KeptSent = cut;
-                    if (cut.Count > 0) keptLine = KeptLine(cut);
+                    if (rides)
+                    {
+                        var cut = KeptCut();
+                        standby.KeptSent = cut;
+                        if (cut.Count > 0) keptLine = KeptLine(cut);
+                    }
+                    if (_kernel.State.Twin.SendSecrets && !standby.SameMachine) SayRefused(standby);
+                    else if (!_kernel.State.Twin.SendSecrets) _refusedSaid.Clear();
+                    standby.SecretsOffer = TwinSecretsOffer.For(_kernel.State, WhyFor(standby)).ToJson();
+                    standby.Rides = rides;
+                    secretsLine = TwinMessage.Format(TwinWord.Secrets, standby.SecretsOffer);
                 }
-                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets), AirLine(), keptLine);
+                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.WireJson(_kernel.State, rides), AirLine(rides), keptLine, secretsLine);
             });
             var welcomed = standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome))
                            && (takenBack is null || standby.TryWrite(TwinMessage.Format(TwinWord.HandBack, takenBack.Value.TakeBack)))
                            && (kept.Length == 0 || standby.TryWrite(kept))
+                           && (secrets.Length == 0 || standby.TryWrite(secrets))
                            && (standby.HoldsShow || (standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) && standby.TryWrite(air)))
                            && standby.TryWrite(standby.BeatLine(Interlocked.Increment(ref _beat), Clock().Ticks));
             if (!welcomed)
@@ -331,6 +445,11 @@ public sealed partial class TwinService
                 else if (msg.Word == TwinWord.Bye) break;
                 else if (msg.Word == TwinWord.Released) await UiThread.InvokeAsync(() => OnReleased(standby, msg.Payload));
                 else if (standby.IsFollower) await UiThread.InvokeAsync(() => OnCallerLine(standby, msg));
+                else if (msg.Word == TwinWord.Lacks)
+                {
+                    // Round 89: what the standby says it is without — counts only; the main's line, STATE and the Super Check say it too.
+                    if (TwinSecretsLack.Parse(msg.Payload) is { } lack) standby.Lack = lack;
+                }
                 else if (standby.HoldsShow && msg.Word == TwinWord.Kept)
                 {
                     // Round 89: the passes of the pages the show the standby has names, sent after that show — a page pasted
@@ -432,6 +551,24 @@ public sealed partial class TwinService
 
         /// <summary>Round 89: the book of kept page addresses this standby was last sent (UI thread); null until it was sent one.</summary>
         public WebPassBook? KeptSent { get; set; }
+
+        /// <summary>Round 89: both ends of its connection are this machine — the socket's addresses, never the join's word. The show's secrets ride only such a link.</summary>
+        public bool SameMachine { get; init; }
+
+        /// <summary>Round 89: the SECRETS word it was last sent (UI thread); null before one.</summary>
+        public string? SecretsOffer { get; set; }
+
+        /// <summary>Round 89: whether the secrets rode its link when it was last told (UI thread) — a change to riding sends the sections that carry them.</summary>
+        public bool? Rides { get; set; }
+
+        private TwinSecretsLack? _lack;
+
+        /// <summary>Round 89: what it last said it is without (its LACKS word) — set on its read loop, read on the UI thread; null before it said.</summary>
+        public TwinSecretsLack? Lack
+        {
+            get => Volatile.Read(ref _lack);
+            set => Volatile.Write(ref _lack, value);
+        }
 
         public DateTime LastBeatUtc
         {

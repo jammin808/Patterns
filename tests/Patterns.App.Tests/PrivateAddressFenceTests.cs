@@ -277,17 +277,28 @@ public class PrivateAddressFenceTests
             vm.State.Twin.Role = TwinRole.Main;
             Dispatcher.UIThread.RunJobs();
 
-            // Carried: the book rides the welcome, before the show that names it; the show itself holds the kept address only.
+            // EDIT SAFE open: the air record holds the programme whole, the page on it as its kept address.
+            RecoverySnapshot? moved = null;
+            services.RecoveryMoved += r => moved = r;
+            vm.IsSandboxActive = true;
+            services.WriteRunPlace();
+            PumpUntil(() => moved?.Air is not null);
+
+            // Carried: the book rides the welcome, before the show that names it; the show and the air hold the kept address only.
             var (client, stream, reader) = JoinMain(vm.State.Twin.Port, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", ""));
             using (client)
             using (reader)
             {
                 var heard = UpToTheShow(reader);
-                Assert.Equal(new[] { TwinWord.Welcome, TwinWord.Kept, TwinWord.Show }, heard.Select(m => m.Word));
+                Assert.Equal(new[] { TwinWord.Welcome, TwinWord.Kept, TwinWord.Secrets, TwinWord.Show }, heard.Select(m => m.Word));
                 Assert.True(WebPassBook.TryParse(heard[1].Payload, out var book));
                 Assert.Equal(Window, book.Resolve(keptWindow).Url);
-                CarriesNoPass(heard[2].Payload, "the SHOW line");
-                Assert.Contains(keptWindow, heard[2].Payload, StringComparison.Ordinal);
+                Assert.True(TwinSecretsOffer.Parse(heard[2].Payload)!.Rides, "a standby on this machine, SEND SECRETS on: the secrets ride");
+                CarriesNoPass(heard[3].Payload, "the SHOW line");
+                Assert.Contains(keptWindow, heard[3].Payload, StringComparison.Ordinal);
+                var air = ReadWord(reader, TwinWord.Air).Payload;
+                CarriesNoPass(air, "the AIR line");
+                Assert.Contains(keptWindow, air, StringComparison.Ordinal);
                 PumpUntil(() => services.Twin.StandbyNames.Count == 1);
 
                 // A page kept on the main goes to the standby once the show names it — within the beat — and a pass the

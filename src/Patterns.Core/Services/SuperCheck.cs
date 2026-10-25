@@ -197,6 +197,10 @@ public sealed class CheckFacts
     public TwinPhase TwinPhase { get; init; } = TwinPhase.Off;
     /// <summary>The link's line — <see cref="TwinWatch"/>'s words.</summary>
     public string TwinWords { get; init; } = "";
+    /// <summary>Round 89: what a standby is without of the show's secrets — its own on a standby, each standby's on a main; "" when nothing is missing.</summary>
+    public string TwinWithout { get; init; } = "";
+    /// <summary>Round 89: the twin's port was wanted and is closed — a bind that is not an address, a port another program holds.</summary>
+    public bool TwinPortClosed { get; init; }
 
     /// <summary>The show lock as it stands; null when the app did not report it (no row).</summary>
     public LockReport? ShowLock { get; init; }
@@ -631,7 +635,7 @@ public static class SuperCheck
         }
         if (f.TwinRole != TwinRole.Off)
         {
-            rows.Add(new CheckRow(s, "Twin", TwinLight(f.TwinPhase), TwinValue(f.TwinRole, f.TwinPhase), f.TwinWords));
+            rows.Add(new CheckRow(s, "Twin", TwinLight(f.TwinPhase, f.TwinWithout, f.TwinPortClosed), TwinValue(f.TwinRole, f.TwinPhase, f.TwinWithout, f.TwinPortClosed), f.TwinWords));
         }
         if (f.ShowLock is { } held) rows.Add(new CheckRow(s, "Show lock", held.Light(f.OutputsLive), held.Value, held.Summary));
         PrivatePages(f, rows, s);
@@ -683,6 +687,27 @@ public static class SuperCheck
         TwinPhase.Off => CheckLight.Grey,
         _ => CheckLight.Amber,
     };
+
+    /// <summary>
+    /// Round 89: the twin's light with its port and what a standby is without: a port the twin wanted and could not open
+    /// (a bind that is not an address, a port another program holds) is red — no standby can join; a link in step with a
+    /// standby that is without the show's device passwords, weather key or kept pages is amber — a takeover would run
+    /// without them. A main on its way (its key being made) is neither: the fact is the twin service's, not a phase.
+    /// </summary>
+    public static CheckLight TwinLight(TwinPhase phase, string without, bool portClosed)
+    {
+        if (portClosed) return CheckLight.Red;
+        var light = TwinLight(phase);
+        return without.Length > 0 && light == CheckLight.Green ? CheckLight.Amber : light;
+    }
+
+    /// <summary>Round 89: the twin's words for a row and the tile, with a closed port and a standby without the show's secrets.</summary>
+    public static string TwinValue(TwinRole role, TwinPhase phase, string without, bool portClosed)
+    {
+        if (portClosed) return "port closed";
+        var value = TwinValue(role, phase);
+        return without.Length > 0 ? value + " · without secrets" : value;
+    }
 
     /// <summary>The twin's one or two words for a row and the tile.</summary>
     public static string TwinValue(TwinRole role, TwinPhase phase) => phase switch

@@ -1686,7 +1686,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
         try
         {
-            RestoreRecord(was, took: false, vm, head);
+            // Round 89: the peer's air came by the SHOW line's rule — without this machine's own sections, and blank where
+            // the secrets did not ride — so it lands the way a SHOW lands: this desk's own sections and secrets kept.
+            RestoreRecord(TwinSync.LandAir(was, State)!, took: false, vm, head);
         }
         catch (Exception ex)
         {

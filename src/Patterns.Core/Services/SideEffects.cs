@@ -55,8 +55,8 @@ public static class SideEffectDomains
     /// <summary>DNS-SD: the remote's ports and the show's name in the advert.</summary>
     public static readonly IReadOnlyList<string> Mdns = new[] { nameof(ShowState.Control), nameof(ShowState.Name) };
 
-    /// <summary>The twin link: its config and the show's name.</summary>
-    public static readonly IReadOnlyList<string> Twin = new[] { nameof(ShowState.Twin), nameof(ShowState.Name) };
+    /// <summary>The twin link: its config, the show's name and (round 89) the remote's bind address, which its port listens on.</summary>
+    public static readonly IReadOnlyList<string> Twin = new[] { nameof(ShowState.Twin), nameof(ShowState.Name), nameof(ShowState.Control) };
 
     /// <summary>Whether a change to the named sections reaches a system that reads these. Null is "everything moved": always.</summary>
     public static bool Touches(IReadOnlySet<string>? dirty, IReadOnlyList<string> reads)
