@@ -10,6 +10,16 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 89 — 2026-10-25 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
+
+`round-89` · PLAN §107 · 2,702 tests at the opening · module 3.18.0 · evidence: a handed-in critique (the gap analysis across Stagewatch, Patterns, PlayMap and AGMessage, its designs and their review)
+
+- **Opened (89.0).** Nothing in `docs/field/`; the ledger's rows the round closes, adds and amends; the requester and
+  the evidence class; each unit read against the standing brief at the line it stands on in the head (PLAN §107.1).
+  The papers (89.9) write what landed, REVIEW round 89, and the count at the round's end in place of the opening's.
+  The round's tag waits for that commit (`tag-rounds.sh` tags this entry at HEAD), and the heading is rewritten there
+  if 89.6 or 89.8 moves to a later round.
+
 ## Round 88 — 2026-10-11 — Show Bus 1.2: a timer node follows its desk's Stagewatch, nodes say what they are, TLS on the web remote with pinned certificates, the shared approval queue
 
 `round-88` · PLAN §106 · REVIEW round 88 · 2,702 tests · module 3.18.0 (unchanged) · evidence: the maintainer's list, the contract `docs/SHOWBUS.md` (1.2)

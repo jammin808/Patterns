@@ -12025,3 +12025,85 @@ the internet. A key adds the assistant's proposals to the queue — the queue it
 - **The tag table's row for round 87**: round 87 is not committed yet, so it has no last commit to name; the row
   is written with round 87's commit.
 
+## 107. Round 89 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
+
+### 107.1 What opened the round, and what the files said
+
+**What the files said.** Nothing this round: `docs/field/` holds only its README, and no report has arrived since
+round 79 began keeping them. The last files read were round 78's (§96.1).
+
+**The requester and the evidence class.** The maintainer, asking from Stagewatch's side for the whole show network:
+Stagewatch to work with Patterns, PlayMap and AGMessage over the Show Bus. The ask was answered first in writing — a gap
+analysis across the four apps; the area designs beside it (a proved link between two apps for Show Bus §13, the Eye's
+network band, windows for peers, show apps that are not screens, Patterns' and PlayMap's side among them); a critique
+of the plan that joins them; and the plan revised against that critique. The plan runs the work in trains. Its first,
+*stop the harms*, closes each harm in the app that causes it, alone and safe against the peers in the room today; this
+round is Patterns' part of it. Evidence class: **a handed-in critique** — the gap analysis, its designs and their
+review. Each item below was read against this tree's head (`bcdbf28`, round 88.1's last commit) before it was written
+here, and is cited at the line it stands on now. No rig report and no measurement stands behind any of them.
+
+**The questions the round opened without an answer, and the answers it takes.** Four questions the plan asks the
+maintainer before this round had no answer when it opened. None of what follows is the maintainer's: for each the round
+takes the answer the plan recommends, and the papers say so again:
+- the rounds 89 to 99 are PLAN §107 to §117 as the plan numbers them, Round 90 the bench host (a later renumbering
+  moves only rounds not yet opened);
+- the round commits to the branch this tree was given and pushes only at its close;
+- the twin's SendSecrets goes off by default in this round (89.6);
+- the twelve-hour OSC trust a proof gives its address ends in this round (89.8, with an ADR).
+
+A no to either of the last two moves its unit to the first round after the answer, and the papers do not wait for it.
+
+The heading above and the changelog's entry name what the round means to land, 89.6 and 89.8 among it; 89.9 rewrites
+both if either moves. The round's tag waits for 89.9's commit: `tag-rounds.sh` tags the changelog's newest round at
+HEAD, and from this commit on that round is 89, so the script runs after the papers and not before.
+
+**OPEN.md.** The round:
+- closes L26 with 89.4, and reads its rule as it does. The rule asks for the probe in the same commit as the next
+  web-path change. That change is 89.3's — the resolver, the first change to the WebView2 path since L26 was written —
+  and the probe lands one commit after it, in 89.4, where the plan cut the change in two for its size. The rule's aim
+  holds all the same: the round is pushed whole at its close, so neither the Windows lane nor the rig runs a build that
+  has 89.3 and not the probe. The papers write that reading into L26's closed row;
+- adds and closes L57 (the stuck beat ignored, 89.1) and L58 (a page's pass published, 89.4);
+- adds L59 (STATE greeted and pushed to an unpaired wire peer — round 91's) and L60 (a standby whose twin carried no
+  secrets takes the show with device passwords missing and kept pages black — 89.6's cost, said on both desks);
+- with 89.6, adds a row for the twin's takeover (accepted links and posted contexts bound to the main's Show Bus id —
+  round 98's);
+- amends L36 (89.4 and 89.6), L40 (89.3) and L42 (89.7).
+
+L47, L50 and L56 stay open: nothing in this round meets a real Stagewatch on a real network. L55 stays open: the round
+builds no TLS on the wire or the twin. 89.6 keeps device secrets off the plain twin by default; STATE, the cues and the
+show still cross both readable.
+
+**The units, read against the standing brief.**
+
+| Unit | The harm, read at the head | What the round does | The readers it reaches | Fence; measurement |
+|---|---|---|---|---|
+| 89.1 | A stuck Stagewatch goes unseen. Stagewatch sends `{"type":"beat","live":false}` once its show thread stops turning over (Stagewatch's `WebServer.cs:1297`, sent at `:1265-1271`). `StagewatchLinkService.ReceiveAsync` (`:508-540`) has no case for a beat, and every message refreshes the link (`:522`), so the stage goes on counting a time the Stagewatch no longer stands behind | The receive loop alone sets the link's stuck mark from that beat; only a state frame clears it. The link stays live, amber, "says its show is stuck"; a counting value shows no time; the card takes the worse of its own light and amber | the stage pages; STATE `bus.stagewatch` (`stuck` at the row's end); the twin's relay to the nodes; the Eye; the Nodes card; the assistant's brief; the module's `stagewatch_stuck`; one log line per change | Core and App tests carrying the beat's bytes as Stagewatch sends them today; no measurement this round |
+| 89.2–89.4 | A window's pass is published. A Stagewatch window's address carries its token, and the token is its pass (`/w/<token>`). A page's mount key is its whole address (`InputKeys.Web`), and `CommandRouter.WebRow` (`:294-316`) puts the address in STATE (`:618`); CONTEXT, the Eye, the journal, the twin and the support bundle carry it on | 89.2, Core: a typed address that carries a pass is kept on this machine, and the show holds `kept://host:port/<id>` (60 random bits). 89.3, the App's first half: every entry secures it — the wire, OSC, the menus, the Library, the native player, a show's load (one journal row for the migration); the WebView2 resolver; black unless the page resolves. 89.4, its second half: the logs, STATE and the twin scrubbed; the fence; and `--verify-runtime` probes WebView2 in 89.4's commit, which closes L26 | STATE `web.url` in its public form; CONTEXT; the Eye; the logs; the journal; the bundle; the twin (only under SendSecrets); a raw-address Super Check row | `PrivateAddressFenceTests`, a canary through every published reader; a platform path (WebView2): a §22 walk row; no measurement this round |
+| 89.5 | Keys and tokens cross in clear. The Stagewatch link takes TLS from the hello alone (`StagewatchLinkService.cs:241-242`) and otherwise sends its key as a bearer in clear (`:269`). The module sends plain `AUTH <token>` to any desk that sends no NONCE (`src/main.js:196-204`) | Out: TLS chosen by the pin and a probe, and a pinned Stagewatch dialled over TLS whatever a hello says; no TLS off this machine leaves the keyless view and "the key stays on this desk"; a key in clear goes to loopback only. The module: plain AUTH to loopback only, AUTH-PROOF only for a 32-hex nonce (its next patch version). In, refusing nothing: a token presented in clear from another machine is marked "seen in clear from <address> — rotate it: NEW TOKEN" | the Nodes page; the Super Check's REMOTE row; STATE `control` (a field at its end); one journal row per address; the module's status | App tests against a scripted Stagewatch and the plain listeners; the module's tests and `lines.txt`; no measurement this round |
+| 89.6 | The twin's secrets ride by default, on every interface. `TwinConfig.SendSecrets` defaults on (`ShowState.cs:2080`); the twin listens on `IPAddress.Any` whatever the bind address (`TwinService.cs:488, 512`) | SendSecrets off by default and refused with words on a plain twin link to another machine; the twin listens on the desk's bind address; a standby without the secrets says so on both desks | the twin's line on both desks (the Machine page) and every reader of it: STATE `twin` (`CommandRouter.cs:740`: its `words`, and whether the secrets ride as a field at the row's end), the deck's `twin_words` (the module reads the row's words; no module change), the Super Check's Twin row (`SuperCheck.cs:614`, whose words are the line), the Eye's twin node; the assistant's twin line names a standby without the secrets | App tests; a platform path (the twin): a §22 walk row; no measurement this round |
+| 89.7 | Loopback trust is open to a rebound name. Since round 83 a POST from another origin is refused without `X-Patterns-Client` (`ControlService.cs:1003-1012`; `HttpHead.IsCrossSite`), but `Host` is read (`HttpHead.cs:148`) and never checked: a page whose name is rebound to 127.0.0.1 is same-origin to itself and trusted as loopback (`ControlService.cs:594, 977-978`) | Loopback trust and the pages' cookie want a Host that names this desk — localhost, 127.0.0.1, [::1], the machine's name or one of its addresses, with the port; any other Host is answered as an unpaired machine, with words and one log line per address | the web remote's answer; the log | `HttpHeadTests`, `RemoteTrustTests` (`TrustLoopback` restored in `finally`); no measurement this round |
+| 89.8 | A proof trusts an address. A wire or web proof lets its address move the show over OSC for twelve hours (`ControlService.cs:439, 557-572, 979-982`; `OscGate.Allows`) | On a paired desk OSC comes from the OSC ALLOW list and loopback only; an ADR | the Super Check's OSC words; the papers name the desks that relied on it (add the controller to OSC ALLOW) | `OscAppTests`; no measurement this round |
+| 89.9 | — | The papers, the walk rows asked, the tag table's row for round 88 | — | all seven suites and the module |
+
+**What every unit was read against.**
+- *Fail closed on the wire*: 89.5, 89.7 and 89.8 entire. "Secrets ride in no line, no journal row and no feed" is
+  89.2–89.4's: a window's pass is a secret, and the head publishes it.
+- *Attempts are not facts*: 89.1's. A link that hears words is not a show that runs.
+- *Every reader*: the table's fourth column, per unit; the papers say which reader a unit did not reach and why.
+- *AI integration*: the assistant's brief reads the stuck mark (89.1) and the held address (89.4); no secret reaches
+  its facts.
+- *Companion*: the module reads `stagewatch_stuck` (89.1) and stops sending a token in clear (89.5).
+- *No legacy*: a desk on another machine that sends no NONCE (before round 87) no longer hears the module's token; a
+  Stagewatch on another machine that offers no TLS (before 2.16) is followed in its keyless view, its key kept on this
+  desk (89.5).
+- *Measured, then governed*: no ladder or governor lands; each cause is a line read at the head. No measurement this
+  round.
+- *Platform paths*: WebView2 (89.3, its probe in 89.4) and the twin (89.6). The round closes `unwalked` until their
+  §22 rows are filled.
+
+Each unit changes only what Patterns does. Stagewatch's stuck beat and its TLS are read as they are today, and no peer
+of today's versions needs an upgrade — Stagewatch 2.16 or later, a desk from round 87 or later, the module 3.18.0; the
+older peers lose what the *No legacy* line says. The rig's reading, for the close: the stall's two log lines and the
+migration's journal row, read beside the stage page and the Super Check's raw-address row.
+
