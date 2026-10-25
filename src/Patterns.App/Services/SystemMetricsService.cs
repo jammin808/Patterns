@@ -693,6 +693,7 @@ public sealed class SystemMetricsService : IDisposable
             OscOpen = state.Control.Enabled && state.Control.OscEnabled,                                  // round 79: the port that cannot pair
             OscPort = state.Control.OscPort,
             WireFaults = _services.Control.FaultCount,                                                 // round 83: the faults behind the wire
+            TokenSeenInClear = _services.Kernel.TokenSeenInClear.For(state.Control.Token),             // round 89: the token arrived unencrypted from these machines
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             PrivatePages = privatePages,

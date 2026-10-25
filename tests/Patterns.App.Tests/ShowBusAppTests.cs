@@ -208,6 +208,140 @@ public class ShowBusAppTests
     }
 
     [AvaloniaFact]
+    public void ATokenSeenInClearFromAnotherMachineIsMarkedInEveryReaderAndRefusesNothing()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var (trusted, plain) = (ControlService.TrustLoopback, ControlService.PlainAuthOnLoopback);
+        try
+        {
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            vm.State.Control.Token = Token;
+            Dispatcher.UIThread.RunJobs();
+            var port = vm.State.Control.HttpPort;
+            var router = new CommandRouter(services);
+            int Rows() => services.Journal.Tail(1000).Count(r => r.Kind == "TokenSeenInClear");
+            var rowsBefore = Rows();
+
+            // This machine's own plain AUTH and plain header are no crossing of the network: nothing is marked.
+            using (var own = new Wire(vm.State.Control.TcpPort, expectNonce: false))
+                Assert.Equal("OK paired", own.Say("AUTH " + Token));
+            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("X-Patterns-Token", Token)).Status);
+            Assert.Empty(services.Kernel.TokenSeenInClear.For(Token));
+
+            // Another machine (loopback plays it). A wrong token is no secret of this desk's: refused, nothing marked.
+            ControlService.TrustLoopback = false;
+            ControlService.PlainAuthOnLoopback = false;
+            using var wire = new Wire(vm.State.Control.TcpPort, expectNonce: true);
+            Assert.Contains("plain AUTH is for this machine only", wire.Say("AUTH WRNG-TKN0-0000"));
+            Assert.Empty(services.Kernel.TokenSeenInClear.For(Token));
+
+            // The token itself, plain on the wire: refused as before — and marked.
+            Assert.Contains("plain AUTH is for this machine only", wire.Say("AUTH " + Token));
+            var seen = Assert.Single(services.Kernel.TokenSeenInClear.For(Token));
+            Assert.Equal(("127.0.0.1", "wire", 1L), (seen.Address, seen.Via, seen.Count));
+
+            // In a header on the web remote's plain listener: answered as before (refusing nothing), the way it came added.
+            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("X-Patterns-Token", Token)).Status);
+            seen = Assert.Single(services.Kernel.TokenSeenInClear.For(Token));
+            Assert.Equal(("127.0.0.1", "wire,web", 2L), (seen.Address, seen.Via, seen.Count));
+
+            // One journal row for the address, however often it is seen; it names the address and the door, never the token.
+            Assert.Equal(rowsBefore + 1, Rows());
+            var row = services.Journal.Tail(1000).Last(r => r.Kind == "TokenSeenInClear");
+            Assert.Equal(("Remote", "127.0.0.1", "Alert"), (row.Origin, row.Target, row.Outcome));
+            Assert.Contains("rotate it: NEW TOKEN", row.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(PairingToken.Normal(Token), PairingToken.Normal(row.Message));
+
+            // Every reader: STATE's control row at the end of STATE, the Super Check's REMOTE row, the Nodes and Remote
+            // pages' words and the assistant's brief (which reads every amber row).
+            var json = router.StateJson();
+            var state = JsonDocument.Parse(json).RootElement;
+            Assert.Equal("control", state.EnumerateObject().Last().Name);
+            var control = state.GetProperty("control");
+            var first = Assert.Single(control.GetProperty("clearSeen").EnumerateArray());
+            Assert.Equal("127.0.0.1", first.GetProperty("address").GetString());
+            Assert.Equal("wire,web", first.GetProperty("via").GetString());
+            Assert.Equal("seen in clear from 127.0.0.1 — rotate it: NEW TOKEN", control.GetProperty("words").GetString());
+            Assert.DoesNotContain(PairingToken.Normal(Token), PairingToken.Normal(json));
+            var check = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Pairing token");
+            Assert.Equal(CheckLight.Amber, check.Light);
+            Assert.Equal("seen in clear from 127.0.0.1 — rotate it: NEW TOKEN", check.Value);
+            Assert.Contains("over plain http and as plain AUTH on the wire", check.Note, StringComparison.Ordinal);
+            Assert.Equal("Pairing token seen in clear from 127.0.0.1 — rotate it: NEW TOKEN (Remote page, TRUST)", vm.TokenClearWords);
+            Assert.Contains(services.DeskHealthWords().Attention, a => a.Contains("seen in clear from 127.0.0.1", StringComparison.Ordinal));
+
+            // NEW TOKEN: the mark was the old token's — none stands, in any reader.
+            vm.NewPairingTokenCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(services.Kernel.TokenSeenInClear.For(vm.State.Control.Token));
+            Assert.Equal("", vm.TokenClearWords);
+            Assert.DoesNotContain(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Item == "Pairing token");
+            Assert.Empty(JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("control").GetProperty("clearSeen").EnumerateArray());
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            ControlService.PlainAuthOnLoopback = plain;
+            vm.State.Control.Token = "";
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void UnderRequireHttpsATokenSentInClearIsRefusedAsBeforeAndStillMarked()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var trusted = ControlService.TrustLoopback;
+        try
+        {
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            vm.State.Control.Token = Token;
+            vm.State.Control.RequireHttps = true;
+            Dispatcher.UIThread.RunJobs();
+            var port = vm.State.Control.HttpPort;
+            int Rows() => services.Journal.Tail(1000).Count(r => r.Kind == "TokenSeenInClear");
+            var rowsBefore = Rows();
+
+            // Another machine (loopback plays it) with no token: refused for plain, nothing marked.
+            ControlService.TrustLoopback = false;
+            var bare = Http(port, "GET", "/api/state");
+            Assert.Equal("403 Forbidden", bare.Status);
+            Assert.Empty(services.Kernel.TokenSeenInClear.For(Token));
+
+            // The pages' cookie over plain http: refused as before — the token has crossed the network all the same, so it is marked.
+            var refused = Http(port, "GET", "/api/state", "", ("Cookie", HttpHead.TokenCookie + "=" + Token));
+            Assert.Equal("403 Forbidden", refused.Status);
+            Assert.Contains("requires HTTPS", refused.Body, StringComparison.Ordinal);
+            var seen = Assert.Single(services.Kernel.TokenSeenInClear.For(Token));
+            Assert.Equal(("127.0.0.1", "web", 1L), (seen.Address, seen.Via, seen.Count));
+
+            // The header again from the same address: counted, no second journal row.
+            Assert.Equal("403 Forbidden", Http(port, "POST", "/api/cmd", "BLACKOUT", ("X-Patterns-Token", Token)).Status);
+            Assert.Equal(2L, Assert.Single(services.Kernel.TokenSeenInClear.For(Token)).Count);
+            Assert.Equal(rowsBefore + 1, Rows());
+            var row = services.Journal.Tail(1000).Last(r => r.Kind == "TokenSeenInClear");
+            Assert.Equal(("Remote", "127.0.0.1", "Alert"), (row.Origin, row.Target, row.Outcome));
+            Assert.DoesNotContain(PairingToken.Normal(Token), PairingToken.Normal(row.Message));
+            var control = JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("control");
+            Assert.Equal("web", Assert.Single(control.GetProperty("clearSeen").EnumerateArray()).GetProperty("via").GetString());
+            Assert.Equal(CheckLight.Amber, Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Pairing token").Light);
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            vm.State.Control.RequireHttps = false;
+            vm.State.Control.Token = "";
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void AnOpenDeskSaysNoNonceAndThisMachinesPlainAuthStillPairs()
     {
         var b = TestApp.Boot();
@@ -501,7 +635,8 @@ public class ShowBusAppTests
             Assert.Equal("amber", row.GetProperty("light").GetString());
             Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
             Assert.True(row.GetProperty("stuck").GetBoolean());
-            Assert.Equal("stuck", row.EnumerateObject().Last().Name);
+            Assert.Equal(new[] { "stuck", "carrier" }, row.EnumerateObject().Select(p => p.Name).TakeLast(2));   // stuck appended, the carrier after it
+            Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
             // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
             services.Eye.Refresh();

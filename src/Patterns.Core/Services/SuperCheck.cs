@@ -240,6 +240,11 @@ public sealed class CheckFacts
     public int OscPort { get; init; }
     /// <summary>Round 83: how many lines or requests made the desk fault behind the wire since start — each answered ERR, the first logged with its stack and then one a minute.</summary>
     public long WireFaults { get; init; }
+    /// <summary>
+    /// Round 89: the machines the token set now arrived from in clear (<see cref="TokenClearSightings"/>) — the web remote
+    /// over plain http, or plain AUTH on the wire; empty when none, or no token is set.
+    /// </summary>
+    public IReadOnlyList<ClearSighting> TokenSeenInClear { get; init; } = Array.Empty<ClearSighting>();
 
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
@@ -1060,6 +1065,14 @@ public static class SuperCheck
         {
             rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Amber, $"{where} · open on every interface",
                 "FIX: anyone on any network this machine is on can run the show — Remote page, TRUST: NEW TOKEN and pair the decks and phones, or bind the control ports to the control network's address"));
+        }
+        if (f.RemoteToken && f.TokenSeenInClear.Count > 0)
+        {
+            // Round 89 (PeerLink profile 13.6.9): the token crossed the network unencrypted — refused nothing, so the row is
+            // what says it; it stands until the token changes.
+            var how = string.Join(" and ", f.TokenSeenInClear.SelectMany(c => c.Via.Split(',')).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(TokenClearSightings.HowWords));
+            rows.Add(new CheckRow("REMOTE", "Pairing token", CheckLight.Amber, TokenClearSightings.Words(f.TokenSeenInClear),
+                $"FIX: the token crossed the network unencrypted ({how}) — anyone on that network may hold it now: Remote page, TRUST: NEW TOKEN, then pair those remotes again over https:// or by proof (Companion module {CompanionModule.Version} or later)"));
         }
         if (f.WireFaults > 0)
         {

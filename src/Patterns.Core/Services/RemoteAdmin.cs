@@ -98,6 +98,9 @@ public static class SupportBundle
         [UpdatePackage.ManifestName] = "an update's manifest, not this desk's own record",
         // Round 89: the kept page addresses are the passes themselves — the bundle masks them wherever else they appear.
         [WebPassBook.FileName] = "private page addresses and their passes",
+        // Round 89: it holds a keyed hash of the pairing token with its salt; the journal's TokenSeenInClear rows and the
+        // Super Check report, both bundled, say the same addresses and times.
+        [TokenClearSightings.FileName] = "a keyed hash of the pairing token beside its salt",
     };
 
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>

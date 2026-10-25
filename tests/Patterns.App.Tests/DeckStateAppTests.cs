@@ -56,7 +56,10 @@ public class DeckStateAppTests
             Assert.Empty(quiet.GetProperty("nodes").EnumerateArray());
             SameKeys(fixture.GetProperty("twin"), quiet.GetProperty("twin"), "twin");
             SameKeys(fixture.GetProperty("stage"), quiet.GetProperty("stage"), "stage");
-            SameKeys(fixture.GetProperty("bus"), quiet.GetProperty("bus"), "bus");                // round 89: the Stagewatch row, its stuck mark at the end
+            SameKeys(fixture.GetProperty("bus"), quiet.GetProperty("bus"), "bus");                // round 89: the Stagewatch row, its stuck mark and its carrier at the end
+            SameKeys(fixture.GetProperty("control"), quiet.GetProperty("control"), "control");    // round 89: the machines the pairing token arrived from in clear
+            Assert.Equal("", quiet.GetProperty("bus").GetProperty("stagewatch").GetProperty("carrier").GetString());
+            Assert.Empty(quiet.GetProperty("control").GetProperty("clearSeen").EnumerateArray());
             Assert.False(quiet.GetProperty("bus").GetProperty("stagewatch").GetProperty("stuck").GetBoolean());
             Assert.Equal("off", quiet.GetProperty("twin").GetProperty("role").GetString());
             Assert.Equal("idle", quiet.GetProperty("stage").GetProperty("timer").GetProperty("phase").GetString());

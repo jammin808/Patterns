@@ -133,10 +133,11 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>On the tick: the words as they move.</summary>
     public void Poll()
     {
-        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}";
+        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}";
         if (now != _seen)
         {
             _seen = now;
+            Raise(nameof(TokenClearWords));
             Raise(nameof(HasPendingCertificate));
             Raise(nameof(ArcadeWords));
             Raise(nameof(ArcadeStatus));
@@ -317,6 +318,9 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     /// <summary>Round 88: the Stagewatch's certificate changed and waits for ACCEPT.</summary>
     public bool HasPendingCertificate => _host.Kernel.Stagewatch.PendingFingerprint.Length > 0;
+
+    /// <summary>Round 89: this node's pairing token was seen in clear from another machine (amber on the Nodes page); "" when it was not.</summary>
+    public string TokenClearWords => _host.Kernel.TokenClearWords;
 
     private RelayCommand? _acceptCertificate;
 

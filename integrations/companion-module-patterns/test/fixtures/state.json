@@ -619,7 +619,12 @@
       "headline": "Keynote \u2014 Ana",
       "clock": "",
       "words": "Stagewatch link: connected to Hall A at 10.0.0.9:9924.",
-      "stuck": false
+      "stuck": false,
+      "carrier": "plain"
     }
+  },
+  "control": {
+    "clearSeen": [],
+    "words": ""
   }
 }

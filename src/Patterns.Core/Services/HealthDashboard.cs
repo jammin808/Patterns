@@ -220,10 +220,13 @@ public static class HealthDashboard
         return new DashboardTile("audio", "AUDIO", light, value, lag >= 0 ? $"master clock · worst lag {lag:0.#} ms" : "master clock locked");
     }
 
+    /// <summary>Round 89: the pairing token seen in clear from another machine turns the tile amber, as the Super Check's REMOTE row does, until the token changes.</summary>
     private static DashboardTile Remote(CheckFacts f)
-        => f.RemoteEnabled
-            ? new DashboardTile("remote", "REMOTE", CheckLight.Green, "on", f.RemoteUrl.Length > 0 ? f.RemoteUrl : "the phone, Companion, OSC")
-            : new DashboardTile("remote", "REMOTE", CheckLight.Grey, "off", "the phone, Companion and OSC need it on");
+        => !f.RemoteEnabled
+            ? new DashboardTile("remote", "REMOTE", CheckLight.Grey, "off", "the phone, Companion and OSC need it on")
+            : f.RemoteToken && f.TokenSeenInClear.Count > 0
+                ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "token in clear", TokenClearSightings.Words(f.TokenSeenInClear))
+                : new DashboardTile("remote", "REMOTE", CheckLight.Green, "on", f.RemoteUrl.Length > 0 ? f.RemoteUrl : "the phone, Companion, OSC");
 
     private static DashboardTile Watchdog(CheckFacts f)
     {

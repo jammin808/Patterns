@@ -63,6 +63,8 @@ public interface INodesPage
     bool HasPendingCertificate { get; }
     /// <summary>Round 88: ACCEPT — the changed certificate becomes the pin.</summary>
     RelayCommand AcceptCertificateCommand { get; }
+    /// <summary>Round 89: the pairing token was seen in clear from another machine — the words, amber; "" when it was not.</summary>
+    string TokenClearWords { get; }
 }
 
 /// <summary>What the Run surface asks of the view model it lives in: a line for the status strip, and the editor a row's OPEN IN EDITOR goes to.</summary>

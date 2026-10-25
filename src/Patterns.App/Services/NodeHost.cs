@@ -376,6 +376,7 @@ public sealed class NodeRouter : IRouter
             standby = stack.StandbyCue is { } sb ? new { id = sb.Id, number = sb.Number, name = sb.Name } : null,
             last = stack.LastCue is { } last ? new { id = last.Id, number = last.Number, name = last.Name } : null,
             stageRev = _host.Stage?.Rev ?? 0,
+            control = _host.Control.ControlRow(),                      // round 89: the machines this node's pairing token arrived from in clear — appended at the end
         });
     }
 

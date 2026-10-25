@@ -47,16 +47,29 @@ export function fakeContext(label = 'FOH deck') {
 export const sampleState = () => JSON.parse(readFileSync(new URL('./fixtures/state.json', import.meta.url), 'utf8'))
 
 /** A booted instance on a fake wire, the desk's first STATE already heard unless told otherwise. */
-export async function boot({ config = { host: '10.0.0.5', port: 9697 }, state = sampleState(), label = 'FOH deck' } = {}) {
+export async function boot({ config = { host: '10.0.0.5', port: 9697 }, state = sampleState(), label = 'FOH deck', nonceWaitMs, remoteAddress } = {}) {
 	const ctx = fakeContext(label)
 	const inst = new PatternsInstance(ctx)
 	inst.log = () => {} // the base's logger wants a host; the tests read the wire instead
+	if (nonceWaitMs !== undefined) inst.nonceWaitMs = nonceWaitMs
 	const socket = new FakeSocket()
+	if (remoteAddress !== undefined) socket._socket = { remoteAddress } // where the socket says it went, as TCPHelper's own socket does
 	inst.socketFactory = () => socket
 	await inst.init(config, true, undefined)
 	socket.emit('status_change', InstanceStatus.Ok, undefined)
 	if (state) socket.receive('STATE ' + JSON.stringify(state) + '\n')
 	return { inst, ctx, socket, lines: () => socket.sent.map((l) => l.replace(/\n$/, '')) }
+}
+
+/**
+ * The desk answers every line the module sent since the last call, in order, as a desk does — <answer> maps a line to
+ * its reply — and the module's promises are let run.
+ */
+export async function answerEach(booted, answer) {
+	const lines = booted.lines()
+	for (let i = booted.answered ?? 0; i < lines.length; i++) booted.socket.receive(answer(lines[i]) + '\n')
+	booted.answered = lines.length
+	await new Promise((r) => setTimeout(r, 10))
 }
 
 /** An action pressed with these options: the lines it put on the wire. */

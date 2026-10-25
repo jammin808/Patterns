@@ -41,6 +41,9 @@ public sealed partial class MainViewModel
     /// <summary>Round 88: the Stagewatch's certificate changed and waits for ACCEPT.</summary>
     public bool HasPendingCertificate => _services.Kernel.Stagewatch.PendingFingerprint.Length > 0;
 
+    /// <summary>Round 89: the pairing token was seen in clear from another machine (the Nodes and Remote pages, amber); "" when it was not.</summary>
+    public string TokenClearWords => _services.Kernel.TokenClearWords;
+
     private RelayCommand? _acceptCertificate;
 
     public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _services.Kernel.Stagewatch.AcceptPendingCertificate());
@@ -49,9 +52,10 @@ public sealed partial class MainViewModel
     private void PollNodes()
     {
         _services.Nodes.Poll();
-        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}";
+        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}";
         if (now == _nodesSeen) return;
         _nodesSeen = now;
+        Raise(nameof(TokenClearWords));
         Raise(nameof(ShowBusLine));
         Raise(nameof(HasPendingCertificate));
         Raise(nameof(NodesWord));

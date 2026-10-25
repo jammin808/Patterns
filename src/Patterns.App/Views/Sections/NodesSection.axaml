@@ -79,6 +79,10 @@
     <!-- Round 87: the show network (Show Bus 1.1) — the other show apps, and the link to a Stagewatch. -->
     <TextBlock Classes="h2" Text="THE SHOW NETWORK" />
     <TextBlock Classes="hint" Text="{Binding ShowBusLine}" TextWrapping="Wrap" />
+    <!-- Round 89: the pairing token crossed the network unencrypted from another machine — said in words, amber, until NEW TOKEN. -->
+    <TextBlock Text="{Binding TokenClearWords, StringFormat='△ {0}'}" Foreground="#FFB020" TextWrapping="Wrap" Margin="0,2,0,0"
+               IsVisible="{Binding TokenClearWords, Converter={StaticResource NotEmpty}}"
+               ToolTip.Tip="A remote on that machine sent this desk's pairing token unencrypted — the web remote over plain http://, an older Companion module (before 3.18.0, or 3.18.0 when the desk's NONCE came late), or another app's plain header. Anyone on that network may hold it now. NEW TOKEN on the Remote page (TRUST) rotates it; pair those remotes again over https:// or by proof" />
     <ItemsControl ItemsSource="{Binding ShowApps}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>

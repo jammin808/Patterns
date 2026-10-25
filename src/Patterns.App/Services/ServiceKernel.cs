@@ -91,6 +91,16 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>Round 88 (Show Bus 1.2 §10): this install's certificate for the web remote's TLS, made at the first start.</summary>
     public TlsCertificateService Tls { get; }
 
+    /// <summary>
+    /// Round 89: where this process's pairing token arrived in clear from another machine (the control service notes it;
+    /// the Super Check, the Nodes and Remote pages and STATE's control row read it). Kept beside the settings, so a restart
+    /// puts the marks back until the token changes; the journal keeps one row per address.
+    /// </summary>
+    public TokenClearSightings TokenSeenInClear { get; }
+
+    /// <summary>Round 89: the words for this process's token seen in clear — "" when it has not been, or no token is set.</summary>
+    public string TokenClearWords => TokenClearSightings.Words(TokenSeenInClear.For(State.Control.Token)) is { Length: > 0 } w ? "Pairing token " + w + " (Remote page, TRUST)" : "";
+
     /// <summary>Round 87: a Stagewatch frame or context landed, or the link came or went (UI thread): the stage pages read again.</summary>
     public event Action? StagewatchChanged;
 
@@ -199,6 +209,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         ShowBusId = ShowBusIdentity.LoadOrCreate(Store.BaseDirectory);   // round 87: before the beacon, whose hello says it
         Beacon = new BeaconService(this);
         Tls = new TlsCertificateService(Store.BaseDirectory, Beacon.MachineName);
+        TokenSeenInClear = new TokenClearSightings(Store.BaseDirectory);   // round 89: before the control service, which notes into it
         // Round 87: the link to a Stagewatch — off until the Nodes page turns it on; the nodes' poll reconciles it each second.
         Stagewatch = new StagewatchLinkService(() => State.Control.Stagewatch, now => Beacon.ShowBus.Snapshot(now), () => StagewatchChanged?.Invoke())
         {

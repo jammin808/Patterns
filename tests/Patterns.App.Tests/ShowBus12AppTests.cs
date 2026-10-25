@@ -141,6 +141,16 @@ public class ShowBus12AppTests
         public readonly ConcurrentDictionary<string, (string Json, string State, string Line, string Target, string From)> Proposals = new();
         public readonly ConcurrentDictionary<string, string> Results = new();
         public volatile string Authorization = "";
+        /// <summary>Every Authorization header any request carried, in order — the key leaves the desk only where this fills.</summary>
+        public readonly ConcurrentQueue<string> Authorizations = new();
+        /// <summary>The Authorization headers that came on a connection without TLS — the key in clear.</summary>
+        public readonly ConcurrentQueue<string> PlainAuthorizations = new();
+        /// <summary>Its one port speaks both: a connection that opens with a TLS greeting gets TLS, any other is served plain.</summary>
+        public volatile bool Sniff;
+        /// <summary>How long it takes, after a TLS greeting arrives, to start its handshake — a busy desk or a slow path.</summary>
+        public volatile int HandshakeDelayMs;
+        /// <summary>With no certificate: a TLS greeting is answered at once as a bad request, the way a plain web server answers bytes it cannot read.</summary>
+        public volatile bool RefuseTlsGreeting;
         /// <summary>Its show thread has stopped: each ping answered with the pong and Stagewatch's stuck beat, never a frame.</summary>
         public volatile bool Stuck;
         private int _next;
@@ -181,8 +191,23 @@ public class ShowBus12AppTests
             try
             {
                 Stream s = client.GetStream();
-                if (Certificate is { } cert)
+                var cert = Certificate;
+                if (Sniff || RefuseTlsGreeting)
                 {
+                    var opening = new byte[1];
+                    if (await client.Client.ReceiveAsync(opening, SocketFlags.Peek, _cts.Token) == 0) return;
+                    var greeting = opening[0] == 0x16;
+                    if (greeting && cert is null && RefuseTlsGreeting)
+                    {
+                        await s.WriteAsync("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"u8.ToArray(), _cts.Token);
+                        return;
+                    }
+                    if (!greeting) cert = null;
+                }
+                var overTls = cert is not null;
+                if (cert is not null)
+                {
+                    if (HandshakeDelayMs > 0) await Task.Delay(HandshakeDelayMs, _cts.Token);
                     var ssl = new SslStream(s);
                     await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = cert }, _cts.Token);
                     s = ssl;
@@ -191,7 +216,12 @@ public class ShowBus12AppTests
                 var first = head.Split("\r\n")[0].Split(' ');
                 var (method, path) = (first[0], first[1]);
                 var auth = head.Split("\r\n").FirstOrDefault(l => l.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase));
-                if (auth is not null) Authorization = auth["Authorization:".Length..].Trim();
+                if (auth is not null)
+                {
+                    Authorization = auth["Authorization:".Length..].Trim();
+                    Authorizations.Enqueue(Authorization);
+                    if (!overTls) PlainAuthorizations.Enqueue(Authorization);
+                }
                 if (path.StartsWith("/ws", StringComparison.Ordinal))
                 {
                     var key = head.Split("\r\n").First(l => l.StartsWith("Sec-WebSocket-Key:", StringComparison.OrdinalIgnoreCase))["Sec-WebSocket-Key:".Length..].Trim();
@@ -345,6 +375,208 @@ public class ShowBus12AppTests
         {
             vm.State.Control.Stagewatch.Enabled = false;
             services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            sw.Dispose();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void OffThisMachineAStagewatchThatOffersNoTlsIsReadWithoutTheKey()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null);
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            link.TlsAnswerWithin = TimeSpan.FromMilliseconds(500);
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");                                       // a hello naming no TLS: a hint, never the carrier
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return services.Stage.Following.Length > 0 && link.Sight.Context is not null; });
+
+            // The timer is followed and the context read — without the key: no request carried it, no context was posted,
+            // no proposal was sent, and the link says why.
+            Assert.Equal("keyless", link.Carrier);
+            Assert.Empty(sw.Authorizations);
+            Assert.True(sw.PostedContexts.IsEmpty);
+            Assert.Empty(sw.Proposals);
+            Assert.False(link.ApprovalsLive);
+            Assert.Contains("Hall A offers no TLS — the key stays on this desk", link.Status, StringComparison.Ordinal);
+            var row = JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch");
+            Assert.Equal("keyless", row.GetProperty("carrier").GetString());
+            Assert.Contains("the key stays on this desk", row.GetProperty("words").GetString(), StringComparison.Ordinal);
+            services.Nodes.Poll();
+            Assert.Contains("Hall A offers no TLS — the key stays on this desk", services.Nodes.ShowBusLine, StringComparison.Ordinal);   // the Nodes page's line
+
+            // The same Stagewatch on this machine gets the key over plain ws, as before.
+            config.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            config.Enabled = true;
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.Carrier == "plain" && !sw.Authorizations.IsEmpty; });
+            Assert.All(sw.Authorizations, a => Assert.Equal("Bearer swk_nodekey", a));
+            Assert.DoesNotContain("offers no TLS", link.Status, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void OffThisMachineAStagewatchThatAnswersTheTlsGreetingAsABadRequestIsReadWithoutTheKey()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null) { RefuseTlsGreeting = true };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            link.TlsAnswerWithin = TimeSpan.FromSeconds(30);                                         // only its answer can end the TLS attempt in time
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+
+            // The handshake fails on the bad request it got instead of a certificate: plain at once, without the key.
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.Carrier == "keyless" && services.Stage.Following.Length > 0; }, 10000);
+            Assert.Empty(sw.Authorizations);
+            Assert.True(sw.PostedContexts.IsEmpty);
+            Assert.Contains("Hall A offers no TLS — the key stays on this desk", link.Status, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStagewatchSlowToShowItsCertificateIsAskedAgainAndTheKeyGoesOnlyOverTls()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var cert = Cert("Hall A");
+        var fp = TlsFingerprint.Of(cert);
+        using var sw = new FakeStagewatch(Frame, cert) { Sniff = true, HandshakeDelayMs = 2500 };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            link.TlsAnswerWithin = TimeSpan.FromMilliseconds(300);
+            link.TlsReprobeEvery = TimeSpan.FromMilliseconds(300);
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, fp, "timer");                                                     // its hello names its certificate
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+
+            // Its certificate comes after the short wait: read without the key, and the words say its hello names one.
+            PumpUntil(() => { Hear(services, sw.Port, fp, "timer"); return link.Carrier == "keyless"; });
+            Assert.Contains("Hall A answered without TLS though its hello names a certificate — the key stays on this desk", link.Status, StringComparison.Ordinal);
+
+            // Asked again while keyless, it shows its certificate: the link dials again over TLS, waiting long enough this
+            // time, and the key goes over that — never over the plain connection.
+            PumpUntil(() => { Hear(services, sw.Port, fp, "timer"); return link.Carrier == "tls" && sw.Authorization == "Bearer swk_nodekey"; }, 20000);
+            Assert.Empty(sw.PlainAuthorizations);
+            Assert.DoesNotContain("the key stays on this desk", link.Status, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheCarrierIsChosenByThePinAndTheProbeNeverByTheHello()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var cert = Cert("Hall A");
+        var fp = TlsFingerprint.Of(cert);
+        var sw = new FakeStagewatch(Frame, cert);
+        var port = sw.Port;
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            link.TlsAnswerWithin = TimeSpan.FromMilliseconds(500);
+            var config = vm.State.Control.Stagewatch;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, port, "");                                                                 // its hello names no TLS (stale, or forged)
+            config.Enabled = true;                                                                    // found on the show network: node:swdesk01
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+
+            // No pin, off this machine: TLS first. It answers with TLS, so the key goes over it, and the certificate is
+            // pinned once the key's read is answered.
+            PumpUntil(() => { Hear(services, port, ""); return services.Stage.Following.Length > 0; });
+            Assert.Equal("tls", link.Carrier);
+            Assert.Equal("Bearer swk_nodekey", sw.Authorization);
+            PumpUntil(() => { Hear(services, port, ""); return config.Pins.Any(p => p.Key == "node:swdesk01" && p.Fingerprint == fp); });
+
+            // Pinned now: the next dial is TLS whatever the hello says, and the hello that names no TLS is a note, never a refusal.
+            link.Reconcile();                                                                         // the pin moved: the link dials again with it
+            PumpUntil(() => { Hear(services, port, ""); return services.Stage.Following.Length > 0 && link.Status.Contains("names no TLS", StringComparison.Ordinal); });
+            Assert.Equal("tls", link.Carrier);
+            Assert.Contains("the hello heard for Hall A names no TLS — a stale or forged hello; dialling TLS as before", link.Status, StringComparison.Ordinal);
+
+            // A hello that names another certificate: the pin decides — TLS against the one pinned, the hello a note, the pin unchanged.
+            using var other = Cert("Not Hall A");
+            var fpOther = TlsFingerprint.Of(other);
+            config.Enabled = false;
+            link.Reconcile();
+            Hear(services, port, fpOther);
+            config.Enabled = true;
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, port, fpOther); return services.Stage.Following.Length > 0 && link.Status.Contains("names another certificate", StringComparison.Ordinal); });
+            Assert.Equal("tls", link.Carrier);
+            Assert.Contains($"the hello heard for Hall A names another certificate ({TlsFingerprint.Short(fpOther)}) — the pin decides: dialling TLS against the one pinned", link.Status, StringComparison.Ordinal);
+            Assert.Contains(config.Pins, p => p.Key == "node:swdesk01" && p.Fingerprint == fp);
+            Assert.DoesNotContain(config.Pins, p => p.Fingerprint == fpOther);
+
+            // Another machine answers at its address without TLS: the pin decides — nothing of this desk's is sent to it.
+            // First one that reads the greeting and waits (it showed no certificate in the whole wait a pinned dial gives),
+            // then one that answers the greeting as a bad request.
+            sw.Dispose();
+            sw = new FakeStagewatch(Frame, null, port);
+            PumpUntil(() => { Hear(services, port, ""); return link.Status.Contains("showed no certificate within 5 s, and its certificate is pinned", StringComparison.Ordinal) && link.Carrier.Length == 0; }, 30000);
+            sw.RefuseTlsGreeting = true;
+            PumpUntil(() => { Hear(services, port, ""); return link.Status.Contains("answered without TLS, and its certificate is pinned", StringComparison.Ordinal) && link.Carrier.Length == 0; }, 30000);
+            Assert.Empty(sw.Authorizations);
+            Assert.True(sw.PostedContexts.IsEmpty);
+            Assert.Contains("nothing sent", link.Status, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
             Dispatcher.UIThread.RunJobs();
             sw.Dispose();
             b.Dispose();

@@ -16,10 +16,16 @@ import { emptyState, showSignature, upcoming, variableValues } from './state.js'
 import { KNOWN_PROTOCOL, Navigator, payload } from './nav.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.18.0'
+export const MODULE_VERSION = '3.18.1'
 
-/** Round 87: how long a token-holding connection waits for the desk's NONCE before it falls back to plain AUTH (a desk before round 87). */
+/** Round 87: how long a token-holding connection waits for the desk's NONCE before it asks the desk for one. */
 export const NONCE_WAIT_MS = 1500
+
+/** Round 89: the only nonce the module proves — 32 lowercase hex, as a desk makes it (16 random bytes). */
+export const NONCE_SHAPE = /^[0-9a-f]{32}$/
+
+/** Round 89: what the connection says when it keeps the token: the desk is another machine's and asks for no proof. */
+export const NO_PROOF_WORDS = 'The desk asks for no proof — update Patterns; the token stays here'
 
 /** How long a question to the desk waits for its answer before the key gives up. */
 export const ASK_TIMEOUT_MS = 5000
@@ -42,8 +48,9 @@ class PatternsInstance extends InstanceBase {
 		/** How the wire is opened — a test hands in a fake; the desk gets a TCPHelper. */
 		this.socketFactory = (host, port) => new TCPHelper(host, port)
 		this.nonceWaitMs = NONCE_WAIT_MS // round 87: the tests shorten it
-		this.authTimer = null // round 87: the fallback to plain AUTH while no NONCE has come
+		this.authTimer = null // round 87: the wait for the desk's NONCE; round 89: when it ends the module asks for one
 		this.authed = false // round 87: AUTH or AUTH-PROOF has been sent on this connection
+		this.heardNonce = false // round 89: a NONCE, or an OK to the module's NONCE ask, came on this connection — plain AUTH never follows one
 		this.nav = new Navigator({
 			ask: (line) => this.ask(line),
 			say: (line) => this.send(line),
@@ -152,12 +159,14 @@ class PatternsInstance extends InstanceBase {
 				this.send(`HELLO ${this.helloName()} module=${MODULE_VERSION}`)
 				// A desk with a pairing token (Remote page, TRUST) runs a verb only from a connection that proved
 				// it. Round 87: a desk says NONCE as its second line and the module answers AUTH-PROOF — the token
-				// never crosses the network; a desk before round 87 says no NONCE, and plain AUTH follows the wait.
+				// never crosses the network. Round 89: with no NONCE by the wait's end the module asks for one; the
+				// token itself (plain AUTH) goes only to a desk on this machine that cannot give one.
 				this.authed = false
+				this.heardNonce = false
 				clearTimeout(this.authTimer)
 				const token = pairingToken(this.config)
 				if (token) {
-					this.authTimer = setTimeout(() => this.authenticate(null), this.nonceWaitMs)
+					this.authTimer = setTimeout(() => this.noNonce(), this.nonceWaitMs)
 					this.authTimer.unref?.()
 				}
 				// Round 74: the rails and the pages, for the Navigator and its presets; the recorder re-armed after a reconnect.
@@ -193,14 +202,66 @@ class PatternsInstance extends InstanceBase {
 		return this.label ?? 'Companion'
 	}
 
-	/** Round 87: AUTH-PROOF for a nonce, or plain AUTH with none (an older desk); then what waited for pairing. */
+	/**
+	 * Where the connection went: the address the socket reached when it says, else the host as configured. Only an
+	 * address of this machine counts as one (isLoopback), so a name like localhost counts only once the socket says.
+	 */
+	deskAddress() {
+		return String(this.socket?._socket?.remoteAddress ?? connectionTarget(this.config)?.host ?? '')
+	}
+
+	/**
+	 * Round 87: the desk's nonce for this connection. Round 89: proved only when it is a nonce a desk makes (32 lowercase
+	 * hex); anything else gets no proof. Either way the connection heard one, so plain AUTH never follows on it.
+	 */
+	onNonce(nonce) {
+		this.heardNonce = true
+		clearTimeout(this.authTimer)
+		this.authTimer = null
+		if (!pairingToken(this.config)) return
+		if (!NONCE_SHAPE.test(nonce)) {
+			const words = "The desk's NONCE is not 32 hex — no proof sent; the token stays here"
+			this.log('warn', words)
+			this.updateStatus(InstanceStatus.UnknownWarning, words)
+			return
+		}
+		this.authenticate(nonce)
+	}
+
+	/**
+	 * Round 89: the wait ended with no NONCE (a desk that has nothing for this connection to prove says none): the module
+	 * asks for one. Any OK says the desk speaks NONCE, so plain AUTH never follows it; a nonce in it of 32 hex is proved,
+	 * anything else is not. Only an ERR (a desk before round 87) leaves plain AUTH, and only to a desk on this machine —
+	 * another machine's keeps the token here and says why. The ask's ERR is an answer, not a fault: no last_error.
+	 */
+	noNonce() {
+		this.authTimer = null
+		if (this.authed || this.heardNonce || !pairingToken(this.config) || !this.socket?.isConnected) return
+		this.ask('NONCE', { quiet: true })
+			.then((reply) => {
+				if (this.authed || this.heardNonce) return
+				if (/^OK(\s|$)/.test(reply)) return this.onNonce(reply.slice(2).trim())
+				if (isLoopback(this.deskAddress())) return this.authenticate(null)
+				this.log('warn', NO_PROOF_WORDS)
+				this.updateStatus(InstanceStatus.UnknownWarning, NO_PROOF_WORDS)
+				this.afterAuth() // the desk may be open: what waited for pairing is said, the token is not
+			})
+			.catch(() => {})
+	}
+
+	/**
+	 * Round 87: AUTH-PROOF for a nonce, or plain AUTH with none; then what waited for pairing. Round 89: plain AUTH only to
+	 * an address of this machine, and never on a connection that heard a NONCE.
+	 */
 	authenticate(nonce) {
 		clearTimeout(this.authTimer)
 		this.authTimer = null
 		const token = pairingToken(this.config)
 		if (!token || !this.socket?.isConnected) return
-		if (nonce) this.send(`AUTH-PROOF ${authProof(token, nonce, this.helloName())}`)
-		else if (this.authed) return // a later NONCE (a wrong proof) is answered; the fallback is said once
+		if (nonce) {
+			if (!NONCE_SHAPE.test(nonce)) return
+			this.send(`AUTH-PROOF ${authProof(token, nonce, this.helloName())}`)
+		} else if (this.authed || this.heardNonce || !isLoopback(this.deskAddress())) return // said once, to this machine only
 		else this.send(`AUTH ${token}`)
 		const first = !this.authed
 		this.authed = true
@@ -215,9 +276,11 @@ class PatternsInstance extends InstanceBase {
 	onLine(line) {
 		if (line.startsWith('STATE ')) return this.onState(line.slice(6))
 		// Round 87: the desk's nonce for this connection — answered with AUTH-PROOF when the config holds a token.
-		if (line.startsWith('NONCE ')) return this.authenticate(line.slice(6).trim())
+		if (line.startsWith('NONCE ')) return this.onNonce(line.slice(6).trim())
 		if (line.startsWith('ACTION ')) return this.onAction(line.slice(7).trim())
-		if (line.startsWith('ERR')) {
+		// Round 89: the ERR a desk before round 87 gives the module's own NONCE ask is that ask's answer, not a fault.
+		if (line.startsWith('ERR') && this.pending[0]?.quiet) this.log('debug', line)
+		else if (line.startsWith('ERR')) {
 			this.log('warn', line)
 			this.setVariableValues({ last_error: line.slice(4).trim() })
 			const trust = trustProblem(line)
@@ -272,10 +335,10 @@ class PatternsInstance extends InstanceBase {
 	}
 
 	/** A line the caller wants the answer to: resolved with the desk's OK … or ERR … reply, in order; rejected on a timeout or a drop. */
-	ask(cmd) {
+	ask(cmd, { quiet = false } = {}) {
 		if (!this.socket?.isConnected) return Promise.reject(new Error(`Not connected — dropped: ${cmd}`))
 		return new Promise((resolve, reject) => {
-			const entry = { resolve, reject, timer: null }
+			const entry = { resolve, reject, timer: null, quiet } // quiet: an ERR to it is its answer, said in no warning or variable
 			entry.timer = setTimeout(() => {
 				const at = this.pending.indexOf(entry)
 				if (at >= 0) this.pending[at] = null // its reply, when it comes, keeps the order
@@ -348,6 +411,17 @@ class PatternsInstance extends InstanceBase {
 }
 
 export default PatternsInstance
+
+/**
+ * Round 89: an address of this machine — 127.0.0.0/8, ::1, or 127.x mapped into IPv6 — the only place the module sends
+ * the token itself. A name is not an address.
+ */
+export function isLoopback(address) {
+	const a = String(address ?? '').trim().toLowerCase().replace(/^\[|\]$/g, '')
+	if (a === '::1' || a === '0:0:0:0:0:0:0:1') return true
+	const v4 = a.startsWith('::ffff:') ? a.slice(7) : a
+	return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v4)
+}
 
 /** The pairing token as the wire carries it: trimmed, or '' when the config has none. */
 export function pairingToken(config) {

@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.18.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.18.1** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,10 +67,11 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.18.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
-connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
-page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
-module shows the wrong or missing token as a bad-config status with the words.
+<label> module=3.18.1` on connect, so the desk's Remote page can list every deck and its module — and, when the
+connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
+desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
+paired` otherwise. The token itself never crosses the network: it goes plain (`AUTH`) only to a desk on this machine
+too old to give a nonce. The module shows the wrong or missing token as a bad-config status with the words.
 
 ## Installing a build into Companion 5
 
@@ -94,6 +95,13 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.18.1** — the token never in clear (round 89): plain `AUTH <token>` goes only to a desk on this machine (the
+  address the socket reached, 127.0.0.0/8 or ::1). With no `NONCE` by the wait's end the module asks the desk for one
+  (`NONCE` → `OK <hex>`) and proves it; a desk that answers `ERR` (before round 87) on another machine keeps the token
+  here, and the connection says *The desk asks for no proof — update Patterns; the token stays here*. `AUTH-PROOF`
+  answers only a nonce of 32 lowercase hex, and a connection that heard a `NONCE`, or any `OK` to its own `NONCE`
+  ask, never sends plain `AUTH`; the `ERR` an older desk gives that ask is its answer, not a fault (no `last_error`). The
+  `stagewatch_stuck` variable and feedback (round 89: a Stagewatch that says its show is stuck) ride in this version too.
 - **3.18.0** — pairing without the token on the wire (round 87): a desk with a pairing token says `NONCE <hex>` on
   connect and the module answers `AUTH-PROOF <hex>` (HMAC-SHA256 of the token over the nonce and this connection's
   name) — the token itself never crosses the network. A desk before round 87 sends no nonce, and plain `AUTH` follows

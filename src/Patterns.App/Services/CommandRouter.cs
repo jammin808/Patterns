@@ -749,6 +749,7 @@ public sealed class CommandRouter : IRouter
             masterRate = masterRate.Words,
             videos = VideosRow(),                                          // round 86: every mounted clip with a timeline (video is the one on air)
             bus = ShowBusRow(),                                            // round 87: the show network — the other apps heard, the Stagewatch link
+            control = _services.Control.ControlRow(),                      // round 89: the machines the pairing token arrived from in clear, and the words — appended at the end
         };
         return JsonSerializer.Serialize(payload);
     }
@@ -780,6 +781,7 @@ public sealed class CommandRouter : IRouter
                 clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
                 words = link.Status,
                 stuck,                                                                   // round 89: appended at the row's end
+                carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
             },
         };
     }

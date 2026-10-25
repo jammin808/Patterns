@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs'
 import { InstanceStatus } from '@companion-module/base'
 import { validateManifest } from '@companion-module/base/manifest'
 import { sanitisePresetDefinitions } from '../node_modules/@companion-module/host/dist/internal/presets.js'
-import { boot, pressAction, askFeedback, sampleState } from './harness.mjs'
+import { boot, pressAction, askFeedback, sampleState, answerEach } from './harness.mjs'
 import { allLines } from './emit-lines.mjs'
 import { variableDefinitions } from '../src/variables.js'
 import { variableValues, emptyState } from '../src/state.js'
 import { connectionTarget, configFields, GROUPS } from '../src/config.js'
 import { COLOURS, STATES, style } from '../src/palette.js'
-import { MODULE_VERSION, pairingToken, trustProblem, authProof } from '../src/main.js'
+import { MODULE_VERSION, pairingToken, trustProblem, authProof, isLoopback, NO_PROOF_WORDS } from '../src/main.js'
 import { NAV_SLOTS } from '../src/nav.js'
 
 const manifest = JSON.parse(readFileSync(new URL('../companion/manifest.json', import.meta.url), 'utf8'))
@@ -37,7 +37,7 @@ test('the module boots on the real base, says HELLO with its label and version, 
 	assert.ok(!Array.isArray(b.ctx.variableDefs), 'variable definitions are an object, as base 2 wants')
 })
 
-test('a pairing token in the config answers the desk\'s NONCE with AUTH-PROOF (round 87), falls back to plain AUTH for an older desk; without one nothing more is said; a refusal over trust is a bad-config status with the words', async () => {
+test('a pairing token in the config answers the desk\'s NONCE with AUTH-PROOF (round 87); without one nothing more is said; a refusal over trust is a bad-config status with the words', async () => {
 	const paired = await boot({ config: { host: '10.0.0.5', port: 9697, token: ' k7qm-3xwd-p9ra ' } })
 	assert.equal(paired.lines()[0], `HELLO FOH deck module=${MODULE_VERSION}`)
 	assert.ok(!paired.lines().some((l) => l.startsWith('AUTH')), 'nothing until the nonce, or the wait')
@@ -47,12 +47,6 @@ test('a pairing token in the config answers the desk\'s NONCE with AUTH-PROOF (r
 	assert.equal(authProof('k7qm-3xwd-p9ra', 'n', 'FOH deck'), authProof('K7QM3XWDP9RA', 'n', 'FOH deck'), 'dashes and case do not matter')
 	assert.match(proof, /^AUTH-PROOF [0-9a-f]{64}$/)
 	assert.ok(!paired.lines().some((l) => l.startsWith('AUTH k7qm')), 'the token itself never goes out to a desk that sent a nonce')
-	// An older desk sends no nonce: plain AUTH after the wait.
-	const older = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' } })
-	older.inst.nonceWaitMs = 0
-	older.socket.emit('status_change', InstanceStatus.Ok)
-	await new Promise((r) => setTimeout(r, 30))
-	assert.ok(older.lines().includes('AUTH k7qm-3xwd-p9ra'), 'the fallback for a desk before round 87')
 	const open = await boot()
 	assert.ok(!open.lines().some((l) => l.startsWith('AUTH')), 'no token, no AUTH')
 	assert.equal(pairingToken({}), '')
@@ -66,6 +60,78 @@ test('a pairing token in the config answers the desk\'s NONCE with AUTH-PROOF (r
 	assert.equal(last.status, InstanceStatus.BadConfig)
 	assert.match(last.message, /pairing token/)
 	assert.equal(open.ctx.variables.last_error.startsWith('not paired'), true)
+})
+
+/** A desk's answer to each line: OK, and what it says to NONCE (a round 87 desk: OK <hex>; an older one: ERR). */
+const deskBefore87 = (line) => (line === 'NONCE' ? 'ERR unknown command: NONCE' : 'OK')
+const deskFrom87 = (nonce) => (line) => (line === 'NONCE' ? 'OK ' + nonce : 'OK')
+const NONCE = '0123456789abcdef0123456789abcdef'
+const plainAuth = (b) => b.lines().filter((l) => /^AUTH\s/.test(l))
+
+test('round 89: the token itself goes plain only to a desk on this machine — another machine\'s desk with no proof to give keeps it here, with the words', async () => {
+	// An older desk on another machine: no NONCE, and ERR to the module's NONCE ask. Nothing of the token goes.
+	const far = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0 })
+	await new Promise((r) => setTimeout(r, 10))
+	assert.ok(far.lines().includes('NONCE'), 'no NONCE by the wait: the module asks for one')
+	await answerEach(far, deskBefore87)
+	assert.deepEqual(plainAuth(far), [], 'no plain AUTH to another machine')
+	assert.ok(!far.lines().some((l) => l.startsWith('AUTH-PROOF')), 'nothing to prove')
+	assert.ok(!far.lines().some((l) => l.includes('k7qm') || l.includes('K7QM')), 'the token is in no line')
+	const said = far.ctx.statuses[far.ctx.statuses.length - 1]
+	assert.equal(said.status, InstanceStatus.UnknownWarning)
+	assert.equal(said.message, NO_PROOF_WORDS)
+	assert.ok(!String(far.ctx.variables.last_error ?? '').includes('NONCE'), 'the ERR to the module\'s own NONCE ask is its answer, not a fault')
+
+	// The same older desk on this machine: plain AUTH, once.
+	const near = await boot({ config: { host: '127.0.0.1', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0 })
+	await new Promise((r) => setTimeout(r, 10))
+	await answerEach(near, deskBefore87)
+	assert.deepEqual(plainAuth(near), ['AUTH k7qm-3xwd-p9ra'], 'this machine\'s older desk gets the token, once')
+
+	// The socket's own address decides, never the name typed: localhost that reached another machine gets nothing.
+	const named = await boot({ config: { host: 'localhost', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0, remoteAddress: '10.0.0.5' })
+	await new Promise((r) => setTimeout(r, 10))
+	await answerEach(named, deskBefore87)
+	assert.deepEqual(plainAuth(named), [])
+	const mapped = await boot({ config: { host: 'localhost', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0, remoteAddress: '::ffff:127.0.0.1' })
+	await new Promise((r) => setTimeout(r, 10))
+	await answerEach(mapped, deskBefore87)
+	assert.deepEqual(plainAuth(mapped), ['AUTH k7qm-3xwd-p9ra'])
+
+	assert.ok(isLoopback('127.0.0.1') && isLoopback('127.4.5.6') && isLoopback('::1') && isLoopback('[::1]') && isLoopback('::ffff:127.0.0.1'))
+	assert.ok(!isLoopback('10.0.0.5') && !isLoopback('localhost') && !isLoopback('128.0.0.1') && !isLoopback('') && !isLoopback('::ffff:10.0.0.5'))
+})
+
+test('round 89: AUTH-PROOF answers only a nonce of 32 lowercase hex, and a connection that heard a NONCE never sends the token', async () => {
+	// A desk from round 87 that said no NONCE (it had nothing for this connection to prove) answers the ask with one: proved.
+	const asked = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0 })
+	await new Promise((r) => setTimeout(r, 10))
+	await answerEach(asked, deskFrom87(NONCE))
+	assert.ok(asked.lines().includes('AUTH-PROOF ' + authProof('k7qm-3xwd-p9ra', NONCE, 'FOH deck')))
+	assert.deepEqual(plainAuth(asked), [])
+
+	// A NONCE that is not one a desk makes is not proved — and the token never follows, even on this machine.
+	for (const bad of ['xyz', '0123456789ABCDEF0123456789ABCDEF', '0123456789abcdef0123456789abcde', '0123456789abcdef0123456789abcdef00']) {
+		const odd = await boot({ config: { host: '127.0.0.1', port: 9697, token: 'k7qm-3xwd-p9ra' } })
+		odd.socket.receive(`NONCE ${bad}\n`)
+		odd.inst.noNonce()                                                                     // the wait's end, at once
+		await new Promise((r) => setTimeout(r, 10))
+		assert.ok(!odd.lines().some((l) => l.startsWith('AUTH')), `nothing answers NONCE ${bad}`)
+		assert.ok(!odd.lines().includes('NONCE'), 'a connection that heard a NONCE does not ask for another')
+		const said = odd.ctx.statuses[odd.ctx.statuses.length - 1]
+		assert.equal(said.status, InstanceStatus.UnknownWarning)
+		assert.match(said.message, /not 32 hex — no proof sent; the token stays here/)
+	}
+
+	// Any OK to the module's own NONCE ask says the desk speaks NONCE: one that is not a nonce — a word, two words, a bare
+	// OK — is no proof either, and no plain AUTH follows it, even on this machine. Only an ERR leaves plain AUTH.
+	for (const reply of ['OK not-a-nonce', 'OK ' + NONCE + ' more', 'OK']) {
+		const okOdd = await boot({ config: { host: '127.0.0.1', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0 })
+		await new Promise((r) => setTimeout(r, 10))
+		await answerEach(okOdd, (line) => (line === 'NONCE' ? reply : 'OK'))
+		assert.ok(!okOdd.lines().some((l) => l.startsWith('AUTH')), `nothing answers "${reply}"`)
+		assert.match(okOdd.ctx.statuses[okOdd.ctx.statuses.length - 1].message, /not 32 hex — no proof sent; the token stays here/)
+	}
 })
 
 test('every preset is one the host keeps: its actions, feedbacks and option keys exist, and its layered elements pass the schema', async () => {

@@ -427,6 +427,9 @@ public sealed partial class ControlService : IDisposable
                     }
                     else if (!proof && !(loopback && PlainAuthOnLoopback))
                     {
+                        // Refused as before; and the token itself, sent plain from another machine, crossed the network
+                        // unencrypted (round 89): marked — rotate it: NEW TOKEN. A wrong one is no secret of this desk's.
+                        if (PairingToken.Matches(token, cmd.Text)) SeenInClear(client, "wire");
                         Reply(ControlProtocol.Err(WireProof.UseProof));
                     }
                     else if (proof ? WireProof.Verify(token, nonce, helloName, cmd.Text) : PairingToken.Matches(token, cmd.Text))
@@ -962,6 +965,11 @@ public sealed partial class ControlService : IDisposable
                 await WriteShortAsync(stream, request.Status, request.Fault, ct);
                 return;
             }
+            var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+            // Round 89: the token in a header or the pages' cookie on the plain listener, from another machine, crossed the
+            // network unencrypted — answered as before (a Require HTTPS refusal included), and marked (rotate it: NEW TOKEN).
+            if (!audience && tls is null && !(loopback && TrustLoopback) && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
+                SeenInClear(client, "web");
             if (refusePlain)
             {
                 await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
@@ -974,7 +982,6 @@ public sealed partial class ControlService : IDisposable
             // Round 65: the control port's mutating routes want the show's pairing token when one is
             // set — in a header, never the URL; this machine's own browsers are exempt; the audience
             // port has no verbs to gate.
-            var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
             var paired = audience || Paired(_kernel.State.Control.Token, request.Token, loopback);
             if (!audience && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
             {
