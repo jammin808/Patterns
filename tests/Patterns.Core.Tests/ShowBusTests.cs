@@ -65,6 +65,16 @@ public class ShowBusTests
     }
 
     [Fact]
+    public void AHellosNameIsOneLineSoNoHelloWritesALineOfItsOwn()
+    {
+        // Round 89: a hello is unauthenticated and its name reaches patterns.log with every stall — a line break never passes.
+        var forged = ShowBusPeers.Parse(Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1\",\"name\":\"Hall A\\n2026-10-25 12:00:00.000 [WARN] forged\\u2028line\",\"host\":\"PC\\r\\nB\\t\",\"port\":9924}"), "10.0.0.9", Now, out _);
+        Assert.Equal("Hall A 2026-10-25 12:00:00.000 [WARN] forged line", forged!.Name);
+        Assert.Equal("PC  B", forged.Host);
+        Assert.DoesNotContain(new[] { forged.Name, forged.Host }, w => w.Any(c => char.IsControl(c) || c == '\u2028'));
+    }
+
+    [Fact]
     public void APeerIsLiveForSixSecondsStaleToTwelveGoneAfterAndForgottenAfterAMinute()
     {
         var peers = new ShowBusPeers();
@@ -379,6 +389,128 @@ public class ShowBusTests
         Assert.Equal((1L, 2L, 3L), StagewatchFrame.Pong("{\"type\":\"pong\",\"t\":1,\"t2\":2,\"t3\":3}"));
         Assert.Null(StagewatchFrame.Pong("{\"type\":\"pong\",\"t\":1}"));
         Assert.Equal("{\"cmd\":\"ping\",\"t\":1760101234567}", StagewatchFrame.Ping(1760101234567));
+
+        // Round 89: the stuck beat, byte for byte as Stagewatch sends it (WebServer.cs StuckBeat) — and nothing else is one.
+        Assert.True(StagewatchFrame.IsStuckBeat("{\"type\":\"beat\",\"live\":false}"));
+        Assert.True(StagewatchFrame.IsStuckBeat("{ \"live\" : false, \"type\" : \"beat\" }"));
+        Assert.Null(StagewatchFrame.Parse("{\"type\":\"beat\",\"live\":false}"));                // a stuck beat is not a frame
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"beat\"}"));                         // the plain beat
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"beat\",\"live\":true}"));
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"beat\",\"live\":\"false\"}"));      // only the literal false
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"beat\",\"live\":0}"));
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"state\",\"live\":false}"));
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"pong\",\"live\":false}"));
+        Assert.False(StagewatchFrame.IsStuckBeat("[{\"type\":\"beat\",\"live\":false}]"));
+        Assert.False(StagewatchFrame.IsStuckBeat("{\"type\":\"beat\",\"live\":false"));           // malformed
+        Assert.False(StagewatchFrame.IsStuckBeat(""));
+        Assert.False(StagewatchFrame.IsStuckBeat(null));
+    }
+
+    [Fact]
+    public void AStuckStagewatchShowsNoTimeInEveryReaderWhileItsLinkStaysLiveAndAmber()
+    {
+        var peers = new ShowBusPeers();
+        peers.Hear(Hello("main", "a1b2c3d4", "Hall A", http: 9924), "10.0.0.9", Now, "self");
+        var frame = new StagewatchFrame { Seq = 3, Mode = "countdown", State = "running", Seconds = 750, Total = 1800, Text = "12:30", Title = "Keynote — Ana" };
+        // As the link's sight folds its stuck mark in: the held frame no longer live, the mark beside it.
+        var sight = new StagewatchSight("Hall A", "10.0.0.9:9924", ShowBusState.Live, frame with { Live = false }, 100, StagewatchContext("green"), "") { Stuck = true };
+
+        // The stage: no time from it, and still following — its verbs stay the Stagewatch's.
+        Assert.True(sight.Following);
+        Assert.True(sight.StuckLive);
+        Assert.Equal(StageTimerPhase.Idle, StageFollow.Time(sight.Frame!, sight.FrameAtSeconds, 101).Phase);
+        Assert.Equal("following Stagewatch Hall A — it says its show is stuck; the time is not shown", StageFollow.Words(sight));
+
+        // The projection: the link live, its context no better than amber, its counting things with no time.
+        var app = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight));
+        Assert.True(app.Stuck);
+        Assert.Equal(ShowBusState.Live, app.State);
+        Assert.Equal("amber", app.Context!.Light);                                                   // the worse of its own green and amber
+        Assert.Equal(ShowBusView.StuckWords, app.Context.Headline);                                  // a headline holds a count: not shown
+        var timer = app.Context.Items.Single(i => i.Id == "timer");
+        Assert.Equal(("red", ShowBusView.NoTimeWords), (timer.Light, timer.State));
+        var lighting = app.Context.Items.Single(i => i.Id == "cue:lighting");
+        Assert.Equal(("amber", "standing by: LX 12"), (lighting.Light, lighting.State));              // its other things keep their words
+        Assert.Equal(app.Context.ToJson(), ShowBusView.Apps(peers.Snapshot(Now), Now, sight).Single().Context!.ToJson());   // the same in, the same out: no rebuild
+
+        // The context's peers row, the brief, the Nodes card and the Eye give one verdict.
+        var row = Assert.Single(ShowBusView.Peers(new[] { app }));
+        Assert.Equal(("amber", ShowBusView.StuckWords), (row.Light, row.Headline));
+        var brief = ShowBusView.BriefLines(new[] { app });
+        Assert.Contains("Stagewatch Hall A — linked — amber: says its show is stuck — no time shown", brief);
+        Assert.Contains("  · Keynote — Ana (timer) — red: no time shown — its show is stuck", brief);
+        var card = ShowAppCard.Of(app);
+        Assert.Equal(("#FFB020", "linked · says its show is stuck — no time shown"), (card.Hue, card.Line));
+        var graph = Graph(app);
+        var node = graph.Nodes.Single(n => n.Id == "app:a1b2c3d4");
+        Assert.Equal((CheckLight.Amber, ShowBusView.StuckWords), (node.Light, node.Sub));
+        var edge = graph.Edges.Single(e => e.From == "app:a1b2c3d4" && e.To == EyeGraph.DeskId);
+        Assert.Equal((EyeEdgeKind.Follows, CheckLight.Amber), (edge.Kind, edge.Light));                // the link: live, amber
+        var count = graph.Nodes.Single(n => n.Id == "app:a1b2c3d4:timer");
+        Assert.Equal((CheckLight.Red, ShowBusView.NoTimeWords), (count.Light, count.Sub));
+
+        // Never red for the stall alone — red only when its own light is red.
+        var red = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Context = StagewatchContext("red") }));
+        Assert.Equal("red", red.Context!.Light);
+        Assert.Equal("#B03030", ShowAppCard.Of(red).Hue);
+        Assert.Equal(CheckLight.Red, Graph(red).Nodes.Single(n => n.Id == "app:a1b2c3d4").Light);
+
+        // Before its context is read: amber and said all the same.
+        var bare = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Context = null }));
+        Assert.Equal(("amber", ShowBusView.StuckWords), (ShowBusView.Peers(new[] { bare })[0].Light, ShowBusView.Peers(new[] { bare })[0].Headline));
+        Assert.Contains("Stagewatch Hall A — linked — amber: says its show is stuck — no time shown", ShowBusView.BriefLines(new[] { bare }));
+        Assert.Equal(CheckLight.Amber, Graph(bare).Nodes.Single(n => n.Id == "app:a1b2c3d4").Light);
+        Assert.Equal("#FFB020", ShowAppCard.Of(bare).Hue);
+
+        // A typed address that never said hello carries the same verdict.
+        var typed = Assert.Single(ShowBusView.Apps(Array.Empty<ShowBusPeer>(), Now, sight));
+        Assert.True(typed.Stuck);
+        Assert.Equal("amber", typed.Context!.Light);
+
+        // The link gone quiet says that instead; the stuck mark adds nothing to a link that is not live.
+        var stale = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { State = ShowBusState.Stale }));
+        Assert.False(stale.Stuck);
+        Assert.Equal("#FFB020", ShowAppCard.Of(stale).Hue);
+        Assert.Equal("quiet", ShowAppCard.Of(stale).Line[..5]);
+
+        // Its next frame: the mark cleared, the time and its own light back.
+        var back = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Frame = frame, Stuck = false }));
+        Assert.False(back.Stuck);
+        Assert.Equal(("green", "Keynote — Ana · 12:30 left · Lighting standing by"), (back.Context!.Light, back.Context.Headline));
+        Assert.Equal("#35E0D0", ShowAppCard.Of(back).Hue);
+        Assert.Equal(CheckLight.Green, Graph(back).Edges.Single(e => e.From == "app:a1b2c3d4" && e.To == EyeGraph.DeskId).Light);
+    }
+
+    [Fact]
+    public void AStagewatchStuckBeforeItsFirstFrameLeavesTheDesksOwnTimer()
+    {
+        var sight = new StagewatchSight("Hall A", "10.0.0.9:9924", ShowBusState.Live, null, 0, null, "") { Stuck = true };
+        Assert.False(sight.Following);                                                              // no frame: the desk's timer and its verbs
+        Assert.True(sight.StuckLive);
+        Assert.Equal("Stagewatch Hall A says its show is stuck — this desk's own stage timer runs until its first frame", StageFollow.Words(sight));
+        var app = Assert.Single(ShowBusView.Apps(Array.Empty<ShowBusPeer>(), Now, sight));
+        Assert.True(app.Stuck);
+        Assert.Equal("#FFB020", ShowAppCard.Of(app).Hue);
+        // A stuck mark on a link that is not live says only what the link says.
+        Assert.Contains("not answering", StageFollow.Words(sight with { State = ShowBusState.Gone }), StringComparison.Ordinal);
+        Assert.False((sight with { State = ShowBusState.Stale }).StuckLive);
+    }
+
+    [Fact]
+    public void OnlyTheCountingThingsOfAStuckAppLoseTheirTime()
+    {
+        foreach (var kind in new[] { "timer", "schedule", "playlist", "chase", "timecode", "clock", " Timer " })
+            Assert.True(ShowBusView.IsCounting(kind), kind);
+        foreach (var kind in new[] { "department", "cue", "message", "screen", "", null })
+            Assert.False(ShowBusView.IsCounting(kind), kind ?? "null");
+        Assert.Equal("amber", ShowBusView.StuckLight("green"));
+        Assert.Equal("amber", ShowBusView.StuckLight("grey"));
+        Assert.Equal("amber", ShowBusView.StuckLight(null));
+        Assert.Equal("amber", ShowBusView.StuckLight("amber"));
+        Assert.Equal("red", ShowBusView.StuckLight("red"));
+        var once = ShowBusView.NoTime(StagewatchContext("green"));
+        Assert.Equal(once.ToJson(), ShowBusView.NoTime(once).ToJson());                              // idempotent: a reader may apply it again
+        Assert.Equal(StagewatchContext("green").Links.Single().Light, once.Links.Single().Light);     // the links between its things keep their lights
     }
 
     [Fact]

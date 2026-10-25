@@ -797,7 +797,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         }
     }
 
-    public string DisplayLabel => Time.Phase == StageTimerPhase.Idle ? (State.Stage.SpeakerSeesClock ? "" : "No timer running") : State.Countdown.Label;
+    public string DisplayLabel => Time.Phase == StageTimerPhase.Idle ? (State.Stage.SpeakerSeesClock ? "" : _host.Stage.NoTimeLabel) : State.Countdown.Label;
 
     public IBrush DisplayBrush => Time.Phase switch
     {

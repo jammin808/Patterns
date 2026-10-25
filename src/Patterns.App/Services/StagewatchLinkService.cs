@@ -22,6 +22,12 @@ namespace Patterns.App.Services;
 /// desk's own context posted to the Stagewatch every five seconds (which also binds the key to this desk's id); and,
 /// when the Stagewatch is an approval desk, the assistant's proposals sent there and the approved ones collected,
 /// applied here and answered (§11).
+///
+/// Round 89: show liveness apart from link liveness (PeerLink profile 13.10.5). The Stagewatch's stuck beat
+/// (<c>{"type":"beat","live":false}</c>) marks its show stuck: the held frame is no longer live, so the stage shows no
+/// time, while the link — still answering every ping — stays live. Only its next state frame clears the mark; a plain
+/// beat or a pong never does. The mark belongs to the Stagewatch that said it: a dial that reaches another one (the show
+/// network can offer another after a drop) starts that one's show afresh. One log line for each change of the mark.
 /// </summary>
 public sealed class StagewatchLinkService : IDisposable
 {
@@ -31,6 +37,31 @@ public sealed class StagewatchLinkService : IDisposable
     private readonly LinkClock _clock = new();
     private CancellationTokenSource? _cts;
     private string _runningKey = "";
+
+    /// <summary>
+    /// One Stagewatch's show as a run has heard it, by the key it was dialled under: its context and its stuck mark. Each
+    /// field has one writer — the context only the beat task's read of /api/context, the stuck mark only the receive loop
+    /// — so a context landing beside a stuck beat can never put a live frame back.
+    /// </summary>
+    private sealed class HeardShow(string key, string name)
+    {
+        public string Key { get; } = key;
+        public string Name { get; } = name;
+        public volatile ShowContext? Context;
+        public volatile bool Stuck;
+    }
+
+    /// <summary>
+    /// One run of the link, from one Reconcile to the next. Its show is replaced only by the link task, at a connect that
+    /// reaches a Stagewatch other than the one it holds, so nothing said of one Stagewatch is claimed of another; a new
+    /// run starts with none, so nothing of a show outlives a change of settings.
+    /// </summary>
+    private sealed class Run
+    {
+        public volatile HeardShow? Show;
+    }
+
+    private volatile Run _run = new();
     private volatile StagewatchSight _sight = StagewatchSight.None;
     private volatile string _status = "Stagewatch link off.";
     private volatile string _tlsWords = "";
@@ -68,13 +99,24 @@ public sealed class StagewatchLinkService : IDisposable
     /// </summary>
     public Func<string, Task<(bool Ok, string Words)>>? RunApprovedLine { get; set; }
 
-    /// <summary>What the link holds now — the stage timer, the Eye and the brief read it.</summary>
+    /// <summary>
+    /// What the link holds now — the stage timer, the Eye and the brief read it: the frame and the link's state from the
+    /// link task, the context and the stuck mark from this run's show. While the show is stuck the held frame is not live
+    /// (the stage shows no time from it) and the sight says so; with no frame held only the mark is set.
+    /// </summary>
     public StagewatchSight Sight
     {
         get
         {
+            // The mark before the frame: every writer holds the new frame (or none) before it clears or replaces the
+            // mark, so a read that finds the mark cleared finds that frame or a newer one — never a frozen frame counting.
+            var show = _run.Show;
+            var stuck = show is { Stuck: true };
+            var context = show?.Context;
             var s = _sight;
             if (s.Name.Length == 0 && s.Address.Length == 0) return s;
+            s = s with { Context = context };
+            if (stuck) s = s with { Frame = s.Frame is { } f ? f with { Live = false } : null, Stuck = true };
             // The state is the silence since the last word, read now: a link that stopped talking goes stale on its own.
             var silent = TimeSpan.FromSeconds(Math.Max(0, ShowClock.Seconds - s.FrameAtSeconds));
             var state = _lastWordAt <= 0 ? ShowBusState.Gone : ShowBusLiveness.StateOf(TimeSpan.FromSeconds(Math.Max(0, ShowClock.Seconds - _lastWordAt)));
@@ -141,7 +183,9 @@ public sealed class StagewatchLinkService : IDisposable
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
+        var run = new Run();
         _sight = StagewatchSight.None;
+        _run = run;                                                                         // a new run, after its empty sight: no context, no mark
         _lastWordAt = 0;
         _approvalsLive = false;
         _approvalWords = "";
@@ -158,14 +202,14 @@ public sealed class StagewatchLinkService : IDisposable
         var pins = c.Pins.ToDictionary(p => p.Key, p => p.Fingerprint, StringComparer.Ordinal);
         var ct = _cts.Token;
         _status = host.Length > 0 ? $"Stagewatch link: dialling {host}…" : "Stagewatch link: listening for a Stagewatch on the show network…";
-        _ = Task.Run(() => RunAsync(host, apiKey, pins, ct), CancellationToken.None);
+        _ = Task.Run(() => RunAsync(run, host, apiKey, pins, ct), CancellationToken.None);
     }
 
     private static string Hash(string s) => s.Length == 0 ? "" : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(s)))[..12];
 
     private sealed record Target(string Host, int Port, string Name, string PinKey, string Advertised, bool Tls, bool Approvals);
 
-    private async Task RunAsync(string typedHost, string apiKey, IReadOnlyDictionary<string, string> pins, CancellationToken ct)
+    private async Task RunAsync(Run run, string typedHost, string apiKey, IReadOnlyDictionary<string, string> pins, CancellationToken ct)
     {
         var attempt = 0;
         while (!ct.IsCancellationRequested)
@@ -181,7 +225,7 @@ public sealed class StagewatchLinkService : IDisposable
             }
             try
             {
-                await ConnectAsync(target, apiKey, pins, ct);
+                await ConnectAsync(run, target, apiKey, pins, ct);
                 attempt = 0;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -258,7 +302,7 @@ public sealed class StagewatchLinkService : IDisposable
         return CertificatePins.Accepts(verdict);
     }
 
-    private async Task ConnectAsync(Target target, string apiKey, IReadOnlyDictionary<string, string> pins, CancellationToken outer)
+    private async Task ConnectAsync(Run run, Target target, string apiKey, IReadOnlyDictionary<string, string> pins, CancellationToken outer)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(outer);
         var ct = linked.Token;
@@ -277,7 +321,17 @@ public sealed class StagewatchLinkService : IDisposable
         }
         _lastWordAt = ShowClock.Seconds;
         var name = target.Name;
-        _sight = new StagewatchSight(name, $"{target.Host}:{target.Port}", ShowBusState.Live, null, ShowClock.Seconds, _sight.Context, "");
+        // No frame yet. The same Stagewatch keeps this run's show — its context, and a stall said before the drop, which
+        // holds until its next frame. Another Stagewatch starts a show of its own, swapped in after the frameless sight so
+        // no read pairs a cleared mark with the old Stagewatch's frame.
+        _sight = new StagewatchSight(name, $"{target.Host}:{target.Port}", ShowBusState.Live, null, ShowClock.Seconds, null, "");
+        var show = run.Show;
+        if (show is null || show.Key != target.PinKey)
+        {
+            if (show is { Stuck: true }) Log.Info($"Stagewatch link: connected to {name} — {show.Name}, whose show was stuck, is no longer followed.");
+            show = new HeardShow(target.PinKey, name);
+            run.Show = show;
+        }
         _status = $"Stagewatch link: connected to {name} at {target.Host}:{target.Port}" + (target.Tls ? " over TLS" : "") + ".";
         if (!target.Tls) _tlsWords = "";
         // No key, nothing else authenticates the link: the WebSocket's answer is the first trusted contact.
@@ -289,10 +343,10 @@ public sealed class StagewatchLinkService : IDisposable
         using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(4) };
         var baseUri = new Uri($"{(target.Tls ? "https" : "http")}://{hostPart}:{target.Port}");
         var sendGate = new SemaphoreSlim(1, 1);
-        var beat = Task.Run(() => BeatAsync(ws, sendGate, http, baseUri, apiKey, target, pins, () => presented, ct), CancellationToken.None);
+        var beat = Task.Run(() => BeatAsync(show, ws, sendGate, http, baseUri, apiKey, target, pins, () => presented, ct), CancellationToken.None);
         try
         {
-            await ReceiveAsync(ws, name, ct);
+            await ReceiveAsync(show, ws, name, ct);
         }
         finally
         {
@@ -321,7 +375,7 @@ public sealed class StagewatchLinkService : IDisposable
     /// Every two seconds: the clock exchange (which is also the beat), the liveness check, the approval queue; every
     /// five seconds the Stagewatch's context read and this desk's own posted.
     /// </summary>
-    private async Task BeatAsync(ClientWebSocket ws, SemaphoreSlim sendGate, HttpClient http, Uri baseUri, string apiKey, Target target, IReadOnlyDictionary<string, string> pins, Func<string> presented, CancellationToken ct)
+    private async Task BeatAsync(HeardShow show, ClientWebSocket ws, SemaphoreSlim sendGate, HttpClient http, Uri baseUri, string apiKey, Target target, IReadOnlyDictionary<string, string> pins, Func<string> presented, CancellationToken ct)
     {
         var lastContext = double.NegativeInfinity;
         var name = target.Name;
@@ -347,7 +401,7 @@ public sealed class StagewatchLinkService : IDisposable
             if (ShowClock.Seconds - lastContext >= 5)
             {
                 lastContext = ShowClock.Seconds;
-                if (await FetchContextAsync(http, new Uri(baseUri, "/api/context"), apiKey, ct) && target.Tls) Pin(target, pins, presented());
+                if (await FetchContextAsync(show, http, new Uri(baseUri, "/api/context"), apiKey, ct) && target.Tls) Pin(target, pins, presented());
                 await PostOwnContextAsync(http, new Uri(baseUri, "/api/peers/context"), apiKey, ct);
             }
             if (target.Approvals && apiKey.Length > 0 && SelfId.Length > 0) await ApprovalsAsync(http, baseUri, apiKey, name, ct);
@@ -363,8 +417,11 @@ public sealed class StagewatchLinkService : IDisposable
         return r;
     }
 
-    /// <summary>The Stagewatch's context; true when an authenticated answer came (the TLS pin may be set on it).</summary>
-    private async Task<bool> FetchContextAsync(HttpClient http, Uri url, string apiKey, CancellationToken ct)
+    /// <summary>
+    /// The Stagewatch's context, kept on its show (its one writer); true when an authenticated answer came (the TLS pin
+    /// may be set on it). It touches nothing of the frame, so a context read during a stall cannot bring a time back.
+    /// </summary>
+    private async Task<bool> FetchContextAsync(HeardShow show, HttpClient http, Uri url, string apiKey, CancellationToken ct)
     {
         try
         {
@@ -374,7 +431,7 @@ public sealed class StagewatchLinkService : IDisposable
             var json = await response.Content.ReadAsStringAsync(ct);
             if (ShowContext.Parse(json) is { } context)
             {
-                _sight = _sight with { Context = context };
+                show.Context = context;
                 UiThread.Post(_changed);
             }
             return apiKey.Length > 0;
@@ -505,7 +562,12 @@ public sealed class StagewatchLinkService : IDisposable
         UiThread.Post(() => e.Said(words));
     }
 
-    private async Task ReceiveAsync(ClientWebSocket ws, string name, CancellationToken ct)
+    /// <summary>
+    /// The link's one reader: frames, pongs and beats. It alone writes its show's stuck mark — set by the stuck beat,
+    /// cleared by the next state frame only once that frame is held; <see cref="Sight"/> reads the mark before the frame,
+    /// so a read that finds the mark cleared finds the new frame, never the old one counting again.
+    /// </summary>
+    private async Task ReceiveAsync(HeardShow show, ClientWebSocket ws, string name, CancellationToken ct)
     {
         var buffer = new byte[16 * 1024];
         var message = new System.Buffers.ArrayBufferWriter<byte>(16 * 1024);
@@ -526,12 +588,31 @@ public sealed class StagewatchLinkService : IDisposable
                     var t4 = ClockPing.Ms(ShowClock.UtcNow);
                     _clock.Sample(p.T1 * TimeSpan.TicksPerMillisecond, p.T2 * TimeSpan.TicksPerMillisecond, p.T3 * TimeSpan.TicksPerMillisecond, t4 * TimeSpan.TicksPerMillisecond);
                     break;
+                case "beat":
+                    // A plain beat says the link is alive and nothing of the show; the stuck beat says the show is stuck.
+                    if (StagewatchFrame.IsStuckBeat(text))
+                    {
+                        var words = $"Stagewatch link: {name} says its show is stuck — the stage shows no time.";
+                        _status = words;                                                        // said again after a redial
+                        if (!show.Stuck)
+                        {
+                            show.Stuck = true;
+                            Log.Warn(words);
+                            UiThread.Post(_changed);
+                        }
+                    }
+                    break;
                 case "state" or "":
                     if (StagewatchFrame.Parse(text) is { } frame)
                     {
                         Interlocked.Increment(ref _frames);
                         _sight = _sight with { Frame = frame, FrameAtSeconds = arrived, State = ShowBusState.Live };
                         _status = $"Stagewatch link: following {name}" + (_clock.Known && LinkClock.Apart(_clock.Offset) ? " · " + LinkClock.ApartWords("Stagewatch", _clock.Offset) : "") + ".";
+                        if (show.Stuck)
+                        {
+                            show.Stuck = false;                                                 // after the new frame is held, never before
+                            Log.Info($"Stagewatch link: {name}'s show runs again.");
+                        }
                         UiThread.Post(_changed);
                     }
                     break;
@@ -541,6 +622,7 @@ public sealed class StagewatchLinkService : IDisposable
 
     private static string StatusWords(ShowBusState state, StagewatchSight s, TimeSpan silent) => state switch
     {
+        ShowBusState.Live when s.Stuck => s.Frame is null ? $"{s.Name} says its show is stuck — waiting for its first frame" : $"{s.Name} {ShowBusView.StuckWords}",
         ShowBusState.Live => s.Frame is null ? $"connected to {s.Name}, waiting for its first frame" : $"following {s.Name}",
         ShowBusState.Stale => $"{s.Name} quiet for {silent.TotalSeconds:0} s",
         _ => $"{s.Name} not answering",

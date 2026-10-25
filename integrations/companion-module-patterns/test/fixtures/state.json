@@ -596,5 +596,30 @@
   "masterFps": 60,
   "masterFollows": true,
   "masterFpsEffective": 50,
-  "masterRate": "50 fps \u2014 following Lobby (50 Hz); set 60"
+  "masterRate": "50 fps \u2014 following Lobby (50 Hz); set 60",
+  "bus": {
+    "heard": 1,
+    "apps": [
+      {
+        "kind": "main",
+        "id": "a1b2c3d4",
+        "name": "Hall A",
+        "light": "green",
+        "headline": "Keynote \u2014 Ana"
+      }
+    ],
+    "stagewatch": {
+      "on": true,
+      "state": "live",
+      "name": "Hall A",
+      "following": false,
+      "title": "",
+      "text": "",
+      "light": "green",
+      "headline": "Keynote \u2014 Ana",
+      "clock": "",
+      "words": "Stagewatch link: connected to Hall A at 10.0.0.9:9924.",
+      "stuck": false
+    }
+  }
 }

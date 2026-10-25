@@ -141,6 +141,8 @@ public class ShowBus12AppTests
         public readonly ConcurrentDictionary<string, (string Json, string State, string Line, string Target, string From)> Proposals = new();
         public readonly ConcurrentDictionary<string, string> Results = new();
         public volatile string Authorization = "";
+        /// <summary>Its show thread has stopped: each ping answered with the pong and Stagewatch's stuck beat, never a frame.</summary>
+        public volatile bool Stuck;
         private int _next;
 
         public FakeStagewatch(string frame, X509Certificate2? certificate, int port = 0)
@@ -206,7 +208,7 @@ public class ShowBus12AppTests
                         var t = doc.RootElement.GetProperty("t").GetInt64();
                         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                         await ws.SendAsync(Encoding.UTF8.GetBytes($"{{\"type\":\"pong\",\"t\":{t},\"t2\":{now},\"t3\":{now}}}"), WebSocketMessageType.Text, true, _cts.Token);
-                        await ws.SendAsync(Encoding.UTF8.GetBytes(_frame), WebSocketMessageType.Text, true, _cts.Token);
+                        await ws.SendAsync(Encoding.UTF8.GetBytes(Stuck ? "{\"type\":\"beat\",\"live\":false}" : _frame), WebSocketMessageType.Text, true, _cts.Token);
                     }
                     return;
                 }
@@ -470,6 +472,28 @@ public class ShowBus12AppTests
             Assert.Contains(d.ShowApps(DateTime.UtcNow), a => a.KindWords == "Patterns node" && a.Context is { } c && c.Items.Any(i => i.Id == "stage"));
             d.Eye.Refresh();
             Assert.Contains(d.Eye.Graph.Nodes, n => n.Kind == EyeKind.ShowApp && n.Label.Length > 0 && n.Sub.Contains("stage timer node", StringComparison.Ordinal));
+
+            // Round 89: the Stagewatch's show stalls. No seq moves; the relay carries the stall and the node's stage shows no time,
+            // still following; its own context says so. The stall alone moves the node's stage revision, so a speaker's page
+            // waiting on its long-poll stops counting at once. The next frame brings the time back on the node too.
+            var stageRev = t.Stage.Rev;
+            sw.Stuck = true;
+            PumpUntil(() => t.FollowedStagewatch.Stuck && t.Stage.Time().Phase == Patterns.Core.Services.StageTimerPhase.Idle, 20000);
+            Assert.True(t.Stage.Rev > stageRev);
+            Assert.True(t.FollowedStagewatch.Following);
+            Assert.Equal(4, t.FollowedStagewatch.Frame!.Seq);
+            Assert.StartsWith("Stage timer shows no time — following Stagewatch ", t.Stage.StatusLine);
+            Assert.EndsWith("says its show is stuck", t.Stage.NoTimeLabel);
+            using (var follows = JsonDocument.Parse(t.Stage.StatusJson()))
+                Assert.True(follows.RootElement.GetProperty("follows").GetProperty("stuck").GetBoolean());
+            var stalled = ShowContext.Parse(Pump(t.NewRouter().ContextJsonAsync()))!;
+            Assert.Contains(stalled.Items, i => i.Id == "stagewatch" && i.Light == "amber");
+            Assert.Contains(stalled.Items, i => i.Id == "stage" && i.Light == "red" && i.State.StartsWith("no time shown", StringComparison.Ordinal));
+            stageRev = t.Stage.Rev;
+            sw.Stuck = false;
+            PumpUntil(() => !t.FollowedStagewatch.Stuck && t.Stage.Time().Phase == Patterns.Core.Services.StageTimerPhase.Running, 20000);
+            Assert.True(t.Stage.Rev > stageRev);
+            Assert.Equal("No timer running", t.Stage.NoTimeLabel);
 
             // The desk stops following: the node's stage goes back to its own clock once the relay says so.
             d.State.Control.Stagewatch.Enabled = false;

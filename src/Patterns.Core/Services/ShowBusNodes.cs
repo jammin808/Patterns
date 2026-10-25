@@ -18,6 +18,8 @@ public sealed record StagewatchRelay
     /// <summary>How old the frame was when the desk sent it, in seconds (the node counts on from there).</summary>
     [JsonPropertyName("age")] public double FrameAgeSeconds { get; init; }
     [JsonPropertyName("seq")] public long Seq { get; init; }
+    /// <summary>Round 89: the Stagewatch says its show is stuck — said even with no frame held, so a node's readers agree with the desk's.</summary>
+    [JsonPropertyName("stuck")] public bool Stuck { get; init; }
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
 
@@ -46,6 +48,7 @@ public sealed record StagewatchRelay
         Frame = sight.Frame,
         FrameAgeSeconds = sight.Frame is null ? 0 : Math.Max(0, nowSeconds - sight.FrameAtSeconds),
         Seq = seq,
+        Stuck = sight.Stuck,
     };
 
     public bool Empty => Name.Length == 0 && Frame is null;
@@ -53,6 +56,7 @@ public sealed record StagewatchRelay
     /// <summary>
     /// The relay as this node's sight: the frame placed where it would have arrived had the node heard it itself, and the
     /// state the worse of the desk's word and the relay's own silence — a desk that stops relaying goes stale here too.
+    /// A stuck show reaches the node as the desk holds it: the held frame no longer live, and the stuck mark beside it.
     /// </summary>
     public StagewatchSight ToSight(double receivedAtSeconds, double nowSeconds)
     {
@@ -60,7 +64,9 @@ public sealed record StagewatchRelay
         var desk = State switch { "live" => ShowBusState.Live, "stale" => ShowBusState.Stale, _ => ShowBusState.Gone };
         var silence = ShowBusLiveness.StateOf(TimeSpan.FromSeconds(Math.Max(0, nowSeconds - receivedAtSeconds)));
         var state = (ShowBusState)Math.Max((int)desk, (int)silence);
-        return new StagewatchSight(Name, "via the desk", state, Frame, receivedAtSeconds - FrameAgeSeconds, null, "");
+        var stuck = Stuck || Frame is { Live: false };
+        var frame = stuck && Frame is { Live: true } f ? f with { Live = false } : Frame;
+        return new StagewatchSight(Name, "via the desk", state, frame, receivedAtSeconds - FrameAgeSeconds, null, "") { Stuck = stuck };
     }
 
     private static string Word(ShowBusState s) => s switch { ShowBusState.Live => "live", ShowBusState.Stale => "stale", _ => "gone" };
@@ -117,11 +123,14 @@ public static class NodeContextBuilder
             Id = "desk", Kind = "twin", Label = f.DeskName.Length > 0 ? f.DeskName : "Desk",
             Light = ShowContext.Word(f.DeskLight), State = f.DeskWords.Length > 0 ? f.DeskWords : f.Linked ? "in step" : "not linked to a desk",
         });
+        // Round 89 (profile 13.10.5, 13.16.1): a stuck show leaves the link live and amber; the stage that follows it shows
+        // no time, red — a frozen count is worse than none.
+        var stuck = f.Stagewatch.State == ShowBusState.Live && (f.Stagewatch.Stuck || f.Stagewatch.Frame is { Live: false });
         if (f.Stagewatch.Name.Length > 0 || f.Stagewatch.Address.Length > 0)
         {
             var light = f.Stagewatch.State switch
             {
-                ShowBusState.Live when f.Stagewatch.Frame is { Live: false } => CheckLight.Red,
+                ShowBusState.Live when stuck => CheckLight.Amber,
                 ShowBusState.Live => CheckLight.Green,
                 ShowBusState.Stale => CheckLight.Amber,
                 _ => CheckLight.Red,
@@ -132,13 +141,15 @@ public static class NodeContextBuilder
                 State = StageFollow.Words(f.Stagewatch) + (f.StagewatchViaDesk ? " (relayed by the desk)" : ""),
             });
         }
+        var screens = f.StageScreens > 0 ? string.Create(CultureInfo.InvariantCulture, $" · {f.StageScreens} screen{(f.StageScreens == 1 ? "" : "s")} watching") : "";
         if (f.Role == "timer" || f.StageWords.Length > 0)
-            items.Add(new ShowContextItem
-            {
-                Id = "stage", Kind = "stage", Label = "Stage display", Light = f.StageWords.Length > 0 && f.StageWords != "idle" ? "green" : "grey",
-                State = (f.StageWords.Length > 0 ? f.StageWords : "idle")
-                        + (f.StageScreens > 0 ? string.Create(CultureInfo.InvariantCulture, $" · {f.StageScreens} screen{(f.StageScreens == 1 ? "" : "s")} watching") : ""),
-            });
+            items.Add(stuck && f.Stagewatch.Following
+                ? new ShowContextItem { Id = "stage", Kind = "stage", Label = "Stage display", Light = "red", State = $"no time shown — Stagewatch {f.Stagewatch.Name} says its show is stuck" + screens }
+                : new ShowContextItem
+                {
+                    Id = "stage", Kind = "stage", Label = "Stage display", Light = f.StageWords.Length > 0 && f.StageWords != "idle" ? "green" : "grey",
+                    State = (f.StageWords.Length > 0 ? f.StageWords : "idle") + screens,
+                });
         if (f.Role == "caller")
             items.Add(new ShowContextItem { Id = "stack", Kind = "stack", Label = "Cue stack", Light = ShowContext.Word(f.StackLight), State = f.StackWords.Length > 0 ? f.StackWords : "no cues" });
         if (f.Arcade)

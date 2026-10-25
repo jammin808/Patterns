@@ -757,7 +757,9 @@ public sealed class CommandRouter : IRouter
         var apps = _services.ShowApps(now);
         var link = _services.Kernel.Stagewatch;
         var sight = link.Sight;
-        var linked = apps.FirstOrDefault(a => a.Linked);
+        var linked = apps.FirstOrDefault(a => a.Linked && a.KindWords == "Stagewatch");      // the link's own card, never one of this desk's nodes
+        // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
+        var stuck = sight.StuckLive;
         return new
         {
             heard = apps.Count(a => a.State == ShowBusState.Live),
@@ -769,11 +771,12 @@ public sealed class CommandRouter : IRouter
                 name = sight.Name,
                 following = _services.Stage.Following.Length > 0,
                 title = sight.Frame?.Title ?? "",
-                text = sight.State == ShowBusState.Live ? sight.Frame?.Text ?? "" : "",
-                light = linked?.Context?.Light ?? "grey",
-                headline = linked?.Context?.Headline ?? "",
+                text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
+                light = stuck ? ShowBusView.StuckLight(linked?.Context?.Light) : linked?.Context?.Light ?? "grey",
+                headline = stuck ? ShowBusView.StuckWords : linked?.Context?.Headline ?? "",
                 clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
                 words = link.Status,
+                stuck,                                                                   // round 89: appended at the row's end
             },
         };
     }

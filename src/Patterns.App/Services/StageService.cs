@@ -147,20 +147,41 @@ public sealed class StageService
     /// <summary>The latest unseen message on a channel, or null.</summary>
     public StageMessage? Pending(string channel) => _s.AirState.Stage.Messages.LastOrDefault(m => m.Channel == channel && m.AckUtc is null);
 
+    /// <summary>
+    /// Round 89: the Stagewatch the stage follows says its show is stuck — the stage follows it and shows no time, so the
+    /// words say why rather than "idle" or "no timer".
+    /// </summary>
+    private static bool FollowsAStuckShow(StagewatchSight f) => f is { StuckLive: true, Frame: not null };
+
+    /// <summary>What a speaker's display says under its blank time: no timer, or why a followed Stagewatch's is not shown.</summary>
+    public string NoTimeLabel => _s.FollowedStagewatch is var f && FollowsAStuckShow(f)
+        ? $"No time shown — Stagewatch {f.Name} says its show is stuck"
+        : "No timer running";
+
     /// <summary>The Countdown page's line: the timer, and what waits on a receipt.</summary>
     public string StatusLine
     {
         get
         {
+            var follow = _s.FollowedStagewatch;
             var time = Time();
-            var timer = time.Phase switch
+            string timer;
+            if (FollowsAStuckShow(follow))
             {
-                StageTimerPhase.Idle => "Stage timer idle",
-                StageTimerPhase.Paused => $"Stage timer PAUSED at {time.Text}",
-                StageTimerPhase.Over => $"Stage timer OVER by {StageTimer.Format(-time.RemainingSeconds)}",
-                _ => $"Stage timer {time.Text} ({time.Colour})",
-            };
-            if (Following is { Length: > 0 } name) timer += $" — following Stagewatch {name}";
+                timer = $"Stage timer shows no time — following Stagewatch {follow.Name}, which says its show is stuck";
+            }
+            else
+            {
+                timer = time.Phase switch
+                {
+                    StageTimerPhase.Idle => "Stage timer idle",
+                    StageTimerPhase.Paused => $"Stage timer PAUSED at {time.Text}",
+                    StageTimerPhase.Over => $"Stage timer OVER by {StageTimer.Format(-time.RemainingSeconds)}",
+                    _ => $"Stage timer {time.Text} ({time.Colour})",
+                };
+                if (Following is { Length: > 0 } name) timer += $" — following Stagewatch {name}";
+                else if (follow.StuckLive) timer += " — " + StageFollow.Words(follow);               // its stall said before its first frame: this desk's own timer
+            }
             var unseen = _s.AirState.Stage.Messages.Count(m => m.AckUtc is null);
             return unseen == 0 ? timer + "." : $"{timer} · {unseen} message{(unseen == 1 ? "" : "s")} waiting on a receipt.";
         }
@@ -216,6 +237,7 @@ public sealed class StageService
             title = f.Frame?.Title ?? "",
             next = f.Frame?.Next ?? "",
             message = f.Frame?.Message ?? "",
+            stuck = f.StuckLive,                                                     // round 89: it says its show is stuck — no time from it
         };
     }
 

@@ -142,6 +142,12 @@ public sealed class EyeFacts
 public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBusState State, bool Linked, string Words)
 {
     public ShowContext? Context { get; init; }
+
+    /// <summary>
+    /// Round 89: linked and live, and the app says its show is stuck — the link stays live and amber, the card the worse
+    /// of its own light and amber, and its counting things carry no time (<see cref="ShowBusView.NoTime"/>).
+    /// </summary>
+    public bool Stuck { get; init; }
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -775,15 +781,21 @@ public sealed class EyeGraph
             var id = "app:" + app.Id;
             if (ids.Contains(id)) continue;
             var ctx = app.Context;
+            // Round 89: a stuck show (profile 13.10.5, 13.16.1): the card the worse of its own light and amber, never red
+            // for the stall alone; the link live and amber; its counting things red with no time (the context says so).
+            var stuck = app.Stuck && app.State == ShowBusState.Live;
             var light = app.State switch
             {
                 ShowBusState.Gone => CheckLight.Red,
                 ShowBusState.Stale => CheckLight.Amber,
+                _ when stuck => ShowContext.LightOf(ShowBusView.StuckLight(ctx?.Light)),
                 _ => ctx is not null ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
             };
             var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
-            var sub = ctx is not null && app.State == ShowBusState.Live && ctx.Headline.Length > 0 ? ctx.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
+            var sub = stuck ? ShowBusView.StuckWords
+                : ctx is not null && app.State == ShowBusState.Live && ctx.Headline.Length > 0 ? ctx.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
             var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
+            if (stuck) words.Add($"the link is live; it {ShowBusView.StuckWords}");
             if (app.Words.Length > 0) words.Add(app.Words);
             if (ctx is not null)
             {
@@ -791,7 +803,8 @@ public sealed class EyeGraph
                 foreach (var peer in ctx.Peers.Take(6)) words.Add($"hears {ShowBusPeers.KindWords(peer.Kind)} {peer.Name} — {peer.Light}{(peer.Headline.Length > 0 ? ": " + peer.Headline : "")}");
             }
             Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light) { Words = words, Route = new MenuRoute("Nodes") });
-            if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, app.State == ShowBusState.Live ? "linked" : state);
+            if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck");
+            else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, app.State == ShowBusState.Live ? "linked" : state);
             else Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state);
             if (ctx is null || app.State == ShowBusState.Gone) continue;
             // Its own things, one tier out — at most a dozen, the reds and ambers first, so a busy app does not drown the picture.

@@ -149,7 +149,7 @@ public sealed class ShowBusPeers
             var name = Str(r, "name");
             var host = Str(r, "host");
             if (host.Length == 0) host = Str(r, "machine");
-            return new ShowBusPeer(kind, id, Trim(name, 64), Trim(host, 64), fromAddress, ports, caps, Int(r, "proto"), Long(r, "clock"), utcNow)
+            return new ShowBusPeer(kind, id, OneLine(name, 64), OneLine(host, 64), fromAddress, ports, caps, Int(r, "proto"), Long(r, "clock"), utcNow)
             {
                 Tls = TlsFingerprint.Normal(Str(r, "tls")),
             };
@@ -181,6 +181,16 @@ public sealed class ShowBusPeers
     private static long Long(JsonElement r, string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var l) && l > 0 ? l : 0;
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..max];
+
+    /// <summary>
+    /// A name a hello gives, as every reader shows it: one line. A hello is unauthenticated, and its name reaches the log,
+    /// the status line and the Eye, so a control or line-break character is a space — no hello writes a line of its own.
+    /// </summary>
+    private static string OneLine(string s, int max)
+    {
+        var line = new string(s.Select(c => (char.IsControl(c) || CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator) ? ' ' : c).ToArray()).Trim();
+        return Trim(line, max);
+    }
 }
 
 /// <summary>

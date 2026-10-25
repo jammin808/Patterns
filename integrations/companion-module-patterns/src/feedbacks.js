@@ -230,6 +230,8 @@ export function buildFeedbacks(ctx) {
 			const cr = (st.pendingCrew ?? '') !== ''
 			return fb.options.channel === 'speaker' ? sp : fb.options.channel === 'crew' ? cr : sp || cr
 		}),
+		// Round 89: the linked Stagewatch says its show is stuck — the stage shows no time from it until its next frame.
+		stagewatch_stuck: bool('The linked Stagewatch says its show is stuck — the stage shows no time from it', style('stage', 'red'), [], () => s().bus?.stagewatch?.stuck === true),
 		// ---- round 74: the Navigator's keys and the desk's whereabouts ----------------------------------------------
 		nav_slot_on: bool('Navigator — slot n is ticked (the look on air, the standby cue, a switch that is on)', style('nav', 'on'), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => ctx.nav().slots[fb.options.n - 1]?.on === true),
 		nav_slot_empty: bool('Navigator — slot n has nothing on it', emptyStyle(), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => !ctx.nav().slots[fb.options.n - 1]),

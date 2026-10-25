@@ -56,6 +56,8 @@ public class DeckStateAppTests
             Assert.Empty(quiet.GetProperty("nodes").EnumerateArray());
             SameKeys(fixture.GetProperty("twin"), quiet.GetProperty("twin"), "twin");
             SameKeys(fixture.GetProperty("stage"), quiet.GetProperty("stage"), "stage");
+            SameKeys(fixture.GetProperty("bus"), quiet.GetProperty("bus"), "bus");                // round 89: the Stagewatch row, its stuck mark at the end
+            Assert.False(quiet.GetProperty("bus").GetProperty("stagewatch").GetProperty("stuck").GetBoolean());
             Assert.Equal("off", quiet.GetProperty("twin").GetProperty("role").GetString());
             Assert.Equal("idle", quiet.GetProperty("stage").GetProperty("timer").GetProperty("phase").GetString());
             Assert.Equal("--:--", quiet.GetProperty("stage").GetProperty("timer").GetProperty("text").GetString());

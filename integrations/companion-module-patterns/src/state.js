@@ -314,6 +314,8 @@ export function variableValues(s) {
 		stagewatch_name: s.bus?.stagewatch?.name ?? '',
 		stagewatch_headline: s.bus?.stagewatch?.headline ?? '',
 		stagewatch_light: s.bus?.stagewatch?.light ?? 'grey',
+		// Round 89: the linked Stagewatch says its show is stuck — the link stays live, the stage shows no time from it.
+		stagewatch_stuck: s.bus?.stagewatch?.stuck === true ? 'yes' : 'no',
 		...bankVariables(s),
 	}
 }

@@ -122,6 +122,45 @@ public class ShowBus12Tests
     }
 
     [Fact]
+    public void AStuckShowReachesTheNodesAsTheDeskHoldsItAndTheirStageShowsNoTime()
+    {
+        var frame = StagewatchFrame.Parse("{\"type\":\"state\",\"seq\":7,\"mode\":\"countdown\",\"state\":\"running\",\"seconds\":600,\"total\":900,\"text\":\"10:00\",\"title\":\"Keynote\"}")!;
+        // As the desk's link folds a stuck beat in: the held frame not live, the mark beside it.
+        var stuck = new StagewatchSight("Hall A", "10.0.0.9:9924", ShowBusState.Live, frame with { Live = false }, 100, null, "") { Stuck = true };
+        var json = StagewatchRelay.Of(stuck, 101.5, 4).ToJson();
+        Assert.Contains("\"seq\":4,\"stuck\":true", json, StringComparison.Ordinal);           // the new field after the relay's last
+        var onNode = StagewatchRelay.Parse(json)!.ToSight(500, 501);
+        var held = onNode.Frame!;
+        Assert.True(onNode.Stuck);
+        Assert.False(held.Live);
+        Assert.Equal(7, held.Seq);                                                            // no seq moved: the mark is what changed
+        Assert.True(onNode.Following);
+        Assert.Equal(StageTimerPhase.Idle, StageFollow.Time(held, onNode.FrameAtSeconds, 501).Phase);
+
+        // Stuck before any frame: the mark alone reaches the node, which keeps its own timer.
+        var bare = StagewatchRelay.Parse(StagewatchRelay.Of(stuck with { Frame = null }, 101.5, 5).ToJson())!.ToSight(500, 501);
+        Assert.True(bare.Stuck);
+        Assert.False(bare.Following);
+        // A frame that says live:false is the same stall, mark or not.
+        Assert.True(StagewatchRelay.Parse(StagewatchRelay.Of(stuck with { Stuck = false }, 101.5, 6).ToJson())!.ToSight(500, 501).Stuck);
+        // The next frame clears both.
+        var running = StagewatchRelay.Parse(StagewatchRelay.Of(stuck with { Frame = frame, Stuck = false }, 101.5, 7).ToJson())!.ToSight(500, 501);
+        Assert.False(running.Stuck);
+        Assert.True(running.Frame!.Live);
+
+        // The node's own context: its Stagewatch amber (the link live), its stage red with no time.
+        var facts = new NodeContextFacts { Role = "timer", DeskName = "FOH", DeskLight = CheckLight.Green, Linked = true, Stagewatch = onNode, StagewatchViaDesk = true, StageWords = "idle (Stagewatch Hall A's time)", StageScreens = 2 };
+        var c = NodeContextBuilder.Build("1a2b3c4d", "Stage Left", T0, facts, Array.Empty<ShowLogEntry>());
+        Assert.Contains(c.Items, i => i.Id == "stagewatch" && i.Light == "amber" && i.State.Contains("says its show is stuck", StringComparison.Ordinal));
+        Assert.Contains(c.Items, i => i.Id == "stage" && i.Light == "red" && i.State == "no time shown — Stagewatch Hall A says its show is stuck · 2 screens watching");
+        Assert.Equal("red", c.Light);
+        Assert.Contains("Stage display: no time shown", c.Headline, StringComparison.Ordinal);
+        var waiting = NodeContextBuilder.Build("1a2b3c4d", "Stage Left", T0, facts with { Stagewatch = bare, StageWords = "05:00 — running" }, Array.Empty<ShowLogEntry>());
+        Assert.Contains(waiting.Items, i => i.Id == "stagewatch" && i.Light == "amber" && i.State.Contains("own stage timer runs until its first frame", StringComparison.Ordinal));
+        Assert.Contains(waiting.Items, i => i.Id == "stage" && i.Light == "green" && i.State.StartsWith("05:00", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ANodesOwnLinkWinsWhileHeardElseTheDesksRelay()
     {
         var own = new StagewatchSight("Mine", "10.0.0.2:9924", ShowBusState.Live, null, 1, null, "");

@@ -247,19 +247,37 @@ public class ShowBusAppTests
         Assert.Equal("", kept.Vm.State.Control.Token);
     }
 
-    /// <summary>A stand-in Stagewatch: /ws answers with state frames and pongs, /api/context with its context; it records the Authorization header it was dialled with.</summary>
+    /// <summary>
+    /// A stand-in Stagewatch: /ws answers with state frames and pongs, /api/context with its context; it records the
+    /// Authorization header it was dialled with. While <see cref="Stuck"/> it does what Stagewatch does when its show thread
+    /// stops turning over: no frame, the stuck beat instead — the same bytes (Stagewatch's WebServer.cs StuckBeat).
+    /// </summary>
     private sealed class FakeStagewatch : IDisposable
     {
+        public const string StuckBeat = "{\"type\":\"beat\",\"live\":false}";
+
         private readonly HttpListener _listener = new();
         private readonly CancellationTokenSource _cts = new();
         private volatile string _authorization = "";
         private volatile string _url = "";
         private int _pings;
+        private int _contextReads;
+        private int _stuckBeats;
 
         public int Port { get; }
         public string Authorization => _authorization;
         public string Url => _url;
         public int Pings => Volatile.Read(ref _pings);
+        public int ContextReads => Volatile.Read(ref _contextReads);
+        public int StuckBeats => Volatile.Read(ref _stuckBeats);
+
+        /// <summary>Its show thread has stopped: every answer to a ping is the pong and the stuck beat, never a frame.</summary>
+        public volatile bool Stuck;
+
+        /// <summary>/api/context answers (else 404, as an older Stagewatch does), and what its Lighting item says.</summary>
+        public volatile bool ServeContext = true;
+
+        public volatile string LightingState = "standing by: LX 12";
 
         public FakeStagewatch(string frame)
         {
@@ -283,7 +301,7 @@ public class ShowBusAppTests
                         _authorization = ctx.Request.Headers["Authorization"] ?? "";
                         _url = ctx.Request.Url.ToString();
                         var ws = (await ctx.AcceptWebSocketAsync(null)).WebSocket;
-                        await ws.SendAsync(Encoding.UTF8.GetBytes(frame), WebSocketMessageType.Text, true, _cts.Token);
+                        await SendShow(ws, frame);
                         var buffer = new byte[4096];
                         while (ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
                         {
@@ -296,14 +314,16 @@ public class ShowBusAppTests
                                 var t = doc.RootElement.GetProperty("t").GetInt64();
                                 var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                                 await ws.SendAsync(Encoding.UTF8.GetBytes($"{{\"type\":\"pong\",\"t\":{t},\"t2\":{now},\"t3\":{now}}}"), WebSocketMessageType.Text, true, _cts.Token);
-                                await ws.SendAsync(Encoding.UTF8.GetBytes(frame), WebSocketMessageType.Text, true, _cts.Token);
+                                await SendShow(ws, frame);
                             }
                         }
                         return;
                     }
-                    var body = ctx.Request.Url.AbsolutePath == "/api/context"
+                    if (ctx.Request.Url.AbsolutePath == "/api/context") Interlocked.Increment(ref _contextReads);
+                    var body = ctx.Request.Url.AbsolutePath == "/api/context" && ServeContext
                         ? "{\"v\":1,\"node\":{\"t\":\"main\",\"id\":\"a1b2c3d4\",\"name\":\"Hall A\"},\"at\":1,\"light\":\"amber\",\"headline\":\"Keynote — 12:30 left · Lighting standing by\","
-                          + "\"items\":[{\"id\":\"cue:lighting\",\"kind\":\"department\",\"label\":\"Lighting\",\"light\":\"amber\",\"state\":\"standing by: LX 12\"}],\"links\":[],\"recent\":[],\"commands\":[],\"peers\":[]}"
+                          + "\"items\":[{\"id\":\"timer\",\"kind\":\"timer\",\"label\":\"Keynote — Ana\",\"light\":\"green\",\"state\":\"running, 12:30 left\"},"
+                          + "{\"id\":\"cue:lighting\",\"kind\":\"department\",\"label\":\"Lighting\",\"light\":\"amber\",\"state\":\"" + LightingState + "\"}],\"links\":[],\"recent\":[],\"commands\":[],\"peers\":[]}"
                         : "not here";
                     ctx.Response.StatusCode = body == "not here" ? 404 : 200;
                     var bytes = Encoding.UTF8.GetBytes(body);
@@ -313,8 +333,19 @@ public class ShowBusAppTests
             }
         }
 
+        /// <summary>What the show says on the socket: the frame while it turns over, the stuck beat while it does not.</summary>
+        private async Task SendShow(WebSocket ws, string frame)
+        {
+            if (Stuck) Interlocked.Increment(ref _stuckBeats);
+            await ws.SendAsync(Encoding.UTF8.GetBytes(Stuck ? StuckBeat : frame), WebSocketMessageType.Text, true, _cts.Token);
+        }
+
+        private int _disposed;
+
+        /// <summary>Gone: its listener closed and its links dropped. Once is enough — a test that ends it early still owns it.</summary>
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             _cts.Cancel();
             _listener.Close();
             _cts.Dispose();
@@ -379,6 +410,245 @@ public class ShowBusAppTests
             vm.State.Control.Stagewatch.Enabled = false;
             services.Kernel.Stagewatch.Reconcile();
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    private const string RunningFrame = "{\"type\":\"state\",\"v\":1,\"seq\":3,\"mode\":\"countdown\",\"state\":\"running\",\"seconds\":750,\"total\":1800,\"text\":\"12:30\",\"phase\":\"warning\",\"title\":\"Keynote — Ana\",\"next\":\"Panel\"}";
+
+    /// <summary>The desk's log lines that carry these words (the boot's own patterns.log).</summary>
+    private static int LogLines(string dir, string words)
+        => File.ReadAllLines(Path.Combine(dir, "patterns.log")).Count(l => l.Contains(words, StringComparison.Ordinal));
+
+    private static JsonElement StagewatchRow(AppServices services)
+        => JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch").Clone();
+
+    private static void Link(MainViewModel vm, AppServices services, FakeStagewatch stagewatch)
+    {
+        var link = vm.State.Control.Stagewatch;
+        link.Host = "localhost:" + stagewatch.Port;
+        link.ApiKey = "swk_testkey";
+        link.Enabled = true;
+        Dispatcher.UIThread.RunJobs();
+        services.Kernel.Stagewatch.Reconcile();
+    }
+
+    [AvaloniaFact]
+    public void AStuckStagewatchShowsNoTimeEverywhereAndItsNextFrameBringsTheTimeBack()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(RunningFrame);
+        const string stuckLine = "Stagewatch link: localhost says its show is stuck — the stage shows no time.";
+        const string runsLine = "Stagewatch link: localhost's show runs again.";
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = false;                                                         // the stage page reads as a speaker's screen would
+        try
+        {
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            Dispatcher.UIThread.RunJobs();
+            using var page = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{vm.State.Control.HttpPort}/") };
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && services.Kernel.Stagewatch.Sight.Context is not null);
+            Assert.Equal(StageTimerPhase.Running, services.Stage.Time().Phase);
+            Assert.False(StagewatchRow(services).GetProperty("stuck").GetBoolean());
+
+            // Its context goes unanswered first, so below nothing but the stall itself can wake a waiting stage page.
+            stagewatch.ServeContext = false;
+            var unanswered = stagewatch.ContextReads;
+            PumpUntil(() => stagewatch.ContextReads > unanswered, 20000);
+
+            // Its show thread stops: Stagewatch sends the stuck beat — its bytes as it sends them today — and no frame. The
+            // speaker's page, waiting on its long-poll, hears it within a beat, not at the poll's 25 s: no seq moved and no
+            // context landed, so the stall alone moved the page's revision.
+            var since = services.Stage.Rev;
+            stagewatch.Stuck = true;
+            var started = Environment.TickCount64;
+            while (true)
+            {
+                using var polled = JsonDocument.Parse(Pump(page.GetStringAsync($"api/stage?since={since}"), 15000));
+                if (polled.RootElement.GetProperty("follows").GetProperty("stuck").GetBoolean())
+                {
+                    Assert.Equal("idle", polled.RootElement.GetProperty("timer").GetProperty("phase").GetString());
+                    break;
+                }
+                since = polled.RootElement.GetProperty("rev").GetInt64();                                 // a frame already on its way when it stopped
+            }
+            Assert.True(Environment.TickCount64 - started < 10000, $"the stage page heard the stall after {Environment.TickCount64 - started} ms");
+
+            var sight = services.Kernel.Stagewatch.Sight;
+            Assert.Equal(ShowBusState.Live, sight.State);                                           // the pongs still come: the link is live
+            Assert.True(sight.Stuck);
+            Assert.False(sight.Frame!.Live);
+            Assert.Equal(StageTimerPhase.Idle, services.Stage.Time().Phase);
+            Assert.Equal("localhost", services.Stage.Following);                                     // still its timer: the verbs stay its
+            Assert.Contains("follows Stagewatch", services.Stage.Pause().Message);
+            Assert.Contains("says its show is stuck — the stage shows no time", services.Kernel.Stagewatch.Status);
+            Assert.Equal("Stage timer shows no time — following Stagewatch localhost, which says its show is stuck.", services.Stage.StatusLine);
+            Assert.Equal("No time shown — Stagewatch localhost says its show is stuck", services.Stage.NoTimeLabel);
+            using (var doc = JsonDocument.Parse(services.Stage.StatusJson()))
+            {
+                Assert.True(doc.RootElement.GetProperty("follows").GetProperty("stuck").GetBoolean());
+                Assert.Contains("the time is not shown", doc.RootElement.GetProperty("follows").GetProperty("words").GetString());
+                Assert.Equal("idle", doc.RootElement.GetProperty("timer").GetProperty("phase").GetString());
+            }
+
+            // STATE: the link live, no time in the row, the light no better than amber, the mark at the row's end.
+            var row = StagewatchRow(services);
+            Assert.Equal("live", row.GetProperty("state").GetString());
+            Assert.True(row.GetProperty("following").GetBoolean());
+            Assert.Equal("", row.GetProperty("text").GetString());
+            Assert.Equal("amber", row.GetProperty("light").GetString());
+            Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
+            Assert.True(row.GetProperty("stuck").GetBoolean());
+            Assert.Equal("stuck", row.EnumerateObject().Last().Name);
+
+            // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
+            services.Eye.Refresh();
+            var card = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
+            Assert.Equal((CheckLight.Amber, ShowBusView.StuckWords), (card.Light, card.Sub));
+            Assert.Equal(CheckLight.Amber, services.Eye.Graph.Edges.Single(e => e.From == card.Id && e.To == EyeGraph.DeskId).Light);
+            var timer = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowAppItem && n.Label == "Keynote — Ana");
+            Assert.Equal((CheckLight.Red, ShowBusView.NoTimeWords), (timer.Light, timer.Sub));
+            Assert.Equal(CheckLight.Amber, services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowAppItem && n.Label == "Lighting").Light);
+            services.Nodes.Poll();
+            var nodesCard = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
+            Assert.Equal("#FFB020", nodesCard.Hue);
+            Assert.Contains(ShowBusView.StuckWords, nodesCard.Line);
+            var brief = ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow));
+            Assert.Contains(brief, l => l.Contains("— linked — amber: says its show is stuck — no time shown", StringComparison.Ordinal));
+            Assert.Contains(brief, l => l.Contains("Keynote — Ana (timer) — red: no time shown", StringComparison.Ordinal));
+
+            // Its context answers again beside the stall: what it says now is taken, and its timer still shows no time.
+            stagewatch.LightingState = "GO: LX 13";
+            stagewatch.ServeContext = true;
+            PumpUntil(() =>
+            {
+                Assert.Equal(StageTimerPhase.Idle, services.Stage.Time().Phase);
+                return services.Kernel.Stagewatch.Sight.Context?.Items.Any(i => i.State == "GO: LX 13") == true && stagewatch.StuckBeats >= 3;
+            }, 20000);
+            services.Eye.Refresh();
+            Assert.Equal("GO: LX 13", services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowAppItem && n.Label == "Lighting").Sub);
+            Assert.Equal((CheckLight.Red, ShowBusView.NoTimeWords), services.Eye.Graph.Nodes.Where(n => n.Kind == EyeKind.ShowAppItem && n.Label == "Keynote — Ana").Select(n => (n.Light, n.Sub)).Single());
+            Assert.True(services.Kernel.Stagewatch.Sight.Stuck);
+            Assert.Equal(1, LogLines(b.Dir, stuckLine));                                              // one line, however many beats
+
+            // Its next frame: the time back, the mark gone, one line.
+            stagewatch.Stuck = false;
+            PumpUntil(() => services.Stage.Time().Phase == StageTimerPhase.Running);
+            Assert.False(services.Kernel.Stagewatch.Sight.Stuck);
+            Assert.True(services.Kernel.Stagewatch.Sight.Frame!.Live);
+            Assert.Equal("No timer running", services.Stage.NoTimeLabel);
+            Assert.EndsWith("— following Stagewatch localhost.", services.Stage.StatusLine);
+            row = StagewatchRow(services);
+            Assert.False(row.GetProperty("stuck").GetBoolean());
+            Assert.Equal("12:30", row.GetProperty("text").GetString());
+            services.Eye.Refresh();
+            Assert.Equal(CheckLight.Green, services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowAppItem && n.Label == "Keynote — Ana").Light);
+            Assert.Equal(1, LogLines(b.Dir, runsLine));
+            Assert.Equal(1, LogLines(b.Dir, stuckLine));
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStagewatchStuckBeforeItsFirstFrameLeavesTheDesksTimer()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(RunningFrame) { Stuck = true };
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Kernel.Stagewatch.Sight.Stuck);
+            Assert.Equal("", services.Stage.Following);                                               // no frame held: nothing to follow
+            Assert.DoesNotContain("follows Stagewatch", services.Stage.Pause().Message);              // the desk's own timer and its verbs
+            Assert.StartsWith("OK", TestApp.Pump(services.Router.ExecuteAsync(ControlProtocol.Parse("COUNTDOWN START 5"))));
+            Assert.Equal(StageTimerPhase.Running, services.Stage.Time().Phase);
+            Assert.EndsWith("— Stagewatch localhost says its show is stuck — this desk's own stage timer runs until its first frame.", services.Stage.StatusLine);
+            Assert.True(services.Stage.Pause().Ok);
+            var row = StagewatchRow(services);
+            Assert.Equal("live", row.GetProperty("state").GetString());
+            Assert.False(row.GetProperty("following").GetBoolean());
+            Assert.True(row.GetProperty("stuck").GetBoolean());
+            Assert.Equal("amber", row.GetProperty("light").GetString());
+            using (var doc = JsonDocument.Parse(services.Stage.StatusJson()))
+            {
+                var follows = doc.RootElement.GetProperty("follows");
+                Assert.True(follows.GetProperty("stuck").GetBoolean());
+                Assert.Equal("Stagewatch localhost says its show is stuck — this desk's own stage timer runs until its first frame", follows.GetProperty("words").GetString());
+            }
+
+            // Its first frame once it turns over: the stage follows it.
+            stagewatch.Stuck = false;
+            PumpUntil(() => services.Stage.Following.Length > 0);
+            Assert.False(services.Kernel.Stagewatch.Sight.Stuck);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>A Stagewatch's hello on the show network as the desk's beacon hears it, its doors at this machine's loopback name.</summary>
+    private static void Hello(AppServices services, string id, string name, int port)
+        => services.Kernel.Beacon.ShowBus.Hear(Encoding.UTF8.GetBytes($"{{\"t\":\"main\",\"v\":1,\"id\":\"{id}\",\"name\":\"{name}\",\"ports\":{{\"http\":{port},\"ws\":{port}}},\"caps\":[\"context\"]}}"), "localhost", DateTime.UtcNow, "not-this-desk");
+
+    [AvaloniaFact]
+    public void AStallSaidByOneStagewatchIsNeverClaimedOfTheNextOneTheShowNetworkOffers()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var hallB = new FakeStagewatch(RunningFrame) { Stuck = true };
+        using var annex = new FakeStagewatch(RunningFrame);
+        const string movedOn = "Stagewatch link: connected to Annex — Hall B, whose show was stuck, is no longer followed.";
+        try
+        {
+            // Found on the show network, no address typed: the one Stagewatch heard is dialled, and its show is stuck.
+            Hello(services, "b0b0b0b0", "Hall B", hallB.Port);
+            var link = vm.State.Control.Stagewatch;
+            link.Host = "";
+            link.ApiKey = "swk_testkey";
+            link.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            services.Kernel.Stagewatch.Reconcile();
+            PumpUntil(() =>
+            {
+                Hello(services, "b0b0b0b0", "Hall B", hallB.Port);
+                return services.Kernel.Stagewatch.Sight is { Name: "Hall B", Stuck: true };
+            }, 20000);
+            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: Hall B says its show is stuck"));
+
+            // Hall B goes away and the show network offers another Stagewatch: the redial reaches Annex, whose show was never
+            // said stuck — no mark, no "runs again" said of it, one line saying the stuck one is no longer followed.
+            hallB.Dispose();
+            PumpUntil(() =>
+            {
+                Hello(services, "a0a0a0a0", "Annex", annex.Port);                                     // the one still heard
+                return services.Kernel.Stagewatch.Sight is { Name: "Annex", Frame: not null } && services.Stage.Following == "Annex";
+            }, 30000);
+            Assert.False(services.Kernel.Stagewatch.Sight.Stuck);
+            Assert.Equal(StageTimerPhase.Running, services.Stage.Time().Phase);
+            Assert.Equal(1, LogLines(b.Dir, movedOn));
+            Assert.Equal(0, LogLines(b.Dir, "show runs again"));
+            Assert.False(StagewatchRow(services).GetProperty("stuck").GetBoolean());
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 }

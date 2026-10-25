@@ -354,7 +354,9 @@ public sealed partial class TwinService
         var was = _relay;
         _relay = relay;
         _relayAt = ShowClock.Seconds;
-        if (was is null || was.Frame?.Seq != relay.Frame?.Seq || was.State != relay.State) _services.StagewatchRelayed();
+        // A stuck show moves no seq: the stage repaints when the frame's live word or the stuck mark moves too.
+        if (was is null || was.Frame?.Seq != relay.Frame?.Seq || was.State != relay.State || was.Frame?.Live != relay.Frame?.Live || was.Stuck != relay.Stuck)
+            _services.StagewatchRelayed();
     }
 
     private double _contextSentAt = double.NegativeInfinity;

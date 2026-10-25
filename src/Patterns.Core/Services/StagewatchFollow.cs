@@ -67,6 +67,26 @@ public sealed record StagewatchFrame
         }
     }
 
+    /// <summary>
+    /// A Stagewatch's stuck beat, <c>{"type":"beat","live":false}</c>, in the bytes Stagewatch sends: its show thread has
+    /// stopped turning over, so its last frame is a frozen time (PeerLink profile 13.10.5). True only for an object whose
+    /// type is "beat" and whose live is the literal false — a plain beat, a beat saying true, a state frame or junk is not one.
+    /// </summary>
+    public static bool IsStuckBeat(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length > 4096) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            return r.ValueKind == JsonValueKind.Object && Str(r, "type") == "beat" && r.TryGetProperty("live", out var live) && live.ValueKind == JsonValueKind.False;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>The message kind of a WebSocket message: "state", "beat", "pong", "receipt"… ("" when it names none).</summary>
     public static string TypeOf(string? json)
     {
@@ -117,6 +137,17 @@ public sealed record StagewatchSight(string Name, string Address, ShowBusState S
 
     /// <summary>A Stagewatch is linked and answering: its frames are the stage timer's truth.</summary>
     public bool Following => State == ShowBusState.Live && Frame is not null;
+
+    /// <summary>
+    /// The Stagewatch says its show is stuck (its stuck beat), and no state frame has come since. Show liveness, apart from
+    /// the link's: the link stays live while only the show is stuck (PeerLink profile 13.10.5). A held frame is then
+    /// <see cref="StagewatchFrame.Live"/> false, so nothing counts on from it; with no frame held the stage is not following
+    /// and this desk's own timer runs.
+    /// </summary>
+    public bool Stuck { get; init; }
+
+    /// <summary>The link is live and its show is stuck: every reader shows no time from it, the link amber.</summary>
+    public bool StuckLive => Stuck && State == ShowBusState.Live;
 }
 
 /// <summary>
@@ -164,6 +195,7 @@ public static class StageFollow
         ? ""
         : sight.State switch
         {
+            ShowBusState.Live when sight.Stuck && sight.Frame is null => $"Stagewatch {sight.Name} says its show is stuck — this desk's own stage timer runs until its first frame",
             ShowBusState.Live when sight.Frame is { Live: false } => $"following Stagewatch {sight.Name} — it says its show is stuck; the time is not shown",
             ShowBusState.Live => $"following Stagewatch {sight.Name}".TrimEnd(),
             ShowBusState.Stale => $"Stagewatch {sight.Name} has gone quiet — the time is held back until it answers".Replace("  ", " "),
@@ -212,19 +244,56 @@ public static class ShowBusView
             var linked = sight.Address.Length > 0 && p.Kind == "main" && LinkedTo(sight, p);
             linkedSeen |= linked;
             var words = string.Join(" · ", new[] { p.Host.Length > 0 && p.Host != p.Name ? p.Host : "", p.Address, p.Caps.Count > 0 ? string.Join(", ", p.Caps.Take(6)) : "" }.Where(w => w.Length > 0));
-            apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, linked ? Worse(p.StateAt(utcNow), sight.State) : p.StateAt(utcNow), linked, words)
+            var state = linked ? Worse(p.StateAt(utcNow), sight.State) : p.StateAt(utcNow);
+            var stuck = linked && sight.Stuck && state == ShowBusState.Live;
+            apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, state, linked, words)
             {
-                Context = linked ? Steady(sight.Context) : null,
+                Context = linked ? Shown(sight.Context, stuck) : null,
+                Stuck = stuck,
             });
         }
         // A Stagewatch reached by a typed address that never said hello (another subnet, a loopback-only hello) is still drawn.
         if (!linkedSeen && sight.Address.Length > 0)
         {
             var id = sight.Context?.Node.Id is { Length: > 0 } cid ? cid : "stagewatch";
-            apps.Add(new EyeShowApp(id, "Stagewatch", sight.Context?.Node.Name is { Length: > 0 } n ? n : sight.Name, sight.State, true, sight.Address) { Context = Steady(sight.Context) });
+            var stuck = sight.StuckLive;
+            apps.Add(new EyeShowApp(id, "Stagewatch", sight.Context?.Node.Name is { Length: > 0 } n ? n : sight.Name, sight.State, true, sight.Address)
+            {
+                Context = Shown(sight.Context, stuck),
+                Stuck = stuck,
+            });
         }
         return apps;
     }
+
+    /// <summary>What every reader says of a linked app whose show is stuck (PeerLink profile 13.16.1).</summary>
+    public const string StuckWords = "says its show is stuck — no time shown";
+
+    /// <summary>What a counting thing of a stuck app says in place of its time.</summary>
+    public const string NoTimeWords = "no time shown — its show is stuck";
+
+    /// <summary>
+    /// The things whose words are a count that runs on with the show — a timer, a schedule, a playlist, a chase, a
+    /// timecode, a clock. From an app whose show is stuck none is shown as current (PeerLink profile 13.10.6).
+    /// </summary>
+    public static bool IsCounting(string? kind) => (kind ?? "").Trim().ToLowerInvariant() is "timer" or "schedule" or "playlist" or "chase" or "timecode" or "clock";
+
+    /// <summary>A stuck show's light: the worse of the app's own light and amber — never red for the stall alone (profile 13.16.1).</summary>
+    public static string StuckLight(string? light) => ShowContext.Word(ShowContext.Worst(new[] { ShowContext.LightOf(light), CheckLight.Amber }));
+
+    /// <summary>
+    /// A linked app's context as every reader shows it while its show is stuck: its light no better than amber, its
+    /// headline the stall's words (a headline holds a count), and each counting thing red with no time. Its other things
+    /// keep their own words and lights. The same context in, the same context out, so the Eye rebuilds only on a change.
+    /// </summary>
+    public static ShowContext NoTime(ShowContext c) => c with
+    {
+        Light = StuckLight(c.Light),
+        Headline = StuckWords,
+        Items = c.Items.Select(i => IsCounting(i.Kind) ? i with { Light = "red", State = NoTimeWords } : i).ToList(),
+    };
+
+    private static ShowContext? Shown(ShowContext? context, bool stuck) => Steady(context) is { } c && stuck ? NoTime(c) : Steady(context);
 
     /// <summary>
     /// Round 88 (closes L52): this desk's own nodes — timers, callers, the arcade — as the Eye draws them from the context
@@ -248,9 +317,12 @@ public static class ShowBusView
         {
             ShowBusState.Gone => "red",
             ShowBusState.Stale => "amber",
+            _ when a.Stuck => StuckLight(a.Context?.Light),
             _ => a.Context?.Light ?? "grey",
         },
-        Headline = a.Context?.Headline is { Length: > 0 } h ? h : a.State == ShowBusState.Live ? (a.Linked ? "linked" : "heard on the show network") : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
+        Headline = a.Context?.Headline is { Length: > 0 } h ? h
+            : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : "heard on the show network")
+            : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
     }).ToList();
 
     private static bool LinkedTo(StagewatchSight sight, ShowBusPeer p)
@@ -273,7 +345,9 @@ public static class ShowBusView
         {
             var state = a.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => a.Linked ? "linked" : "heard, not linked" };
             var c = a.Context;
-            lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {c.Light}: {c.Headline}"));
+            // A stuck show: the link is live and amber, its counting things carry no time (the context says so, NoTime).
+            if (a.Stuck && a.State == ShowBusState.Live && c is null) lines.Add($"{a.KindWords} {a.Name} — {state} — {StuckLight(null)}: {StuckWords}");
+            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {c.Light}: {c.Headline}"));
             if (c is null || a.State == ShowBusState.Gone) continue;
             foreach (var i in c.Items.OrderByDescending(i => i.Light == "red").ThenByDescending(i => i.Light == "amber").Take(15))
                 lines.Add($"  · {i.Label} ({i.Kind}) — {i.Light}" + (i.State.Length > 0 ? ": " + i.State : ""));
@@ -299,11 +373,14 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
     public static ShowAppCard Of(EyeShowApp app)
     {
         var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
-        var line = app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
+        var line = app.Stuck && app.State == ShowBusState.Live ? $"{state} · {ShowBusView.StuckWords}"
+            : app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
         var hue = app.State switch
         {
             ShowBusState.Gone => "#B03030",
             ShowBusState.Stale => "#FFB020",
+            // A stuck show: the worse of the app's own light and amber — red only when its own light is red.
+            _ when app.Stuck => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
             _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
         };
         return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked);

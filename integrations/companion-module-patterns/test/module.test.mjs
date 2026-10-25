@@ -600,8 +600,33 @@ test('round 87 — the show network and the Stagewatch link read as variables, a
 	assert.equal(b.ctx.variables.stagewatch_headline, 'Keynote — 12:30 left')
 	assert.equal(b.ctx.variables.stagewatch_light, 'amber')
 	assert.equal(b.ctx.variables.stage_follows, 'Hall A')
-	const old = await boot()
+	const older = sampleState()
+	delete older.bus // a desk from before round 87 sends no show network row
+	const old = await boot({ state: older })
 	assert.equal(old.ctx.variables.stagewatch_state, 'off')
 	assert.equal(old.ctx.variables.showbus_heard, '0')
+	assert.equal(old.ctx.variables.stagewatch_stuck, 'no')
 	assert.ok(old.ctx.variableDefs.stagewatch_headline, 'defined for the host')
+})
+
+test('round 89 — a stuck Stagewatch: the variable says yes and the red feedback lights, while the link reads live; its next frame puts both back', async () => {
+	const b = await boot()
+	// The desk's own fixture: the link live, its show running.
+	assert.equal(b.ctx.variables.stagewatch_state, 'live')
+	assert.equal(b.ctx.variables.stagewatch_stuck, 'no')
+	assert.equal(askFeedback(b, 'stagewatch_stuck', {}), false)
+	assert.ok(b.ctx.variableDefs.stagewatch_stuck, 'defined for the host')
+	// The stuck beat lands on the desk: STATE's row says stuck, the link still live and amber, no time in it.
+	const s = sampleState()
+	s.bus.stagewatch = { ...s.bus.stagewatch, following: true, text: '', light: 'amber', headline: 'says its show is stuck — no time shown', stuck: true }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_stuck, 'yes')
+	assert.equal(b.ctx.variables.stagewatch_state, 'live')
+	assert.equal(b.ctx.variables.stagewatch_light, 'amber')
+	assert.equal(askFeedback(b, 'stagewatch_stuck', {}), true)
+	assert.deepEqual(b.ctx.feedbacks.stagewatch_stuck.defaultStyle, style('stage', 'red'))
+	// Its next state frame: the mark clears.
+	b.socket.receive('STATE ' + JSON.stringify(sampleState()) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_stuck, 'no')
+	assert.equal(askFeedback(b, 'stagewatch_stuck', {}), false)
 })
