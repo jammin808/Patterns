@@ -27,8 +27,11 @@ public sealed record HttpLimits(
 /// admin passcode when their headers carry them (round 65: credentials ride in headers, never
 /// in a query string that a browser's history, a proxy's log or a screenshot keeps) — or the
 /// fault, with the status that answers it. Pure, so every shape a port can be sent is a unit test.
+/// <para>Round 89: <see cref="TokenFromCookie"/> says the token came from the pages' cookie and no header carried one —
+/// a token the browser attached by itself, which the control port takes only under a Host that names this desk
+/// (<see cref="DeskNames"/>), as it takes loopback trust.</para>
 /// </summary>
-public sealed record HttpHead(string Method, string Path, int ContentLength, bool ClientHeader, int HeaderCount, string Fault = "", string Status = "", string Token = "", string Pass = "", string Origin = "", string Host = "", string SecFetchSite = "")
+public sealed record HttpHead(string Method, string Path, int ContentLength, bool ClientHeader, int HeaderCount, string Fault = "", string Status = "", string Token = "", string Pass = "", string Origin = "", string Host = "", string SecFetchSite = "", bool TokenFromCookie = false)
 {
     /// <summary>The header that carries the show's pairing token.</summary>
     public const string TokenHeader = "X-Patterns-Token";
@@ -46,6 +49,13 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
     /// device or a script sends, it is not cross-site; the desk's own pages are same-origin and never are.
     /// </summary>
     public bool CrossSite => IsCrossSite(Origin, Host, SecFetchSite);
+
+    /// <summary>
+    /// Round 89: whether a browser sent the request — it carries Sec-Fetch-Site (every current browser sends it on every
+    /// request) or an Origin, headers a page's script cannot set or remove. A curl, a device, a script or a Companion sends
+    /// neither, and is never one.
+    /// </summary>
+    public bool FromBrowser => SecFetchSite.Trim().Length > 0 || Origin.Trim().Length > 0;
 
     public static bool IsCrossSite(string origin, string host, string secFetchSite)
     {
@@ -108,6 +118,7 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
         var pass = "";
         var origin = "";
         var host = "";
+        var hosts = 0;
         var site = "";
         var headers = 0;
         for (var i = 1; i < lines.Length; i++)
@@ -147,7 +158,9 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
             }
             else if (name.Equals("Host", StringComparison.OrdinalIgnoreCase))
             {
-                host = value;
+                // A second Host makes the head name nothing: which one a browser meant cannot be told, and no browser sends two.
+                hosts++;
+                host = hosts == 1 ? value : "";
             }
             else if (name.Equals("Sec-Fetch-Site", StringComparison.OrdinalIgnoreCase))
             {
@@ -155,7 +168,8 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
             }
         }
         // The header's token first; the cookie is the pages' way for the requests a browser sends with no header of theirs.
-        return new HttpHead(method, path, contentLength, clientHeader, headers, Token: token.Length > 0 ? token : cookieToken, Pass: pass, Origin: origin, Host: host, SecFetchSite: site);
+        return new HttpHead(method, path, contentLength, clientHeader, headers, Token: token.Length > 0 ? token : cookieToken, Pass: pass, Origin: origin, Host: host, SecFetchSite: site,
+            TokenFromCookie: token.Length == 0 && cookieToken.Length > 0);
 
         static HttpHead Bad(string fault, string status) => new("", "", 0, false, 0, fault, status);
     }

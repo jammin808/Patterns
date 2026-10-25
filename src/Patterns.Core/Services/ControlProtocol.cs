@@ -1465,6 +1465,47 @@ public static class ControlProtocol
     /// <summary>The answer to a mutating verb from a connection that has not presented the token.</summary>
     public const string NotPaired = "not paired — this desk asks for its pairing token first: AUTH <token> on the wire, X-Patterns-Token on the web (Remote page, TRUST)";
 
+    /// <summary>
+    /// Round 89: the web remote's answer when a request was this machine's or carried the pages' cookie, and its Host
+    /// does not name this desk (<see cref="DeskNames"/>) — answered as another machine's, so it wants the token in its
+    /// header. It starts as <see cref="NotPaired"/> does, so a page that asks for the token on "not paired" still does.
+    /// </summary>
+    public const string ForeignHost = "not paired — this request named the desk by a name that is not its own (its Host), so it is answered as another machine's: open the desk as localhost, by the machine's name or by one of its addresses, with its port, or send the pairing token in X-Patterns-Token (Remote page, TRUST)";
+
+    /// <summary>
+    /// Round 89: the web remote's answer when this machine's own trust or the pages' cookie would have paired a request that
+    /// a page of another origin sent (<see cref="HttpHead.CrossSite"/>) — a site open in a browser on this machine is not
+    /// this machine's own page. It starts as <see cref="NotPaired"/> does.
+    /// </summary>
+    public const string ForeignPage = "not paired — a page from another origin is not this desk's own page, so it is answered as another machine's: the desk's own pages are same-origin, and any client of yours sends the pairing token in X-Patterns-Token (Remote page, TRUST)";
+
+    /// <summary>
+    /// Round 89: an open desk's answer (no pairing token set) to a browser's request under a Host that does not name this
+    /// desk (<see cref="DeskNames"/>) — what a page whose name was rebound to this desk sends. No token would pair it, so it
+    /// does not start "not paired" and a page does not ask for one.
+    /// </summary>
+    public const string ForeignHostOpen = "not this desk's name — a browser named the desk by a name that is not its own (its Host), and with no pairing token set a page under another name is answered nothing (a page whose name was rebound to this desk does this): open the desk as localhost, by the machine's name or by one of its addresses, with its port, or set a pairing token (Remote page, TRUST)";
+
+    /// <summary>
+    /// Round 89: the wire's answer to an HTTP request line — what a browser's page sends first when it posts to the wire's
+    /// port. Its headers and a body the page wrote would follow as lines, so the door closes before any of them is read.
+    /// </summary>
+    public const string HttpOnWire = "an HTTP request is not a line of the wire (a browser's page sends one): closed before anything after it was read — the desk's pages are on its web remote's port";
+
+    /// <summary>
+    /// Round 89: whether <paramref name="line"/> is an HTTP request line — a method of capital letters, a target and
+    /// <c>HTTP/</c> with a version (<c>POST / HTTP/1.1</c>, <c>PRI * HTTP/2.0</c>). No verb of the wire has that shape.
+    /// </summary>
+    public static bool IsHttpRequestLine(string line)
+    {
+        var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 3 || parts[0].Length is 0 or > 16 || !parts[0].All(char.IsAsciiLetterUpper)) return false;
+        var version = parts[2];
+        if (!version.StartsWith("HTTP/", StringComparison.Ordinal)) return false;
+        var number = version["HTTP/".Length..];
+        return number.Length is 1 or 3 && char.IsAsciiDigit(number[0]) && (number.Length == 1 || (number[1] == '.' && char.IsAsciiDigit(number[2])));
+    }
+
     /// <summary>The answer to an AUTH whose token is not the show's.</summary>
     public const string WrongToken = "wrong token — the pairing token is on the desk's Remote page, TRUST";
 

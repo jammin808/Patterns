@@ -356,7 +356,10 @@ public sealed record MdnsAdvert(string Kind, string Machine, string Show, int Wi
     public string[] InstanceName => new[] { InstanceLabel, "_patterns", "_tcp", "local" };
 
     /// <summary>The host the SRV points at — the machine's name as a label, with "-patterns" so the system's own record for the machine is never argued with.</summary>
-    public string[] HostName => new[] { DnsSd.HostLabel(Machine) + "-patterns", "local" };
+    public string[] HostName => HostFor(Machine);
+
+    /// <summary>The host a process announcing as <paramref name="machine"/> answers to (the web remote takes it as one of the desk's names).</summary>
+    public static string[] HostFor(string machine) => new[] { DnsSd.HostLabel(machine) + "-patterns", "local" };
 
     public IReadOnlyList<string> TxtStrings => new[]
     {

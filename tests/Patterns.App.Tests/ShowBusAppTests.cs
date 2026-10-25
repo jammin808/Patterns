@@ -109,7 +109,8 @@ public class ShowBusAppTests
         Pump(client.ConnectAsync(IPAddress.Loopback, port));
         using var stream = client.GetStream();
         var bodyBytes = Encoding.UTF8.GetBytes(body);
-        var head = new StringBuilder($"{method} {path} HTTP/1.1\r\nHost: test\r\nContent-Length: {bodyBytes.Length}\r\n");
+        var ownHost = headers.Any(h => h.Name.Equals("Host", StringComparison.OrdinalIgnoreCase));      // a Host of the caller's replaces "test"
+        var head = new StringBuilder($"{method} {path} HTTP/1.1\r\n{(ownHost ? "" : "Host: test\r\n")}Content-Length: {bodyBytes.Length}\r\n");
         foreach (var (name, value) in headers) head.Append($"{name}: {value}\r\n");
         head.Append("\r\n");
         stream.Write(Encoding.UTF8.GetBytes(head.ToString()));
@@ -224,10 +225,11 @@ public class ShowBusAppTests
             int Rows() => services.Journal.Tail(1000).Count(r => r.Kind == "TokenSeenInClear");
             var rowsBefore = Rows();
 
-            // This machine's own plain AUTH and plain header are no crossing of the network: nothing is marked.
+            // This machine's own plain AUTH and plain header are no crossing of the network: nothing is marked. (Its browser names
+            // the desk by one of its own names — round 89: under another name it could be a forwarder's traffic, which is marked.)
             using (var own = new Wire(vm.State.Control.TcpPort, expectNonce: false))
                 Assert.Equal("OK paired", own.Say("AUTH " + Token));
-            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("X-Patterns-Token", Token)).Status);
+            Assert.Equal("200 OK", Http(port, "GET", "/api/state", "", ("Host", $"localhost:{port}"), ("X-Patterns-Token", Token)).Status);
             Assert.Empty(services.Kernel.TokenSeenInClear.For(Token));
 
             // Another machine (loopback plays it). A wrong token is no secret of this desk's: refused, nothing marked.

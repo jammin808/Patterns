@@ -342,10 +342,14 @@ function err(t){ document.getElementById('err').textContent = t || ''; }
 function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
 function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns-token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
 function hdr(){ return {'X-Patterns-Token':tok()}; }
-function gate(r){ if (r.status === 403) { err('This desk asks for its pairing token.'); if (pair()) location.reload(); throw new Error('not paired'); } return r; }
+function asks(j){ var m = (j && j.msg) || ''; return !m || m.indexOf('not paired') >= 0; }   // the desk's words ask for the token, or say why a token would not help
+function gate(r){ if (r.status !== 403) return r; return r.json().catch(function(){ return {}; }).then(function(j){ err((j && j.msg) || 'This desk asks for its pairing token.'); if (asks(j) && pair()) location.reload(); throw new Error('not paired'); }); }
 function cmd(c, again) {
   return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'phone', 'X-Patterns-Token':tok()} })
-    .then(function(r){ if (r.status === 403 && !again && pair()) return cmd(c, true); return r.json().then(function(j){ err(j.ok ? '' : j.msg); }); })
+    .then(function(r){
+      if (r.status === 403 && !again) return r.json().catch(function(){ return {}; }).then(function(j){ if (asks(j) && pair()) return cmd(c, true); err((j && j.msg) || ''); });
+      return r.json().then(function(j){ err(j.ok ? '' : j.msg); });
+    })
     .catch(function(){ err('Connection lost'); });
 }
 function go(){ if (standbyId) cmd('CUE GO ' + standbyId); }

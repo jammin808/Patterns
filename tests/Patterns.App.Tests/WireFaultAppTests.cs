@@ -57,7 +57,7 @@ public class WireFaultAppTests
         Pump(client.ConnectAsync(IPAddress.Loopback, port));
         using var stream = client.GetStream();
         var bodyBytes = Encoding.UTF8.GetBytes(body);
-        var head = $"{method} {path} HTTP/1.1\r\nHost: test\r\nContent-Length: {bodyBytes.Length}\r\n\r\n";
+        var head = $"{method} {path} HTTP/1.1\r\nHost: localhost:{port}\r\nContent-Length: {bodyBytes.Length}\r\n\r\n";   // this machine's own client, by the desk's own name
         stream.Write(Encoding.UTF8.GetBytes(head));
         stream.Write(bodyBytes);
         using var buffer = new MemoryStream();

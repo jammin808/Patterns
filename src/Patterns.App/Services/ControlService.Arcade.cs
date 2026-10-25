@@ -47,8 +47,11 @@ public sealed partial class ControlService
       .then(r => {
         if (r.status !== 403 || asked) return;
         asked = true; // the desk asks for its pairing token (Remote page, TRUST): once per page, kept in this browser
-        const t = prompt('This desk asks for its pairing token (Remote page, TRUST):');
-        if (t) { try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} asked = false; }
+        return r.json().catch(() => ({})).then(j => {
+          if (j.msg && j.msg.indexOf('not paired') < 0) return;   // a token would not help (an open desk opened by a name that is not its own)
+          const t = prompt('This desk asks for its pairing token (Remote page, TRUST):');
+          if (t) { try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} asked = false; }
+        });
       })
       .catch(() => {});
   }

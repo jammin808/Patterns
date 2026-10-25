@@ -2266,8 +2266,10 @@ public sealed class ControlConfig : Observable
     /// The show's pairing token: what a remote presents before the desk runs its mutating verbs —
     /// AUTH on the wire, X-Patterns-Token on the web. On the wire, reading (STATE, STATUS) never
     /// needs it; on the web everything but the pages themselves, the EDID files and the audience
-    /// port does (rounds 83 and 85); this machine's own browsers never do. Empty is open — any
-    /// device on the network, as before — and Super Check says so. Saved with the show; this
+    /// port does (rounds 83 and 85); this machine's own browsers never do, opened by the desk's own
+    /// name (localhost, its address or its machine name; round 89: a page under any other name, or
+    /// from another origin, is answered as another machine's). Empty is open — any device on the
+    /// network, as before, and a browser only under the desk's own name — and Super Check says so. Saved with the show; this
     /// machine's own, never mirrored to a twin (set the same token on a standby for the remotes to
     /// follow a handover); never in a URL.
     /// </summary>

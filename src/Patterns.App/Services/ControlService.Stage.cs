@@ -100,7 +100,10 @@ public sealed partial class ControlService
     try {
       const r = await fetch('/api/stage/ack', { method: 'POST', body: pendingId, headers: { 'X-Patterns-Token': tok() } });
       if (r.status === 403) {
-        // The desk asks for its pairing token (Remote page, TRUST): once, kept in this browser.
+        // The desk asks for its pairing token (Remote page, TRUST): once, kept in this browser — unless its words say a
+        // token would not help (an open desk opened by a name that is not its own), which are shown instead.
+        const j = await r.json().catch(() => ({}));
+        if (j.msg && j.msg.indexOf('not paired') < 0) { el('err').textContent = j.msg; return; }
         const t = prompt('This desk asks for its pairing token (Remote page, TRUST):');
         if (t) { try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} await ack(); }
       }

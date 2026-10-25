@@ -384,6 +384,18 @@ public sealed partial class ControlService : IDisposable
                 }
                 if (line is null) break;
                 if (line.Trim().Length == 0) continue;
+                if (ControlProtocol.IsHttpRequestLine(line))
+                {
+                    // Round 89 (PeerLink profile 13.3.4): a browser's page can post to this port — its request line and headers
+                    // would each be refused, and a body the page wrote would then be read as this machine's own line. An HTTP
+                    // request is never the wire's: said once, logged once a minute per address, and the door closed before
+                    // anything after it is read.
+                    if (_busySaid.Allow("http-on-wire:" + address, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
+                        Log.Warn($"Wire: {address} sent an HTTP request to the Companion port (a browser's page does that) — closed before anything after it was read.");
+                    peer.Say(ControlProtocol.Err(ControlProtocol.HttpOnWire));
+                    await peer.FlushAsync(LastWordWait);
+                    break;
+                }
                 var readAt = ClockPing.Ms(ShowClock.UtcNow);                          // t2 of a clock exchange: when the line was read
                 // Round 87 (Show Bus 1.1 §3): "@a1 <line>" carries a request id; every answer to the line names it.
                 var (rid, body) = WireReceipt.Split(line, out var malformed);
@@ -546,7 +558,9 @@ public sealed partial class ControlService : IDisposable
     /// <summary>
     /// This machine's own browsers and processes never need the token — the desk's pages opened
     /// on the desk, a Companion on the same machine. Off in the tests, which connect from loopback
-    /// and want the gate.
+    /// and want the gate. Round 89: on the web remote only under a Host that names this desk
+    /// (<see cref="DeskNames"/>) and from no page of another origin — a page rebound to 127.0.0.1 arrives
+    /// over loopback under its own name, and a site open in this machine's browser arrives over loopback too.
     /// </summary>
     public static bool TrustLoopback { get; set; } = true;
 
@@ -916,7 +930,7 @@ public sealed partial class ControlService : IDisposable
             using var raw = client.GetStream();
             Stream stream = raw;
             var limits = audience ? AudienceLimits : ControlLimits;
-            var refusePlain = false;
+            var plainControl = false;
             // Round 88 (Show Bus 1.2 §10): one door for both — a connection whose first byte opens a TLS handshake gets TLS
             // with this desk's certificate; plain HTTP keeps working unless HTTPS is required, when only this machine may
             // stay plain. The audience port stays plain HTTP: a room of phones cannot be asked to trust a certificate.
@@ -924,7 +938,6 @@ public sealed partial class ControlService : IDisposable
             {
                 var first = await PeekFirstByteAsync(client, limits, ct);
                 if (first is null) return;
-                var plainLoopback = TrustLoopback && client.Client.RemoteEndPoint is IPEndPoint ep0 && IPAddress.IsLoopback(ep0.Address);
                 if (TlsSniff.IsTls(first.Value))
                 {
                     if (_kernel.Tls.Certificate is not { } certificate) return;                      // no certificate: nothing to answer a handshake with (the Super Check says why)
@@ -945,7 +958,7 @@ public sealed partial class ControlService : IDisposable
                     stream = tls;
                     Interlocked.Increment(ref _tlsConnections);
                 }
-                else refusePlain = TlsSniff.RefusePlain(_kernel.State.Control.RequireHttps, isTls: false, plainLoopback);   // said once the request is read, so the client hears it
+                else plainControl = true;           // whether it may stay plain is decided once its head says whose it is, and said then
             }
 
             // The head as bytes, bounded and timed; the body as the bytes its content length says,
@@ -966,10 +979,21 @@ public sealed partial class ControlService : IDisposable
                 return;
             }
             var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+            // Round 89 (PeerLink profile 13.3.4): whatever this desk grants this machine — its trust, plain HTTP under Require
+            // HTTPS — and the pages' cookie want a Host that names this desk (localhost, a loopback address or the address the
+            // connection arrived on, or the machine's own name, with the port it arrived on) and no page of another origin. A page
+            // whose name was rebound to 127.0.0.1 is same-origin to itself and arrives over loopback, and a forwarder carries
+            // another machine's traffic in over loopback: either Host is not this desk's name, so the request is answered as
+            // another machine's — the token in its header, or nothing.
+            var named = audience || DeskNames.Named(request.Host, client.Client.LocalEndPoint as IPEndPoint, tls is not null, MachineNames());
+            var local = loopback && named;                                   // this machine's, not a forwarder's
+            var own = local && !request.CrossSite;                           // and this desk's own page or a client of this machine's
+            var presented = (named && !request.CrossSite) || !request.TokenFromCookie ? request.Token : "";
             // Round 89: the token in a header or the pages' cookie on the plain listener, from another machine, crossed the
             // network unencrypted — answered as before (a Require HTTPS refusal included), and marked (rotate it: NEW TOKEN).
-            if (!audience && tls is null && !(loopback && TrustLoopback) && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
+            if (!audience && tls is null && !(local && TrustLoopback) && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
                 SeenInClear(client, "web");
+            var refusePlain = plainControl && TlsSniff.RefusePlain(_kernel.State.Control.RequireHttps, isTls: false, own && TrustLoopback);
             if (refusePlain)
             {
                 await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
@@ -982,8 +1006,36 @@ public sealed partial class ControlService : IDisposable
             // Round 65: the control port's mutating routes want the show's pairing token when one is
             // set — in a header, never the URL; this machine's own browsers are exempt; the audience
             // port has no verbs to gate.
-            var paired = audience || Paired(_kernel.State.Control.Token, request.Token, loopback);
-            if (!audience && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
+            var showToken = _kernel.State.Control.Token;
+            bool paired;
+            var refusal = ControlProtocol.NotPaired;
+            if (audience)
+            {
+                paired = true;
+            }
+            else if (!PairingToken.Needed(showToken) && !named && request.FromBrowser)
+            {
+                // Round 89: an open desk answers every machine — and a browser's page under a name that is not this desk's
+                // is no machine of the network's: it is a page whose name was rebound to this desk, from any site any browser
+                // on the network has open. Its requests to the show's routes are refused with the words; a curl, a device or
+                // a Companion under any name is answered as before.
+                paired = false;
+                refusal = ControlProtocol.ForeignHostOpen;
+                ForeignSaid(client, Foreign.OpenHost, request);
+            }
+            else
+            {
+                paired = Paired(showToken, presented, own);
+                // Its Host or its page alone made this an unpaired machine's request: it hears why, and the log says so once per address.
+                if (!paired && Paired(showToken, request.Token, loopback))
+                {
+                    var why = named ? Foreign.Page : Foreign.Host;
+                    refusal = why == Foreign.Host ? ControlProtocol.ForeignHost : ControlProtocol.ForeignPage;
+                    ForeignSaid(client, why, request);
+                }
+            }
+            var notPaired = ControlProtocol.Err(refusal);
+            if (!audience && PairingToken.Needed(showToken) && PairingToken.Matches(showToken, presented))
             {
                 lock (_gate) _pairedAddresses[PairedKey(client)] = DateTime.UtcNow;    // round 87: a machine that proved the token on the web may use OSC too
             }
@@ -1025,7 +1077,7 @@ public sealed partial class ControlService : IDisposable
                 // Round 85 (P1-02): the cue list is the show's as much as the state is; it wants the token the same way.
                 status = "403 Forbidden";
                 contentType = "application/json";
-                payload = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.NotPaired))}}}";
+                payload = NotPairedBody(notPaired);
             }
             else if (audience && method == "GET" && (path == "/" || path == "/index.html"))
             {
@@ -1140,7 +1192,7 @@ public sealed partial class ControlService : IDisposable
             {
                 status = "403 Forbidden";
                 contentType = "application/json";
-                payload = NotPairedJson;
+                payload = NotPairedBody(notPaired);
             }
             else if (method == "POST" && path == "/api/stage/ack")
             {
@@ -1357,7 +1409,7 @@ public sealed partial class ControlService : IDisposable
                     // from another machine wants it whatever it says; the wire keeps its queries open (a TCP line is not a browser,
                     // and a Companion presents AUTH before it asks anything), and the desk's own browsers are exempt as before.
                     status = "403 Forbidden";
-                    response = ControlProtocol.Err(ControlProtocol.NotPaired);
+                    response = notPaired;
                 }
                 else if (IsCueVerb(cmd) && !clientHeader)
                 {
@@ -1498,8 +1550,8 @@ public sealed partial class ControlService : IDisposable
         return File.ReadAllBytes(path);
     }
 
-    /// <summary>The 403 body for a mutating route without the token: the wire's words, as the pages' JSON.</summary>
-    private static readonly string NotPairedJson = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.NotPaired))}}}";
+    /// <summary>The 403 body for a route without the token: the wire's words (<paramref name="err"/>, an ERR line), as the pages' JSON.</summary>
+    private static string NotPairedBody(string err) => $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(err)}}}";
 
     private static string? QueryValue(string path, string key)
     {
@@ -1621,6 +1673,7 @@ public sealed partial class ControlService : IDisposable
         _pushTimer.Stop();
         _clockTimer.Stop();
         StopListeners();
+        UnwatchAddresses();
         lock (_mvGate)
         {
             _mvSink.Dispose();
@@ -1750,10 +1803,14 @@ function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s
 function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
 function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} try { document.cookie = 'patterns-token=' + encodeURIComponent(t.trim()) + '; path=/; SameSite=Strict'; } catch (e) {} return true; }
 function hdr(){ return {'X-Patterns-Client':'run-page', 'X-Patterns-Token':tok()}; }
-function gate(r){ if (r.status === 403) { if (pair()) location.reload(); throw new Error('not paired'); } return r; }
+function asks(j){ var m = (j && j.msg) || ''; return !m || m.indexOf('not paired') >= 0; }   // the desk's words ask for the token, or say why a token would not help
+function gate(r){ if (r.status !== 403) return r; return r.json().catch(function(){ return {}; }).then(function(j){ document.getElementById('err').textContent = (j && j.msg) || 'This desk asks for its pairing token.'; if (asks(j) && pair()) location.reload(); throw new Error('not paired'); }); }
 function cmd(c, again) {
   return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'run-page', 'X-Patterns-Token':tok()} })
-    .then(function(r){ if (r.status === 403 && !again && pair()) return cmd(c, true); return r.json().then(function(j){ document.getElementById('err').textContent = j.ok ? '' : j.msg; }); })
+    .then(function(r){
+      if (r.status === 403 && !again) return r.json().catch(function(){ return {}; }).then(function(j){ if (asks(j) && pair()) return cmd(c, true); document.getElementById('err').textContent = (j && j.msg) || ''; });
+      return r.json().then(function(j){ document.getElementById('err').textContent = j.ok ? '' : j.msg; });
+    })
     .catch(function(){ document.getElementById('err').textContent = 'Connection lost'; });
 }
 function go(){ if (standbyId) cmd('CUE GO ' + standbyId); }
@@ -1793,7 +1850,7 @@ function render(s) {
 function poll() {
   fetch('/api/state?since=' + rev, { headers: hdr() }).then(gate).then(function(r){ return r.json(); })
     .then(function(s){ render(s); document.getElementById('err').textContent=''; poll(); })
-    .catch(function(){ document.getElementById('err').textContent = 'Connection lost — retrying…'; setTimeout(poll, 1500); });
+    .catch(function(e){ if (e && e.message === 'not paired') return; document.getElementById('err').textContent = 'Connection lost — retrying…'; setTimeout(poll, 1500); });
 }
 fetch('/api/state', { headers: hdr() }).then(gate).then(function(r){ return r.json(); }).then(function(s){ render(s); poll(); });
 setInterval(function(){ var i=document.getElementById('pgm'); var n=new Image(); n.onload=function(){ i.src=n.src; }; n.src='/pgm.jpg?t='+Date.now(); }, 2000);
@@ -1831,7 +1888,14 @@ setInterval(function () {
     document.getElementById('err').textContent = 'Connection lost — retrying…';
     if (asked) return;
     asked = true;
-    fetch('/mv.jpg?w=320').then(function(r){ if (r.status === 403) { document.getElementById('err').textContent = 'This desk asks for its pairing token.'; if (pair()) location.reload(); } else { asked = false; } }).catch(function(){ asked = false; });
+    fetch('/mv.jpg?w=320').then(function(r){
+      if (r.status !== 403) { asked = false; return; }
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        var m = (j && j.msg) || '';
+        document.getElementById('err').textContent = m || 'This desk asks for its pairing token.';   // the desk's own words: no token, or a name that is not the desk's
+        if ((!m || m.indexOf('not paired') >= 0) && pair()) location.reload();                     // a token is asked for only where one would help
+      });
+    }).catch(function(){ asked = false; });
   };
   next.src = '/mv.jpg?w=' + Math.min(1920, Math.max(320, Math.round(window.innerWidth * (window.devicePixelRatio || 1)))) + '&t=' + Date.now();
 }, 1000);

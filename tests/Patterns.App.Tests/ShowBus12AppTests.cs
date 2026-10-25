@@ -73,7 +73,7 @@ public class ShowBus12AppTests
             ssl.AuthenticateAsClient("localhost");
             stream = ssl;
         }
-        stream.Write(Encoding.ASCII.GetBytes($"GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"));
+        stream.Write(Encoding.ASCII.GetBytes($"GET {path} HTTP/1.1\r\nHost: localhost:{port}\r\nConnection: close\r\n\r\n"));   // a browser's Host carries the port
         using var all = new MemoryStream();
         stream.CopyTo(all);
         var text = Encoding.UTF8.GetString(all.ToArray());
