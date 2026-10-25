@@ -192,6 +192,8 @@ public sealed class ActionRow : Observable
             Raise(nameof(HasPersonValue));
             Raise(nameof(HasLookValue));
             Raise(nameof(HasTextValue));
+            Raise(nameof(HasAddressValue));
+            Raise(nameof(AddressValue));
             Raise(nameof(PickHint));
             Raise(nameof(TargetHint));
             Raise(nameof(ValueHint));
@@ -220,7 +222,33 @@ public sealed class ActionRow : Observable
     /// <summary>The value is a look: the picker lists the looks and has no "as designed" row.</summary>
     public bool HasLookValue => ActionSpec.For(Action.Kind).Value == ValueKind.Look;
 
-    public bool HasTextValue => HasValue && !HasPersonValue;
+    public bool HasTextValue => HasValue && !HasPersonValue && !HasAddressValue;
+
+    /// <summary>Round 89: the value is a page's address (Web page — open an address): its own box, secured when it is left.</summary>
+    public bool HasAddressValue => ActionSpec.For(Action.Kind).Value == ValueKind.Address;
+
+    /// <summary>
+    /// Round 89: the address a step opens, as the show holds it. Set once the box is left (never a keystroke at a time):
+    /// a private address — a Stagewatch window's, one with a pass — is kept on this machine and the step holds
+    /// kept://…, never the pass. The box then shows the held address.
+    /// </summary>
+    public string AddressValue
+    {
+        get => Action.Value;
+        set
+        {
+            var held = _editor.SecureAddress(value ?? "");
+            if (Action.Value == held)
+            {
+                Raise(nameof(AddressValue));      // the box shows what the step holds, not what was typed
+                return;
+            }
+            Action.Value = held;
+            Raise(nameof(AddressValue));
+            Raise(nameof(Value));
+            _editor.OnCueEdited();
+        }
+    }
 
     /// <summary>The picker's placeholder — what a blank value means depends on what is being picked.</summary>
     public string PickHint => HasLookValue ? "Which look…" : "Who… (blank = as designed)";
@@ -393,6 +421,9 @@ public sealed class CueEditor : Observable
     private string _validationSummary = "";
     private string _stackNotesText = "";
     private ObservableCollection<CueActionConfig>? _watchedActions;
+
+    /// <summary>Round 89: a step's address as the show holds it — a private one kept on this machine (kept://…), never its pass.</summary>
+    internal string SecureAddress(string address) => _s.WebPasses.Secure(address);
 
     public CueEditor(IRunHost services, Action<string> status)
     {
@@ -688,6 +719,7 @@ public sealed class CueEditor : Observable
         {
             if (!append) stack.Cues.Clear();
             foreach (var cue in result.Cues) stack.Cues.Add(cue);
+            _s.WebPasses.SecureShow(_s.State);   // round 89: a sheet's page addresses land as the show holds them — a pass kept on this machine
         });
         if (!append)
         {

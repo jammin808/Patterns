@@ -21,7 +21,7 @@ public class ArchitectureFenceTests
         ["Views/Controls/LazyPage.cs"] = 3,                   // the switch's build count, the warm-up's headroom, the node's profile
         ["Views/Controls/MonitorTileControl.cs"] = 4,         // a tile's pipeline on the bus, attached and detached by Avalonia
         ["Services/UiFaults.cs"] = 1,                         // the crash note's folder, before anything else is up
-        ["Converters/Converters.cs"] = 1,                     // a XAML converter reads the state
+        ["Converters/Converters.cs"] = 2,                     // a XAML converter reads the state; round 89: the address boxes keep a private address in this machine's book
     };
 
     /// <summary>The code-behind handlers there are, by file: divider drags, the windows' key latches, the Media list's row drag, two copy buttons, two Loaded hooks.</summary>

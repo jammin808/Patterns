@@ -253,7 +253,7 @@ public sealed class OscService : IDisposable
         var line = OscMap.ToLine(m);
         if (line is null)
         {
-            _lastLine = $"{m} → not a Patterns address";
+            _lastLine = WindowAddresses.RedactText($"{m} → not a Patterns address");
             Reply(from, OscMessage.Of("/patterns/error", $"unknown address {m.Address}"));
             return;
         }
@@ -264,12 +264,14 @@ public sealed class OscService : IDisposable
         if (!ControlProtocol.IsQuery(cmd) && !OscGate.Allows(control.Token, from.Address, ControlTrustsLoopback, _services.PairedAddresses(), control.OscAllow))
         {
             Interlocked.Increment(ref _refused);
-            _lastLine = $"{m} → {line} → refused: not paired";
+            _lastLine = WindowAddresses.RedactText($"{m} → {line} → refused: not paired");
             Reply(from, OscMessage.Of("/patterns/error", OscGate.NotPaired));
             return;
         }
         var response = await _router.ExecuteAsync(cmd, new ActionOrigin(OriginKind.Osc, "", from.ToString()));
-        _lastLine = $"{m} → {line} → {Shorten(response)}";
+        // Round 89: the status line (the Remote page, the Eye's OSC node) says a private page address in public — the
+        // router was handed the line whole and the action keeps its address on this machine.
+        _lastLine = WindowAddresses.RedactText($"{m} → {line} → {Shorten(response)}");
         if (cmd.Kind == RemoteCommandKind.Ping)
         {
             Reply(from, OscMessage.Of("/patterns/pong"));

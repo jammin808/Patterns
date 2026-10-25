@@ -559,6 +559,9 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         };
         _tick = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
         _tick.Tick += (_, _) => Tick();
+        // Round 89: a page's pass the boot's scrub kept on this machine leaves the node's show file now, as it leaves the
+        // desk's — a show saved by a newer build is never written over.
+        if (Kernel.NewerSchema == 0 && Kernel.WebPassesKept.Any) SaveNow();
     }
 
     /// <summary>The listeners up, the beacon out, the link dialling, the game running, the tick on: the node is on the network.</summary>
@@ -829,6 +832,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
 
     IActionLayer IRunHost.Actions => Actions;
     IReadOnlyList<string> IRunHost.OutputDeviceNames => Array.Empty<string>();
+    WebPasses IRunHost.WebPasses => Kernel.WebPasses;
 
     /// <summary>What the validator may assume here: a desk's decoder and its music are the desk's to have, so neither is doubted; the presets are the ones beside this node's show.</summary>
     public CueValidationContext ValidationContext => new()
@@ -836,6 +840,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         VideoDecoderAvailable = true,
         MusicReady = true,
         Presets = Kernel.Store.PresetNames().ToList(),
+        ResolveHeld = Kernel.WebPasses.Resolve,
     };
 
     public IReadOnlyList<ScreenInfo> Screens => _screens.All;

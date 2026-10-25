@@ -95,6 +95,13 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private volatile string _status = "Starting the browser…";
     private volatile string _title = "";
     private volatile string _currentUrl;
+    // Round 89: a held page (kept://…) resolves here, at navigation, and nowhere else; its picture is black until the
+    // page is up (and, for a Stagewatch window, assigned). The render threads read the two copies below, written on
+    // the browser's thread after every move of the held page.
+    private readonly HeldPage _held;
+    private readonly Func<string, WebPassResolution> _resolve;
+    private volatile bool _withheld;
+    private volatile string _withheldWhy = "";
     private double _zoomPct = 100;
     private bool _muted;
     private SKPoint? _pointer;
@@ -136,9 +143,12 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private long _lastPressTicks;
     private (int X, int Y) _lastPress;
 
-    private WebFrameSource(string url, int width, int height, string userDataFolder, WebCapturePlan plan, long poolBudgetBytes, WebSmoothing smoothing, bool hardwareDecoding)
+    private WebFrameSource(string url, int width, int height, string userDataFolder, WebCapturePlan plan, long poolBudgetBytes, WebSmoothing smoothing, bool hardwareDecoding,
+        Func<string, WebPassResolution> resolve)
     {
         _currentUrl = url;
+        _resolve = resolve;
+        _held = new HeldPage(resolve);
         _width = width;
         _height = height;
         _userDataFolder = userDataFolder;
@@ -150,12 +160,15 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     /// <summary>
     /// Opens a page for a wanted input ("1920x1080" in its Format; a bad format falls back to 1080p)
     /// with the capture plan the desk chose for it, the frame pool budget for a source on this
-    /// machine, and the decoding choice for the browser.
+    /// machine, and the decoding choice for the browser. A held address (round 89) is resolved through
+    /// <paramref name="resolve"/> at each navigation; without one, a held page opens nothing and is black.
     /// </summary>
-    public static WebFrameSource Create(MediaLocator.WantedInput wanted, string userDataFolder, WebCapturePlan plan, long poolBudgetBytes, bool hardwareDecoding)
+    public static WebFrameSource Create(MediaLocator.WantedInput wanted, string userDataFolder, WebCapturePlan plan, long poolBudgetBytes, bool hardwareDecoding,
+        Func<string, WebPassResolution>? resolve = null)
     {
         var (w, h) = WebEngine.ParseSize(wanted.Format);
-        var source = new WebFrameSource(wanted.Target, w, h, userDataFolder, plan, poolBudgetBytes, wanted.Smoothing, hardwareDecoding) { _zoomPct = wanted.Zoom, _muted = wanted.Mute };
+        resolve ??= static a => WindowAddresses.IsHeld(a) ? new WebPassResolution(null, WebPassBook.NotHereWhy) : new WebPassResolution(a, "");
+        var source = new WebFrameSource(wanted.Target, w, h, userDataFolder, plan, poolBudgetBytes, wanted.Smoothing, hardwareDecoding, resolve) { _zoomPct = wanted.Zoom, _muted = wanted.Mute };
         _ = source.StartAsync();
         return source;
     }
@@ -247,13 +260,23 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
             _core.NavigationStarting += (_, e) =>
             {
+                // Round 89: back, forward or a link onto an address a held page of this source resolved to is held
+                // again (HeldPage.HeldAgain) — sent to its held address, black until the shell's word — never shown raw.
+                if (_held.HeldAgain(e.Uri) is { } again)
+                {
+                    e.Cancel = true;
+                    UiThread.Post(() => NavigateCore(again));   // after this navigation's cancel, never inside its event
+                    return;
+                }
                 _latestNavigationId = e.NavigationId;
                 _status = "Loading " + WebAddress.ShortName(e.Uri) + "…";
             };
             _core.NavigationCompleted += (sender, e) =>
             {
                 if (e.NavigationId != _latestNavigationId) return;   // an older navigation finishing after a newer one started: not the page's state
-                _currentUrl = _core.Source;
+                _held.Completed(e.IsSuccess, e.IsSuccess ? "" : e.WebErrorStatus.ToString());
+                HeldMoved();
+                _currentUrl = _held.IsHeld ? _held.Address : _core.Source;   // a held page is named by its held address, never by what it resolved to
                 _status = e.IsSuccess ? "Showing" : $"The page failed: {e.WebErrorStatus}";
                 // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
                 _screencastRestarts = 0;
@@ -267,7 +290,22 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             {
                 // Nothing opens outside Patterns: a link that wants a new window opens here instead.
                 e.Handled = true;
-                _core.Navigate(e.Uri);
+                NavigateCore(e.Uri);
+            };
+            // Round 89: a held Stagewatch window's shell says what it shows through the observer below; its word is
+            // taken only from a document on the origin the held address resolved to (HeldPage.Accept).
+            _core.WebMessageReceived += (_, e) =>
+            {
+                string? text;
+                try
+                {
+                    text = e.TryGetWebMessageAsString();
+                }
+                catch (ArgumentException)
+                {
+                    return;   // a message that is not a string is not the shell's
+                }
+                if (_held.Accept(e.Source, text)) HeldMoved();
             };
             _core.ProcessFailed += (_, _) => _status = "The page's process failed — press Reload.";
 
@@ -293,6 +331,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             if (_preferH264) await ApplyPreferH264Async();
             if (_disposed) return;
             if (_audioDevice.Length > 0) await PrepareRouteAsync();
+            if (_disposed) return;
+            await AddShellObserverAsync();
             if (_disposed) return;
 
             NavigateCore(_currentUrl);
@@ -702,8 +742,12 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     /// <summary>
     /// The page is up and has a picture. Not "a frame arrived lately": the screencast sends
     /// nothing for a still page, and a dashboard that has not changed in a minute is still showing.
+    /// A held page whose picture is withheld (round 89) is not playing, whatever its browser shows.
     /// </summary>
-    public bool IsPlaying => _pipeline.HasFrame && _status == "Showing";
+    public bool IsPlaying => !_withheld && _pipeline.HasFrame && _status == "Showing";
+
+    /// <summary>Round 89: a held page this machine cannot open, or one not yet up (a Stagewatch window not yet assigned): every picture of it is black.</summary>
+    public bool Withheld => _withheld;
 
     public bool IsEnded => false;
 
@@ -714,6 +758,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     {
         get
         {
+            if (_withheld) return "Black — " + _withheldWhy;   // round 89: a held page's words name no address
             if (!_pipeline.HasFrame) return _status + " (no picture yet)";
             var fps = FrameRate;
             var text = fps > 0 ? $"{_status} · {fps:0} fps · {_pipeline.Smoother.Words}" : _status;
@@ -1016,7 +1061,10 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         if (wanted.Length == 0) return;
         try
         {
-            var origin = WebAudioRoute.OriginOf(_currentUrl);
+            // A held page's grant goes to the origin its address resolves to here — scheme, host and port, which carry
+            // no pass — so a routed private page plays on its output from its first frame like any other.
+            var opens = WindowAddresses.IsHeld(_currentUrl) ? _resolve(_currentUrl).Url ?? "" : _currentUrl;
+            var origin = WebAudioRoute.OriginOf(opens);
             if (origin.Length > 0 && _permittedOrigin != origin)
             {
                 await _core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Microphone, origin, CoreWebView2PermissionState.Allow);
@@ -1386,20 +1434,81 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     // ---- plumbing ------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Sends the browser to an address. Round 89: a held address resolves here, through the desk's book — the browser
+    /// is sent to the real address, every reader of the source keeps the held one; one this machine cannot open sends
+    /// the browser nowhere and the picture is black with the reason (a page shown before it is left behind the black).
+    /// </summary>
     private void NavigateCore(string url)
     {
         if (_core is null || _disposed) return;
+        var opens = _held.Open(url);
+        HeldMoved();
+        if (opens is null)
+        {
+            _currentUrl = _held.Address;
+            _status = "Black — " + _held.Why;
+            LeaveBehindBlack();
+            return;
+        }
         try
         {
-            var target = url;
+            var target = opens;
             if (!target.Contains("://") && File.Exists(target)) target = new Uri(Path.GetFullPath(target)).AbsoluteUri;
-            _currentUrl = target;
+            _currentUrl = _held.IsHeld ? _held.Address : target;
             _core.Navigate(target);
         }
         catch (Exception ex)
         {
-            _status = "Could not open that address: " + ex.Message;
-            Log.Warn($"Web page navigate failed: {url}", ex);
+            if (_held.IsHeld)
+            {
+                _held.Completed(false);
+                HeldMoved();
+                _status = "Could not open the private page.";
+            }
+            else
+            {
+                _status = "Could not open that address: " + ex.Message;
+            }
+            Log.Warn($"Web page navigate failed: {(_held.IsHeld ? _held.Address : url)}", ex);
+        }
+    }
+
+    /// <summary>The page shown before a held page that opens nothing here: emptied behind the black, so no page runs on a pass this machine no longer keeps.</summary>
+    private void LeaveBehindBlack()
+    {
+        try
+        {
+            if (_core is { } core && core.Source is { Length: > 0 } shown && !shown.Equals("about:blank", StringComparison.OrdinalIgnoreCase)) core.Navigate("about:blank");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The page behind a withheld page could not be emptied.", ex);
+        }
+    }
+
+    /// <summary>The held page moved (a navigation, its end, the shell's word): the copies the render threads read follow it.</summary>
+    private void HeldMoved()
+    {
+        _withheldWhy = _held.Why;
+        _withheld = _held.Withheld;
+    }
+
+    /// <summary>
+    /// Round 89: the observer that reads a Stagewatch window's shell, put into every document before its first script.
+    /// It does nothing outside a window's top document. Without it a held window's word never arrives, and the window
+    /// stays black — it fails closed.
+    /// </summary>
+    private async Task AddShellObserverAsync()
+    {
+        if (_core is null || _disposed) return;
+        try
+        {
+            await _core.AddScriptToExecuteOnDocumentCreatedAsync(HeldPage.ObserverScript);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The Stagewatch window observer could not be put into the page — a held window stays black.", ex);
         }
     }
 

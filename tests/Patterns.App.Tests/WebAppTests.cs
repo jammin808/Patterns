@@ -139,7 +139,14 @@ public sealed class FakeWebSource : IWebSource, IDisposable
         PlayerAnswer = System.Text.Json.JsonSerializer.Serialize(inner);
     }
 
-    public void Navigate(string url) => CurrentUrl = url;
+    /// <summary>Round 89: every address the desk sent the page to, in order (a held page is sent its held address).</summary>
+    public List<string> Navigations { get; } = new();
+
+    public void Navigate(string url)
+    {
+        Navigations.Add(url);
+        CurrentUrl = url;
+    }
     public void GoBack() => Backs++;
     public void GoForward() => Forwards++;
     public void Reload() => Reloads++;

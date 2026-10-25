@@ -47,6 +47,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Round 68.6: a YouTube or Vimeo page's stream through the clip player, when the look asks and yt-dlp is on the machine.</summary>
     public WebVideoService WebVideo { get; }
 
+    /// <summary>Round 89: this machine's kept page addresses — every entry of the desk secures an address through it.</summary>
+    public WebPasses WebPasses => Kernel.WebPasses;
+
     /// <summary>The audio graph: the routing matrix applied to the players, the mixer lanes and the NDI sends (Windows; a no-op elsewhere).</summary>
     public AudioGraphService? AudioGraph { get; private set; }
 
@@ -347,6 +350,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // one: the desk hands the list in. A cue that names a preset this machine has not got is
         // worth a look, not a refusal — the folder may simply not have travelled yet.
         Presets = Store.PresetNames().ToList(),
+        // Round 89: a page step's held address is checked against this machine's book, as a preset against its folder.
+        ResolveHeld = Kernel.WebPasses.Resolve,
     };
 
     /// <summary>Tests only: stand in for "is libVLC present" so a video-stinger cue can run headless.</summary>
@@ -490,13 +495,22 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Notify($"This show file was saved by a newer Patterns (schema {Kernel.NewerSchema}; this build reads {ShowState.CurrentSchemaVersion}). It runs as read and is not saved over — open it with the build that wrote it, or SAVE AS a copy for this one.");
         }
         Persistence = new PersistenceRuntime(Store, Recovery, Files) { Autosave = _autosave };
-        if (Kernel.NewerSchema == 0 && (Kernel.Migrated || Kernel.MigrationNotes.Count > 0))
+        if (Kernel.NewerSchema == 0 && (Kernel.Migrated || Kernel.MigrationNotes.Count > 0 || Kernel.WebPassesKept.Any))
         {
             // An upgraded file is written back once so the ids minted for its looks and
             // stingers are the same ids next time (cues and the journal refer to them) — and so a
-            // credential-bearing control row the load removed (round 76) leaves the disk now.
+            // credential-bearing control row the load removed (round 76), or a page's pass the load
+            // kept on this machine (round 89), leaves the show file now.
             SaveNow();
         }
+        // Round 89: the kept page addresses — a full book drops no pass the show or the air still names, and what an
+        // entry kept (or could not keep) is said on the desk's status strip, from whichever entry it came.
+        Kernel.WebPasses.Shows = () => Sandbox?.ProgramState is { } air ? new[] { State, air } : new[] { State };
+        Kernel.WebPasses.Noticed += words =>
+        {
+            if (UiThread.CheckAccess()) Notify(words);
+            else UiThread.Post(() => Notify(words));
+        };
         foreach (var note in Kernel.MigrationNotes)
         {
             Log.Warn(note);
@@ -555,6 +569,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         NdiIn = new NdiInputEngine();
         WebIn = new WebEngine(Store.BaseDirectory);
         WebIn.HardwareDecoding = () => HardwareDecoding;
+        // Round 89: a held page resolves inside the browser source only, from this machine's book; a page the book
+        // learns to open (or forgets) is navigated again.
+        WebIn.Resolve = Kernel.WebPasses.Resolve;
+        Kernel.WebPasses.Changed += () => UiThread.Post(() => WebIn.Reresolve());
         AudioGraph = new AudioGraphService(this);
         DeckIn = new DeckEngine(Store.BaseDirectory);
         Residency = new ResidencyService(this);
@@ -585,7 +603,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         };
         // The native-player path: the tool's answers land on a worker; the inputs reconcile on the UI thread, and the
         // locator hands a resolved page to the clip engine under the page's own key.
-        WebVideo = new WebVideoService { ConfiguredPath = () => State.Admin.YtDlpPath };
+        WebVideo = new WebVideoService { ConfiguredPath = () => State.Admin.YtDlpPath, Resolve = Kernel.WebPasses.Resolve };
         WebVideo.Changed = () => UiThread.Post(() =>
         {
             if (WebVideo.IsDisposed) return;
@@ -1576,6 +1594,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                     // Round 79: the record's air is a whole show state written by the build that crashed — an older
                     // one after an update restart — so it takes the same upgrade the settings file takes on load.
                     foreach (var note in SettingsStore.Migrate(air)) Log.Warn("Recovery record: " + note);
+                    // Round 89: and the same scrub — a page's pass that build wrote into the air is kept on this
+                    // machine before the air holds it, so the programme and the preview name one kept address.
+                    Kernel.WebPasses.SecureShow(air);
                     RestoreAir(air);
                     vm.RefreshAfterRecovery();
                 }
@@ -1590,7 +1611,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 }
                 else
                 {
-                    EditAir(state => LookService.Apply(airLook, state));
+                    EditAir(state =>
+                    {
+                        LookService.Apply(airLook, state);
+                        Kernel.WebPasses.SecureShow(state);   // round 89: a pass the old look carried is kept here, never held raw on the air
+                    });
                     vm.RefreshAfterRecovery();
                 }
             }

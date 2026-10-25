@@ -79,7 +79,7 @@ public sealed partial class ShowActions
                 // everything the show has dressed it with alone. It lands in the editors like any
                 // other change, which is what makes EDIT SAFE hold it for the next TAKE — a recall
                 // that jumped straight to air would be a different verb, and a dangerous one.
-                var preset = _s.Store.FindPreset(a.Value);
+                var preset = SecuredPreset(a.Value);
                 if (preset is null) return ActionResult.Refused(PresetMissing(a.Value));
                 // The programme's picture, in the EDITED state — so with EDIT SAFE open a recall
                 // lands in the preview and waits for the TAKE, which is what an operator building a
@@ -94,7 +94,7 @@ public sealed partial class ShowActions
                 // usable from the Show panel without building a whole look around it.
                 var target = ResolveScreenTarget(a.Target);
                 if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
-                var preset = _s.Store.FindPreset(a.Value);
+                var preset = SecuredPreset(a.Value);
                 if (preset is null) return ActionResult.Refused(PresetMissing(a.Value));
                 void LandPreset(ShowState state)
                 {
@@ -263,7 +263,7 @@ public sealed partial class ShowActions
             }
             case ShowActionKind.ScreenStagePreset:
             {
-                var preset = _s.Store.FindPreset(a.Value);
+                var preset = SecuredPreset(a.Value);
                 if (preset is null) return ActionResult.Refused(PresetMissing(a.Value));
                 picture = JsonUtil.ClonePattern(preset);
                 what = $"preset '{a.Value.Trim()}'";
@@ -297,7 +297,7 @@ public sealed partial class ShowActions
             {
                 // Round 73: the tile by id (the desk's own press) or by name (the wire), from the same
                 // catalogue the Library page draws — so the two are one press, journaled alike.
-                var tile = LibraryItems.Find(LibraryItems.Build(State, _s.Store, swatches: false), a.Value);
+                var tile = LibraryItems.Find(LibraryItems.Build(State, _s.Store, swatches: false, passes: _s.WebPasses), a.Value);
                 if (tile is null) return ActionResult.Refused($"No Library tile '{a.Value.Trim()}' — name one as the Library page lists it (a file by its display name, a page by its title, a preset or a brand kit by name).");
                 if (tile.Picture is null)
                 {
@@ -381,6 +381,19 @@ public sealed partial class ShowActions
     }
 
     /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
+    /// <summary>
+    /// A preset by the name an operator, a cue, the deck or the wire gave, made safe before it lands anywhere (round 89):
+    /// a preset is a file beside the show and one saved before the round can hold a page's pass, so its page and its
+    /// layers' are kept on this machine and the picture holds <c>kept://…</c> — the same press as the Library's tile.
+    /// The store reads the file afresh on every call, so the copy secured here is this verb's own; null when there is none.
+    /// </summary>
+    private PatternConfig? SecuredPreset(string name)
+    {
+        var preset = _s.Store.FindPreset(name);
+        if (preset is not null) _s.WebPasses.SecurePattern(preset);
+        return preset;
+    }
+
     /// <summary>
     /// Why a preset could not be recalled, in words that say what to do. Presets are files beside
     /// the show rather than part of it, so a show carried to another machine can name one that is

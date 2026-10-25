@@ -37,6 +37,13 @@ public sealed class WebVideoService : IDisposable
     /// <summary>A resolution landed or failed: the desk reconciles its inputs (called on the tool's thread).</summary>
     public Action? Changed { get; set; }
 
+    /// <summary>
+    /// Round 89: what a held page (<c>kept://…</c>) opens on this machine — the desk's book. A held page is resolved here,
+    /// just before the tool is asked, and the tool alone is handed the real address; the cache, the words and STATE's
+    /// rows name the held address. Null: no book, and a held page is never asked about.
+    /// </summary>
+    public Func<string, WebPassResolution>? Resolve { get; set; }
+
     public Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
 
     /// <summary>Where the desk's own executable is (the tool is looked for beside it); the tests point elsewhere.</summary>
@@ -89,16 +96,29 @@ public sealed class WebVideoService : IDisposable
             return;
         }
         if (_entries.TryGetValue(url, out var e) && e.Phase == Phase.Resolving && now - e.WhenUtc < WebVideoResolver.Timeout + TimeSpan.FromSeconds(5)) return;
+        // A held page opens on this machine only through its book; one the book cannot open is never asked about.
+        var opens = url;
+        if (WindowAddresses.IsHeld(url))
+        {
+            var resolution = Resolve?.Invoke(url) ?? new WebPassResolution(null, WebPassBook.NotHereWhy);
+            if (!resolution.Resolved || string.IsNullOrEmpty(resolution.Url))
+            {
+                _entries[url] = new Entry(Phase.Failed, default, $"Native player: {WebAddress.ShortName(url)} is a private address {resolution.Why}; the browser stands in", now);
+                return;
+            }
+            opens = resolution.Url;
+        }
         _entries[url] = new Entry(Phase.Resolving, default, $"Native player: finding the stream for {WebAddress.ShortName(url)}…", now);
-        _ = ResolveAsync(url, tool);
+        _ = ResolveAsync(url, opens, tool);
     }
 
-    private async Task ResolveAsync(string url, string tool)
+    /// <summary>Asks the tool about <paramref name="opens"/> (the real address of a held page) and keeps the answer under <paramref name="url"/>, the page's own address.</summary>
+    private async Task ResolveAsync(string url, string opens, string tool)
     {
         try
         {
             using var cts = new CancellationTokenSource(WebVideoResolver.Timeout);
-            var (exit, stdout, stderr) = await Runner(tool, WebVideoResolver.ArgumentList(url), cts.Token).ConfigureAwait(false);
+            var (exit, stdout, stderr) = await Runner(tool, WebVideoResolver.ArgumentList(opens), cts.Token).ConfigureAwait(false);
             var now = Clock();
             if (exit == 0 && WebVideoResolver.TryParse(stdout, now, out var stream))
             {
@@ -108,7 +128,7 @@ public sealed class WebVideoService : IDisposable
             else
             {
                 _entries[url] = new Entry(Phase.Failed, default,
-                    $"Native player: {WebVideoResolver.ToolName} could not resolve {WebAddress.ShortName(url)} — {WebVideoResolver.FailureWords(stderr)}; the browser stands in", now);
+                    $"Native player: {WebVideoResolver.ToolName} could not resolve {WebAddress.ShortName(url)} — {WebVideoResolver.FailureWords(WindowAddresses.RedactText(stderr))}; the browser stands in", now);
             }
         }
         catch (OperationCanceledException)

@@ -1486,7 +1486,7 @@ public sealed partial class ControlService : IDisposable
     {
         var dir = _kernel.Store.BaseDirectory;
         var path = Path.Combine(dir, SupportBundle.FileNameFor(DateTime.Now));
-        SupportBundle.Build(dir, path, info, Secrets.ValuesOf(_kernel.State));
+        SupportBundle.Build(dir, path, info, _kernel.SecretValues());   // round 89: the kept addresses join the show's secret values
         Log.Info($"Support bundle written for the ADMIN page: {path}");
         return File.ReadAllBytes(path);
     }

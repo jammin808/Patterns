@@ -95,6 +95,8 @@
                           PlaceholderText="{Binding PickHint}" HorizontalAlignment="Stretch"
                           ToolTip.Tip="A person from the Lower thirds page's LIBRARY (the name, the role, the company and the photo go into the design before it shows) — or, for a screen's own send, which look's picture lands on that screen alone" />
                 <TextBox IsVisible="{Binding HasTextValue}" Text="{Binding Value, Mode=TwoWay}" Watermark="{Binding ValueHint}" />
+                <TextBox IsVisible="{Binding HasAddressValue}" Text="{Binding AddressValue, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Watermark="{Binding ValueHint}"
+                         ToolTip.Tip="A private address — a Stagewatch window's, or one with a PIN, a key or a viewing code in it — is kept on this machine when you leave the box; the step holds kept://… and the pass never leaves this machine" />
               </StackPanel>
             </Border>
           </DataTemplate>

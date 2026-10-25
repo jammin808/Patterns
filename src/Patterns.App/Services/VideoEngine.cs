@@ -328,7 +328,8 @@ public sealed class VideoEngine : IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error($"Video open failed for '{w.Target}'.", ex);
+            // A page's stream (the native player) is named by its page — the held address for a private one — never by the stream's own address.
+            Log.Error($"Video open failed for '{(w.Origin.Length > 0 ? w.Origin : w.Target)}'.", ex);
             VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
         }
     }

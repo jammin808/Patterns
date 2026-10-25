@@ -84,7 +84,9 @@ public sealed class MidiLearnService
         }
         if (!HasSurface) return ActionResult.Refused("No MIDI control surface in the show — add one on the Interactive page (+ MIDI CONTROL SURFACE) first.");
         if (!SurfaceOpen) return ActionResult.Refused("No MIDI surface is open — switch the Interactive area on and check the surface's port on the Interactive page.");
-        Wire = line;
+        // Round 89: the line is bound into the show, so a private page address in it is kept on this machine first and
+        // the line holds kept://… — the bound row, the log line, the banner and the reply all carry the held form.
+        Wire = _s.WebPasses.SecureText(line);
         Label = ActionSpec.Label(parsed.Action.Kind);
         SinceUtc = _s.Clock.UtcNow;
         _s.Devices.LearnAny(OnLearned);
@@ -121,7 +123,9 @@ public sealed class MidiLearnService
     /// <summary>Every control bound to a wire line forgotten, on every surface.</summary>
     public ActionResult Forget(string wire)
     {
-        var line = MidiBindings.Normalise(wire);
+        // Round 89: a bound row holds a page's kept address, so a line typed with the real one is read in its held form
+        // (never keeping anything new) — it finds the row, and the reply names no pass.
+        var line = _s.WebPasses.HeldText(MidiBindings.Normalise(wire));
         if (line.Length == 0) return ActionResult.Refused("MIDI FORGET what? The wire line whose controls should be unbound.");
         var gone = 0;
         _s.BulkEdit(() => gone = MidiBindings.Forget(_s.State.Interactive.Devices, line));

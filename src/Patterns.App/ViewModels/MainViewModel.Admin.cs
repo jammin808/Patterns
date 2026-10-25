@@ -361,7 +361,7 @@ public sealed partial class MainViewModel
                 $"Install: {_services.Install.Status}",
                 $"Update: {_services.Updates.Status}",
                 $"Management: {_services.Management.Status}");
-            var entries = SupportBundle.Build(dir, path, info, Secrets.ValuesOf(State));
+            var entries = SupportBundle.Build(dir, path, info, _services.Kernel.SecretValues());   // round 89: the kept addresses join the show's secret values
             SupportBundleText = $"Written: {path} ({entries.Count} entries — {string.Join(", ", entries)}).";
             StatusMessage = $"Support bundle written beside the settings: {System.IO.Path.GetFileName(path)}.";
             Log.Info($"Support bundle written: {path}");

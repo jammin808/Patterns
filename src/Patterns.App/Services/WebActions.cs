@@ -44,10 +44,26 @@ public static class WebActions
                 return ActionResult.Done($"{name} reloading.");
             case ShowActionKind.WebOpen:
             {
-                var address = WebAddress.Normalize(action.Value);
-                if (address.Length == 0) return ActionResult.Refused("WEB OPEN needs an address.");
+                var typed = WebAddress.Normalize(action.Value);
+                if (typed.Length == 0) return ActionResult.Refused("WEB OPEN needs an address.");
+                // Round 89: a private address (a Stagewatch window's, one with a pass) is kept on this machine first and
+                // the page is sent to the kept address, which the browser alone resolves; one that cannot be kept is refused
+                // and the page stays as it was, so a WEB OPEN never blanks a page for an address it could not hold.
+                var address = s.WebPasses.Secure(typed, out var notKept);
+                if (WindowAddresses.IsHeld(address) && s.WebPasses.Resolve(address) is { Resolved: false } nothing)
+                {
+                    return ActionResult.Refused($"WEB OPEN: {WindowAddresses.HostOf(address)}'s private address does not open on this machine — {(notKept.Length > 0 ? notKept : nothing.Why)}; {name} stays as it was.");
+                }
                 page.Navigate(address);
-                return ActionResult.Done($"{name} → {WebAddress.ShortName(address)} (the pattern keeps its own address; a look recall brings it back).");
+                var shown = WebAddress.ShortName(address);
+                if (WindowAddresses.IsKept(address))
+                {
+                    // Attempts are not facts: a Stagewatch window's page is black on this room's air until Stagewatch
+                    // says what the window shows, and the words say so rather than promise a picture.
+                    shown = $"{WindowAddresses.HostOf(address)} (private address, kept on this machine)";
+                    if (WindowAddresses.IsStagewatchWindowUrl(s.WebPasses.Resolve(address).Url)) shown += " — black until Stagewatch says what the window shows";
+                }
+                return ActionResult.Done($"{name} → {shown} (the pattern keeps its own address; a look recall brings it back).");
             }
             case ShowActionKind.WebArm:
                 return s.WebIn.Arm(key, page, name, action.Value);

@@ -38,6 +38,46 @@ public sealed class StingerAfterTextConverter : IValueConverter
 }
 
 /// <summary>
+/// Round 89: a page's address box. What the operator typed goes into the show as the address the show holds — a
+/// private one (a Stagewatch window's, one with a pass) kept on this machine and held as <c>kept://…</c>, never its
+/// pass; any other address as typed. Bound with <c>UpdateSourceTrigger=LostFocus</c>, so an address is secured once,
+/// whole, when the box is left — never a half-typed one a keystroke at a time. The box then shows the held address.
+/// </summary>
+public sealed class KeptAddressConverter : IValueConverter
+{
+    /// <summary>
+    /// This machine's book, for the converters Avalonia builds from the resources (no services can be handed in); null
+    /// without a desk (the designer), when the fence's own form stands in — a pass never reaches the model either way.
+    /// </summary>
+    internal static WebPasses? Book => AppServices.Instance?.WebPasses;
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value as string ?? "";
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var typed = value as string ?? "";
+        return Book?.Secure(typed) ?? WindowAddresses.Held(typed);
+    }
+}
+
+/// <summary>
+/// Round 89: a line of the wire typed into the show (a device's trigger: "WEB OPEN 10.0.0.5:9924/w/… ON lobby") goes in
+/// with every private address in it kept on this machine and held as <c>kept://…</c>; every other word as typed. Bound
+/// with <c>UpdateSourceTrigger=LostFocus</c>, so the line is secured once, whole, when the box is left.
+/// </summary>
+public sealed class KeptLineConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value as string ?? "";
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var typed = value as string ?? "";
+        return KeptAddressConverter.Book?.SecureText(typed)
+               ?? WindowAddresses.RewriteBareText(WindowAddresses.RewriteText(typed, WindowAddresses.Held), WindowAddresses.Held);
+    }
+}
+
+/// <summary>
 /// Bridges NumericUpDown's decimal? to int/double model properties (and back) so compiled
 /// bindings stay type-safe everywhere numbers are edited.
 /// </summary>

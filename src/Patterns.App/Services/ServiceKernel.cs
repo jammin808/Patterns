@@ -40,6 +40,20 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>Round 76: journal rows an older build wrote with the admin passcode, blanked at this boot.</summary>
     public int JournalRowsScrubbed { get; }
 
+    /// <summary>Round 89: this machine's kept page addresses — the book every entry secures an address through, and the browser resolves from.</summary>
+    public WebPasses WebPasses { get; }
+
+    /// <summary>Round 89: what this boot's scrub took out of the show (private addresses kept, or held unkept) — the desk writes the show back once when it took any.</summary>
+    public WebPassScrub WebPassesKept { get; }
+
+    /// <summary>
+    /// The secret values every exit masks in free text: the show's own (<see cref="Secrets.ValuesOf"/>) and, round 89,
+    /// the real addresses this machine keeps — longest first, so a value inside another is masked whole.
+    /// </summary>
+    public IReadOnlyList<string> SecretValues()
+        => Secrets.ValuesOf(State).Concat(WebPasses.SecretValues).Distinct(StringComparer.Ordinal)
+            .OrderByDescending(v => v.Length).ThenBy(v => v, StringComparer.Ordinal).ToList();
+
     public SnapshotBus Bus { get; }
 
     public ShowLog Journal { get; }
@@ -170,6 +184,10 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
         Journal = new ShowLog(Store.BaseDirectory);
         JournalRowsScrubbed = Journal.ScrubSecrets();   // round 76: a passcode an older build journaled leaves the disk at the first boot that knows better
+        // Round 89: this machine's kept page addresses, then the show's scrub before anything reads it — a private
+        // address a file still holds raw is kept here and the show holds kept://… instead; one journal row says so.
+        WebPasses = new WebPasses(Store.BaseDirectory) { Shows = () => new[] { State } };
+        WebPassesKept = WebPasses.MigrateShow(State, Journal);
         KnownGood = new KnownGoodRig(Store.BaseDirectory, Journal);
         StandDownNote = WatchdogMarker.ReadAndClear(Store.BaseDirectory);
         LastCrash = CrashMarker.ReadAndClear(Store.BaseDirectory);

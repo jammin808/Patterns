@@ -410,7 +410,11 @@ public sealed class AssistantPage : Observable
             if (_desk.EditTarget.ScreenId is not null) _desk.EditTarget = _desk.EditTargets[0];
         }
         var report = new ApplyReport();
-        _services.BulkEdit(() => report = AssistantApply.Apply(_services.State, p));
+        _services.BulkEdit(() =>
+        {
+            report = AssistantApply.Apply(_services.State, p);
+            _services.WebPasses.SecureShow(_services.State);   // round 89: a proposal's page addresses land as the show holds them — a pass kept on this machine
+        });
         _desk.AfterAssistantApplied(p);
         var where = draws
             ? (opened ? " — in the preview (EDIT SAFE opened): TAKE or CUT puts it on air." : " — in the preview: TAKE or CUT puts it on air.")

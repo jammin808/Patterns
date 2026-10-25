@@ -132,7 +132,7 @@ public sealed class MediaPage : Observable
         RefreshCaptureDevicesCommand = new RelayCommand(() => RefreshCaptureDevices());
         LoadWebUrlCommand = new RelayCommand<string>(url =>
         {
-            if (url is not null) State.Web.Url = url;
+            if (url is not null) State.Web.Url = SecureAddress(url);
         });
         RemoveWebUrlCommand = new RelayCommand<string>(url =>
         {
@@ -162,19 +162,27 @@ public sealed class MediaPage : Observable
         WebReloadCommand = new RelayCommand(() => CurrentWebSource()?.Reload());
         RememberWebUrlCommand = new RelayCommand(() =>
         {
-            var url = WebAddress.Normalize(ActivePattern.Media.WebUrl);
+            var url = SecureAddress(WebAddress.Normalize(ActivePattern.Media.WebUrl));
             if (url.Length == 0) return;
+            if (WindowAddresses.IsUnkept(url)) return;                                          // could not be kept: the status strip says why, nothing is saved
+            if (WindowAddresses.IsHeld(url) && url != ActivePattern.Media.WebUrl) ActivePattern.Media.WebUrl = url;
             if (!State.Web.SavedUrls.Contains(url)) State.Web.SavedUrls.Add(url);
             _desk.StatusMessage = $"Remembered {WebAddress.ShortName(url)} — it is in the saved pages here and on the Remote & web page.";
         });
         PutWebPageOnPatternCommand = new RelayCommand(() =>
         {
-            var typed = WebAddress.Normalize(State.Web.Url);
+            var typed = SecureAddress(WebAddress.Normalize(State.Web.Url), out var notKept);
             if (typed.Length == 0)
             {
                 _desk.StatusMessage = "Enter a page address first.";
                 return;
             }
+            if (WindowAddresses.IsUnkept(typed))
+            {
+                _desk.StatusMessage = $"{WindowAddresses.HostOf(typed)}'s private address could not be kept on this machine — {(notKept.Length > 0 ? notKept : WebPassBook.UnkeptWhy)}. Nothing was put on the pattern.";
+                return;
+            }
+            if (WindowAddresses.IsHeld(typed) && typed != State.Web.Url) State.Web.Url = typed;
             // A YouTube, Vimeo or Slides link goes on as the player or the deck alone — the streamlined path;
             // the Media page shows the address and can put the typed one back. The service named
             // here and the CLEAN tick travel with it, so the page lands the way it was set up.
@@ -562,6 +570,11 @@ public sealed class MediaPage : Observable
 
     private string _savedWebPick = "";
 
+    /// <summary>Round 89: an address the Media page was handed, as the show holds it — a private one kept on this machine (kept://…), never its pass.</summary>
+    private string SecureAddress(string address) => _services.WebPasses.Secure(address);
+
+    private string SecureAddress(string address, out string why) => _services.WebPasses.Secure(address, out why);
+
     /// <summary>The saved pages combo on the Media page: picking one puts it in the pattern's page box.</summary>
     public string? SavedWebPick
     {
@@ -571,7 +584,7 @@ public sealed class MediaPage : Observable
             var pick = value ?? "";
             if (pick == _savedWebPick) return;
             _savedWebPick = pick;
-            if (pick.Length > 0) ActivePattern.Media.WebUrl = pick;
+            if (pick.Length > 0) ActivePattern.Media.WebUrl = SecureAddress(pick);
             Raise(nameof(SavedWebPick));
         }
     }

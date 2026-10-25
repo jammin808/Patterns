@@ -73,10 +73,10 @@ public static class LibraryCatalogue
     /// picture tile applies its picture to the pattern being edited through the desk's edit; a
     /// brand kit puts its colours on the show and says so.
     /// </summary>
-    public static List<PresetItem> Build(ShowState state, SettingsStore store, Desk desk)
+    public static List<PresetItem> Build(ShowState state, SettingsStore store, Desk desk, WebPasses? passes = null)
     {
         var tiles = new List<PresetItem>();
-        foreach (var tile in LibraryItems.Build(state, store))
+        foreach (var tile in LibraryItems.Build(state, store, passes: passes))
         {
             var fact = tile;
             tiles.Add(new PresetItem

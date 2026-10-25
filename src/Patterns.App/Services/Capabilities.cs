@@ -177,6 +177,8 @@ public interface IRunHost : ICueHost
     RoomClock Clock { get; }
     /// <summary>Round 71: the output devices this machine has now, by name — the catalogue's list, never an enumeration on the desk's thread; empty on a node and off Windows.</summary>
     IReadOnlyList<string> OutputDeviceNames { get; }
+    /// <summary>Round 89: this machine's kept page addresses — a cue step's address is secured through it before the step holds it.</summary>
+    WebPasses WebPasses { get; }
 }
 
 /// <summary>The one-line verbs on any action layer — a kind with its target and value, one cue fired — as the desk's own layer always offered them.</summary>

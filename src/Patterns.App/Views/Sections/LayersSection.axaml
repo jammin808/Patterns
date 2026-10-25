@@ -63,7 +63,9 @@
                   SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
                   PlaceholderText="Which screen or canvas…" />
         <StackPanel Spacing="4" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Web}}">
-          <TextBox Watermark="https://example.com/live — or a local HTML file" Text="{Binding WebUrl, Mode=TwoWay}" />
+          <TextBox Watermark="https://example.com/live — or a local HTML file"
+                   Text="{Binding WebUrl, Mode=TwoWay, Converter={StaticResource KeptAddress}, UpdateSourceTrigger=LostFocus}"
+                   ToolTip.Tip="A private address — a Stagewatch window's, or one with a PIN, a key or a viewing code in it — is kept on this machine when you leave the box; the show holds kept://… and the pass never leaves this machine" />
           <Grid ColumnDefinitions="86,*,8,Auto,*">
             <TextBlock Classes="label" Text="Page (px)" VerticalAlignment="Center" ToolTip.Tip="The page's own viewport — what it lays itself out for; the picture is then fitted into the box" />
             <NumericUpDown Grid.Column="1" Minimum="320" Maximum="7680" Increment="10" FormatString="0" Value="{Binding WebWidth, Mode=TwoWay, Converter={StaticResource Num}}" />

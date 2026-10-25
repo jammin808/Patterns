@@ -902,6 +902,9 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     /// <summary>A show read from a file becomes the show: the model copied over, every list started over, the desk refreshed.</summary>
     internal void ApplyLoadedShow(ShowState loaded, string status)
     {
+        // Round 89: a show from a file (or an earlier version) is made safe before it becomes the show — a page's pass it
+        // still holds raw is kept on this machine and held as kept://…; one journal row says what was kept.
+        _services.WebPasses.MigrateShow(loaded, _services.Journal);
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         RefreshAfterShowReplaced();
         StatusMessage = status;

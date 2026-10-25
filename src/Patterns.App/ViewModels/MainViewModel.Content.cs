@@ -886,7 +886,7 @@ public sealed partial class MainViewModel
         RefreshParticlePackGroups();
         RefreshFractalSceneGroups();
         var desk = new LibraryCatalogue.Desk(() => ActivePattern, _services.BulkEdit, words => StatusMessage = words);
-        LibraryCatalogue.Reconcile(LibraryAll, LibraryCatalogue.Build(State, _services.Store, desk));
+        LibraryCatalogue.Reconcile(LibraryAll, LibraryCatalogue.Build(State, _services.Store, desk, _services.WebPasses));
         ApplyLibraryFilter();
         // The published picture of the show is what the thumbnails draw over: immutable, so the
         // worker reads it while the desk goes on editing.

@@ -159,7 +159,7 @@ public sealed partial class ShowActions : IActionLayer
             => CueStacks.Find(State, action.Target)?.Name ?? action.Target,
         ShowActionKind.SpotifyPlay when action.Target.Length > 0 => SpotifyLibrary.Find(State, action.Target)?.DisplayName ?? action.Target,
         _ when ActionSpec.CarriesSecret(action.Kind) => "",   // round 75: the admin passcode rides the target — the row keeps the kind and the outcome, never the secret
-        _ => action.Target,
+        _ => WindowAddresses.RedactText(action.Target),        // round 89: a page named by a private address is written in public — never its pass
     };
 
     // ---- the verbs -----------------------------------------------------------

@@ -159,7 +159,7 @@
                     <Grid ColumnDefinitions="*,8,Auto,8,2*,8,Auto" Margin="0,2">
                       <TextBox Grid.Column="0" Text="{Binding Match, Mode=TwoWay}" Watermark="The device says… BTN1, SENSOR *" ToolTip.Tip="The whole line, case-blind; ending in * it matches the start, and the rest rides into a command ending in *" />
                       <TextBlock Grid.Column="2" Classes="label" Text="→" VerticalAlignment="Center" />
-                      <TextBox Grid.Column="4" Text="{Binding Command, Mode=TwoWay}" Watermark="…and Patterns does: CUE GO · NEXT · LOOK Walk-in · BLACKOUT ON · MESSAGE *" ToolTip.Tip="Any line of the wire protocol (docs/REMOTE.md)" />
+                      <TextBox Grid.Column="4" Text="{Binding Command, Mode=TwoWay, Converter={StaticResource KeptLine}, UpdateSourceTrigger=LostFocus}" Watermark="…and Patterns does: CUE GO · NEXT · LOOK Walk-in · BLACKOUT ON · MESSAGE *" ToolTip.Tip="Any line of the wire protocol (docs/REMOTE.md). A private page address in it (a Stagewatch window's, one with a pass) is kept on this machine when you leave the box" />
                       <Button Grid.Column="6" Classes="mini" Content="✕" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveTriggerCommand}" CommandParameter="{Binding}" />
                     </Grid>
                   </DataTemplate>

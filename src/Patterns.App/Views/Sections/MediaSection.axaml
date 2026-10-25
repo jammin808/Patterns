@@ -136,7 +136,8 @@
       <TextBlock Classes="h2" Text="WEB PAGE" />
       <Grid ColumnDefinitions="*,8,Auto">
         <TextBox Grid.Column="0" Watermark="https://example.com/schedule — or a local HTML file"
-                 Text="{Binding ActivePattern.Media.WebUrl, Mode=TwoWay}" />
+                 Text="{Binding ActivePattern.Media.WebUrl, Mode=TwoWay, Converter={StaticResource KeptAddress}, UpdateSourceTrigger=LostFocus}"
+                 ToolTip.Tip="A private address — a Stagewatch window's, or one with a PIN, a key or a viewing code in it — is kept on this machine when you leave the box; the show holds kept://… and the pass never leaves this machine" />
         <Button Grid.Column="2" Classes="chip" Content="Remember" Command="{Binding Media.RememberWebUrlCommand}"
                 ToolTip.Tip="Keep this address in the saved pages (shared with the Remote &amp; web page)" />
       </Grid>

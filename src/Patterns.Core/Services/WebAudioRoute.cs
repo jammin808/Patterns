@@ -80,7 +80,7 @@ public static class WebAudioRoute
         {
             var uri = new Uri(url);
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return "";
-            return uri.GetLeftPart(UriPartial.Authority);
+            return uri.GetComponents(UriComponents.SchemeAndServer, UriFormat.UriEscaped);   // an origin names no user or password
         }
         catch (UriFormatException)
         {

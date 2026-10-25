@@ -31,6 +31,14 @@ public sealed class CueValidationContext
     /// cannot tell", and a cue naming a preset is then left alone rather than warned about wrongly.
     /// </summary>
     public IReadOnlyCollection<string>? Presets { get; init; }
+
+    /// <summary>
+    /// Round 89: what a held page address (<c>kept://…</c>, <c>unkept://…</c>) opens on this machine — the desk's book of
+    /// kept addresses, handed in as the presets are. The checks ask only whether it opens and, when it does not, the
+    /// book's words; they never hold the real address. Null means "this build cannot tell", and a page step naming a
+    /// held address is left alone.
+    /// </summary>
+    public Func<string, WebPassResolution>? ResolveHeld { get; init; }
 }
 
 /// <summary>The result of validating one list.</summary>
@@ -568,6 +576,12 @@ public static class CueValidator
                     break;
                 case ShowActionKind.WebOpen:
                     if (string.IsNullOrWhiteSpace(a.Value)) Hard($"{where}: which address? A web page to open — https://… or a local HTML file.");
+                    // A held address this machine's book cannot open is refused at GO: worth a look before then, not a
+                    // refusal now — the address may be pasted here (and kept) before the cue is reached.
+                    else if (ctx.ResolveHeld is { } resolveHeld && WindowAddresses.IsHeld(a.Value) && resolveHeld(a.Value) is { Resolved: false } nowhere)
+                    {
+                        Soft($"{where}: {WindowAddresses.HostOf(a.Value)}'s private address does not open on this machine — {nowhere.Why}.");
+                    }
                     break;
                 case ShowActionKind.LogoOn:
                 case ShowActionKind.LogoToggle:

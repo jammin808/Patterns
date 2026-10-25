@@ -50,8 +50,10 @@ public static class LibraryItems
     /// <summary>
     /// Every tile as the show and the store have them now. <paramref name="swatches"/> false skips
     /// reading each brand kit's file for its colours — the wire's lookup wants names, not pictures.
+    /// Round 89: with <paramref name="passes"/> (this machine's kept addresses) a saved page and a preset land as the
+    /// show holds them — a private address kept on this machine; without it, in the fence's own form (never a pass).
     /// </summary>
-    public static List<LibraryTile> Build(ShowState state, SettingsStore store, bool swatches = true)
+    public static List<LibraryTile> Build(ShowState state, SettingsStore store, bool swatches = true, WebPasses? passes = null)
     {
         var tiles = new List<LibraryTile>();
         foreach (var b in BuiltInPresets.All)
@@ -103,7 +105,7 @@ public static class LibraryItems
             var service = WebPresets.Detect(address);
             tiles.Add(new LibraryTile("web:" + address, "Web", WebCategory(service), WebTitle(address))
             {
-                Picture = target => ApplyWeb(target, address),
+                Picture = target => ApplyWeb(target, passes is null ? address : passes.Secure(address)),
                 Swatch = WebSwatch(service),
                 Remove = () => state.Web.SavedUrls.Remove(address),
             });
@@ -117,7 +119,9 @@ public static class LibraryItems
                 Picture = target =>
                 {
                     var cfg = store.LoadPreset(p);
-                    if (cfg is not null) ModelCopier.Copy(cfg, target);
+                    if (cfg is null) return;
+                    passes?.SecurePattern(cfg);   // round 89: a preset saved with a page's pass keeps it on this machine, never in the show
+                    ModelCopier.Copy(cfg, target);
                 },
                 Thumb = _ => store.LoadPreset(p),
             });
@@ -178,12 +182,16 @@ public static class LibraryItems
         return null;
     }
 
-    /// <summary>A web tile on a pattern: the page, treated as its address says (Auto), on the picture being edited.</summary>
+    /// <summary>
+    /// A web tile on a pattern: the page, treated as its address says (Auto), on the picture being edited. Round 89: the
+    /// address in the fence's form (<see cref="WindowAddresses.Held"/>) — a private one the caller did not keep is held
+    /// unkept, black, never written into the show with its pass.
+    /// </summary>
     public static void ApplyWeb(PatternConfig target, string url)
     {
         target.Kind = PatternKind.Media;
         target.Media.Source = MediaSource.Web;
-        target.Media.WebUrl = WebAddress.Normalize(url);
+        target.Media.WebUrl = WindowAddresses.Held(WebAddress.Normalize(url));
         target.Media.WebService = PageServicePick.Auto;
     }
 
@@ -207,9 +215,16 @@ public static class LibraryItems
         _ => new[] { "#3EC1F3", "#101319", "#E6EAF2" },
     };
 
-    /// <summary>The tile's name: the host and the path's tail — "youtube.com · watch?v=…" — never the scheme, never the whole address.</summary>
+    /// <summary>
+    /// The tile's name: the host and the path's tail — "youtube.com · watch?v=…" — never the scheme, never the whole
+    /// address. Round 89: a kept address is its host and its kept id — "10.0.0.5 · q3x7m2k9p4ab (private address)", the id
+    /// STATE shows, so two windows of one Stagewatch are two names the wire's LIBRARY tells apart; any other held or
+    /// private address is its host and "(private address)" — never its path or its pass.
+    /// </summary>
     public static string WebTitle(string url)
     {
+        if (WindowAddresses.TryKept(url, out _, out _, out var id)) return $"{WindowAddresses.HostOf(url)} · {id}{WindowAddresses.PrivateNote}";
+        if (WindowAddresses.IsHeld(url) || WindowAddresses.LooksPrivate(url)) return WindowAddresses.HostOf(url) + WindowAddresses.PrivateNote;
         var host = WebAddress.ShortName(url);
         if (Uri.TryCreate(WebAddress.Normalize(url), UriKind.Absolute, out var uri) && !uri.IsFile)
         {

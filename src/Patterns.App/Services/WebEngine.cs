@@ -26,7 +26,12 @@ public sealed class WebEngine : IDisposable
     /// <summary>How often a page's player is read while something is pending — an arm to prepare, a play to land, an advert to skip.</summary>
     public static readonly TimeSpan FastPoll = TimeSpan.FromMilliseconds(250);
 
-    private sealed record Page(IWebSource Source, string Format, bool PreRoll, DateTime? UnwantedUtc = null, bool Mute = false);
+    /// <summary>
+    /// A mounted page. <paramref name="OpensFor"/> is, round 89, the held address the page was last seen on (its own, or
+    /// one a WEB OPEN sent it to) and <paramref name="Opens"/> what the book resolved that to then — held here only to see
+    /// when the resolution moves, never published; both "" while the page is on an address that is not held.
+    /// </summary>
+    private sealed record Page(IWebSource Source, string Format, bool PreRoll, DateTime? UnwantedUtc = null, bool Mute = false, string Opens = "", string OpensFor = "");
 
     /// <summary>
     /// A page opened for a cue ahead stays this long after the cue stops being ahead: the moment
@@ -79,6 +84,51 @@ public sealed class WebEngine : IDisposable
 
     /// <summary>Tests (and any other browser) stand in for WebView2 here: a wanted page → a source, or null to skip it.</summary>
     public Func<MediaLocator.WantedInput, IWebSource?>? SourceFactory { get; set; }
+
+    /// <summary>
+    /// Round 89: what a held page (<c>kept://…</c>, <c>unkept://…</c>) opens on this machine — the desk's book of kept
+    /// addresses. The source is handed the held address (its mount key's) and resolves it itself at navigation, so the
+    /// real address lives in the browser alone. Null: no book, and every held page is black.
+    /// </summary>
+    public Func<string, WebPassResolution>? Resolve { get; set; }
+
+    /// <summary>What a held address opens through <see cref="Resolve"/>; nothing (and why) without a book; any other address as it is.</summary>
+    public WebPassResolution ResolveOf(string address)
+    {
+        if (!WindowAddresses.IsHeld(address)) return new WebPassResolution(address, "");
+        return Resolve is { } resolve ? resolve(address) : new WebPassResolution(null, WebPassBook.NotHereWhy);
+    }
+
+    /// <summary>
+    /// Round 89: the book changed — a mounted page on a held address whose resolution moved (a pass this machine now
+    /// keeps, or one it no longer does) is navigated to that held address again, and the source resolves it afresh. The
+    /// address is the one the page is on now — its own, or one a WEB OPEN sent it to, which stands: a book that moves
+    /// never takes a page back from an operator's WEB OPEN. A page on an address that is not held, a page that went to
+    /// its held address by itself since it was last seen (it resolved as it went), and a held page whose resolution
+    /// stands are left as they are (UI thread).
+    /// </summary>
+    public void Reresolve()
+    {
+        foreach (var key in _pages.Keys.ToList())
+        {
+            var page = _pages[key];
+            var on = page.Source.CurrentUrl ?? "";
+            if (!WindowAddresses.IsHeld(on))
+            {
+                if (page.OpensFor.Length > 0) _pages[key] = page with { Opens = "", OpensFor = "" };
+                continue;
+            }
+            var opens = ResolveOf(on).Url ?? "";
+            if (!string.Equals(on, page.OpensFor, StringComparison.Ordinal))
+            {
+                _pages[key] = page with { Opens = opens, OpensFor = on };
+                continue;
+            }
+            if (string.Equals(opens, page.Opens, StringComparison.Ordinal)) continue;
+            _pages[key] = page with { Opens = opens };
+            page.Source.Navigate(on);
+        }
+    }
 
     /// <summary>
     /// What the browser is asked to hand over for a page (round 68), given the wanted page and the
@@ -255,7 +305,8 @@ public sealed class WebEngine : IDisposable
                 source.CleanCss = w.Clean;
                 source.Smoothing = w.Smoothing;
                 source.PreferH264 = PrefersH264(w, snap.State);
-                _pages[w.Key] = new Page(source, w.Format, isEarly, Mute: w.Mute);
+                var held = InputKeys.IsHeldWeb(w.Key) ? w.Key[4..] : "";
+                _pages[w.Key] = new Page(source, w.Format, isEarly, Mute: w.Mute, Opens: held.Length > 0 ? ResolveOf(held).Url ?? "" : "", OpensFor: held);
                 InputBus.Mount(w.Key, source);
                 RouteSound(source, w, snap.State);
                 Track(w, source, onAir, mounted: true, now);
@@ -724,9 +775,10 @@ public sealed class WebEngine : IDisposable
         if (!OperatingSystem.IsWindows()) return null;
         // A page opening straight onto the air with a start point takes it in the address where the
         // service allows, so the first frame is the right one; the mount key stays the pattern's own.
-        var address = w.AutoPlay && OnAir(w) ? WebVt.AddressWithStart(w.Target, w.Service, w.StartSeconds) : w.Target;
+        // A held page (round 89) is handed over held: the source resolves it at navigation, through this engine's book.
+        var address = w.AutoPlay && OnAir(w) && !WindowAddresses.IsHeld(w.Target) ? WebVt.AddressWithStart(w.Target, w.Service, w.StartSeconds) : w.Target;
         return WebFrameSource.Create(address == w.Target ? w : w with { Target = address }, _userDataFolder,
-            PlanOf(w, 0), MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB), HardwareDecoding?.Invoke() ?? true);
+            PlanOf(w, 0), MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB), HardwareDecoding?.Invoke() ?? true, ResolveOf);
     }
 
     private static void Dispose(IWebSource source)

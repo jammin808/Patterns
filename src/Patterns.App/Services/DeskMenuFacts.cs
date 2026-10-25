@@ -299,7 +299,7 @@ public static class DeskMenuFacts
             LayerSource.NdiFeed => layer.NdiSourceName,
             LayerSource.Capture => layer.CaptureDevice,
             LayerSource.Screen => layer.TargetId,
-            LayerSource.Web => layer.WebUrl,
+            LayerSource.Web => WindowAddresses.PublicForm(layer.WebUrl),   // round 89: a menu names a private page in public, never its pass
             _ => "",
         };
         return new LayerFacts { Index = index, Enabled = layer.Enabled, Source = layer.Source, Words = words, Fit = layer.Fit };
