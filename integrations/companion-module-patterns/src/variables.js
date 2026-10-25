@@ -139,7 +139,7 @@ export function variableDefinitions() {
 		devices_failing: 'Interactive devices whose last word was a failure (count)',
 		device_last_reply: "The newest reply from any Interactive device ('Projector: POWR: OK — accepted', or empty)",
 		device_last_failure: "The newest failure from any Interactive device ('Projector: INPUT HDMI 2 — no answer in 2 s', or empty)",
-		web_page: 'The web page on air (its nickname or host, or empty)',
+		web_page: "The web page on air (its nickname or host, or empty; a private page as '10.0.0.5 (private address, kept)')",
 		web_title: "The web page on air — the page's title",
 		web_service: 'The web page on air — its service (YouTube, Google Slides, PowerPoint…)',
 		web_fps: "The web page on air — frames it delivered in the last second (a video's rate; empty for a still page)",

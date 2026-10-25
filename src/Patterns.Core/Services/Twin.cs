@@ -50,8 +50,12 @@ public enum TwinWord
     Context,
     /// <summary>
     /// Round 89: main → standby, on welcome and whenever it changes, and only while the twin carries the show's secrets:
-    /// the main's book of kept page addresses (<see cref="WebPassBook"/> JSON). The standby takes it into its own book, so
-    /// a page the show holds as <c>kept://…</c> opens on the standby when it takes the show; without it that page is black.
+    /// the part of the main's book of kept page addresses the show and the air record it sends name (<see cref="WebPassBook"/>
+    /// JSON, one line) — never the rest. The standby takes it into its own book, so a page the show holds as
+    /// <c>kept://…</c> opens on the standby when it takes the show; without it that page is black. A standby that has the
+    /// show is sent none; it sends its own part the same way after the show it hands back, under its own setting, so a
+    /// page pasted there opens on the main after TAKE BACK. Never to a caller or a stage timer, and nothing a peer says
+    /// before it proved the key lands.
     /// </summary>
     Kept,
 }

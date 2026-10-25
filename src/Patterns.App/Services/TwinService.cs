@@ -49,6 +49,9 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     private bool _pendingAir;
     private RecoverySnapshot? _air;
     private long _sectionsSent;
+    private WebPassBook _keptCut = WebPassBook.Empty;   // round 89: the part of the book the show and its air name, as a standby is sent it
+    private WebPassBook? _keptCutFrom;                  // the book it was cut from
+    private bool _keptStale = true;                     // the show or its air moved since it was cut: cut again at the next beat
 
     // ---- the standby's side ----
     private TcpClient? _client;
@@ -70,6 +73,8 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     private long _lastMainReceivedTicks;
     private DateTime _nextAutoTakeOverUtc;      // after a takeover by itself was refused: the next try
     private string _dialNonce = "";             // this dial's nonce: the main proves the key over it before this desk answers
+    private bool _mainProved;                   // this dial's main proved the key over its nonce: until it has, nothing it says lands here
+    private bool _unprovedSaid;                 // a word before the proof was said in the log, once a dial
     private TwinTransaction? _handover;         // the last handover run here, its stages and where it stopped
     private string _handoverNote = "";          // a take-back stopped at the wall switch: the words until it finishes
     private bool _handoverBusy;                 // a wall switch was asked, or the standby was told to let go, and the answer is awaited: no second handover meanwhile
@@ -111,6 +116,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         _launcher = new TwinLauncher(() => Clock());
         _kernel.Bus.SectionsPublished += OnBuilt;
         _services.RecoveryMoved += OnRecoveryMoved;
+        _kernel.WebPasses.Changed += OnKeptChanged;                                  // round 89: the book follows the show's secrets to a standby
         EnsureStackHook();
         // Before a window opens: a standby on this machine that took the show while this desk was
         // away still has the screens — this desk's outputs wait on TAKE BACK.
@@ -626,6 +632,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     }
                     if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); }, CancellationToken.None);
                     SendLive();
+                    SendKept();
                     _launcher.Tick(standbyHoldsShow: _holder.Length > 0);
                     CheckMarker(force: false);
                     break;
@@ -691,6 +698,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         _launcher.End(standbyHoldsShow: _holder.Length > 0 || _holderMarked || KeepStandbyOnExit);
         _kernel.Bus.SectionsPublished -= OnBuilt;
         _services.RecoveryMoved -= OnRecoveryMoved;
+        _kernel.WebPasses.Changed -= OnKeptChanged;
         if (_stackHooked && _services.CueStack is { } stack) stack.Changed -= OnStackChanged;
     }
 }

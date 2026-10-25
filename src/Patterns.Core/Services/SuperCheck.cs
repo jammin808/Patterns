@@ -244,8 +244,23 @@ public sealed class CheckFacts
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
 
+    /// <summary>
+    /// Round 89: every place the show names a private page address (<see cref="WebPassMigration.Places"/>) and what this
+    /// machine's book of kept addresses makes of each; empty when the show names none (no row).
+    /// </summary>
+    public IReadOnlyList<PrivatePageFact> PrivatePages { get; init; } = Array.Empty<PrivatePageFact>();
+
+    /// <summary>Round 89: why nothing can be kept on this machine (the book's file unreadable or of another version); "" when it can.</summary>
+    public string PassBookProblem { get; init; } = "";
+
     public IReadOnlyList<HealthSuggestion> Advice { get; init; } = Array.Empty<HealthSuggestion>();
 }
+
+/// <summary>
+/// Round 89: one place the show names a private page address, as the Super Check reads it: where, the address in public
+/// (a held address, never a pass), whether the show holds it raw, and whether this machine opens it — with why not.
+/// </summary>
+public sealed record PrivatePageFact(string Where, string Address, bool Raw, bool Opens, string Why);
 
 /// <summary>The rules: facts to rows, rows to a light, hardware to a level.</summary>
 public static class SuperCheck
@@ -614,6 +629,45 @@ public static class SuperCheck
             rows.Add(new CheckRow(s, "Twin", TwinLight(f.TwinPhase), TwinValue(f.TwinRole, f.TwinPhase), f.TwinWords));
         }
         if (f.ShowLock is { } held) rows.Add(new CheckRow(s, "Show lock", held.Light(f.OutputsLive), held.Value, held.Summary));
+        PrivatePages(f, rows, s);
+    }
+
+    /// <summary>How many places the private pages row names before it counts the rest.</summary>
+    public const int PrivatePagesNamed = 4;
+
+    /// <summary>
+    /// Round 89: the show's private page addresses — a row only when it names one, or when nothing can be kept here.
+    /// Green when this machine opens every one (kept here: the pass in its book, the show holding kept://…); amber with
+    /// where each sits when one opens nothing here — held raw (a hand edit, an older peer: inert and black), held without
+    /// its pass, or kept on another machine (a standby the twin did not carry the passes to) — and when the book is frozen.
+    /// Never a pass: every address is said in its held form.
+    /// </summary>
+    private static void PrivatePages(CheckFacts f, List<CheckRow> rows, string s)
+    {
+        const string item = "Private pages";
+        var pages = f.PrivatePages;
+        if (pages.Count == 0 && f.PassBookProblem.Length == 0) return;
+        var shut = pages.Where(p => !p.Opens).ToList();
+        if (shut.Count == 0 && f.PassBookProblem.Length == 0)
+        {
+            var kept = pages.Select(p => p.Address).Distinct(StringComparer.Ordinal).Count();
+            rows.Add(new CheckRow(s, item, CheckLight.Green, $"{kept} kept on this machine",
+                "the show names each by kept://…; its pass stays in this machine's book beside the settings, never in STATE, the journal, the log or a bundle"));
+            return;
+        }
+        var words = new List<string>();
+        foreach (var p in shut.Take(PrivatePagesNamed))
+        {
+            words.Add(p.Raw
+                ? $"{p.Where} holds a private address written raw into the show ({p.Address}) — inert and black; paste it again to keep it on this machine"
+                : $"{p.Where}: {p.Address} — {p.Why}");
+        }
+        if (shut.Count > PrivatePagesNamed) words.Add($"and {shut.Count - PrivatePagesNamed} more");
+        if (f.PassBookProblem.Length > 0) words.Add("nothing can be kept on this machine: " + f.PassBookProblem);
+        var value = shut.Count == 0
+            ? "nothing can be kept on this machine"
+            : $"{shut.Count} of {pages.Count} open nothing here{(shut.Any(p => p.Raw) ? " · written raw" : "")}";
+        rows.Add(new CheckRow(s, item, CheckLight.Amber, value, "FIX: " + string.Join("; ", words)));
     }
 
     /// <summary>The twin's light: in step is green, a link still forming is amber, a main gone silent or a refused link is red, a takeover is amber until the desk stands by again.</summary>

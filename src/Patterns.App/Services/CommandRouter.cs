@@ -298,13 +298,16 @@ public sealed class CommandRouter : IRouter
         if (wanted is null) return null;
         var pageUrl = wanted.Origin.Length > 0 ? wanted.Origin : wanted.Target;
         var page = Patterns.Rendering.Media.InputBus.For(wanted.Key) as Patterns.Rendering.Media.IWebSource;
-        var url = page?.CurrentUrl is { Length: > 0 } current ? current : pageUrl;
+        // Round 89: the address in public — a held page by its held address (kept://host[:port]/<id>), any other private
+        // address as scheme://host[:port], never with its pass — and a held page named by its host and what this machine
+        // can do with it ("10.0.0.5 (private address, kept)", "… kept on another machine").
+        var url = WindowAddresses.PublicForm(page?.CurrentUrl is { Length: > 0 } current ? current : pageUrl);
         var preset = WebPresets.For(url);
         return new
         {
-            page = _services.State.InputLabel(wanted.Key, WebAddress.ShortName(url)),
+            page = _services.State.InputLabel(wanted.Key, WindowAddresses.IsHeld(url) ? _services.WebPasses.Label(url) : WebAddress.ShortName(url)),
             url,
-            title = page?.Title ?? "",
+            title = WindowAddresses.RedactText(page?.Title ?? ""),                      // the source says it in public; said again here, whoever the source is
             service = preset.Service == PageService.Page ? "" : preset.Name,
             fps = (int)Math.Round(page?.FrameRate ?? 0),                    // frames the page delivered in the last second: a video's rate, 0 for a still page
             actions = preset.Actions.Select(a => new { id = a.Id, label = a.Label }).ToArray(),

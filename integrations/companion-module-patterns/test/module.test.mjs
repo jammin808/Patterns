@@ -380,6 +380,19 @@ test('round 67 — the next take and the group on the deck: TAKE NEXT and SCREEN
 	assert.deepEqual(style('take', 'sting'), style('stinger', 'playing'))
 })
 
+test('round 89 — a private page on air reaches the deck by its host and its kept address, never its pass', async () => {
+	const held = { ...sampleState(), web: { page: '10.0.0.5 (private address, kept)', url: 'kept://10.0.0.5:9924/q3x7m2k6p4ab', title: '', service: '', fps: 0, actions: [], player: null, arm: null, path: null } }
+	const v = variableValues(held)
+	assert.equal(v.web_page, '10.0.0.5 (private address, kept)')
+	for (const [name, value] of Object.entries(v)) assert.ok(!String(value).includes('/w/'), `${name} carries a window's path`)
+	const b = await boot({ state: held })
+	assert.equal(askFeedback(b, 'web_on_air', { word: '' }), true)
+	assert.equal(askFeedback(b, 'web_on_air', { word: '10.0.0.5' }), true)                   // a key lit by the page's host still lights
+	assert.equal(askFeedback(b, 'web_on_air', { word: 'kept on another machine' }), false)
+	const elsewhere = { ...held, web: { ...held.web, page: '10.0.0.5 (private address, kept on another machine)' } }
+	assert.equal(askFeedback(await boot({ state: elsewhere }), 'web_on_air', { word: 'kept on another machine' }), true)   // a key can light for a page this desk cannot open
+})
+
 test("round 68 — the web page's picture on the deck: the frame path as variables, buffered and stalled as feedbacks, nothing for a page without one", async () => {
 	const path = { words: 'smooth 2 (67 ms) · decode 6.2 ms · 30 → 30 fps', smoothing: 'smooth 2 (67 ms)', depth: 2, latencyMs: 66.7, jitterMs: 4.1, decodeMs: 6.2, deliveredFps: 30, presentedFps: 30, underruns: 1, dropped: 0, duplicates: 12, held: 2, poolStarved: 0, poolBytes: 58060800, capture: 'captured at 1280×720 · q60' }
 	const smooth = { ...sampleState(), web: { page: 'Sponsor', url: 'https://www.youtube.com/embed/abc', title: 'Sponsor', service: 'YouTube', fps: 30, actions: [], player: null, arm: null, path } }

@@ -230,7 +230,8 @@ jobs:
   # This job builds on Windows, runs every suite but the App's whole, runs the App suite's desk,
   # menu, preview, pipeline, lifecycle and memory classes headless on Windows, and runs the
   # built exe's runtime check — Skia, libVLC where the runner has it, the audio endpoints, the
-  # modules — so a Windows-only regression fails a build before a tag.
+  # WebView2 runtime opening a page (round 89, required here), the modules — so a Windows-only
+  # regression fails a build before a tag.
   windows-smoke:
     runs-on: windows-latest
     steps:
@@ -250,7 +251,7 @@ jobs:
         shell: pwsh
         run: |
           $exe = Resolve-Path src/Patterns.App/bin/Release/net10.0/Patterns.exe
-          $p = Start-Process -FilePath $exe -ArgumentList '--verify-runtime','--no-watchdog','--report',(Join-Path $PWD 'runtime-windows.txt') -Wait -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList '--verify-runtime','--require-webview2','--no-watchdog','--report',(Join-Path $PWD 'runtime-windows.txt') -Wait -PassThru
           if (Test-Path runtime-windows.txt) { Get-Content runtime-windows.txt }
           if ($p.ExitCode -ne 0) { throw "the runtime check failed with $($p.ExitCode)" }
       - name: A timer node's footprint (its own process — no room, no arcade)

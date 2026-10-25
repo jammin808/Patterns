@@ -4,7 +4,9 @@ namespace Patterns.Core.Services;
 
 /// <summary>
 /// Tiny portable logger: appends to patterns.log beside the exe. Never throws —
-/// a failing logger must not take a show down.
+/// a failing logger must not take a show down. Round 89: every line is said in public
+/// (<see cref="WindowAddresses.RedactText"/>) whoever wrote it — a private page address in a message or an
+/// exception's text is written as its host and port, never with its pass — so no writer can put a pass in the log.
 /// </summary>
 public static class Log
 {
@@ -35,9 +37,10 @@ public static class Log
 
     public static void Error(string message, Exception? ex = null)
     {
-        // Every contained error passes through here — it doubles as the health counter.
-        HealthMonitor.Record(message);
-        Write("ERROR", message, ex);
+        // Every contained error passes through here — it doubles as the health counter, which keeps the words said in public.
+        var said = WindowAddresses.RedactText(message);
+        HealthMonitor.Record(said);
+        Write("ERROR", said, ex);
     }
 
     private static void Write(string level, string message, Exception? ex)
@@ -47,8 +50,8 @@ public static class Log
             var sb = new StringBuilder()
                 .Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture))
                 .Append(" [").Append(level).Append("] ")
-                .Append(message);
-            if (ex is not null) sb.Append(" :: ").Append(ex);
+                .Append(WindowAddresses.RedactText(message));
+            if (ex is not null) sb.Append(" :: ").Append(WindowAddresses.RedactText(ex.ToString()));
             var line = sb.ToString();
 
             if (_path is not null)

@@ -27,7 +27,9 @@ public sealed record ShowLogEntry(
 /// The show journal: an append-only JSON-lines file beside the settings that records every
 /// air change with its origin. It survives a crash, feeds the history a caller reads after a
 /// relaunch, and gives the client a post-show report. Never throws — a journal that could
-/// stop a show would be worse than no journal.
+/// stop a show would be worse than no journal. Round 89: a row's target and words are said in
+/// public as they are written and again as they are read (<see cref="WindowAddresses.RedactText"/>):
+/// no writer puts a page's pass in the file, and a row an older build wrote reaches no reader with one.
 /// </summary>
 public sealed class ShowLog
 {
@@ -50,10 +52,11 @@ public sealed class ShowLog
     {
         try
         {
+            var said = InPublic(entry);
             lock (_gate)
             {
                 RotateIfLarge();
-                File.AppendAllText(Path, JsonSerializer.Serialize(entry, Compact) + Environment.NewLine);
+                File.AppendAllText(Path, JsonSerializer.Serialize(said, Compact) + Environment.NewLine);
             }
         }
         catch (Exception ex)
@@ -65,7 +68,17 @@ public sealed class ShowLog
     public void Record(string origin, string kind, string target, string outcome, string message = "", string? visibility = null, string? effect = null)
         => Record(new ShowLogEntry(DateTime.UtcNow, origin, kind, target, outcome, message, visibility, effect));
 
-    /// <summary>The most recent entries, oldest first. Unreadable lines are skipped.</summary>
+    /// <summary>A row with its target and its words said in public: a private page address as its host and port, never its pass; the row itself when there is none.</summary>
+    public static ShowLogEntry InPublic(ShowLogEntry entry)
+    {
+        var target = WindowAddresses.RedactText(entry.Target);
+        var message = WindowAddresses.RedactText(entry.Message);
+        return string.Equals(target, entry.Target, StringComparison.Ordinal) && string.Equals(message, entry.Message, StringComparison.Ordinal)
+            ? entry
+            : entry with { Target = target, Message = message };
+    }
+
+    /// <summary>The most recent entries, oldest first, each said in public. Unreadable lines are skipped.</summary>
     public IReadOnlyList<ShowLogEntry> Tail(int count)
     {
         try
@@ -81,7 +94,7 @@ public sealed class ShowLog
                     try
                     {
                         var entry = JsonSerializer.Deserialize<ShowLogEntry>(lines[i], Compact);
-                        if (entry is not null) result.Add(entry);
+                        if (entry is not null) result.Add(InPublic(entry));
                     }
                     catch
                     {

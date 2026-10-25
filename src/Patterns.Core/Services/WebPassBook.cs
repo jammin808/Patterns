@@ -133,31 +133,52 @@ public sealed class WebPassBook
         return Resolve(a).Resolved ? $"{host} (private address, kept)" : $"{host} (private address, kept on another machine)";
     }
 
+    /// <summary>The same entries, in the same order, as another book: a merge that changed nothing writes nothing.</summary>
+    public bool SameAs(WebPassBook? other) => other is not null && _passes.AsSpan().SequenceEqual(other._passes);
+
     /// <summary>
-    /// This book with another's entries taken in — a standby taking the main's book: every entry of
-    /// <paramref name="incoming"/> stands (an id in both takes the incoming address, the one the show it came with names),
-    /// and this book's own entries fill the room left, its oldest unnamed by <paramref name="inUse"/> going first.
+    /// This book with another's entries taken in — a standby taking the main's book, a main taking back a standby's:
+    /// an id in both takes the incoming address (the one the show it came with names), and past <see cref="Max"/> room
+    /// is made by the oldest pass <paramref name="inUse"/> does not name — this book's first, then the incoming's. A pass
+    /// a show names gives way only when the named ones alone are more than the book holds, and then this book's oldest
+    /// named one goes first: the incoming entries stand over this book's.
     /// </summary>
     public WebPassBook Merge(WebPassBook incoming, Func<string, bool>? inUse = null)
     {
         ArgumentNullException.ThrowIfNull(incoming);
         var ids = new HashSet<string>(incoming._passes.Select(p => p.Id), StringComparer.Ordinal);
         var own = _passes.Where(p => !ids.Contains(p.Id)).ToList();
-        while (own.Count > 0 && incoming._passes.Length + own.Count > Max)
+        var theirs = incoming._passes.ToList();
+        bool Named(WebPass p) => inUse is not null && inUse(p.Id);
+        static WebPass? Oldest(IEnumerable<WebPass> passes) => passes.OrderBy(p => p.KeptUtc).ThenBy(p => p.Id, StringComparer.Ordinal).FirstOrDefault();
+        while (own.Count + theirs.Count > Max)
         {
-            var drop = own.Where(p => inUse is null || !inUse(p.Id)).OrderBy(p => p.KeptUtc).ThenBy(p => p.Id, StringComparer.Ordinal).FirstOrDefault()
-                       ?? own.OrderBy(p => p.KeptUtc).ThenBy(p => p.Id, StringComparer.Ordinal).First();
-            own.Remove(drop);
+            var drop = Oldest(own.Where(p => !Named(p))) ?? Oldest(theirs.Where(p => !Named(p))) ?? Oldest(own) ?? Oldest(theirs)!;
+            if (!own.Remove(drop)) theirs.Remove(drop);
         }
-        var merged = incoming._passes.Concat(own).OrderBy(p => p.KeptUtc).ThenBy(p => p.Id, StringComparer.Ordinal).ToArray();
+        var merged = theirs.Concat(own).OrderBy(p => p.KeptUtc).ThenBy(p => p.Id, StringComparer.Ordinal).ToArray();
         return new WebPassBook(merged);
     }
 
-    /// <summary>The book as its file holds it: <c>{"v":1,"passes":[{"id","url","keptUtc"}]}</c>.</summary>
-    public string ToJson()
+    /// <summary>
+    /// The part of the book <paramref name="ids"/> names, in the same order — what a peer is sent: the passes of the
+    /// private pages the show it is sent names, never the rest. The book itself when it names every entry.
+    /// </summary>
+    public WebPassBook Only(IReadOnlySet<string> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (_passes.All(p => ids.Contains(p.Id))) return this;
+        return new WebPassBook(_passes.Where(p => ids.Contains(p.Id)).ToArray());
+    }
+
+    /// <summary>
+    /// The book as its file holds it: <c>{"v":1,"passes":[{"id","url","keptUtc"}]}</c> — indented for the file, on one
+    /// line for the twin's KEPT word (<paramref name="indented"/> false).
+    /// </summary>
+    public string ToJson(bool indented = true)
     {
         using var stream = new MemoryStream();
-        using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+        using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = indented }))
         {
             w.WriteStartObject();
             w.WriteNumber("v", Version);

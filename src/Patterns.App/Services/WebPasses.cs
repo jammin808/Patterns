@@ -246,6 +246,65 @@ public sealed class WebPasses
         return scrub;
     }
 
+    /// <summary>
+    /// The twin's KEPT word: another machine's passes taken into this book, written to the disk first, then swapped and
+    /// raised (<see cref="Changed"/>: a held page waiting on an entry opens). On a standby the main's entries stand
+    /// (<paramref name="theirsStand"/>: the main sends the passes its show names, and that show comes with them, so each
+    /// counts as named here) and this book's own fill the room left; on a main taking a standby's back, this book's stand
+    /// and the standby's fill the room. A full book makes room from passes no show names first — those the shows this desk
+    /// holds name, and <paramref name="alsoNamed"/> (the show a standby holds for TAKE BACK) — and gives a named one up
+    /// only when the named ones alone are more than it holds, said in the log. A frozen book, or one that cannot be
+    /// written, takes nothing: the pages stay black here, said in the log. False when nothing changed.
+    /// </summary>
+    public bool MergeFromTwin(WebPassBook incoming, bool theirsStand, string from, IReadOnlySet<string>? alsoNamed = null)
+    {
+        ArgumentNullException.ThrowIfNull(incoming);
+        RereadIfUnread();
+        WebPassBook merged;
+        var lost = 0;
+        lock (_gate)
+        {
+            if (Frozen.Length > 0)
+            {
+                Log.Warn($"Twin: {from}'s {Count(incoming.Count)} could not be kept here — {Frozen}; a page the show holds by one stays black on this machine.");
+                return false;
+            }
+            var own = _book;
+            HashSet<string>? named = null;
+            bool InUse(string id)
+            {
+                if (named is null)
+                {
+                    named = NamedIds();
+                    if (alsoNamed is not null) named.UnionWith(alsoNamed);
+                    if (theirsStand) named.UnionWith(incoming.Passes.Select(p => p.Id));
+                }
+                return named.Contains(id);
+            }
+            merged = theirsStand ? own.Merge(incoming, InUse) : incoming.Merge(own, InUse);
+            if (merged.SameAs(own)) return false;
+            if (merged.Count >= WebPassBook.Max)
+            {
+                lost = own.Passes.Concat(incoming.Passes).Select(p => p.Id).Distinct(StringComparer.Ordinal).Count(id => InUse(id) && merged.Find(id) is null);
+            }
+            if (!Write(merged, out var why))
+            {
+                Log.Warn($"Twin: {from}'s {Count(incoming.Count)} could not be kept here — {why}.");
+                return false;
+            }
+            Volatile.Write(ref _book, merged);
+        }
+        Log.Info($"Twin: took in {from}'s {Count(incoming.Count)} — {merged.Count.ToString(CultureInfo.InvariantCulture)} kept on this machine now; a page the show names by one opens here.");
+        if (lost > 0)
+        {
+            Log.Warn($"Twin: the book of kept page addresses is full of passes the shows name — {Count(lost)} named here gave way to {from}'s; a page that names one is black on this machine until it is pasted again.");
+        }
+        RaiseChanged();
+        return true;
+
+        static string Count(int n) => $"{n.ToString(CultureInfo.InvariantCulture)} kept page address{(n == 1 ? "" : "es")}";
+    }
+
     /// <summary>A preset's picture made safe before it lands on a pattern: its page and its two layers' (a preset saved before round 89 can hold a pass).</summary>
     public void SecurePattern(PatternConfig pattern)
     {

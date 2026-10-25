@@ -28,6 +28,7 @@ public sealed partial class TwinService
             return;
         }
         if (_role != TwinRole.Main && !_hosting) return;
+        _keptStale = true;                                                            // the kept ids the show names may have moved: cut again at the next beat
         if (dirty is null)
         {
             _pendingWhole = true;
@@ -58,6 +59,7 @@ public sealed partial class TwinService
     private void OnRecoveryMoved(RecoverySnapshot? record)
     {
         _air = record;
+        _keptStale = true;                                                            // the air record names pages too
         if (_role != TwinRole.Main) return;
         _pendingAir = true;
         ScheduleFlush();
@@ -118,6 +120,72 @@ public sealed partial class TwinService
     }
 
     private string AirLine() => TwinMessage.Format(TwinWord.Air, _air is null ? "null" : JsonUtil.SerializeCompact(_air));
+
+    /// <summary>Round 89: this desk's book of kept page addresses moved (any thread): each standby is sent its part on the UI thread.</summary>
+    private void OnKeptChanged() => UiThread.Post(SendKept);
+
+    /// <summary>
+    /// Round 89 (UI thread): the part of this main's book a standby needs — the passes of the private pages the show it
+    /// is sent and the air record name as <c>kept://…</c>, never the rest of the book — to each standby that has not had
+    /// that part as it stands, and only while the twin carries the show's secrets (TwinConfig.SendSecrets). Never to a
+    /// caller or a stage timer (they never take the show), nor to a standby that holds the show: its air names its own
+    /// book's passes, and it is sent this part once TAKE BACK makes it a standby again. Called when the book moves and on
+    /// each beat, so a show that came to name a kept page, a standby that joined while the book moved or a setting
+    /// turned on has it within the second.
+    /// </summary>
+    private void SendKept()
+    {
+        if (_role != TwinRole.Main || !_kernel.State.Twin.SendSecrets) return;
+        List<Standby> due;
+        lock (_gate)
+        {
+            due = _standbys.Where(s => !s.IsFollower && !s.HoldsShow).ToList();
+        }
+        if (due.Count == 0) return;
+        var cut = KeptCut();
+        due.RemoveAll(s => ReferenceEquals(s.KeptSent, cut));
+        if (due.Count == 0) return;
+        foreach (var s in due) s.KeptSent = cut;
+        if (cut.Count == 0) return;                                                   // nothing the show names is kept: nothing to carry
+        var line = KeptLine(cut);
+        _ = Task.Run(() => { foreach (var s in due) if (!s.TryWrite(line)) Drop(s); }, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// The part of the book a standby is sent (UI thread): cut again when the book moved, or when the show or the air
+    /// record moved since the last cut — so the show is read for its kept ids at most once a beat while it is edited,
+    /// and only while a standby could be sent them. The same object while the part is the same: a standby that has it
+    /// is known by reference.
+    /// </summary>
+    private WebPassBook KeptCut()
+    {
+        var book = _kernel.WebPasses.Book;
+        if (ReferenceEquals(book, _keptCutFrom) && !_keptStale) return _keptCut;
+        var cut = book.Count == 0 ? WebPassBook.Empty : book.Only(NamedKeptIds());
+        _keptCutFrom = book;
+        _keptStale = false;
+        if (!cut.SameAs(_keptCut)) _keptCut = cut;
+        return _keptCut;
+    }
+
+    /// <summary>The kept ids the show this desk sends and its air record name — what a peer sent them needs the passes of.</summary>
+    private HashSet<string> NamedKeptIds()
+    {
+        var ids = new HashSet<string>(WebPassMigration.KeptIdsIn(_kernel.State), StringComparer.Ordinal);
+        if (_air is { } record) ids.UnionWith(WebPassMigration.KeptIdsInText(JsonUtil.SerializeCompact(record)));
+        return ids;
+    }
+
+    /// <summary>The kept ids the show and the air a standby that holds the show sent name — the passes this desk keeps for TAKE BACK.</summary>
+    private HashSet<string> HeldKeptIds()
+    {
+        var ids = new HashSet<string>(WebPassMigration.KeptIdsInText(_heldShowJson), StringComparer.Ordinal);
+        if (_heldAir is { } record) ids.UnionWith(WebPassMigration.KeptIdsInText(JsonUtil.SerializeCompact(record)));
+        return ids;
+    }
+
+    /// <summary>The KEPT line: a book on one line (its file's JSON, never indented).</summary>
+    private static string KeptLine(WebPassBook book) => TwinMessage.Format(TwinWord.Kept, book.ToJson(indented: false));
 
     private void Drop(Standby s)
     {
@@ -205,17 +273,27 @@ public sealed partial class TwinService
             // The welcome and the whole show, read on the UI thread — the show is its own. A standby
             // that ran the show while this desk was away gets the welcome and nothing to mirror: its
             // show is the newer one, and this desk holds its outputs until TAKE BACK.
-            var (welcome, show, air) = await UiThread.InvokeAsync(() =>
+            var (welcome, show, air, kept) = await UiThread.InvokeAsync(() =>
             {
                 var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _kernel.State.Name);
                 if (standby.HoldsShow && _switchByHand is { } byHand && byHand.Instance == standby.Instance) _holderLinked = true;   // back on the link mid hand-back: this desk's picture is up on purpose, no hold
                 else if (standby.HoldsShow) Hold(standby.Name, null, linked: true);
                 // A standby that stands by again — no claim — while its answer to the hand-back is awaited: that is the answer.
                 if (!join.TookOver && !standby.IsFollower && _releaseWait is { } wait && wait.Instance == standby.Instance) CompleteRelease(wait, "it stands by again");
-                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets), AirLine());
+                // Round 89: the passes of the pages the show names ride the welcome, before the show, only where the show's
+                // secrets do — never to a follower, nor to a standby that holds the show (SendKept).
+                var keptLine = "";
+                if (!standby.IsFollower && !standby.HoldsShow && _kernel.State.Twin.SendSecrets)
+                {
+                    var cut = KeptCut();
+                    standby.KeptSent = cut;
+                    if (cut.Count > 0) keptLine = KeptLine(cut);
+                }
+                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets), AirLine(), keptLine);
             });
             var welcomed = standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome))
                            && (takenBack is null || standby.TryWrite(TwinMessage.Format(TwinWord.HandBack, takenBack.Value.TakeBack)))
+                           && (kept.Length == 0 || standby.TryWrite(kept))
                            && (standby.HoldsShow || (standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) && standby.TryWrite(air)))
                            && standby.TryWrite(standby.BeatLine(Interlocked.Increment(ref _beat), Clock().Ticks));
             if (!welcomed)
@@ -253,6 +331,13 @@ public sealed partial class TwinService
                 else if (msg.Word == TwinWord.Bye) break;
                 else if (msg.Word == TwinWord.Released) await UiThread.InvokeAsync(() => OnReleased(standby, msg.Payload));
                 else if (standby.IsFollower) await UiThread.InvokeAsync(() => OnCallerLine(standby, msg));
+                else if (standby.HoldsShow && msg.Word == TwinWord.Kept)
+                {
+                    // Round 89: the passes of the pages the show the standby has names, sent after that show — a page pasted
+                    // there opens here after TAKE BACK. This desk's own entries stand and the standby's fill the room; the
+                    // ones its show and air name count as named, so a full book here makes room from passes no show names.
+                    if (WebPassBook.TryParse(msg.Payload, out var book)) await UiThread.InvokeAsync(() => _kernel.WebPasses.MergeFromTwin(book, theirsStand: false, standby.Name, HeldKeptIds()));
+                }
                 else if (standby.HoldsShow && msg.Word is TwinWord.Show or TwinWord.Air)
                 {
                     // What the standby has: kept for TAKE BACK, never applied on its own.
@@ -344,6 +429,9 @@ public sealed partial class TwinService
 
         /// <summary>With <see cref="HoldsShow"/>: the id of the takeover it holds the show under, as its join said.</summary>
         public string Handover { get; init; } = "";
+
+        /// <summary>Round 89: the book of kept page addresses this standby was last sent (UI thread); null until it was sent one.</summary>
+        public WebPassBook? KeptSent { get; set; }
 
         public DateTime LastBeatUtc
         {

@@ -203,6 +203,37 @@ public class HeldPageTests
     }
 
     [Fact]
+    public void APagesTitleIsSaidInPublicAndAHeldPageIsNeverNamedByWhatItResolvedTo()
+    {
+        // A page that is not held: a browser names a document without a title by its address — said in public.
+        var page = new HeldPage(Book);
+        page.Open("https://example.com/schedule");
+        Assert.Equal("Schedule", page.PublicTitle("Schedule"));
+        Assert.Equal("", page.PublicTitle(null));
+        foreach (var raw in new[] { Window, "10.0.0.5:9924/w/" + Token, Pin, "x/feed?pin=4321" })
+        {
+            var said = page.PublicTitle(raw);
+            NamesNoPass(said);
+            Assert.NotEqual("", said);
+        }
+        Assert.Equal("https://x (private address)", page.PublicTitle(Pin));
+
+        // A held page: a title that names the address it resolved to, in any form, gives way to the held page's own name.
+        page.Open(KeptWindow);
+        Assert.Equal("10.0.0.5 (private address)", page.PublicTitle("10.0.0.5:9924/w/" + Token));
+        Assert.Equal("10.0.0.5 (private address)", page.PublicTitle(Window));
+        Assert.Equal("Stagewatch — Window 3", page.PublicTitle("Stagewatch — Window 3"));         // its own title stands
+        page.Open(KeptPin);
+        Assert.Equal("x (private address)", page.PublicTitle("x/feed?pin=4321"));
+        Assert.Equal("x (private address)", page.PublicTitle(Pin));
+        NamesNoPass(page.PublicTitle("Feed — " + Pin));
+
+        // A held page this machine cannot open never resolved: its title is said in public all the same.
+        page.Open("kept://10.0.0.9:9924/zzzzzzzzzzzz");
+        NamesNoPass(page.PublicTitle(Window));
+    }
+
+    [Fact]
     public void AHeldPagesSoundIsGrantedToAnOriginThatNamesNoUserOrPass()
     {
         Assert.Equal("http://10.0.0.5:9924", WebAudioRoute.OriginOf(Window));

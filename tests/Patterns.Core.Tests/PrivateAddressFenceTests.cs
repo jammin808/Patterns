@@ -10,8 +10,10 @@ namespace Patterns.Core.Tests;
 /// Round 89, the Core's half of the fence: a show that still holds a page's pass raw (an older file, a hand edit, an
 /// older main's twin) publishes none of it. The pass is fenced at the key — what the engines mount, what the Eye and the
 /// context are drawn from, what a cue's page list and a pre-roll name — and the support bundle says every private
-/// address in public, masks the kept ones and never carries the book. The App's half (STATE, the logs, the twin's wire,
-/// the module's lines) is round 89.4's.
+/// address in public, masks the kept ones and never carries the book. Round 89.4 adds the sinks every writer shares —
+/// the journal said in public as it is written and as it is read — the places the Super Check names, its row, and the
+/// twin's KEPT word on one line. The App's half (STATE, the log, the twin's wire, the Super Check on a desk) is
+/// <c>Patterns.App.Tests.PrivateAddressFenceTests</c>.
 /// </summary>
 public class PrivateAddressFenceTests
 {
@@ -247,13 +249,128 @@ public class PrivateAddressFenceTests
     }
 
     [Fact]
-    public void TheTwinHasAWordForTheBook()
+    public void TheTwinHasAWordForTheBookOnOneLine()
     {
-        var line = TwinMessage.Format(TwinWord.Kept, WebPassBook.Empty.ToJson().ReplaceLineEndings(" "));
-        Assert.StartsWith("KEPT {", line, StringComparison.Ordinal);
+        var (book, kept) = WebPassBook.Empty.Keep(Window, () => "abcdefghijkl", new DateTime(2026, 10, 25, 9, 12, 0, DateTimeKind.Utc));
+        (book, _) = book.Keep(Pin, () => "abcdefghijkm", new DateTime(2026, 10, 25, 9, 13, 0, DateTimeKind.Utc));
+        var json = book.ToJson(indented: false);
+        Assert.DoesNotContain('\n', json);
+        Assert.Contains('\n', book.ToJson());                                                     // the file stays readable by hand
+        var line = TwinMessage.Format(TwinWord.Kept, json);
+        Assert.StartsWith("KEPT {\"v\":1,", line, StringComparison.Ordinal);
         var back = TwinMessage.Parse(line);
         Assert.Equal(TwinWord.Kept, back.Word);
-        Assert.True(WebPassBook.TryParse(back.Payload, out var book));
-        Assert.Equal(0, book.Count);
+        Assert.True(WebPassBook.TryParse(back.Payload, out var read));
+        Assert.True(read.SameAs(book));
+        Assert.Equal(Window, read.Resolve(kept).Url);
+        Assert.False(read.SameAs(WebPassBook.Empty));
+        Assert.False(read.SameAs(null));
+    }
+
+    [Fact]
+    public void TheJournalSaysEveryRowInPublicAsItIsWrittenAndAsItIsRead()
+    {
+        var dir = Temp();
+        try
+        {
+            var journal = new ShowLog(dir);
+            // A writer that forgot: the row goes to the file said in public all the same.
+            journal.Record("wire", "WebOpen", Window, "Done", $"lobby → {Pin} (and 10.0.0.5:9924/w/{Token} typed bare)");
+            var file = File.ReadAllText(journal.Path);
+            CarriesNoPass(file, "the journal file");
+            Assert.Contains("http://10.0.0.5:9924 (private address)", file, StringComparison.Ordinal);
+            Assert.Contains("https://x (private address)", file, StringComparison.Ordinal);
+
+            // A row an older build wrote raw: every reader of the journal gets it said in public.
+            var old = new ShowLogEntry(new DateTime(2026, 10, 1, 9, 0, 0, DateTimeKind.Utc), "wire", "WebOpen", Window, "Done", $"lobby → {Pin}");
+            File.AppendAllText(journal.Path, JsonUtil.SerializeCompact(old) + Environment.NewLine);
+            Assert.Contains(Token, File.ReadAllText(journal.Path), StringComparison.Ordinal);       // the file keeps what the older build wrote (the papers say so)
+            var rows = journal.Tail(10);
+            Assert.Equal(2, rows.Count);
+            foreach (var r in rows) CarriesNoPass($"{r.Origin} {r.Kind} {r.Target} {r.Outcome} {r.Message}", "a row read back");
+            Assert.Equal("http://10.0.0.5:9924 (private address)", rows[1].Target);
+
+            // A row with nothing private is the very row: no copy, byte for byte.
+            var plain = new ShowLogEntry(DateTime.UtcNow, "desk", "ApplyLook", "Walk-in", "Done", "https://example.com/schedule?day=2");
+            Assert.Same(plain, ShowLog.InPublic(plain));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ThePlacesAShowNamesAPrivatePageAreFoundWithTheAddressHeldNeverRaw()
+    {
+        var state = new ShowState();
+        state.Pattern.Media.WebUrl = "kept://10.0.0.5:9924/abcdefghijkl";
+        state.Pattern.Layer1.WebUrl = Window;                                                        // raw: a hand edit after the load's scrub
+        state.Pattern.Layer2.WebUrl = "https://example.com/schedule";                                // public: not a place
+        var screen = new OutputAssignment { ScreenId = "s2" };
+        screen.Pattern.Media.WebUrl = "unkept://hall-b.local";
+        state.Independent.Add(screen);
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "s2", Enabled = true, UseCustomPattern = true, CustomLabel = "Wall" });
+        state.Web.SavedUrls.Add("kept://x/abcdefghijkm");
+        var stack = new CueStackConfig { Name = "Main" };
+        var cue = new RunCueConfig { Number = "3", Name = "Doors" };
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebOpen, Target = "lobby", Value = "kept://10.0.0.5:9924/abcdefghijkl" });
+        stack.Cues.Add(cue);
+        state.Stacks.Add(stack);
+        state.Interactive.Devices.Add(new DeviceConfig { Id = "d1", Name = "Button box", Triggers = { new DeviceTriggerConfig { Command = $"WEB OPEN 10.0.0.5:9924/w/{Token} ON lobby" } } });
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Lobby", Json = "{\"Pattern\":{\"Media\":{\"WebUrl\":\"kept://x/abcdefghijkm\"}}}" });
+
+        var places = WebPassMigration.Places(state);
+        foreach (var p in places) CarriesNoPass(p.Where + " " + p.Address, "a place");
+        Assert.Equal(new[]
+        {
+            ("the pattern's page", "kept://10.0.0.5:9924/abcdefghijkl", false),
+            ("the pattern's layer 1", "unkept://10.0.0.5:9924", true),
+            ("screen 'Wall''s page", "unkept://hall-b.local", false),
+            ("the saved pages", "kept://x/abcdefghijkm", false),
+            ("cue 3 'Doors' in Main", "kept://10.0.0.5:9924/abcdefghijkl", false),
+            ("device 'Button box'", "unkept://10.0.0.5:9924", true),
+            ("look 'Lobby'", "kept://x/abcdefghijkm", false),
+        }, places.Select(p => (p.Where, p.Address, p.Raw)));
+
+        Assert.Empty(WebPassMigration.Places(new ShowState()));
+    }
+
+    private static PrivatePageFact Fact(string where, string address, bool opens, string why = "", bool raw = false) => new(where, address, raw, opens, why);
+
+    [Fact]
+    public void TheSuperCheckNamesWhereAPrivatePageOpensNothingAndNeverItsPass()
+    {
+        static CheckRow? Row(CheckFacts f) => SuperCheck.Run(f).Rows.SingleOrDefault(r => r.Item == "Private pages");
+
+        Assert.Null(Row(new CheckFacts()));                                                          // no private page, no row
+
+        var green = Row(new CheckFacts { PrivatePages = new[] { Fact("the pattern's page", "kept://10.0.0.5:9924/abcdefghijkl", true), Fact("cue 3", "kept://10.0.0.5:9924/abcdefghijkl", true) } })!;
+        Assert.Equal(CheckLight.Green, green.Light);
+        Assert.Equal("SHOW", green.Section);
+        Assert.Equal("1 kept on this machine", green.Value);
+
+        var facts = new CheckFacts
+        {
+            PrivatePages = new[]
+            {
+                Fact("the pattern's page", "kept://10.0.0.5:9924/abcdefghijkl", true),
+                Fact("the pattern's layer 1", "unkept://10.0.0.5:9924", false, WebPassBook.UnkeptWhy, raw: true),
+                Fact("screen 'Wall''s page", "kept://10.0.0.9:9924/abcdefghijkm", false, WebPassBook.NotHereWhy),
+            },
+        };
+        var amber = Row(facts)!;
+        Assert.Equal(CheckLight.Amber, amber.Light);
+        Assert.Equal("2 of 3 open nothing here · written raw", amber.Value);
+        Assert.StartsWith("FIX: the pattern's layer 1 holds a private address written raw into the show (unkept://10.0.0.5:9924)", amber.Note, StringComparison.Ordinal);
+        Assert.Contains("screen 'Wall''s page: kept://10.0.0.9:9924/abcdefghijkm — " + WebPassBook.NotHereWhy, amber.Note, StringComparison.Ordinal);
+        CarriesNoPass(SuperCheck.ToText(SuperCheck.Run(facts)), "the Super Check's text");
+
+        // More than the row names: the rest are counted. A book that keeps nothing is said even with nothing named.
+        var many = Enumerable.Range(1, SuperCheck.PrivatePagesNamed + 2).Select(i => Fact($"cue {i}", "unkept://x", false, WebPassBook.UnkeptWhy)).ToArray();
+        Assert.EndsWith("; and 2 more", Row(new CheckFacts { PrivatePages = many })!.Note, StringComparison.Ordinal);
+        var frozen = Row(new CheckFacts { PassBookProblem = "patterns.webpasses.json beside the settings is not a book this build reads" })!;
+        Assert.Equal(CheckLight.Amber, frozen.Light);
+        Assert.Equal("nothing can be kept on this machine", frozen.Value);
     }
 }

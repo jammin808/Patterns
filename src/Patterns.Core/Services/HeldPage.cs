@@ -170,6 +170,28 @@ public sealed class HeldPage
     public bool Withheld => Why.Length > 0;
 
     /// <summary>
+    /// The page's title as every reader may carry it (STATE's web.title, the deck's web_title, the desk's status line).
+    /// A browser names a document that has no title of its own — and one whose title is not read yet — by its address,
+    /// pass and all: the title is said in public (<see cref="WindowAddresses.RedactText"/>), and for a held page a
+    /// title that names the address it resolved to gives way to the held page's own name (its host, a private
+    /// address), so no reader shows the real address in any form.
+    /// </summary>
+    public string PublicTitle(string? title)
+    {
+        var t = (title ?? "").Trim();
+        if (IsHeld && NamesOpens(t)) return WindowAddresses.HostOf(Address) + WindowAddresses.PrivateNote;
+        return WindowAddresses.RedactText(t);
+    }
+
+    /// <summary>The title names the resolved address: its host and port with its path, as a browser names a page by its address.</summary>
+    private bool NamesOpens(string title)
+    {
+        if (title.Length == 0 || !Uri.TryCreate(Opens, UriKind.Absolute, out var uri)) return false;
+        var named = (uri.Authority + uri.AbsolutePath).TrimEnd('/');
+        return named.Length > 0 && title.Contains(named, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// A navigation to <paramref name="address"/> begins: a held address resolves now, and the answer is the address
     /// the browser is sent to, or null when it is sent nowhere (the picture is black, <see cref="Why"/> says why). Any
     /// other address is answered as it is and the page is no longer held. Everything the last navigation learned —

@@ -8,17 +8,21 @@ namespace Patterns.App.Services;
 /// <c>Patterns.exe --verify-runtime</c> (round 64): the built exe proves its own runtime without
 /// opening a window — Skia draws and reads a pixel back, libVLC loads and a LibVLC instance is
 /// made from the folder beside the exe (or the machine's), the audio endpoints enumerate on
-/// Windows, and the modules report what this process loaded. The report goes to the console and,
+/// Windows, and the modules report what this process loaded. Round 89 (L26): on Windows the web
+/// path too — a browser made as a page source makes one opens a page, its document script speaks
+/// and a script answers (<see cref="WebView2Probe"/>). The report goes to the console and,
 /// with <c>--report &lt;path&gt;</c>, to a file; the exit code is 0 when everything the check
 /// requires is there — libVLC only with <c>--require-vlc</c>, which the full bundle's CI run
-/// passes — and 1 otherwise. A wrong or missing native runtime fails the build that made it,
-/// instead of a show.
+/// passes; the WebView2 runtime itself only with <c>--require-webview2</c>, though a runtime that
+/// is there and cannot open a page always fails — and 1 otherwise. A wrong or missing native
+/// runtime fails the build that made it, instead of a show.
 /// </summary>
 public static class RuntimeCheck
 {
     public static int Run(string[] args)
     {
         var requireVlc = Array.IndexOf(args, "--require-vlc") >= 0;
+        var requireWebView2 = Array.IndexOf(args, "--require-webview2") >= 0;
         var at = Array.IndexOf(args, "--report");
         var report = at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
         var lines = new List<string>();
@@ -79,6 +83,29 @@ public static class RuntimeCheck
         else
         {
             lines.Add("Audio endpoints: not on this platform (Windows only)");
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var (outcome, words) = WebView2Probe.Run();
+            switch (outcome)
+            {
+                case WebView2Probe.Outcome.Ok:
+                    lines.Add($"WebView2: ok — {words}");
+                    break;
+                case WebView2Probe.Outcome.Absent:
+                    lines.Add($"WebView2: not installed — {words}");
+                    if (requireWebView2) ok = false;
+                    break;
+                default:
+                    ok = false;
+                    lines.Add($"WebView2: FAILED — {words}");
+                    break;
+            }
+        }
+        else
+        {
+            lines.Add("WebView2: not on this platform (Windows only)");
         }
 
         lines.Add(Modules.Words());

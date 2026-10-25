@@ -276,7 +276,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 if (e.NavigationId != _latestNavigationId) return;   // an older navigation finishing after a newer one started: not the page's state
                 _held.Completed(e.IsSuccess, e.IsSuccess ? "" : e.WebErrorStatus.ToString());
                 HeldMoved();
-                _currentUrl = _held.IsHeld ? _held.Address : _core.Source;   // a held page is named by its held address, never by what it resolved to
+                _currentUrl = _held.IsHeld ? _held.Address : WindowAddresses.PublicForm(_core.Source);   // a held page is named by its held address, never by what it resolved to; a page that went to a private address by itself, by its host
                 _status = e.IsSuccess ? "Showing" : $"The page failed: {e.WebErrorStatus}";
                 // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
                 _screencastRestarts = 0;
@@ -285,7 +285,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _ = StartScreencastAsync();
                 if (_audioDevice.Length > 0 || _permittedOrigin.Length > 0) _ = ApplyAudioDeviceAsync();   // a new origin: the route applied again, the old origin's grant taken back
             };
-            _core.DocumentTitleChanged += (_, _) => _title = _core.DocumentTitle ?? "";
+            _core.DocumentTitleChanged += (_, _) => _title = _held.PublicTitle(_core.DocumentTitle);   // a page with no title of its own is named by its address: said in public
             _core.NewWindowRequested += (_, e) =>
             {
                 // Nothing opens outside Patterns: a link that wants a new window opens here instead.
@@ -791,8 +791,14 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
+    /// <summary>
+    /// What every reader names the page by (STATE, the desk, the logs): a held page's held address, never what it resolved
+    /// to; any other page's address as the browser reports it, or its public form (<c>scheme://host[:port]</c>) when that
+    /// is private — a link or a redirect onto an address with a pass is never published with it.
+    /// </summary>
     public string CurrentUrl => _currentUrl;
 
+    /// <summary>The page's title as every reader may carry it (<see cref="HeldPage.PublicTitle"/>): never an address's pass, a held page never by what it resolved to.</summary>
     public string Title => _title;
 
     public double ZoomPct
@@ -1455,7 +1461,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         {
             var target = opens;
             if (!target.Contains("://") && File.Exists(target)) target = new Uri(Path.GetFullPath(target)).AbsoluteUri;
-            _currentUrl = _held.IsHeld ? _held.Address : target;
+            _currentUrl = _held.IsHeld ? _held.Address : WindowAddresses.PublicForm(target);
             _core.Navigate(target);
         }
         catch (Exception ex)
@@ -1468,9 +1474,9 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             }
             else
             {
-                _status = "Could not open that address: " + ex.Message;
+                _status = "Could not open that address: " + WindowAddresses.RedactText(ex.Message);
             }
-            Log.Warn($"Web page navigate failed: {(_held.IsHeld ? _held.Address : url)}", ex);
+            Log.Warn($"Web page navigate failed: {(_held.IsHeld ? _held.Address : WindowAddresses.PublicForm(url))}", ex);
         }
     }
 

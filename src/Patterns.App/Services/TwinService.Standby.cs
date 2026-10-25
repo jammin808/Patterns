@@ -60,6 +60,8 @@ public sealed partial class TwinService
                 {
                     _client = client;
                     _stream = stream;
+                    _mainProved = false;                                    // this dial's main has proved nothing yet
+                    _unprovedSaid = false;
                     _dialling = false;
                     _dialFailures = 0;
                 });
@@ -117,6 +119,17 @@ public sealed partial class TwinService
     private void OnLine(TcpClient client, TwinMessage msg, DateTime? heardUtc = null)
     {
         if (!ReferenceEquals(_client, client)) return;
+        if (!_mainProved && msg.Word is not (TwinWord.Challenge or TwinWord.Refused))
+        {
+            // Nothing lands before the main proved the key over this dial's nonce: a stranger answering the dial that
+            // skips the CHALLENGE hands this desk no welcome, no show, no section, no air, no beat and no kept pass.
+            if (!_unprovedSaid)
+            {
+                _unprovedSaid = true;
+                Log.Warn($"Twin: the main at {_mainName} spoke before it proved the key — its {msg.Word.ToString().ToUpperInvariant()} and every line until a proof are not taken.");
+            }
+            return;
+        }
         var now = Clock();
         switch (msg.Word)
         {
@@ -143,6 +156,7 @@ public sealed partial class TwinService
                     CloseLink();
                     break;
                 }
+                _mainProved = true;
                 if (!TryWriteToMain(TwinMessage.Format(TwinWord.Proof, TwinAuth.Proof(key, challenge.Nonce, Instance)))) CloseLink();
                 break;
             }
@@ -163,6 +177,17 @@ public sealed partial class TwinService
             case TwinWord.Stagewatch:
                 _lastHeardUtc = now;
                 if (IsFollowerNode) AdoptStagewatch(msg.Payload);
+                break;
+            case TwinWord.Kept:
+                // Round 89: the passes of the pages the main's show names, carried only under its SendSecrets: taken into
+                // this machine's book, so a page the mirrored show holds as kept://… opens here when this desk takes the
+                // show. The main's entries stand — the show they came with names them — unless this desk holds the show:
+                // then its own stand, since its air names them. A caller or a stage timer never takes the show, and keeps no pass.
+                _lastHeardUtc = now;
+                if (!IsFollowerNode && WebPassBook.TryParse(msg.Payload, out var book))
+                {
+                    _kernel.WebPasses.MergeFromTwin(book, theirsStand: _phase != TwinPhase.TookOver, _mainName.Length > 0 ? _mainName : "the main");
+                }
                 break;
             case TwinWord.Refused:
                 _phase = TwinPhase.Refused;
@@ -264,15 +289,25 @@ public sealed partial class TwinService
         }
     }
 
-    /// <summary>A standby that has the show, welcomed back by the main: its show and its air go to the main, for TAKE BACK.</summary>
+    /// <summary>
+    /// A standby that has the show, welcomed back by the main: its show and its air go to the main, for TAKE BACK — and
+    /// after them (round 89), under this desk's own SendSecrets, the passes of the pages they hold as kept://…, so a page
+    /// pasted here while it had the show opens on the main after TAKE BACK, and the main reads them against the show
+    /// that names them.
+    /// </summary>
     private void SendWhatIHave()
     {
         string show;
         string air;
+        var kept = "";
         try
         {
             show = TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets));
             air = AirLine();
+            if (_kernel.State.Twin.SendSecrets && _kernel.WebPasses.Book is { Count: > 0 } book && book.Only(NamedKeptIds()) is { Count: > 0 } cut)
+            {
+                kept = KeptLine(cut);
+            }
         }
         catch (Exception ex)
         {
@@ -283,6 +318,7 @@ public sealed partial class TwinService
         {
             TryWriteToMain(show);
             TryWriteToMain(air);
+            if (kept.Length > 0) TryWriteToMain(kept);
         }, CancellationToken.None);
     }
 
@@ -324,6 +360,7 @@ public sealed partial class TwinService
         var client = _client;
         _client = null;
         _stream = null;
+        _mainProved = false;
         try { client?.Dispose(); } catch { /* already down */ }
         // The next link measures the clocks afresh; the room clock keeps the last frame it knew — a jump would be worse than a stale offset.
         _linkClock = new LinkClock();

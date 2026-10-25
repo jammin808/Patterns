@@ -54,7 +54,7 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public SKPoint? PointerNorm { get; private set; }
     public DateTime? LastClickUtc { get; private set; }
     public string CurrentUrl { get; private set; }
-    public string Title => "A page";
+    public string Title { get; set; } = "A page";
     public double ZoomPct { get; set; } = 100;
     public bool IsMuted { get; set; }
 

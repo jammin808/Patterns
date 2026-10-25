@@ -555,6 +555,9 @@ public sealed class SystemMetricsService : IDisposable
         // Round 80: the master rate as the show runs it — the target every rate row reads, and its own row.
         var master = Rig.MasterRate(state, _services.Screens.All);
 
+        // Round 89: every place the edited show and the air name a private page address, and whether this machine opens it.
+        var privatePages = PrivatePageFacts(state, _services.AirState);
+
         // The engine's frame budget and the start-up, read once for the facts.
         var frames = FrameBudgets.Readings(ShowClock.Seconds);
         var worstFrame = FrameBudgets.Worst(frames);
@@ -692,8 +695,27 @@ public sealed class SystemMetricsService : IDisposable
             WireFaults = _services.Control.FaultCount,                                                 // round 83: the faults behind the wire
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
+            PrivatePages = privatePages,
+            PassBookProblem = _services.WebPasses.Frozen,
             Advice = Suggestions,
         };
+    }
+
+    /// <summary>
+    /// Round 89: the Super Check's private pages facts — each place the show (and, while EDIT SAFE holds them apart, the
+    /// air) names a private page address, the address in its held form and what this machine's book makes of it.
+    /// </summary>
+    private List<PrivatePageFact> PrivatePageFacts(ShowState state, ShowState air)
+    {
+        var places = WebPassMigration.Places(state).ToList();
+        if (!ReferenceEquals(air, state)) places.AddRange(WebPassMigration.Places(air).Where(p => !places.Contains(p)).Select(p => p with { Where = "on air: " + p.Where }));
+        var facts = new List<PrivatePageFact>(places.Count);
+        foreach (var p in places)
+        {
+            var opens = p.Raw ? new WebPassResolution(null, WebPassBook.UnkeptWhy) : _services.WebPasses.Resolve(p.Address);
+            facts.Add(new PrivatePageFact(p.Where, p.Address, p.Raw, opens.Resolved, opens.Why));
+        }
+        return facts;
     }
 
     // ---- support info -----------------------------------------------------------------------

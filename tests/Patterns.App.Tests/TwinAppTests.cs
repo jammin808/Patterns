@@ -14,18 +14,19 @@ namespace Patterns.App.Tests;
 /// <summary>
 /// The twin end to end, one side at a time against a fake peer on a socket: the main welcomes a
 /// standby, mirrors an edit as the section it landed in and beats; the standby follows a main,
-/// holds its outputs, hears the silence, takes the show over and stands by again.
+/// holds its outputs, hears the silence, takes the show over and stands by again. The fake peer's
+/// helpers are shared with the private-address fence's twin legs.
 /// </summary>
 public class TwinAppTests
 {
-    private static int FreePort()
+    internal static int FreePort()
     {
         using var probe = new TcpListener(IPAddress.Loopback, 0);
         probe.Start();
         return ((IPEndPoint)probe.LocalEndpoint).Port;
     }
 
-    private static void PumpUntil(Func<bool> condition, int timeoutMs = 10000)
+    internal static void PumpUntil(Func<bool> condition, int timeoutMs = 10000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (!condition())
@@ -37,7 +38,7 @@ public class TwinAppTests
     }
 
     /// <summary>The next line on a socket, pumping the UI thread meanwhile (the desk's timers and its replies live there).</summary>
-    private static string ReadLine(StreamReader reader, int timeoutMs = 10000)
+    internal static string ReadLine(StreamReader reader, int timeoutMs = 10000)
     {
         var task = reader.ReadLineAsync();
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -50,7 +51,7 @@ public class TwinAppTests
         return task.Result ?? throw new EndOfStreamException("the peer closed the link");
     }
 
-    private static TwinMessage ReadWord(StreamReader reader, TwinWord wanted, int timeoutMs = 10000)
+    internal static TwinMessage ReadWord(StreamReader reader, TwinWord wanted, int timeoutMs = 10000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (Environment.TickCount64 < deadline)
@@ -61,7 +62,7 @@ public class TwinAppTests
         throw new TimeoutException($"no {wanted} came");
     }
 
-    private static void Write(NetworkStream stream, string line) => stream.Write(Encoding.UTF8.GetBytes(line + "\n"));
+    internal static void Write(NetworkStream stream, string line) => stream.Write(Encoding.UTF8.GetBytes(line + "\n"));
 
     /// <summary>The key every test's twin shares.</summary>
     private const string Key = "hunter2";
@@ -72,7 +73,7 @@ public class TwinAppTests
     /// WELCOME or REFUSED is the caller's to read. False when the main could not prove the key
     /// with <paramref name="key"/> (a stranger's key against a real main, in the tests that try one).
     /// </summary>
-    private static bool Join(NetworkStream stream, StreamReader reader, TwinJoin join, string key)
+    internal static bool Join(NetworkStream stream, StreamReader reader, TwinJoin join, string key)
     {
         var nonce = TwinAuth.NewNonce();
         Write(stream, TwinMessage.Format(TwinWord.Join, (join with { Key = "", Nonce = nonce }).ToJson()));
@@ -89,7 +90,7 @@ public class TwinAppTests
     /// flight on the reader, which the next read would trip over. The state assertions beside it
     /// are the real check; this one says the wire agreed.
     /// </summary>
-    private static bool Arrives(TcpClient client, StreamReader reader, TwinWord wanted, int timeoutMs)
+    internal static bool Arrives(TcpClient client, StreamReader reader, TwinWord wanted, int timeoutMs)
     {
         var stream = client.GetStream();
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -111,7 +112,7 @@ public class TwinAppTests
     /// cut short itself — a takeover or a goodbye landing while a connect was in flight — sits in the
     /// listener's backlog with nothing said and is simply closed.
     /// </summary>
-    private static (TcpClient Peer, StreamReader Reader, TwinJoin Join) AcceptJoin(TcpListener main, int timeoutMs = 15000)
+    internal static (TcpClient Peer, StreamReader Reader, TwinJoin Join) AcceptJoin(TcpListener main, int timeoutMs = 15000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (Environment.TickCount64 < deadline)
@@ -858,6 +859,64 @@ public class TwinAppTests
             Assert.False(Arrives(stranger, reader, TwinWord.Proof, 800));
             Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
             Assert.NotEqual("From the main", vm.State.Name);
+        }
+        finally
+        {
+            main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStrangerThatSkipsTheChallengeLandsNoWelcomeShowAirBeatOrKeptPass()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var showBefore = vm.State.Name;
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+
+            // A stranger answering the dial says everything a main would — the welcome, a book that would repoint a kept
+            // page, a show, the air, a beat — and never proves the key.
+            var accept = main.AcceptTcpClientAsync();
+            PumpUntil(() => accept.IsCompleted);
+            using (var stranger = accept.Result)
+            using (var reader = new StreamReader(stranger.GetStream(), Encoding.UTF8, false, 4096, leaveOpen: true))
+            {
+                Assert.NotNull(TwinJoin.Parse(ReadWord(reader, TwinWord.Join, 3000).Payload));
+                var stream = stranger.GetStream();
+                var (book, kept) = WebPassBook.Empty.Keep("http://10.0.0.66:9924/w/abcdefghijkmnpqrstuvwxyz23", () => "abcdefghijkl", DateTime.UtcNow);
+                var theirs = new ShowState { Name = "From the stranger" };
+                theirs.Web.SavedUrls.Add(kept);
+                Write(stream, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef01", 1, 0, "", "From the stranger").ToJson()));
+                Write(stream, TwinMessage.Format(TwinWord.Kept, book.ToJson(indented: false)));
+                Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(theirs)));
+                Write(stream, TwinMessage.Format(TwinWord.Air, "null"));
+                Write(stream, TwinMessage.Format(TwinWord.Beat, new TwinBeat(1, DateTime.UtcNow.Ticks, 0, 0).Format()));
+            }
+
+            // The stranger hung up: every line it sent was read before the standby dials again, and none of them landed.
+            var (peer, peerReader, _) = AcceptJoin(main);
+            using (peer)
+            using (peerReader)
+            {
+                Assert.Equal(showBefore, vm.State.Name);
+                Assert.NotEqual(TwinPhase.InStep, twin.Phase);
+                Assert.Equal(0, services.WebPasses.Book.Count);
+                Assert.False(File.Exists(services.WebPasses.Path), "a stranger's book was written to the disk");
+                Assert.NotEqual("MAIN-DESK", twin.MainName);
+                Assert.Contains("spoke before it proved the key", File.ReadAllText(Path.Combine(b.Dir, "patterns.log")), StringComparison.Ordinal);
+                Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+            }
         }
         finally
         {

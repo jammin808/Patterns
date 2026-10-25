@@ -614,8 +614,18 @@ public sealed class MediaPage : Observable
         WebControlsTarget = $"Controls drive: {name}" + (_lastWebKey == key ? " (the page you pointed at)" : "");
         WebPageStatus = page is null
             ? WebInput.AvailabilityNote.Length > 0 ? WebInput.AvailabilityNote : "Opening…"
-            : $"{page.StatusText}{(page.Title.Length > 0 ? " — " + page.Title : "")} · {page.CurrentUrl}";
+            : StatusLine(page);
         SyncWebActions(page?.CurrentUrl is { Length: > 0 } current ? current : key[4..]);
+    }
+
+    /// <summary>
+    /// The page's status line, said in public whatever the source says: its title and its address never carry a pass
+    /// (a page with no title of its own is named by its address), a private address by its host.
+    /// </summary>
+    private static string StatusLine(IWebSource page)
+    {
+        var title = WindowAddresses.RedactText(page.Title);
+        return $"{page.StatusText}{(title.Length > 0 ? " — " + title : "")} · {WindowAddresses.PublicForm(page.CurrentUrl)}";
     }
 
     // ---- playlist -----------------------------------------------------------

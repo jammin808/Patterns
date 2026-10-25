@@ -212,6 +212,90 @@ public class WebPassesAppTests
     }
 
     [Fact]
+    public void ATwinsPassesAreTakenInOnTheDiskFirstAndAFullBookGivesUpOnlyPassesNoShowNames()
+    {
+        var dir = TempDir();
+        try
+        {
+            var show = new ShowState();
+            var passes = new WebPasses(dir) { Shows = () => new[] { show } };
+            var changed = 0;
+            passes.Changed += () => changed++;
+            var mine = passes.Secure(Pin);
+            show.Web.SavedUrls.Add(mine);
+            changed = 0;
+
+            // A standby taking the main's passes: on the disk before the swap, raised once; the same passes again change nothing.
+            var (theirs, kept) = WebPassBook.Empty.Keep(Window, () => "abcdefghijkl", DateTime.UtcNow);
+            Assert.True(passes.MergeFromTwin(theirs, theirsStand: true, "MAIN-DESK"));
+            Assert.Equal(1, changed);
+            Assert.Equal(Window, new WebPasses(dir).Resolve(kept).Url);
+            Assert.Equal(Pin, passes.Resolve(mine).Url);
+            Assert.False(passes.MergeFromTwin(theirs, theirsStand: true, "MAIN-DESK"));
+            Assert.Equal(1, changed);
+
+            // A main taking back a standby's passes into a full book: one its own show names stands, the standby's pass the
+            // show it holds for TAKE BACK names is taken, and the room is made from a pass no show names.
+            for (var i = 0; passes.Book.Count < WebPassBook.Max; i++) passes.Secure($"https://h{i.ToString(CultureInfo.InvariantCulture)}.local/feed?pin=1");
+            var (handed, pasted) = WebPassBook.Empty.Keep("https://y/feed?key=7", () => "q3x7m2k6p4ab", DateTime.UtcNow);
+            var held = WebPassMigration.KeptIdsInText($"{{\"WebUrl\":\"{pasted}\"}}");
+            Assert.True(passes.MergeFromTwin(handed, theirsStand: false, "Backup desk", held));
+            Assert.Equal(WebPassBook.Max, passes.Book.Count);
+            Assert.Equal("https://y/feed?key=7", passes.Resolve(pasted).Url);
+            Assert.Equal(Pin, passes.Resolve(mine).Url);
+        }
+        finally
+        {
+            Remove(dir);
+        }
+    }
+
+    [Fact]
+    public void AFrozenBookOrOneThatCannotBeWrittenTakesNoTwinsPassesAndRaisesNothing()
+    {
+        var (theirs, kept) = WebPassBook.Empty.Keep(Window, () => "abcdefghijkl", DateTime.UtcNow);
+
+        // Frozen: a file that is not a book this build reads stays as it was.
+        var frozenDir = TempDir();
+        try
+        {
+            var path = Path.Combine(frozenDir, WebPassBook.FileName);
+            File.WriteAllText(path, "not a book");
+            var passes = new WebPasses(frozenDir);
+            var changed = 0;
+            passes.Changed += () => changed++;
+            Assert.NotEqual("", passes.Frozen);
+            Assert.False(passes.MergeFromTwin(theirs, theirsStand: true, "MAIN-DESK"));
+            Assert.Equal("not a book", File.ReadAllText(path));
+            Assert.Equal(0, passes.Book.Count);
+            Assert.False(passes.Resolve(kept).Resolved);
+            Assert.Equal(0, changed);
+        }
+        finally
+        {
+            Remove(frozenDir);
+        }
+
+        // Cannot be written: the book's name taken by a folder, so nothing is kept for this run alone.
+        var lockedDir = TempDir();
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(lockedDir, WebPassBook.FileName));
+            var passes = new WebPasses(lockedDir);
+            var changed = 0;
+            passes.Changed += () => changed++;
+            Assert.False(passes.MergeFromTwin(theirs, theirsStand: false, "Backup desk"));
+            Assert.Equal(0, passes.Book.Count);
+            Assert.False(passes.Resolve(kept).Resolved);
+            Assert.Equal(0, changed);
+        }
+        finally
+        {
+            Remove(lockedDir);
+        }
+    }
+
+    [Fact]
     public void SecuringAWholeShowSaysItOnceAndALoadWritesOneJournalRow()
     {
         var dir = TempDir();

@@ -107,7 +107,7 @@ public class WebPassBookTests
     }
 
     [Fact]
-    public void AMergeKeepsEveryIncomingPassAndFillsTheRoomWithItsOwn()
+    public void AMergeTakesEveryIncomingPassAndMakesRoomFromPassesNoShowNamesFirst()
     {
         var (main, onMain) = WebPassBook.Empty.Keep(WindowAddressesTests.Window, Sequence("abcdefghijkl"), T0);
         var (standby, own) = WebPassBook.Empty.Keep("https://y/feed?pin=9", Sequence("mnopqrstuvwx"), T0);
@@ -118,7 +118,8 @@ public class WebPassBookTests
         Assert.Equal(WindowAddressesTests.Window, merged.Resolve(onMain).Url);   // the incoming address wins its id
         Assert.Equal("https://y/feed?pin=9", merged.Resolve(own).Url);
 
-        // Bounded: the main's whole book stands, the standby's oldest unnamed pass goes first.
+        // Bounded: this book's oldest unnamed pass goes first, then the incoming's oldest unnamed — a pass a show names
+        // stands over one no show names, whichever book it came from.
         var ids = Ids(1000);
         var big = WebPassBook.Empty;
         for (var i = 0; i < WebPassBook.Max; i++) (big, _) = big.Keep($"https://m/feed?pin={i}", ids, T0.AddMinutes(i));
@@ -128,8 +129,37 @@ public class WebPassBookTests
         var bounded = mine.Merge(big, id => id == "tttttttttttt");
         Assert.Equal(WebPassBook.Max, bounded.Count);
         Assert.False(bounded.Resolve(older).Resolved);
-        Assert.False(bounded.Resolve(named).Resolved);                         // the room is the main's: even a named one gives way
-        Assert.All(big.Passes, p => Assert.NotNull(bounded.Find(p.Id)));
+        Assert.True(bounded.Resolve(named).Resolved);                          // named here: it stands
+        var oldestIncoming = big.Passes.OrderBy(p => p.KeptUtc).First();
+        Assert.Null(bounded.Find(oldestIncoming.Id));                          // the incoming's oldest unnamed pass made the room
+        Assert.All(big.Passes.Where(p => p.Id != oldestIncoming.Id), p => Assert.NotNull(bounded.Find(p.Id)));
+
+        // Every pass named on both sides: the incoming stand, and this book's oldest named one gives way as the last resort.
+        var full = mine.Merge(big, _ => true);
+        Assert.Equal(WebPassBook.Max, full.Count);
+        Assert.All(big.Passes, p => Assert.NotNull(full.Find(p.Id)));
+        Assert.False(full.Resolve(named).Resolved);
+        Assert.False(full.Resolve(older).Resolved);
+    }
+
+    [Fact]
+    public void TheBookCutToTheIdsAShowNamesCarriesNoOtherPass()
+    {
+        var (book, a) = WebPassBook.Empty.Keep(WindowAddressesTests.Window, Sequence("abcdefghijkl"), T0);
+        (book, var b) = book.Keep("https://y/feed?pin=9", Sequence("mnopqrstuvwx"), T0.AddMinutes(1));
+        var all = new HashSet<string>(StringComparer.Ordinal) { "abcdefghijkl", "mnopqrstuvwx", "zzzzzzzzzzzz" };
+        Assert.Same(book, book.Only(all));                                     // every entry named: the book itself
+        var cut = book.Only(new HashSet<string>(StringComparer.Ordinal) { "mnopqrstuvwx" });
+        Assert.Equal(1, cut.Count);
+        Assert.False(cut.Resolve(a).Resolved);
+        Assert.Equal("https://y/feed?pin=9", cut.Resolve(b).Url);
+        Assert.DoesNotContain(WindowAddressesTests.Token, cut.ToJson(indented: false), StringComparison.Ordinal);
+        Assert.Equal(0, book.Only(new HashSet<string>(StringComparer.Ordinal)).Count);
+
+        // The ids a text names — a show's JSON as the twin carries it — read as a show's are.
+        Assert.Equal(new[] { "abcdefghijkl" }, WebPassMigration.KeptIdsInText("{\"WebUrl\":\"kept://10.0.0.5:9924/ABCDEFGHIJKL\"}"));
+        Assert.Empty(WebPassMigration.KeptIdsInText(null));
+        Assert.Empty(WebPassMigration.KeptIdsInText("unkept://10.0.0.5:9924"));
     }
 
     [Fact]
