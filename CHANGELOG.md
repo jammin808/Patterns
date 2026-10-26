@@ -10,6 +10,15 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 90 — 2026-10-26 — the bench host's first boot: the key a desk makes is said on its strip alone, and the ADMIN page's log tail masks what the bundle masks
+
+`round-90` · PLAN §108 · 2,884 tests at the opening · module 3.18.1 (unchanged) · evidence: a verbal report from the rig (the bench host's first-boot log line, quoted)
+
+- **Opened (90.0).** Nothing in `docs/field/`; the bench host's `patterns.log` read `Twin: this desk was given the key
+  xpbe-…` at its first boot. The cause at the head, the other fallbacks read the same way, the ledger's rows the round
+  adds and closes, and each unit read against the standing brief (PLAN §108.1). The papers (90.3) write what landed,
+  REVIEW round 90, and the count at the round's end in place of the opening's; the round's tag waits for that commit.
+
 ## Round 89 — 2026-10-25 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
 
 `round-89` · PLAN §107 · REVIEW round 89 · 2,884 tests · module 3.18.1 · evidence: a handed-in critique (the gap analysis across Stagewatch, Patterns, PlayMap and AGMessage, its designs and their review)

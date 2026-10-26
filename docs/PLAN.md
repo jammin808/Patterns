@@ -12446,3 +12446,67 @@ shows; CONTEXT, which another app's assistant reads, is under the private-addres
 - **The rig's reading.** No new wire verb lands this round. The close is read on the rig as the round opened: the
   stall's two log lines and the migration's `WebPassesKept` journal row, beside the stage page and the Super Check's
   Private pages row.
+
+## 108. Round 90 — the bench host's first boot: the key a desk makes is said on its strip alone, and the ADMIN page's log tail masks what the bundle masks
+
+### 108.1 What opened the round, and what the files said
+
+**What the files said.** One line, quoted, not a file: `docs/field/` holds only its README. At its first boot (a fresh
+folder, no settings yet) the bench host's `patterns.log` read `[INFO] Twin: this desk was given the key xpbe-…`. What
+it means: the key the desk made for its twin went into the log in clear, and the ADMIN page serves the log's tail as
+it is on disk. What it asks: the made key in no line, no journal row and no STATE — the doctrine's *secrets ride in no
+line* — and the log's exits masked as the support bundle already masks them.
+
+**The requester and the evidence class.** The maintainer, reading the bench host's log at its first boot — the round
+§107.1 numbers as the bench host's. Evidence class: **a verbal report from the rig** (the line quoted; the machine's
+four files were not handed in). Each item below was read against this tree's head (`c6236d6`, round 89.9's commit)
+and is cited at the line it stands on there.
+
+**The cause, read at the head.** `TwinService.Reconcile` (`TwinService.cs:509-534`) gives a desk with no key one
+(`TwinKeys.New()`, `:521`) before its port opens and says so with `_services.Notify(…)`, the key in the words
+(`:529-531`). `AppServices.Notify` (`AppServices.cs:2049-2053`) sets the status strip when a window is attached and
+otherwise writes the words with `Log.Info`. The first `Reconcile` runs while `AppServices` is still being built —
+the boot's log has the key's line before the constructor's own `Modules loaded:` line — so before `App.axaml.cs`
+attaches the window; and a desk accepts callers by default (`TwinConfig.AcceptCallers`, `ShowState.cs:2089`), so every
+fresh desk makes a key there. A node's lines take the same road: `ServiceKernel.Notifier` is `Log.Info`
+(`ServiceKernel.cs:157`) until `NodeViewModel` sets it (`NodeViewModel.cs:58`). The log has two exits: the support
+bundle scrubs the show's secret values (`SupportBundle.Build` with `ServiceKernel.SecretValues`), and the ADMIN page's
+tail (`ControlService.LogTail`, `ControlService.cs:1469-1484`, behind the admin passcode at `:1311-1323`) serves the
+lines raw.
+
+**The other fallbacks, read the same way.** Every `Notify`, status and log line under `src/` that interpolates a value
+was read for a secret: the made twin key is the only one. The first run's pairing token already says where it is
+read and never what it is ("the pairing token is on the Remote page, TRUST", `ServiceKernel.cs:186`), which is the
+shape this round gives the twin's key. The strip itself reaches no file and no reader: STATE, the journal, the Eye
+and the assistant's facts never read `StatusMessage`, and the lines that log the strip back out (a recovery, a mode
+change, an adopted screen) log their own words. The standby's launch carries the key in its arguments
+(`TwinLaunch.Arguments`), and no line logs them.
+
+**OPEN.md.** The round adds and closes L63 (the made key written to the log, 90.1) and L64 (the ADMIN page's tail
+served raw, 90.2). L40 (the secrets plain JSON beside the exe) stays open for its own reason: the settings file holds
+the key in clear on the disk the log is on, so a line an older build wrote is masked where it leaves the machine, not
+rewritten where it lies.
+
+**The units, read against the standing brief.**
+
+| Unit | The harm, read at the head | What the round does | The readers it reaches | Fence; measurement |
+|---|---|---|---|---|
+| 90.1 | The made key in the log: `TwinService.cs:529-531` through `AppServices.cs:2052`, and on a node through `ServiceKernel.cs:157` | The key is said on the status strip alone (`ITwinHost.NotifyStripOnly`, `ServiceKernel.Strip`): with no strip yet it is said nowhere. The log's line says a key was made and where it is read — the Machine page, TWIN | the desk's and a node's status strip; the log's line; STATE, the journal, the Eye, the wire, the deck and the assistant carry no key before or after | `TwinAppTests` (a fresh desk: the key in the settings, absent from the log, the journal and STATE); `NodesAppTests` (a node with no window); no measurement this round |
+| 90.2 | The log's tail served raw (`ControlService.cs:1478`): a line an older build wrote — the bench host's own — goes out as it is | The tail masks the show's secret values and the kept addresses (`ServiceKernel.SecretValues`), read on the UI thread with the passcode's check, as the bundle does | the ADMIN page's log; the support bundle unchanged | `RemoteTrustTests` (a key an older build logged, served masked); no measurement this round |
+| 90.3 | — | The papers, the walk row, the tag table's row for round 89 | — | all seven suites and the module |
+
+**What every unit was read against.**
+- *Fail closed on the wire*: "secrets ride in no line" is the round entire. 90.1 keeps the key out of the line; 90.2
+  masks what a line already holds where it leaves the machine.
+- *Every reader*: the table's fourth column. The strip still shows the key to the person at the desk once the window
+  exists (a main given a key as the operator sets its role); a first start's strip does not, and the Machine page's
+  TWIN is where it is read.
+- *Attempts are not facts*: the tests read the files the desk wrote, not the words it meant to write.
+- *AI integration*, *Companion*: neither reads the key or the strip; nothing changes for them.
+- *No legacy*: a log an older build wrote keeps its line on the disk; it leaves through the tail and the bundle masked.
+- *Measured, then governed*: no ladder or governor lands; the tail's mask runs once per ADMIN read.
+- *Platform paths*: the twin, in what it says only — its link, its port and its handover are untouched. The round
+  asks one walk step (§22 step 15, a first boot) and closes `unwalked` until its row is filled.
+
+The rig's reading, for the close: the first boot's one log line, "Twin: this desk had no key; one was made for it —
+read it on the Machine page, TWIN …", read beside the Machine page's TWIN, and the ADMIN page's tail read with it.
