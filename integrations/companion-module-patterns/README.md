@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.18.1** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.19.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.18.1` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.19.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
 desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
 paired` otherwise. The token itself never crosses the network: it goes plain (`AUTH`) only to a desk on this machine
@@ -95,6 +95,10 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.19.0** — what the linked Stagewatch made of the desk's key (round 91): the `stagewatch_key` variable reads STATE's
+  `bus.stagewatch.key` — `key` or `operator` (the key speaks for this desk), `none` (Stagewatch takes it and lets it speak
+  for no node of the desk's, or the link carries no key), `refused`, or empty while Stagewatch has said neither (a
+  Stagewatch older than 2.18 sends no verdict). A desk before round 91 has no such field, and the variable reads empty.
 - **3.18.1** — the token never in clear (round 89): plain `AUTH <token>` goes only to a desk on this machine (the
   address the socket reached, 127.0.0.0/8 or ::1). With no `NONCE` by the wait's end the module asks the desk for one
   (`NONCE` → `OK <hex>`) and proves it; a desk that answers `ERR` (before round 87) on another machine keeps the token

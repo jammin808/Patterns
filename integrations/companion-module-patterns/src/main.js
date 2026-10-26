@@ -16,7 +16,7 @@ import { emptyState, showSignature, upcoming, variableValues } from './state.js'
 import { KNOWN_PROTOCOL, Navigator, payload } from './nav.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.18.1'
+export const MODULE_VERSION = '3.19.0'
 
 /** Round 87: how long a token-holding connection waits for the desk's NONCE before it asks the desk for one. */
 export const NONCE_WAIT_MS = 1500

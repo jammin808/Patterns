@@ -202,15 +202,26 @@ public static class ShowBusIdentity
 {
     public const string FileName = "patterns.node-id";
 
-    public static string LoadOrCreate(string folder)
+    public static string LoadOrCreate(string folder) => LoadOrCreate(folder, out _);
+
+    /// <summary>
+    /// Round 91: the id, and whether it is kept — read from its file, or written there now. An id that is not kept is this
+    /// run's only, so a Stagewatch key bound to it refuses this desk after a restart; the Nodes page says so.
+    /// </summary>
+    public static string LoadOrCreate(string folder, out bool kept)
     {
+        kept = false;
         var path = Path.Combine(folder, FileName);
         try
         {
             if (File.Exists(path))
             {
-                var kept = File.ReadAllText(path).Trim();
-                if (IsId(kept)) return kept;
+                var held = File.ReadAllText(path).Trim();
+                if (IsId(held))
+                {
+                    kept = true;
+                    return held;
+                }
             }
         }
         catch (IOException)
@@ -226,6 +237,7 @@ public static class ShowBusIdentity
         {
             Directory.CreateDirectory(folder);
             AtomicFile.WriteAllText(path, id);
+            kept = true;
         }
         catch (IOException ex)
         {

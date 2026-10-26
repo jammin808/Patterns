@@ -153,6 +153,12 @@ public class ShowBus12AppTests
         public volatile bool RefuseTlsGreeting;
         /// <summary>Its show thread has stopped: each ping answered with the pong and Stagewatch's stuck beat, never a frame.</summary>
         public volatile bool Stuck;
+        /// <summary>A collect of what was approved is refused 403 with these words (Stagewatch 2.18's binding refusal); null: answered.</summary>
+        public volatile string? CollectRefusal;
+        /// <summary>How many result posts still to refuse 403 (a key bound to another node, said by Stagewatch 2.18), each one counted in <see cref="ResultPosts"/>.</summary>
+        public int RefuseResults;
+        /// <summary>Every result post, refused or taken, by the proposal's id.</summary>
+        public readonly ConcurrentDictionary<string, int> ResultPosts = new();
         private int _next;
 
         public FakeStagewatch(string frame, X509Certificate2? certificate, int port = 0)
@@ -166,6 +172,8 @@ public class ShowBus12AppTests
         }
 
         public void Approve(string id) => Proposals.AddOrUpdate(id, _ => ("", "approved", "", "", ""), (_, p) => p with { State = "approved" });
+
+        private string Target(string id) => Proposals.TryGetValue(id, out var p) ? p.Target : "";
 
         public string AddApproved(string line, string target)
         {
@@ -228,6 +236,9 @@ public class ShowBus12AppTests
                     var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
                     await s.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"), _cts.Token);
                     using var ws = WebSocket.CreateFromStream(s, new WebSocketCreationOptions { IsServer = true, KeepAliveInterval = TimeSpan.Zero });
+                    // Round 91: as Stagewatch 2.18 does, a node link hears its verdict before any frame.
+                    if (StagewatchBytes.FirstFor(path, auth is null ? "" : auth["Authorization:".Length..].Trim()) is { } verdict)
+                        await ws.SendAsync(Encoding.UTF8.GetBytes(verdict), WebSocketMessageType.Text, true, _cts.Token);
                     await ws.SendAsync(Encoding.UTF8.GetBytes(_frame), WebSocketMessageType.Text, true, _cts.Token);
                     var buffer = new byte[8192];
                     while (ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
@@ -261,7 +272,7 @@ public class ShowBus12AppTests
             if (path == "/api/peers/context" && method == "POST")
             {
                 PostedContexts.Enqueue(body);
-                return ("200 OK", "{\"ok\":true}");
+                return ("200 OK", "{\"ok\":true,\"verified\":\"key\"}");                       // 2.18 says what it holds the context as
             }
             if (path == "/api/proposals" && method == "POST")
             {
@@ -273,6 +284,7 @@ public class ShowBus12AppTests
             if (path.StartsWith("/api/proposals?", StringComparison.Ordinal))
             {
                 var q = path[(path.IndexOf('?') + 1)..].Split('&').Select(kv => kv.Split('=')).ToDictionary(kv => kv[0], kv => Uri.UnescapeDataString(kv[1]));
+                if (q.ContainsKey("target") && CollectRefusal is { } refusal) return ("403 Forbidden", JsonSerializer.Serialize(new { ok = false, error = refusal }));
                 var rows = Proposals.Where(p =>
                         (!q.TryGetValue("from", out var f) || p.Value.From == f) &&
                         (!q.TryGetValue("target", out var t) || p.Value.Target == t) &&
@@ -283,6 +295,8 @@ public class ShowBus12AppTests
             if (path.StartsWith("/api/proposals/", StringComparison.Ordinal) && path.EndsWith("/result", StringComparison.Ordinal) && method == "POST")
             {
                 var id = path["/api/proposals/".Length..^"/result".Length];
+                ResultPosts.AddOrUpdate(id, 1, (_, n) => n + 1);
+                if (Interlocked.Decrement(ref RefuseResults) >= 0) return ("403 Forbidden", JsonSerializer.Serialize(new { ok = false, error = "this key speaks for patterns 1a2b3c4d — make a key for patterns " + Target(id) }));
                 Results[id] = body;
                 using var doc = JsonDocument.Parse(body);
                 Proposals.AddOrUpdate(id, _ => ("", "done", "", "", ""), (_, p) => p with { State = doc.RootElement.GetProperty("ok").GetBoolean() ? "done" : "failed" });
@@ -632,6 +646,90 @@ public class ShowBus12AppTests
         {
             vm.State.Control.Stagewatch.Enabled = false;
             services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ARefusedCollectIsSaidInTheApprovalDesksOwnWordsAndItsNodeRoutesAreHeld()
+    {
+        // Round 91: a refused collect used to pass in silence; now its words are the approval desk's line, and a 403 holds the
+        // key's node routes — the context it posts, the proposals, the collect and the results.
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null);
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            var id = services.Kernel.ShowBusId;
+            sw.CollectRefusal = $"patterns {id} speaks with its own key";
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.ApprovalWords.StartsWith("the approval desk refused", StringComparison.Ordinal); }, 30000);
+            Assert.Equal($"the approval desk refused to hand over what was approved for this desk — patterns {id} speaks with its own key", link.ApprovalWords);
+            Assert.False(link.ApprovalsLive);
+            Assert.Equal("none", link.Key.Word);
+            Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
+            services.Nodes.Poll();
+            Assert.Contains("the approval desk refused to hand over what was approved for this desk", services.Nodes.ShowBusLine, StringComparison.Ordinal);
+            Assert.Contains($"key not accepted for this desk — patterns {id} speaks with its own key", services.Nodes.ShowBusLine, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AResultAHoldStoppedIsOwedAndSentOnceTheKeyMayPostItAndItsProposalRunsOnce()
+    {
+        // Round 91: an approved proposal ran here, and its result was refused (the key bound to another node, 403): the
+        // node routes are held, the result is owed, and once the hold ends it goes — the proposal never runs twice.
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null) { RefuseResults = 1 };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.RefusedHoldAtLeast = TimeSpan.FromSeconds(1);
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.ApprovalsLive; }, 60000);
+
+            var applied = 0;
+            var local = link.Approvals.Add("Look", "Keynote blue", "the keynote's look", "review", () => { applied++; return (true, "look added"); }, _ => { });
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Proposals.Any(p => p.Value.Line.Contains(local, StringComparison.Ordinal)); }, 60000);
+            var deskId = sw.Proposals.First(p => p.Value.Line.Contains(local, StringComparison.Ordinal)).Key;
+            sw.Approve(deskId);
+
+            // Refused once: held, said, and owed — not lost, and not run again when the collect lists it again.
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(deskId); }, 60000);
+            Assert.Equal(2, sw.ResultPosts[deskId]);                                                 // refused, then sent again past the hold
+            Assert.Equal(1, applied);
+            Assert.Contains("\"ok\":true", sw.Results[deskId], StringComparison.Ordinal);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.ApprovalsLive; }, 30000);
+            Assert.Equal(2, sw.ResultPosts[deskId]);                                                 // settled: never sent a third time
+            Assert.Equal(1, applied);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.RefusedHoldAtLeast = StagewatchFrame.RefusedHold;
             Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }

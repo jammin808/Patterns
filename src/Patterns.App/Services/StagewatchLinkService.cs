@@ -39,6 +39,20 @@ namespace Patterns.App.Services;
 /// offers no TLS — the key stays on this desk", asking it again every so often and dialling again over TLS once it shows
 /// a certificate. The key goes over plain ws or http only to a loopback address: every socket of a dial goes to the one
 /// address resolved for it, and that address, never a name, is what is asked. One log line for each change of the carrier.
+///
+/// Round 91 (Stagewatch 2.18, Show Bus 1.3 §7.1): the link dials as a node — <c>/ws?node=&lt;this desk's show network
+/// id&gt;&amp;t=patterns</c> — and reads Stagewatch's verdict on its key, the first message a node link hears and sent again
+/// whenever the key, its binding or the PIN changes there. Nothing keyed is sent before a connection's first message is
+/// read. A refused key (<c>ok:false</c>, a 401) is held for the larger of 60 s and the Stagewatch's own <c>retry</c> or
+/// <c>Retry-After</c>, recorded as its word is read and before any further I/O: no keyed call and no redial inside it, the
+/// timer followed on the public frame meanwhile; a rate limit (429) holds the same and leaves the key's standing as it
+/// was. A key the Stagewatch takes that speaks for no node of this desk's (verified none, a 403) holds only the node
+/// routes — the context this desk posts, its proposals, the collect and the results — for as long: the binding governs
+/// those, not reading (Stagewatch §7.1), so the keyed read of its context and the redial go on and its context stays
+/// shown. A fresh verdict that takes the key lifts every hold of a refusal. Against a Stagewatch older than its node links,
+/// which sends no verdict, the answers to the keyed calls are the evidence, and every reader says so in amber (P-legacy,
+/// docs/OPEN.md L66). One log line for each change of the key's standing; Stagewatch's words with the key masked, never
+/// the key.
 /// </summary>
 public sealed class StagewatchLinkService : IDisposable
 {
@@ -48,6 +62,7 @@ public sealed class StagewatchLinkService : IDisposable
     private readonly LinkClock _clock = new();
     private CancellationTokenSource? _cts;
     private string _runningKey = "";
+    private string _runningHostKey = "";
 
     /// <summary>
     /// One Stagewatch's show as a run has heard it, by the key it was dialled under: its context and its stuck mark. Each
@@ -73,6 +88,64 @@ public sealed class StagewatchLinkService : IDisposable
 
         /// <summary>Why the connection up now was ended to dial again ("" when it was not): the link's words after it ends.</summary>
         public string Redial = "";
+
+        /// <summary>
+        /// Round 91: what the Stagewatch made of this desk's key, and the holds its words started — kept across this run's
+        /// connections, so a refusal said before a drop still holds the redial, and carried into the next run while it
+        /// follows the same address with the same key (<see cref="Carry"/>: a pin set on a verdict starts one); a new key or
+        /// address starts with none. The verdict on the socket (the receive loop) and the answers to keyed calls (the beat
+        /// task) both write here, under <see cref="Gate"/>; <see cref="Said"/> orders them, so an answer to a call that left
+        /// before a verdict never overrides it.
+        /// </summary>
+        public readonly object Gate = new();
+
+        /// <summary>Counts verdicts and refusals (under <see cref="Gate"/>): an answer applies only while none came after its call left.</summary>
+        public long Said;
+
+        /// <summary>The show clock's ms until which keyed calls and a redial wait for a refused key (under <see cref="Gate"/>).</summary>
+        public long HeldUntilMs;
+
+        /// <summary>The show clock's ms until which keyed calls and a redial wait out a rate limit (under <see cref="Gate"/>).</summary>
+        public long BusyUntilMs;
+
+        /// <summary>The show clock's ms until which the node routes wait for a key that speaks for no node of this desk's (under <see cref="Gate"/>).</summary>
+        public long NodeHeldUntilMs;
+
+        public volatile StagewatchKey Key = StagewatchKey.Unknown;
+
+        /// <summary>
+        /// What the run before heard of the same key at the same address — its standing and its holds, whose ends are on the
+        /// show clock both runs keep — so a new run presents a key held there no sooner than that run would have.
+        /// </summary>
+        public void Carry(Run from)
+        {
+            lock (from.Gate)
+            {
+                HeldUntilMs = from.HeldUntilMs;
+                BusyUntilMs = from.BusyUntilMs;
+                NodeHeldUntilMs = from.NodeHeldUntilMs;
+                Key = from.Key;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Round 91: one connection of a run — what it dialled and whether it carries the key, and whether its first message is
+    /// read yet: nothing keyed is sent before it, so a verdict (the first thing a node link hears) is read before any keyed
+    /// call. <see cref="Legacy"/>: that first message was no verdict — a Stagewatch older than its node links.
+    /// <see cref="Secret"/> is this desk's key, masked in any words the far end sends back.
+    /// </summary>
+    private sealed class Connection(Run run, Target target, bool tls, bool keyed, IReadOnlyDictionary<string, string> pins, Func<string> presented, string secret)
+    {
+        public Run Run { get; } = run;
+        public Target Target { get; } = target;
+        public bool Tls { get; } = tls;
+        public bool Keyed { get; } = keyed;
+        public IReadOnlyDictionary<string, string> Pins { get; } = pins;
+        public Func<string> Presented { get; } = presented;
+        public string Secret { get; } = secret;
+        public volatile bool Heard;
+        public volatile bool Legacy;
     }
 
     private volatile Run _run = new();
@@ -132,7 +205,7 @@ public sealed class StagewatchLinkService : IDisposable
             var context = show?.Context;
             var s = _sight;
             if (s.Name.Length == 0 && s.Address.Length == 0) return s;
-            s = s with { Context = context };
+            s = s with { Context = context, Key = _run.Key };
             if (stuck) s = s with { Frame = s.Frame is { } f ? f with { Live = false } : null, Stuck = true };
             // The state is the silence since the last word, read now: a link that stopped talking goes stale on its own.
             var silent = TimeSpan.FromSeconds(Math.Max(0, ShowClock.Seconds - s.FrameAtSeconds));
@@ -158,10 +231,30 @@ public sealed class StagewatchLinkService : IDisposable
         get
         {
             var line = _status;
-            var note = _note;
-            return note.Length == 0 ? line : line.TrimEnd('.') + " · " + note + ".";
+            // Round 91: and what the Stagewatch made of this desk's key, when there is something to say of it.
+            var extra = string.Join(" · ", new[] { _note, _run.Key.Line }.Where(w => w.Length > 0));
+            return extra.Length == 0 ? line : line.TrimEnd('.') + " · " + extra + ".";
         }
     }
+
+    /// <summary>
+    /// Round 91: what the Stagewatch made of this desk's key on this run — its verdict on the socket, or (P-legacy) the
+    /// answers to the keyed calls of a Stagewatch that sends none. <see cref="StagewatchKey.Unknown"/> before anything said.
+    /// </summary>
+    public StagewatchKey Key => _run.Key;
+
+    /// <summary>
+    /// Round 91: how much longer anything keyed waits — a refused key's hold or a rate limit's (every keyed call and the next
+    /// dial), or the node routes' for a key that speaks for no node of this desk's; zero when nothing holds.
+    /// </summary>
+    public TimeSpan KeyHeld => NodeHeldFor(_run);
+
+    /// <summary>
+    /// Round 91: the least a refused key is held — Show Bus 1.3's <c>peerlink.hold.refused.ms</c>, 60 s; a Stagewatch's own
+    /// <c>retry</c> or <c>Retry-After</c> holds longer (<see cref="StagewatchFrame.Hold(int, long, TimeSpan)"/>). A test
+    /// shortens it to see a hold end. Read on the link's task: set it before the link is turned on.
+    /// </summary>
+    public TimeSpan RefusedHoldAtLeast { get; set; } = StagewatchFrame.RefusedHold;
 
     /// <summary>
     /// Round 89: what the connection up now carries — "tls"; "plain" (to loopback, or with no key set); "keyless" (a
@@ -247,13 +340,18 @@ public sealed class StagewatchLinkService : IDisposable
     public void Reconcile()
     {
         var c = _config();
-        var key = c.Enabled ? $"{c.Host}|{Hash(c.ApiKey)}|{c.PinsKey}" : "";
+        var hostKey = c.Enabled ? $"{c.Host}|{Hash(c.ApiKey)}" : "";
+        var key = c.Enabled ? $"{hostKey}|{c.PinsKey}" : "";
         if (key == _runningKey) return;
+        var carry = hostKey.Length > 0 && hostKey == _runningHostKey;                       // the same key at the same address: a pin set, say
         _runningKey = key;
+        _runningHostKey = hostKey;
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
+        var previous = _run;
         var run = new Run();
+        if (carry) run.Carry(previous);                                                     // round 91: its holds and standing go on
         _sight = StagewatchSight.None;
         _run = run;                                                                         // a new run, after its empty sight: no context, no mark
         _lastWordAt = 0;
@@ -324,10 +422,42 @@ public sealed class StagewatchLinkService : IDisposable
             _carrier = "";
             _sight = _sight with { State = ShowBusState.Gone };
             _approvalsLive = false;
+            // Round 91: a hold replaces the wait (Show Bus 1.3 draft §13.15.3): a refused key, or a rate limit, is not
+            // presented again by a redial inside it. It was recorded as its word was read, so a connection that ended in an
+            // exception waits it as a clean end does.
+            var backoff = ShowBusLiveness.Redial(attempt++, RandomNumberGenerator.GetInt32(1000) / 1000.0);
+            var held = HeldFor(run);
+            if (held > backoff && !_status.Contains("dialling again in", StringComparison.Ordinal))
+                _status = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Stagewatch link: {target.Name} — this desk's key is held; dialling again in {Math.Ceiling(held.TotalSeconds):0} s.");
             UiThread.Post(_changed);
-            await Delay(ShowBusLiveness.Redial(attempt++, RandomNumberGenerator.GetInt32(1000) / 1000.0), ct);
+            await Delay(held > backoff ? held : backoff, ct);
         }
     }
+
+    /// <summary>How much longer a refused key's hold or a rate limit's holds every keyed call and the next dial (zero when neither).</summary>
+    private static TimeSpan HeldFor(Run run)
+    {
+        long until;
+        lock (run.Gate) until = Math.Max(run.HeldUntilMs, run.BusyUntilMs);
+        return Left(until);
+    }
+
+    /// <summary>How much longer the node routes wait: any hold, a key that speaks for no node of this desk's among them.</summary>
+    private static TimeSpan NodeHeldFor(Run run)
+    {
+        long until;
+        lock (run.Gate) until = Math.Max(Math.Max(run.HeldUntilMs, run.BusyUntilMs), run.NodeHeldUntilMs);
+        return Left(until);
+    }
+
+    private static TimeSpan Left(long untilMs)
+    {
+        var left = untilMs - ClockMs();
+        return left > 0 ? TimeSpan.FromMilliseconds(left) : TimeSpan.Zero;
+    }
+
+    /// <summary>The show clock in whole milliseconds: what the holds are kept on.</summary>
+    private static long ClockMs() => (long)(ShowClock.Seconds * 1000);
 
     private static async Task Delay(TimeSpan wait, CancellationToken ct)
     {
@@ -432,7 +562,7 @@ public sealed class StagewatchLinkService : IDisposable
             probe = new DialProbe(tls: true, within);
             try
             {
-                dial = await DialAsync(address, probe, validate, target, tls: true, keyed ? apiKey : "", ct);
+                dial = await DialAsync(address, probe, validate, target, tls: true, keyed ? apiKey : "", SelfId, ct);
             }
             catch (Exception ex) when (AnsweredWithoutTls(ex, probe))
             {
@@ -452,7 +582,7 @@ public sealed class StagewatchLinkService : IDisposable
             // Plain: the key goes only to loopback. Anywhere else, the Stagewatch is read without the key.
             keyed = apiKey.Length > 0 && local;
             probe = new DialProbe(tls: false, TlsAnswerWithin);
-            dial = await DialAsync(address, probe, null, target, tls: false, keyed ? apiKey : "", ct);
+            dial = await DialAsync(address, probe, null, target, tls: false, keyed ? apiKey : "", SelfId, ct);
         }
         var (handler, invoker, ws) = dial.Value;
         using var ownedHandler = handler;
@@ -494,14 +624,16 @@ public sealed class StagewatchLinkService : IDisposable
 
         // The side calls ride the dial's own handler: the same address, the same pin, the key only where the socket's carried it.
         var sideKey = keyed ? apiKey : "";
-        using var http = new HttpClient(handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(4) };
+        // Every answer is read whole before it is parsed, an error's body too: bounded here, well above a context's 64 KiB.
+        using var http = new HttpClient(handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(4), MaxResponseContentBufferSize = SideAnswerMost };
         var baseUri = Address(target, tls, socket: false);
         var sendGate = new SemaphoreSlim(1, 1);
-        var beat = Task.Run(() => BeatAsync(show, ws, sendGate, http, baseUri, sideKey, target, tls, pins, () => presented, ct), CancellationToken.None);
+        var connection = new Connection(run, target, tls, sideKey.Length > 0, pins, () => presented, apiKey);
+        var beat = Task.Run(() => BeatAsync(connection, show, ws, sendGate, http, baseUri, sideKey, ct), CancellationToken.None);
         var reprobe = heldBack ? Task.Run(() => ReprobeAsync(run, address, target, ws, ct), CancellationToken.None) : Task.CompletedTask;
         try
         {
-            await ReceiveAsync(show, ws, name, ct);
+            await ReceiveAsync(connection, show, ws, name, ct);
         }
         finally
         {
@@ -655,13 +787,13 @@ public sealed class StagewatchLinkService : IDisposable
     }
 
     /// <summary>One dial: its handler (every socket to <paramref name="address"/>), the invoker the upgrade runs on, and the WebSocket — all let go when it fails.</summary>
-    private static async Task<(SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket)> DialAsync(IPAddress address, DialProbe probe, RemoteCertificateValidationCallback? validate, Target target, bool tls, string key, CancellationToken ct)
+    private static async Task<(SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket)> DialAsync(IPAddress address, DialProbe probe, RemoteCertificateValidationCallback? validate, Target target, bool tls, string key, string selfId, CancellationToken ct)
     {
         var handler = Handler(address, probe, validate);
         var invoker = new HttpMessageInvoker(handler, disposeHandler: false);
         try
         {
-            var ws = await UpgradeAsync(invoker, probe, target, tls, key, ct);
+            var ws = await UpgradeAsync(invoker, probe, target, tls, key, selfId, ct);
             return (handler, invoker, ws);
         }
         catch
@@ -672,8 +804,12 @@ public sealed class StagewatchLinkService : IDisposable
         }
     }
 
-    /// <summary>The upgrade to /ws through <paramref name="invoker"/>, the key in its header when one is given, on the budget <paramref name="probe"/> keeps.</summary>
-    private static async Task<ClientWebSocket> UpgradeAsync(HttpMessageInvoker invoker, DialProbe probe, Target target, bool tls, string key, CancellationToken ct)
+    /// <summary>
+    /// The upgrade to /ws through <paramref name="invoker"/>, the key in its header when one is given, on the budget
+    /// <paramref name="probe"/> keeps. Round 91: as a node link naming this desk's show network id
+    /// (<see cref="StagewatchFrame.SocketQuery"/>), so a Stagewatch 2.18 hears who it is and says first what it made of the key.
+    /// </summary>
+    private static async Task<ClientWebSocket> UpgradeAsync(HttpMessageInvoker invoker, DialProbe probe, Target target, bool tls, string key, string selfId, CancellationToken ct)
     {
         var ws = new ClientWebSocket();
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -683,7 +819,7 @@ public sealed class StagewatchLinkService : IDisposable
             if (key.Length > 0) ws.Options.SetRequestHeader("Authorization", "Bearer " + key);
             budget.CancelAfter(UpgradeWithin);
             probe.Arm(budget);
-            await ws.ConnectAsync(new Uri(Address(target, tls, socket: true), "/ws?cid=patterns&page=/patterns"), invoker, budget.Token);
+            await ws.ConnectAsync(new Uri(Address(target, tls, socket: true), StagewatchFrame.SocketQuery(selfId)), invoker, budget.Token);
             return ws;
         }
         catch
@@ -770,11 +906,16 @@ public sealed class StagewatchLinkService : IDisposable
 
     /// <summary>
     /// Every two seconds: the clock exchange (which is also the beat), the liveness check, the approval queue; every
-    /// five seconds the Stagewatch's context read and this desk's own posted.
+    /// five seconds the Stagewatch's context read and this desk's own posted. Round 91: on a connection that carries the
+    /// key, no keyed call goes before its first message is read (a verdict, on a Stagewatch that sends one), and none while
+    /// a refused key or a rate limit holds them — meanwhile the timer is followed on the public frame and the Stagewatch's
+    /// context, which this desk cannot read, is not shown as if it were current; while a key that speaks for no node of
+    /// this desk's holds the node routes, the context is read and shown and only those routes wait.
     /// </summary>
-    private async Task BeatAsync(HeardShow show, ClientWebSocket ws, SemaphoreSlim sendGate, HttpClient http, Uri baseUri, string apiKey, Target target, bool tls, IReadOnlyDictionary<string, string> pins, Func<string> presented, CancellationToken ct)
+    private async Task BeatAsync(Connection c, HeardShow show, ClientWebSocket ws, SemaphoreSlim sendGate, HttpClient http, Uri baseUri, string apiKey, CancellationToken ct)
     {
         var lastContext = double.NegativeInfinity;
+        var target = c.Target;
         var name = target.Name;
         while (!ct.IsCancellationRequested && ws.State == WebSocketState.Open)
         {
@@ -797,11 +938,19 @@ public sealed class StagewatchLinkService : IDisposable
             }
             if (ShowClock.Seconds - lastContext >= 5)
             {
-                lastContext = ShowClock.Seconds;
-                if (await FetchContextAsync(show, http, new Uri(baseUri, "/api/context"), apiKey, ct) && tls) Pin(target, pins, presented());
-                await PostOwnContextAsync(http, new Uri(baseUri, "/api/peers/context"), apiKey, ct);
+                if (!c.Keyed || KeyedCallsOpen(c))
+                {
+                    lastContext = ShowClock.Seconds;
+                    if (await FetchContextAsync(c, show, http, new Uri(baseUri, "/api/context"), apiKey, ct) && c.Tls) Pin(target, c.Pins, c.Presented());
+                    if (NodeRoutesOpen(c)) await PostOwnContextAsync(c, http, new Uri(baseUri, "/api/peers/context"), apiKey, ct);
+                }
+                else if (c.Heard && HeldFor(c.Run) > TimeSpan.Zero && show.Context is not null)
+                {
+                    show.Context = null;                                                   // its one writer: what a held key cannot read is not shown as current
+                    UiThread.Post(_changed);
+                }
             }
-            if (target.Approvals && apiKey.Length > 0 && SelfId.Length > 0) await ApprovalsAsync(http, baseUri, apiKey, name, ct);
+            if (target.Approvals && apiKey.Length > 0 && SelfId.Length > 0 && NodeRoutesOpen(c)) await ApprovalsAsync(c, http, baseUri, apiKey, name, ct);
             await Task.Delay(ShowBusLiveness.Beat, ct);
         }
     }
@@ -817,15 +966,24 @@ public sealed class StagewatchLinkService : IDisposable
     /// <summary>
     /// The Stagewatch's context, kept on its show (its one writer); true when an authenticated answer came (the TLS pin
     /// may be set on it). It touches nothing of the frame, so a context read during a stall cannot bring a time back.
+    /// Round 91: a keyed read refused (401), or rate-limited (429), holds the key as its answer says; any key the Stagewatch
+    /// takes reads it, so a key that speaks for no node of this desk's goes on reading it.
     /// </summary>
-    private async Task<bool> FetchContextAsync(HeardShow show, HttpClient http, Uri url, string apiKey, CancellationToken ct)
+    private async Task<bool> FetchContextAsync(Connection c, HeardShow show, HttpClient http, Uri url, string apiKey, CancellationToken ct)
     {
         try
         {
+            var asked = Asked(c.Run);
             using var request = Request(HttpMethod.Get, url, apiKey);
             using var response = await http.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode) return false;                             // an older Stagewatch, or a key that may not read it: the timer still follows
-            var json = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                // An older Stagewatch, or a key that may not read it: the timer still follows; a keyed refusal holds the key.
+                if (apiKey.Length > 0) Answered(c, response, await response.Content.ReadAsStringAsync(ct), asked, context: false);
+                return false;
+            }
+            // Its words reach every reader and the context this desk posts: a key echoed in them is masked before the parse.
+            var json = StagewatchFrame.MaskSecret(await response.Content.ReadAsStringAsync(ct), c.Secret);
             if (ShowContext.Parse(json) is { } context)
             {
                 show.Context = context;
@@ -840,8 +998,13 @@ public sealed class StagewatchLinkService : IDisposable
         }
     }
 
-    /// <summary>This desk's own context to the Stagewatch (§6, `node` key): the Stagewatch's show network shows it, and it binds the key to this desk's id for the approval queue.</summary>
-    private async Task PostOwnContextAsync(HttpClient http, Uri url, string apiKey, CancellationToken ct)
+    /// <summary>
+    /// This desk's own context to the Stagewatch (§6, `node` key): the Stagewatch's show network shows it, and it binds the
+    /// key to this desk's id for the approval queue. Round 91: its answer is evidence of the key — the <c>verified</c> a
+    /// Stagewatch 2.18 names (none: the key speaks for no node of this desk's, its node routes held), a refusal in the
+    /// Stagewatch's own words, held — and for a Stagewatch that sends no verdict on its socket, the only evidence (P-legacy).
+    /// </summary>
+    private async Task PostOwnContextAsync(Connection c, HttpClient http, Uri url, string apiKey, CancellationToken ct)
     {
         if (apiKey.Length == 0 || OwnContext is null) return;
         string? json;
@@ -853,14 +1016,16 @@ public sealed class StagewatchLinkService : IDisposable
         {
             return;
         }
-        if (json is null) return;
+        if (json is null || !NodeRoutesOpen(c)) return;                               // a verdict or a refusal may have come while the context was made
         try
         {
+            var asked = Asked(c.Run);
             using var request = Request(HttpMethod.Post, url, apiKey, json);
             using var response = await http.SendAsync(request, ct);
+            var said = Answered(c, response, await response.Content.ReadAsStringAsync(ct), asked, context: true);
             _approvalsLive = response.IsSuccessStatusCode && _approvalsLive;
-            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                _approvalWords = "the Stagewatch key may read but not post — make a node key on the Stagewatch for the approval queue";
+            if (!response.IsSuccessStatusCode)
+                _approvalWords = $"Stagewatch {c.Target.Name} refused this desk's context — {said}";
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException && !ct.IsCancellationRequested)
         {
@@ -870,21 +1035,36 @@ public sealed class StagewatchLinkService : IDisposable
 
     private readonly HashSet<string> _ranDeskIds = new(StringComparer.Ordinal);
 
-    /// <summary>§11: send what waits, read what became of ours, collect what was approved for this desk and answer it.</summary>
-    private async Task ApprovalsAsync(HttpClient http, Uri baseUri, string apiKey, string deskName, CancellationToken ct)
+    /// <summary>
+    /// Round 91: results this desk owes an approval desk — a proposal it ran whose result a hold stopped, or the desk
+    /// refused while this key was held there — by the Stagewatch they are owed to (its pin key) and its id for the
+    /// proposal, oldest first; sent to that Stagewatch only, before anything else once its node routes open again, and kept
+    /// until an answer settles each. Bounded at <see cref="MostOwed"/>.
+    /// </summary>
+    private readonly List<(string To, string Id, string Body)> _owed = new();
+
+    /// <summary>The most results owed at once; past it the oldest is let go, said in the log.</summary>
+    public const int MostOwed = 100;
+
+    /// <summary>
+    /// §11: send what waits, read what became of ours, collect what was approved for this desk and answer it. Round 91: a
+    /// refusal is said in the approval desk's own words — a refused collect too, which used to pass in silence — and any
+    /// hold of the key holds the queue: nothing more is sent, taken or run once one stands, and a result it stopped is owed.
+    /// </summary>
+    private async Task ApprovalsAsync(Connection c, HttpClient http, Uri baseUri, string apiKey, string deskName, CancellationToken ct)
     {
         try
         {
             foreach (var e in Approvals.Unsent)
             {
+                if (!NodeRoutesOpen(c)) return;
+                var asked = Asked(c.Run);
                 using var post = Request(HttpMethod.Post, new Uri(baseUri, "/api/proposals"), apiKey, DeskProposals.Request(SelfId, SelfName, SelfId, e.Line, e.Reason, e.Risk));
                 using var res = await http.SendAsync(post, ct);
                 var body = await res.Content.ReadAsStringAsync(ct);
                 if (!res.IsSuccessStatusCode)
                 {
-                    _approvalWords = res.StatusCode == System.Net.HttpStatusCode.Forbidden
-                        ? "the Stagewatch key may not send proposals — a node key is needed for the approval queue"
-                        : $"the approval desk refused a proposal ({(int)res.StatusCode})";
+                    _approvalWords = $"the approval desk refused this desk's proposal — {Answered(c, res, body, asked, context: false)}";
                     _approvalsLive = false;
                     return;
                 }
@@ -894,33 +1074,54 @@ public sealed class StagewatchLinkService : IDisposable
                     Update(e, made.State.Length > 0 ? made.State : "pending", deskName);
                 }
             }
-            _approvalsLive = true;
-            _approvalWords = $"approval desk: Stagewatch {deskName} — the assistant's proposals go there";
+            // Live only while no hold stands, decided under the run's gate: a refusal applied there meanwhile wins.
+            lock (c.Run.Gate)
+            {
+                if (!NodeRoutesOpen(c)) return;
+                _approvalsLive = true;
+                _approvalWords = $"approval desk: Stagewatch {deskName} — the assistant's proposals go there";
+            }
 
+            foreach (var (id, body) in Owed(c.Target.PinKey))
+                if (!await PostResultAsync(c, http, baseUri, apiKey, deskName, id, body, ct)) return;
+
+            var askedMine = Asked(c.Run);
             using (var mine = Request(HttpMethod.Get, new Uri(baseUri, "/api/proposals?from=" + Uri.EscapeDataString(SelfId)), apiKey))
             using (var res = await http.SendAsync(mine, ct))
             {
                 if (res.IsSuccessStatusCode)
+                {
                     foreach (var p in DeskProposals.ParseList(await res.Content.ReadAsStringAsync(ct)))
                         if (Approvals.ByDesk(p.Id) is { } e && e.State != p.State && !(e.Ran && p.State == "approved")) Update(e, p.State, deskName);
+                }
+                else Answered(c, res, await res.Content.ReadAsStringAsync(ct), askedMine, context: false);
             }
 
+            if (!NodeRoutesOpen(c)) return;
+            var askedCollect = Asked(c.Run);
             using var approved = Request(HttpMethod.Get, new Uri(baseUri, "/api/proposals?target=" + Uri.EscapeDataString(SelfId) + "&state=approved"), apiKey);
             using var list = await http.SendAsync(approved, ct);
-            if (!list.IsSuccessStatusCode) return;
+            if (!list.IsSuccessStatusCode)
+            {
+                // A refused collect is said: nothing approved for this desk reaches it until the Stagewatch hands it over.
+                var refusal = Answered(c, list, await list.Content.ReadAsStringAsync(ct), askedCollect, context: false);
+                _approvalWords = $"the approval desk refused to hand over what was approved for this desk — {refusal}";
+                _approvalsLive = false;
+                return;
+            }
             foreach (var p in DeskProposals.ParseList(await list.Content.ReadAsStringAsync(ct)))
             {
                 if (p.TargetId.Length > 0 && p.TargetId != SelfId) continue;
+                if (!NodeRoutesOpen(c)) return;                                             // held: what was approved waits there, not taken
                 if (!_ranDeskIds.Add(p.Id)) continue;
                 var (ok, words) = await RunAsync(p, deskName);
-                using var result = Request(HttpMethod.Post, new Uri(baseUri, $"/api/proposals/{Uri.EscapeDataString(p.Id)}/result"), apiKey, DeskProposals.Result(ok, words));
-                using var _ = await http.SendAsync(result, ct);
+                if (!await PostResultAsync(c, http, baseUri, apiKey, deskName, p.Id, DeskProposals.Result(ok, words), ct)) return;
             }
             if (_ranDeskIds.Count > 1000) _ranDeskIds.Clear();
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException && !ct.IsCancellationRequested)
         {
-            // the queue is asked again in two seconds; nothing was run twice (the ids ran are kept)
+            // the queue is asked again in two seconds; nothing was run twice (the ids ran are kept), a result owed stays owed
         }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException or UriFormatException)
         {
@@ -928,6 +1129,57 @@ public sealed class StagewatchLinkService : IDisposable
             // frames must never stop because the queue misbehaved.
             Log.Warn("Approval desk: a step of the queue failed — asked again in two seconds.", ex);
         }
+    }
+
+    /// <summary>
+    /// One result to the approval desk, owed until an answer settles it: false when a hold stopped it — standing before it
+    /// left, or started by its answer (401, 403, 429) — so the queue goes no further; it is sent again once the routes open.
+    /// Any other refusal settles it, said in the log.
+    /// </summary>
+    private async Task<bool> PostResultAsync(Connection c, HttpClient http, Uri baseUri, string apiKey, string deskName, string id, string body, CancellationToken ct)
+    {
+        var to = c.Target.PinKey;
+        Owe(to, id, body);
+        if (!NodeRoutesOpen(c)) return false;
+        var asked = Asked(c.Run);
+        using var result = Request(HttpMethod.Post, new Uri(baseUri, $"/api/proposals/{Uri.EscapeDataString(id)}/result"), apiKey, body);
+        using var answer = await http.SendAsync(result, ct);
+        if (answer.IsSuccessStatusCode)
+        {
+            Settle(to, id);
+            return true;
+        }
+        var said = Answered(c, answer, await answer.Content.ReadAsStringAsync(ct), asked, context: false);
+        if ((int)answer.StatusCode is 401 or 403 or 429)
+        {
+            Log.Warn($"Approval desk ({deskName}): the result of {id} was refused — {said}; it is sent again once this desk's key may post it.");
+            return false;
+        }
+        Settle(to, id);
+        Log.Warn($"Approval desk ({deskName}): the result of {id} was refused — {said}");
+        return true;
+    }
+
+    private List<(string Id, string Body)> Owed(string to)
+    {
+        lock (_owed) return _owed.Where(o => o.To == to).Select(o => (o.Id, o.Body)).ToList();
+    }
+
+    private void Owe(string to, string id, string body)
+    {
+        lock (_owed)
+        {
+            if (_owed.Exists(o => o.To == to && o.Id == id)) return;
+            _owed.Add((to, id, body));
+            if (_owed.Count <= MostOwed) return;
+            Log.Warn($"Approval desk: the result of {_owed[0].Id} is let go unsent — more than {MostOwed} results owed.");
+            _owed.RemoveAt(0);
+        }
+    }
+
+    private void Settle(string to, string id)
+    {
+        lock (_owed) _owed.RemoveAll(o => o.To == to && o.Id == id);
     }
 
     /// <summary>An approved proposal: one of the assistant's (applied by its id) or another app's wire line (run through the wire path).</summary>
@@ -960,11 +1212,158 @@ public sealed class StagewatchLinkService : IDisposable
     }
 
     /// <summary>
+    /// Keyed reads may go — the context's: the connection carries the key, its first message is read, and neither a refused
+    /// key's hold nor a rate limit's stands.
+    /// </summary>
+    private static bool KeyedCallsOpen(Connection c) => c.Keyed && c.Heard && HeldFor(c.Run) == TimeSpan.Zero;
+
+    /// <summary>
+    /// The node routes may go — the context this desk posts, its proposals, the collect and the results: as
+    /// <see cref="KeyedCallsOpen"/>, and no hold of a key that speaks for no node of this desk's stands.
+    /// </summary>
+    private static bool NodeRoutesOpen(Connection c) => c.Keyed && c.Heard && NodeHeldFor(c.Run) == TimeSpan.Zero;
+
+    /// <summary>The most of a side call's answer read: well above a context's 64 KiB, so no far end fills this desk's memory.</summary>
+    private const long SideAnswerMost = 1024 * 1024;
+
+    /// <summary>Where the run's words stand as a call leaves: its answer applies only while no verdict or refusal came after.</summary>
+    private static long Asked(Run run)
+    {
+        lock (run.Gate) return run.Said;
+    }
+
+    /// <summary>
+    /// The answer to one of this desk's keyed calls, read as evidence of the key (<see cref="StagewatchKey.OfAnswer"/>): a
+    /// 401 refuses it, a 403 holds its node routes and a 429 holds it, in the Stagewatch's words; a 2xx to this desk's
+    /// context (<paramref name="context"/>) says its standing. Returns the Stagewatch's words for the answer, the key masked.
+    /// </summary>
+    private string Answered(Connection c, HttpResponseMessage response, string body, long asked, bool context)
+    {
+        var status = (int)response.StatusCode;
+        var error = "";
+        var verified = "";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body.Length is > 0 and <= 64 * 1024 ? body : "{}");
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.String) error = StagewatchFrame.Words(e.GetString(), c.Secret);
+                if (doc.RootElement.TryGetProperty("verified", out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String) verified = v.GetString() ?? "";
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // a body that is no JSON object says nothing more than its status
+        }
+        var retryAfter = response.Headers.RetryAfter?.Delta is { } delta ? (long)Math.Ceiling(delta.TotalSeconds) : 0;
+        if (c.Keyed && StagewatchKey.OfAnswer(status, error, verified, retryAfter, context, c.Legacy, RefusedHoldAtLeast) is { } step) Apply(c, step, asked);
+        return error.Length > 0 ? error : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"HTTP {status}");
+    }
+
+    /// <summary>
+    /// One word on the key applied to the run, under its gate: the hold first — recorded as the word is read, before any
+    /// further I/O — then the standing, and the approval desk held with it. A verdict (<paramref name="asked"/> −1) is the
+    /// latest word; an answer applies only while no verdict or refusal came after its call left. A word that takes the key
+    /// lifts every hold of a refusal (never a rate limit's); one that says the key reads but speaks for no node of this
+    /// desk's lifts a refused key's hold and holds the node routes. One log line when the standing moves; the certificate
+    /// pinned on an answer that authenticated the key.
+    /// </summary>
+    private void Apply(Connection c, StagewatchKeyStep step, long asked)
+    {
+        var run = c.Run;
+        var name = c.Target.Name;
+        StagewatchKey before;
+        StagewatchKey after;
+        lock (run.Gate)
+        {
+            if (asked >= 0 && asked != run.Said) return;
+            if (asked < 0 || step.Hold is StagewatchHoldKind.Refused or StagewatchHoldKind.Node) run.Said++;
+            var now = ClockMs();
+            if (step.Takes) (run.HeldUntilMs, run.NodeHeldUntilMs) = (0, 0);
+            if (step.Hold == StagewatchHoldKind.Node) run.HeldUntilMs = 0;
+            var until = now + (long)step.For.TotalMilliseconds;
+            if (step.Hold == StagewatchHoldKind.Refused && until > run.HeldUntilMs) run.HeldUntilMs = until;
+            if (step.Hold == StagewatchHoldKind.Busy && until > run.BusyUntilMs) run.BusyUntilMs = until;
+            if (step.Hold == StagewatchHoldKind.Node && until > run.NodeHeldUntilMs) run.NodeHeldUntilMs = until;
+            before = run.Key;
+            after = step.Key is { } k ? k with { Legacy = c.Legacy && c.Keyed } : before;
+            run.Key = after;
+            if (step.Hold != StagewatchHoldKind.None)
+            {
+                // The approval desk is held with the key, and says so: no "the proposals go there" beside a refusal.
+                _approvalsLive = false;
+                if (c.Target.Approvals)
+                    _approvalWords = step.Hold == StagewatchHoldKind.Busy
+                        ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"approval desk: Stagewatch {name} — the assistant's proposals wait out its rate limit ({step.For.TotalSeconds:0} s)")
+                        : $"approval desk: Stagewatch {name} — the assistant's proposals wait while this desk's key is held there";
+            }
+        }
+        if (step.Hold == StagewatchHoldKind.Busy)
+            Log.Warn(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Stagewatch link: {name} rate-limits this desk's key — its keyed calls wait {step.For.TotalSeconds:0} s ({step.Words})."));
+        if (after != before)
+        {
+            if (after.Fault)
+                Log.Warn(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Stagewatch link: {name} — {after.Line}; {(step.Hold == StagewatchHoldKind.Node ? "the context this desk posts and its proposals wait" : "this desk's keyed calls wait")} {step.For.TotalSeconds:0} s."));
+            else if (after.Word is "key" or "operator")
+                Log.Info($"Stagewatch link: {name} takes this desk's key — verified {after.Word}" + (after.Legacy ? $" ({StagewatchKey.LegacyWords})." : "."));
+            else if (after.Keyed)
+                Log.Info($"Stagewatch link: {name} takes this desk's key again" + (after.Legacy ? $" — {StagewatchKey.LegacyWords}." : "."));
+            else if (after.Said.Length > 0)
+                Log.Info($"Stagewatch link: {name} — no key on this link: {after.Said}.");
+            UiThread.Post(_changed);
+        }
+        if (step.Pins && c.Tls) Pin(c.Target, c.Pins, c.Presented());
+    }
+
+    /// <summary>
+    /// Round 91: a verdict on the socket (Stagewatch 2.18 §7.1), read as it arrives: the first message a node link hears,
+    /// and again whenever the key, its binding or the PIN changes there, latest wins. The viewing code's refusal, after
+    /// which the Stagewatch closes the socket, holds the redial and says why.
+    /// </summary>
+    private void Verdict(Connection c, string text)
+    {
+        if (StagewatchFrame.Auth(text, c.Secret) is not { } auth) return;
+        if (StagewatchKey.OfVerdict(auth, SelfId, c.Keyed, RefusedHoldAtLeast) is not { } step) return;
+        Apply(c, step, -1);
+        if (!auth.View) return;
+        var why = step.Words.Length > 0 ? step.Words : auth.Error.Length > 0 ? auth.Error : "its viewing code";
+        Volatile.Write(ref c.Run.Redial, string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"{c.Target.Name} closed the link — {why}; dialling again in {Math.Ceiling(step.For.TotalSeconds):0} s."));
+    }
+
+    /// <summary>
+    /// Round 91: the first message on a connection. Anything but a verdict says the Stagewatch is older than its node links,
+    /// and so does, on a link that carries the key, a viewing code's refusal that says nothing of the key
+    /// (<see cref="StagewatchKey.OlderFirst"/>): a link that carries the key then reads the key's standing from the answers
+    /// to its keyed calls (P-legacy's labelled fallback) — from the standing that evidence left on a connection before, or
+    /// from nothing said yet.
+    /// </summary>
+    private void First(Connection c, string type, string text)
+    {
+        c.Legacy = StagewatchKey.OlderFirst(type, type == "auth" ? StagewatchFrame.Auth(text, c.Secret) : null, c.Keyed);
+        if (!c.Legacy) return;
+        var run = c.Run;
+        StagewatchKey before;
+        StagewatchKey after;
+        lock (run.Gate)
+        {
+            before = run.Key;
+            after = c.Keyed ? before.Legacy && before.Keyed ? before : new StagewatchKey { Keyed = true, Legacy = true } : StagewatchKey.Unknown;
+            run.Key = after;
+        }
+        if (after == before) return;
+        if (after.Legacy) Log.Info($"Stagewatch link: {c.Target.Name} — {StagewatchKey.LegacyWords}.");
+        UiThread.Post(_changed);
+    }
+
+    /// <summary>
     /// The link's one reader: frames, pongs and beats. It alone writes its show's stuck mark — set by the stuck beat,
     /// cleared by the next state frame only once that frame is held; <see cref="Sight"/> reads the mark before the frame,
-    /// so a read that finds the mark cleared finds the new frame, never the old one counting again.
+    /// so a read that finds the mark cleared finds the new frame, never the old one counting again. Round 91: and the
+    /// Stagewatch's verdict on this desk's key, read before anything keyed is sent.
     /// </summary>
-    private async Task ReceiveAsync(HeardShow show, ClientWebSocket ws, string name, CancellationToken ct)
+    private async Task ReceiveAsync(Connection c, HeardShow show, ClientWebSocket ws, string name, CancellationToken ct)
     {
         var buffer = new byte[16 * 1024];
         var message = new System.Buffers.ArrayBufferWriter<byte>(16 * 1024);
@@ -979,8 +1378,13 @@ public sealed class StagewatchLinkService : IDisposable
             message.ResetWrittenCount();
             var arrived = ShowClock.Seconds;
             _lastWordAt = arrived;
-            switch (StagewatchFrame.TypeOf(text))
+            var type = StagewatchFrame.TypeOf(text);
+            if (!c.Heard) First(c, type, text);
+            switch (type)
             {
+                case "auth":
+                    Verdict(c, text);                                                       // its hold recorded before the beat may send anything keyed
+                    break;
                 case "pong" when StagewatchFrame.Pong(text) is { } p:
                     var t4 = ClockPing.Ms(ShowClock.UtcNow);
                     _clock.Sample(p.T1 * TimeSpan.TicksPerMillisecond, p.T2 * TimeSpan.TicksPerMillisecond, p.T3 * TimeSpan.TicksPerMillisecond, t4 * TimeSpan.TicksPerMillisecond);
@@ -1014,6 +1418,7 @@ public sealed class StagewatchLinkService : IDisposable
                     }
                     break;
             }
+            c.Heard = true;                                                                 // after the first word is applied: no keyed call before it
         }
     }
 

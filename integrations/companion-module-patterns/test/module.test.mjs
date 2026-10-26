@@ -709,3 +709,26 @@ test('round 89 — a stuck Stagewatch: the variable says yes and the red feedbac
 	assert.equal(b.ctx.variables.stagewatch_stuck, 'no')
 	assert.equal(askFeedback(b, 'stagewatch_stuck', {}), false)
 })
+
+test("round 91 — what the linked Stagewatch made of the desk's key reads as a variable, as STATE's row says it, and an older desk reads empty", async () => {
+	const b = await boot()
+	// The desk's own fixture: Stagewatch's verdict on the node link took the key.
+	assert.equal(b.ctx.variables.stagewatch_key, 'key')
+	assert.ok(b.ctx.variableDefs.stagewatch_key, 'defined for the host')
+	// The key revoked on the Stagewatch: its verdict says refused, the row amber, the link still live on the public frame.
+	const s = sampleState()
+	s.bus.stagewatch = { ...s.bus.stagewatch, light: 'amber', key: 'refused' }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_key, 'refused')
+	assert.equal(b.ctx.variables.stagewatch_state, 'live')
+	assert.equal(b.ctx.variables.stagewatch_light, 'amber')
+	// Rebound to this desk on the Stagewatch: a fresh verdict, and the variable follows it.
+	s.bus.stagewatch = { ...s.bus.stagewatch, light: 'green', key: 'key' }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_key, 'key')
+	// A desk from before round 91 sends no such field.
+	const older = sampleState()
+	delete older.bus.stagewatch.key
+	const old = await boot({ state: older })
+	assert.equal(old.ctx.variables.stagewatch_key, '')
+})

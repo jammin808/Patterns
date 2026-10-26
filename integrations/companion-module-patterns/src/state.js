@@ -316,6 +316,8 @@ export function variableValues(s) {
 		stagewatch_light: s.bus?.stagewatch?.light ?? 'grey',
 		// Round 89: the linked Stagewatch says its show is stuck — the link stays live, the stage shows no time from it.
 		stagewatch_stuck: s.bus?.stagewatch?.stuck === true ? 'yes' : 'no',
+		// Round 91: what the linked Stagewatch made of the desk's key — key, operator, none, refused, or empty when it said neither.
+		stagewatch_key: s.bus?.stagewatch?.key ?? '',
 		...bankVariables(s),
 	}
 }

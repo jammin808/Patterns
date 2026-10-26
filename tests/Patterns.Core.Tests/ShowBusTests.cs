@@ -716,4 +716,274 @@ public class ShowBusTests
         Assert.True(gate.ShouldPush("{\"a\":1}"));
         Assert.Equal(2, gate.Skipped);
     }
+
+    // ---- round 91: the Stagewatch link as a node, and its verdict ------------------------------------------------------
+
+    [Fact]
+    public void TheLinkDialsAsANodeNamingThisDeskAndAnIdThatIsNoNodeIdDialsAsAScreen()
+    {
+        Assert.Equal("/ws?node=9f8e7d6c&t=patterns&cid=9f8e7d6c&page=/patterns", StagewatchFrame.SocketQuery("9f8e7d6c"));
+        // An older Stagewatch keeps a cid only at 6–32 characters: a node id outside that sends today's cid beside it.
+        Assert.Equal("/ws?node=ab12&t=patterns&cid=patterns&page=/patterns", StagewatchFrame.SocketQuery("ab12"));
+        Assert.Equal($"/ws?node={new string('a', 40)}&t=patterns&cid=patterns&page=/patterns", StagewatchFrame.SocketQuery(new string('a', 40)));
+        foreach (var notAnId in new[] { "", null, new string('a', 41), "9f8e 7d6c", "9f8e7d6c&t=x", "ünï" })
+            Assert.Equal("/ws?cid=patterns&page=/patterns", StagewatchFrame.SocketQuery(notAnId));
+        Assert.True(StagewatchFrame.IsNodeId("a_b-C9"));
+        Assert.False(StagewatchFrame.IsNodeId("a.b"));
+    }
+
+    [Fact]
+    public void AVerdictIsReadInTheBytesStagewatchWritesAndNothingElseIsOne()
+    {
+        // Stagewatch 2.18's NodeLinks.Verdict, Refusal and ViewRefusal: its writer escapes a dash and an apostrophe.
+        var key = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":true,\"scope\":\"node\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"key\"}}")!;
+        Assert.Equal((true, "node", "patterns", "9f8e7d6c", "key", "", "", 0L, false, ""), (key.Ok, key.Scope, key.Kind, key.Node, key.Verified, key.Words, key.Error, key.Retry, key.View, key.Refused));
+        var bound = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":true,\"scope\":\"node\",\"node\":{\"t\":\"patterns\",\"id\":\"5e6f7a8b\",\"verified\":\"none\"},\"words\":\"this key speaks for patterns 9f8e7d6c \\u2014 make a key for patterns 5e6f7a8b\"}")!;
+        Assert.Equal(("none", "this key speaks for patterns 9f8e7d6c — make a key for patterns 5e6f7a8b"), (bound.Verified, bound.Words));
+        var claim = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":true,\"scope\":\"none\",\"node\":{\"t\":\"patterns\",\"id\":\"5e6f7a8b\",\"verified\":\"none\"},\"words\":\"no key \\u2014 the id is only claimed\"}")!;
+        Assert.Equal(("none", "none", "no key — the id is only claimed"), (claim.Scope, claim.Verified, claim.Words));
+        var refused = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":false,\"error\":\"unknown or revoked API key\",\"retry\":60}")!;
+        Assert.Equal((false, "unknown or revoked API key", 60L, false), (refused.Ok, refused.Error, refused.Retry, refused.View));
+        var view = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\",\"retry\":60,\"refused\":\"unknown or revoked API key\"}")!;
+        Assert.Equal((false, true, "This screen needs the viewing code", 60L, "unknown or revoked API key"), (view.Ok, view.View, view.Error, view.Retry, view.Refused));
+        var control = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":true}")!;                  // a control page's: names no node
+        Assert.Equal((true, ""), (control.Ok, control.Node));
+
+        Assert.Null(StagewatchFrame.Auth("{\"type\":\"auth\",\"scope\":\"node\"}"));               // no ok: not a verdict
+        Assert.Null(StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":\"true\"}"));
+        Assert.Null(StagewatchFrame.Auth("{\"type\":\"state\",\"ok\":true}"));
+        Assert.Null(StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":true"));
+        Assert.Null(StagewatchFrame.Auth(""));
+        Assert.Null(StagewatchFrame.Auth(null));
+        Assert.Null(StagewatchFrame.Parse("{\"type\":\"auth\",\"ok\":true,\"scope\":\"node\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"key\"}}"));   // a verdict is no frame
+        Assert.Equal("auth", StagewatchFrame.TypeOf("{\"type\":\"auth\",\"ok\":false,\"error\":\"x\"}"));
+
+        // The far end's words reach the log: one line, bounded.
+        var long1 = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":false,\"error\":\"line one\\nline two\\u2028" + new string('x', 400) + "\"}")!;
+        Assert.DoesNotContain('\n', long1.Error);
+        Assert.DoesNotContain('\u2028', long1.Error);
+        Assert.Equal(StagewatchFrame.MaxWords, long1.Error.Length);
+        Assert.StartsWith("line one line two ", long1.Error, StringComparison.Ordinal);
+
+        // A far end that echoes the bearer: this desk's key, and anything shaped as a Stagewatch key, masked before any reader.
+        var echoed = StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":false,\"error\":\"unknown key swk_abc234xyz (and swk_other9)\",\"refused\":\"Bearer s3cret-desk-key\"}", "s3cret-desk-key")!;
+        Assert.Equal(("unknown key ••• (and •••)", "Bearer •••"), (echoed.Error, echoed.Refused));
+        Assert.Equal("a key ••• that ends here", StagewatchFrame.Words("a key swk_" + new string('k', 300) + " that ends here"));   // masked whole, before the bound
+        Assert.Equal("abc unchanged", StagewatchFrame.Words("abc unchanged", "abc"));               // a value too short to mask free text with
+        Assert.Equal("swkey, swk and sw_k stay", StagewatchFrame.Words("swkey, swk and sw_k stay"));
+    }
+
+    [Fact]
+    public void AHoldIsTheLargerOfSixtySecondsAndTheFarEndsNumberBoundedAtAnHour()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(60), StagewatchFrame.RefusedHold);
+        Assert.Equal(TimeSpan.FromSeconds(60), StagewatchFrame.Hold(401, 0));
+        Assert.Equal(TimeSpan.FromSeconds(60), StagewatchFrame.Hold(401, 5));
+        Assert.Equal(TimeSpan.FromSeconds(120), StagewatchFrame.Hold(401, 120));
+        Assert.Equal(TimeSpan.FromSeconds(60), StagewatchFrame.Hold(403, 0));
+        Assert.Equal(TimeSpan.FromSeconds(4), StagewatchFrame.Hold(429, 4));                           // a rate limit: its Retry-After
+        Assert.Equal(TimeSpan.FromSeconds(60), StagewatchFrame.Hold(429, 0));
+        Assert.Equal(TimeSpan.FromHours(1), StagewatchFrame.Hold(401, 1_000_000_000));                // bounded here
+        Assert.Equal(TimeSpan.FromHours(1), StagewatchFrame.Hold(429, long.MaxValue));
+        Assert.Equal(TimeSpan.Zero, StagewatchFrame.Hold(200, 30));
+        Assert.Equal(TimeSpan.Zero, StagewatchFrame.Hold(500, 30));
+        Assert.Equal(TimeSpan.FromSeconds(3), StagewatchFrame.Hold(401, 3, TimeSpan.FromSeconds(1)));  // a test's shorter least
+        Assert.Equal(TimeSpan.FromSeconds(1), StagewatchFrame.Hold(401, 0, TimeSpan.FromSeconds(1)));
+    }
+
+    [Fact]
+    public void EachVerdictSaysTheKeysStandingAndWhatItHolds()
+    {
+        var least = StagewatchFrame.RefusedHold;
+        StagewatchKeyStep? Of(string json, bool keyed = true) => StagewatchKey.OfVerdict(StagewatchFrame.Auth(json)!, "9f8e7d6c", keyed, least);
+
+        // Taken: the key speaks for this desk; the hold lifts; an authenticated answer may pin.
+        var key = Of("{\"type\":\"auth\",\"ok\":true,\"scope\":\"node\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"key\"}}")!;
+        Assert.Equal(("key", StagewatchHoldKind.None, true, true), (key.Key!.Word, key.Hold, key.Takes, key.Pins));
+        var op = Of("{\"type\":\"auth\",\"ok\":true,\"scope\":\"control\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"operator\"}}")!;
+        Assert.Equal(("operator", true), (op.Key!.Word, op.Takes));
+
+        // Refused: held for the larger of 60 s and its retry, said in its words; the socket keeps the public frame.
+        var refused = Of("{\"type\":\"auth\",\"ok\":false,\"error\":\"rate limit: too many requests with this key\",\"retry\":75}")!;
+        Assert.Equal(("refused", "rate limit: too many requests with this key", StagewatchHoldKind.Refused, TimeSpan.FromSeconds(75), false),
+            (refused.Key!.Word, refused.Key.Said, refused.Hold, refused.For, refused.Takes));
+        Assert.Equal("KEY REFUSED — rate limit: too many requests with this key", refused.Key.Line);
+
+        // Bound to another node, on a link that carries the key: its node routes held (§13.15.3), its reads and frames kept —
+        // the binding governs contexts and proposals, not reading (Stagewatch §7.1).
+        var bound = Of("{\"type\":\"auth\",\"ok\":true,\"scope\":\"node\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"none\"},\"words\":\"this key speaks for patterns 1a2b3c4d \\u2014 make a key for patterns 9f8e7d6c\"}")!;
+        Assert.Equal(("none", StagewatchHoldKind.Node, TimeSpan.FromSeconds(60), false), (bound.Key!.Word, bound.Hold, bound.For, bound.Takes));
+        Assert.Equal("key not accepted for this desk — this key speaks for patterns 1a2b3c4d — make a key for patterns 9f8e7d6c", bound.Key.Line);
+        Assert.True(bound.Key.Fault);
+        var read = Of("{\"type\":\"auth\",\"ok\":true,\"scope\":\"read\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"none\"},\"words\":\"a read key reads; only a node key speaks for a node\"}")!;
+        Assert.Equal(("none", StagewatchHoldKind.Node), (read.Key!.Word, read.Hold));
+
+        // A link that carries no key: what Stagewatch says of a claim holds nothing and is no fault.
+        var claim = Of("{\"type\":\"auth\",\"ok\":true,\"scope\":\"none\",\"node\":{\"t\":\"patterns\",\"id\":\"9f8e7d6c\",\"verified\":\"none\"},\"words\":\"no key \\u2014 the id is only claimed\"}", keyed: false)!;
+        Assert.Equal(("none", "no key — the id is only claimed", StagewatchHoldKind.None, false, false, ""), (claim.Key!.Word, claim.Key.Said, claim.Hold, claim.Key.Fault, claim.Key.Amber, claim.Key.Line));
+
+        // The viewing code: the socket closes after it. With the key refused too, the refusal; with no key, the redial held and said.
+        var viewKeyed = Of("{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\",\"retry\":60,\"refused\":\"unknown or revoked API key\"}")!;
+        Assert.Equal(("refused", "unknown or revoked API key", StagewatchHoldKind.Refused), (viewKeyed.Key!.Word, viewKeyed.Key.Said, viewKeyed.Hold));
+        var viewKeyless = Of("{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\"}", keyed: false)!;
+        Assert.Null(viewKeyless.Key);
+        Assert.Equal((StagewatchHoldKind.Refused, TimeSpan.FromSeconds(60)), (viewKeyless.Hold, viewKeyless.For));
+        Assert.Equal("it asks for its viewing code — This screen needs the viewing code; this desk reads it only with a key", viewKeyless.Words);
+
+        // Those bytes on a link that carried the key are an older Stagewatch's (2.16): a 2.18 lets a key it takes past the
+        // code and says why it refused one. Read as the older one's — the key not let past, refused and held.
+        const string bareView = "{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\"}";
+        Assert.True(StagewatchKey.OlderFirst("auth", StagewatchFrame.Auth(bareView), keyed: true));
+        Assert.False(StagewatchKey.OlderFirst("auth", StagewatchFrame.Auth(bareView), keyed: false));                  // both say it to a keyless link
+        Assert.False(StagewatchKey.OlderFirst("auth", StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\",\"retry\":60,\"refused\":\"unknown or revoked API key\"}"), keyed: true));
+        Assert.False(StagewatchKey.OlderFirst("auth", StagewatchFrame.Auth("{\"type\":\"auth\",\"ok\":false,\"error\":\"unknown or revoked API key\",\"retry\":60}"), keyed: true));
+        Assert.True(StagewatchKey.OlderFirst("state", null, keyed: false));
+        var olderView = Of(bareView)!;
+        Assert.Equal(("refused", StagewatchKey.ViewWords + " — This screen needs the viewing code", StagewatchHoldKind.Refused, TimeSpan.FromSeconds(60)),
+            (olderView.Key!.Word, olderView.Key.Said, olderView.Hold, olderView.For));
+
+        // Not this link's: another node's verdict, or a control page's.
+        Assert.Null(Of("{\"type\":\"auth\",\"ok\":true,\"scope\":\"node\",\"node\":{\"t\":\"patterns\",\"id\":\"00000000\",\"verified\":\"key\"}}"));
+        Assert.Null(Of("{\"type\":\"auth\",\"ok\":true}"));
+    }
+
+    [Fact]
+    public void TheAnswersToKeyedCallsAreTheEvidenceAndAnOlderStagewatchIsSaidInAmber()
+    {
+        var least = StagewatchFrame.RefusedHold;
+        var unauthorised = StagewatchKey.OfAnswer(401, "unknown or revoked API key", "", 0, context: false, legacy: false, least)!;
+        Assert.Equal(("refused", "unknown or revoked API key", StagewatchHoldKind.Refused, TimeSpan.FromSeconds(60)), (unauthorised.Key!.Word, unauthorised.Key.Said, unauthorised.Hold, unauthorised.For));
+        // A 403 is a key the Stagewatch knows that may not use this route: its node routes held, its reads not.
+        var forbidden = StagewatchKey.OfAnswer(403, "patterns 9f8e7d6c speaks with its own key", "", 90, context: false, legacy: false, least)!;
+        Assert.Equal(("none", StagewatchHoldKind.Node, TimeSpan.FromSeconds(90)), (forbidden.Key!.Word, forbidden.Hold, forbidden.For));
+        var busy = StagewatchKey.OfAnswer(429, "rate limit: too many requests with this key", "", 7, context: false, legacy: false, least)!;
+        Assert.Equal(((StagewatchKey?)null, StagewatchHoldKind.Busy, TimeSpan.FromSeconds(7), false), (busy.Key, busy.Hold, busy.For, busy.Takes));
+        Assert.Equal("HTTP 401", StagewatchKey.OfAnswer(401, "", "", 0, false, false, least)!.Key!.Said);   // a body with no words says its status
+
+        // This desk's context taken: the verified it names; none holds the node routes.
+        Assert.Equal(("key", true), (StagewatchKey.OfAnswer(200, "", "key", 0, context: true, legacy: false, least)!.Key!.Word, StagewatchKey.OfAnswer(200, "", "key", 0, true, false, least)!.Takes));
+        var unverified = StagewatchKey.OfAnswer(200, "", "none", 0, context: true, legacy: false, least)!;
+        Assert.Equal(("none", StagewatchKey.UnverifiedWords, StagewatchHoldKind.Node), (unverified.Key!.Word, unverified.Key.Said, unverified.Hold));
+        // A Stagewatch before 2.18 names nothing, and on a link that heard no verdict that takes the key with no word (P-legacy).
+        var older = StagewatchKey.OfAnswer(200, "", "", 0, context: true, legacy: true, least)!;
+        Assert.Equal(("", true, StagewatchHoldKind.None), (older.Key!.Word, older.Takes, older.Hold));
+        // On a link that heard a verdict, a missing or unknown word is no evidence: refused, nothing changed, no hold lifted.
+        Assert.Null(StagewatchKey.OfAnswer(200, "", "", 0, context: true, legacy: false, least));
+        Assert.Null(StagewatchKey.OfAnswer(200, "", "admin", 0, context: true, legacy: false, least));
+        Assert.Null(StagewatchKey.OfAnswer(200, "", "admin", 0, context: true, legacy: true, least));
+        Assert.Null(StagewatchKey.OfAnswer(200, "", "key", 0, context: false, legacy: false, least));       // a read is no evidence of the binding
+        Assert.Null(StagewatchKey.OfAnswer(404, "not here", "", 0, context: true, legacy: false, least));
+        Assert.Null(StagewatchKey.OfAnswer(500, "boom", "", 0, context: true, legacy: true, least));
+
+        // P-legacy: a link that carried the key and heard no verdict is labelled in amber; a fault keeps the label beside it.
+        var legacy = new StagewatchKey { Keyed = true, Legacy = true };
+        Assert.Equal((StagewatchKey.LegacyWords, true, false), (legacy.Line, legacy.Amber, legacy.Fault));
+        var legacyRefused = unauthorised.Key with { Legacy = true };
+        Assert.Equal("KEY REFUSED — unknown or revoked API key · " + StagewatchKey.LegacyWords, legacyRefused.Line);
+        Assert.False(new StagewatchKey { Legacy = true }.Amber);                                    // no key carried: no evidence read, nothing labelled
+        Assert.Equal("", StagewatchKey.Unknown.Line);
+        Assert.False(StagewatchKey.Unknown.Amber);
+    }
+
+    [Fact]
+    public void ARefusedKeyReachesEveryReaderAsOneVerdictAmberWhileTheLinkIsLive()
+    {
+        var peers = new ShowBusPeers();
+        peers.Hear(Hello("main", "a1b2c3d4", "Hall A", http: 9924), "10.0.0.9", Now, "self");
+        peers.Hear(Hello("messenger", "77aa77aa", "AGM", http: 3023), "10.0.0.20", Now, "self");
+        var refused = new StagewatchKey { Word = "refused", Said = "unknown or revoked API key", Keyed = true };
+        var sight = new StagewatchSight("Hall A", "10.0.0.9:9924", ShowBusState.Live, null, 0, StagewatchContext("green"), "") { Key = refused };
+        var apps = ShowBusView.Apps(peers.Snapshot(Now), Now, sight);
+        var app = apps.Single(a => a.Linked);
+        Assert.Equal(refused, app.Key);
+        Assert.Equal(StagewatchKey.Unknown, apps.Single(a => !a.Linked).Key);                       // only the linked one's verdict
+        Assert.True(ShowBusView.KeyAmber(app));
+        const string line = "KEY REFUSED — unknown or revoked API key";
+
+        var row = ShowBusView.Peers(apps)[0];
+        Assert.Equal(("amber", line), (row.Light, row.Headline));                                    // the worse of its own green and amber
+        Assert.Contains("Stagewatch Hall A — linked — amber: Keynote — Ana · 12:30 left · Lighting standing by", ShowBusView.BriefLines(apps));
+        Assert.Contains("  this desk's key: " + line, ShowBusView.BriefLines(apps));
+        var card = ShowAppCard.Of(app);
+        Assert.Equal(("#FFB020", "linked · Keynote — Ana · 12:30 left · Lighting standing by · " + line), (card.Hue, card.Line));
+        var graph = Graph(app);
+        var node = graph.Nodes.Single(n => n.Id == "app:a1b2c3d4");
+        Assert.Equal((CheckLight.Amber, line), (node.Light, node.Sub));
+        Assert.Contains("this desk's key: " + line, node.Words);
+        var edge = graph.Edges.Single(e => e.From == "app:a1b2c3d4" && e.To == EyeGraph.DeskId);
+        Assert.Equal((CheckLight.Amber, "linked · this desk's key refused"), (edge.Light, edge.Words));
+        Assert.Equal(CheckLight.Green, graph.Nodes.Single(n => n.Id == "app:a1b2c3d4:timer").Light);   // its things keep their own lights
+
+        // Never red for the key alone; red when its own light is.
+        var red = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Context = StagewatchContext("red") }).Single(a => a.Linked);
+        Assert.Equal("#B03030", ShowAppCard.Of(red).Hue);
+        Assert.Equal(CheckLight.Red, Graph(red).Nodes.Single(n => n.Id == "app:a1b2c3d4").Light);
+
+        Assert.True(ShowBusView.KeyLineLeads(app));
+
+        // A link gone quiet, or gone, says that — in every reader with one headline; the key's words stay on the card's line.
+        foreach (var (state, light, sub) in new[] { (ShowBusState.Stale, "amber", "quiet"), (ShowBusState.Gone, "red", "gone quiet") })
+        {
+            var off = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { State = state }).Single(a => a.Linked);
+            Assert.False(ShowBusView.KeyAmber(off));
+            Assert.False(ShowBusView.KeyLineLeads(off));
+            var offRow = ShowBusView.Peers(new[] { off })[0];
+            Assert.Equal(light, offRow.Light);
+            Assert.DoesNotContain("KEY REFUSED", offRow.Headline, StringComparison.Ordinal);
+            var offNode = Graph(off).Nodes.Single(n => n.Id == "app:a1b2c3d4");
+            Assert.StartsWith(sub, offNode.Sub, StringComparison.Ordinal);
+            Assert.DoesNotContain("KEY REFUSED", offNode.Sub, StringComparison.Ordinal);
+            Assert.EndsWith(line, ShowAppCard.Of(off).Line, StringComparison.Ordinal);
+        }
+
+        // A stuck show says so first; the key's line is still the context's and the card's detail.
+        var stuckApp = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Stuck = true }).Single(a => a.Linked);
+        Assert.False(ShowBusView.KeyLineLeads(stuckApp));
+        Assert.Equal(ShowBusView.StuckWords, Graph(stuckApp).Nodes.Single(n => n.Id == "app:a1b2c3d4").Sub);
+
+        // P-legacy's label: amber, the headline kept, said beside it.
+        var legacy = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Key = new StagewatchKey { Keyed = true, Legacy = true } }).Single(a => a.Linked);
+        Assert.True(ShowBusView.KeyAmber(legacy));
+        Assert.Equal(("amber", "Keynote — Ana · 12:30 left · Lighting standing by"), (ShowBusView.Peers(new[] { legacy })[0].Light, ShowBusView.Peers(new[] { legacy })[0].Headline));
+        var legacyNode = Graph(legacy).Nodes.Single(n => n.Id == "app:a1b2c3d4");
+        Assert.Equal((CheckLight.Amber, "Keynote — Ana · 12:30 left · Lighting standing by"), (legacyNode.Light, legacyNode.Sub));
+        Assert.Equal("#FFB020", ShowAppCard.Of(legacy).Hue);
+
+        // Taken, or a keyless link's claim: nothing said, its own colour.
+        foreach (var quiet in new[] { new StagewatchKey { Word = "key", Keyed = true }, new StagewatchKey { Word = "none", Said = "no key — the id is only claimed" } })
+        {
+            var taken = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Key = quiet }).Single(a => a.Linked);
+            Assert.False(ShowBusView.KeyAmber(taken));
+            Assert.Equal(("#35E0D0", "linked · Keynote — Ana · 12:30 left · Lighting standing by"), (ShowAppCard.Of(taken).Hue, ShowAppCard.Of(taken).Line));
+            Assert.Equal(CheckLight.Green, Graph(taken).Nodes.Single(n => n.Id == "app:a1b2c3d4").Light);
+        }
+
+        // A typed address that never said hello carries the same verdict.
+        Assert.Equal(refused, ShowBusView.Apps(Array.Empty<ShowBusPeer>(), Now, sight).Single().Key);
+    }
+
+    [Fact]
+    public void AnIdThatCannotBeKeptIsSaidWithWhatItCosts()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-busid91-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var id = ShowBusIdentity.LoadOrCreate(dir, out var made);
+            Assert.True(made);                                                                       // written now
+            Assert.Equal(id, ShowBusIdentity.LoadOrCreate(dir, out var read));
+            Assert.True(read);                                                                       // read back
+            var blocker = Path.Combine(dir, "a-file");
+            File.WriteAllText(blocker, "not a folder");
+            var fresh = ShowBusIdentity.LoadOrCreate(Path.Combine(blocker, "settings"), out var kept);   // its folder cannot be made
+            Assert.False(kept);
+            Assert.True(ShowBusIdentity.IsId(fresh));
+            Assert.Equal(" · show network id 9f8e7d6c", ShowAppCard.IdLine("9f8e7d6c", kept: true));
+            Assert.Equal(" · show network id 9f8e7d6c — not kept (its folder is not writable): a Stagewatch key bound to it refuses this desk after a restart", ShowAppCard.IdLine("9f8e7d6c", kept: false));
+            Assert.Equal("", ShowAppCard.IdLine("", kept: true));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

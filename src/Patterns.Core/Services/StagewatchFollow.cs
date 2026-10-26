@@ -125,9 +125,318 @@ public sealed record StagewatchFrame
     /// <summary>The ping a client sends on a Stagewatch's WebSocket (Show Bus 1.1 §5).</summary>
     public static string Ping(long t1) => string.Create(CultureInfo.InvariantCulture, $"{{\"cmd\":\"ping\",\"t\":{t1}}}");
 
+    /// <summary>The query a desk that names no node dials: a browser screen to every Stagewatch.</summary>
+    public const string ScreenQuery = "/ws?cid=patterns&page=/patterns";
+
+    /// <summary>
+    /// Round 91: the path and query this desk dials a Stagewatch's /ws with — a node link naming this desk's show network id
+    /// and its kind (Stagewatch 2.18, Show Bus 1.3 §7.1): <c>/ws?node=&lt;id&gt;&amp;t=patterns&amp;cid=&lt;id&gt;&amp;page=/patterns</c>.
+    /// <c>cid</c> and <c>page</c> are for a Stagewatch older than its node links, which ignores <c>node</c> and lists each
+    /// install under its own <c>cid</c> (kept only at 6–32 characters, so a shorter or longer id sends today's). An id that is
+    /// no node id dials as today, a screen. The key never rides here: it goes in the Authorization header.
+    /// </summary>
+    public static string SocketQuery(string? selfId)
+    {
+        var id = selfId ?? "";
+        if (!IsNodeId(id)) return ScreenQuery;
+        var cid = id.Length is >= 6 and <= 32 ? id : "patterns";
+        return $"/ws?node={id}&t=patterns&cid={cid}&page=/patterns";
+    }
+
+    /// <summary>A node id as Show Bus §7.1 takes one: 1–40 letters, digits, <c>-</c> or <c>_</c>.</summary>
+    public static bool IsNodeId(string? id)
+        => id is { Length: >= 1 and <= 40 } && id.All(c => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '-' or '_');
+
+    /// <summary>
+    /// Round 91: a Stagewatch's verdict on a socket — <c>{"type":"auth","ok":…}</c>, the first message a node link hears and
+    /// sent again when the key, its binding or the PIN changes (Stagewatch 2.18's <c>NodeLinks.Verdict</c>,
+    /// <c>Refusal</c> and <c>ViewRefusal</c>). Null for anything else, or an auth message with no boolean <c>ok</c>. The
+    /// words are kept to one line of at most <see cref="MaxWords"/> characters, with <paramref name="secret"/> and anything
+    /// shaped as a Stagewatch key masked: they are the far end's, and reach the log, STATE and every reader.
+    /// </summary>
+    public static StagewatchAuth? Auth(string? json, string? secret = null)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length > 16 * 1024) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            if (r.ValueKind != JsonValueKind.Object || Str(r, "type") != "auth") return null;
+            if (!r.TryGetProperty("ok", out var ok) || ok.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return null;
+            var node = r.TryGetProperty("node", out var n) && n.ValueKind == JsonValueKind.Object ? n : default;
+            var retry = Num(r, "retry");
+            return new StagewatchAuth(
+                ok.ValueKind == JsonValueKind.True,
+                Words(Str(r, "scope"), secret),
+                node.ValueKind == JsonValueKind.Object ? Words(Str(node, "t"), secret) : "",
+                node.ValueKind == JsonValueKind.Object ? Words(Str(node, "id"), secret) : "",
+                node.ValueKind == JsonValueKind.Object ? Words(Str(node, "verified"), secret) : "",
+                Words(Str(r, "words"), secret),
+                Words(Str(r, "error"), secret),
+                retry > 0 ? (long)Math.Min(retry, int.MaxValue) : 0,
+                r.TryGetProperty("view", out var view) && view.ValueKind == JsonValueKind.True,
+                Words(Str(r, "refused"), secret));
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The most of a Stagewatch's words a reader keeps.</summary>
+    public const int MaxWords = 200;
+
+    /// <summary>
+    /// A far end's words as every reader shows them: one line, at most <see cref="MaxWords"/> characters, this desk's
+    /// <paramref name="secret"/> (the key it presented) and anything shaped as a Stagewatch key (<c>swk_…</c>) masked first —
+    /// a far end that echoes the bearer puts no copy of it in the log, STATE, the Eye or the context this desk posts.
+    /// </summary>
+    public static string Words(string? said, string? secret = null)
+    {
+        var line = new string((said ?? "").Select(c => char.IsControl(c) || CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator ? ' ' : c).ToArray()).Trim();
+        line = MaskSecret(line, secret);
+        return line.Length <= MaxWords ? line : line[..MaxWords];
+    }
+
+    /// <summary>
+    /// <paramref name="text"/> — a far end's words, or a whole answer before it is parsed — with <paramref name="secret"/>
+    /// (this desk's key; one shorter than <see cref="Secrets.MinScrubLength"/> is left, as free text is) and every
+    /// <c>swk_…</c> token replaced by <see cref="Secrets.Mask"/>.
+    /// </summary>
+    public static string MaskSecret(string text, string? secret)
+        => MaskKeys(secret is { Length: >= Secrets.MinScrubLength } ? text.Replace(secret, Secrets.Mask, StringComparison.Ordinal) : text);
+
+    /// <summary>A Stagewatch key's prefix (Stagewatch's <c>ApiKeys.Prefix</c>): a token that starts with it is a key, masked in any words.</summary>
+    public const string KeyPrefix = "swk_";
+
+    /// <summary>Every <c>swk_</c> token — the prefix and the letters and digits after it — replaced by <see cref="Secrets.Mask"/>.</summary>
+    private static string MaskKeys(string line)
+    {
+        var at = line.IndexOf(KeyPrefix, StringComparison.Ordinal);
+        if (at < 0) return line;
+        var sb = new System.Text.StringBuilder(line.Length);
+        var from = 0;
+        while (at >= 0)
+        {
+            sb.Append(line, from, at - from).Append(Secrets.Mask);
+            var end = at + KeyPrefix.Length;
+            while (end < line.Length && char.IsAsciiLetterOrDigit(line[end])) end++;
+            from = end;
+            at = line.IndexOf(KeyPrefix, from, StringComparison.Ordinal);
+        }
+        return sb.Append(line, from, line.Length - from).ToString();
+    }
+
+    /// <summary>The least a refused key is held (Show Bus 1.3 draft §14's <c>peerlink.hold.refused.ms</c>, Stagewatch's own <c>retry</c>).</summary>
+    public static readonly TimeSpan RefusedHold = TimeSpan.FromSeconds(60);
+
+    /// <summary>The most a far end's <c>retry</c> or <c>Retry-After</c> holds the link: its number is bounded here.</summary>
+    public static readonly TimeSpan MostHold = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// Round 91: how long an answer holds what it holds (Show Bus 1.3 draft §13.15.3; <see cref="StagewatchHoldKind"/> says
+    /// what). A refused key — 401 (and a refusal on the socket, which stands for one) — or a node route refused (403) holds
+    /// for the larger of <paramref name="atLeast"/> and the far end's <paramref name="retrySeconds"/>; a rate limit (429) its
+    /// <c>Retry-After</c>, or <paramref name="atLeast"/> when it names none; anything else holds nothing. Never more than
+    /// <see cref="MostHold"/>.
+    /// </summary>
+    public static TimeSpan Hold(int status, long retrySeconds, TimeSpan atLeast)
+    {
+        var said = TimeSpan.FromSeconds(Math.Clamp(retrySeconds, 0, (long)MostHold.TotalSeconds));
+        var least = atLeast < TimeSpan.Zero ? TimeSpan.Zero : atLeast > MostHold ? MostHold : atLeast;
+        return status switch
+        {
+            401 or 403 => said > least ? said : least,
+            429 => said > TimeSpan.Zero ? said : least,
+            _ => TimeSpan.Zero,
+        };
+    }
+
+    /// <summary><see cref="Hold(int, long, TimeSpan)"/> at the contract's least, <see cref="RefusedHold"/>.</summary>
+    public static TimeSpan Hold(int status, long retrySeconds) => Hold(status, retrySeconds, RefusedHold);
+
     private static string Str(JsonElement r, string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 
     private static double Num(JsonElement r, string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var d) && double.IsFinite(d) ? d : 0;
+}
+
+/// <summary>
+/// Round 91: a Stagewatch's verdict on a socket, as <see cref="StagewatchFrame.Auth"/> read it. <see cref="Scope"/> is the
+/// credential it saw (node, control, read, mcp, pin, none); <see cref="Verified"/> what speaks for the node id it names
+/// (key, operator, none); <see cref="Words"/> why an id is verified none; <see cref="Error"/> and <see cref="Retry"/> a
+/// refusal's words and the seconds to wait; <see cref="View"/> the viewing code's refusal, after which the socket closes,
+/// with <see cref="Refused"/> the key's own refusal when there was one.
+/// </summary>
+public sealed record StagewatchAuth(bool Ok, string Scope, string Kind, string Node, string Verified, string Words, string Error, long Retry, bool View, string Refused);
+
+/// <summary>
+/// What a word from a Stagewatch holds: nothing; every keyed call and the next dial, for a refused key or a rate limit; or
+/// only the node routes, for a key the Stagewatch takes that speaks for no node of this desk's.
+/// </summary>
+public enum StagewatchHoldKind
+{
+    None,
+    /// <summary>The key was refused: every keyed call and the next dial wait, and the next word that takes the key lifts the hold.</summary>
+    Refused,
+    /// <summary>The key is good and over its rate: every keyed call and the next dial wait out the far end's <c>Retry-After</c>, the key's standing kept.</summary>
+    Busy,
+    /// <summary>
+    /// The key reads but speaks for no node of this desk's (Stagewatch §7.1: "a binding refused keeps the frames: the binding
+    /// governs contexts and proposals, not reading"): the node routes — the context this desk posts, its proposals, the
+    /// collect and the results — wait, the keyed read of its context and the redial do not; a word that takes the key lifts it.
+    /// </summary>
+    Node,
+}
+
+/// <summary>
+/// Round 91: what one word from a Stagewatch does to the link's key — its standing now (null: unchanged), the hold it starts
+/// and for how long, whether it takes the key (lifting a refusal's hold), and whether the certificate may be pinned on it
+/// (an answer that authenticated the key). <see cref="Words"/> is what the link says of it when the key's standing says
+/// nothing (a viewing code asked of a link that carried no key).
+/// </summary>
+public sealed record StagewatchKeyStep(StagewatchKey? Key, StagewatchHoldKind Hold, TimeSpan For, bool Takes, bool Pins, string Words);
+
+/// <summary>
+/// Round 91: what a Stagewatch made of this desk's key, as every reader shows it — the Nodes card, the Eye, the context's
+/// peers, the assistant's facts and STATE's <c>bus.stagewatch.key</c>. <see cref="Word"/> is STATE's: <c>key</c> or
+/// <c>operator</c> (it speaks for this desk), <c>none</c> (it speaks for no node of this desk's), <c>refused</c>, or <c>""</c>
+/// (not said yet, or said by neither). <see cref="Said"/> is the Stagewatch's own words. <see cref="Legacy"/> is P-legacy's
+/// fallback: a Stagewatch older than its node links sent no verdict, so a link that carried the key reads its standing from
+/// the answers to its keyed calls — said in amber, a row in docs/OPEN.md, removed at Show Bus 1.4's default flip.
+/// </summary>
+public sealed record StagewatchKey
+{
+    public static readonly StagewatchKey Unknown = new();
+
+    public string Word { get; init; } = "";
+
+    public string Said { get; init; } = "";
+
+    /// <summary>The key went with the link: a verdict of none is then the key not speaking for this desk.</summary>
+    public bool Keyed { get; init; }
+
+    /// <summary>The link heard no verdict (a Stagewatch older than 2.18): its key is judged by the answers to its keyed calls.</summary>
+    public bool Legacy { get; init; }
+
+    public bool Refused => Word == "refused";
+
+    /// <summary>The link carried the key and the Stagewatch lets it speak for no node of this desk's.</summary>
+    public bool NotAccepted => Word == "none" && Keyed;
+
+    /// <summary>
+    /// The key is refused (every keyed call held) or does not speak for this desk (its node routes held, its reads not):
+    /// every reader says so in amber.
+    /// </summary>
+    public bool Fault => Refused || NotAccepted;
+
+    /// <summary>Amber in every reader: a fault, or P-legacy's labelled fallback on a link that carried the key.</summary>
+    public bool Amber => Fault || (Legacy && Keyed);
+
+    /// <summary>What every reader says of a refused key.</summary>
+    public const string RefusedWords = "KEY REFUSED";
+
+    /// <summary>What every reader says of a key the Stagewatch takes but lets speak for no node of this desk's.</summary>
+    public const string NotAcceptedWords = "key not accepted for this desk";
+
+    /// <summary>P-legacy's label: what every reader says of a link that carried the key and heard no verdict.</summary>
+    public const string LegacyWords = "an older Stagewatch: no verdict on its link — the key is judged by its HTTP answers";
+
+    /// <summary>"KEY REFUSED — unknown or revoked API key", "key not accepted for this desk — …", P-legacy's label, or "" when there is nothing to say.</summary>
+    public string Line
+    {
+        get
+        {
+            var fault = Refused ? Join(RefusedWords, Said) : NotAccepted ? Join(NotAcceptedWords, Said) : "";
+            var legacy = Legacy && Keyed ? LegacyWords : "";
+            return fault.Length > 0 && legacy.Length > 0 ? fault + " · " + legacy : fault + legacy;
+        }
+    }
+
+    private static string Join(string head, string said) => said.Length > 0 ? head + " — " + said : head;
+
+    /// <summary>
+    /// What a verdict on the socket does (Stagewatch 2.18 §7.1). <c>ok:false</c> refuses the key — held for its <c>retry</c> and
+    /// at least <paramref name="atLeast"/>, the socket kept for the public frame (a rate limit, which Stagewatch says on the
+    /// socket as a refused key, is held as that); the viewing code asked of a link that carried no key holds the next dial
+    /// and says so, the key's standing unchanged. <c>ok:true</c> naming this desk's id: verified key or operator takes the
+    /// key; verified none on a link that carried the key is the key not speaking for this desk (the draft's "bound to
+    /// another", §13.15.3) — its node routes held, its reads and frames kept; on a link that carried none it is what the
+    /// Stagewatch says of a claim, and holds nothing. A verdict naming another node, or none (a control page's), is not
+    /// this link's: null.
+    /// </summary>
+    public static StagewatchKeyStep? OfVerdict(StagewatchAuth a, string selfId, bool keyed, TimeSpan atLeast)
+    {
+        if (!a.Ok)
+        {
+            if (a.View && a.Refused.Length == 0 && !keyed)
+                return new StagewatchKeyStep(null, StagewatchHoldKind.Refused, StagewatchFrame.Hold(401, a.Retry, atLeast), false, false,
+                    "it asks for its viewing code" + (a.Error.Length > 0 ? " — " + a.Error : "") + "; this desk reads it only with a key");
+            // A 2.18 that refuses a key at its viewing code names why (refused); a refusal at the code that names nothing, on a
+            // link that carried the key, is an older Stagewatch's, and a key it did not let past is one it did not take.
+            var why = a.Refused.Length > 0 ? a.Refused
+                : a.View ? ViewWords + (a.Error.Length > 0 ? " — " + a.Error : "")
+                : a.Error.Length > 0 ? a.Error : "refused";
+            return new StagewatchKeyStep(new StagewatchKey { Word = "refused", Said = why, Keyed = keyed }, StagewatchHoldKind.Refused, StagewatchFrame.Hold(401, a.Retry, atLeast), false, false, "");
+        }
+        if (a.Node.Length == 0 || !string.Equals(a.Node, selfId, StringComparison.Ordinal)) return null;
+        var authenticated = a.Scope.Length > 0 && a.Scope != "none";
+        if (a.Verified is "key" or "operator")
+            return new StagewatchKeyStep(new StagewatchKey { Word = a.Verified, Keyed = keyed }, StagewatchHoldKind.None, TimeSpan.Zero, true, authenticated, "");
+        var said = a.Words.Length > 0 ? a.Words : keyed ? $"it lets this key speak for no node {selfId}" : "";
+        return keyed
+            ? new StagewatchKeyStep(new StagewatchKey { Word = "none", Said = said, Keyed = true }, StagewatchHoldKind.Node, StagewatchFrame.Hold(403, 0, atLeast), false, authenticated, "")
+            : new StagewatchKeyStep(new StagewatchKey { Word = "none", Said = said }, StagewatchHoldKind.None, TimeSpan.Zero, false, false, "");
+    }
+
+    /// <summary>
+    /// What a reader says of a key a Stagewatch did not let past its viewing code without saying why — only a Stagewatch older
+    /// than 2.18 does that (a 2.18 lets a key it takes past the code, and says why it refused one).
+    /// </summary>
+    public const string ViewWords = "its viewing code did not let this key pass";
+
+    /// <summary>
+    /// Whether the first message on a link says the Stagewatch is older than its node links: anything but a verdict; or, on
+    /// a link that carried the key (<paramref name="keyed"/>), a viewing code's refusal that says nothing of the key (2.16's
+    /// bytes — a 2.18 lets a key it takes past the code, and adds the key's own refusal and its <c>retry</c> to one it
+    /// refuses). On a link that carried none, that refusal is what both say.
+    /// </summary>
+    public static bool OlderFirst(string type, StagewatchAuth? auth, bool keyed)
+        => type != "auth" || (keyed && auth is { Ok: false, View: true, Refused.Length: 0, Retry: 0 });
+
+    /// <summary>
+    /// What the answer to one of this desk's keyed calls does. A 401 refuses the key — every keyed call held; a 403 says it
+    /// speaks for no node of this desk's (out of scope, or bound to another) — its node routes held, its reads not; each for
+    /// its <c>Retry-After</c> and at least <paramref name="atLeast"/>, in the Stagewatch's words. A 429 is a good key over its
+    /// rate — held, its standing kept. A 2xx to this desk's own context (<paramref name="context"/>) is the key's standing as
+    /// the answer's <c>verified</c> names it — none is the key not speaking for this desk, its node routes held — and takes
+    /// the key. A 2xx that names nothing takes it with no word only on a link that heard no verdict (<paramref
+    /// name="legacy"/>, a Stagewatch older than 2.18, P-legacy); on one that heard a verdict a missing or unknown word is
+    /// refused as evidence and changes nothing. Any other answer changes nothing.
+    /// </summary>
+    public static StagewatchKeyStep? OfAnswer(int status, string error, string verified, long retryAfter, bool context, bool legacy, TimeSpan atLeast)
+    {
+        var said = StagewatchFrame.Words(error);
+        switch (status)
+        {
+            case 401:
+                return new StagewatchKeyStep(new StagewatchKey { Word = "refused", Said = said.Length > 0 ? said : "HTTP 401", Keyed = true }, StagewatchHoldKind.Refused, StagewatchFrame.Hold(401, retryAfter, atLeast), false, false, "");
+            case 403:
+                return new StagewatchKeyStep(new StagewatchKey { Word = "none", Said = said.Length > 0 ? said : "HTTP 403", Keyed = true }, StagewatchHoldKind.Node, StagewatchFrame.Hold(403, retryAfter, atLeast), false, false, "");
+            case 429:
+                return new StagewatchKeyStep(null, StagewatchHoldKind.Busy, StagewatchFrame.Hold(429, retryAfter, atLeast), false, false, said.Length > 0 ? said : "HTTP 429");
+        }
+        if (!context || status is < 200 or > 299) return null;
+        return verified switch
+        {
+            "key" or "operator" => new StagewatchKeyStep(new StagewatchKey { Word = verified, Keyed = true }, StagewatchHoldKind.None, TimeSpan.Zero, true, true, ""),
+            "none" => new StagewatchKeyStep(new StagewatchKey { Word = "none", Said = UnverifiedWords, Keyed = true }, StagewatchHoldKind.Node, StagewatchFrame.Hold(403, 0, atLeast), false, true, ""),
+            "" when legacy => new StagewatchKeyStep(new StagewatchKey { Keyed = true }, StagewatchHoldKind.None, TimeSpan.Zero, true, true, ""),
+            _ => null,
+        };
+    }
+
+    /// <summary>A context taken and kept unverified: the key reads, and speaks for no node of this desk's.</summary>
+    public const string UnverifiedWords = "it keeps this desk's context unverified — only a node key made for this desk speaks for it";
 }
 
 /// <summary>Round 87: what the Stagewatch link holds at an instant — whom it follows, the last frame and when it came, its context.</summary>
@@ -148,6 +457,9 @@ public sealed record StagewatchSight(string Name, string Address, ShowBusState S
 
     /// <summary>The link is live and its show is stuck: every reader shows no time from it, the link amber.</summary>
     public bool StuckLive => Stuck && State == ShowBusState.Live;
+
+    /// <summary>Round 91: what the Stagewatch made of this desk's key — its verdict, or P-legacy's HTTP evidence.</summary>
+    public StagewatchKey Key { get; init; } = StagewatchKey.Unknown;
 }
 
 /// <summary>
@@ -250,6 +562,7 @@ public static class ShowBusView
             {
                 Context = linked ? Shown(sight.Context, stuck) : null,
                 Stuck = stuck,
+                Key = linked ? sight.Key : StagewatchKey.Unknown,                                   // round 91: the linked one's verdict on this desk's key
             });
         }
         // A Stagewatch reached by a typed address that never said hello (another subnet, a loopback-only hello) is still drawn.
@@ -261,10 +574,26 @@ public static class ShowBusView
             {
                 Context = Shown(sight.Context, stuck),
                 Stuck = stuck,
+                Key = sight.Key,
             });
         }
         return apps;
     }
+
+    /// <summary>
+    /// Round 91: a linked app whose verdict on this desk's key is amber (refused, speaking for no node of this desk's, or
+    /// P-legacy's fallback) while its link is live: every reader takes the worse of its own light and amber, never red for
+    /// the key alone. A link gone quiet or gone says that instead.
+    /// </summary>
+    public static bool KeyAmber(EyeShowApp app) => app.Linked && app.State == ShowBusState.Live && app.Key.Amber;
+
+    /// <summary>
+    /// Round 91: a linked app whose verdict on this desk's key is a fault (refused, or speaking for no node of this desk's),
+    /// its link live and its show not stuck: the key's line is what this desk can say of the link, so every reader with one
+    /// headline — the context's peers, the Eye's card, STATE's <c>bus.stagewatch.headline</c> — says it in place of the
+    /// app's own. A link gone quiet or gone says that instead; a stuck show says so first.
+    /// </summary>
+    public static bool KeyLineLeads(EyeShowApp app) => app.Linked && app.State == ShowBusState.Live && !app.Stuck && app.Key.Fault;
 
     /// <summary>What every reader says of a linked app whose show is stuck (PeerLink profile 13.16.1).</summary>
     public const string StuckWords = "says its show is stuck — no time shown";
@@ -317,10 +646,12 @@ public static class ShowBusView
         {
             ShowBusState.Gone => "red",
             ShowBusState.Stale => "amber",
-            _ when a.Stuck => StuckLight(a.Context?.Light),
+            _ when a.Stuck || KeyAmber(a) => StuckLight(a.Context?.Light),
             _ => a.Context?.Light ?? "grey",
         },
-        Headline = a.Context?.Headline is { Length: > 0 } h ? h
+        // Round 91: a key refused or not speaking for this desk, on a live link, is what this desk can say of it now: said in place of the headline.
+        Headline = KeyLineLeads(a) ? a.Key.Line
+            : a.Context?.Headline is { Length: > 0 } h ? h
             : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : "heard on the show network")
             : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
     }).ToList();
@@ -347,7 +678,9 @@ public static class ShowBusView
             var c = a.Context;
             // A stuck show: the link is live and amber, its counting things carry no time (the context says so, NoTime).
             if (a.Stuck && a.State == ShowBusState.Live && c is null) lines.Add($"{a.KindWords} {a.Name} — {state} — {StuckLight(null)}: {StuckWords}");
-            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {c.Light}: {c.Headline}"));
+            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {(KeyAmber(a) ? StuckLight(c.Light) : c.Light)}: {c.Headline}"));
+            // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
+            if (a.Linked && a.Key.Line.Length > 0) lines.Add($"  this desk's key: {a.Key.Line}");
             if (c is null || a.State == ShowBusState.Gone) continue;
             foreach (var i in c.Items.OrderByDescending(i => i.Light == "red").ThenByDescending(i => i.Light == "amber").Take(15))
                 lines.Add($"  · {i.Label} ({i.Kind}) — {i.Light}" + (i.State.Length > 0 ? ": " + i.State : ""));
@@ -375,16 +708,27 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
         var line = app.Stuck && app.State == ShowBusState.Live ? $"{state} · {ShowBusView.StuckWords}"
             : app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
+        // Round 91: what it made of this desk's key — a refusal, a key that speaks for another desk, P-legacy's label.
+        if (app.Linked && app.Key.Line.Length > 0) line += " · " + app.Key.Line;
         var hue = app.State switch
         {
             ShowBusState.Gone => "#B03030",
             ShowBusState.Stale => "#FFB020",
-            // A stuck show: the worse of the app's own light and amber — red only when its own light is red.
-            _ when app.Stuck => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
+            // A stuck show, or this desk's key refused: the worse of the app's own light and amber — red only when its own light is red.
+            _ when app.Stuck || ShowBusView.KeyAmber(app) => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
             _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
         };
         return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked);
     }
+
+    /// <summary>
+    /// Round 91: the Nodes page's words for this desk's show network id — the id a Stagewatch's node key speaks for, so the
+    /// operator can name it there — and, when its folder could not keep it, that a key bound to it refuses this desk after a
+    /// restart. "" with no id.
+    /// </summary>
+    public static string IdLine(string id, bool kept) => id.Length == 0 ? ""
+        : kept ? $" · show network id {id}"
+        : $" · show network id {id} — not kept (its folder is not writable): a Stagewatch key bound to it refuses this desk after a restart";
 
     /// <summary>"2 apps on the show network · Stagewatch link: following Hall A." — or why there are none.</summary>
     public static string NetworkLine(int count, bool hearing, string linkStatus)

@@ -83,6 +83,12 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>Round 87: this install's id on the show network — the same across restarts, kept beside the settings.</summary>
     public string ShowBusId { get; }
 
+    /// <summary>
+    /// Round 91: the id was read from its file or written there — false when its folder could not keep it, so this run's id
+    /// is its own and a Stagewatch key bound to it refuses this desk after a restart.
+    /// </summary>
+    public bool ShowBusIdKept { get; }
+
     string IBeaconHost.TlsFingerprint => State.Control.Enabled ? Tls.Fingerprint : "";
 
     /// <summary>Round 87: the link to a Stagewatch (Show Bus 1.1) — its timer, its context, its clock.</summary>
@@ -206,7 +212,8 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
         AssistantKeys = new AssistantKeyStore(Store.BaseDirectory);
         Assistant = new AssistantService(this, AssistantKeys);
-        ShowBusId = ShowBusIdentity.LoadOrCreate(Store.BaseDirectory);   // round 87: before the beacon, whose hello says it
+        ShowBusId = ShowBusIdentity.LoadOrCreate(Store.BaseDirectory, out var idKept);   // round 87: before the beacon, whose hello says it
+        ShowBusIdKept = idKept;                                            // round 91: a fresh id each run is said on the Nodes page
         Beacon = new BeaconService(this);
         Tls = new TlsCertificateService(Store.BaseDirectory, Beacon.MachineName);
         TokenSeenInClear = new TokenClearSightings(Store.BaseDirectory);   // round 89: before the control service, which notes into it

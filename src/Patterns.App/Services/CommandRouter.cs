@@ -764,6 +764,8 @@ public sealed class CommandRouter : IRouter
         var linked = apps.FirstOrDefault(a => a.Linked && a.KindWords == "Stagewatch");      // the link's own card, never one of this desk's nodes
         // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
         var stuck = sight.StuckLive;
+        // Round 91: this desk's key refused or not speaking for it, or read by P-legacy's fallback — amber while live, as every reader shows it.
+        var keyAmber = linked is not null && ShowBusView.KeyAmber(linked);
         return new
         {
             heard = apps.Count(a => a.State == ShowBusState.Live),
@@ -776,12 +778,14 @@ public sealed class CommandRouter : IRouter
                 following = _services.Stage.Following.Length > 0,
                 title = sight.Frame?.Title ?? "",
                 text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
-                light = stuck ? ShowBusView.StuckLight(linked?.Context?.Light) : linked?.Context?.Light ?? "grey",
-                headline = stuck ? ShowBusView.StuckWords : linked?.Context?.Headline ?? "",
+                light = stuck || keyAmber ? ShowBusView.StuckLight(linked?.Context?.Light) : linked?.Context?.Light ?? "grey",
+                // Round 91: a key refused or speaking for no node of this desk's, on a live link, leads — as the apps row says it.
+                headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line : linked?.Context?.Headline ?? "",
                 clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
                 words = link.Status,
                 stuck,                                                                   // round 89: appended at the row's end
                 carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
+                key = sight.Key.Word,                                                    // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
             },
         };
     }

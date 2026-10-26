@@ -622,7 +622,8 @@
       "clock": "",
       "words": "Stagewatch link: connected to Hall A at 10.0.0.9:9924.",
       "stuck": false,
-      "carrier": "plain"
+      "carrier": "plain",
+      "key": "key"
     }
   },
   "control": {

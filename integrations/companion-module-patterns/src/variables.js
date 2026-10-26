@@ -214,6 +214,7 @@ export function variableDefinitions() {
 		stagewatch_headline: "The linked Stagewatch's own headline — its live item, time left and what it is waiting on (round 87)",
 		stagewatch_light: "The linked Stagewatch's worst light — red, amber, green or grey (round 87)",
 		stagewatch_stuck: 'The linked Stagewatch says its show is stuck — yes or no; while yes the link stays live and the stage shows no time from it (round 89)',
+		stagewatch_key: "What the linked Stagewatch made of the desk's key — key or operator (it speaks for this desk), none (it speaks for no node of the desk's), refused, or empty when it said neither (round 91)",
 		// Round 74: where the desk is, and the Navigator's keys.
 		desk_page: "The desk — the page it is on (Run while the Run surface is up)",
 		desk_rail: 'The desk — the rail of its page (SHOW, PLAN, BUILD, SETUP, ADMIN)',

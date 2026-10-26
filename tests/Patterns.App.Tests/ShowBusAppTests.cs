@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -386,6 +387,10 @@ public class ShowBusAppTests
     /// A stand-in Stagewatch: /ws answers with state frames and pongs, /api/context with its context; it records the
     /// Authorization header it was dialled with. While <see cref="Stuck"/> it does what Stagewatch does when its show thread
     /// stops turning over: no frame, the stuck beat instead — the same bytes (Stagewatch's WebServer.cs StuckBeat).
+    /// Round 91: it speaks Stagewatch 2.18's /ws — every dial upgraded, a node link's verdict before any frame
+    /// (<see cref="StagewatchBytes"/>, or <see cref="First"/> when a test sets it; none while <see cref="Legacy"/>), a word
+    /// said again on an open socket (<see cref="Say"/>), a viewing code's refusal and the close after it — and answers the
+    /// node routes, each request recorded with the key it carried.
     /// </summary>
     private sealed class FakeStagewatch : IDisposable
     {
@@ -393,11 +398,13 @@ public class ShowBusAppTests
 
         private readonly HttpListener _listener = new();
         private readonly CancellationTokenSource _cts = new();
+        private readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _open = new();
         private volatile string _authorization = "";
         private volatile string _url = "";
         private int _pings;
         private int _contextReads;
         private int _stuckBeats;
+        private int _dials;
 
         public int Port { get; }
         public string Authorization => _authorization;
@@ -405,6 +412,15 @@ public class ShowBusAppTests
         public int Pings => Volatile.Read(ref _pings);
         public int ContextReads => Volatile.Read(ref _contextReads);
         public int StuckBeats => Volatile.Read(ref _stuckBeats);
+
+        /// <summary>How many times /ws was dialled.</summary>
+        public int Dials => Volatile.Read(ref _dials);
+
+        /// <summary>Every request in arrival order: a /ws dial as "ws", else "METHOD path", with the Authorization it carried ("" for none).</summary>
+        public readonly ConcurrentQueue<(string What, string Authorization)> Requests = new();
+
+        /// <summary>The requests that carried the key — every one but a dial.</summary>
+        public int KeyedCalls => Requests.Count(r => r.What != "ws" && r.Authorization.Length > 0);
 
         /// <summary>Its show thread has stopped: every answer to a ping is the pong and the stuck beat, never a frame.</summary>
         public volatile bool Stuck;
@@ -414,12 +430,52 @@ public class ShowBusAppTests
 
         public volatile string LightingState = "standing by: LX 12";
 
+        /// <summary>A Stagewatch before 2.18 (2.16's bytes): no verdict — the first message is a frame — and a context taken says nothing of its proof.</summary>
+        public volatile bool Legacy;
+
+        /// <summary>The first message every dial hears in place of the verdict its key earns; null: as a Stagewatch 2.18 would.</summary>
+        public volatile string? First;
+
+        /// <summary>After <see cref="First"/>, the socket is closed (the viewing code's refusal).</summary>
+        public volatile bool CloseAfterFirst;
+
+        /// <summary>How long a dial waits after its upgrade before it hears anything (a busy show thread, a slow path).</summary>
+        public volatile int FirstDelayMs;
+
+        /// <summary>What POST /api/peers/context answers: the status line, its JSON body and a Retry-After (0: none).</summary>
+        public volatile string ContextStatus = "";
+
+        public volatile string ContextBody = "";
+
+        public volatile int ContextRetryAfter;
+
         public FakeStagewatch(string frame)
         {
             Port = FreePort();
             _listener.Prefixes.Add($"http://localhost:{Port}/");
             _listener.Start();
             _ = Task.Run(() => Serve(frame), _cts.Token);
+        }
+
+        /// <summary>A word on every open socket, as Stagewatch sends a fresh verdict when a key, its binding or the PIN changes.</summary>
+        public void Say(string json)
+        {
+            foreach (var (ws, gate) in _open)
+            {
+                gate.Wait(_cts.Token);
+                try
+                {
+                    ws.SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true, _cts.Token).GetAwaiter().GetResult();
+                }
+                catch (Exception ex) when (ex is WebSocketException or ObjectDisposedException or OperationCanceledException)
+                {
+                    // a socket that closed under it: nothing to say to
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }
         }
 
         private async Task Serve(string frame)
@@ -431,36 +487,68 @@ public class ShowBusAppTests
                 catch (Exception) { return; }
                 _ = Task.Run(async () =>
                 {
+                    var auth = ctx.Request.Headers["Authorization"] ?? "";
                     if (ctx.Request.Url!.AbsolutePath == "/ws" && ctx.Request.IsWebSocketRequest)
                     {
-                        _authorization = ctx.Request.Headers["Authorization"] ?? "";
+                        Interlocked.Increment(ref _dials);
+                        Requests.Enqueue(("ws", auth));
+                        _authorization = auth;
                         _url = ctx.Request.Url.ToString();
                         var ws = (await ctx.AcceptWebSocketAsync(null)).WebSocket;
-                        await SendShow(ws, frame);
-                        var buffer = new byte[4096];
-                        while (ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
+                        var gate = new SemaphoreSlim(1, 1);
+                        if (FirstDelayMs > 0) await Task.Delay(FirstDelayMs, _cts.Token);
+                        var first = First ?? (Legacy ? null : StagewatchBytes.FirstFor(ctx.Request.Url.Query, auth));
+                        if (first is not null)
                         {
-                            var r = await ws.ReceiveAsync(buffer, _cts.Token);
-                            if (r.MessageType == WebSocketMessageType.Close) break;
-                            using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(buffer, 0, r.Count));
-                            if (doc.RootElement.GetProperty("cmd").GetString() == "ping")
+                            Requests.Enqueue(("first", ""));                                       // where the socket's first word falls among the requests
+                            await ws.SendAsync(Encoding.UTF8.GetBytes(first), WebSocketMessageType.Text, true, _cts.Token);
+                        }
+                        if (CloseAfterFirst)
+                        {
+                            await ws.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "viewing code", _cts.Token);
+                            return;
+                        }
+                        _open[ws] = gate;
+                        try
+                        {
+                            await SendShow(ws, gate, frame);
+                            var buffer = new byte[4096];
+                            while (ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
                             {
-                                Interlocked.Increment(ref _pings);
-                                var t = doc.RootElement.GetProperty("t").GetInt64();
-                                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                await ws.SendAsync(Encoding.UTF8.GetBytes($"{{\"type\":\"pong\",\"t\":{t},\"t2\":{now},\"t3\":{now}}}"), WebSocketMessageType.Text, true, _cts.Token);
-                                await SendShow(ws, frame);
+                                var r = await ws.ReceiveAsync(buffer, _cts.Token);
+                                if (r.MessageType == WebSocketMessageType.Close) break;
+                                using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(buffer, 0, r.Count));
+                                if (doc.RootElement.GetProperty("cmd").GetString() == "ping")
+                                {
+                                    Interlocked.Increment(ref _pings);
+                                    var t = doc.RootElement.GetProperty("t").GetInt64();
+                                    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                    await Send(ws, gate, $"{{\"type\":\"pong\",\"t\":{t},\"t2\":{now},\"t3\":{now}}}");
+                                    await SendShow(ws, gate, frame);
+                                }
                             }
+                        }
+                        finally
+                        {
+                            _open.TryRemove(ws, out _);
                         }
                         return;
                     }
-                    if (ctx.Request.Url.AbsolutePath == "/api/context") Interlocked.Increment(ref _contextReads);
-                    var body = ctx.Request.Url.AbsolutePath == "/api/context" && ServeContext
-                        ? "{\"v\":1,\"node\":{\"t\":\"main\",\"id\":\"a1b2c3d4\",\"name\":\"Hall A\"},\"at\":1,\"light\":\"amber\",\"headline\":\"Keynote — 12:30 left · Lighting standing by\","
-                          + "\"items\":[{\"id\":\"timer\",\"kind\":\"timer\",\"label\":\"Keynote — Ana\",\"light\":\"green\",\"state\":\"running, 12:30 left\"},"
-                          + "{\"id\":\"cue:lighting\",\"kind\":\"department\",\"label\":\"Lighting\",\"light\":\"amber\",\"state\":\"" + LightingState + "\"}],\"links\":[],\"recent\":[],\"commands\":[],\"peers\":[]}"
-                        : "not here";
-                    ctx.Response.StatusCode = body == "not here" ? 404 : 200;
+                    var path = ctx.Request.Url.AbsolutePath;
+                    Requests.Enqueue((ctx.Request.HttpMethod + " " + ctx.Request.Url.PathAndQuery, auth));
+                    if (path == "/api/context") Interlocked.Increment(ref _contextReads);
+                    var (status, body, retryAfter) = path switch
+                    {
+                        "/api/context" when ServeContext => (200,
+                            "{\"v\":1,\"node\":{\"t\":\"main\",\"id\":\"a1b2c3d4\",\"name\":\"Hall A\"},\"at\":1,\"light\":\"amber\",\"headline\":\"Keynote — 12:30 left · Lighting standing by\","
+                            + "\"items\":[{\"id\":\"timer\",\"kind\":\"timer\",\"label\":\"Keynote — Ana\",\"light\":\"green\",\"state\":\"running, 12:30 left\"},"
+                            + "{\"id\":\"cue:lighting\",\"kind\":\"department\",\"label\":\"Lighting\",\"light\":\"amber\",\"state\":\"" + LightingState + "\"}],\"links\":[],\"recent\":[],\"commands\":[],\"peers\":[]}", 0),
+                        "/api/peers/context" when ContextStatus.Length > 0 => (int.Parse(ContextStatus, System.Globalization.CultureInfo.InvariantCulture), ContextBody, ContextRetryAfter),
+                        "/api/peers/context" => (200, Legacy ? "{\"ok\":true}" : "{\"ok\":true,\"verified\":\"key\"}", 0),
+                        _ => (404, "not here", 0),
+                    };
+                    ctx.Response.StatusCode = status;
+                    if (retryAfter > 0) ctx.Response.Headers["Retry-After"] = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     var bytes = Encoding.UTF8.GetBytes(body);
                     await ctx.Response.OutputStream.WriteAsync(bytes, _cts.Token);
                     ctx.Response.Close();
@@ -468,11 +556,24 @@ public class ShowBusAppTests
             }
         }
 
+        private async Task Send(WebSocket ws, SemaphoreSlim gate, string text)
+        {
+            await gate.WaitAsync(_cts.Token);
+            try
+            {
+                await ws.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, true, _cts.Token);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
         /// <summary>What the show says on the socket: the frame while it turns over, the stuck beat while it does not.</summary>
-        private async Task SendShow(WebSocket ws, string frame)
+        private async Task SendShow(WebSocket ws, SemaphoreSlim gate, string frame)
         {
             if (Stuck) Interlocked.Increment(ref _stuckBeats);
-            await ws.SendAsync(Encoding.UTF8.GetBytes(Stuck ? StuckBeat : frame), WebSocketMessageType.Text, true, _cts.Token);
+            await Send(ws, gate, Stuck ? StuckBeat : frame);
         }
 
         private int _disposed;
@@ -636,7 +737,7 @@ public class ShowBusAppTests
             Assert.Equal("amber", row.GetProperty("light").GetString());
             Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
             Assert.True(row.GetProperty("stuck").GetBoolean());
-            Assert.Equal(new[] { "stuck", "carrier" }, row.EnumerateObject().Select(p => p.Name).TakeLast(2));   // stuck appended, the carrier after it
+            Assert.Equal(new[] { "stuck", "carrier", "key" }, row.EnumerateObject().Select(p => p.Name).TakeLast(3));   // stuck appended, the carrier after it, then the key (round 91)
             Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
             // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
@@ -783,6 +884,418 @@ public class ShowBusAppTests
         {
             vm.State.Control.Stagewatch.Enabled = false;
             services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    // ---- round 91: the node link and its verdict ------------------------------------------------------------------
+
+    /// <summary>Pumps the desk for <paramref name="ms"/> without waiting on anything: what the link does on its own meanwhile.</summary>
+    private static void PumpFor(int ms)
+    {
+        var until = Environment.TickCount64 + ms;
+        while (Environment.TickCount64 < until)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(20);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheLinkDialsAsANodeAndSendsNothingKeyedBeforeItsVerdict()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        // The verdict comes late: a link that sent a keyed call at its connect would be caught before it. Its context echoes
+        // the bearer: masked before any reader takes it.
+        using var stagewatch = new FakeStagewatch(RunningFrame) { FirstDelayMs = 1500, LightingState = "standing by: LX 12 (Bearer swk_testkey)" };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            var id = services.Kernel.ShowBusId;
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && link.Key.Word == "key", 15000);
+
+            // The dial names this desk on the show network and its kind; cid and page for a Stagewatch older than its node links.
+            Assert.Equal($"/ws?node={id}&t=patterns&cid={id}&page=/patterns", new Uri(stagewatch.Url).PathAndQuery);
+            Assert.Equal("Bearer swk_testkey", stagewatch.Authorization);
+            Assert.DoesNotContain("swk_", stagewatch.Url);
+
+            // Nothing that carries the key went before the socket's first word; the side calls follow it.
+            PumpUntil(() => stagewatch.KeyedCalls >= 2, 15000);
+            var order = stagewatch.Requests.ToList();
+            var said = order.FindIndex(r => r.What == "first");
+            Assert.True(said >= 0);
+            Assert.True(order.FindIndex(r => r.What != "ws" && r.What != "first" && r.Authorization.Length > 0) > said, string.Join(", ", order.Select(r => r.What)));
+
+            // Taken: every reader says nothing of the key, STATE says key at the row's end; one log line.
+            var row = StagewatchRow(services);
+            Assert.Equal("key", row.GetProperty("key").GetString());
+            Assert.Equal("key", row.EnumerateObject().Last().Name);
+            Assert.Equal("", link.Key.Line);
+            Assert.Equal(TimeSpan.Zero, link.KeyHeld);
+            services.Nodes.Poll();
+            var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
+            Assert.Equal("#35E0D0", card.Hue);
+            Assert.DoesNotContain("KEY REFUSED", card.Line, StringComparison.Ordinal);
+            Assert.DoesNotContain(StagewatchKey.NotAcceptedWords, card.Line, StringComparison.Ordinal);
+            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
+            Assert.Contains($"show network id {id}", services.Nodes.Identity, StringComparison.Ordinal);   // the id a Stagewatch's key speaks for
+            PumpUntil(() => link.Sight.Context is not null, 15000);
+            services.Eye.Refresh();
+            Assert.Contains(services.Eye.Graph.Nodes, n => n.Kind == EyeKind.ShowAppItem && n.Sub == "standing by: LX 12 (Bearer •••)");
+            Assert.DoesNotContain("swk_testkey", services.ContextJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain("swk_testkey", services.Router.StateJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain("not kept", services.Nodes.Identity, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ARefusedKeyIsHeldTheTimerFollowsTheWordsReachEveryReaderAndAFreshVerdictTakesItAgain()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        // Stagewatch 2.18 on an unknown or revoked key: one refusal, then the public frame on the same socket.
+        using var stagewatch = new FakeStagewatch(RunningFrame) { First = StagewatchBytes.Refusal("unknown or revoked API key", 60) };
+        var link = services.Kernel.Stagewatch;
+        const string refused = "KEY REFUSED — unknown or revoked API key";
+        try
+        {
+            var id = services.Kernel.ShowBusId;
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && link.Key.Refused, 15000);
+            Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);                                     // the larger of 60 s and its retry
+
+            // The hold, by count: over six seconds — three beats, a context read and a post due — nothing carries the key,
+            // and the link is not dialled again; the timer follows on the public frame meanwhile.
+            PumpFor(6000);
+            Assert.Equal(0, stagewatch.KeyedCalls);
+            Assert.Equal(1, stagewatch.Dials);
+            Assert.Equal(StageTimerPhase.Running, services.Stage.Time().Phase);
+            Assert.Equal("localhost", services.Stage.Following);
+
+            // Every reader: STATE, the Nodes card and its line, the Eye, the context this desk posts, the assistant's facts.
+            var row = StagewatchRow(services);
+            Assert.Equal(("refused", "amber", "live"), (row.GetProperty("key").GetString(), row.GetProperty("light").GetString(), row.GetProperty("state").GetString()));
+            Assert.Contains(refused, row.GetProperty("words").GetString(), StringComparison.Ordinal);
+            services.Nodes.Poll();
+            var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
+            Assert.Equal("#FFB020", card.Hue);
+            Assert.EndsWith(refused, card.Line, StringComparison.Ordinal);
+            Assert.Contains(refused, services.Nodes.ShowBusLine, StringComparison.Ordinal);
+            services.Eye.Refresh();
+            var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
+            Assert.Equal((CheckLight.Amber, refused), (node.Light, node.Sub));
+            Assert.Equal(CheckLight.Amber, services.Eye.Graph.Edges.Single(e => e.From == node.Id && e.To == EyeGraph.DeskId).Light);
+            var peers = ShowContext.Parse(services.ContextJson())!.Peers;
+            Assert.Contains(peers, p => p.Kind == "main" && p.Light == "amber" && p.Headline == refused);
+            Assert.Contains("  this desk's key: " + refused, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
+            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost — " + refused + "; this desk's keyed calls wait 60 s."));
+            Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));                                         // the words are Stagewatch's, never the key
+
+            // The operator lets the key speak for this desk on the Stagewatch: a fresh verdict on the open socket takes it,
+            // the hold lifts, and the keyed calls go again.
+            stagewatch.Say(StagewatchBytes.Verdict("node", "patterns", id, "key"));
+            PumpUntil(() => link.Key.Word == "key" && link.KeyHeld == TimeSpan.Zero, 10000);
+            PumpUntil(() => stagewatch.KeyedCalls > 0, 15000);
+            Assert.Equal(1, stagewatch.Dials);
+            Assert.Equal("key", StagewatchRow(services).GetProperty("key").GetString());
+            services.Nodes.Poll();
+            Assert.Equal("#35E0D0", Assert.Single(services.Nodes.ShowApps, c => c.Linked).Hue);
+            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>The requests to a node route — the context this desk posts, its proposals — in arrival order.</summary>
+    private static int NodeRouteCalls(FakeStagewatch stagewatch)
+        => stagewatch.Requests.Count(r => r.What.StartsWith("POST /api/peers/context", StringComparison.Ordinal) || r.What.Contains("/api/proposals", StringComparison.Ordinal));
+
+    [AvaloniaFact]
+    public void AKeyThatSpeaksForAnotherNodeHoldsItsNodeRoutesWhileItsFramesAndItsContextKeepComing()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var id = services.Kernel.ShowBusId;
+        // Two installs pasted one key: Stagewatch keeps the frames and says the key speaks for the other one. The binding
+        // governs contexts and proposals, not reading (Stagewatch §7.1): the key goes on reading the context.
+        using var stagewatch = new FakeStagewatch(RunningFrame) { First = StagewatchBytes.Verdict("node", "patterns", id, "none", StagewatchBytes.SpeaksFor("1a2b3c4d", id)) };
+        var link = services.Kernel.Stagewatch;
+        var words = $"key not accepted for this desk — this key speaks for patterns 1a2b3c4d — make a key for patterns {id}";
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && link.Key.NotAccepted && link.Sight.Context is not null, 15000);
+            Assert.Equal(words, link.Key.Line);
+            Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
+            PumpFor(3000);
+            Assert.Equal(0, NodeRouteCalls(stagewatch));                                             // the node routes held
+            Assert.Contains(stagewatch.Requests, r => r.What == "GET /api/context" && r.Authorization == "Bearer swk_testkey");   // its read goes on, keyed
+            Assert.Equal(1, stagewatch.Dials);
+            Assert.Equal(StageTimerPhase.Running, services.Stage.Time().Phase);
+            var row = StagewatchRow(services);
+            Assert.Equal(("none", "amber", words), (row.GetProperty("key").GetString(), row.GetProperty("light").GetString(), row.GetProperty("headline").GetString()));
+            var apps = JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus").GetProperty("apps").Clone();
+            Assert.Contains(apps.EnumerateArray(), a => a.GetProperty("headline").GetString() == words);                              // STATE's two readers agree
+            services.Nodes.Poll();
+            Assert.EndsWith(words, Assert.Single(services.Nodes.ShowApps, c => c.Linked).Line, StringComparison.Ordinal);
+            services.Eye.Refresh();
+            var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
+            Assert.Equal((CheckLight.Amber, words), (node.Light, node.Sub));
+            Assert.Contains(services.Eye.Graph.Nodes, n => n.Id == node.Id + ":cue:lighting");      // its things still drawn: the context is read
+            Assert.Equal(1, LogLines(b.Dir, $"Stagewatch link: localhost — {words}; the context this desk posts and its proposals wait 60 s."));
+
+            // A pin set starts a new run for the same key at the same address: what was said goes on — the standing and the
+            // node routes' hold — and the dial, which that hold never holds, goes at once.
+            vm.State.Control.Stagewatch.SetPin("addr:elsewhere:1", TlsFingerprint.Prefix + new string('a', 64));
+            link.Reconcile();
+            Assert.Equal(words, link.Key.Line);
+            Assert.True(link.KeyHeld > TimeSpan.FromSeconds(45), $"held {link.KeyHeld}");
+            PumpUntil(() => stagewatch.Dials == 2 && link.Sight.Context is not null, 15000);
+            PumpFor(2000);
+            Assert.Equal(0, NodeRouteCalls(stagewatch));
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AKeyNotSpeakingForThisDeskNeverMakesItsContextBlinkAsItsHoldsEndAndStartAgain()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var id = services.Kernel.ShowBusId;
+        // The key reads, and every post of this desk's context is refused 403 (a read key; a key bound to another node). Each
+        // refusal holds the node routes for 7 s — past a context tick inside it, and past its end to the next post.
+        using var stagewatch = new FakeStagewatch(RunningFrame)
+        {
+            ContextStatus = "403",
+            ContextBody = "{\"ok\":false,\"error\":\"" + StagewatchBytes.SpeaksFor("1a2b3c4d", id) + "\"}",
+        };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.RefusedHoldAtLeast = TimeSpan.FromSeconds(7);
+            Link(vm, services, stagewatch);
+            PumpUntil(() => link.Key.NotAccepted && link.Sight.Context is not null, 15000);
+            int Posts() => stagewatch.Requests.Count(r => r.What.StartsWith("POST /api/peers/context", StringComparison.Ordinal));
+            var reads = stagewatch.ContextReads;
+
+            // Through a hold, its end and the next refusal: the context never leaves any reader, and the light never moves.
+            var until = Environment.TickCount64 + 25000;
+            var blinks = new List<string>();
+            while (Posts() < 2 && Environment.TickCount64 < until)
+            {
+                Dispatcher.UIThread.RunJobs();
+                if (link.Sight.Context is null) blinks.Add("context gone");
+                if (!link.Key.NotAccepted) blinks.Add("key " + link.Key.Word);
+                services.Nodes.Poll();
+                if (services.Nodes.ShowApps.SingleOrDefault(c => c.Linked) is { Hue: not "#FFB020" } card) blinks.Add("card " + card.Hue);
+                Thread.Sleep(50);
+            }
+            Assert.Equal(2, Posts());                                                                // a hold ended, and the next post was refused again
+            Assert.Empty(blinks);
+            Assert.True(stagewatch.ContextReads > reads + 1, $"{stagewatch.ContextReads} reads");     // read on through the holds
+            var row = StagewatchRow(services);
+            Assert.Equal(("none", "amber"), (row.GetProperty("key").GetString(), row.GetProperty("light").GetString()));
+            Assert.Equal(1, stagewatch.Dials);                                                       // nothing of it holds the link
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.RefusedHoldAtLeast = StagewatchFrame.RefusedHold;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnOlderStagewatchsViewingCodeThatLetsTheKeyNotPassIsReadAsItsRefusalAndLabelled()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        // Stagewatch 2.16 with a viewing code, the key unknown there: the bare view refusal, then the close — no verdict.
+        using var stagewatch = new FakeStagewatch(RunningFrame)
+        {
+            Legacy = true,
+            First = "{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\"}",
+            CloseAfterFirst = true,
+        };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => link.Key.Refused, 15000);
+            Assert.True(link.Key.Legacy);
+            Assert.Equal("KEY REFUSED — " + StagewatchKey.ViewWords + " — This screen needs the viewing code · " + StagewatchKey.LegacyWords, link.Key.Line);
+            Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
+            PumpFor(1500);
+            Assert.Equal(1, stagewatch.Dials);
+            Assert.Equal(0, stagewatch.KeyedCalls);
+            Assert.Equal("refused", StagewatchRow(services).GetProperty("key").GetString());
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheViewingCodesRefusalClosesTheLinkAndItsRedialWaitsOutTheHoldItsRetryNames()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        // A refused key on a Stagewatch with a viewing code: one view refusal with the key's words and its retry, then the close.
+        using var stagewatch = new FakeStagewatch(RunningFrame)
+        {
+            First = StagewatchBytes.ViewRefusal("This screen needs the viewing code", "unknown or revoked API key", 3),
+            CloseAfterFirst = true,
+        };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.RefusedHoldAtLeast = TimeSpan.FromSeconds(1);                                       // the retry, 3 s, names the hold
+            Link(vm, services, stagewatch);
+            PumpUntil(() => stagewatch.Dials == 1 && link.Key.Refused, 15000);
+            var at = Environment.TickCount64;
+            Assert.InRange(link.KeyHeld.TotalSeconds, 2, 3.05);
+            PumpFor(2000);
+            Assert.Equal(1, stagewatch.Dials);                                                       // a redial inside the hold waits it out
+            Assert.Contains("closed the link — This screen needs the viewing code; dialling again in 3 s · KEY REFUSED — unknown or revoked API key.", link.Status, StringComparison.Ordinal);
+            PumpUntil(() => stagewatch.Dials >= 2, 15000);
+            Assert.True(Environment.TickCount64 - at >= 2500, $"dialled again after {Environment.TickCount64 - at} ms");
+            Assert.Equal(0, stagewatch.KeyedCalls);
+            Assert.Equal("refused", StagewatchRow(services).GetProperty("key").GetString());
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.RefusedHoldAtLeast = StagewatchFrame.RefusedHold;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ARateLimitHoldsKeyedCallsWithTheVerdictStandingAndA403IsSaidInItsWords()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(RunningFrame)
+        {
+            ContextStatus = "429",
+            ContextBody = "{\"ok\":false,\"error\":\"rate limit: too many requests with this key\"}",
+            ContextRetryAfter = 4,
+        };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            var id = services.Kernel.ShowBusId;
+            Link(vm, services, stagewatch);
+            PumpUntil(() => link.Key.Word == "key" && link.KeyHeld > TimeSpan.Zero, 15000);
+            Assert.InRange(link.KeyHeld.TotalSeconds, 2, 4.05);                                     // its Retry-After
+            Assert.Equal("", link.Key.Line);                                                         // a good key over its rate: nothing said of the key
+            Assert.Equal("key", StagewatchRow(services).GetProperty("key").GetString());
+            Assert.Equal(1, LogLines(b.Dir, "rate-limits this desk's key — its keyed calls wait 4 s (rate limit: too many requests with this key)"));
+            var keyed = stagewatch.KeyedCalls;
+            PumpFor(2500);
+            Assert.Equal(keyed, stagewatch.KeyedCalls);                                              // held
+
+            // Past it, the keyed calls go again; a 403 to this desk's context is said in Stagewatch's own words, and held.
+            stagewatch.ContextBody = "{\"ok\":false,\"error\":\"" + StagewatchBytes.SpeaksFor("1a2b3c4d", id) + "\"}";
+            stagewatch.ContextRetryAfter = 0;
+            stagewatch.ContextStatus = "403";
+            PumpUntil(() => link.Key.NotAccepted, 20000);
+            Assert.True(stagewatch.KeyedCalls > keyed);
+            Assert.Equal($"Stagewatch localhost refused this desk's context — {StagewatchBytes.SpeaksFor("1a2b3c4d", id)}", link.ApprovalWords);
+            Assert.Equal("none", StagewatchRow(services).GetProperty("key").GetString());
+            Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStagewatchThatSendsNoVerdictIsJudgedByItsHttpAnswersAndSaidInAmber()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        // Stagewatch 2.16's bytes: the first thing a socket hears is a frame, and a context taken says nothing of its proof.
+        using var stagewatch = new FakeStagewatch(RunningFrame) { Legacy = true };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && link.Key.Legacy && link.Sight.Context is not null && stagewatch.KeyedCalls >= 2, 15000);
+
+            // P-legacy: the fallback labelled in amber, in every reader, and STATE's key empty — Stagewatch said neither.
+            Assert.Equal(StagewatchKey.LegacyWords, link.Key.Line);
+            var row = StagewatchRow(services);
+            Assert.Equal(("", "amber"), (row.GetProperty("key").GetString(), row.GetProperty("light").GetString()));
+            Assert.Contains(StagewatchKey.LegacyWords, row.GetProperty("words").GetString(), StringComparison.Ordinal);
+            services.Nodes.Poll();
+            var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
+            Assert.Equal("#FFB020", card.Hue);
+            Assert.EndsWith(StagewatchKey.LegacyWords, card.Line, StringComparison.Ordinal);
+            services.Eye.Refresh();
+            var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
+            Assert.Equal(CheckLight.Amber, node.Light);
+            Assert.StartsWith("Keynote", node.Sub, StringComparison.Ordinal);                        // the label is no fault: its headline stays
+            Assert.Contains("this desk's key: " + StagewatchKey.LegacyWords, node.Words);
+            Assert.Contains("  this desk's key: " + StagewatchKey.LegacyWords, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
+            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost — " + StagewatchKey.LegacyWords + "."));
+
+            // Its HTTP answers are the evidence: a keyed call refused (401) refuses the key, held, and what a held key
+            // cannot read is not shown as current. A far end that echoes the bearer: the key masked in every reader.
+            stagewatch.ContextBody = "{\"ok\":false,\"error\":\"unknown or revoked API key: Bearer swk_testkey\"}";
+            stagewatch.ContextStatus = "401";
+            PumpUntil(() => link.Key.Refused, 20000);
+            Assert.Equal("KEY REFUSED — unknown or revoked API key: Bearer ••• · " + StagewatchKey.LegacyWords, link.Key.Line);
+            Assert.Equal("refused", StagewatchRow(services).GetProperty("key").GetString());
+            Assert.DoesNotContain("swk_testkey", services.Router.StateJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain("swk_testkey", link.Status, StringComparison.Ordinal);
+            Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));
+            Assert.Equal(1, LogLines(b.Dir, "unknown or revoked API key: Bearer •••"));
+            Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
+            PumpUntil(() => link.Sight.Context is null, 15000);
+            var keyed = stagewatch.KeyedCalls;
+            PumpFor(3000);
+            Assert.Equal(keyed, stagewatch.KeyedCalls);
+            Assert.Equal(StageTimerPhase.Running, services.Stage.Time().Phase);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
             Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }
