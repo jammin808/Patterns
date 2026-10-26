@@ -84,6 +84,129 @@ public class PairingTokenTests
         Assert.Contains("TRUST", ControlProtocol.WrongToken);
     }
 
+    /// <summary>
+    /// ADR-016 (round 91, scope A): what a connection may ask before it pairs is an allow-list — the handshake and the five
+    /// reads the maintainer left open, and an unknown line for its own refusal — and every other kind is on the refused
+    /// side, the show's state (STATUS), the Eye and the context first among them. Every kind the wire has is on one side,
+    /// named: a kind added later is refused until it is put on the list here, so the fence fails closed.
+    /// </summary>
+    [Fact]
+    public void BeforePairingTheWireAnswersTheHandshakeAndScopeAsFiveReadsAndEveryOtherKindWaits()
+    {
+        var open = new[]
+        {
+            RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.AuthProof, RemoteCommandKind.Nonce, RemoteCommandKind.Ping,
+            RemoteCommandKind.NavStatus, RemoteCommandKind.Menu, RemoteCommandKind.CueList, RemoteCommandKind.ArcadeStatus,
+            RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.Unknown,
+        };
+        var refusedReads = new[]
+        {
+            RemoteCommandKind.Status, RemoteCommandKind.Context, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus,
+            RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.RigDayStatus,
+            RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus,
+            RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus,
+        };
+        var verbs = new[] { RemoteCommandKind.Action, RemoteCommandKind.Record, RemoteCommandKind.NavDeck };
+        Assert.Equal(open, ControlProtocol.OpenKinds);
+        Assert.Equal(Enum.GetValues<RemoteCommandKind>().Order(), open.Concat(refusedReads).Concat(verbs).Order());   // every kind on one side, once
+        foreach (var kind in open) Assert.True(ControlProtocol.OpenBeforePairing(new RemoteCommand(kind, default)), kind.ToString());
+        foreach (var kind in refusedReads.Concat(verbs)) Assert.False(ControlProtocol.OpenBeforePairing(new RemoteCommand(kind, default)), kind.ToString());
+        foreach (var kind in refusedReads) Assert.True(ControlProtocol.IsQuery(new RemoteCommand(kind, default)), kind.ToString());
+
+        // Parsed as a deck and the desk's own asks of other machines spell them.
+        foreach (var line in new[] { "HELLO FOH deck", "AUTH x", "AUTH-PROOF ab", "NONCE", "PING", "PING 1760101234567", "NAV", "NAV STATUS", "NAV PAGES", "NAV RAILS",
+                     "MENU PGM", "MENU PAGE Looks", "CUE LIST", "ARCADE STATUS", "ARCADE GAMES", "ARCADE SCORES pong", "PLAY STATUS", "PLAY RESULTS 3", "PLAY QUEUE",
+                     "AUDIENCE STATUS", "ASSISTANT ASK what is on air", "ASSISTANT MODERATE a question", "what is this" })
+        {
+            Assert.True(ControlProtocol.OpenBeforePairing(ControlProtocol.Parse(line)), line);
+        }
+        foreach (var line in new[] { "STATUS", "EYE", "EYE STATUS", "EYE GRAPH", "EYE AT 12:00", "CONTEXT", "CONTEXT STATUS", "TWIN STATUS", "SHOWLOCK STATUS",
+                     "CALIBRATE STATUS", "NODES", "STAGE STATUS", "RIGDAY STATUS", "ALIGN STATUS", "SCREEN 2 SIGNAL", "SCREEN 2 EDID", "RIG STATUS", "COMMISSION", "MIDI",
+                     "BLACKOUT ON", "RECORD ON", "NAV DECK PLAN › Looks", "NAV Looks", "AUDIENCE ON", "PLAY START" })
+        {
+            Assert.False(ControlProtocol.OpenBeforePairing(ControlProtocol.Parse(line)), line);
+        }
+
+        // The refusal's words start as a refused verb's do, say why and how to pair; the log names a read by its kind.
+        Assert.StartsWith("not paired — ", ControlProtocol.StateNotPaired, StringComparison.Ordinal);
+        Assert.Contains("shows its state only to a paired connection", ControlProtocol.StateNotPaired, StringComparison.Ordinal);
+        Assert.Contains("AUTH-PROOF", ControlProtocol.StateNotPaired, StringComparison.Ordinal);
+        Assert.Contains("TRUST", ControlProtocol.StateNotPaired, StringComparison.Ordinal);
+        Assert.Equal("STATUS", ControlProtocol.ReadName(ControlProtocol.Parse("STATUS")));
+        Assert.Equal("EYE AT", ControlProtocol.ReadName(ControlProtocol.Parse("EYE AT 2026-10-26T12:00:00Z")));          // the time a sender wrote is not repeated
+        Assert.Equal("ALIGN STATUS", ControlProtocol.ReadName(ControlProtocol.Parse("ALIGN STATUS")));
+        Assert.Equal("SCREEN SIGNAL", ControlProtocol.ReadName(ControlProtocol.Parse("SCREEN 2 SIGNAL")));
+        Assert.Equal(
+            new[] { "STATUS", "CONTEXT", "TWIN STATUS", "SHOWLOCK STATUS", "CALIBRATE STATUS", "NODES", "STAGE STATUS", "RIGDAY STATUS", "SCREEN SIGNAL", "SCREEN EDID", "RIG STATUS", "COMMISSION", "EYE", "EYE AT", "MIDI" },
+            refusedReads.Select(k => ControlProtocol.ReadName(new RemoteCommand(k, default))));                    // each refused read in the wire's own words
+    }
+
+    /// <summary>
+    /// ADR-016: the Super Check's REMOTE row "Wire reads" — on a paired desk only: green with the rule and what scope A leaves
+    /// open while nothing was refused; amber with the count, the last read and its address, and the fix once a read was.
+    /// </summary>
+    [Fact]
+    public void ThePairedDesksWireReadsRowSaysTheRuleAndTurnsAmberWithTheCountAndTheLastRefusedRead()
+    {
+        var quiet = Assert.Single(SuperCheck.Run(new CheckFacts { RemoteEnabled = true, RemoteToken = true }).Rows, r => r.Item == "Wire reads");
+        Assert.Equal(("REMOTE", CheckLight.Green, "paired connections only"), (quiet.Section, quiet.Light, quiet.Value));
+        Assert.Contains("hears NONCE and no STATE", quiet.Note, StringComparison.Ordinal);
+        Assert.Contains(ControlProtocol.OpenBeforePairingWords, quiet.Note, StringComparison.Ordinal);
+
+        var one = Assert.Single(SuperCheck.Run(new CheckFacts { RemoteEnabled = true, RemoteToken = true, WireReadsRefused = 1, WireReadRefusedLast = "STATUS from 10.0.0.7" }).Rows, r => r.Item == "Wire reads");
+        Assert.Equal((CheckLight.Amber, "paired connections only · 1 unpaired read refused"), (one.Light, one.Value));
+        Assert.StartsWith("FIX: ", one.Note, StringComparison.Ordinal);
+        Assert.Contains("the last: STATUS from 10.0.0.7", one.Note, StringComparison.Ordinal);
+        Assert.Contains("Remote page, TRUST", one.Note, StringComparison.Ordinal);
+        Assert.Equal("paired connections only · 3 unpaired reads refused", Assert.Single(SuperCheck.Run(new CheckFacts { RemoteEnabled = true, RemoteToken = true, WireReadsRefused = 3, WireReadRefusedLast = "EYE from 10.0.0.7" }).Rows, r => r.Item == "Wire reads").Value);
+
+        Assert.Contains($"patterns.log names each address once, at most {ControlProtocol.UnpairedReadsNamedMost} addresses", one.Note, StringComparison.Ordinal);
+
+        // The dashboard's REMOTE tile follows the row: amber with the count and the last one while a read was refused.
+        var tile = Assert.Single(HealthDashboard.Tiles(new CheckFacts { RemoteEnabled = true, RemoteToken = true, WireReadsRefused = 3, WireReadRefusedLast = "EYE from 10.0.0.7" }), t => t.Id == "remote");
+        Assert.Equal((CheckLight.Amber, "reads refused"), (tile.Light, tile.Value));
+        Assert.Contains("3 unpaired reads refused — the last: EYE from 10.0.0.7", tile.Detail, StringComparison.Ordinal);
+        Assert.Equal(CheckLight.Green, Assert.Single(HealthDashboard.Tiles(new CheckFacts { RemoteEnabled = true, RemoteToken = true }), t => t.Id == "remote").Light);
+        Assert.Equal(CheckLight.Green, Assert.Single(HealthDashboard.Tiles(new CheckFacts { RemoteEnabled = true, WireReadsRefused = 3 }), t => t.Id == "remote").Light);   // an open desk refuses no read
+
+        // An open desk shows its state to every connection — the Remote control row says so — and a closed one shows nothing.
+        Assert.DoesNotContain(SuperCheck.Run(new CheckFacts { RemoteEnabled = true }).Rows, r => r.Item == "Wire reads");
+        Assert.DoesNotContain(SuperCheck.Run(new CheckFacts { RemoteEnabled = true, RemoteToken = true, RemoteBindProblem = "'10.0.0' is not an address" }).Rows, r => r.Item == "Wire reads");
+        Assert.DoesNotContain(SuperCheck.Run(new CheckFacts { RemoteToken = true }).Rows, r => r.Item == "Wire reads");
+    }
+
+    /// <summary>
+    /// ADR-016: a refused unpaired read names its address in the log once, for at most
+    /// <see cref="ControlProtocol.UnpairedReadsNamedMost"/> addresses; the first new address past the bound writes one line
+    /// that says no more are named, and nothing after it — a sender with many source addresses (an IPv6 /64) is a bounded
+    /// log. The line names the read by its kind and never repeats the line a sender wrote.
+    /// </summary>
+    [Fact]
+    public void ARefusedUnpairedReadNamesEachAddressOnceAtMostTheBoundThenOneLineSaysNoMore()
+    {
+        var said = new SaidOnce(ControlProtocol.UnpairedReadsNamedMost);
+        var lines = new List<string>();
+        for (var round = 0; round < 3; round++)
+        {
+            for (var i = 1; i <= 5000; i++)
+            {
+                var address = $"fd00::{i:x}";
+                if (ControlProtocol.UnpairedReadLine(said.Note(address), address, "STATUS") is { } line) lines.Add(line);
+            }
+        }
+        Assert.Equal(ControlProtocol.UnpairedReadsNamedMost + 1, lines.Count);
+        Assert.Equal(64, lines.Take(64).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(lines.Take(64), l => Assert.Matches(@"^Wire: fd00::[0-9a-f]+ asked STATUS before pairing — refused: .*\(ADR-016\).* Said once for this address\.$", l));
+        Assert.Equal("Wire: fd00::1 asked STATUS before pairing — refused: this desk shows its state only to a paired connection (ADR-016); a deck or a link of yours needs the pairing token (Remote page, TRUST). Said once for this address.", lines[0]);
+        Assert.Equal("Wire: reads refused unpaired from more than 64 addresses — no more addresses are named in this log; the Super Check's REMOTE row counts every refusal.", lines[^1]);
+        Assert.Null(ControlProtocol.UnpairedReadLine(SaidOnceAnswer.Quiet, "10.0.0.7", "EYE"));
+
+        // The last word a connection that had paired hears when the token changes under it: refused as a verb is, and why.
+        Assert.StartsWith("not paired — ", ControlProtocol.TokenChanged, StringComparison.Ordinal);
+        Assert.Contains("pairing token changed", ControlProtocol.TokenChanged, StringComparison.Ordinal);
+        Assert.Contains("closed", ControlProtocol.TokenChanged, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TheTokenAndThePasscodeRideInHeadersWhateverTheirCase()
     {

@@ -732,12 +732,12 @@ public static class VideoDecodingChoice
 }
 
 /// <summary>
-/// Who may move the show over OSC. OSC is UDP with no session, so it cannot present a proof: on a desk with no token it
-/// is open as before (kept to the control network by the bind address, round 79); on a paired desk its mutating verbs
-/// are taken only from this machine or from an address the operator named (Remote page, OSC ALLOW), and its queries
-/// (PING, STATUS) stay open, as the wire's do. A proof on the wire or the web proves a key on that one connection and
-/// grants nothing to the address it came from (ADR-017): no machine reaches this list but by the operator's hand.
-/// Pure: the list is handed in.
+/// Who may move the show, or read its state, over OSC. OSC is UDP with no session, so it cannot present a proof: on a
+/// desk with no token it is open as before (kept to the control network by the bind address, round 79); on a paired desk
+/// its mutating verbs and its STATUS (the show's state, ADR-016) are taken only from this machine or from an address the
+/// operator named (Remote page, OSC ALLOW), and its PING and CUE LIST stay open, as the wire's do. A proof on the wire
+/// or the web proves a key on that one connection and grants nothing to the address it came from (ADR-017): no machine
+/// reaches this list but by the operator's hand. Pure: the list is handed in.
 /// </summary>
 public static class OscGate
 {
@@ -777,6 +777,12 @@ public static class OscGate
     /// <summary>The refusal an unlisted sender hears on /patterns/error; it opens "not paired —", the words a controller's operator searches for.</summary>
     public const string NotListed = "not paired — on a paired desk OSC moves the show only from the desk's own machine or an address on its Remote page's OSC ALLOW list; pairing on the wire or the web grants nothing to an address";
 
+    /// <summary>
+    /// ADR-016: the refusal an unlisted sender of /patterns/status hears on /patterns/error — the show's state answers the
+    /// addresses the verbs come from; it opens "not paired —" as <see cref="NotListed"/> does.
+    /// </summary>
+    public const string ReadNotListed = "not paired — on a paired desk OSC answers STATUS (the show's state) only to the desk's own machine or an address on its Remote page's OSC ALLOW list, as the wire answers it only to a paired connection; pairing on the wire or the web grants nothing to an address";
+
     /// <summary>The paired desk's rule as the Super Check and the Eye say it.</summary>
     public const string PairedRule = "on this paired desk its verbs come only from this machine or an address on the Remote page's OSC ALLOW list — a proof on the wire or the web grants nothing to an address";
 
@@ -809,11 +815,15 @@ public static class OscGate
 
     /// <summary>
     /// A paired desk's OSC note after the port's own reason, the one sentence the Super Check's row and the Eye's node
-    /// share: the rule, that its questions stay open, what the list names and leaves out, and — while the port listens
-    /// on every interface and the list names someone — what a listed address does not prove.
+    /// share: the rule, that STATUS follows it and PING and CUE LIST stay open (ADR-016), what the list names and leaves
+    /// out, and — while the port listens on every interface and the list names someone — what a listed address does not
+    /// prove.
     /// </summary>
     public static string PairedWords(int allowed, IReadOnlyList<string>? leftOut, bool bound)
-        => $"{PairedRule}; its questions stay open. {Listed(allowed, leftOut)}" + (allowed > 0 && !bound ? ". " + Capital(ListedNotProof) : "");
+        => $"{PairedRule}; {StateRule}. {Listed(allowed, leftOut)}" + (allowed > 0 && !bound ? ". " + Capital(ListedNotProof) : "");
+
+    /// <summary>ADR-016: what a paired desk's OSC answers to whom — the show's state as its verbs, the ping and the cue list to anyone.</summary>
+    public const string StateRule = "its STATUS answers those addresses alone, and its PING and CUE LIST stay open";
 
     private static string Capital(string words) => words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
 
@@ -828,6 +838,17 @@ public static class OscGate
     {
         SaidOnceAnswer.Say => $"OSC: a verb from {address} refused — this desk is paired and {address} is not on the Remote page's OSC ALLOW list (a proof on the wire or the web grants nothing to an address); list it there if that machine is yours. Said once for this address.",
         SaidOnceAnswer.Full => $"OSC: verbs refused from more than {RefusedNamedMost} addresses — no more addresses are named in this log; the Remote page's OSC line counts every refusal.",
+        _ => null,
+    };
+
+    /// <summary>
+    /// ADR-016: the log line for a refused STATUS, by what its own <see cref="SaidOnce"/> answered for the address — named
+    /// once, at most <see cref="RefusedNamedMost"/> addresses, then one line that says no more are named.
+    /// </summary>
+    public static string? ReadRefusedLine(SaidOnceAnswer said, string address) => said switch
+    {
+        SaidOnceAnswer.Say => $"OSC: STATUS from {address} refused — this desk is paired and shows its state only to this machine and the Remote page's OSC ALLOW list, as the wire shows it only to a paired connection (ADR-016); list {address} there if that machine is yours. Said once for this address.",
+        SaidOnceAnswer.Full => $"OSC: STATUS refused from more than {RefusedNamedMost} addresses — no more addresses are named in this log; the Remote page's OSC line counts every refusal.",
         _ => null,
     };
 }

@@ -604,6 +604,16 @@ public class ShowBusTests
         Assert.Equal("OSC ALLOW names 1 address", OscGate.Listed(1));
         Assert.Equal("OSC ALLOW names 3 addresses", OscGate.Listed(3));
         Assert.StartsWith("not paired — ", OscGate.NotListed, StringComparison.Ordinal);                        // the walk's words, and a controller's search
+
+        // ADR-016: the show's state answers whom the verbs come from — its own words and log line, the same bound.
+        Assert.StartsWith("not paired — ", OscGate.ReadNotListed, StringComparison.Ordinal);
+        Assert.Contains("STATUS", OscGate.ReadNotListed, StringComparison.Ordinal);
+        Assert.Contains("OSC ALLOW", OscGate.ReadNotListed, StringComparison.Ordinal);
+        Assert.Contains("grants nothing to an address", OscGate.ReadNotListed, StringComparison.Ordinal);
+        Assert.Contains("STATUS answers those addresses alone", OscGate.StateRule, StringComparison.Ordinal);
+        Assert.Contains("OSC: STATUS from 10.0.0.9 refused", OscGate.ReadRefusedLine(SaidOnceAnswer.Say, "10.0.0.9"), StringComparison.Ordinal);
+        Assert.Contains("no more addresses are named", OscGate.ReadRefusedLine(SaidOnceAnswer.Full, "10.0.0.9"), StringComparison.Ordinal);
+        Assert.Null(OscGate.ReadRefusedLine(SaidOnceAnswer.Quiet, "10.0.0.9"));
     }
 
     /// <summary>
@@ -644,7 +654,7 @@ public class ShowBusTests
     public void APairedDesksOscNoteSaysAListedAddressIsNotAProofUntilThePortIsBound()
     {
         var unboundListed = OscGate.PairedWords(1, Array.Empty<string>(), bound: false);
-        Assert.StartsWith(OscGate.PairedRule + "; its questions stay open. OSC ALLOW names 1 address", unboundListed, StringComparison.Ordinal);
+        Assert.StartsWith(OscGate.PairedRule + "; " + OscGate.StateRule + ". OSC ALLOW names 1 address", unboundListed, StringComparison.Ordinal);
         Assert.Contains("A listed address is not a proof", unboundListed, StringComparison.Ordinal);
         Assert.Contains("bind the control ports", unboundListed, StringComparison.Ordinal);
 

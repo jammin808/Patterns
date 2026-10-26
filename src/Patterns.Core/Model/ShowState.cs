@@ -2269,8 +2269,9 @@ public sealed class ControlConfig : Observable
 
     /// <summary>
     /// The show's pairing token: what a remote presents before the desk runs its mutating verbs —
-    /// AUTH on the wire, X-Patterns-Token on the web. On the wire, reading (STATE, STATUS) never
-    /// needs it; on the web everything but the pages themselves, the EDID files and the audience
+    /// AUTH on the wire, X-Patterns-Token on the web. On the wire the show's state (the STATE greeting
+    /// and pushes, STATUS, EYE, CONTEXT and every read but the handshake and scope A's five open ones)
+    /// is for a connection that proved it (round 91, ADR-016); on the web everything but the pages themselves, the EDID files and the audience
     /// port does (rounds 83 and 85); this machine's own browsers never do, opened by the desk's own
     /// name (localhost, its address or its machine name; round 89: a page under any other name, or
     /// from another origin, is answered as another machine's). Empty is open — any device on the
@@ -2331,8 +2332,8 @@ public sealed class ControlConfig : Observable
     /// <summary>
     /// On a paired desk, the addresses besides this machine OSC may move the show from ("10.0.0.9, 10.0.0.12"). OSC
     /// cannot pair, and a proof on the wire or the web grants nothing to the address it came from, so a paired desk
-    /// takes OSC's verbs only from this machine or an address named here — the operator's list, which nothing the desk
-    /// hears adds to; its queries stay open. Each entry is one whole address (<see cref="Patterns.Core.Services.OscGate.Read"/>); one
+    /// takes OSC's verbs, and its STATUS (ADR-016), only from this machine or an address named here — the operator's list,
+    /// which nothing the desk hears adds to; its ping and cue list stay open. Each entry is one whole address (<see cref="Patterns.Core.Services.OscGate.Read"/>); one
     /// that is not is left out and named. Empty: this machine only.
     /// </summary>
     public string OscAllow { get => _oscAllow; set => Set(ref _oscAllow, (value ?? "").Trim()); }

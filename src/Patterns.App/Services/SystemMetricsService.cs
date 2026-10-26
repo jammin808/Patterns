@@ -700,6 +700,8 @@ public sealed class SystemMetricsService : IDisposable
             OscAllowed = oscAllow.Addresses.Count,
             OscLeftOut = oscAllow.LeftOut,
             WireFaults = _services.Control.FaultCount,                                                 // round 83: the faults behind the wire
+            WireReadsRefused = _services.Control.UnpairedReadsRefused,                                 // round 91 (ADR-016): reads refused to an unpaired connection
+            WireReadRefusedLast = _services.Control.LastUnpairedRead,
             TokenSeenInClear = _services.Kernel.TokenSeenInClear.For(state.Control.Token),             // round 89: the token arrived unencrypted from these machines
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,

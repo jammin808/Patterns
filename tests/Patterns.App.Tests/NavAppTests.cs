@@ -333,13 +333,15 @@ public class NavAppTests
             vm.State.Control.Token = token;
             Dispatcher.UIThread.RunJobs();
             PumpUntil(() => CanConnect(wire));
-            using var deck = new Deck(wire);
+            using var deck = new Deck(wire, paired: false);
             Assert.Equal("OK", deck.Say("HELLO FOH deck module=3.14.0"));
 
-            // The feed and the deck's whereabouts wait for the token like a verb; a question does not.
+            // The feed and the deck's whereabouts wait for the token like a verb; NAV's read, which ADR-016's scope A leaves
+            // open, does not; the show's state does (ADR-016).
             Assert.StartsWith("ERR not paired", deck.Say("RECORD ON"), StringComparison.Ordinal);
             Assert.StartsWith("ERR not paired", deck.Say("NAV DECK PLAN › Looks"), StringComparison.Ordinal);
             Assert.StartsWith("OK {", deck.Say("NAV"), StringComparison.Ordinal);
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.StateNotPaired), deck.Say("STATUS"));
             Assert.Equal("OK paired", deck.Say("AUTH " + token));
             Assert.Equal("OK at PLAN › Looks", deck.Say("NAV DECK PLAN › Looks"));
             Assert.StartsWith("OK recording", deck.Say("RECORD ON"), StringComparison.Ordinal);
@@ -368,6 +370,18 @@ public class NavAppTests
 
             // The file on disk carries no passcode after all of that.
             Assert.False(Secrets.Carries(File.ReadAllText(services.Journal.Path), passcode));
+
+            // ADR-016: NEW TOKEN while the deck records. Its last line says why and the connection closes; the desk's next
+            // action is fed to nobody. The deck reconnects, proves the new token and records again.
+            vm.NewPairingTokenCommand.Execute(null);
+            Assert.True(services.Actions.Execute(ShowActionKind.CueHoldOff, ActionOrigin.Desk).Ok);
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.TokenChanged), deck.NextOrEnd());
+            Assert.Null(deck.NextOrEnd());                                  // no ACTION CUE HOLD OFF after its last word
+            using var back = new Deck(wire, paired: false);
+            Assert.Equal("OK paired", back.Say("AUTH " + vm.State.Control.Token));
+            Assert.StartsWith("OK recording", back.Say("RECORD ON"), StringComparison.Ordinal);
+            Assert.True(services.Actions.Execute(ShowActionKind.CueHoldOn, ActionOrigin.Desk).Ok);
+            Assert.Equal("ACTION CUE HOLD ON", back.Next());
         }
         finally
         {
@@ -382,23 +396,27 @@ public class NavAppTests
         private readonly StreamReader _reader;
         private readonly NetworkStream _stream;
 
-        public Deck(int port)
+        /// <param name="paired">ADR-016: a deck paired from the start hears the greeting STATE first; one with the token to prove hears NONCE and no STATE.</param>
+        public Deck(int port, bool paired = true)
         {
             _tcp.Connect(IPAddress.Loopback, port);
             _tcp.ReceiveTimeout = 8000;
             _stream = _tcp.GetStream();
             _reader = new StreamReader(_stream, Encoding.UTF8);
             var greeting = TestApp.Pump(Task.Run(() => _reader.ReadLine())) ?? "";
-            Assert.StartsWith("STATE {", greeting, StringComparison.Ordinal);   // the greeting
+            Assert.StartsWith(paired ? "STATE {" : "NONCE ", greeting, StringComparison.Ordinal);
         }
 
         /// <summary>The next line that is not a STATE push.</summary>
-        public string Next()
+        public string Next() => NextOrEnd() ?? throw new IOException("the desk closed the connection");
+
+        /// <summary>The next line that is not a STATE push, or null once the desk has closed the connection.</summary>
+        public string? NextOrEnd()
         {
             while (true)
             {
-                var line = TestApp.Pump(Task.Run(() => _reader.ReadLine())) ?? throw new IOException("the desk closed the connection");
-                if (!line.StartsWith("STATE ", StringComparison.Ordinal) && !line.StartsWith("NONCE ", StringComparison.Ordinal)) return line;   // round 87: a nonce is not an answer
+                var line = TestApp.Pump(Task.Run(() => _reader.ReadLine()));
+                if (line is null || (!line.StartsWith("STATE ", StringComparison.Ordinal) && !line.StartsWith("NONCE ", StringComparison.Ordinal))) return line;   // round 87: a nonce is not an answer
             }
         }
 

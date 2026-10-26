@@ -10,7 +10,7 @@ import { variableDefinitions } from '../src/variables.js'
 import { variableValues, emptyState } from '../src/state.js'
 import { connectionTarget, configFields, GROUPS } from '../src/config.js'
 import { COLOURS, STATES, style } from '../src/palette.js'
-import { MODULE_VERSION, pairingToken, trustProblem, authProof, isLoopback, NO_PROOF_WORDS } from '../src/main.js'
+import { MODULE_VERSION, pairingToken, trustProblem, authProof, isLoopback, NO_PROOF_WORDS, NEEDS_TOKEN_WORDS, TOKEN_NOT_TAKEN_WORDS } from '../src/main.js'
 import { NAV_SLOTS } from '../src/nav.js'
 
 const manifest = JSON.parse(readFileSync(new URL('../companion/manifest.json', import.meta.url), 'utf8'))
@@ -55,6 +55,9 @@ test('a pairing token in the config answers the desk\'s NONCE with AUTH-PROOF (r
 	assert.equal(trustProblem('ERR unknown command'), null)
 	assert.match(trustProblem('ERR wrong token — the pairing token is on the desk'), /not this desk's/)
 	assert.match(trustProblem('ERR not paired — this desk asks for its pairing token first'), /asks for its pairing token/)
+	assert.equal(trustProblem('ERR not paired — this desk shows its state only to a paired connection'), NEEDS_TOKEN_WORDS)
+	assert.equal(trustProblem('ERR not paired — this desk asks for its pairing token first', true, true), TOKEN_NOT_TAKEN_WORDS, 'a token the desk no longer takes is not a missing one')
+	assert.equal(trustProblem('ERR not paired — this desk asks for its pairing token first', true, false), null, 'a connection with a token that never paired: the pairing says its own words')
 	open.socket.receive('ERR not paired — this desk asks for its pairing token first: AUTH <token> on the wire\n')
 	const last = open.ctx.statuses[open.ctx.statuses.length - 1]
 	assert.equal(last.status, InstanceStatus.BadConfig)
@@ -132,6 +135,141 @@ test('round 89: AUTH-PROOF answers only a nonce of 32 lowercase hex, and a conne
 		assert.ok(!okOdd.lines().some((l) => l.startsWith('AUTH')), `nothing answers "${reply}"`)
 		assert.match(okOdd.ctx.statuses[okOdd.ctx.statuses.length - 1].message, /not 32 hex — no proof sent; the token stays here/)
 	}
+})
+
+const settle = () => new Promise((r) => setTimeout(r, 10))
+
+test('round 91 — the module pairs before it reads: a desk that says NONCE first and no STATE gets the proof, and NAV and the recorder wait for its OK paired; the greeting fills the keys', async () => {
+	const b = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, state: null })
+	b.inst.recording = true // a recorder open across the reconnect
+	assert.deepEqual(b.lines(), [`HELLO FOH deck module=${MODULE_VERSION}`], 'nothing is read before the pairing settles')
+	b.socket.receive(`NONCE ${NONCE}\n`) // ADR-016: the desk's first line, no STATE before it
+	const proof = 'AUTH-PROOF ' + authProof('k7qm-3xwd-p9ra', NONCE, 'FOH deck')
+	assert.deepEqual(b.lines(), [`HELLO FOH deck module=${MODULE_VERSION}`, proof])
+	b.socket.receive('OK\nOK paired\n') // HELLO's answer, then the proof's
+	await settle()
+	assert.deepEqual(b.lines().slice(2), ['NAV', 'RECORD ON'], 'the reads and the recorder once paired, once each')
+	assert.equal(b.ctx.statuses.at(-1).status, InstanceStatus.Ok)
+	assert.equal(b.ctx.variables.show ?? '', '', 'no STATE heard yet')
+	b.socket.receive('STATE ' + JSON.stringify(sampleState()) + '\n') // the greeting, the line after OK paired
+	assert.equal(b.ctx.variables.show, 'Gala')
+	const navReply = { rails: [{ id: 'Plan', label: 'PLAN', hue: '#6E9BFF', pages: ['Cues', 'Looks'] }], pages: [{ header: 'Cues', rail: 'Plan', hue: '#6E9BFF', settings: true }, { header: 'Looks', rail: 'Plan', hue: '#6E9BFF', settings: false }], desk: { page: 'Cues', rail: 'PLAN', run: false } }
+	b.socket.receive('OK ' + JSON.stringify(navReply) + '\nOK recording\n')
+	await settle()
+	assert.deepEqual(b.inst.navInfo.rails.map((r) => r.label), ['PLAN'], 'the Navigator filled after the pairing')
+	assert.ok(b.ctx.presets.nav_page_Looks, 'and its presets')
+
+	// A press that went before the proof's answer is refused as unpaired: the pairing is under way, so the status waits for
+	// the proof's own answer; once settled, a refusal as unpaired is a token the desk no longer takes (NEW TOKEN since).
+	const raced = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, state: null })
+	pressAction(raced, 'raw', { line: 'BLACKOUT ON' })
+	raced.socket.receive(`NONCE ${NONCE}\n`)
+	raced.socket.receive('OK\nERR not paired — this desk asks for its pairing token first\nOK paired\n') // HELLO's, the press's, the proof's
+	await settle()
+	assert.ok(!raced.ctx.statuses.some((s) => s.status === InstanceStatus.BadConfig), 'a press that raced the proof is no bad config')
+	assert.ok(raced.ctx.variables.last_error.startsWith('not paired'), 'it is still said')
+	assert.ok(raced.lines().includes('NAV'))
+	raced.socket.receive('OK {}\n') // NAV's
+	pressAction(raced, 'raw', { line: 'BLACKOUT ON' })
+	raced.socket.receive('ERR not paired — this desk asks for its pairing token first\n') // the desk's token changed since
+	assert.equal(raced.ctx.statuses.at(-1).status, InstanceStatus.BadConfig)
+	assert.equal(raced.ctx.statuses.at(-1).message, TOKEN_NOT_TAKEN_WORDS)
+})
+
+test('round 91 — a desk that greets with STATE before any NONCE has nothing to keep from the connection: NAV goes at the greeting, the recorder waits for the proof', async () => {
+	const b = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, state: null })
+	b.inst.recording = true
+	b.socket.receive('STATE ' + JSON.stringify(sampleState()) + '\n') // an open desk, this machine trusted, or a desk before round 91
+	assert.deepEqual(b.lines(), [`HELLO FOH deck module=${MODULE_VERSION}`, 'NAV'], 'the Navigator is not held for the NONCE wait')
+	assert.equal(b.ctx.variables.show, 'Gala')
+	b.socket.receive(`NONCE ${NONCE}\n`) // a desk before round 91 says its nonce after the greeting
+	const proof = 'AUTH-PROOF ' + authProof('k7qm-3xwd-p9ra', NONCE, 'FOH deck')
+	assert.deepEqual(b.lines().slice(2), [proof])
+	b.socket.receive('OK\nOK {}\nOK paired\n') // HELLO's, NAV's, the proof's
+	await settle()
+	assert.ok(b.lines().slice(3).includes('RECORD ON'), 'the recorder once paired')
+	assert.equal(b.lines().filter((l) => l === 'NAV').length, 1, 'NAV not asked twice')
+})
+
+test('round 91 — the pairing settles at its edges: a proof never answered, a desk that offers no proof and a nonce that is not a desk\'s each settle it, and none of them is called a token the desk no longer takes', async () => {
+	// The proof's answer never comes: the connection stops waiting, and the reads the desk leaves open are asked.
+	const slow = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, state: null })
+	slow.inst.askTimeoutMs = 20
+	slow.socket.receive(`NONCE ${NONCE}\nOK\n`) // the nonce, HELLO's answer; the proof's never comes
+	await new Promise((r) => setTimeout(r, 80))
+	assert.ok(slow.lines().includes('NAV'), 'settled when the proof went unanswered')
+	assert.equal(slow.inst.paired, false)
+
+	// A desk on another machine before round 87 offers no proof: settled with its words, and a refusal as unpaired after it
+	// keeps them — the token was never taken, so it cannot be one the desk no longer takes.
+	const far = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, nonceWaitMs: 0 })
+	await settle()
+	await answerEach(far, deskBefore87)
+	assert.ok(far.lines().includes('NAV'))
+	pressAction(far, 'raw', { line: 'BLACKOUT ON' })
+	far.socket.receive('ERR not paired — this desk asks for its pairing token first\n')
+	assert.equal(far.ctx.statuses.at(-1).message, NO_PROOF_WORDS)
+	assert.ok(far.ctx.variables.last_error.startsWith('not paired'), 'still said')
+
+	// A nonce that is not 32 hex: no proof, settled with its words, and they stand through a refusal as unpaired.
+	const odd = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, state: null })
+	odd.socket.receive('NONCE xyz\nOK\n')
+	await settle()
+	assert.ok(odd.lines().includes('NAV'))
+	odd.socket.receive('OK {}\n') // NAV's
+	pressAction(odd, 'raw', { line: 'BLACKOUT ON' })
+	odd.socket.receive('ERR not paired — this desk shows its state only to a paired connection\n')
+	assert.match(odd.ctx.statuses.at(-1).message, /not 32 hex — no proof sent/)
+	assert.ok(!odd.ctx.statuses.some((s) => s.message === TOKEN_NOT_TAKEN_WORDS))
+})
+
+test('round 91 — NEW TOKEN on the desk: the paired connection hears why and is closed, its keys go dark, and back on the wire the old token is refused once and not proved again', async () => {
+	const b = await boot({ config: { host: '10.0.0.5', port: 9697, token: 'k7qm-3xwd-p9ra' }, state: null })
+	b.socket.receive(`NONCE ${NONCE}\nOK\nOK paired\n`)
+	b.socket.receive('STATE ' + JSON.stringify(sampleState()) + '\n') // the greeting
+	await settle()
+	b.socket.receive('OK {}\n') // NAV's
+	assert.equal(b.ctx.variables.show, 'Gala')
+	assert.equal(b.inst.paired, true)
+
+	b.socket.receive("ERR not paired — the desk's pairing token changed (NEW TOKEN on its Remote page, TRUST): this connection is closed; connect again and prove the new token\n")
+	assert.deepEqual(b.ctx.statuses.at(-1), { status: InstanceStatus.BadConfig, message: TOKEN_NOT_TAKEN_WORDS })
+	b.socket.isConnected = false
+	b.socket.emit('status_change', InstanceStatus.Disconnected, 'closed by the desk')
+	assert.notEqual(b.ctx.statuses.at(-1).status, InstanceStatus.Ok)
+	assert.equal(b.ctx.variables.show, '', 'no key stays lit from a STATE the desk no longer sends')
+
+	// Back on the wire: a fresh nonce, the old token's proof refused, and the desk's next nonce not proved with it again.
+	const before = b.lines().length
+	b.socket.isConnected = true
+	b.socket.emit('status_change', InstanceStatus.Ok, undefined)
+	const fresh = 'fedcba9876543210fedcba9876543210'
+	b.socket.receive(`NONCE ${fresh}\n`)
+	b.socket.receive("OK\nERR wrong token — the pairing token is on the desk's Remote page, TRUST\nNONCE 00112233445566778899aabbccddeeff\n")
+	await settle()
+	assert.equal(b.ctx.statuses.at(-1).status, InstanceStatus.BadConfig)
+	assert.match(b.ctx.statuses.at(-1).message, /not this desk's/)
+	assert.equal(b.lines().slice(before).filter((l) => l.startsWith('AUTH-PROOF')).length, 1, 'one proof per connection once the token is refused')
+	assert.equal(b.inst.paired, false)
+})
+
+test('round 91 — no token on a desk that says NONCE: the status says the token is needed, not the wrong-token words, and NAV, which the desk leaves open, still fills the Navigator', async () => {
+	const b = await boot({ state: null })
+	assert.deepEqual(b.lines(), [`HELLO FOH deck module=${MODULE_VERSION}`, 'NAV'], 'nothing to prove: the reads go at once')
+	b.socket.receive(`NONCE ${NONCE}\n`)
+	const said = b.ctx.statuses.at(-1)
+	assert.equal(said.status, InstanceStatus.BadConfig)
+	assert.equal(said.message, NEEDS_TOKEN_WORDS)
+	assert.doesNotMatch(said.message, /not this desk's/)
+	assert.ok(!b.lines().some((l) => l.startsWith('AUTH')), 'nothing to prove with')
+	const navReply = { rails: [{ id: 'Plan', label: 'PLAN', hue: '#6E9BFF', pages: ['Cues'] }], pages: [{ header: 'Cues', rail: 'Plan', hue: '#6E9BFF', settings: true }], desk: { page: 'Cues', rail: 'PLAN', run: false } }
+	b.socket.receive('OK\nOK ' + JSON.stringify(navReply) + '\n')
+	await settle()
+	assert.deepEqual(b.inst.navInfo.rails.map((r) => r.label), ['PLAN'])
+	// A read the desk refuses unpaired says the same words, never the wrong-token ones.
+	b.socket.receive('ERR not paired — this desk shows its state only to a paired connection: answer its NONCE with AUTH-PROOF first\n')
+	assert.equal(b.ctx.statuses.at(-1).message, NEEDS_TOKEN_WORDS)
+	assert.ok(b.ctx.variables.last_error.startsWith('not paired'))
 })
 
 test('every preset is one the host keeps: its actions, feedbacks and option keys exist, and its layered elements pass the schema', async () => {

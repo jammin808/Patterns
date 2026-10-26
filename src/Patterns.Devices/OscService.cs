@@ -61,11 +61,14 @@ public sealed class OscService : IDisposable
 
     private long _refused;
 
-    /// <summary>Verbs refused because the desk is paired and the sender is neither this machine nor on OSC ALLOW (nothing ran).</summary>
+    /// <summary>Verbs and STATUS reads (ADR-016) refused because the desk is paired and the sender is neither this machine nor on OSC ALLOW (nothing ran, nothing was said of the show).</summary>
     public long Refused => Interlocked.Read(ref _refused);
 
     /// <summary>The addresses whose refusal the log has named, each once, at most <see cref="OscGate.RefusedNamedMost"/>: a forged flood of sources is a bounded set and a few lines, and one line says when no more are named.</summary>
     private readonly SaidOnce _refusedSaid = new(OscGate.RefusedNamedMost);
+
+    /// <summary>ADR-016: the same for a refused STATUS, on its own count of addresses, so a read refused first never hides the verb's line.</summary>
+    private readonly SaidOnce _readRefusedSaid = new(OscGate.RefusedNamedMost);
 
     /// <summary>This machine's own senders need no proof — the wire's rule (ControlService.TrustLoopback); the tests turn it off.</summary>
     public static bool ControlTrustsLoopback { get; set; } = true;
@@ -268,16 +271,20 @@ public sealed class OscService : IDisposable
             return;
         }
         var cmd = ControlProtocol.Parse(line);
-        // OSC cannot pair. On a desk with a token its verbs come only from this machine or an address on the allow-list —
-        // a proof on the wire or the web grants nothing to the address it came from; its queries (PING, STATUS) stay open.
+        // OSC cannot pair. On a desk with a token its verbs and its STATUS come only from this machine or an address on the
+        // allow-list — a proof on the wire or the web grants nothing to the address it came from (ADR-017), and the show's
+        // state answers whom the verbs come from, as the wire's answers a paired connection only (ADR-016); what the wire
+        // answers before pairing (PING, CUE LIST) stays open.
         var control = _services.State.Control;
-        if (!ControlProtocol.IsQuery(cmd) && !OscGate.Allows(control.Token, from.Address, ControlTrustsLoopback, control.OscAllow))
+        if (!ControlProtocol.OpenBeforePairing(cmd) && !OscGate.Allows(control.Token, from.Address, ControlTrustsLoopback, control.OscAllow))
         {
+            var read = ControlProtocol.IsQuery(cmd);
             Interlocked.Increment(ref _refused);
             _lastLine = WindowAddresses.RedactText($"{m} → {line} → refused: not on OSC ALLOW");
             var address = OscGate.Normal(from.Address);
-            if (OscGate.RefusedLine(_refusedSaid.Note(address), address) is { } said) Log.Warn(said);
-            Reply(from, OscMessage.Of("/patterns/error", OscGate.NotListed));
+            var said = read ? OscGate.ReadRefusedLine(_readRefusedSaid.Note(address), address) : OscGate.RefusedLine(_refusedSaid.Note(address), address);
+            if (said is not null) Log.Warn(said);
+            Reply(from, OscMessage.Of("/patterns/error", read ? OscGate.ReadNotListed : OscGate.NotListed));
             return;
         }
         var response = await _router.ExecuteAsync(cmd, new ActionOrigin(OriginKind.Osc, "", from.ToString()));

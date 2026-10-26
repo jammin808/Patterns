@@ -16,7 +16,7 @@ import { emptyState, showSignature, upcoming, variableValues } from './state.js'
 import { KNOWN_PROTOCOL, Navigator, payload } from './nav.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.19.0'
+export const MODULE_VERSION = '3.19.1'
 
 /** Round 87: how long a token-holding connection waits for the desk's NONCE before it asks the desk for one. */
 export const NONCE_WAIT_MS = 1500
@@ -26,6 +26,15 @@ export const NONCE_SHAPE = /^[0-9a-f]{32}$/
 
 /** Round 89: what the connection says when it keeps the token: the desk is another machine's and asks for no proof. */
 export const NO_PROOF_WORDS = 'The desk asks for no proof — update Patterns; the token stays here'
+
+/**
+ * Round 91 (ADR-016): what the connection says when the desk wants the token and the config has none — a desk with a
+ * token shows its state only to a paired connection, so this one reads no STATE and runs no verb until the token is typed.
+ */
+export const NEEDS_TOKEN_WORDS = 'Pairing token needed — this desk asks for its pairing token and shows its state only to a paired connection: type it into this connection (Remote page, TRUST, on the desk)'
+
+/** Round 91: what the connection says when it holds a token and the desk refuses it as unpaired — NEW TOKEN on the desk since it was typed. */
+export const TOKEN_NOT_TAKEN_WORDS = "The desk did not take this connection's token — NEW TOKEN on the desk? Type its token again (Remote page, TRUST, on the desk)"
 
 /** How long a question to the desk waits for its answer before the key gives up. */
 export const ASK_TIMEOUT_MS = 5000
@@ -50,6 +59,12 @@ class PatternsInstance extends InstanceBase {
 		this.nonceWaitMs = NONCE_WAIT_MS // round 87: the tests shorten it
 		this.authTimer = null // round 87: the wait for the desk's NONCE; round 89: when it ends the module asks for one
 		this.authed = false // round 87: AUTH or AUTH-PROOF has been sent on this connection
+		this.settled = false // round 91: the pairing is settled — paired, open, refused, or nothing more to prove — and the recorder re-armed
+		this.paired = false // round 91: the desk answered this connection's proof OK (paired, or open) — only then is "not paired" a token no longer taken
+		this.readsAsked = false // round 91: NAV asked on this connection — at the pairing's end, or at a greeting that came before any NONCE
+		this.proofRefused = false // round 91: the desk answered this connection's proof "wrong token" — its next NONCE is not proved again
+		this.connection = 0 // round 91: moves with every connection, so an answer to an older one's proof settles nothing on this one
+		this.askTimeoutMs = ASK_TIMEOUT_MS // round 91: the tests shorten it
 		this.heardNonce = false // round 89: a NONCE, or an OK to the module's NONCE ask, came on this connection — plain AUTH never follows one
 		this.nav = new Navigator({
 			ask: (line) => this.ask(line),
@@ -150,6 +165,7 @@ class PatternsInstance extends InstanceBase {
 		}
 		this.buffer = ''
 		this.dropPending('the connection was reopened')
+		this.connection++
 		this.socket = this.socketFactory(target.host, target.port)
 		this.socket.on('status_change', (status, message) => {
 			this.updateStatus(status, message)
@@ -163,17 +179,23 @@ class PatternsInstance extends InstanceBase {
 				// token itself (plain AUTH) goes only to a desk on this machine that cannot give one.
 				this.authed = false
 				this.heardNonce = false
+				this.settled = false
+				this.paired = false
+				this.readsAsked = false
+				this.proofRefused = false
+				this.connection++
 				clearTimeout(this.authTimer)
-				const token = pairingToken(this.config)
-				if (token) {
+				// Round 91 (ADR-016): a desk with a token shows its state only to a paired connection — it says NONCE first
+				// and no STATE until the proof is answered OK — so with a token the module pairs before it reads. With none
+				// there is nothing to prove: the reads go at once, and a desk that says NONCE is told the token is needed.
+				if (pairingToken(this.config)) {
 					this.authTimer = setTimeout(() => this.noNonce(), this.nonceWaitMs)
 					this.authTimer.unref?.()
-				}
-				// Round 74: the rails and the pages, for the Navigator and its presets; the recorder re-armed after a reconnect.
-				this.ask('NAV').then((reply) => this.onNav(reply)).catch(() => {})
-				if (!token) this.afterAuth()
+				} else this.whenSettled()
 			} else {
-				// Feedbacks reset on disconnect: a dead key must not stay green.
+				// Feedbacks reset on disconnect: a dead key must not stay green. Round 91: a desk whose token changed closes
+				// the connection after its last line, so no key stays lit from a STATE the desk no longer sends.
+				this.paired = false
 				this.state = emptyState()
 				this.standbyId = ''
 				this.dropPending('the connection dropped')
@@ -218,11 +240,18 @@ class PatternsInstance extends InstanceBase {
 		this.heardNonce = true
 		clearTimeout(this.authTimer)
 		this.authTimer = null
-		if (!pairingToken(this.config)) return
+		if (this.proofRefused) return // the desk said this token is not its own: a fresh nonce is not proved with it again
+		if (!pairingToken(this.config)) {
+			// Round 91 (ADR-016): the desk wants a token this connection does not have — it reads no state and runs no verb.
+			this.log('warn', NEEDS_TOKEN_WORDS)
+			this.updateStatus(InstanceStatus.BadConfig, NEEDS_TOKEN_WORDS)
+			return
+		}
 		if (!NONCE_SHAPE.test(nonce)) {
 			const words = "The desk's NONCE is not 32 hex — no proof sent; the token stays here"
 			this.log('warn', words)
 			this.updateStatus(InstanceStatus.UnknownWarning, words)
+			this.whenSettled() // nothing it can prove: what an unpaired connection may read is read
 			return
 		}
 		this.authenticate(nonce)
@@ -244,46 +273,88 @@ class PatternsInstance extends InstanceBase {
 				if (isLoopback(this.deskAddress())) return this.authenticate(null)
 				this.log('warn', NO_PROOF_WORDS)
 				this.updateStatus(InstanceStatus.UnknownWarning, NO_PROOF_WORDS)
-				this.afterAuth() // the desk may be open: what waited for pairing is said, the token is not
+				this.whenSettled() // the desk may be open: what waited for pairing is said, the token is not
 			})
 			.catch(() => {})
 	}
 
 	/**
-	 * Round 87: AUTH-PROOF for a nonce, or plain AUTH with none; then what waited for pairing. Round 89: plain AUTH only to
-	 * an address of this machine, and never on a connection that heard a NONCE.
+	 * Round 87: AUTH-PROOF for a nonce, or plain AUTH with none. Round 89: plain AUTH only to an address of this machine,
+	 * and never on a connection that heard a NONCE. Round 91 (ADR-016): asked, so its answer is seen — what reads the desk
+	 * waits for its OK (onAuthAnswer); an ERR is said by onLine (trustProblem) and the desk's fresh NONCE is proved again.
 	 */
 	authenticate(nonce) {
 		clearTimeout(this.authTimer)
 		this.authTimer = null
 		const token = pairingToken(this.config)
 		if (!token || !this.socket?.isConnected) return
+		let line
 		if (nonce) {
 			if (!NONCE_SHAPE.test(nonce)) return
-			this.send(`AUTH-PROOF ${authProof(token, nonce, this.helloName())}`)
+			line = `AUTH-PROOF ${authProof(token, nonce, this.helloName())}`
 		} else if (this.authed || this.heardNonce || !isLoopback(this.deskAddress())) return // said once, to this machine only
-		else this.send(`AUTH ${token}`)
-		const first = !this.authed
+		else line = `AUTH ${token}`
 		this.authed = true
-		if (first) this.afterAuth()
+		const connection = this.connection
+		this.ask(line)
+			.then((reply) => this.onAuthAnswer(reply, connection))
+			.catch(() => {
+				if (connection === this.connection) this.whenSettled() // no answer in time: nothing more to wait for on this connection
+			})
 	}
 
-	/** What waits for the connection to be able to run verbs: the recorder re-armed after a reconnect. */
-	afterAuth() {
+	/**
+	 * Round 91: the desk's answer to the proof settles the pairing — OK paired (or OK open, a desk that asks for none)
+	 * pairs the connection; "wrong token" refuses it (onLine marks that as the line arrives, before the desk's fresh NONCE
+	 * behind it is read); either way the reads and the recorder go. An answer to an older connection's proof settles
+	 * nothing here.
+	 */
+	onAuthAnswer(reply, connection = this.connection) {
+		if (connection !== this.connection) return
+		if (/^OK(\s|$)/.test(reply)) this.paired = true
+		this.whenSettled()
+	}
+
+	/**
+	 * Round 91 (ADR-016): what waits for the pairing to settle, once per connection — the reads (round 74: NAV, the rails
+	 * and the pages for the Navigator and its presets) and the recorder re-armed after a reconnect. The desk's STATE needs
+	 * no ask: a paired connection hears it as the line after OK paired, and every push after.
+	 */
+	whenSettled() {
+		if (this.settled || !this.socket?.isConnected) return
+		this.settled = true
+		this.askReads()
 		if (this.recording) this.send('RECORD ON')
 	}
 
+	/** Round 91: the reads the desk leaves open — NAV, for the Navigator's rails and pages — asked once per connection. */
+	askReads() {
+		if (this.readsAsked || !this.socket?.isConnected) return
+		this.readsAsked = true
+		this.ask('NAV').then((reply) => this.onNav(reply)).catch(() => {})
+	}
+
 	onLine(line) {
-		if (line.startsWith('STATE ')) return this.onState(line.slice(6))
+		if (line.startsWith('STATE ')) {
+			// Round 91: a STATE before any NONCE is a greeting — a desk that has nothing to keep from this connection (open,
+			// this machine trusted, or a desk before round 91), so the open reads go now; the recorder waits for the pairing.
+			if (!this.heardNonce) this.askReads()
+			return this.onState(line.slice(6))
+		}
 		// Round 87: the desk's nonce for this connection — answered with AUTH-PROOF when the config holds a token.
 		if (line.startsWith('NONCE ')) return this.onNonce(line.slice(6).trim())
 		if (line.startsWith('ACTION ')) return this.onAction(line.slice(7).trim())
 		// Round 89: the ERR a desk before round 87 gives the module's own NONCE ask is that ask's answer, not a fault.
 		if (line.startsWith('ERR') && this.pending[0]?.quiet) this.log('debug', line)
 		else if (line.startsWith('ERR')) {
+			// Round 91: only a proof is answered "wrong token" — the desk's fresh NONCE behind it is not proved with the same token.
+			if (/^ERR\s+wrong token/i.test(line)) this.proofRefused = true
 			this.log('warn', line)
 			this.setVariableValues({ last_error: line.slice(4).trim() })
-			const trust = trustProblem(line)
+			// Round 91: "not paired" on a connection that holds a token and was never paired — a press that went before the
+			// proof's answer, a desk that offered no proof — is said in the log and last_error, and the status stays as the
+			// pairing set it; only on a connection the desk paired is it a token the desk no longer takes.
+			const trust = trustProblem(line, pairingToken(this.config).length > 0, this.paired)
 			if (trust) this.updateStatus(InstanceStatus.BadConfig, trust) // the connection is up, the desk will not run a verb from it: the config is what needs a hand
 		}
 		if (line.startsWith('OK') || line.startsWith('ERR')) this.answer(line)
@@ -342,8 +413,8 @@ class PatternsInstance extends InstanceBase {
 			entry.timer = setTimeout(() => {
 				const at = this.pending.indexOf(entry)
 				if (at >= 0) this.pending[at] = null // its reply, when it comes, keeps the order
-				reject(new Error(`No answer to ${cmd} in ${ASK_TIMEOUT_MS} ms`))
-			}, ASK_TIMEOUT_MS)
+				reject(new Error(`No answer to ${cmd} in ${this.askTimeoutMs} ms`))
+			}, this.askTimeoutMs)
 			entry.timer.unref?.()
 			this.pending.push(entry)
 			this.socket.send(cmd + '\n')
@@ -438,13 +509,16 @@ export function authProof(token, nonce, name) {
 }
 
 /**
- * The words for Companion's status when the desk refuses the connection's verbs over trust: the
- * token is wrong, or the desk asks for one and the config has none. Null for every other ERR.
+ * The words for Companion's status when the desk refuses the connection's verbs or reads over trust: the token is wrong;
+ * the desk asks for one and the config has none (round 91: a desk with a token shows its state only to a paired
+ * connection); or the connection was paired and the desk no longer takes its token — NEW TOKEN on the desk since. A
+ * "not paired" to a connection that holds a token and was never paired is the pairing's own business (under way, or
+ * said already by its own words): null, as for every other ERR.
  */
-export function trustProblem(errLine) {
+export function trustProblem(errLine, hasToken = false, paired = false) {
 	const text = String(errLine ?? '')
 	if (/^ERR\s+wrong token/i.test(text)) return "The pairing token is not this desk's — Remote page, TRUST, on the desk"
-	if (/^ERR\s+not paired/i.test(text)) return 'This desk asks for its pairing token — type it into this connection (Remote page, TRUST, on the desk)'
+	if (/^ERR\s+not paired/i.test(text)) return paired ? TOKEN_NOT_TAKEN_WORDS : hasToken ? null : NEEDS_TOKEN_WORDS
 	return null
 }
 

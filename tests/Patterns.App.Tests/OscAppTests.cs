@@ -215,7 +215,8 @@ public class OscAppTests
     /// <summary>
     /// A proof grants nothing to an address (ADR-017). A machine that proved the token on the wire (AUTH-PROOF) and on the
     /// web (the token header) is still refused over OSC from that address: the sender hears why, nothing runs, the Remote
-    /// page's line says "not on OSC ALLOW" and the log names the address once. Its questions stay open. The operator's
+    /// page's line says "not on OSC ALLOW" and the log names the address once. Its ping stays open, and its STATUS — the
+    /// show's state — answers the addresses its verbs come from (ADR-016), refused with its own words and log line. The operator's
     /// list lets it in; this machine moves the show when the desk trusts its own. The Super Check's OSC row and the Eye
     /// say the rule and what the list names.
     /// </summary>
@@ -259,7 +260,9 @@ public class OscAppTests
             void Send(OscMessage m) => sender.Send(OscCodec.Encode(m), target);
             var log = Path.Combine(b.Dir, "patterns.log");
             int Said() => File.ReadAllLines(log).Count(l => l.Contains("OSC: a verb from 127.0.0.1 refused", StringComparison.Ordinal));
+            int SaidRead() => File.ReadAllLines(log).Count(l => l.Contains("OSC: STATUS from 127.0.0.1 refused", StringComparison.Ordinal));
             var saidBefore = Said();
+            var saidReadBefore = SaidRead();
             var refusedBefore = services.Osc.Refused;
 
             Send(OscMessage.Of("/patterns/blackout", 1));
@@ -275,11 +278,16 @@ public class OscAppTests
             Assert.False(services.State.Blackout);
             Assert.Equal(saidBefore + 1, Said());                                   // one line for the address, however often
 
-            // Its questions stay open, as the wire's do.
+            // Its ping stays open, as the wire's does; its STATUS answers only whom its verbs come from (ADR-016) — refused here
+            // with the words, its own log line once for the address.
             Send(OscMessage.Of("/patterns/ping"));
             Receive(sender, m => m.Address == "/patterns/pong");
             Send(OscMessage.Of("/patterns/status"));
-            Receive(sender, m => m.Address == "/patterns/status");
+            Assert.Equal(OscGate.ReadNotListed, Receive(sender, m => m.Address == "/patterns/error").Text());
+            Send(OscMessage.Of("/patterns/status"));
+            Receive(sender, m => m.Address == "/patterns/error");
+            Assert.Equal(saidReadBefore + 1, SaidRead());
+            Assert.Equal(saidBefore + 1, Said());                                   // the verbs' line stands on its own
 
             // The Super Check and the Eye: the paired desk's rule, and that the list names no one yet.
             var row = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "OSC");
@@ -311,6 +319,8 @@ public class OscAppTests
             Dispatcher.UIThread.RunJobs();
             Send(OscMessage.Of("/patterns/blackout", 1));
             PumpUntil(() => services.State.Blackout);
+            Send(OscMessage.Of("/patterns/status"));
+            Assert.Contains("\"blackout\":true", Receive(sender, m => m.Address == "/patterns/status").Text());   // listed: its STATUS answers too
             var listed = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Item == "OSC");
             Assert.Equal(CheckLight.Green, listed.Light);
             Assert.Contains(OscGate.Listed(1), listed.Note);

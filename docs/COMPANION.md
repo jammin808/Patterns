@@ -470,6 +470,38 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 91 — the module pairs before it reads (module 3.19.1)
+
+- **The desk shows its state only to a paired connection** (the desk's ADR-016, the maintainer's scope A). A desk with a
+  token says `NONCE <hex>` as a connection's first line and no `STATE` — no greeting, no push, no `ACTION` feed — until
+  its proof is answered `OK paired`; the greeting `STATE` is the line after that answer. Before pairing it answers the
+  handshake and five reads only — `NAV`, `MENU`, `CUE LIST`, the arcade's and the room's status, `ASSISTANT` — and
+  `STATUS`, `EYE`, `CONTEXT` and every other read answer `ERR not paired — this desk shows its state only to a paired
+  connection …`. An open desk, and a deck on the desk's own machine while the desk trusts it, are greeted with `STATE`
+  first as before.
+- **The pairing order.** With the **Pairing token** field filled the module says `HELLO`, waits for the `NONCE` (asking
+  for one after the wait, as 3.18.1 does) and asks the proof: `AUTH-PROOF` is sent as a question, so its answer is read.
+  `NAV` — the Navigator's rails and pages — and `RECORD ON` (a recorder open across a reconnect) go once that answer is
+  `OK paired` or `OK open`; a desk that offers no proof (another machine's, before round 87), a nonce that is not 32
+  hex, or a proof whose answer never comes settles it too, without the pairing. A desk that greets with `STATE` before
+  any `NONCE` (an open desk, a desk on this machine that trusts it, or one before round 91) has nothing to keep from the
+  connection, so `NAV` goes at that greeting and the Navigator fills at once; the recorder still waits for the proof's
+  `OK`. With the field empty nothing waits: `NAV` goes at once, since the desk leaves it open.
+- **The words.** A desk that says `NONCE` to a connection with no token: the status reads *Pairing token needed — this
+  desk asks for its pairing token and shows its state only to a paired connection: type it into this connection
+  (Remote page, TRUST, on the desk)* — not the wrong-token words. A refusal as unpaired on a connection with a token
+  that was never paired — a press that went before the proof's answer, a desk that offered no proof — is said in the
+  log and `$(patterns:last_error)` and leaves the status as the pairing set it. Only on a connection the desk paired is
+  it a token the desk no longer takes: *The desk did not take this connection's token — NEW TOKEN on the desk? Type its
+  token again*.
+- **NEW TOKEN on the desk.** The desk tells every connection that had paired `ERR not paired — the desk's pairing token
+  changed …` and closes it. The module says the words above, its keys go dark as on any disconnect (no key stays lit
+  from a `STATE` the desk no longer sends), and it reconnects: the old token's proof answers `ERR wrong token`, so the
+  status reads *The pairing token is not this desk's* until the new one is typed.
+- The version moves to 3.19.1 in every file that carries it. A 3.19.0 deck given the token keeps working on a round-91
+  desk (it proves on `NONCE` and reads the greeting after `OK paired`, and `NAV` stays open); one with the field empty
+  lights nothing from STATE until the token is typed, and says so only when a press is refused.
+
 ## Round 89 — the token never in clear, and a stuck Stagewatch (module 3.18.1)
 
 - **Plain `AUTH` only to this machine.** The module sends `AUTH <token>` only to a desk on its own machine, judged by

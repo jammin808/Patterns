@@ -220,13 +220,20 @@ public static class HealthDashboard
         return new DashboardTile("audio", "AUDIO", light, value, lag >= 0 ? $"master clock · worst lag {lag:0.#} ms" : "master clock locked");
     }
 
-    /// <summary>Round 89: the pairing token seen in clear from another machine turns the tile amber, as the Super Check's REMOTE row does, until the token changes.</summary>
+    /// <summary>
+    /// Round 89: the pairing token seen in clear from another machine turns the tile amber, as the Super Check's REMOTE row
+    /// does, until the token changes. Round 91 (ADR-016): so does a read the wire refused to a connection that had not
+    /// paired, as the row "Wire reads" does — a deck or a link of the operator's without the token reads nothing.
+    /// </summary>
     private static DashboardTile Remote(CheckFacts f)
         => !f.RemoteEnabled
             ? new DashboardTile("remote", "REMOTE", CheckLight.Grey, "off", "the phone, Companion and OSC need it on")
             : f.RemoteToken && f.TokenSeenInClear.Count > 0
                 ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "token in clear", TokenClearSightings.Words(f.TokenSeenInClear))
-                : new DashboardTile("remote", "REMOTE", CheckLight.Green, "on", f.RemoteUrl.Length > 0 ? f.RemoteUrl : "the phone, Companion, OSC");
+                : f.RemoteToken && f.WireReadsRefused > 0
+                    ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "reads refused",
+                        $"{f.WireReadsRefused} unpaired read{(f.WireReadsRefused == 1 ? "" : "s")} refused — the last: {f.WireReadRefusedLast}; a deck or a link of yours needs the pairing token (Remote page, TRUST)")
+                    : new DashboardTile("remote", "REMOTE", CheckLight.Green, "on", f.RemoteUrl.Length > 0 ? f.RemoteUrl : "the phone, Companion, OSC");
 
     private static DashboardTile Watchdog(CheckFacts f)
     {

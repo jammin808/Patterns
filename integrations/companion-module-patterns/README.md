@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.19.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.19.1** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,11 +67,15 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.19.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.19.1` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
 desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
-paired` otherwise. The token itself never crosses the network: it goes plain (`AUTH`) only to a desk on this machine
-too old to give a nonce. The module shows the wrong or missing token as a bad-config status with the words.
+paired` otherwise; from round 91 it shows its state only to a paired connection too — it says `NONCE` first and no
+`STATE` until the proof is answered `OK paired`, so the module pairs before it reads (`NAV` and the recorder wait for
+that answer, and `NAV` goes at once when the desk greets with `STATE` first). The token itself never crosses the network: it goes plain (`AUTH`) only to a desk on this machine too
+old to give a nonce. The module shows the wrong or missing token as a bad-config status with the words — with the
+field empty on a desk that says `NONCE`, *Pairing token needed — this desk asks for its pairing token and shows its
+state only to a paired connection*.
 
 ## Installing a build into Companion 5
 
@@ -95,6 +99,18 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.19.1** — the module pairs before it reads (round 91, the desk's ADR-016): a desk with a token says `NONCE` first
+  and shows no `STATE` to a connection that has not paired, and refuses `STATUS`, `EYE`, `CONTEXT` and the other reads
+  with `ERR not paired …`. With the **Pairing token** field filled the proof is asked and its answer read: `NAV` (the
+  Navigator's rails and pages) and `RECORD ON` go once it is `OK paired` (or `OK open`), and the desk's greeting `STATE`
+  follows that answer; a desk that greets with `STATE` before any `NONCE` gets `NAV` at once, and a proof that is never
+  answered, refused, or not possible (no proof offered, a nonce that is not a desk's) settles the pairing too. With the
+  field empty the reads go at once — `NAV` stays open on the desk — and a `NONCE` says the token is needed in the status
+  (*Pairing token needed — …*), not the wrong-token words. Only a connection the desk paired reads a later `ERR not
+  paired` as a token the desk no longer takes (*The desk did not take this connection's token — …*): NEW TOKEN on the
+  desk says so and closes the connection, its keys go dark, and on reconnecting the old token's proof is refused once
+  and not sent again on that connection. A 3.19.0 deck given the token keeps working on a round-91 desk; one without it
+  lights nothing until the token is typed.
 - **3.19.0** — what the linked Stagewatch made of the desk's key (round 91): the `stagewatch_key` variable reads STATE's
   `bus.stagewatch.key` — `key` or `operator` (the key speaks for this desk), `none` (Stagewatch takes it and lets it speak
   for no node of the desk's, or the link carries no key), `refused`, or empty while Stagewatch has said neither (a

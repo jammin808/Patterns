@@ -61,7 +61,10 @@ public class ShowBusAppTests
         }
     }
 
-    /// <summary>A wire connection: the greeting read, and the nonce when the desk says one; Reply skips STATE pushes and keeps any later NONCE.</summary>
+    /// <summary>
+    /// A wire connection with its first line read — ADR-016: the nonce, and no STATE, when the connection has the token to
+    /// prove; the greeting STATE when it is paired from the start. Say skips STATE pushes and keeps any later NONCE.
+    /// </summary>
     private sealed class Wire : IDisposable
     {
         private readonly TcpClient _client = new();
@@ -75,12 +78,15 @@ public class ShowBusAppTests
             Pump(_client.ConnectAsync(IPAddress.Loopback, port));
             _stream = _client.GetStream();
             _reader = new StreamReader(_stream, Encoding.UTF8);
-            Assert.StartsWith("STATE {", Pump(_reader.ReadLineAsync()));
+            var first = Pump(_reader.ReadLineAsync());
             if (expectNonce)
             {
-                var second = Pump(_reader.ReadLineAsync());
-                Assert.StartsWith("NONCE ", second);
-                Nonce = second!["NONCE ".Length..];
+                Assert.StartsWith("NONCE ", first);
+                Nonce = first!["NONCE ".Length..];
+            }
+            else
+            {
+                Assert.StartsWith("STATE {", first);
             }
         }
 

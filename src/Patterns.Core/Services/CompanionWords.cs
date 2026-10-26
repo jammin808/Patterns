@@ -4,7 +4,7 @@ namespace Patterns.Core.Services;
 public static class CompanionModule
 {
     /// <summary>Kept equal to integrations/companion-module-patterns/package.json by a test.</summary>
-    public const string Version = "3.19.0";
+    public const string Version = "3.19.1";
 
     /// <summary>The port Companion's own TCP remote-control API listens on, as Companion 4 and 5 ship it.</summary>
     public const int ApiPort = 16759;
@@ -16,7 +16,11 @@ public static class CompanionModule
 /// <summary>One deck (a Companion connection, or anything else that said HELLO) on the wire right now.</summary>
 public sealed record WireDeck(string Name, string Module, string Address, DateTime SinceUtc)
 {
-    /// <summary>Round 66: the connection presented the show's pairing token (or the desk asks for none) — its mutating verbs run; false is a deck whose keys do nothing yet.</summary>
+    /// <summary>
+    /// Round 66: the connection proved the show's pairing token (or the desk asks for none, or it is this machine's while
+    /// the desk trusts it) — its mutating verbs run; false is a deck whose keys do nothing yet. Round 91: read from the
+    /// connection against the token as it is now each time the decks are asked, so NEW TOKEN unpairs it at once.
+    /// </summary>
     public bool Paired { get; init; }
 
     /// <summary>Round 74: where the deck's navigator is, as the deck said it (NAV DECK &lt;words&gt;: "PLAN › Cues › 03.020"); "" until it says.</summary>

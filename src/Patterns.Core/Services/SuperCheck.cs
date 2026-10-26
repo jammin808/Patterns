@@ -249,6 +249,13 @@ public sealed class CheckFacts
     /// <summary>Round 83: how many lines or requests made the desk fault behind the wire since start — each answered ERR, the first logged with its stack and then one a minute.</summary>
     public long WireFaults { get; init; }
     /// <summary>
+    /// Round 91 (ADR-016): the reads the wire refused since start because their connection had not paired on a desk with a
+    /// token — STATUS, EYE, CONTEXT and every read the allow-list does not name.
+    /// </summary>
+    public long WireReadsRefused { get; init; }
+    /// <summary>Round 91: the last read refused unpaired, as its verb and the address it came from ("STATUS from 10.0.0.7"); "" with none.</summary>
+    public string WireReadRefusedLast { get; init; } = "";
+    /// <summary>
     /// Round 89: the machines the token set now arrived from in clear (<see cref="TokenClearSightings"/>) — the web remote
     /// over plain http, or plain AUTH on the wire; empty when none, or no token is set.
     /// </summary>
@@ -1102,6 +1109,18 @@ public static class SuperCheck
             var how = string.Join(" and ", f.TokenSeenInClear.SelectMany(c => c.Via.Split(',')).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(TokenClearSightings.HowWords));
             rows.Add(new CheckRow("REMOTE", "Pairing token", CheckLight.Amber, TokenClearSightings.Words(f.TokenSeenInClear),
                 $"FIX: the token crossed the network unencrypted ({how}) — anyone on that network may hold it now: Remote page, TRUST: NEW TOKEN, then pair those remotes again over https:// or by proof (Companion module {CompanionModule.Version} or later)"));
+        }
+        if (f.RemoteToken && f.RemoteBindProblem.Length == 0)
+        {
+            // ADR-016: a paired desk shows its state on the wire only to a paired connection. The row says the rule and what
+            // scope A leaves open; a refused read turns it amber — a deck or a link without the token asked, or a machine
+            // that is not the operator's — with the count since start and the last one's verb and address.
+            var refused = f.WireReadsRefused;
+            var rule = $"a connection that has not paired hears NONCE and no STATE, and STATUS, EYE, CONTEXT and the other reads answer 'not paired' until it proves the token; open before pairing (ADR-016): {ControlProtocol.OpenBeforePairingWords}";
+            rows.Add(refused > 0
+                ? new CheckRow("REMOTE", "Wire reads", CheckLight.Amber, $"paired connections only · {refused} unpaired read{(refused == 1 ? "" : "s")} refused",
+                    $"FIX: a reader without the pairing token asked for the show's state — the last: {f.WireReadRefusedLast}; a deck or a link of yours whose token field is empty or old reads nothing until the token is typed into it (Remote page, TRUST), and a machine that is not yours learned nothing. patterns.log names each address once, at most {ControlProtocol.UnpairedReadsNamedMost} addresses; {rule}")
+                : new CheckRow("REMOTE", "Wire reads", CheckLight.Green, "paired connections only", rule));
         }
         if (f.WireFaults > 0)
         {

@@ -75,6 +75,13 @@ public sealed partial class ControlService : IDisposable
         _clockTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
         _clockTimer.Tick += (_, _) => ClockTick();
         _clockTimer.Start();
+
+        _kernel.State.Control.PropertyChanged += ControlChanged;
+    }
+
+    private void ControlChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ControlConfig.Token)) TokenChanged();
     }
 
     private long _rev; // bumped on the UI thread, read by the HTTP long-poll threads
@@ -98,9 +105,10 @@ public sealed partial class ControlService : IDisposable
             _deckSignature = deck;
             if (!deckMoved && _services.VideoOnAir() is null && !OverlayControl.CountsEverySecond(_services.AirState.Countdown, DateTime.Now, DateTime.UtcNow)) return;
             bool listening;
+            var token = _kernel.State.Control.Token;
             lock (_gate)
             {
-                listening = _peers.Count > 0;
+                listening = _peers.Exists(p => Paired(token, p.Presented, p.Loopback));     // ADR-016: an unpaired connection hears no push
             }
             listening |= Volatile.Read(ref _longPollers) > 0 || _services.Osc is { FeedbackEndpoint: not null };
             if (!listening) return;
@@ -347,7 +355,8 @@ public sealed partial class ControlService : IDisposable
         // Round 65: one writer per peer. Replies and STATE pushes go through the peer's queue and
         // its one writer task, so nothing this handler says is ever interleaved with a push.
         var wire = client.GetStream();
-        var peer = new WirePeer(wire, client);
+        var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+        var peer = new WirePeer(wire, client) { Loopback = loopback };   // its Presented: the token it proved, matched again on every verb, read and push
         lock (_gate)
         {
             _peers.Add(peer);
@@ -356,20 +365,19 @@ public sealed partial class ControlService : IDisposable
         {
             var reader = new BoundedLineReader(wire, WireLineBytes) { LineSeconds = limits.LineSeconds };
 
-            // Greet with current state so feedback initialises immediately — the first line the peer hears.
-            var hello = await _router.StateJsonAsync();
-            peer.Say("STATE " + hello);
-            // Round 87 (Show Bus 1.1 §7): on a paired desk the second line is a nonce, used once — AUTH-PROOF answers it
-            // and the token never crosses the network. NONCE asks for a fresh one at any time.
+            // ADR-016: a connection that is paired already — an open desk, this machine's own while the desk trusts it — is
+            // greeted with STATE, the first line it hears, so its feedback starts at once. One that has the token to prove
+            // hears a nonce first (round 87, Show Bus 1.1 §7: AUTH-PROOF answers it, used once, and the token never crosses
+            // the network; NONCE asks for a fresh one at any time) and no STATE until it has proved it.
             var nonce = WireProof.NewNonce();
-            var greetLoopback = client.Client.RemoteEndPoint is IPEndPoint near && IPAddress.IsLoopback(near.Address);
-            if (!Paired(_kernel.State.Control.Token, "", greetLoopback)) peer.Say("NONCE " + nonce);   // only a connection that has something to prove hears one
+            if (Paired(_kernel.State.Control.Token, "", loopback)) await GreetAsync(peer);
+            else peer.Say("NONCE " + nonce);
             var helloName = "";
 
             var endpoint = client.Client.RemoteEndPoint?.ToString() ?? "";
             var origin = new ActionOrigin(OriginKind.Tcp, "", endpoint);
-            var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
-            var presented = "";     // the token this connection presented — matched again on every verb, so NEW TOKEN cuts it off
+            var addressKey = AddressKey(client);
+            var readRefused = false;    // ADR-016: this connection's first refused read asks whether its address is named in the log
             var wrongTokens = 0;
             while (!ct.IsCancellationRequested && !peer.Closed)
             {
@@ -449,14 +457,14 @@ public sealed partial class ControlService : IDisposable
                     }
                     else if (proof ? WireProof.Verify(token, nonce, helloName, cmd.Text) : PairingToken.Matches(token, cmd.Text))
                     {
-                        presented = proof ? token : cmd.Text;
-                        wrongTokens = 0;
                         // The proof is this connection's: its address earns nothing beyond it, for OSC or any other door (ADR-017).
-                        lock (_gate)
-                        {
-                            if (_decks.TryGetValue(client, out var deck)) _decks[client] = deck with { Paired = true };   // round 66: the Eye reads it
-                        }
+                        // Round 66: the Eye's deck node reads it, through Decks, against the token as it is now.
+                        peer.Presented = proof ? token : cmd.Text;
+                        wrongTokens = 0;
                         Reply(ControlProtocol.Ok("paired"));
+                        // ADR-016: a connection that had not heard the show is greeted now, the line after OK paired, and the
+                        // pushes reach it from here; one greeted already (this machine's, an open desk's) hears no second.
+                        await GreetAsync(peer);
                     }
                     else if (++wrongTokens >= WrongTokensBeforeClose)
                     {
@@ -472,7 +480,7 @@ public sealed partial class ControlService : IDisposable
                     {
                         // A nonce is used once, right or wrong: the next proof answers a fresh one.
                         nonce = WireProof.NewNonce();
-                        if (!Paired(token, presented, loopback)) peer.Say("NONCE " + nonce);
+                        if (!Paired(token, peer.Presented, loopback)) peer.Say("NONCE " + nonce);
                     }
                     continue;
                 }
@@ -485,12 +493,12 @@ public sealed partial class ControlService : IDisposable
                     helloName = name;                                                   // round 87: what AUTH-PROOF's HMAC covers with the nonce
                     lock (_gate)
                     {
-                        _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow) { Paired = Paired(token, presented, loopback) };
+                        _decks[peer] = new WireDeck(name, module, address, DateTime.UtcNow);
                     }
                 }
                 if (cmd.Kind is RemoteCommandKind.NavDeck or RemoteCommandKind.Record)
                 {
-                    if (!Paired(token, presented, loopback))
+                    if (!Paired(token, peer.Presented, loopback))
                     {
                         // Round 75: the action feed and the deck's whereabouts are a connection's standing, not a
                         // question — an unpaired connection hears what the operator does no more than it moves the show.
@@ -502,10 +510,10 @@ public sealed partial class ControlService : IDisposable
                     var recording = cmd.Kind == RemoteCommandKind.Record && cmd.Text == "ON";
                     lock (_gate)
                     {
-                        var deck = _decks.TryGetValue(client, out var known)
+                        var deck = _decks.TryGetValue(peer, out var known)
                             ? known
-                            : new WireDeck(origin.Name.Length > 0 ? origin.Name : address, "", address, DateTime.UtcNow) { Paired = Paired(token, presented, loopback) };
-                        _decks[client] = cmd.Kind == RemoteCommandKind.NavDeck ? deck with { Where = cmd.Text } : deck with { Recording = recording };
+                            : new WireDeck(origin.Name.Length > 0 ? origin.Name : address, "", address, DateTime.UtcNow);
+                        _decks[peer] = cmd.Kind == RemoteCommandKind.NavDeck ? deck with { Where = cmd.Text } : deck with { Recording = recording };
                         if (cmd.Kind == RemoteCommandKind.Record)
                         {
                             if (recording) _recording[peer] = endpoint;
@@ -516,10 +524,21 @@ public sealed partial class ControlService : IDisposable
                     ArmPush();
                     continue;
                 }
-                if (!ControlProtocol.IsQuery(cmd) && !Paired(token, presented, loopback))
+                if (!ControlProtocol.OpenBeforePairing(cmd) && !Paired(token, peer.Presented, loopback))
                 {
-                    // A mutating verb from a connection that has not paired: refused in the wire's words, nothing run.
-                    Reply(ControlProtocol.Err(ControlProtocol.NotPaired));
+                    // A line the allow-list does not name, from a connection that has not paired: refused in the wire's words,
+                    // nothing run. A read (ADR-016) is told the desk shows its state only to a paired connection, counted, and
+                    // named in the log once for its address; a verb is told to present the token.
+                    if (ControlProtocol.IsQuery(cmd))
+                    {
+                        RefusedRead(cmd, addressKey, asked: readRefused);
+                        readRefused = true;
+                        Reply(ControlProtocol.Err(ControlProtocol.StateNotPaired));
+                    }
+                    else
+                    {
+                        Reply(ControlProtocol.Err(ControlProtocol.NotPaired));
+                    }
                     continue;
                 }
                 string response;
@@ -544,7 +563,7 @@ public sealed partial class ControlService : IDisposable
             lock (_gate)
             {
                 _peers.Remove(peer);
-                _decks.Remove(client);
+                _decks.Remove(peer);
                 _recording.Remove(peer);
             }
             peer.Dispose();
@@ -592,7 +611,10 @@ public sealed partial class ControlService : IDisposable
         return ControlProtocol.Err($"the desk faulted on this line ({ex.GetType().Name}) — fault #{n}, logged");
     }
 
-    /// <summary>Whether a connection may run a mutating verb: no token is set, or it is this machine's own, or it presented the token that is set now.</summary>
+    /// <summary>
+    /// Whether a connection may run a mutating verb and, ADR-016, read the show and hear its pushes: no token is set, or it
+    /// is this machine's own while the desk trusts it, or it proved the token that is set now.
+    /// </summary>
     internal static bool Paired(string token, string presented, bool loopback)
         => !PairingToken.Needed(token) || (loopback && TrustLoopback) || PairingToken.Matches(token, presented);
 
@@ -605,7 +627,8 @@ public sealed partial class ControlService : IDisposable
     /// <summary>The wire's revision: moves on every push — a publish, a runtime change, a deck signature change, a clock tick that counts.</summary>
     public long Rev => Interlocked.Read(ref _rev);
 
-    private readonly Dictionary<TcpClient, WireDeck> _decks = new();
+    /// <summary>The decks that said HELLO (or NAV DECK / RECORD) by their connection; whether each is paired is read from it live (<see cref="Decks"/>).</summary>
+    private readonly Dictionary<WirePeer, WireDeck> _decks = new();
 
     /// <summary>Round 74: the peers that asked for the desk's actions (RECORD ON), each with its own endpoint so its own presses are not fed back to it.</summary>
     private readonly Dictionary<WirePeer, string> _recording = new();
@@ -658,14 +681,19 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
-    /// <summary>The decks that said HELLO and are still connected — name, module version, address — for the Remote page and STATE.</summary>
+    /// <summary>
+    /// The decks that said HELLO and are still connected — name, module version, address — for the Remote page, STATE and
+    /// the Eye. Each one's <see cref="WireDeck.Paired"/> is read from its connection against the token as it is now, so a
+    /// token that changes under a deck turns its node amber at once, never a flag left from its proof.
+    /// </summary>
     public IReadOnlyList<WireDeck> Decks
     {
         get
         {
+            var token = _kernel.State.Control.Token;
             lock (_gate)
             {
-                return _decks.Values.OrderBy(d => d.SinceUtc).ToList();
+                return _decks.Select(d => d.Value with { Paired = Paired(token, d.Key.Presented, d.Key.Loopback) }).OrderBy(d => d.SinceUtc).ToList();
             }
         }
     }
@@ -762,9 +790,15 @@ public sealed partial class ControlService : IDisposable
         await stream.WriteAsync(bytes, ct);
     }
 
-    /// <summary>A STATE line to every peer, latest-wins on each one's writer: never blocks, never writes a socket from this thread; a peer that cannot take it closes itself and its handler lets go.</summary>
+    /// <summary>
+    /// A STATE line to every paired peer, latest-wins on each one's writer: never blocks, never writes a socket from this
+    /// thread; a peer that cannot take it closes itself and its handler lets go. ADR-016: each push asks again whether the
+    /// peer is paired under the token as it is now (UI thread), so a connection that has not proved it hears none, and NEW
+    /// TOKEN stops a connection's STATE as it stops its verbs.
+    /// </summary>
     private void Broadcast(string line)
     {
+        var token = _kernel.State.Control.Token;
         List<WirePeer> peers;
         lock (_gate)
         {
@@ -772,8 +806,83 @@ public sealed partial class ControlService : IDisposable
         }
         foreach (var peer in peers)
         {
-            peer.Push(line);
+            if (Paired(token, peer.Presented, peer.Loopback)) peer.Push(line);
         }
+    }
+
+    /// <summary>
+    /// ADR-016: the greeting — the whole STATE, the first a paired connection hears of the show, once per connection — said
+    /// in order with the replies: the connection's first line when it is paired from the start, the line after
+    /// <c>OK paired</c> when it proves the token, the next line when the token is cleared under it. A push it raced is
+    /// repeated by the next change's push, which reaches it from here. Whether the connection is paired is asked once the
+    /// STATE is built, as a push asks it: a token that changed under a proof meanwhile greets nobody, and a connection is
+    /// marked greeted only when it is.
+    /// </summary>
+    private async Task GreetAsync(WirePeer peer)
+    {
+        if (peer.Greeted) return;
+        var json = await _router.StateJsonAsync();
+        if (Paired(_kernel.State.Control.Token, peer.Presented, peer.Loopback) && peer.TryGreet()) peer.Say("STATE " + json);
+    }
+
+    /// <summary>
+    /// ADR-016: the pairing token changed (NEW TOKEN, the TRUST field typed, a token set on an open desk or cleared). A
+    /// connection that heard the show and is not paired under the token as it is now is told why in its last line —
+    /// <see cref="ControlProtocol.TokenChanged"/>, which starts "not paired —" — and closed, and leaves the recorder's
+    /// feed at once: a deck, a Stagewatch or a PlayMap link reconnects, hears NONCE and says that its token is not taken,
+    /// where an open connection that heard nothing more would keep its last STATE as if it were live. A connection the
+    /// change pairs (the token cleared) is greeted. One log line says how many were closed.
+    /// </summary>
+    private void TokenChanged()
+    {
+        var token = _kernel.State.Control.Token;
+        List<WirePeer> cut;
+        List<WirePeer> greet;
+        lock (_gate)
+        {
+            cut = _peers.Where(p => p.Greeted && !Paired(token, p.Presented, p.Loopback)).ToList();
+            greet = _peers.Where(p => !p.Greeted && Paired(token, p.Presented, p.Loopback)).ToList();
+            foreach (var peer in cut) _recording.Remove(peer);
+        }
+        foreach (var peer in cut)
+        {
+            peer.SayLast(ControlProtocol.Err(ControlProtocol.TokenChanged));
+            _ = Task.Run(async () =>
+            {
+                await peer.FlushAsync(LastWordWait);
+                peer.Dispose();
+            }, CancellationToken.None);   // the close runs whatever the listeners do: a told connection is never left open
+        }
+        foreach (var peer in greet) _ = GreetAsync(peer);
+        if (cut.Count > 0) Log.Info($"Wire: the pairing token changed — {cut.Count} connection{(cut.Count == 1 ? "" : "s")} that had paired before it told so and closed; each pairs again with the new token (ADR-016).");
+    }
+
+    private long _readsRefused;
+    private volatile string _lastReadRefused = "";
+
+    /// <summary>ADR-016: the addresses a refused unpaired read has been named for in the log, each once, at most <see cref="ControlProtocol.UnpairedReadsNamedMost"/>.</summary>
+    private readonly SaidOnce _readRefusedSaid = new(ControlProtocol.UnpairedReadsNamedMost);
+
+    /// <summary>ADR-016: the reads refused since start because their connection had not paired (the Super Check's REMOTE row).</summary>
+    public long UnpairedReadsRefused => Interlocked.Read(ref _readsRefused);
+
+    /// <summary>ADR-016: the last read refused unpaired, as its verb and its address ("STATUS from 10.0.0.7"); "" with none.</summary>
+    public string LastUnpairedRead => _lastReadRefused;
+
+    /// <summary>
+    /// ADR-016: a read refused to a connection that has not paired — counted (every one), kept as the last for the Super
+    /// Check, and named in the log once for an address, at most <see cref="ControlProtocol.UnpairedReadsNamedMost"/>
+    /// addresses and then one line that says no more are named (<see cref="ControlProtocol.UnpairedReadLine"/>): neither a
+    /// stranger's loop of connections nor a flood of source addresses grows a log that rotates only at start (OPEN L35).
+    /// A connection asks the bound once, at its first refused read (<paramref name="asked"/>).
+    /// </summary>
+    private void RefusedRead(RemoteCommand cmd, string address, bool asked)
+    {
+        Interlocked.Increment(ref _readsRefused);
+        var read = ControlProtocol.ReadName(cmd);
+        _lastReadRefused = $"{read} from {address}";
+        if (asked) return;
+        if (ControlProtocol.UnpairedReadLine(_readRefusedSaid.Note(address), address, read) is { } line) Log.Warn(line);
     }
 
     // ---- minimal HTTP (web remote) ------------------------------------------
@@ -1386,10 +1495,10 @@ public sealed partial class ControlService : IDisposable
                 }
                 else if (!paired)
                 {
-                    // Without the show's token: 403 with the wire's words, and the pages ask for the token on it. Round 85 (P1-02):
-                    // a query too — STATUS answers the same JSON that /api/state has asked the token for since round 83, so a line
-                    // from another machine wants it whatever it says; the wire keeps its queries open (a TCP line is not a browser,
-                    // and a Companion presents AUTH before it asks anything), and the desk's own browsers are exempt as before.
+                    // Without the show's token: 403 with the wire's words, and the pages ask for the token on it — every line, a
+                    // query too: STATUS answers the same JSON /api/state asks the token for, so a line from another machine wants
+                    // it whatever it says. The wire leaves open before pairing the handshake and scope A's five reads alone
+                    // (ADR-016); the desk's own browsers are exempt as before.
                     status = "403 Forbidden";
                     response = notPaired;
                 }
@@ -1652,6 +1761,7 @@ public sealed partial class ControlService : IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _kernel.State.Control.PropertyChanged -= ControlChanged;
         _pushTimer.Stop();
         _clockTimer.Stop();
         StopListeners();

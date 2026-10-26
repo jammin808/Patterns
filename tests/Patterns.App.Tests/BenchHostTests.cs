@@ -130,7 +130,7 @@ public class BenchHostTests
         }
     }
 
-    /// <summary>A wire connection to the bench: STATE pushes skipped wherever they come (before pairing too, or never), the newest NONCE kept.</summary>
+    /// <summary>A wire connection to the bench: its first line the NONCE (ADR-016: no STATE before the pairing), STATE pushes skipped after it, the newest NONCE kept.</summary>
     private sealed class Wire : IDisposable
     {
         private readonly TcpClient _client = new();
@@ -145,17 +145,10 @@ public class BenchHostTests
             _stream = _client.GetStream();
             _stream.ReadTimeout = 20_000;
             _reader = new StreamReader(_stream, Encoding.UTF8);
-            while (true)
-            {
-                var line = _reader.ReadLine();
-                Assert.NotNull(line);
-                if (line!.StartsWith("NONCE ", StringComparison.Ordinal))
-                {
-                    Nonce = line["NONCE ".Length..];
-                    return;
-                }
-                Assert.StartsWith("STATE {", line);                                                   // the one line a desk may say before its NONCE
-            }
+            var line = _reader.ReadLine();
+            Assert.NotNull(line);
+            Assert.StartsWith("NONCE ", line);                                                       // the bench trusts no loopback: the nonce first, no STATE
+            Nonce = line!["NONCE ".Length..];
         }
 
         public string Say(string line)
@@ -251,10 +244,12 @@ public class BenchHostTests
             Assert.False(ready.GetProperty("trustLoopback").GetBoolean());
             Assert.Equal("127.0.0.1", ready.GetProperty("bind").GetString());
 
-            // The wire: this machine is not trusted, so a mutating verb waits for the proof; the proof pairs; STATE has its bus row.
+            // The wire: this machine is not trusted, so a mutating verb and a read of the show wait for the proof; the proof
+            // pairs; STATE has its bus row.
             using var wire = new Wire(wirePort);
             Assert.Equal("OK", wire.Say("HELLO bench-test"));
             Assert.StartsWith("ERR", wire.Say("BLACKOUT ON"));
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.StateNotPaired), wire.Say("STATUS"));
             Assert.Equal("OK paired", wire.Say("AUTH-PROOF " + WireProof.Proof(token, wire.Nonce, "bench-test")));
             var before = wire.State();
             Assert.Equal(JsonValueKind.Object, before.GetProperty("bus").ValueKind);

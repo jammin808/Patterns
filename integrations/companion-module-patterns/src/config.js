@@ -91,7 +91,7 @@ export function configFields() {
 		{ type: 'number', id: 'port', label: 'Companion (TCP) port — Remote page in Patterns', width: 4, min: 1024, max: 65535, default: DEFAULT_PORT, isVisibleExpression: '!$(options:desk)' },
 		{
 			type: 'textinput', id: 'token', label: 'Pairing token — Remote page, TRUST (leave empty for a desk that asks for none)', width: 12, default: '',
-			tooltip: 'A desk with a pairing token set runs a verb only from a connection that proved it: the module answers the desk\'s NONCE with AUTH-PROOF, so the token itself never crosses the network — it goes plain (AUTH) only to a desk on this machine too old to give a nonce. Dashes and case do not matter.',
+			tooltip: 'A desk with a pairing token set runs a verb, and shows its state, only to a connection that proved it: the module answers the desk\'s NONCE with AUTH-PROOF, so the token itself never crosses the network — it goes plain (AUTH) only to a desk on this machine too old to give a nonce. Dashes and case do not matter.',
 		},
 		{
 			type: 'static-text', id: 'groups_info', width: 12, label: 'Preset groups',

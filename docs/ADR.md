@@ -4,8 +4,8 @@ One page per decision that shaped Patterns and would surprise a newcomer if it w
 code. Each says what was decided, why, what it cost, and what would make us revisit it. The rounds
 that made them are in `docs/PLAN.md`; the tests that hold them are named. Numbered in the order
 they were written down (round 65), not the order they were made; a number a plan names for a
-decision before its record is written is held for it (ADR-016: what the wire shows before a
-connection pairs, the maintainer's call for round 91).
+decision before its record is written is held for it until the record lands (ADR-016 was held so
+from round 89 and written in round 91, beside the code it decides).
 
 ---
 
@@ -45,7 +45,10 @@ truthful outcome. The Companion module reconnects as it always did.
 **Decision.** The control listeners bind to the address the show names (every interface only when
 it says so); a per-show pairing token guards every mutating verb over TCP and HTTP (`AUTH <token>`
 after HELLO; `X-Patterns-Token` on HTTP); reads need no token; loopback is trusted; the passcode
-never rides a query string. Five wrong tokens close the peer.
+never rides a query string. Five wrong tokens close the peer. *(Reads: on the web reversed in rounds
+83 and 85 — every API read but the stage's and the arcade's wants the token; on the wire reversed by
+ADR-016, round 91 — a connection that has not paired reads the show only through the handshake and
+scope A's five open reads.)*
 
 **Why.** A venue network is shared; a verb from any laptop that found the port must not move the
 wall. Reads staying open keeps a phone's tally page, a deck's feedbacks and a support engineer's
@@ -319,6 +322,96 @@ rule at the landing, by design): then the ticket carries the rule and the round'
 that verb is not a promise; or when a second deferred verb needs the same shape — then the ticket
 becomes the one type every deferred verb carries, not the switcher's own.
 
+## ADR-016 — The wire shows its state only to a paired connection (scope A)
+
+**Decision.** On a desk with a pairing token, a wire connection (the Companion port, 9697) that has
+not paired hears `NONCE <hex>` as its first line and no STATE: no greeting, no push and no `ACTION`
+feed until it proves the token (`AUTH-PROOF` against that nonce, or plain `AUTH` from this machine)
+and hears `OK paired` — the greeting STATE follows that answer. Every push asks again whether the
+connection is paired under the token as it is now. When the token changes (NEW TOKEN, the TRUST field
+typed, a token set on an open desk) a connection that heard the show and is not paired under the new
+one hears `ERR not paired — the desk's pairing token changed …` as its last line and is closed: open
+and silent it would sit on its last STATE as if it were live, where a reconnecting deck or link hears
+`NONCE` and says its token is not taken; a connection the change pairs (the token cleared) is
+greeted. The Remote page's and the Eye's deck rows read each deck's pairing from its connection
+against the token as it is now. What a connection may ask before it pairs is an
+allow-list (`ControlProtocol.OpenBeforePairing`): the maintainer's scope A, read against this wire's
+grammar — the handshake (`HELLO`, `AUTH`, `AUTH-PROOF`, `NONCE`, `PING`) and five queries left open
+by name: `NAV` (its read: `NAV`, `NAV STATUS|PAGES|RAILS`), `MENU`, `CUE LIST`, the arcade's road
+(`ARCADE STATUS|GAMES|SCORES`, `PLAY STATUS|RESULTS|QUEUE`, `AUDIENCE STATUS`) and `ASSISTANT`
+(`ASK`, `MODERATE`). Every other read — `STATUS` (the STATE payload), `EYE` and `EYE AT`, `CONTEXT`,
+`TWIN STATUS`, `SHOWLOCK STATUS`, `CALIBRATE STATUS`, `NODES`, `STAGE STATUS`, `RIGDAY STATUS` and
+`ALIGN STATUS`, `SCREEN n SIGNAL` and `SCREEN n EDID`, `RIG STATUS`, `COMMISSION` and `MIDI` — is
+refused unpaired with `ERR not paired — this desk shows its state only to a paired connection …`,
+which starts as a refused verb's answer does, so a deck that reads "not paired" asks for the token
+either way; every verb, `RECORD` and `NAV DECK` wait for the token as before; an unknown line keeps
+its own refusal. A kind the wire gains later is on the refused side until it is put on the list by
+name. A desk with no token, and this machine's own connections while the desk trusts them, are
+greeted with STATE first as before. OSC follows by its own pairing (ADR-017): on a paired desk
+`/patterns/status` answers this machine and the addresses on OSC ALLOW, as its verbs do, and its
+`/patterns/ping` and `/patterns/cue/list` stay open. A refused read is counted, said on the Super
+Check's REMOTE row *Wire reads* (and the dashboard's REMOTE tile) with the last one's verb and
+address, and named in the log once for an address, at most 64 addresses, then one line that says no
+more are named. The answer's own words — "STATE, EYE, CONTEXT and SUBSCRIBE pair first" — are the
+designs': this wire has no `STATE` or `SUBSCRIBE` verb, so STATE here is the greeting, the push and
+`STATUS`. It reverses ADR-003's "reads need no token" on the wire, and PLAN §103.7 (round 85: "on the
+wire the queries stay open"), for every read but those named. The web asked the token for its reads
+already (rounds 83 and 85); its two open reads stay, deliberately, for the pages that cannot carry a
+token — `GET /api/stage` (the stage display's and the timer page's JSON, the same as the wire's `STAGE
+STATUS`, which the wire now refuses unpaired) and `GET /api/arcade` (the arcade's pad and big screen)
+— until those pages pair (a page key of their own, Show Bus PeerLink's scopes).
+
+**Why.** STATE carries the show — its name, looks, cues, screens, the devices' addresses, the links,
+the twin — and a machine that opened 9697 on a paired desk read all of it without the token (OPEN
+L59); `EYE` and `CONTEXT` read the same show drawn another way, and from round 92 the Eye carries
+the show network's link records and other apps' contexts, so an open read would have handed the
+room's topology to anyone on the venue network. Round 85 kept the wire's reads open because "a
+Companion presents AUTH before it asks anything": the readers that matter can pair, and now each
+does before it reads — the Companion module (3.19.1), Stagewatch's link (2.18 takes nothing before
+`OK paired` and then asks `STATUS`), PlayMap's (its PatternsLink, the same). Scope B — every query
+pairs first — would refuse this desk's own asks of other machines: a desk asks each arcade node it
+hears for `ARCADE` and `PLAY` status unpaired (`NodesService.AskArcadesAsync`), and a hub asks a
+desk's assistant to moderate (`ASSISTANT MODERATE`); those stay open until they pair by proof. OSC
+cannot pair, so OSC ALLOW is its pairing (the maintainer's answer of round 89: OSC ALLOW and
+loopback only on a paired desk); a STATE it answered to any sender would undo the decision through
+the port beside it.
+
+**Cost.** A reader with no token that followed a paired desk read-only — a Companion connection
+with the token field empty, a Stagewatch 2.16 linked without the token, a script that polled
+`STATUS`, a lighting desk asking `/patterns/status` from an unlisted address — now hears `NONCE`
+(or `/patterns/error`) and no state; its operator types the token into it or lists the address
+(Remote page, TRUST and OSC ALLOW). An older module given the token keeps working: it proves on
+`NONCE` and reads STATE after `OK paired`. What scope A leaves open still reads part of the show:
+the cue list (`CUE LIST`), a thing's menu with its wire lines (`MENU`), the rails, the pages and the
+decks' whereabouts (`NAV`), the arcade's and the room's status (`ARCADE`, `PLAY`) and — with *Nodes
+may ask the assistant* on — the assistant, whose model budget an unpaired ask spends. The log line
+is bounded so neither a stranger's loop of connections nor a flood of source addresses grows a log
+that rotates only at start (OPEN L35): once for an address, at most 64 addresses, then one line; the
+count on the Super Check's row counts every one. NEW TOKEN closes every connection that had paired,
+so each deck and link reconnects once and reads nothing until its new token is typed. The open reads
+are OPEN L68's.
+
+**Revisit when.** The desk's own cross-machine asks pair by proof (the arcade's road and a node's
+moderation ask, beside round 92's Lines devices), or the maintainer takes scope B: then the five
+open queries move to the refused side and the handshake alone stays open. Or a report names a
+reader that cannot pair: it gets a key of its own (Show Bus PeerLink's scopes), never an open read.
+
+**Held by.** `RemoteTrustTests` (a token desk with loopback untrusted: `NONCE` first and no STATE;
+`STATUS`, `EYE` and `CONTEXT` and every other refused kind answered with the not-paired words; no
+push while unpaired; the greeting after `OK paired`; NEW TOKEN closing the paired connection after
+its last line, its deck unpaired in the Eye from that moment and gone with it, the old token pairing
+nothing and the new one greeted; a token set on an open desk closing its reader, and cleared,
+greeting the one that heard only `NONCE`; each open kind answered unpaired; the log line once and
+the Super Check's row), `PairingTokenTests` (every `RemoteCommandKind` on one side, the open side
+exactly the handshake and scope A's five, a kind added later refused by default; the log's bound
+over a flood of addresses; the row and the dashboard's tile), `OscAppTests` (`/patterns/status`
+refused to an unlisted address and answered once it is listed; ping and the cue list open),
+`NavAppTests` (NEW TOKEN while a deck records: its last line, then nothing — no `ACTION` — and it
+records again once it proves the new token), the module's tests (a token desk that says `NONCE`
+first fills the Navigator after `OK paired`, one that greets with STATE at once; a token the desk no
+longer takes said only of a connection that was paired; no token on a token desk says why),
+`ShowBusAppTests` and `BenchHostTests` (their wire helpers pair first).
+
 ## ADR-017 — A proof grants nothing to an address: on a paired desk OSC comes from this machine and OSC ALLOW
 
 **Decision.** A proof proves a key on the one connection that carried it — `AUTH-PROOF` against the
@@ -327,7 +420,8 @@ nothing follows from it to the address it came from: no door trusts that address
 hour or for twelve. OSC is UDP with no session and cannot carry a proof, so on a paired desk its
 mutating verbs are taken from this machine (when the desk trusts its own, the wire's loopback rule)
 and from the addresses the operator lists on the Remote page's OSC ALLOW, and from nowhere else;
-its questions (`/patterns/ping`, `/patterns/status`) stay open, as the wire's do. The list is the
+its ping and its cue list stay open, as the wire's do, and its `/patterns/status` — the show's
+state — answers the same addresses its verbs come from (ADR-016, round 91). The list is the
 operator's: nothing the desk hears adds to it. Each entry is one whole address, read as the bind
 address is (IPv4 in four dotted decimal parts); an entry that is not one is left out and named, never
 counted, and on a paired desk the OSC row and node are amber until it is fixed. A desk with no token

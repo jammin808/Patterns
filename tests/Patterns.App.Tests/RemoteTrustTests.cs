@@ -6,6 +6,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -13,9 +14,10 @@ namespace Patterns.App.Tests;
 
 /// <summary>
 /// Round 65: explicit trust on the control network. A pairing token set on the Remote page makes
-/// every mutating verb wait for it — AUTH on the wire, X-Patterns-Token on the web — while the
-/// queries, the pages and this machine's own browsers never need it; NEW TOKEN cuts the paired
-/// remotes off; the admin passcode rides in a header and never in a URL; the control ports bind
+/// every mutating verb wait for it — AUTH on the wire, X-Patterns-Token on the web — and (round 91,
+/// ADR-016) the wire's state too, scope A's reads alone open before pairing, while the pages and this
+/// machine's own browsers never need it; NEW TOKEN cuts the paired remotes off, a wire connection told
+/// why and closed; the admin passcode rides in a header and never in a URL; the control ports bind
 /// where the page says. Real sockets against the live app, from loopback with the exemption off.
 /// </summary>
 public class RemoteTrustTests
@@ -61,23 +63,66 @@ public class RemoteTrustTests
         task.GetAwaiter().GetResult();
     }
 
-    /// <summary>A connection to the wire with the greeting read: Send a line, ReadResponse the next OK/ERR (STATE pushes skipped).</summary>
+    /// <summary>
+    /// A connection to the wire with its first line read — ADR-016: the greeting STATE when the connection is paired from the
+    /// start (an open desk, this machine trusted), a NONCE and no STATE when it has the token to prove. Send a line,
+    /// ReadResponse the next OK/ERR (STATE pushes skipped), NextLine the next line whatever it is.
+    /// </summary>
     private sealed class Wire : IDisposable
     {
         private readonly TcpClient _client = new();
         private readonly NetworkStream _stream;
         private readonly StreamReader _reader;
 
-        public Wire(int port)
+        /// <summary>The nonce the desk said first to an unpaired connection; "" for one greeted with STATE.</summary>
+        public string Nonce { get; } = "";
+
+        public Wire(int port, bool paired = true)
         {
             Pump(_client.ConnectAsync(IPAddress.Loopback, port));
             _stream = _client.GetStream();
             _reader = new StreamReader(_stream, Encoding.UTF8);
-            var greet = Pump(_reader.ReadLineAsync());
-            Assert.StartsWith("STATE {", greet);
+            var first = Pump(_reader.ReadLineAsync());
+            if (paired)
+            {
+                Assert.StartsWith("STATE {", first);
+            }
+            else
+            {
+                Assert.StartsWith("NONCE ", first);                       // ADR-016: the nonce first, and no STATE before it
+                Nonce = first!["NONCE ".Length..];
+            }
         }
 
         public void Send(string line) => _stream.Write(Encoding.UTF8.GetBytes(line + "\n"));
+
+        /// <summary>The next line the desk says, STATE and NONCE included.</summary>
+        public string NextLine() => Pump(_reader.ReadLineAsync()) ?? throw new IOException("the desk closed the connection");
+
+        /// <summary>A line sent and the next line the desk says: its answer, with nothing — no STATE push — before it.</summary>
+        public string Ask(string line)
+        {
+            Send(line);
+            return NextLine();
+        }
+
+        /// <summary>A line sent and its answer, the pushes a paired connection hears meanwhile skipped.</summary>
+        public string Reply(string line)
+        {
+            Send(line);
+            return ReadResponse();
+        }
+
+        /// <summary>A line sent and the next line that is not a STATE push — a NONCE included, so a test sees one that came.</summary>
+        public string ReplyOrNonce(string line)
+        {
+            Send(line);
+            while (true)
+            {
+                var next = NextLine();
+                if (!next.StartsWith("STATE ", StringComparison.Ordinal)) return next;
+            }
+        }
 
         public string ReadResponse()
         {
@@ -133,7 +178,7 @@ public class RemoteTrustTests
     }
 
     [AvaloniaFact]
-    public void OnTheWireAMutatingVerbWaitsForTheTokenAQueryDoesNotAndNewTokenCutsThePairedOff()
+    public void OnTheWireAVerbAndAReadWaitForTheTokenAndNewTokenCutsThePairedOffFromBoth()
     {
         var (services, vm) = Boot();
         var trusted = ControlService.TrustLoopback;
@@ -146,11 +191,11 @@ public class RemoteTrustTests
             Dispatcher.UIThread.RunJobs();
             Assert.EndsWith("· paired.", services.Control.Status);
 
-            using var wire = new Wire(vm.State.Control.TcpPort);
+            using var wire = new Wire(vm.State.Control.TcpPort, paired: false);
             wire.Send("PING");
             Assert.Equal("OK PONG", wire.ReadResponse());
             wire.Send("STATUS");
-            Assert.StartsWith("OK {", wire.ReadResponse());               // reading never needs the token
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.StateNotPaired), wire.ReadResponse());   // ADR-016: reading needs the token too
 
             wire.Send("BLACKOUT ON");
             var refused = wire.ReadResponse();
@@ -163,40 +208,252 @@ public class RemoteTrustTests
             Assert.StartsWith("ERR wrong token", wire.ReadResponse());
             wire.Send("auth k7qm3xwd p9ra");                                 // dashes, spaces and case do not matter
             Assert.Equal("OK paired", wire.ReadResponse());
+            Assert.StartsWith("STATE {", wire.NextLine());                  // the greeting follows the pairing
             wire.Send("BLACKOUT ON");
             Assert.Equal("OK", wire.ReadResponse());
             Dispatcher.UIThread.RunJobs();
             Assert.True(services.State.Blackout);
 
-            // NEW TOKEN: the show's token changes, and the connection paired with the old one is cut off from the verbs — not from reading.
+            // NEW TOKEN: the show's token changes, and the connection paired with the old one is cut off from the verbs and,
+            // ADR-016, from reading — told why in its last line and closed, so it never sits on its last STATE as if it were
+            // live. A connection that proves the new token pairs and is greeted.
             vm.NewPairingTokenCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Matches(new Regex("^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$"), vm.State.Control.Token);
             Assert.NotEqual(Token, vm.State.Control.Token);
-            wire.Send("BLACKOUT OFF");
-            Assert.StartsWith("ERR not paired", wire.ReadResponse());
-            wire.Send("STATUS");
-            Assert.StartsWith("OK {", wire.ReadResponse());
-            wire.Send("AUTH " + vm.State.Control.Token);
-            Assert.Equal("OK paired", wire.ReadResponse());
-            wire.Send("BLACKOUT OFF");
-            Assert.Equal("OK", wire.ReadResponse());
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.TokenChanged), wire.ReadLineOrEnd());
+            Assert.Null(wire.ReadLineOrEnd());                              // closed after its last word
+            using var again = new Wire(vm.State.Control.TcpPort, paired: false);
+            again.Send("BLACKOUT OFF");
+            Assert.StartsWith("ERR not paired", again.ReadResponse());
+            again.Send("STATUS");
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.StateNotPaired), again.ReadResponse());
+            again.Send("AUTH " + Token);
+            Assert.StartsWith("ERR wrong token", again.ReadResponse());       // the old token pairs nothing now
+            again.Send("AUTH " + vm.State.Control.Token);
+            Assert.Equal("OK paired", again.ReadResponse());
+            Assert.StartsWith("STATE {", again.NextLine());
+            again.Send("STATUS");
+            Assert.StartsWith("OK {", again.ReadResponse());
+            again.Send("BLACKOUT OFF");
+            Assert.Equal("OK", again.ReadResponse());
             Dispatcher.UIThread.RunJobs();
             Assert.False(services.State.Blackout);
 
-            // An open desk answers AUTH too, so a module with a stale token is told rather than refused.
+            // An open desk answers AUTH too, so a module with a stale token is told rather than refused; the token cleared
+            // pairs every connection, so none is closed for it.
             vm.State.Control.Token = "";
             Dispatcher.UIThread.RunJobs();
-            wire.Send("AUTH anything");
-            Assert.StartsWith("OK open", wire.ReadResponse());
-            wire.Send("BLACKOUT ON");
-            Assert.Equal("OK", wire.ReadResponse());
+            again.Send("AUTH anything");
+            Assert.StartsWith("OK open", again.ReadResponse());
+            again.Send("BLACKOUT ON");
+            Assert.Equal("OK", again.ReadResponse());
         }
         finally
         {
             ControlService.TrustLoopback = trusted;
             vm.State.Control.Token = "";
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    /// <summary>Pumps the dispatcher for a while — long enough for the push timer (200 ms, trailing) to have fired.</summary>
+    private static void PumpFor(int ms)
+    {
+        var until = Environment.TickCount64 + ms;
+        while (Environment.TickCount64 < until)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+    }
+
+    /// <summary>
+    /// ADR-016 (round 91, scope A): the wire shows its state only to a paired connection. On a token desk, a connection that
+    /// has not paired is greeted with NONCE and no STATE; STATUS, EYE and CONTEXT — and every read the allow-list does not
+    /// name — are answered with the not-paired words (they answered OK {json} before), each kind in turn; no push reaches
+    /// it; the handshake and scope A's five open reads answer; a verb waits as before. The refusal is counted on the Super
+    /// Check's REMOTE row and logged once for the connection, at most once a minute for an address. The proof pairs it, the
+    /// greeting follows the OK, the reads answer and the pushes arrive; NEW TOKEN stops the pushes again.
+    /// </summary>
+    [AvaloniaFact]
+    public void AConnectionThatHasNotPairedHearsNonceFirstAndNoStateAndEveryReadButTheOpenOnesIsRefusedWithWords()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = false;                                   // loopback plays another machine
+        try
+        {
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            vm.State.Control.Token = Token;
+            Dispatcher.UIThread.RunJobs();
+            var log = Path.Combine(b.Dir, "patterns.log");
+            int Said() => File.ReadAllLines(log).Count(l => l.Contains("before pairing — refused", StringComparison.Ordinal));
+            var saidBefore = Said();
+            var refusedBefore = services.Control.UnpairedReadsRefused;
+            var notPaired = ControlProtocol.Err(ControlProtocol.StateNotPaired);
+
+            using var wire = new Wire(vm.State.Control.TcpPort, paired: false);
+            Assert.Matches("^[0-9a-f]{32}$", wire.Nonce);
+            Assert.Equal("OK PONG", wire.Ask("PING"));                          // the next line is the answer: no STATE came first
+
+            // Every read the allow-list does not name, refused with the words — STATUS, EYE and CONTEXT first; nothing between.
+            var refused = new[]
+            {
+                "STATUS", "EYE", "EYE STATUS", "EYE GRAPH", "EYE AT 12:00", "CONTEXT", "CONTEXT STATUS", "TWIN STATUS", "SHOWLOCK STATUS",
+                "CALIBRATE STATUS", "NODES", "STAGE STATUS", "RIGDAY STATUS", "ALIGN STATUS", "SCREEN 1 SIGNAL", "SCREEN 1 EDID",
+                "RIG STATUS", "COMMISSION", "MIDI",
+            };
+            foreach (var line in refused)
+            {
+                Assert.True(ControlProtocol.IsQuery(ControlProtocol.Parse(line)), line);
+                Assert.False(ControlProtocol.OpenBeforePairing(ControlProtocol.Parse(line)), line);
+                Assert.Equal(notPaired, wire.Ask(line));
+            }
+            Assert.Equal(refusedBefore + refused.Length, services.Control.UnpairedReadsRefused);
+            Assert.Equal("MIDI from 127.0.0.1", services.Control.LastUnpairedRead);
+
+            // A verb waits as before, in its own words; an unknown line keeps its own refusal.
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.NotPaired), wire.Ask("BLACKOUT ON"));
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.NotPaired), wire.Ask("RECORD ON"));
+            Assert.StartsWith("ERR unknown command", wire.Ask("FROBNICATE"));
+
+            // The handshake and scope A's five open reads answer an unpaired connection — none of them with the not-paired words.
+            Assert.Equal("OK", wire.Ask("HELLO FOH deck"));
+            Assert.Matches("^OK [0-9a-f]{32}$", wire.Ask("NONCE"));
+            foreach (var line in new[] { "NAV", "NAV PAGES", "MENU PGM", "CUE LIST", "ARCADE STATUS", "PLAY STATUS", "AUDIENCE STATUS", "ASSISTANT ASK what is on air" })
+            {
+                Assert.True(ControlProtocol.OpenBeforePairing(ControlProtocol.Parse(line)), line);
+                Assert.DoesNotContain("not paired", wire.Ask(line), StringComparison.Ordinal);
+            }
+            Assert.StartsWith("OK {", wire.Ask("NAV"));
+            Assert.StartsWith("OK {\"name\":\"Cue stack\"", wire.Ask("CUE LIST"));
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(services.State.Blackout);
+
+            // No push reaches it: the show moves, the push timer fires, and the next line is still the answer to a PING.
+            services.Actions.Execute(ShowActionKind.BlackoutOn, ActionOrigin.Desk);
+            PumpFor(400);
+            Assert.Equal("OK PONG", wire.Ask("PING"));
+
+            // The log: one line for the connection's first refused read, naming the verb and the address, never the line.
+            Assert.Equal(saidBefore + 1, Said());
+            var said = File.ReadAllLines(log).Last(l => l.Contains("before pairing — refused", StringComparison.Ordinal));
+            Assert.Contains("Wire: 127.0.0.1 asked STATUS before pairing — refused", said, StringComparison.Ordinal);
+            Assert.Contains("ADR-016", said, StringComparison.Ordinal);
+            using (var second = new Wire(vm.State.Control.TcpPort, paired: false))
+            {
+                Assert.Equal(notPaired, second.Ask("EYE"));                     // another connection from the address within the minute
+            }
+            Assert.Equal(saidBefore + 1, Said());                               // counted, not written again
+
+            // The Super Check's REMOTE row: amber with the count and the last one, the rule and what scope A leaves open.
+            var row = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Wire reads");
+            Assert.Equal(CheckLight.Amber, row.Light);
+            Assert.Equal($"paired connections only · {services.Control.UnpairedReadsRefused} unpaired reads refused", row.Value);
+            Assert.Contains("the last: EYE from 127.0.0.1", row.Note, StringComparison.Ordinal);
+            Assert.Contains(ControlProtocol.OpenBeforePairingWords, row.Note, StringComparison.Ordinal);
+
+            // The proof pairs it: the greeting is the line after OK paired, the reads answer, and the pushes arrive.
+            wire.Send("AUTH-PROOF " + WireProof.Proof(Token, wire.Ask("NONCE")["OK ".Length..], "FOH deck"));
+            Assert.Equal("OK paired", wire.NextLine());
+            Assert.StartsWith("STATE {", wire.NextLine());                      // the greeting, the line after the OK
+            Assert.StartsWith("OK {", wire.Reply("STATUS"));
+            Assert.StartsWith("OK {", wire.Reply("EYE"));
+            Assert.StartsWith("OK {", wire.Reply("CONTEXT"));
+            services.Actions.Execute(ShowActionKind.BlackoutOff, ActionOrigin.Desk);
+            PumpFor(400);
+            Assert.StartsWith("STATE {", wire.NextLine());                      // a push reaches it now
+            Assert.Equal("OK PONG", wire.Reply("PING"));
+
+            // The deck said HELLO before it paired: paired now, on the Remote page and in the Eye.
+            Assert.True(Assert.Single(services.Control.Decks).Paired);
+            services.Eye.Refresh();
+            Assert.Equal(("paired", CheckLight.Green), (services.Eye.Graph.Find("deck:FOH deck@127.0.0.1")!.Sub, services.Eye.Graph.Find("deck:FOH deck@127.0.0.1")!.Light));
+
+            // NEW TOKEN: the connection paired with the old token hears why in its last line and is closed — open and silent,
+            // it would keep its last STATE as if it were live. No reader says it is paired from the moment the token changed,
+            // the show moving meanwhile reaches it no more, and once it is gone no deck is listed. One log line says so.
+            vm.NewPairingTokenCommand.Execute(null);
+            Assert.DoesNotContain(services.Control.Decks, d => d.Paired);
+            services.Eye.Refresh();
+            Assert.NotEqual(CheckLight.Green, services.Eye.Graph.Find("deck:FOH deck@127.0.0.1")?.Light ?? CheckLight.Amber);
+            services.Actions.Execute(ShowActionKind.BlackoutOn, ActionOrigin.Desk);
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.TokenChanged), wire.ReadLineOrEnd());
+            Assert.Null(wire.ReadLineOrEnd());
+            var gone = Environment.TickCount64 + 8000;
+            while (services.Control.Decks.Count > 0 && Environment.TickCount64 < gone) PumpFor(20);
+            Assert.Empty(services.Control.Decks);
+            services.Eye.Refresh();
+            Assert.Null(services.Eye.Graph.Find("deck:FOH deck@127.0.0.1"));
+            Assert.Contains("Wire: the pairing token changed — 1 connection that had paired before it told so and closed", File.ReadAllText(log), StringComparison.Ordinal);
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            vm.State.Control.Token = "";
+            services.State.Blackout = false;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// ADR-016: an open desk and this machine's own connection, while the desk trusts it, are paired from the start — greeted
+    /// with STATE as before, and no NONCE; the Super Check's row says the rule only on a desk with a token.
+    /// </summary>
+    [AvaloniaFact]
+    public void AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var trusted = ControlService.TrustLoopback;
+        try
+        {
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            vm.State.Control.Token = Token;
+            ControlService.TrustLoopback = true;
+            Dispatcher.UIThread.RunJobs();
+            using (var own = new Wire(vm.State.Control.TcpPort))                // this machine's own: STATE first
+            {
+                Assert.Equal("OK PONG", own.ReplyOrNonce("PING"));              // and no NONCE after it
+                Assert.StartsWith("OK {", own.Reply("STATUS"));
+            }
+            var row = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Wire reads");
+            Assert.Equal(CheckLight.Green, row.Light);
+            Assert.Equal("paired connections only", row.Value);
+
+            ControlService.TrustLoopback = false;
+            vm.State.Control.Token = "";
+            Dispatcher.UIThread.RunJobs();
+            using (var open = new Wire(vm.State.Control.TcpPort))               // an open desk: STATE first, as before
+            {
+                Assert.Equal("OK PONG", open.ReplyOrNonce("PING"));
+                Assert.StartsWith("OK {", open.Reply("STATUS"));
+            }
+            Assert.DoesNotContain(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Item == "Wire reads");
+
+            // A token set on an open desk: a connection that read the open desk is told why in its last line and closed, as
+            // NEW TOKEN closes one paired with the old token. One that heard only NONCE is greeted once the token is cleared.
+            using var reader = new Wire(vm.State.Control.TcpPort);
+            vm.State.Control.Token = Token;
+            Assert.Equal(ControlProtocol.Err(ControlProtocol.TokenChanged), reader.ReadLineOrEnd());
+            Assert.Null(reader.ReadLineOrEnd());
+            using var waiting = new Wire(vm.State.Control.TcpPort, paired: false);
+            vm.State.Control.Token = "";
+            Assert.StartsWith("STATE {", waiting.NextLine());                  // the greeting, the desk open now
+            Assert.Equal("OK PONG", waiting.Reply("PING"));
+            Assert.StartsWith("OK {", waiting.Reply("STATUS"));
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            vm.State.Control.Token = "";
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 
@@ -212,7 +469,7 @@ public class RemoteTrustTests
             vm.State.Control.TcpPort = FreePort();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
-            using var wire = new Wire(vm.State.Control.TcpPort);
+            using var wire = new Wire(vm.State.Control.TcpPort, paired: false);
             for (var i = 1; i < ControlService.WrongTokensBeforeClose; i++)
             {
                 wire.Send("AUTH nope");

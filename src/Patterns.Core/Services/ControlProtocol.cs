@@ -1443,15 +1443,63 @@ public static class ControlProtocol
     public static string Ok(string? payload = null) => payload is null ? "OK" : "OK " + payload;
 
     /// <summary>
-    /// True for a line that reads and never writes — STATUS, PING, HELLO, AUTH, CUE LIST, the
-    /// MENU and the other queries — which a connection that has not paired may send. Every action
-    /// is a mutating verb and waits for the token (round 65); an unknown line is let through to
-    /// its "unknown command" answer, which gives nothing away. Round 75: RECORD and NAV DECK are
-    /// not queries either — RECORD subscribes the connection to the desk's action feed and NAV
-    /// DECK writes the deck's whereabouts into STATE, the Remote page and the Eye — so both wait
-    /// for the token like a verb.
+    /// True for a line that reads and never writes — STATUS, PING, HELLO, AUTH, CUE LIST, the MENU
+    /// and the other queries, and an unknown line, which only earns its "unknown command" answer.
+    /// Every action is a mutating verb (round 65), and so are RECORD and NAV DECK (round 75): RECORD
+    /// subscribes the connection to the desk's action feed and NAV DECK writes the deck's whereabouts
+    /// into STATE, the Remote page and the Eye. Whether a read may be asked before pairing is
+    /// <see cref="OpenBeforePairing"/>'s, never this.
     /// </summary>
     public static bool IsQuery(RemoteCommand cmd) => cmd.Kind is not (RemoteCommandKind.Action or RemoteCommandKind.Record or RemoteCommandKind.NavDeck);
+
+    /// <summary>
+    /// ADR-016 (round 91, scope A): what a wire connection may ask before it pairs, by name — the handshake (HELLO, AUTH,
+    /// AUTH-PROOF, NONCE, PING) and the five reads the maintainer left open: NAV's read, MENU, CUE LIST, the arcade's road
+    /// (ARCADE and PLAY status, which a desk asks of every arcade node it hears, unpaired) and ASSISTANT (a hub's
+    /// moderation ask of a desk). An unknown line is on it only to earn its own "unknown command" answer. Every other
+    /// kind — STATUS, EYE, CONTEXT and every other read, every verb, RECORD and NAV DECK — waits for the pairing; a kind
+    /// the wire gains later waits for it too until it is named here.
+    /// </summary>
+    public static bool OpenBeforePairing(RemoteCommand cmd) => OpenKinds.Contains(cmd.Kind);
+
+    /// <summary>The kinds <see cref="OpenBeforePairing"/> lets through, in the order ADR-016 names them.</summary>
+    public static IReadOnlyList<RemoteCommandKind> OpenKinds { get; } = new[]
+    {
+        RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.AuthProof, RemoteCommandKind.Nonce, RemoteCommandKind.Ping,
+        RemoteCommandKind.NavStatus, RemoteCommandKind.Menu, RemoteCommandKind.CueList,
+        RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk,
+        RemoteCommandKind.Unknown,
+    };
+
+    /// <summary>
+    /// ADR-016: a read's line as the refusal's log line and the Super Check name it — the verb's words, built from the
+    /// parsed kind and never from the line, so nothing a sender wrote reaches the log.
+    /// </summary>
+    public static string ReadName(RemoteCommand cmd) => cmd.Kind switch
+    {
+        RemoteCommandKind.Status => "STATUS",
+        RemoteCommandKind.Context => "CONTEXT",
+        RemoteCommandKind.EyeStatus => "EYE",
+        RemoteCommandKind.EyeAt => "EYE AT",
+        RemoteCommandKind.TwinStatus => "TWIN STATUS",
+        RemoteCommandKind.ShowLockStatus => "SHOWLOCK STATUS",
+        RemoteCommandKind.CalibrationStatus => "CALIBRATE STATUS",
+        RemoteCommandKind.NodesStatus => "NODES",
+        RemoteCommandKind.StageStatus => "STAGE STATUS",
+        RemoteCommandKind.RigDayStatus => cmd.Text == "align" ? "ALIGN STATUS" : "RIGDAY STATUS",
+        RemoteCommandKind.ScreenSignal => "SCREEN SIGNAL",
+        RemoteCommandKind.ScreenEdid => "SCREEN EDID",
+        RemoteCommandKind.RigStatus => "RIG STATUS",
+        RemoteCommandKind.CommissionStatus => "COMMISSION",
+        RemoteCommandKind.MidiStatus => "MIDI",
+        RemoteCommandKind.NavStatus => "NAV",
+        RemoteCommandKind.Menu => "MENU",
+        RemoteCommandKind.CueList => "CUE LIST",
+        RemoteCommandKind.ArcadeStatus => "ARCADE STATUS",
+        RemoteCommandKind.PlayStatus => "PLAY STATUS",
+        RemoteCommandKind.AssistantAsk => "ASSISTANT",
+        _ => cmd.Kind.ToString().ToUpperInvariant(),
+    };
 
     /// <summary>
     /// Round 75: the version of the descriptor the wire answers a deck with — the NAV reply (the
@@ -1464,6 +1512,38 @@ public static class ControlProtocol
 
     /// <summary>The answer to a mutating verb from a connection that has not presented the token.</summary>
     public const string NotPaired = "not paired — this desk asks for its pairing token first: AUTH <token> on the wire, X-Patterns-Token on the web (Remote page, TRUST)";
+
+    /// <summary>
+    /// ADR-016: the answer to a read the allow-list does not name (<see cref="OpenBeforePairing"/>) from a connection that
+    /// has not paired. It starts as <see cref="NotPaired"/> does, so a deck that asks for the token on "not paired" still does.
+    /// </summary>
+    public const string StateNotPaired = "not paired — this desk shows its state only to a paired connection: answer its NONCE with AUTH-PROOF first (the pairing token is on the desk's Remote page, TRUST)";
+
+    /// <summary>
+    /// ADR-016: the last line a connection that heard the show hears when the desk's pairing token changes under it and no
+    /// longer pairs it, before the desk closes it. It starts as <see cref="NotPaired"/> does, so a deck that reads
+    /// "not paired" says its token is not taken; reconnected, it hears NONCE and its proof is answered.
+    /// </summary>
+    public const string TokenChanged = "not paired — the desk's pairing token changed (NEW TOKEN on its Remote page, TRUST): this connection is closed; connect again and prove the new token";
+
+    /// <summary>ADR-016: how many addresses the log names for a read refused unpaired, each once, before one line says it names no more.</summary>
+    public const int UnpairedReadsNamedMost = 64;
+
+    /// <summary>
+    /// ADR-016: the log line for a read refused to a connection that has not paired, by what the wire's <see cref="SaidOnce"/>
+    /// answered for the address — named once, at most <see cref="UnpairedReadsNamedMost"/> addresses, then one line that
+    /// says no more are named, so a sender with many source addresses cannot grow a log that rotates only at start (OPEN
+    /// L35). The read is named by its parsed kind (<see cref="ReadName"/>), never by the line.
+    /// </summary>
+    public static string? UnpairedReadLine(SaidOnceAnswer said, string address, string read) => said switch
+    {
+        SaidOnceAnswer.Say => $"Wire: {address} asked {read} before pairing — refused: this desk shows its state only to a paired connection (ADR-016); a deck or a link of yours needs the pairing token (Remote page, TRUST). Said once for this address.",
+        SaidOnceAnswer.Full => $"Wire: reads refused unpaired from more than {UnpairedReadsNamedMost} addresses — no more addresses are named in this log; the Super Check's REMOTE row counts every refusal.",
+        _ => null,
+    };
+
+    /// <summary>ADR-016: what the wire answers before pairing, in the readers' words — the Super Check's row and the log line name it.</summary>
+    public const string OpenBeforePairingWords = "the handshake, NAV, MENU, CUE LIST, the arcade's and the room's status and ASSISTANT";
 
     /// <summary>
     /// Round 89: the web remote's answer when a request was this machine's or carried the pages' cookie, and its Host

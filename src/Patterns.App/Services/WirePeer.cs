@@ -45,6 +45,31 @@ public sealed class WirePeer : IDisposable
         _ = Task.Run(() => WriteLoop(_cts.Token), _cts.Token);
     }
 
+    /// <summary>ADR-016: the connection came from this machine — set once, when it is accepted.</summary>
+    public bool Loopback { get; init; }
+
+    private string _presented = "";
+
+    /// <summary>
+    /// ADR-016: the token this connection proved, "" until it pairs. Its handler writes it at the proof; every push reads
+    /// it against the token as it is now, so a connection that has not proved the token set now hears no STATE.
+    /// </summary>
+    public string Presented
+    {
+        get => Volatile.Read(ref _presented);
+        set => Volatile.Write(ref _presented, value ?? "");
+    }
+
+    private int _greeted;
+
+    /// <summary>ADR-016: the connection has been greeted with the show's STATE — it was paired from its start, proved the token since, or was paired by the token being cleared.</summary>
+    public bool Greeted => Volatile.Read(ref _greeted) != 0;
+
+    /// <summary>ADR-016: marks the connection greeted; true for the one caller that greets it, false for every later one — a connection hears one greeting.</summary>
+    public bool TryGreet() => Interlocked.Exchange(ref _greeted, 1) == 0;
+
+    private bool _lastSaid;
+
     /// <summary>Lines written so far — replies and states.</summary>
     public long Written => Interlocked.Read(ref _written);
 
@@ -72,7 +97,7 @@ public sealed class WirePeer : IDisposable
         var close = false;
         lock (_gate)
         {
-            if (Closed) return;
+            if (Closed || _lastSaid) return;
             if (_replies.Count >= MaxQueuedReplies) close = true;
             else _replies.Enqueue(line);
         }
@@ -89,8 +114,24 @@ public sealed class WirePeer : IDisposable
     {
         lock (_gate)
         {
-            if (Closed) return;
+            if (Closed || _lastSaid) return;
             _state = line;
+        }
+        Wake();
+    }
+
+    /// <summary>
+    /// The peer's last word before its owner closes it: written after the replies already waiting, a STATE push still
+    /// waiting dropped, and nothing said or pushed after it is taken — so the last word is the last line the peer reads.
+    /// </summary>
+    public void SayLast(string line)
+    {
+        lock (_gate)
+        {
+            if (Closed || _lastSaid) return;
+            _lastSaid = true;
+            _state = null;
+            _replies.Enqueue(line);
         }
         Wake();
     }
