@@ -906,6 +906,9 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>A line for the operator's strip on the node's window, through the kernel's notifier.</summary>
     public void Notify(string message) => Kernel.Notify(message);
 
+    /// <summary>Round 90: a line that names a secret, for the node's strip alone — said nowhere before its window exists, never in the log.</summary>
+    public void NotifyStripOnly(string message) => Kernel.NotifyStripOnly(message);
+
     /// <summary>Raised once as the node shuts down: a view model on this host stops its timers, so nothing roots the host after it (round 64's census).</summary>
     public event Action? ShutDown;
 

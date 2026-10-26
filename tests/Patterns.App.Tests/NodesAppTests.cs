@@ -462,4 +462,33 @@ public class NodesAppTests
             if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
         }
     }
+
+    /// <summary>
+    /// Round 90: a node's lines for the operator land in the log until its window sets the strip, as a desk's do while it is
+    /// being built. A line that names a secret is the strip's alone: on a node with no window it reaches no file, and
+    /// once the window's view model exists it is on the strip.
+    /// </summary>
+    [AvaloniaFact]
+    public void ANodesLineThatNamesASecretReachesItsStripAndNoFile()
+    {
+        var (node, dir) = BootNode(NodeKind.Caller, _ => { });
+        try
+        {
+            const string made = "zq7v-k2mw-r9tf-x4hd";
+            var words = $"Twin: this desk was given the key {made} — a caller node that links needs the same key (Machine page, TWIN).";
+            node.Notify("A line for the operator before the window.");
+            node.NotifyStripOnly(words);
+            var vm = new NodeViewModel(node);
+            node.NotifyStripOnly(words);
+            Assert.Equal(words, vm.StatusMessage);
+            var log = File.ReadAllText(Path.Combine(dir, "patterns.log"));
+            Assert.Contains("A line for the operator before the window.", log, StringComparison.Ordinal);   // the ordinary fallback still logs
+            Assert.DoesNotContain(made, log, StringComparison.Ordinal);
+        }
+        finally
+        {
+            node.Dispose();
+            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+        }
+    }
 }

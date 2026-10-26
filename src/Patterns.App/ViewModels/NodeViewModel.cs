@@ -56,6 +56,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     {
         _host = host;
         host.Kernel.Notifier = m => StatusMessage = m;
+        host.Kernel.Strip = m => StatusMessage = m;                          // round 90: a line that names a secret, the strip's alone
         Cues = new CueEditor(host, m => StatusMessage = m);
         Run = new RunViewModel(host, this);
         host.ShutDown += StopTimers;                                        // the pages' timers end with the host: a running timer would root them both

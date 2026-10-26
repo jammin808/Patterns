@@ -24,6 +24,13 @@ public interface ITwinHost
     void BulkEdit(Action edit);
     void DeskEdit(Action edit);
     void Notify(string message);
+
+    /// <summary>
+    /// Round 90: a line that names a secret (the key this desk was just given) for the status strip alone, never the log:
+    /// with no strip yet it is said nowhere, and the caller writes its own line without the secret.
+    /// </summary>
+    void NotifyStripOnly(string message);
+
     void NotifyShowMirrored(IReadOnlyCollection<string>? sections);
     void RecoverFromTwin(RecoverySnapshot? was, string head, string peer = "the main");
     event Action<RecoverySnapshot?>? RecoveryMoved;

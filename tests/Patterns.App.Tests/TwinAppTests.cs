@@ -1300,6 +1300,38 @@ public class TwinAppTests
         }
     }
 
+    /// <summary>
+    /// Round 90: a desk's first start makes its twin key while the desk is still being built, before it has a window,
+    /// when a line for the operator had only the log to land in — the bench host's first boot wrote "this desk was given
+    /// the key xpbe-…" into patterns.log, which the ADMIN page serves. The key is in the settings; the log says one was
+    /// made and where it is read, and neither the log, the journal nor STATE carries it.
+    /// </summary>
+    [AvaloniaFact]
+    public void AFreshDeskIsGivenAKeyAndTheLogSaysWhereToReadItNeverWhatItIs()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            PumpUntil(() => TwinKeys.LooksMade(vm.State.Twin.Key));
+            var key = vm.State.Twin.Key;
+            services.SaveNow();
+            TestApp.FlushFiles(services);
+            Assert.Contains(key, File.ReadAllText(services.Store.SettingsPath), StringComparison.Ordinal);
+
+            var log = File.ReadAllText(Path.Combine(b.Dir, "patterns.log"));
+            Assert.False(log.Contains(key, StringComparison.Ordinal), $"the log carries the twin's key:\n{log}");
+            Assert.Contains("Twin: this desk had no key; one was made for it — read it on the Machine page, TWIN", log, StringComparison.Ordinal);
+            var journal = Path.Combine(b.Dir, ShowLog.FileName);
+            if (File.Exists(journal)) Assert.DoesNotContain(key, File.ReadAllText(journal), StringComparison.Ordinal);
+            Assert.DoesNotContain(key, new CommandRouter(services).StateJson(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void ATakeoverOnThisMachineIsRefusedWhileTheHungMainCannotBeEndedAndForcedByHandOnly()
     {

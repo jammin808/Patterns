@@ -525,8 +525,13 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     var twin = _kernel.State.Twin;
                     if (twin.Key.Length == 0 && (twin.Role == TwinRole.Main || (twin.Role != TwinRole.Standby && twin.AcceptCallers))) _services.BulkEdit(() => twin.Key = made);
                 });
-                Log.Info("Twin: this desk had no key; one was made for it — the port opens once it is saved.");
-                _services.Notify(cfg.Role == TwinRole.Main
+                // The key itself is said on the status strip alone, never in the log: a first start makes it while the desk
+                // is still being built, before there is a strip, when a line for the operator would land in the log the
+                // ADMIN page serves. The log says where the key is read.
+                Log.Info(cfg.Role == TwinRole.Main
+                    ? "Twin: this main had no key; one was made for it — read it on the Machine page, TWIN (the standby needs the same key); the port opens once it is saved."
+                    : "Twin: this desk had no key; one was made for it — read it on the Machine page, TWIN (a caller node that links needs the same key); the port opens once it is saved.");
+                _services.NotifyStripOnly(cfg.Role == TwinRole.Main
                     ? $"Twin: this main was given the key {made} — the standby needs the same key (Machine page, TWIN)."
                     : $"Twin: this desk was given the key {made} — a caller node that links needs the same key (Machine page, TWIN).");
             }

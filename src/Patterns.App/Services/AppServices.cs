@@ -483,6 +483,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // services are written against.
         Kernel = ServiceKernel.Build(Profile, store, preloaded);
         Kernel.Notifier = Notify;
+        Kernel.Strip = NotifyStripOnly;
         Kernel.Facts = GatherFacts;
         // The show's files on one lane (round 65.12), built before the first save below can ask for it.
         Recovery = new RecoveryStore(Store.BaseDirectory);
@@ -2050,6 +2051,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         if (MainWindow?.DataContext is ViewModels.MainViewModel vm) vm.StatusMessage = message;
         else Log.Info(message);
+    }
+
+    /// <summary>
+    /// Round 90: a line that names a secret, for the status strip alone. A desk still being built has no strip, and
+    /// <see cref="Notify"/> would write the line to the log, which the ADMIN page serves: here it is said nowhere instead.
+    /// </summary>
+    public void NotifyStripOnly(string message)
+    {
+        if (MainWindow?.DataContext is ViewModels.MainViewModel vm) vm.StatusMessage = message;
     }
 
     /// <summary>Synthetic screens for the placements the operator planned without hardware.</summary>

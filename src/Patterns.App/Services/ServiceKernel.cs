@@ -159,6 +159,12 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>A line for the operator — the status strip on a desk, the log on a bare kernel.</summary>
     public void Notify(string message) => Notifier(message);
 
+    /// <summary>Round 90: where a line that names a secret goes — the status strip once a window sets it, and nowhere until then: never the log, as <see cref="Notifier"/> is.</summary>
+    public Action<string>? Strip { get; set; }
+
+    /// <summary>A line that names a secret, for the status strip alone — said nowhere on a kernel with no strip.</summary>
+    public void NotifyStripOnly(string message) => Strip?.Invoke(message);
+
     /// <summary>The kernel, in the order the desk always built these: the store and the log first, the show, the journal, the notes, the bus, then its services.</summary>
     public static ServiceKernel Build(NodeKind profile, SettingsStore? store = null, ShowState? preloaded = null)
         => new(profile, store ?? new SettingsStore(), preloaded);
