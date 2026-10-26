@@ -10,6 +10,24 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 91 — 2026-10-26 — Show Bus 1.3 from Patterns' side: the Stagewatch link dials as a node and reads its verdict, the wire shows its state only to a paired connection, the context says what a peer may propose, the certificate and the hello at 1.3's numbers, and the twin's new key kept out of the log
+
+`round-91` · PLAN §109 · 2,891 tests at the opening · module 3.18.1 (unchanged at the opening) · evidence: a handed-in critique (the Show Bus 1.3 designs — the contract, peers that are not screens, cross-app proposals — with two items of the Eye's critique, and the plan revised against its critique); L65 is this tree's own finding (90.1)
+
+- **Opened (91.0).** Nothing in `docs/field/`; the requester and the evidence class; the owner's answers the round
+  reads (P-legacy for 91.1's older Stagewatch, scope A for ADR-016, X-declines for 91.3); the other trees at this
+  commit — Stagewatch's node links and its link's pairing landed, a real Stagewatch's `/ws` read for what 91.1 must
+  hold (every dial upgraded, the verdict on the socket, a refusal with `retry` while the public frame keeps coming, a
+  key bound to another node answered `verified` none), Show Bus 1.3 not final, so 91.5 waits and moves to the next
+  round if 1.3 is not final when the round's other units have landed; scope A read against this wire's grammar (no
+  STATE, SUBSCRIBE, HELP or VERBS verb here: STATE is the greeting, the push and STATUS), every query kind put on one
+  side; the ledger's rows the round closes (L59, with 91.2; L65, taken as 91.7, the next free number, landing before
+  the papers), the rows it adds (the older Stagewatch's amber fallback, by P-legacy; scope A's remainder of L59) and
+  the rows it keeps (L47, L50, L55, L56, L64); QUALIFICATION §26's note for 91.6; each unit read against the standing
+  brief at the line it stands on (PLAN §109.1). The papers (91.6) write what landed, REVIEW round 91, and the count at
+  the round's end in place of the opening's. The round's tag waits for that commit, which writes round 90's row in the
+  tag table (`tag-rounds.sh` tags this entry at HEAD).
+
 ## Round 90 — 2026-10-26 — the bench host: the real desk headless off Windows, for Stagewatch's interop lane
 
 `round-90` · PLAN §108 · REVIEW round 90 · 2,891 tests · module 3.18.1 (unchanged) · evidence: a handed-in critique (the ecosystem-lane design written on Stagewatch's side, its critique and the plan revised against it)
