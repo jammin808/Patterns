@@ -10,6 +10,35 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 92 — 2026-10-26 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, and the twin's new key in no line, masked on the ADMIN page's log tail
+
+`round-92` · PLAN §110 · 2,942 tests at the opening · module 3.19.1 (unchanged at the opening) · evidence: CI's own runs (275 to 280 — the test job red on every push since round 89) and round 91's papers (L64, L65), with web research behind the cause (the .NET 10 `HttpListener`'s source, the runner image's build script, glibc's address order); none of the five classes whole, and no one asked for the round in words
+
+- **Opened (92.0).** Nothing in `docs/field/`; CI's runs read as the files, each run with what it means and what it
+  asks. L64's two halves are two defects. Since 89.5 the Stagewatch link dials only the first IPv4 address of a name,
+  while on GitHub's runner (`localhost` on the `::1` line, `::1` first) the scripted Stagewatch's `HttpListener` listens
+  on `::1` alone — so every test of that fake fails at its first wait, 4, 4 and 14 in runs 278 to 280, and passes here,
+  where `localhost` is 127.0.0.1 alone; the fault is the product's too, since a Stagewatch whose name resolves to
+  several addresses is never reached through the others. The cause is inferred: 92.1 keeps the name-bound fake, so the
+  runner's green is the fix's evidence, and makes the job's log show the resolver's order and where the fake listened.
+  The census compares whole-process counts, and an earlier test's desk or picture let go on its own clock after the
+  baseline reads as a cycle's change; 92.2 judges a cycle by what is alive or running that was not there at a mark, so
+  a timer made before the mark and armed after it is still caught. The requester: the ledger — L64's no Release while
+  the test job is red, L65 handed to this opening by round 91's papers — and the evidence class. The round is inserted
+  before the plan's PeerLink round, which becomes round 93 (PLAN §111), every later Patterns round of the plan one
+  higher (to round 100, §118), against the numbers the answer *P-numbers* took; the opening says why and that the
+  maintainer may put it back. The key reaches other trees' papers and the owner's answers too: Stagewatch's 1.3
+  contract ("after Patterns' Round 96", `SHOWBUS.md:592`) and *M-decision17* mean round 97 here, and Stagewatch's
+  chain is asked to name the work there before SW19.12 freezes the text. 92.4 (91.5 moved) waits for SW19.12 and moves
+  again if 1.3 is not final when 92.1 to 92.3 have landed. OPEN: L64 taken as 92.1 and 92.2, each half closing on its
+  own evidence (the census half on its tests and mutation checks, not on a green job); L65 as 92.3, wider than 91.7's
+  scope — the key in no notice on a desk or a node, never on the strip a NAV refusal quotes, and the ADMIN page's log
+  tail masked as the bundle is (another branch's `95805b0` and `56324a6` read); L62's closed row read again in run 280
+  (WebView2 and lifecycle green); rows to add for the census's side findings. The code units go out first, and the
+  papers (92.5) read that push's test job on GitHub before L64 closes (PLAN §110.1). The papers write what landed,
+  REVIEW round 92 and the count at the round's end in place of the opening's. The round's tag waits for that commit,
+  which writes round 91's row in the tag table (`tag-rounds.sh` tags this entry at HEAD).
+
 ## Round 91 — 2026-10-26 — Show Bus 1.3 from Patterns' side: the Stagewatch link dials as a node and reads its verdict, the wire shows its state only to a paired connection, the context says what a peer may propose, and the certificate and the hello at 1.3's numbers
 
 `round-91` · PLAN §109 · REVIEW round 91 · 2,942 tests · module 3.19.1 · evidence: a handed-in critique (the Show Bus 1.3 designs — the contract, peers that are not screens, cross-app proposals — with two items of the Eye's critique, and the plan revised against its critique)
