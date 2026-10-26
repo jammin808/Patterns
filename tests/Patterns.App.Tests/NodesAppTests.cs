@@ -462,4 +462,59 @@ public class NodesAppTests
             if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
         }
     }
+
+    /// <summary>
+    /// L65 on a node: a caller or a stage timer whose settings say Main is given a key when it starts, before its window
+    /// exists, when its kernel's lines for the operator still land in the log. The key is in its settings, for its Machine
+    /// tab; the log keeps one line that a key was made and where it is read, and holds no key; the strip holds none once the
+    /// window is up, and a key made then is said there by the same words, never by what it is.
+    /// </summary>
+    [AvaloniaTheory]
+    [InlineData(NodeKind.Caller)]
+    [InlineData(NodeKind.Timer)]
+    public void ANodeWhoseSettingsSayMainIsGivenAKeyAndNoLineHoldsIt(NodeKind kind)
+    {
+        var (node, dir) = BootNode(kind, s =>
+        {
+            s.Twin.Role = TwinRole.Main;
+            s.Twin.Key = "";
+        });
+        try
+        {
+            PumpUntil(() => TwinKeys.LooksMade(node.State.Twin.Key));
+            var first = node.State.Twin.Key;
+            var words = TwinService.KeyMadeWords(followerNode: true, TwinRole.Main);
+            Assert.Equal("Twin: this node was given a key — its link to the desk needs the same key on both; read it on the Machine tab, THE DESK'S KEY.", words);
+            var logPath = Path.Combine(dir, "patterns.log");
+            var log = File.ReadAllText(logPath);
+            Assert.False(log.Contains(first, StringComparison.Ordinal), $"the {NodeKinds.Wire(kind)} node's log holds the twin's key:\n{log}");
+            Assert.Equal(1, Occurrences(log, words));
+
+            var vm = new NodeViewModel(node);
+            Assert.DoesNotContain(first, vm.StatusMessage, StringComparison.Ordinal);
+            node.State.Twin.Key = "";
+            Dispatcher.UIThread.RunJobs();
+            PumpUntil(() => TwinKeys.LooksMade(node.State.Twin.Key) && node.State.Twin.Key != first);
+            var second = node.State.Twin.Key;
+            Assert.Equal(words, vm.StatusMessage);
+            log = File.ReadAllText(logPath);
+            Assert.Equal(2, Occurrences(log, words));
+            Assert.DoesNotContain(first, log, StringComparison.Ordinal);
+            Assert.DoesNotContain(second, log, StringComparison.Ordinal);
+            node.SaveNow();
+            Assert.Contains(second, File.ReadAllText(Path.Combine(dir, "patterns.settings.json")), StringComparison.Ordinal);
+        }
+        finally
+        {
+            node.Dispose();
+            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+        }
+
+        static int Occurrences(string text, string words)
+        {
+            var n = 0;
+            for (var at = text.IndexOf(words, StringComparison.Ordinal); at >= 0; at = text.IndexOf(words, at + words.Length, StringComparison.Ordinal)) n++;
+            return n;
+        }
+    }
 }

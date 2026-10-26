@@ -24,6 +24,21 @@ public interface ITwinHost
     void BulkEdit(Action edit);
     void DeskEdit(Action edit);
     void Notify(string message);
+
+    /// <summary>
+    /// A line for the operator that the log keeps too: written to the log once, and to the status strip when there is one.
+    /// <see cref="Notify"/> writes to the log only while there is no strip, so a line said through both would be written
+    /// there twice before the window exists. Neither carries a secret: the log leaves the machine on the ADMIN page and
+    /// the strip is quoted back on the wire.
+    /// </summary>
+    void NotifyLogged(string message);
+
+    /// <summary>
+    /// Whether a line said now reaches a status strip — a desk's main window, or a node's window once it has set the
+    /// kernel's notifier — rather than the log alone: read where a line is decided on, before the window may exist.
+    /// </summary>
+    bool HasStrip { get; }
+
     void NotifyShowMirrored(IReadOnlyCollection<string>? sections);
     void RecoverFromTwin(RecoverySnapshot? was, string head, string peer = "the main");
     event Action<RecoverySnapshot?>? RecoveryMoved;

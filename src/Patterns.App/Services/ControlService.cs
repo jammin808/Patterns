@@ -1424,14 +1424,17 @@ public sealed partial class ControlService : IDisposable
             {
                 contentType = "text/plain; charset=utf-8";
                 // The passcode rides in its header (round 65) — never in the URL, which a browser's history and a proxy's log keep.
-                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow)))
+                // The show's secret values are read with the check, on the UI thread where the show lives, and only when it
+                // passes: the tail masks what the support bundle masks.
+                var secrets = await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow) ? _kernel.SecretValues() : null);
+                if (secrets is null)
                 {
                     status = "403 Forbidden";
                     payload = _kernel.Gate.Reason;
                 }
                 else
                 {
-                    payload = LogTail(80);
+                    payload = LogTail(80, secrets);
                 }
             }
             else if (method == "GET" && path.StartsWith("/support-bundle.zip", StringComparison.Ordinal))
@@ -1577,8 +1580,14 @@ public sealed partial class ControlService : IDisposable
         ShowActionKind.CueGo or ShowActionKind.CueStandby or ShowActionKind.CueHoldOn or ShowActionKind.CueHoldOff or
         ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.StopAll;
 
-    /// <summary>The last lines of patterns.log, for the ADMIN page — read with a shared lock, the app keeps writing.</summary>
-    private string LogTail(int lines)
+    /// <summary>
+    /// The last lines of patterns.log, for the ADMIN page — read with a shared lock, the app keeps writing — masked as the
+    /// support bundle masks its copy (<see cref="RemoteAdmin.Build"/>): every private page address said in public, then
+    /// every secret value masked. A line an older build wrote — a page's address with its pass, from before the log said
+    /// addresses in public, or one of the show's secrets — leaves the machine the same way by both exits, a secret masked
+    /// while the value is still the show's.
+    /// </summary>
+    private string LogTail(int lines, IReadOnlyCollection<string> secrets)
     {
         try
         {
@@ -1587,7 +1596,7 @@ public sealed partial class ControlService : IDisposable
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream);
             var all = reader.ReadToEnd().Split('\n');
-            return string.Join("\n", all.Skip(Math.Max(0, all.Length - lines)));
+            return Secrets.Scrub(WindowAddresses.RedactText(string.Join("\n", all.Skip(Math.Max(0, all.Length - lines)))), secrets);
         }
         catch (Exception ex)
         {

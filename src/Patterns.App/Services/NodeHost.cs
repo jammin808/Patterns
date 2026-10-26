@@ -906,6 +906,12 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>A line for the operator's strip on the node's window, through the kernel's notifier.</summary>
     public void Notify(string message) => Kernel.Notify(message);
 
+    /// <summary>A line the log keeps whether or not the node's window is up: written there once, and on its strip once the window has set one.</summary>
+    public void NotifyLogged(string message) => Kernel.NotifyLogged(message);
+
+    /// <summary>Whether a line said now reaches the node's strip: its window has set the kernel's notifier.</summary>
+    public bool HasStrip => Kernel.NotifierSet;
+
     /// <summary>Raised once as the node shuts down: a view model on this host stops its timers, so nothing roots the host after it (round 64's census).</summary>
     public event Action? ShutDown;
 

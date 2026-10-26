@@ -273,8 +273,10 @@ public class RemoteTrustTests
     /// has not paired is greeted with NONCE and no STATE; STATUS, EYE and CONTEXT — and every read the allow-list does not
     /// name — are answered with the not-paired words (they answered OK {json} before), each kind in turn; no push reaches
     /// it; the handshake and scope A's five open reads answer; a verb waits as before. The refusal is counted on the Super
-    /// Check's REMOTE row and logged once for the connection, at most once a minute for an address. The proof pairs it, the
-    /// greeting follows the OK, the reads answer and the pushes arrive; NEW TOKEN stops the pushes again.
+    /// Check's REMOTE row and logged at most once for the connection, at its first refused read, which names its address
+    /// once in the process's life, for at most <see cref="ControlProtocol.UnpairedReadsNamedMost"/> addresses before one
+    /// line says no more are named. The proof pairs it, the greeting follows the OK, the reads answer and the pushes
+    /// arrive; NEW TOKEN stops the pushes again.
     /// </summary>
     [AvaloniaFact]
     public void AConnectionThatHasNotPairedHearsNonceFirstAndNoStateAndEveryReadButTheOpenOnesIsRefusedWithWords()
@@ -900,6 +902,8 @@ public class RemoteTrustTests
     [AvaloniaFact]
     public void TheAdminPasscodeRidesInAHeaderAndNeverInTheUrl()
     {
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = false;                                   // loopback plays another machine
         var (services, vm) = Boot();
         try
         {
@@ -926,8 +930,63 @@ public class RemoteTrustTests
         }
         finally
         {
+            ControlService.TrustLoopback = trusted;
             vm.State.Install.AdminPasscode = "";
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    /// <summary>
+    /// L65: the ADMIN page's log tail masks what the support bundle masks, in the bundle's order: every private page
+    /// address said in public, then every secret value masked. A line an older build wrote with the twin's key in it —
+    /// "this desk was given the key …", said through a notice that fell back to the log before the window existed —
+    /// leaves the machine with the mask where the key was while it is still the show's key, and so does another of the
+    /// show's secret values; a line written before the log said addresses in public, a page's address with its pass that
+    /// no book keeps, leaves as its public form; the rest of each line reads as written. Asked as another machine would
+    /// ask (loopback not trusted). A refused passcode is answered with the gate's words and no line of the log.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheAdminPagesLogTailMasksTheShowsSecretsAsTheBundleDoes()
+    {
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = false;                                   // loopback plays another machine
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            vm.State.Install.AdminPasscode = "open-sesame";
+            vm.State.Twin.Key = "xpbe-4kq2-m7rd-9tzc";
+            Dispatcher.UIThread.RunJobs();
+            var port = vm.State.Control.HttpPort;
+            // As an older build wrote them: the made key in the twin's notice, the passcode in another line — and, written
+            // past today's log (which says every address in public), a page's address with its pass, kept in no book.
+            Log.Info("Twin: this desk was given the key xpbe-4kq2-m7rd-9tzc — a caller node that links needs the same key (Machine page, TWIN).");
+            Log.Info("Remote admin: RESTART open-sesame");
+            File.AppendAllText(Path.Combine(b.Dir, "patterns.log"), "2026-03-02 21:14:05.118 [INFO] Web page failed: https://hall-b.local/feed?pin=k2m4q7: net::ERR_CONNECTION_REFUSED" + Environment.NewLine);
+
+            var refused = Http(port, "GET", "/api/admin/log", "", ("X-Patterns-Pass", "not-the-passcode"));
+            Assert.Equal("403 Forbidden", refused.Status);
+            Assert.DoesNotContain("Twin:", refused.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("xpbe-4kq2-m7rd-9tzc", refused.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("hall-b.local", refused.Body, StringComparison.Ordinal);
+
+            var tail = Http(port, "GET", "/api/admin/log", "", ("X-Patterns-Pass", "open-sesame"));
+            Assert.Equal("200 OK", tail.Status);
+            Assert.Contains($"Twin: this desk was given the key {Secrets.Mask} — a caller node that links needs the same key (Machine page, TWIN).", tail.Body, StringComparison.Ordinal);
+            Assert.Contains($"Remote admin: RESTART {Secrets.Mask}", tail.Body, StringComparison.Ordinal);
+            Assert.Contains($"[INFO] Web page failed: https://hall-b.local{WindowAddresses.PrivateNote}: net::ERR_CONNECTION_REFUSED", tail.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("xpbe-4kq2-m7rd-9tzc", tail.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("open-sesame", tail.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("k2m4q7", tail.Body, StringComparison.Ordinal);
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            b.Vm.State.Install.AdminPasscode = "";
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 

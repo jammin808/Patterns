@@ -1252,6 +1252,97 @@ public class TwinAppTests
         }
     }
 
+    /// <summary>
+    /// L65: a desk's first start asks for its twin key inside the desk's constructor, before the window exists, where a line
+    /// for the operator had only patterns.log to land in — the file the ADMIN page serves. The key is in the settings (in
+    /// memory and on disk) and on the TWIN card that binds them; the log keeps one line that a key was made and where it is
+    /// read, the desk does not open on that line, and neither the log, the journal, STATE, TWIN STATUS nor the status strip
+    /// holds the key. Once the window is up a key made then is said on the strip by the same words, and the log keeps that
+    /// line too, without it.
+    /// </summary>
+    [AvaloniaFact]
+    public void AFreshDeskIsGivenAKeyAndNoLineHoldsItTheLogAndTheStripSayWhereItIsRead()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            PumpUntil(() => TwinKeys.LooksMade(vm.State.Twin.Key));
+            var first = vm.State.Twin.Key;
+            services.SaveNow();
+            TestApp.FlushFiles(services);
+            Assert.Contains(first, File.ReadAllText(services.Store.SettingsPath), StringComparison.Ordinal);
+            var words = TwinService.KeyMadeWords(followerNode: false, vm.State.Twin.Role);
+            Assert.Equal("Twin: this desk was given a key — a caller node that links needs the same key; read it on the Machine page, TWIN.", words);
+
+            var logPath = Path.Combine(b.Dir, "patterns.log");
+            var log = File.ReadAllText(logPath);
+            Assert.False(log.Contains(first, StringComparison.Ordinal), $"the first run's log holds the twin's key:\n{log}");
+            Assert.Equal(1, Occurrences(log, words));                             // said once: the log's line, not the strip's fallback beside it
+            Assert.NotEqual(words, vm.StatusMessage);                             // asked for before the window: the desk does not open on it
+            var journal = Path.Combine(b.Dir, ShowLog.FileName);
+            if (File.Exists(journal)) Assert.DoesNotContain(first, File.ReadAllText(journal), StringComparison.Ordinal);
+            Assert.DoesNotContain(first, new CommandRouter(services).StateJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain(first, services.Twin.StatusJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain(first, vm.StatusMessage, StringComparison.Ordinal);
+
+            // The window is up: a key made now is said on the strip — where it is read, not what it is — and logged the same way.
+            vm.State.Twin.Key = "";
+            Dispatcher.UIThread.RunJobs();
+            PumpUntil(() => TwinKeys.LooksMade(vm.State.Twin.Key) && vm.State.Twin.Key != first);
+            var second = vm.State.Twin.Key;
+            Assert.Equal(words, vm.StatusMessage);
+            log = File.ReadAllText(logPath);
+            Assert.Equal(2, Occurrences(log, words));
+            Assert.DoesNotContain(first, log, StringComparison.Ordinal);
+            Assert.DoesNotContain(second, log, StringComparison.Ordinal);
+            Assert.DoesNotContain(second, new CommandRouter(services).StateJson(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Attempts are not facts: a key is said made only once it is in the settings. A publish with no key asks for one and
+    /// posts its edit; a key typed before that edit runs is kept, no key is made over it, and no line says one was.
+    /// </summary>
+    [AvaloniaFact]
+    public void AKeyTypedBeforeTheMadeOneLandsIsKeptAndNoLineSaysOneWasMade()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            PumpUntil(() => TwinKeys.LooksMade(vm.State.Twin.Key));               // the first start's key has landed
+            var words = TwinService.KeyMadeWords(followerNode: false, vm.State.Twin.Role);
+            var logPath = Path.Combine(b.Dir, "patterns.log");
+            var said = Occurrences(File.ReadAllText(logPath), words);
+            Assert.Equal(1, said);
+
+            vm.State.Twin.Key = "";
+            services.Twin.Reconcile();                                            // a publish with no key: one is asked for, its edit posted
+            vm.State.Twin.Key = "typed-by-hand-7";                                // the operator's key lands first
+            Dispatcher.UIThread.RunJobs();                                        // the posted edit runs and finds a key
+
+            Assert.Equal("typed-by-hand-7", vm.State.Twin.Key);
+            Assert.NotEqual(words, vm.StatusMessage);
+            Assert.Equal(said, Occurrences(File.ReadAllText(logPath), words));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    private static int Occurrences(string text, string words)
+    {
+        var n = 0;
+        for (var at = text.IndexOf(words, StringComparison.Ordinal); at >= 0; at = text.IndexOf(words, at + words.Length, StringComparison.Ordinal)) n++;
+        return n;
+    }
+
     [AvaloniaFact]
     public void AMainWithNoKeyIsGivenOneAndAJoinWithoutItIsRefusedEvenWhenItClaimsTheShow()
     {
@@ -1268,7 +1359,14 @@ public class TwinAppTests
             PumpUntil(() => twin.Phase == TwinPhase.Listening);
             var key = vm.State.Twin.Key;
             Assert.True(TwinKeys.LooksMade(key), key);
-            Assert.Contains($"was given the key {key}", vm.StatusMessage);
+            // The strip names where the key is read and never holds it; the key is in the settings the TWIN card binds. The
+            // words are said as the key lands, for the role it landed for: the main's.
+            Assert.Equal(TwinService.KeyMadeWords(followerNode: false, TwinRole.Main), vm.StatusMessage);
+            Assert.DoesNotContain(key, vm.StatusMessage, StringComparison.Ordinal);
+            Assert.Equal(key, services.State.Twin.Key);
+            services.SaveNow();
+            TestApp.FlushFiles(services);
+            Assert.Contains(key, File.ReadAllText(services.Store.SettingsPath), StringComparison.Ordinal);
 
             // No key, a wrong key, and a wrong key that claims the show: refused, and the outputs never held.
             foreach (var (theirs, tookOver) in new[] { ("", false), ("nope", false), ("nope", true) })

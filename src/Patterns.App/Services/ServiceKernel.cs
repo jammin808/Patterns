@@ -159,11 +159,35 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>The desk's state at the moment of an ask, for the assistant's brief — a desk with nothing on air until the desk fills it.</summary>
     public Func<ShowFacts> Facts { get; set; } = () => new ShowFacts();
 
-    /// <summary>Where a line for the operator goes: the desk's status strip once there is one, the log until then.</summary>
-    public Action<string> Notifier { get; set; } = Log.Info;
+    private static readonly Action<string> ToTheLog = Log.Info;
+    private Action<string>? _notifier;
+
+    /// <summary>Where a line for the operator goes: the status strip a window set, the log until one has.</summary>
+    public Action<string> Notifier
+    {
+        get => _notifier ?? ToTheLog;
+        set => _notifier = value;
+    }
+
+    /// <summary>
+    /// Whether a notifier has been set: a node's window setting its strip. A desk sets its own <c>Notify</c> here as it is
+    /// built, which falls back to the log until its window is up, so a desk answers whether it has a strip itself.
+    /// </summary>
+    public bool NotifierSet => _notifier is not null;
 
     /// <summary>A line for the operator — the status strip on a desk, the log on a bare kernel.</summary>
     public void Notify(string message) => Notifier(message);
+
+    /// <summary>
+    /// A line the log keeps too: written there once, and to the notifier a window set, when one has. A node's window sets
+    /// its strip here; a desk sets its own <c>Notify</c>, which falls back to the log, so a desk says such a line through
+    /// its own <c>NotifyLogged</c>.
+    /// </summary>
+    public void NotifyLogged(string message)
+    {
+        Log.Info(message);
+        _notifier?.Invoke(message);
+    }
 
     /// <summary>The kernel, in the order the desk always built these: the store and the log first, the show, the journal, the notes, the bus, then its services.</summary>
     public static ServiceKernel Build(NodeKind profile, SettingsStore? store = null, ShowState? preloaded = null)

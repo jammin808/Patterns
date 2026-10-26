@@ -505,13 +505,30 @@ public sealed partial class TwinService : IDisposable, ILinkReport
 
     // ---- the settings ---------------------------------------------------------------
 
+    /// <summary>
+    /// The words a key made for this machine is said by: where it is read, never what it is. They reach the log, which
+    /// leaves the machine on the ADMIN page and in a support session, and the status strip, which a refused NAV, BACK or
+    /// HOME quotes back on the wire; the key is read on the card that shows it — the desk's Machine page, TWIN, and a
+    /// node's Machine tab, THE DESK'S KEY.
+    /// </summary>
+    public static string KeyMadeWords(bool followerNode, TwinRole role) =>
+        followerNode ? "Twin: this node was given a key — its link to the desk needs the same key on both; read it on the Machine tab, THE DESK'S KEY."
+        : role == TwinRole.Main ? "Twin: this main was given a key — the standby needs the same key; read it on the Machine page, TWIN."
+        : "Twin: this desk was given a key — a caller node that links needs the same key; read it on the Machine page, TWIN.";
+
+    /// <summary>A desk that hosts caller nodes: not a standby, and accepting callers.</summary>
+    private bool HostsCallers(TwinConfig cfg) => _kernel.IsDesk && cfg.Role != TwinRole.Standby && cfg.AcceptCallers;
+
+    /// <summary>A main, or a desk that hosts callers, with no key: one is made for it before its port opens.</summary>
+    private bool WantsAKey(TwinConfig cfg) => cfg.Key.Length == 0 && (cfg.Role == TwinRole.Main || HostsCallers(cfg));
+
     /// <summary>Opens or closes the listener or the link to match the settings (UI thread, on every publish).</summary>
     public void Reconcile()
     {
         if (_disposed) return;                                              // a closed desk opens no port and starts no beat
         var cfg = _kernel.State.Twin;
-        var hostsCallers = _kernel.IsDesk && cfg.Role != TwinRole.Standby && cfg.AcceptCallers;
-        if ((cfg.Role == TwinRole.Main || hostsCallers) && cfg.Key.Length == 0)
+        var hostsCallers = HostsCallers(cfg);
+        if (WantsAKey(cfg))
         {
             // A desk with no key would let any machine on the network join, hold its outputs closed
             // and hand it a show: it is given one, and said out loud, before its port opens.
@@ -519,16 +536,25 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             {
                 _keyBeingMade = true;
                 var made = TwinKeys.New();
+                // Whether the line reaches a strip is decided here, as the key is asked for: a key made before the window
+                // exists (a first start) is said in the log alone, so no desk or node opens on a line about a key the
+                // operator did not ask for; one made with the window up is said on its strip too.
+                var strip = _services.HasStrip;
                 UiThread.Post(() =>
                 {
                     _keyBeingMade = false;
                     var twin = _kernel.State.Twin;
-                    if (twin.Key.Length == 0 && (twin.Role == TwinRole.Main || (twin.Role != TwinRole.Standby && twin.AcceptCallers))) _services.BulkEdit(() => twin.Key = made);
+                    if (!WantsAKey(twin)) return;                          // a key typed or a role moved since: none made, none said
+                    _services.BulkEdit(() =>
+                    {
+                        twin.Key = made;
+                        // Said once the key is in the settings and before the publish opens the port, by where the key is
+                        // read and never by what it is (KeyMadeWords), for the role it was made for.
+                        var words = KeyMadeWords(IsFollowerNode, twin.Role);
+                        if (strip) _services.NotifyLogged(words);
+                        else Log.Info(words);
+                    });
                 });
-                Log.Info("Twin: this desk had no key; one was made for it — the port opens once it is saved.");
-                _services.Notify(cfg.Role == TwinRole.Main
-                    ? $"Twin: this main was given the key {made} — the standby needs the same key (Machine page, TWIN)."
-                    : $"Twin: this desk was given the key {made} — a caller node that links needs the same key (Machine page, TWIN).");
             }
             return;
         }

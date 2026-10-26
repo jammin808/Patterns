@@ -2076,6 +2076,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         else Log.Info(message);
     }
 
+    /// <summary>A line the log keeps whether or not the window is up: written there once, and on the status strip once there is one.</summary>
+    public void NotifyLogged(string message)
+    {
+        Log.Info(message);
+        if (MainWindow?.DataContext is ViewModels.MainViewModel vm) vm.StatusMessage = message;
+    }
+
+    /// <summary>Whether a line said now reaches the status strip: the main window is up with its view model, not the log alone.</summary>
+    public bool HasStrip => MainWindow?.DataContext is ViewModels.MainViewModel;
+
     /// <summary>Synthetic screens for the placements the operator planned without hardware.</summary>
     private IEnumerable<ScreenInfo> PlannedScreens()
     {
