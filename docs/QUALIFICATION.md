@@ -557,11 +557,24 @@ not a footnote. The files go to `docs/field/round-NN/` (`docs/field/README.md`).
     CLOCK shows, its words name the display it follows or say the desk is not keeping up.
 11. **OSC** (if it is on): the Super Check's REMOTE / OSC row is amber with its FIX until a bind
     address is set, green once bound.
+12. **A private page** (round 89 — WebView2's resolution): `--verify-runtime`'s report has a `WebView2:`
+    line that passes. Paste a Stagewatch window's address (`http://<stagewatch>:<port>/w/<token>`) as a web
+    item and take it to the TV: black until Stagewatch says what the window shows, then drawn; the Media
+    page's row, STATE's `web.url` and `web.page` and the Eye read `kept://…` or the host with "(private
+    address, kept)", never the token; the Super Check's Private pages row is green. RESTART: the page comes
+    back drawn, and `patterns.log` names the host only.
+13. **The twin on the bind address** (round 89): with a bind address set (Remote page) and the standby on
+    this machine in step, the Super Check's Twin row is green; pull the control network's cable for thirty
+    seconds — no takeover, the standby stays in step (it dials 127.0.0.1); plug it back.
+14. **A takeover without the secrets** (round 89): untick SEND SECRETS on the main (a settings file from
+    before round 89 keeps it ticked) and put the private page of step 12 on air — the Machine page's twin
+    line on both desks says what the standby is WITHOUT; `TWIN TAKEOVER` on the standby: the page is black
+    there with the words; TAKE BACK: the main draws it again.
 
 **Pass.** Every step ticked with the readings it asks for; the three lines posted; the four files
 committed. A step that fails is a row of `docs/OPEN.md` with the reading beside it.
 
-| date | machine | build | steps ticked (1–11) | Start-up / Desk tick / Render frame | result | files |
+| date | machine | build | steps ticked (1–14) | Start-up / Desk tick / Render frame | result | files |
 |------|---------|-------|---------------------|-------------------------------------|--------|-------|
 |      |         |       |                     |                                     |        |       |
 
@@ -678,6 +691,39 @@ approved.
 | Build | Date | Machine | Tablet trusts / Require HTTPS | Pin / changed / ACCEPT | Node follows by relay, its card on the Eye | Approved proposal lands | Result |
 |---|---|---|---|---|---|---|---|
 | | | | | | | | unwalked |
+
+## 28. A page's pass, the twin's secrets, the trust rules and a stuck Stagewatch on two machines (round 89)
+
+**Set up.** The show laptop as the main, with a pairing token and a bind address on the control network; a second
+machine running the standby twin and Stagewatch 2.17 or later with a window open; a Stagewatch before 2.16 on another
+machine (for step 5); Companion with the module 3.18.1 on a third machine (or the second); a phone on the control
+network; `patterns.log` tailed on both desks; a packet capture on the control network.
+
+**Do.** (1) Paste the Stagewatch window's address on a screen: it is drawn once Stagewatch says what the window shows;
+STATE's `web.url` and the Eye read `kept://…`; the support bundle carries no token and no `patterns.webpasses.json`.
+(2) The standby's twin line and the main's say the standby is WITHOUT the kept page and the boxes' passwords; tick
+SEND SECRETS on the main (untick it first where a settings file from before round 89 kept it ticked): refused for a
+standby on another machine, in the log and as a notice. (3) `TWIN TAKEOVER` on the second machine: the kept page is
+black there with the words, the boxes with a password say what they lack; TAKE BACK: the main draws the page again.
+(4) Stop Stagewatch's show thread (its stall): within a beat the stage page shows no time, the Nodes card and the
+Eye's card are amber, `patterns.log` says "… says its show is stuck — the stage shows no time."; let it run: "… 's
+show runs again." (5) Link to a Stagewatch on another machine that offers no TLS (one before 2.16): the Nodes line
+says "… offers no TLS — the key stays on this desk", STATE's `bus.stagewatch.carrier` reads `keyless`, and the capture
+holds no `Authorization` header. (6) The Companion deck pairs; the capture holds no token. (7) On the phone open
+`http://<desk>:9696/` plain and type the token: the Super Check's Pairing token row is amber "seen in clear from <the
+phone> — rotate it: NEW TOKEN", STATE's `control` names the phone, one journal row; NEW TOKEN clears it. (8) Point a
+name at 127.0.0.1 in the laptop's hosts file and open `http://<that name>:9696/` in its browser: the page asks for the
+token, `/api/state` answers 403 with the desk's words, and the log names the Host once. (9) From the third machine,
+paired on the wire and not on OSC ALLOW, send `/patterns/blackout 1`: `/patterns/error` answers "not paired — …",
+nothing moves, the Remote page's OSC line counts it; add the address to OSC ALLOW and send again: it lands.
+
+**Pass.** Every step as written. A fail is a token or a pass in the capture, STATE, the Eye, the bundle or the log; a
+frozen time counted on the stage; a kept page drawn on a machine whose book cannot open it; a standby on another
+machine sent the secrets; a verb that ran from the rebound name or the unlisted controller.
+
+| Build | Date | Machines | Page kept, drawn, bundle clean | Standby WITHOUT, SEND SECRETS refused | Takeover black, back drawn | Stall: no time, two lines | Keyless, no key in clear | Deck paired, no token | Token seen in clear, NEW TOKEN | Rebound name refused | OSC by the list | Result |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | | | | unwalked |
 
 ## What a fail means
 

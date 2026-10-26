@@ -12057,6 +12057,10 @@ The heading above and the changelog's entry name what the round means to land, 8
 both if either moves. The round's tag waits for 89.9's commit: `tag-rounds.sh` tags the changelog's newest round at
 HEAD, and from this commit on that round is 89, so the script runs after the papers and not before.
 
+*At the close (89.9).* The maintainer has since given the answers, each the one the plan recommends, so what the
+round took is now the maintainer's own; 89.6 and 89.8 landed in this round, and the heading and the changelog's entry
+stand as written.
+
 **OPEN.md.** The round:
 - closes L26 with 89.4, and reads its rule as it does. The rule asks for the probe in the same commit as the next
   web-path change. That change is 89.3's — the resolver, the first change to the WebView2 path since L26 was written —
@@ -12107,3 +12111,338 @@ of today's versions needs an upgrade — Stagewatch 2.16 or later, a desk from r
 older peers lose what the *No legacy* line says. The rig's reading, for the close: the stall's two log lines and the
 migration's journal row, read beside the stage page and the Super Check's raw-address row.
 
+### 107.2 A stuck Stagewatch shows no time (89.1 — G04, L57)
+
+**The harm.** Stagewatch says `{"type":"beat","live":false}` once its show thread stops turning over. The receive loop
+had no case for a beat, and every message refreshed the link, so a Stagewatch whose show had stopped kept answering
+pings, stayed green, and the stage counted its frozen frame down on the speaker's screen.
+
+**The rule now.** The show's liveness is apart from the link's (the PeerLink profile's 13.10.5). The profile is the
+handed-in design's, drafted as Show Bus 1.3's §13 in Stagewatch's `docs/SHOWBUS.md`; this tree's copy stays 1.2 until
+round 91 lands 1.3's, so every clause number in §107 (13.x) is that draft's. The stuck beat, in the bytes Stagewatch
+sends today, marks the show stuck; only the next state frame clears the mark — a plain beat or a pong never does. The
+link stays live and amber (13.16.1): the card is the worse of its own light and amber, never red for the stall alone;
+every counting value (a timer, a schedule, a playlist, a chase, a timecode, a clock) is red with "no time shown — its
+show is stuck", and a headline, which holds a count, reads "says its show is stuck — no time shown".
+`ShowBusView.NoTime` applies the rule once, so every reader says the same. The timer verbs stay refused while the desk
+follows.
+
+**Who writes what.** Each Stagewatch's show is a holder kept by the key it was dialled under. The beat task's
+`/api/context` read alone writes its context; the receive loop alone writes its stuck mark. A connect that reaches
+another Stagewatch (find mode can offer another after a drop) swaps in a fresh holder and logs that the stuck one is no
+longer followed, so nothing said of one is claimed of another. The Sight getter reads the mark before the frame, and
+every writer holds its new frame before it clears the mark, so no read pairs a cleared mark with the frozen frame.
+
+**Every reader.**
+- the stage pages and `/api/stage`: `follows.words`, and `follows.stuck` appended. The stall moves the stage revision on
+  the desk (the beat) and on a node (the relay's mark), so a page on its long-poll stops counting within a beat;
+- STATE `bus.stagewatch`: no `text` while stuck, the light no better than amber, the stuck headline, `stuck` appended
+  at the row's end; the row reads only the linked Stagewatch's card, never a node's;
+- the twin's relay gains `stuck`, so a node hears a stall before the first frame; a node's own context shows its
+  Stagewatch item amber and its stage item red with no time;
+- the Eye (the card and the follows edge amber, the counting items red), the Nodes card, the context's peers row, the
+  assistant's brief, the desk's Stage status line and a timer node's speaker display ("No time shown — Stagewatch X
+  says its show is stuck" where they said "No timer running");
+- the module's `stagewatch_stuck` (yes / no) and its boolean feedback;
+- one log line per change of the mark: "Stagewatch link: <name> says its show is stuck — the stage shows no time."
+  (a warning) and "Stagewatch link: <name>'s show runs again.".
+
+**Found on the way.** A hello is unauthenticated, and its name now reaches `patterns.log` with each stall: the hello's
+name and host are made one line (a control or line-break character becomes a space), so no hello writes a log line of
+its own.
+
+### 107.3 A page's pass never leaves the machine (89.2–89.4 — G09, L58, L26)
+
+**The harm.** A Stagewatch window's address carries its token, and the token is the window's pass (`/w/<token>`). A
+page's mount key was its whole address, and STATE, CONTEXT, the Eye, the journal, the twin and the support bundle
+carried it on.
+
+**What is private (89.2; `WindowAddresses`, Core, pure).** An address that carries a Stagewatch window's token (`/w/`
+and 26 characters of its alphabet), a query or fragment word from the design's list (`win`, `pin`, `token`, `key`,
+`view`, `code`, `secret`, `password`, `pass`, `apikey`, `api_key`, `access_token`, `auth`, `sig`, `signature` — whole,
+case-blind, after percent-decoding) or a user in its authority. The show never holds or publishes one. It holds
+`kept://host[:port]/<id>` instead: 12 base32 characters, 60 bits from `RandomNumberGenerator`, never a function of the
+address, so a short PIN cannot be worked back from it. A private address that reaches a key without being kept is held
+`unkept://host[:port]`: no pass, it resolves to nothing and draws black. The fence rebuilds every held form from what
+it names, so a pass written after a held prefix (a hand edit, another show's) never passes it. An address with no user,
+no `/w/` and no pass word (a YouTube watch address among them), and a held address in its own form, are answered
+without allocating — held at zero bytes by a test, since the renderer asks for every web layer on every frame.
+
+**The book (`WebPassBook`; `patterns.webpasses.json` beside the settings, `{"v":1,…}`).** Immutable, at most 64
+entries; keeping an address again answers its own entry; a full book drops its oldest entry no show names, and when the
+show names all 64 nothing is kept and the address is held unkept. Resolve opens a kept address this book holds and says
+why for anything else — kept on another machine, unkept, or an id that names another host. The App's `WebPasses`
+(89.3) is the book's one writer: an entry is on the disk (`AtomicFile`) before any reader sees it, so a kept address
+the show names is one a restart opens; a book that cannot be written keeps nothing (held unkept, with words); a file
+that is not a book this build reads is never written over and freezes the book for the run; one a scan held at boot is
+read again, at most once a second, and the held pages are sent their addresses again when it reads.
+
+**The scrub on load (89.2–89.3; `WebPassMigration`).** A scrub of secrets already in show files, not a compatibility
+path. It covers every place a show names a page — each picture's page and layers, the Remote & web address, the saved
+pages, the web nicknames, cue page steps and `WEB OPEN` values, device trigger lines, every look's JSON — and the bare
+private addresses in free text; anything that is not a page's address stays byte for byte. One journal row,
+`WebPassesKept` ("kept N private page addresses on this machine (Stagewatch windows and keyed links)", and
+DoneWithWarnings with "M could not be kept and show black — paste them again"), and one log line. The boot show, Load
+show, a backup restore and the recovery record's air are scrubbed — the air after its migration and before it goes back
+on air, in the one `RestoreRecord` the watchdog's relaunch, a takeover and a twin share — and the desk and a node write
+the show back once when the scrub took a pass out (never over a newer schema's file).
+
+**Every entry (89.3).** `WEB OPEN` (the wire, Companion, cues, devices, OSC) keeps the address and sends the page its
+kept address; one that cannot be kept, or does not open here, is refused with words that name the host only and leave
+the page as it was. `PRESET`, `SCREEN n PRESET` and `SCREEN n PVW PRESET` secure the preset before it lands; `MIDI
+LEARN` keeps a private address in the line it binds; the Media page's boxes, a device's trigger line, a cue step's box,
+Use, Remember, Show on pattern, a saved-page pick, a cue-sheet import and an assistant apply secure it; the Library's
+saved pages and presets are secured when applied, a kept tile named by its host and kept id; the menus name a layer's
+page in public; the cue validator warns (soft) about a `WEB OPEN` whose held address this machine cannot open; the
+native player resolves a held page only just before it asks its tool, and keys its cache and its words by the held
+address.
+
+**The resolver, and black unless assigned (89.3).** `WebEngine` has a Resolve seam beside `SourceFactory`, wired to the
+book; a held page's source is handed the held address and resolves it only inside `NavigateCore` (`HeldPage`, Core,
+pure). Back, forward or a link onto an address the page resolved to is cancelled and held again. A document-created
+observer acts only in a Stagewatch window's top document and posts its shell's root data-* attributes, taken only from
+the origin the held address resolved to; the source is Withheld — black — until the navigation succeeds, the revision is
+above 0 and the link is not "gone". A kept page that is not a window is black until its navigation lands, and black
+again on a failure. When the book moves, a mounted held page whose resolution moved is sent its held address again, so
+an operator's `WEB OPEN` stands.
+
+**Every reader (89.4).** Core's `Log` says every line in public (`WindowAddresses.RedactText`), whoever wrote it.
+`ShowLog` writes a row's target and words in public and says them in public again on read, so a row an older build
+wrote raw reaches CONTEXT, the Eye's replay and a node's context in public. The browser's `CurrentUrl`, the
+navigate-failure log, the status and the page's title (`HeldPage.PublicTitle`: a browser names an untitled document by
+its address, pass and all) are said in public. STATE's `web.url` is the held or public address, and `web.page` names a
+held page by its host and what this machine can do with it ("10.0.0.5 (private address, kept)", "… kept on another
+machine"); the deck's `web_page` and `web_title` follow. The support bundle never carries `patterns.webpasses.json`,
+reads it itself so the kept addresses join the masked values whoever builds the bundle, and redacts every text entry a
+line at a time.
+
+**The twin's `KEPT` (89.4, narrowed by 89.6).** A new twin word carries passes on one line: only the part of the main's
+book that the show and the air record name (`WebPassBook.Only`), only to a standby, never to a caller or a stage timer,
+and only while the secrets ride (§107.5). A standby that holds the show is sent none and hands its own part back after
+TAKE BACK. `WebPasses.MergeFromTwin` writes the merged book to the disk first, then swaps it; a merge makes room from
+the passes no show names before any a show names.
+
+**The WebView2 probe (89.4, L26).** `WebView2Probe` (Windows only) makes a browser the way a page source makes one —
+the same arguments, a hidden window, its own temp folder, the round's observer and a document script — on a
+single-threaded-apartment thread of its own with one 45 s deadline, opens a `NavigateToString` page, and checks that the
+document script spoke and that a script answers 42. `--verify-runtime` reports it on a `WebView2:` line: a runtime that
+cannot open a page, or a loader missing beside the exe, fails the check; an absent runtime is said, and fails only with
+the new `--require-webview2`, which the windows-smoke lane now passes. It has not run yet: the only CI run on the
+round's pushed commits stopped before any build (§107.11), so its first `WebView2:` line is the next push's
+windows-smoke run's (L62).
+
+**The Super Check's "Private pages" row (89.4).** `WebPassMigration.Places` (pure) lists every place the show names a
+private page, each with its held form and whether the show holds it raw; the desk resolves each through the book, over
+the edited show and the air. Green "N kept on this machine"; amber, with FIX words naming where each address that opens
+nothing sits (written raw, unkept, kept on another machine — the first four, then a count); amber "nothing can be kept
+on this machine" for a frozen book; no row when the show names no private page.
+
+### 107.4 No key or token in clear (89.5 — G08)
+
+**Out: the Stagewatch link (profile 13.3.2, 13.4.2).** The pin and a probe choose the carrier; the hello never does.
+- A pinned Stagewatch is dialled over TLS whatever a hello says; a hello that names no TLS, or another certificate, is
+  a note on the link, never a refusal. One that answers without TLS, or shows no certificate within the upgrade's
+  budget, gets nothing: "… its certificate is pinned (…) — nothing sent; trying again".
+- Any other Stagewatch off loopback is tried over TLS first. A far end that shows no certificate within 2 s of the
+  socket's connect, or fails the handshake on what it sent instead, offers no TLS: the link reads its public view
+  without the key (the timer followed, the context read keyless, nothing posted, no approval collected), says "Hall A
+  offers no TLS — the key stays on this desk", and asks again every 30 s with one TLS greeting ended at the
+  certificate. A certificate shown ends the keyless connection, and the next dial goes over TLS.
+- The key goes over plain `ws` or `http` only to a loopback address — the address each dial resolved once and sent
+  every socket of the dial to, never a name. A Stagewatch on this machine heard at one of its network addresses is
+  dialled as another machine's.
+- STATE `bus.stagewatch.carrier` (`tls`, `plain`, `keyless` or empty) after `stuck`; the Nodes page's line and
+  `bus.stagewatch.words` carry the note; one log line per change of carrier.
+
+**Out: the Companion module, 3.18.1 (13.6.8).** Plain `AUTH <token>` goes only to a desk on this machine, judged by the
+address the socket reached. With no `NONCE` by the wait's end the module asks for one: any `OK` means the desk speaks
+NONCE (a 32-hex nonce in it is proved, anything else is not, and plain `AUTH` never follows); only an `ERR` — a desk
+before round 87 — leaves plain `AUTH`, and only to loopback. Another machine's keeps the token: "The desk asks for no
+proof — update Patterns; the token stays here". `AUTH-PROOF` answers only a nonce of 32 lowercase hex.
+
+**In, refusing nothing (13.6.9, the receiver's backstop).** The token presented on the web remote's plain listener
+from another machine (the header or the pages' cookie — Require HTTPS's 403 included, since the token crossed the
+network all the same), or as plain `AUTH` on 9697, is marked *seen in clear*: per address, for the token set now (a
+salted keyed hash, never the token), at most 32 addresses, kept beside the settings (`patterns.clearseen.json`, never
+bundled) so a restart puts the marks back, and gone with NEW TOKEN. The first sighting per address writes one journal
+row (Remote, `TokenSeenInClear`, Alert; never the token) and one log warning. Readers: the Super Check's REMOTE
+"Pairing token" row amber ("seen in clear from <address> — rotate it: NEW TOKEN", the FIX naming how it came), the
+dashboard's REMOTE tile, the assistant's brief through its amber rows, the Nodes and Remote pages, and STATE
+`control{clearSeen[{address,via,first,last,count}],words}` appended at the end of the desk's and a node's STATE. It is
+the backstop for AGMessage 0.5.0's plain header until that app's own unit lands.
+
+### 107.5 The twin keeps the show's secrets home and listens on the bind address (89.6 — L36, L60)
+
+**The rule (`TwinSecrets`, Core, pure).** The show's secrets — a box's password, the weather key and the kept passes —
+ride a link only when all three hold: the peer is a standby (never a caller or a stage timer), SEND SECRETS is on, and
+both ends of the link are this machine, judged by the socket's own two addresses (the remote is loopback, or it is the
+address the connection arrived on), never the join's words. Each standby link reads `ride`, `off` or `plain`; `plain`
+(another machine) wins whatever the setting. `TwinConfig.SendSecrets` defaults off. The rule holds in every place the
+show leaves the main: the welcome, every SHOW, SECTION and AIR line (each peer is sent its own form), `KEPT`, and a
+standby that holds the show handing it back.
+
+**Found on the way — the AIR line (critical).** The air record went to every standby as it stood, and while EDIT SAFE is
+open or a look is pinned it holds a whole show: the twin's key, the pairing token, the Stagewatch key, the admin
+passcode, the management token, every device password and the weather key, on any machine, whatever the setting. The
+AIR line now goes by the SHOW line's rule (`TwinSync.WireAirJson`: the mirrored sections only, blanked unless the
+secrets ride), and `TwinSync.LandAir` — in the one door a takeover, a TAKE BACK and a standby that died with the show
+share — keeps this desk's own sections and fills a blank secret from its own. Callers and stage timers no longer get
+passwords or the weather key in SHOW or SECTION, whatever the setting.
+
+**Two twin words, and the words on both desks.** `SECRETS` (main → standby, before SHOW on the welcome and again when
+it changes: `ride` / `off` / `plain`, the ids of the boxes with a password, whether there is a weather key — never a
+secret) and `LACKS` (standby → main, counts only; a caller's is not read). The standby says "WITHOUT 2 device
+passwords and 1 kept page — MAIN keeps them: the twin's link to another machine is plain; type the passwords here …",
+the main says the same of each standby; SEND SECRETS on with a standby on another machine is refused once per standby,
+in the log and as a desk notice. Readers: the Machine page's line and the glance (WITHOUT …), the health words and the
+assistant's brief, STATE `twin.secrets` and `twin.without` (at the row's end), TWIN STATUS, the Super Check's Twin row
+and the dashboard (amber "· without secrets"), the Eye's twin node, the deck's `twin_words`, the help.
+
+**The bind address.** The twin's listeners open on `Control.Bind` — every interface when it is empty — read whether or
+not remote control is on; a bind that is not an address opens nothing. Beside a bound address the twin also listens on
+127.0.0.1, and a standby on this machine dials 127.0.0.1 whatever the bind, so its link never rides a network card: on
+Windows a card that loses its link withdraws its address, and the link's silence would make a standby on this machine
+take over by itself and end a healthy main. A closed port is the service's own fact (`TwinService.PortClosed`): the
+Super Check's Twin row and the dashboard red "port closed", the Eye's node red, the glance "TWIN main · PORT CLOSED",
+the line naming the fix. The Bind to box leaves the panel that greys with remote control, since OSC and the twin read
+it either way. The twin stays a named exemption from Show Bus 13.18 — its own proof, beat and carrier — until it has
+TLS of its own (L55).
+
+### 107.6 Loopback trust wants this desk's name (89.7 — L42)
+
+**The harm.** `Host` was read and never checked. A page whose name was rebound to 127.0.0.1 is same-origin to itself,
+passed round 83's cross-site rule, and was trusted as this machine: it could POST `/api/cmd` or read `/api/state`
+(PeerLink profile 13.3.4 asks every listener to check Host and Origin before it grants anything to loopback).
+
+**The rule (`DeskNames`, Core, pure).** A Host names this desk only when its port is the one the connection arrived on
+(none: 80, or 443 over TLS) and its name is `localhost` or a loopback address (over loopback), the address the
+connection arrived on, or the machine's own names — its NetBIOS name and host name, each under `.local` and under each
+DNS suffix it has, and the `<label>-patterns.local` its own mDNS responder answers. Nothing else names it: no Host, two
+Hosts, a trailing dot, an address in a form browsers never send, a port with a sign or a leading zero. The App reads the
+names once, and again when the beacon's name or the machine's addresses change.
+
+**What needs which.** This machine's trust needs loopback, a Host that names the desk and no page of another origin
+(`HttpHead.CrossSite`) — a site open in this machine's browser that embeds `/mv.jpg` arrives over loopback under the
+desk's own name and is still not this machine's page. The pages' cookie needs the same name and no page of another
+origin. The Require HTTPS plain allowance needs the same as trust; the seen-in-clear exemption needs loopback and the
+desk's name, so a port proxy carrying another machine's plain traffic in over loopback is refused plain and its token
+marked. A token in `X-Patterns-Token` still pairs any request. On an open desk every machine is still answered under any
+name, but a browser's request under a Host that is not the desk's is a rebound page, and the show's routes refuse it.
+Words: `ControlProtocol.ForeignHost` and `ForeignPage` (both start "not paired", so the pages ask for the token) and
+`ForeignHostOpen` (an open desk, where no token would help); one log line per address and kind, at most 64 named. The
+phone, run, admin, multiview, stage and pad pages show the desk's own 403 words.
+
+**Found on the way — the wire's port.** A browser page can send a simple POST to `http://127.0.0.1:9697/` with a
+text/plain body; its request line and headers were refused as unknown lines, and the body then ran as this machine's
+own line (`BLACKOUT ON`). An HTTP request line is never a line of the wire (`ControlProtocol.IsHttpRequestLine`): it is
+answered with one `ERR`, logged once a minute per address, and the connection is closed before anything after it is
+read.
+
+### 107.7 A proof grants nothing to an address (89.8 — ADR-017)
+
+Round 87 let an address that proved the token on the wire or the web move the show over OSC for twelve hours. An
+address is not an identity on a venue network, and a datagram's source is whatever its sender writes. On a paired desk
+OSC's verbs now come from this machine (when the desk trusts its own) and the OSC ALLOW list only; `/patterns/ping`
+and `/patterns/status` stay open; a desk with no token keeps OSC open as before, kept to the control network by the
+bind. The list is read as the bind is (`BindAddress.TryAddress`: IPv6 as written, IPv4 only as four dotted decimal
+parts), so `192.168.1`, a hex part or a host name is left out and named, never counted as listed while the controller
+it meant stays refused — and the bind now reads `010.0.0.5` as 10.0.0.5 (the parser had read it as octal). A refused
+verb answers `/patterns/error` with `OscGate.NotListed` (opening "not paired —"), is counted on the Remote page's OSC
+line, which also names the entries left out, and is logged once per address (64 named, then one closing line;
+`SaidOnce`). The Super Check's OSC row and the Eye's OSC node share one sentence (`OscGate.PairedWords`), and an entry
+left out turns both amber. The record is ADR-017; ADR-016 stays held for round 91's decision on what the wire shows
+before a connection pairs.
+
+**What the room sees.** A controller on another machine that moved the show over OSC only because its machine had
+paired stops at its first verb, hears the refusal, is named once in `patterns.log` and counted on the Remote page's OSC
+line, and works again once its address is on OSC ALLOW.
+
+### 107.8 With AI offline
+
+Nothing in the round needs a key or the internet: the stall, the book, the carriers, the marks, the twin's rule, the
+names and the OSC list are rules on the control network and files on this machine. The assistant's brief reads the
+stall, the held pages' words, the seen-in-clear row and what a standby is without from the same public words the desk
+shows; CONTEXT, which another app's assistant reads, is under the private-address canary.
+
+### 107.9 The proof
+
+- **Core:** `ShowBusTests` and `ShowBus12Tests` (the stuck beat's bytes, every reader's projection, the relay, a node's
+  context, a hello's name kept to one line, the OSC gate and its shared words, the bounded log), `WindowAddressesTests`
+  (the rule, the bare rule, the held forms rebuilt, the line-at-a-time redaction, zero allocation), `WebPassBookTests`,
+  `WebPassMigrationTests`, `PrivateAddressFenceTests` (the key, the Eye, the context, the bundle, `KEPT` on one line,
+  the journal on write and read, `Places`, the row), `HeldPageTests`, `TokenClearSightingsTests`, `TwinSecretsTests`
+  (the rule, the same-machine test, both words, the lack, the rows, the AIR rule and its landing with canaries in every
+  machine section), `HttpHeadTests` (the names, the suffixes, the request line), `BindAddressTests`,
+  `PairingTokenTests`, `FaultsTests`, `SideEffectsTests`.
+- **Rendering:** `WebSourceTests` — black for a held page and a held layer.
+- **App:** `ShowBusAppTests` (a stage page's long-poll hears the stall within a beat with the context silent; the
+  token in clear marked in every reader, under Require HTTPS too), `ShowBus12AppTests` (the node's stage revision on
+  the stall and the recovery; the carrier by the pin and the probe, never the hello; a slow certificate re-probed into
+  TLS; no `Authorization` ever over plain), `DeckStateAppTests`, `WebPassesAppTests`, `PrivateAddressFenceTests` (a
+  canary over STATE, CONTEXT, EYE and EYE AT, the journal, the log, every file beside the settings, the Super Check
+  report, the support bundle and the twin's show and air with EDIT SAFE open), `TwinAppTests` (a stranger that skips
+  CHALLENGE lands nothing), `TwinSecretsAppTests`, `RemoteTrustTests` (a rebound name on a paired and an open desk; a
+  browser-shaped POST to the wire, closed with nothing run; `TrustLoopback` restored in `finally`), `OscAppTests`.
+- **The module:** the loopback rule, the nonce's shape, the NONCE ask's replies, `stagewatch_stuck` and its feedback, a
+  held page reaching the deck by its host and kept address; the fixture's `bus.stagewatch.stuck` and `carrier` and the
+  `control` row, checked against STATE's keys; `lines.txt` unchanged.
+- **Measured:** the fence's allocation for a plain, a YouTube and a held address — zero bytes, held by a test. No other
+  measurement this round.
+- **At the close:** Core 1,281, Rendering 672, Devices 8, Audio 13, Assistant 37, Audience 2, App 871 — 2,884
+  tests; the module's 39 node tests. These ran on Linux; no CI run has built the round's code yet (§107.11, L62).
+
+### 107.10 What the round did not do
+
+- **No PeerLink handshake.** The Stagewatch link still dials with Stagewatch's bearer key (over TLS, or keyless). The
+  link as a node, reading Stagewatch's verdict, waits for Stagewatch 2.18 and lands in round 91; the PeerLink core is
+  round 92's.
+- **The wire still greets an unpaired connection with STATE** and pushes it on every change (L59): round 91, under
+  ADR-016.
+- **No window grants.** A pasted window address is kept and drawn on this machine; a window Stagewatch grants to this
+  desk, placed and ready-gated, and the twin's `WINDOWS` word are round 95's.
+- **No TLS on the wire or the twin** (L55; the wire's in round 97). Show data still crosses both readable; 89.6 keeps
+  device secrets and kept passes off a plain twin link to another machine, so a standby there takes the show without
+  them, said on both desks (L60).
+- **A takeover leaves what other apps bound to the main's Show Bus id** (L61, round 98's).
+- **What is already on the disk stays as it was written.** Journal rows an older build wrote raw are said in public on
+  read; `patterns.log` lines written before 89.4 are raw until the log rolls at a start (the bundle redacts them); the
+  show file's `.bak` and the copies in `backups/` keep a pre-migration pass until they rotate; and the book itself is
+  plain JSON beside the exe, as the other secrets are (L40).
+- **The beacon's UDP listeners stay on every interface** (9700 and 9928): a socket bound to one unicast address misses
+  the broadcasts it exists to hear. L36 names them as the exemption; no health light says so yet.
+- **Not every reader carries the carrier or the mark.** The Eye's Stagewatch card and the Companion module carry neither
+  `carrier` nor the seen-in-clear mark — the Eye's link rows come in round 98, and the module's 3.18.1 adds no variable
+  for either.
+- **The windows-for-peers design's D8 ("black on air, never words or white, for every held page"; "there is no
+  `about:blank`").** A page that was shown before a held page replaced it is emptied to `about:blank` behind the black
+  — the air stays black, and the deviation is named here.
+- **The default reaches fresh settings only.** A settings file an older build saved keeps `"SendSecrets": true`; only a
+  standby on this machine follows that tick, since another machine is refused whatever the setting.
+- **The module stays a patch.** 3.18.1 carries the AUTH rule the unit asked for and, with it, the `stagewatch_stuck`
+  variable and feedback; a 3.18.0 deck lacks the variable and still sends plain `AUTH` to another machine's desk that
+  gives no nonce.
+- **No walk.** WebView2's resolution and the probe, the twin's bind address, the cable pull with a standby on this
+  machine, and a takeover without the secrets were never seen on Windows: QUALIFICATION §22 steps 12 to 14 and §28,
+  unwalked. The interop lane's replay of a live stall (row S6.2b) is the lane's.
+
+### 107.11 The ledger and the papers (89.9)
+
+- **OPEN:** L57 (the stuck beat ignored — 89.1) and L58 (a page's pass published — 89.2–89.4) added and closed; L26
+  closed by 89.4 on the probe's code, with its rule's reading: 89.0–89.5 and 89.7 went to the remote in one push
+  (`bcdbf28` → `59a99e1`) and 89.6 and 89.8 were committed after it, so the round was not pushed whole at its close as
+  §107.1 expected, but neither the Windows lane nor the rig built 89.3 without the probe; L36 amended (89.4, 89.6), L40
+  (89.3, 89.4) and L42 (89.7); L59, L60, L61 and L62 added.
+- **CI.** The only CI run on the round's pushed commits (run 277, on `59a99e1`) stopped at `actions/setup-dotnet` — HTTP
+  409 on the .NET download — in test, lifecycle and windows-smoke, before any build; companion-module and
+  rollback-script passed, portable-exe and release were skipped. No CI run has built or tested round 89's code, and
+  `WebView2Probe` has run nowhere: the next push's windows-smoke run is its first (L62, which that run closes when its
+  `WebView2:` line passes under `--require-webview2` and test and lifecycle are green).
+- **The papers:** this section; REVIEW round 89; CHANGELOG (with the evidence class); README (the ledger's entry, the
+  twin's paragraph, the web pages, the count); `docs/REMOTE.md` (the Trust paragraph, TWIN STATUS, STATE's `web`,
+  `twin`, `bus.stagewatch` and `control`, the Stagewatch link, a round 89 section); `docs/COMPANION.md`
+  (`stagewatch_stuck`, the AUTH rule, 3.18.1); `docs/QUALIFICATION.md` §22 steps 12 to 14 and §28; `docs/ANALYSIS.md`
+  (the probe's read of a completed task among the deliberate blocking waits — eight sites, as the row had said over
+  seven); ADR-017 (89.8's own commit); the tag table's row 88 (`bcdbf28`).
+- **The rig's reading.** No new wire verb lands this round. The close is read on the rig as the round opened: the
+  stall's two log lines and the migration's `WebPassesKept` journal row, beside the stage page and the Super Check's
+  Private pages row.

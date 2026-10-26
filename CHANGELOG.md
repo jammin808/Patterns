@@ -12,13 +12,34 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 89 — 2026-10-25 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
 
-`round-89` · PLAN §107 · 2,702 tests at the opening · module 3.18.0 · evidence: a handed-in critique (the gap analysis across Stagewatch, Patterns, PlayMap and AGMessage, its designs and their review)
+`round-89` · PLAN §107 · REVIEW round 89 · 2,884 tests · module 3.18.1 · evidence: a handed-in critique (the gap analysis across Stagewatch, Patterns, PlayMap and AGMessage, its designs and their review)
 
-- **Opened (89.0).** Nothing in `docs/field/`; the ledger's rows the round closes, adds and amends; the requester and
-  the evidence class; each unit read against the standing brief at the line it stands on in the head (PLAN §107.1).
-  The papers (89.9) write what landed, REVIEW round 89, and the count at the round's end in place of the opening's.
-  The round's tag waits for that commit (`tag-rounds.sh` tags this entry at HEAD), and the heading is rewritten there
-  if 89.6 or 89.8 moves to a later round.
+- **A stuck Stagewatch shows no time.** Its stuck beat marks the show stuck until its next state frame: the link stays
+  live and amber, every counting value is red with no time — the stage pages, STATE `bus.stagewatch.stuck`, the
+  twin's relay to the nodes, the Eye, the Nodes card, the brief and the module's `stagewatch_stuck` — and one log line
+  says each change.
+- **A page's pass never leaves the machine.** An address that carries a pass (a Stagewatch window's `/w/<token>`, a
+  `pin=` or `token=` word, a user) is kept on this machine and the show holds `kept://host:port/<id>` (60 random bits);
+  shows already on the disk are scrubbed on load with one journal row; the browser alone resolves it, and a window is
+  black until Stagewatch says what it shows. STATE, CONTEXT, the Eye, the log, the journal and the bundle say it in
+  public; the Super Check's Private pages row says what opens nothing here. `--verify-runtime` probes WebView2
+  (`--require-webview2` on the release's smoke lane).
+- **No key or token in clear.** The Stagewatch link takes TLS by the pin and a probe, never by a hello, and reads a
+  Stagewatch that offers no TLS without its key; the module (3.18.1) sends plain `AUTH` to a desk on its own machine
+  only; a token that still arrives in clear from another machine is marked "rotate it: NEW TOKEN" on the Super Check,
+  the Nodes page and STATE `control`, refusing nothing.
+- **The twin keeps the show's secrets home.** SEND SECRETS is off by default and refused to a standby on another
+  machine, both desks say what a standby is without, and the twin listens on the bind address (and on 127.0.0.1 beside
+  a bound one). Found on the way: the AIR line carried a whole show's secrets to every standby while EDIT SAFE was
+  open — it carries the mirrored sections only now. A settings file an older build saved keeps its old tick.
+- **Loopback trust wants this desk's name.** A request is this machine's only with a Host that names the desk, so a
+  rebound name is an unpaired machine; a browser's POST to the wire's port is closed with nothing run.
+- **A proof grants nothing to an address** (ADR-017). On a paired desk OSC comes from this machine and OSC ALLOW only;
+  a controller that relied on a paired machine's twelve hours is refused, named once in the log and counted on the
+  Remote page — add its address to OSC ALLOW.
+- Unwalked (`docs/QUALIFICATION.md` §22 steps 12–14, §28). No CI run has built the round yet: the one on its pushed
+  commits stopped at the .NET download before any build, so the probe's first run is the next push's (L62). OPEN: L26,
+  L57 and L58 closed; L59 to L62 added.
 
 ## Round 88 — 2026-10-11 — Show Bus 1.2: a timer node follows its desk's Stagewatch, nodes say what they are, TLS on the web remote with pinned certificates, the shared approval queue
 

@@ -25,37 +25,52 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   answers `/patterns/error` to the sender, and with a feedback host set every change sends one
   bundle of `/patterns/state/…` messages. See **OSC** below.
 
-> **Trust.** The Remote page's TRUST block decides who may run the show (round 65). With no
-> pairing token set, anyone on the network can control the show while remote control is enabled —
-> the trust model of most stage-control protocols — and Super Check's Remote row reads amber for
-> it. With a token set, a connection proves it before the desk runs a mutating verb: on the wire
-> (round 87) the desk says `NONCE <hex>` as its second line and the connection answers
-> `AUTH-PROOF <hex>` — HMAC-SHA256 with the token (no dashes or spaces, upper case) as the key over
-> the nonce followed by the name it gave in `HELLO`, lowercase hex — so the token itself never
-> crosses the network (the Companion module 3.18.0 does this from its **Pairing token** field);
-> plain `AUTH <token>` is taken from the desk's own machine only. A new desk is paired from its
-> first run (round 87): the token is on the Remote page, TRUST. On the web, the `X-Patterns-Token` header (the phone, run, stage, pad, admin and
-> multiview pages ask for it once and keep it in the browser, as a header for their calls and as the
-> cookie `patterns-token` for their pictures). On the wire, reading — `STATE`, `STATUS`, `PING`,
-> `HELLO`, `CUE LIST`, the `MENU` queries — never needs it: a TCP line is not a browser, and a
-> Companion presents `AUTH` before it asks anything. On the web everything wants it (round 83 the
-> state and the pictures, round 85 every `/api/cmd` line and `/api/cues`) except the pages
-> themselves, the EDID files and the audience port, because a browser on the network is the way a
-> stranger's page reads a desk. Connections from the desk's own machine never need it, either way. A
-> mutating verb without it answers `ERR not paired …` and runs
-> nothing; NEW TOKEN cuts every paired remote off until the new token is typed into it. The token
-> is this desk's own: saved with the show but never mirrored to the twin (the Control section stays
-> on each machine — secrets do not travel the link), so type the same token into a standby for it
-> to answer the same remotes after a handover. **Bind to** puts the web remote, the wire and OSC on
-> one address — the control network's, on a desk with two — so the audience network never sees the
+> **Trust.** The Remote page's TRUST block decides who may run the show (round 65). With no pairing
+> token set, anyone on the network can control the show while remote control is enabled — the trust
+> model of most stage-control protocols — and Super Check's Remote row reads amber for it. With a
+> token set, a connection proves it before the desk runs a mutating verb: on the wire (round 87) the
+> desk says `NONCE <hex>` as its second line and the connection answers `AUTH-PROOF <hex>` —
+> HMAC-SHA256 with the token (no dashes or spaces, upper case) as the key over the nonce followed by
+> the name it gave in `HELLO`, lowercase hex — so the token itself never crosses the network (the
+> Companion module does this from its **Pairing token** field; from 3.18.1, round 89, it sends plain
+> `AUTH` only to a desk on its own machine and proves only a nonce of 32 lowercase hex); plain
+> `AUTH <token>` is taken from the desk's own machine only. A new desk is paired from its first run
+> (round 87): the token is on the Remote page, TRUST. On the web, the `X-Patterns-Token` header (the
+> phone, run, stage, pad, admin and multiview pages ask for it once and keep it in the browser, as a
+> header for their calls and as the cookie `patterns-token` for their pictures). On the wire,
+> reading — `STATE`, `STATUS`, `PING`, `HELLO`, `CUE LIST`, the `MENU` queries — never needs it: a
+> TCP line is not a browser, and a Companion presents `AUTH` before it asks anything. On the web
+> everything wants it (round 83 the state and the pictures, round 85 every `/api/cmd` line and
+> `/api/cues`) except the pages themselves, the EDID files and the audience port, because a browser
+> on the network is the way a stranger's page reads a desk. Connections from the desk's own machine
+> never need it, either way — on the web (round 89) only under a `Host` that names this desk
+> (`localhost` or a loopback address, the address the connection arrived on, or the machine's own
+> names — its NetBIOS and host names under `.local` and its DNS suffixes, and its
+> `<label>-patterns.local` — with the port it arrived on) and from no page of another origin: any
+> other `Host` is answered as an unpaired machine (`not paired — …`), so a page whose name is
+> rebound to 127.0.0.1 gets nothing, and on a desk with no token a browser's request under a foreign
+> `Host` is refused as a rebound page while a curl or a device is answered as before. A token that
+> crosses the network in clear — on the web remote's plain listener from another machine, or as
+> plain `AUTH` on the wire — is marked *seen in clear* (round 89), refusing nothing: the Super
+> Check's REMOTE row "Pairing token" turns amber ("seen in clear from <address> — rotate it: NEW
+> TOKEN"), STATE's `control` row names the address, one journal row and one log line say it per
+> address, and NEW TOKEN clears it. A mutating verb without it answers `ERR not paired …` and runs
+> nothing; NEW TOKEN cuts every paired remote off until the new token is typed into it. The token is
+> this desk's own: saved with the show but never mirrored to the twin (the Control section stays on
+> each machine — secrets do not travel the link), so type the same token into a standby for it to
+> answer the same remotes after a handover. **Bind to** puts the web remote, the wire and OSC on one
+> address — the control network's, on a desk with two — so the audience network never sees the
 > control ports. OSC has no session to pair, so the token cannot cover it directly: on a desk with
 > no token Super Check paints an open OSC port amber until it is bound or off; on a paired desk
-> (round 87) OSC's verbs are taken only from this machine, from an address that proved the token
-> on the wire or the web in the last twelve hours, or from the Remote page's **OSC ALLOW** list —
-> its questions (`/patterns/ping`, `/patterns/status`) stay open, as the wire's do. Turn remote control off
-> on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`, `UPDATE APPLY` and
-> the `/admin` page — sits behind the Install page's passcode (`docs/INSTALLS.md`), which rides in
-> the `X-Patterns-Pass` header and never in a URL.
+> OSC's verbs are taken only from this machine and from the Remote page's **OSC ALLOW** list — whole
+> addresses, read as the bind is (round 89, ADR-017: a proof on the wire or the web no longer trusts
+> its address for twelve hours, since a datagram's source is whatever its sender writes; an entry
+> that is not an address is left out and named, amber) — and its questions (`/patterns/ping`,
+> `/patterns/status`) stay open, as the wire's do. A refused verb answers `/patterns/error` with
+> `not paired — …`, is counted on the Remote page's OSC line and is logged once per address. Turn
+> remote control off on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`,
+> `UPDATE APPLY` and the `/admin` page — sits behind the Install page's passcode
+> (`docs/INSTALLS.md`), which rides in the `X-Patterns-Pass` header and never in a URL.
 
 ## Commands
 
@@ -156,7 +171,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `WEB CLICK <x> <y> [ON <page>]` | A click at a point in percent of the page (`WEB CLICK 50 50` is its centre) |
 | `WEB TYPE <text>` | The text — spaces and all — typed into the field that has the page's focus (click it first); a character no US key types is inserted as text |
 | `WEB RELOAD [<page>]` | The page reloaded (also `WEB KEY reload`) |
-| `WEB OPEN <address> [ON <page>]` | The page's browser sent to another address; the pattern keeps its own, so a look recall brings the first page back |
+| `WEB OPEN <address> [ON <page>]` | The page's browser sent to another address; the pattern keeps its own, so a look recall brings the first page back. Round 89: an address that carries a pass (a Stagewatch window's `/w/<token>`, a `pin=`, `token=` or other pass word, a user) is kept on this machine first and the page is sent its kept address (`kept://host[:port]/<id>`), which the browser alone resolves — the reply names the host with "(private address, kept on this machine)" and, for a Stagewatch window, "black until Stagewatch says what the window shows"; one that cannot be kept, or does not open here, is refused with words that name the host only, and the page stays as it was |
 | `WEB ARM [<time>] [ON <page>]` | The armed web VT: the page's video (YouTube, Vimeo, any page with a video element) held at a point — `1:23`, `83`, `1m23s`; no time = the mark set, else where the player is now — and played from it the moment the page goes to air (a TAKE, a cue, the clicker's NEXT). With no page on air the page in the preview (or one opened early for a cue ahead) is the one armed; a page on air answers `ERR` — arm it from the preview, or give the look a start point (Media page → Play the video from) and it arms itself. `WEB ARM OFF` disarms |
 | `WEB MARK [<time>] [ON <page>]` | The start point set without arming: a time, or where the player is now |
 | `WEB DISARM [ON <page>]` | The arm cleared — the video plays as the page does |
@@ -214,7 +229,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
 | `PING <t1>` | Round 87 (Show Bus 1.1 §5): the clock exchange — `OK PONG <t1> <t2> <t3>`: the caller's stamp echoed, then the desk's Unix milliseconds when it read the line and when it answered (the show clock: never steps back). With t4 when the answer lands, offset = ((t2 − t1) + (t3 − t4)) / 2 |
-| `TWIN STATUS` | `OK <json>` — the twin link: `role` (off, main, standby), `phase` (listening, connecting, inStep, mainSilent, tookOver, refused), `words` (the Machine page's line), `main` (the main's name as a standby knows it), `standbys` (the names a main has in step), `holder` (the standby that has the show, or empty), `launcher` (what the standby process the main runs is doing, or empty), `takeOverCue` and `takeBackCue` (the wall switch cues, or empty), `clock` (the peer's clock against this desk's as the beats measured it — `offsetMs`, `roundTripMs`, `samples`, `apart` past two seconds, `followed` on a caller or a timer whose room clock reads the desk's frame, and its `roomOffsetMs` — or null before an exchange closed), `clocks` (on a main: each peer's `name`, `offsetMs` and `apart`), `handover` (the last handover run here — `id`, `kind` takeOver or takeBack, `shape` sameMachine or acrossMachines, `stage`, `complete`, `stopped` with the reason, `awaiting` — the standby's answer to the hand-back, overdue or not, or the operator's switch, or empty — and the `trail` of stages with its stops, resumptions and notes — or null). The hand-back is answered: HANDBACK carries the handover's id, the standby answers RELEASED by it after closing its outputs, and the main counts the standby released on that answer (or, on one machine, its marker gone or its process gone), never on the line having been written; a claim made under a takeover the main already took back is answered with the hand-back again, not a hold. A takeover by itself needs a fence that answers: the wall-switch cue must send to a box that confirms at Accepted or better; a take-back whose route nobody's box vouches for is two presses, the room switched by hand between them. A main needs a key: one with none is given one before its port opens, and a join that cannot prove it is refused whatever it claims. Every BEAT carries its sender's wall clock and the echo of the last beat heard — its stamp and the arrival — so each side measures the other's clock as NTP does, believes the exchange with the shortest round trip, and says on its line when the clocks are two seconds apart; a caller or a stage timer node reads the desk's absolute times on the desk's clock. The key is never on the wire (link version 2): a joiner's JOIN carries a nonce, the main answers CHALLENGE with a nonce of its own and its proof of the key over the joiner's, and the joiner answers PROOF over the main's — a main that cannot prove the key gets no proof and no standby. The SHOW and SECTION lines carry the mirrored sections only — the twin's key, the admin passcode, the management token, the remote's ports and the machine's other own sections never travel — and the show's credentials (a projector's password, the weather key) travel unless the main's TWIN block says not to send them, in which case the standby keeps the ones typed on it |
+| `TWIN STATUS` | `OK <json>` — the twin link: `role` (off, main, standby), `phase` (listening, connecting, inStep, mainSilent, tookOver, refused), `words` (the Machine page's line), `main` (the main's name as a standby knows it), `standbys` (the names a main has in step), `holder` (the standby that has the show, or empty), `launcher` (what the standby process the main runs is doing, or empty), `takeOverCue` and `takeBackCue` (the wall switch cues, or empty), `clock` (the peer's clock against this desk's as the beats measured it — `offsetMs`, `roundTripMs`, `samples`, `apart` past two seconds, `followed` on a caller or a timer whose room clock reads the desk's frame, and its `roomOffsetMs` — or null before an exchange closed), `clocks` (on a main: each peer's `name`, `offsetMs` and `apart`), `handover` (the last handover run here — `id`, `kind` takeOver or takeBack, `shape` sameMachine or acrossMachines, `stage`, `complete`, `stopped` with the reason, `awaiting` — the standby's answer to the hand-back, overdue or not, or the operator's switch, or empty — and the `trail` of stages with its stops, resumptions and notes — or null). The hand-back is answered: HANDBACK carries the handover's id, the standby answers RELEASED by it after closing its outputs, and the main counts the standby released on that answer (or, on one machine, its marker gone or its process gone), never on the line having been written; a claim made under a takeover the main already took back is answered with the hand-back again, not a hold. A takeover by itself needs a fence that answers: the wall-switch cue must send to a box that confirms at Accepted or better; a take-back whose route nobody's box vouches for is two presses, the room switched by hand between them. A main needs a key: one with none is given one before its port opens, and a join that cannot prove it is refused whatever it claims. Every BEAT carries its sender's wall clock and the echo of the last beat heard — its stamp and the arrival — so each side measures the other's clock as NTP does, believes the exchange with the shortest round trip, and says on its line when the clocks are two seconds apart; a caller or a stage timer node reads the desk's absolute times on the desk's clock. The key is never on the wire (link version 2): a joiner's JOIN carries a nonce, the main answers CHALLENGE with a nonce of its own and its proof of the key over the joiner's, and the joiner answers PROOF over the main's — a main that cannot prove the key gets no proof and no standby. The SHOW, SECTION and AIR lines carry the mirrored sections only — the twin's key, the admin passcode, the management token, the remote's ports and the machine's other own sections never travel (round 89: the AIR line too, which had carried a whole show while EDIT SAFE was open). The show's secrets — a box's password, the weather key and the kept page addresses (`KEPT`, only those the show and its air name) — ride a link only to a standby, only while the main's SEND SECRETS is on (off by default) and only when both ends of the link are this machine; to another machine they are refused whatever the setting, since the link is plain, and the standby keeps the ones typed on it. `secrets` (round 89, at the end) says what the link does with them — `ride`, `off` (the setting), `plain` (another machine) or empty with no standby — and `without` what a standby is without ("2 device passwords and 1 kept page"; on a main, each standby's). The twin listens on the Remote page's bind address (every interface when it is empty; a bind that is not an address opens nothing, and the twin's line says port closed) and, beside a bound address, on 127.0.0.1, which a standby on this machine always dials |
 | `TWIN TAKEOVER` | The standby twin runs the show from here: the takeover is marked on disk, a hung main on this machine is ended and confirmed gone, its hold on the outputs lifts, what the main had on air goes on with the caller's place, and the wall switch cue (Machine page, TWIN) fires — `ERR` on a desk that is not a standby, and `ERR` with the reason when the hung main cannot be ended or the takeover cannot be marked on disk (the outputs stay held). A cue that sends to a box that answers is confirmed by the box's receipt, not by having fired: the outputs open once it has said yes (the verb answers `OK` as requested and the words follow on the status line); by itself, a box that said no or nothing refuses the takeover and the hold stays, and a box that cannot answer at all (a UDP datagram) is not a fence for taking over by itself |
 | `TWIN TAKEOVER FORCE` | The same over a refusal: taken over anyway, the reason in the words — by hand only; nothing takes over by itself this way |
 | `TWIN STANDBY` | A twin that took over follows the main again: the link is dialled and the outputs are held closed |
@@ -235,7 +250,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `STAGE CLEAR` | Every pending message marked seen |
 | `STAGE ACK <id>` | A stage display's receipt of one message, by the id the payload carries — what the page's ACK sends; a timer node forwards it to the desk it follows |
 | `STAGE FLASH` | As `TIMER FLASH` |
-| `STAGE STATUS` | `OK <json>` — `rev`, `timer` (`phase` idle/running/paused/over, `remaining`, `text`, `colour`, `progress`, `label`, `paused`, `amber`, `red`, `flashUntilUtc`), `segment` (the running order's current cue and the next), `messages` (each `id`, `text`, `channel`, `sentUtc`, `ackUtc`, `flash`, `from`, `seen`) |
+| `STAGE STATUS` | `OK <json>` — `rev`, `timer` (`phase` idle/running/paused/over, `remaining`, `text`, `colour`, `progress`, `label`, `paused`, `amber`, `red`, `flashUntilUtc`), `segment` (the running order's current cue and the next), `follows` (the Stagewatch the stage follows, `null` when none: `name`, `state`, `words`, `title`, `next`, `message`, and round 89's `stuck` at its end — the Stagewatch says its show is stuck, and `timer` reads `idle`: no time from it), `messages` (each `id`, `text`, `channel`, `sentUtc`, `ackUtc`, `flash`, `from`, `seen`) |
 | `ARCADE START <game> [players]` | A match on the arcade — `pong`, `snake` or `breakout` (or its number), for that many people (P1 first; the rest is the house); `ARCADE pong 2` is the same. On a desk the verb goes to the arcade nodes the beacon hears, and with none heard runs the game on the desk's own Arcade page |
 | `ARCADE STOP` / `PAUSE` / `RESUME` | The title card; a match held; on again |
 | `ARCADE ATTRACT [game]` | The house plays itself — the attract screen with the board; START on a pad joins |
@@ -291,7 +306,7 @@ rather than stops; empty when none), `stingHold` (the name of a stinger holding 
 `people[{n,name,role}]` (the library, page order — `PERSON n`), `lowerThirdPerson` (the name the lower third on screen carries, or empty),
 `lowerThirdPreview` / `lowerThirdPreviewPerson` (the design and the name in the preview for a sign-off, or empty), `lowerThirdDefault` (the show's ★ design),
 `lowerThirdEdited` (true while the design on air differs from the edited one — `LOWERTHIRD UPDATE` pushes the edit),
-`web{page,url,title,service,fps,actions[{id,label}],player{pos,dur,text,paused,ad,muted}|null,arm{armed,at,atText,byLook,played,phase,words}|null,path{words,smoothing,depth,latencyMs,jitterMs,decodeMs,deliveredFps,presentedFps,underruns,dropped,duplicates,held,poolStarved,poolBytes,capture}|null,via,native{phase,words,stream,separateAudio}|null}` (the web page the program shows — its nickname or host, its address and title, its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web), the frames it delivered in the last second (a video's rate; 0 for a still page), the actions `WEB KEY <id>` takes on it, what its video player last said (its place and length in seconds and as `1:23 / 4:56`, paused, an advert showing over it) and the arm on it (armed, the mark in seconds and as text, whether the look put it there, whether it has played, `phase` — round 58: what the page itself reported, `Unprepared`, `PrepareRequested`, `PreparedObserved`, `FireRequested`, `PlayingObserved` or `Failed`, never what the desk sent — and the words, which end with the phase), and `path` — round 68: how its picture reaches the glass — the smoothing in words (`smooth 2 (67 ms)`, `low latency`, `auto → smooth 2 (67 ms)`, `auto · measuring`), the buffer's depth in frames (0 when the newest frame is shown at once), the delay it adds in ms, the measured jitter (the p95 lateness of a frame against the page's cadence) in ms, the decode into the pool in ms, the frames delivered and presented in the last second, the stalls (times the buffer ran dry while a video played), the frames dropped (a full ring, or due together with a newer one) and skipped as duplicates (the browser re-sent an unchanged picture), the frames waiting, the pool's starvations and bytes, and `capture` — what the browser is asked to hand over (`captured at 1280×720 · q60 · every 2nd frame`); `null` for a source with no pipeline; `via` — round 68.6: who plays the page's video, `browser` or `native player` (the page's stream, found by yt-dlp, playing through libVLC under the page's own key), and `native` — the native player's story for the page: `phase` (`resolving`, `ready`, `failed`, `notool`), its `words`, the stream's host and whether its sound comes apart; `null` for a page whose look never asked; `null` with no page on air),
+`web{page,url,title,service,fps,actions[{id,label}],player{pos,dur,text,paused,ad,muted}|null,arm{armed,at,atText,byLook,played,phase,words}|null,path{words,smoothing,depth,latencyMs,jitterMs,decodeMs,deliveredFps,presentedFps,underruns,dropped,duplicates,held,poolStarved,poolBytes,capture}|null,via,native{phase,words,stream,separateAudio}|null}` (the web page the program shows — its nickname or host, its address and title (round 89: a private address in its held form, `kept://host[:port]/<id>` or `unkept://host[:port]`, or in public as `scheme://host[:port]`, never with its pass; `page` names a held page by its host and what this machine can do with it — "10.0.0.5 (private address, kept)", "… kept on another machine"; the title in public too), its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web), the frames it delivered in the last second (a video's rate; 0 for a still page), the actions `WEB KEY <id>` takes on it, what its video player last said (its place and length in seconds and as `1:23 / 4:56`, paused, an advert showing over it) and the arm on it (armed, the mark in seconds and as text, whether the look put it there, whether it has played, `phase` — round 58: what the page itself reported, `Unprepared`, `PrepareRequested`, `PreparedObserved`, `FireRequested`, `PlayingObserved` or `Failed`, never what the desk sent — and the words, which end with the phase), and `path` — round 68: how its picture reaches the glass — the smoothing in words (`smooth 2 (67 ms)`, `low latency`, `auto → smooth 2 (67 ms)`, `auto · measuring`), the buffer's depth in frames (0 when the newest frame is shown at once), the delay it adds in ms, the measured jitter (the p95 lateness of a frame against the page's cadence) in ms, the decode into the pool in ms, the frames delivered and presented in the last second, the stalls (times the buffer ran dry while a video played), the frames dropped (a full ring, or due together with a newer one) and skipped as duplicates (the browser re-sent an unchanged picture), the frames waiting, the pool's starvations and bytes, and `capture` — what the browser is asked to hand over (`captured at 1280×720 · q60 · every 2nd frame`); `null` for a source with no pipeline; `via` — round 68.6: who plays the page's video, `browser` or `native player` (the page's stream, found by yt-dlp, playing through libVLC under the page's own key), and `native` — the native player's story for the page: `phase` (`resolving`, `ready`, `failed`, `notool`), its `words`, the stream's host and whether its sound comes apart; `null` for a page whose look never asked; `null` with no page on air),
 `webArmed{page,key,at,atText,byLook,preRolled,phase,words,short}|null` (the armed web VT anywhere on the desk — a page in the preview, one opened early for a cue ahead (`preRolled`), the page on air — its name, its mark, its observed `phase` and its words, `short` being `VT armed at 1:23`; `null` with nothing armed),
 `video{file,role,tag,position,length,remaining,positionText,lengthText,remainingText,text,chip,playing,ended,loops,out,call,key,positionMs,lengthMs,remainingMs,paused,rate,seekable,seq}` (the caller's VT clock — the clip on air: its file, its `role` (`program`, `playlist`, `stinger`, `layer`) and `tag` (`VT`, `AUDIO`, `STINGER CLIP`, `PLAYLIST`), where it is, how long it is and what is left in whole seconds and as `m:ss`, `text` as the desk reads it (*VT sponsor.mp4 · 1:02 / 3:30 · 2:28 left*), `chip` (*VT 2:28*), `loops` when it never comes out, `out` for its last ten seconds with `call` the caller's word (*OUT IN 7*); `null` with no clip on air. Pushed every second while a clip runs — only then, and only while a controller listens. Round 86 ends the row with the clock another app counts down by itself (Stagewatch's VT countdown): the input `key`, `positionMs`, `lengthMs` (`null` until the decoder says), `remainingMs` (`null` for a loop or an unknown length — no honest number), `paused` (an operator's `VIDEO PAUSE` / `STOP`; the chip reads *VT PAUSED 2:28* and the ten-second call stays silent), `rate` (what is left in wall time is `remainingMs / rate`), `seekable`, and `seq` — the clip's count of discontinuities: it moves when the clip changes, starts, pauses, plays on, ends, learns its length, changes speed or its place jumps (a seek, a restart, a loop coming round), never for the playhead running on. Count down from the push you hold; resync when `seq` moves. Durations, never wall clocks),
 `videos[{key,onAir,preRoll,positionMs,lengthMs,remainingMs,playing,paused,ended,loops,rate}]` (round 86, at the end of STATE: every mounted clip with a timeline — the one on air marked `onAir`, the standby's pre-roll `preRoll` — the same nulls as `video`),
@@ -310,7 +325,9 @@ sandboxed preview.
 State JSON also carries `version` (this build), `decks[{name,module,address,where,recording}]` (every deck that said
 HELLO on the wire, what module it runs, where its navigator is — `NAV DECK` — and whether it records the desk's actions), `nav{page,rail,hue,run,settings{open,key,title,identity},back,selection,words,decks[{name,where,recording}]}` (round 74: where the desk is — its page and rail, the rail's hue, whether the RUN surface is up, the settings column beside the page and what it shows, the page BACK would go to, the selection on the page, the Eye's line, and each deck's whereabouts), `linked` (the caller nodes linked to this desk), `nodes[{n,instance,kind,name,show,live,fresh,words,address,http,link,heardSecondsAgo}]`
 (every other Patterns heard on the beacon, in the Nodes page's order — `fresh` false once one stops being heard),
-`twin{role,phase,words,main,standbys,holder,clocks,apart}` (the twin as the Machine page reads it) and
+`twin{role,phase,words,main,standbys,holder,clocks,apart,secrets,without}` (the twin as the Machine page reads it;
+round 89 ends it with `secrets` — `ride`, `off`, `plain` or empty — and `without`, what a standby is without of the
+show's secrets, as TWIN STATUS says them) and
 `stage{timer{phase,remaining,text,colour,progress,label,paused},segment,next,pendingSpeaker,pendingCrew,flash}`
 (the speaker's timer in its own colour word — green, amber, red — the running order's cue and the next, the
 messages waiting for their ACK, the flash); a node appearing, the twin's phase moving or a message to the stage
@@ -597,6 +614,32 @@ listen on (Stagewatch, its presenter PCs, a messenger such as AGMessage):
   install's, kept beside the settings (`patterns.node-id`), so a renamed desk is still the same node. The old
   top-level `web`, `wire` and `machine` stay for a reader from round 86. It goes to this machine's loopback too.
 
+## Round 89: no pass, key or token in clear
+
+What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in one place:
+
+- **A page's pass stays on this machine.** An address that carries a pass is held as `kept://host[:port]/<id>` (12
+  base32 characters, 60 random bits) by every verb that takes an address (`WEB OPEN`, `PRESET`, the cue steps, OSC, a
+  device's line, MIDI learn) and by every reader (STATE `web.url` and `web.page`, CONTEXT, `EYE`, the journal, the log,
+  the support bundle). The book that opens it, `patterns.webpasses.json`, lives beside the settings and is never
+  bundled; a show file that held a pass is scrubbed on load with one journal row (`WebPassesKept`). An address held
+  `unkept://host[:port]` opens nothing and draws black.
+- **The wire's port is not a web server.** A line shaped like an HTTP request line (a capital-letter method, a target,
+  `HTTP/<version>`) — what a browser's page sends when it POSTs to 9697 — is answered with one `ERR`, logged once a
+  minute per address, and the connection is closed before anything after it is read.
+- **The web remote checks `Host`** before it trusts this machine (the Trust paragraph above): `not paired — …` for a
+  foreign Host on a paired desk, the same for a page of another origin, and the open desk's own words for a browser
+  under a foreign Host; one log line per address and kind.
+- **OSC on a paired desk** is this machine and OSC ALLOW (the Trust paragraph; ADR-017).
+- **The twin** carries three more words: `KEPT` (main → standby, the kept addresses the show and its air name, on one
+  line, only while the secrets ride), `SECRETS` (main → standby: `ride`, `off` or `plain`, the ids of the boxes that
+  have a password and whether there is a weather key — never a secret) and `LACKS` (standby → main, counts only). A
+  standby takes no word but `CHALLENGE` and `REFUSED` before the main has proved the key over the dial's nonce. The
+  twin stays a named exemption from Show Bus's link rules (its own proof, beat and carrier) until it has TLS of its own;
+  it honours the bind address.
+- **Readers.** STATE `bus.stagewatch.stuck` and `.carrier`, `twin.secrets` and `.without`, and the `control` row; the
+  module reads `stagewatch_stuck` (3.18.1).
+
 ## Show Bus 1.2 (round 88): nodes, TLS, the approval queue
 
 - **HTTPS on the control HTTP port.** The port reads the connection's first byte: a TLS handshake (`0x16`) gets TLS
@@ -633,8 +676,13 @@ is Stagewatch's). What Patterns does with it:
   amber, gone red, linked with the app's own light), the context's `peers` and the assistant's brief read them.
   Another Patterns is left to the beacon's node cards.
 - **Links to a Stagewatch** (Nodes page; off by default; with no address it follows the first Stagewatch it
-  hears). The desk opens Stagewatch's WebSocket (`ws://host:port/ws?cid=patterns&page=/patterns`) with the key
-  (a Stagewatch API key, `swk_…`) in an `Authorization: Bearer` header — never in the URL — and reads its state
+  hears). The desk opens Stagewatch's WebSocket (`ws://host:port/ws?cid=patterns&page=/patterns`, `wss://` over TLS)
+  with the key (a Stagewatch API key, `swk_…`) in an `Authorization: Bearer` header — never in the URL. Round 89: the
+  pin and a probe choose the carrier, never a hello. A pinned Stagewatch is dialled over TLS whatever its hello says
+  (a contradicting hello is a note) and gets nothing if it answers without TLS; any other Stagewatch off loopback is
+  tried over TLS first, and one that shows no certificate within 2 s is followed in its public view without the key
+  ("Hall A offers no TLS — the key stays on this desk"), asked again every 30 s. The key goes plain only to a loopback
+  address; a Stagewatch on this machine heard at a network address is another machine's here. The desk reads its state
   frames; every two seconds it sends `{"cmd":"ping","t":…}` (the beat and the clock exchange) and every five it
   reads `GET /api/context` with the same header. Stale after 6 s of silence (the stage holds its time back), dropped
   and redialled after 12 s, the redial from half a second to five with jitter. The key is a secret by its name
@@ -642,9 +690,18 @@ is Stagewatch's). What Patterns does with it:
 - **One room, one timer.** While a linked Stagewatch answers, `/stage`, `/timer`, STAGE STATUS, STATE's `stage`
   block and the stage timer node show its time, its colours and its title; the pages say "following Stagewatch
   Hall A". `TIMER PAUSE`, `RESUME` and `ADD` are refused then ("run it there"); STAGE messages stay this desk's.
-  A Stagewatch whose frame says its show is stuck (`live:false`) shows no time rather than a frozen one.
+  A Stagewatch that says its show is stuck — a frame with `live:false`, or (round 89) its stuck beat
+  `{"type":"beat","live":false}` — shows no time rather than a frozen one: the link stays live and amber, every
+  counting value is red with "no time shown — its show is stuck", and only its next state frame clears the stall; one
+  log line says each change.
 - **STATE's `bus` row** (at the end): `heard`, `apps[]` (`kind`, `id`, `name`, `light`, `headline`) and
   `stagewatch` (`on`, `state` off / live / stale / gone, `name`, `following`, `title`, `text`, `light`,
-  `headline`, `clock`, `words`). The module reads `showbus_heard`, `stagewatch_state`, `stagewatch_name`,
-  `stagewatch_headline`, `stagewatch_light` and `stage_follows`.
+  `headline`, `clock`, `words`, and round 89's `stuck` — `text` empty, the light no better than amber and the stuck
+  headline while it is true — and `carrier`: `tls`, `plain` (loopback only), `keyless` (another machine offering no
+  TLS, read without the key) or empty). The module reads `showbus_heard`, `stagewatch_state`, `stagewatch_name`,
+  `stagewatch_headline`, `stagewatch_light`, `stage_follows` and (3.18.1) `stagewatch_stuck`.
+- **STATE's `control` row** (round 89, at the very end): `clearSeen[{address, via, first, last, count}]` — each
+  machine the pairing token arrived from in clear, `via` `web`, `wire` or `web,wire`, the first and last time in
+  ISO 8601 UTC — and `words` ("seen in clear from 10.0.0.7 — rotate it: NEW TOKEN"; empty when none). The marks are
+  for the token set now; NEW TOKEN leaves none.
 

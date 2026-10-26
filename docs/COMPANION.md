@@ -209,13 +209,15 @@ working and lacks the one action.
 verb only from a connection that presented it. The connection's config gains a **Pairing token**
 field; when it is filled the module sends `AUTH <token>` straight after `HELLO`, and the desk
 answers `OK paired` (round 87, module 3.18.0: the module answers the desk's `NONCE` with `AUTH-PROOF`
-instead, and the token stays off the network — see the round 87 section). Without one nothing more is said, and an open desk needs nothing. A refusal
-over trust — `ERR not paired` when the desk asks for a token the config lacks, `ERR wrong token`
-when it is not this desk's — sets the connection's status to bad config with the words, so the
-Companion UI says what to type rather than a key going quietly dead; `$(patterns:last_error)`
-carries the line as it does for every ERR. Dashes, spaces and case in the token do not matter:
-the desk normalises before a constant-time compare. NEW TOKEN on the desk cuts every paired deck
-off until the new token is typed into its connection.
+instead, and the token stays off the network — see the round 87 section; from 3.18.1, round 89,
+plain `AUTH` goes only to a desk on the module's own machine — see the round 89 section). Without
+one nothing more is said, and an open desk needs nothing. A refusal over trust — `ERR not paired`
+when the desk asks for a token the config lacks, `ERR wrong token` when it is not this desk's — sets
+the connection's status to bad config with the words, so the Companion UI says what to type rather
+than a key going quietly dead; `$(patterns:last_error)` carries the line as it does for every ERR.
+Dashes, spaces and case in the token do not matter: the desk normalises before a constant-time
+compare. NEW TOKEN on the desk cuts every paired deck off until the new token is typed into its
+connection.
 
 **One writer per connection on the desk.** The desk's replies come back in the order the lines
 were sent, and `STATE` pushes are latest-wins behind them — a deck that reads slowly gets the
@@ -467,6 +469,27 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `rotate_left` / `rotate_right` step the level the desk reported (`audio_level_step`,
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
+
+## Round 89 — the token never in clear, and a stuck Stagewatch (module 3.18.1)
+
+- **Plain `AUTH` only to this machine.** The module sends `AUTH <token>` only to a desk on its own machine, judged by
+  the address the socket reached (127.0.0.0/8, `::1`, `::ffff:127.x`; the configured host only when it is an IP
+  literal). With no `NONCE` by the wait's end it asks the desk for one (`NONCE`): any `OK` means the desk speaks NONCE —
+  a nonce of 32 lowercase hex in it is proved with `AUTH-PROOF`, anything else is not, and plain `AUTH` never follows.
+  Only an `ERR` (a desk before round 87) leaves plain `AUTH`, and only to loopback; a desk on another machine keeps the
+  token from the module, and the connection says *The desk asks for no proof — update Patterns; the token stays here*.
+  That `ERR` is the ask's answer, not a fault: it sets no `last_error`. `AUTH-PROOF` answers only a nonce of 32
+  lowercase hex, and a connection that heard a `NONCE` never sends plain `AUTH`.
+- **A stuck Stagewatch**: `$(patterns:stagewatch_stuck)` (yes / no) and a boolean feedback, read from STATE's
+  `bus.stagewatch.stuck` — the linked Stagewatch says its show is stuck, and the desk shows no time from it. The other
+  Stagewatch variables read as before; `stagewatch_light` is no better than amber and `stagewatch_headline` says the
+  stall while it lasts.
+- **A private page on the deck**: `$(patterns:web_page)` names a held page by its host and what the desk can do with it
+  ("10.0.0.5 (private address, kept)"), never its pass.
+- **What the module does not read**: the Stagewatch link's `carrier` and STATE's `control` row (a token seen in clear)
+  are the desk's; 3.18.1 adds no variable for them, and the desk's Super Check and Nodes page say them.
+- The version moves to 3.18.1 in every file that carries it. A 3.18.0 deck keeps working on a desk that says `NONCE`;
+  it lacks `stagewatch_stuck`, and to a desk on another machine that gives no nonce it still sends plain `AUTH`.
 
 ## Round 87 — pairing by proof, and the show network (module 3.18.0)
 

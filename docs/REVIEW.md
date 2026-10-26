@@ -3611,3 +3611,154 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   step, so `/api/arcade` may answer "playing" for one step after START. The test now waits (bounded, 15 s, with the last
   status as its failure words) for "paused". The product is unchanged; the same test failed on round 86's build machine
   for the same reason.
+
+## Round 89 review — the harms stopped: a stuck Stagewatch, a page's pass, keys and tokens in clear, the twin's secrets, loopback trust, an address trusted for a proof
+
+### 89.0 — the round opened
+
+- The maintainer's ask, from Stagewatch's side for the whole show network, answered first in writing: a gap analysis
+  across Stagewatch, Patterns, PlayMap and AGMessage, its designs, a critique of the plan and the plan revised against
+  it (§107.1). Evidence class: a handed-in critique. `docs/field/` holds only its README.
+- The round opened before the maintainer had answered the plan's four questions for it, so it took the recommended
+  answer for each and said so. The answers have since been given, each the recommended one; 89.6 and 89.8 landed here.
+
+### 89.1 — a stuck Stagewatch shows no time
+
+- **Done.** §107.2. `StagewatchFrame.IsStuckBeat`, the show holder per key, the stuck mark written by the receive loop
+  alone, `ShowBusView.NoTime` and its readers, the relay's `stuck`, STATE `bus.stagewatch.stuck`, `follows.stuck`, the
+  module's `stagewatch_stuck`; `ShowBusTests`, `ShowBus12Tests`, `ShowBusAppTests`, `ShowBus12AppTests`.
+- **Found and fixed on the way:** a hello's name reaches `patterns.log` with each stall, so a hello's name and host are
+  made one line — no hello writes a log line of its own.
+- **Found and fixed on the way:** STATE's bus row could read a node's card for the Stagewatch; it reads only the linked
+  Stagewatch's own.
+- **Decided:** a stall is never claimed of the next Stagewatch the show network offers — a connect to another swaps in a
+  fresh holder, and a test fails if the holder is reused across targets.
+
+### 89.2 — held addresses, Core
+
+- **Done.** §107.3. `WindowAddresses`, `WebPassBook`, `WebPassMigration`, `TwinWord.Kept`, the bundle's redaction and
+  never-bundled book, `InputKeys.Web`'s held form, black for a held page and layer (`IWebSource.Withheld`);
+  `WindowAddressesTests`, `WebPassBookTests`, `WebPassMigrationTests`, `PrivateAddressFenceTests`, `WebSourceTests`.
+- **Found and fixed on the way:** `RewriteText` no longer reads a token for a `://` with no scheme before it, so it
+  stays linear; and a log left running for days (it rolls only at a start) is redacted a line at a time, so no scan
+  meets the 250 ms regex timeout and the bundle carries the file whole.
+- **Measured:** the fence allocates nothing for a plain, a YouTube or a held address (a test holds it at zero bytes).
+
+### 89.3 — held addresses, App (1 of 2)
+
+- **Done.** §107.3. `WebPasses` (the one writer), every entry through `Secure`, the load's scrub and its journal row,
+  `WebEngine`'s Resolve seam, `HeldPage`, the shell observer (black unless assigned), the native player's resolution,
+  the cue validator's soft warning; `HeldPageTests`, `WebPassesAppTests`.
+- **The review's items, fixed:** presets secured before they land (a preset is a file beside the show and may predate
+  the round); the recovery record's air scrubbed after its migration in the one `RestoreRecord`; MIDI LEARN keeps a
+  private address in the line it binds and FORGET reads a typed line in its held form; the Library's kept tile named by
+  host and id; a node writes its scrubbed show back; a book unread at boot is read again; `WEB OPEN`'s words name the
+  host only.
+- **Deviation, named:** a page shown before a held page replaced it is emptied to `about:blank` behind the black —
+  the windows-for-peers design's D8 says "there is no `about:blank`" (§107.10).
+- **Moved:** the twin's `KEPT` carry went to 89.4, the plan's order, though 89.2's message had named 89.3.
+
+### 89.4 — held addresses, App (2 of 2)
+
+- **Done.** §107.3. The log and the journal in public, the browser's address and title in public, STATE `web.url` and
+  `web.page`, the twin's `KEPT`, `WebView2Probe` and `--require-webview2`, the Super Check's Private pages row, the
+  App's `PrivateAddressFenceTests`.
+- **The review's items, fixed:** the page title carried the pass to STATE, `web_title` and the status line; a standby
+  took `KEPT` (and SHOW, SECTION, WELCOME) before the main proved the key — a stranger answering the dial could land a
+  show or a book that repointed a kept id; a merge could evict passes a show names; a holding standby was sent the
+  main's book; the PIN canary was a bare `4321` over whole files (now `pz4321qk`); CI did not require the runtime.
+- **Not reached here, written in these papers:** `docs/ANALYSIS.md`'s count of deliberate blocking waits (the probe's
+  read of a completed task joins them; counted at the papers, the sites are eight — the row had said eight over seven,
+  so it stays eight with the fourth completed task named), and the amendments to L36 and L40.
+
+### 89.5 — no key or token in clear
+
+- **Done.** §107.4. `StagewatchLinkService` (the carrier by the pin and the probe, keyless reading, the re-probe,
+  plain only to loopback), `bus.stagewatch.carrier`, the module 3.18.1, `TokenClearSightings`, `ControlService.Clear`,
+  STATE `control`; `TokenClearSightingsTests`, `ShowBus12AppTests`, `ShowBusAppTests`, `DeckStateAppTests`, the
+  module's tests.
+- **The review's items, fixed:** Require HTTPS skipped the mark (the check now runs once the head parses, before the
+  403); a slow TLS answer stuck the link at keyless (it re-probes and redials); the marks lived in memory only (kept
+  beside the settings); the module's NONCE ask (any `OK` means NONCE; the ask's `ERR` writes no `last_error`); the Nodes
+  tooltip named the wrong module version.
+- **Not reached, said in these papers:** the Eye's Stagewatch card and the module carry neither the carrier nor the
+  mark; a Stagewatch on this machine heard at its network address is dialled as another machine's (§107.10).
+
+### 89.6 — the twin keeps the show's secrets home
+
+- **Done.** §107.5. `TwinSecrets`, `SECRETS` and `LACKS`, SendSecrets off by default, the AIR line by the SHOW line's
+  rule and its landing, the listeners on the bind address with 127.0.0.1 beside it, `PortClosed`; `TwinSecretsTests`,
+  `TwinSecretsAppTests`, `PrivateAddressFenceTests`' twin leg.
+- **Found and fixed on the way (critical):** the AIR line carried every secret of a whole show to every standby on any
+  machine while EDIT SAFE was open or a look pinned (§107.5). The canary and way-back legs fail against the old line.
+- **The review's items, fixed:** a standby on this machine tied to the control network's cable (it dials 127.0.0.1
+  whatever the bind); Bind to greyed with remote control; the Eye and the glance silent on a closed port; a red flash
+  for a main being keyed; "at 0.0.0.0 only". An adopted standby dialling an old address is moot — the dial address no
+  longer changes.
+- **Said here, as the unit asked:** the default reaches fresh settings only (§107.10); the beacon's UDP listeners are
+  named as L36's exemption.
+
+### 89.7 — loopback trust wants this desk's name
+
+- **Done.** §107.6. `DeskNames`, the Host rule on trust, the cookie, the Require HTTPS allowance and the seen-in-clear
+  exemption, the open desk's browser rule, the three refusal words and their log, the pages' 403 words;
+  `HttpHeadTests`, `RemoteTrustTests`.
+- **Found and fixed on the way:** a browser page's simple POST to the wire's port ran its body as this machine's line;
+  an HTTP request line now closes the connection with one `ERR`.
+- **Answered:** the review's premise that the token is empty by default is not right — a desk's first run mints one
+  (round 87) — but an open desk is an operator's choice or an old settings file, and the harm was real there.
+
+### 89.8 — a proof grants nothing to an address
+
+- **Done.** §107.7. `OscGate.Allows` without the proof's record, `BindAddress.TryAddress` for the list and the bind,
+  `OscGate.PairedWords` and `NotListed`, `SaidOnce`, ADR-017; `OscAppTests`, `ShowBusTests`, `FaultsTests`,
+  `PairingTokenTests`, `BindAddressTests`.
+- **Found and fixed on the way:** the bind read `010.0.0.5` as octal; it is 10.0.0.5, and a hex part is refused with the
+  bind's words.
+- **Numbered:** ADR-016 is held for round 91's decision on what the wire shows before a connection pairs; this record is
+  ADR-017, and the ADR page says a number a plan names before its record is held for it.
+
+### The review's items, answered
+
+- **G04 — a stuck Stagewatch goes unseen:** 89.1.
+- **G09 — a window's pass is published:** 89.2–89.4, and the twin's part in 89.6.
+- **G08 — keys and tokens in clear, an address trusted:** 89.5 (out by the pin and the probe, the module by proof, what
+  arrives in clear marked), 89.7 (the Host rule) and 89.8 (OSC by the list alone).
+- **The critique's 2 (AGMessage's plain token):** the receiver's backstop is 89.5's mark; the sender's fix is
+  AGMessage's own unit.
+- **The critique's 3 (the twin's secrets after round 89):** 89.6, in this round, with the maintainer's yes.
+- **The critique's 6 (the module's validate incomplete):** every unit that touched the module ran `npm ci`, `npm test`,
+  the `lines.txt` diff and `npm run check`.
+- **The critique's 14 (9696 trusts loopback as paired), narrowed:** read at the head, a cross-site POST without
+  `X-Patterns-Client` has been refused since round 83 whatever the pairing; what remained was a rebound name (89.7) and,
+  found on the way, the wire's port (89.7).
+- **The critique's 19 (the opening; legacy paths):** 89.0 opened from `docs/field` and OPEN; §107.1's *No legacy* line
+  names what an older desk, Stagewatch or deck loses.
+
+### The ledger's rows, answered
+
+- **Closed:** L26 (89.4 — on the probe's code, with its rule's reading: 89.0–89.5 and 89.7 went out in one push and
+  89.6 and 89.8 were committed after it, so no build ran 89.3 without the probe; the probe itself has not run yet —
+  L62); L57 (89.1); L58 (89.2–89.4).
+- **Added:** L57 and L58, each closed by its unit; L59 — STATE greeted and pushed to an unpaired wire peer (round 91);
+  L60 — a standby on another machine takes the show without device passwords and with kept pages black (said on both
+  desks; closes with a sealed twin link); L61 — a takeover leaves what other apps bound to the main's Show Bus id (round
+  98); L62 — no CI run has built the round's code, so the WebView2 probe has run nowhere (the next push's windows-smoke
+  run closes it).
+- **Amended:** L36 (the twin's half done: SendSecrets off and refused to another machine, the listeners on the bind;
+  the beacon's listeners named as the exemption), L40 (the book, older journal rows, the log, the `.bak` and
+  `backups/`), L42 (loopback trust wants the desk's name; a token since round 87's first run).
+- Closed rows: thirty-three; open: twenty-nine.
+
+### The suites
+
+- Core 1,281, Rendering 672, Devices 8, Audio 13, Assistant 37, Audience 2, App 871 — 2,884; the module's 39
+  node tests, `lines.txt` current, `npm run check` clean. These ran on Linux at the close.
+- CI: the only run on the round's pushed commits (run 277, on `59a99e1`) stopped at `actions/setup-dotnet` — HTTP 409
+  on the .NET download — in test, lifecycle and windows-smoke before any build (companion-module and rollback-script
+  passed). No CI run has built or tested round 89's code, and `WebView2Probe` has run nowhere: the next push's
+  windows-smoke run is its first (L62).
+- Walk: unwalked — WebView2 resolution (a pasted window drawn through the resolver, `kept://` in STATE and the Eye, a
+  restart, a second machine black, the probe's `WebView2:` line) and the twin's bind address and takeover (the port on
+  the bind, a standby on this machine through a cable pull, a takeover with SEND SECRETS off): `docs/QUALIFICATION.md`
+  §22 steps 12 to 14 and §28.
