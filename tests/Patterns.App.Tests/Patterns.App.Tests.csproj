@@ -24,4 +24,14 @@
     <Compile Include="..\Patterns.Core.Tests\EdidSamples.cs" Link="EdidSamples.cs" />
   </ItemGroup>
 
+  <!-- The bench host (tools/Patterns.Bench): built before these tests, never linked into them. BenchHostTests start it
+       as its own process from the build's output, whose path this build names in the assembly. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\Patterns.Bench\Patterns.Bench.csproj" ReferenceOutputAssembly="false" />
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>PatternsBench</_Parameter1>
+      <_Parameter2>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\..\tools\Patterns.Bench\bin\$(Configuration)\$(TargetFramework)\Patterns.Bench.dll'))</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

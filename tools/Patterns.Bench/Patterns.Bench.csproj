@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The bench host: the real desk (Patterns.App's services, view model and main window) booted headless off Windows,
+       for Stagewatch's interop lane. Its name does not end in .Tests, so the banned-API list and every analyzer the
+       desk builds under fence it as they fence src/ (Directory.Build.props). It ships in no publish. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(PatternsTfm)</TargetFramework>
+    <RootNamespace>Patterns.Bench</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The headless platform the App tests boot the desk on, with real Skia drawing. -->
+    <PackageReference Include="Avalonia.Headless" Version="11.3.20" />
+    <!-- Avalonia's Linux dependency group pins the 2.88 native; force it to match SkiaSharp 3.116, as the App tests do. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.116.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Patterns.App\Patterns.App.csproj" />
+  </ItemGroup>
+
+</Project>

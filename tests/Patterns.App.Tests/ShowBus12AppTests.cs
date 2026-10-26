@@ -637,6 +637,60 @@ public class ShowBus12AppTests
         }
     }
 
+    [AvaloniaFact]
+    public void TheBenchsRoadQueuesALookAtTheApprovalDeskAndItLandsInThePreviewOnlyOnceApproved()
+    {
+        // Round 90: the road the bench host's `propose look` takes (AssistantPage.ProposeToApprovalDesk) — queued there, nothing
+        // here until the desk approves it, and then the look in the preview with EDIT SAFE open and the air as it was.
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null);
+        try
+        {
+            vm.IsSandboxActive = false;
+            var link = vm.State.Control.Stagewatch;
+            link.Host = "127.0.0.1:" + sw.Port;
+            link.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            link.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            services.Kernel.Stagewatch.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return services.Kernel.Stagewatch.ApprovalsLive; }, 60000);
+            var air = JsonUtil.Serialize(services.AirState.Pattern);
+            var airLook = services.AirLookId;
+
+            var chip = new ViewModels.AssistantChip(vm.Assistant, new Patterns.Assistant.AssistantProposal
+            {
+                Kind = "look", Title = "Keynote blue", Looks = new[] { new Patterns.Assistant.LookPart("Keynote blue", 0, null, null) },
+            });
+            var (localId, _) = vm.Assistant.ProposeToApprovalDesk(chip);
+            Assert.NotNull(localId);
+            Assert.True(chip.IsApplied);                                                              // spent: it waits at the desk, APPLY is gone
+            Assert.DoesNotContain("Keynote blue", services.State.LooksAndCues.Looks.Select(l => l.Name));
+            Assert.False(vm.IsSandboxActive);
+
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Proposals.Any(p => p.Value.Line.Contains(localId!, StringComparison.Ordinal)); }, 60000);
+            var deskId = sw.Proposals.First(p => p.Value.Line.Contains(localId!, StringComparison.Ordinal)).Key;
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return chip.AppliedText.StartsWith("waiting for approval", StringComparison.Ordinal); }, 60000);
+            Assert.DoesNotContain("Keynote blue", services.State.LooksAndCues.Looks.Select(l => l.Name));   // nothing lands before the desk says so
+
+            sw.Approve(deskId);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(deskId); }, 60000);
+            Assert.Contains("\"ok\":true", sw.Results[deskId], StringComparison.Ordinal);
+            Assert.Contains("Keynote blue", services.State.LooksAndCues.Looks.Select(l => l.Name));
+            Assert.True(vm.IsSandboxActive);                                                         // in the preview
+            Assert.Equal(air, JsonUtil.Serialize(services.AirState.Pattern));                        // one air: the programme as it was
+            Assert.Equal(airLook, services.AirLookId);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
     private static void Settings(string dir, Action<ShowState> edit)
     {
         var state = SettingsStore.Fresh();

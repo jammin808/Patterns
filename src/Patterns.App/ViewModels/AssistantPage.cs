@@ -379,20 +379,40 @@ public sealed class AssistantPage : Observable
     public void ApplyProposal(AssistantChip chip)
     {
         if (chip.IsApplied || !chip.Proposal.CanApply) return;
-        var p = chip.Proposal;
         // Round 88 (Show Bus 1.2 §11): with an approval desk linked (a Stagewatch with the queue), the proposal goes there
         // and the operator approves it in one place for every app; it comes back approved and lands here as APPLY would.
+        if (QueueAtApprovalDesk(chip) is not null) return;
+        ApplyHere(chip, chip.Proposal);
+    }
+
+    /// <summary>
+    /// The approval desk's road and no other — the bench host's <c>propose look</c>, which proposes as the assistant does:
+    /// the proposal is queued at the linked approval desk, where an approval lands it here as APPLY would (in the preview,
+    /// EDIT SAFE opened for anything that draws), or it is refused with the reason and nothing changes. It is never applied
+    /// here in the approval desk's place: the link is read once, inside this call, so a link that drops between a caller's
+    /// check and the call cannot turn a proposal meant for the desk into a look on this one. APPLY keeps its fallback.
+    /// </summary>
+    /// <returns>The local id the proposal waits under at the approval desk, or null and the reason it was refused.</returns>
+    public (string? LocalId, string Words) ProposeToApprovalDesk(AssistantChip chip)
+    {
+        ArgumentNullException.ThrowIfNull(chip);
+        if (chip.IsApplied) return (null, "this proposal was already applied or sent");
+        if (!chip.Proposal.CanApply) return (null, "this proposal has nothing to apply");
+        return QueueAtApprovalDesk(chip) is { } localId ? (localId, Status) : (null, "no Stagewatch approval desk linked");
+    }
+
+    /// <summary>The proposal queued at the approval desk when one is live, from one read of the link: its local id, or null when none is live (nothing changed).</summary>
+    private string? QueueAtApprovalDesk(AssistantChip chip)
+    {
         var link = _services.Kernel.Stagewatch;
-        if (link.ApprovalsLive)
-        {
-            link.Approvals.Add(p.KindLabel, p.Title, p.Summary.Length > 0 ? p.Summary : p.Title, "review",
-                () => (true, ApplyHere(chip, p)), chip.Said);
-            chip.MarkSent("sending to the approval desk…");
-            Status = $"Sent to the approval desk: {p.KindLabel} \"{p.Title}\" — it lands here once approved there.";
-            _desk.StatusMessage = Status;
-            return;
-        }
-        ApplyHere(chip, p);
+        if (!link.ApprovalsLive) return null;
+        var p = chip.Proposal;
+        var localId = link.Approvals.Add(p.KindLabel, p.Title, p.Summary.Length > 0 ? p.Summary : p.Title, "review",
+            () => (true, ApplyHere(chip, p)), chip.Said);
+        chip.MarkSent("sending to the approval desk…");
+        Status = $"Sent to the approval desk: {p.KindLabel} \"{p.Title}\" — it lands here once approved there.";
+        _desk.StatusMessage = Status;
+        return localId;
     }
 
     /// <summary>APPLY itself (UI thread): the proposal into the show; the words it lands with.</summary>

@@ -79,6 +79,20 @@ public sealed class VideoEngine : IDisposable
     /// </summary>
     public Func<MediaLocator.WantedInput, IMountedSource?>? SourceFactory { get; set; }
 
+    /// <summary>
+    /// Whether this process may load libVLC at all — a process's fact, as the library is. Off in the bench host
+    /// (<c>tools/Patterns.Bench</c>) before its desk is built, whose clips come from <see cref="SourceFactory"/> alone: no
+    /// folder is tried, so what the bench decodes never depends on what the machine has installed. A reader that asks for
+    /// libVLC hears that it is not here, and why (<see cref="LibVlcOffNote"/> as the availability note: the media
+    /// pattern's card, the Super Check's video row); a playlist leaves its clips out of the running order, as with no
+    /// libVLC. The cue validator hears the bench's own answer instead (<c>AppServices.ValidationVideoOverride</c>: a video
+    /// stinger can play exactly when the bench's clips are on). The desk and its nodes leave it on; nothing else clears it.
+    /// </summary>
+    public static bool LibVlcAllowed { get; set; } = true;
+
+    /// <summary>The availability note while <see cref="LibVlcAllowed"/> is off: this process's reason, not an install hint.</summary>
+    public const string LibVlcOffNote = "libVLC is off in this process (the bench host): a clip plays only as the bench's synthetic one, or not at all.";
+
     /// <summary>Non-empty when more sources are wanted than the decoder cap allows.</summary>
     public string LimitNote { get; private set; } = "";
 
@@ -649,6 +663,11 @@ public sealed class VideoEngine : IDisposable
     {
         if (_vlc is not null) return true;
         if (_vlcInitFailed) return false;
+        if (!LibVlcAllowed)
+        {
+            VideoService.AvailabilityNote = LibVlcOffNote;                                      // no folder is tried, so no try fails: the reason is the process's
+            return false;
+        }
 
         // The same table of folders the encoder host reads (VlcRuntime), so the desk and its host agree on where libVLC is.
         _vlc = VlcRuntime.Create(out var failure, "--no-video-title-show", "--quiet");

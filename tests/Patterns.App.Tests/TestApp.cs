@@ -152,17 +152,13 @@ public static class TestApp
         var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         prepare?.Invoke(dir);
-        var services = new AppServices(new SettingsStore(dir), profile: profile);
-        AppServices.Instance = services;
-        var vm = new MainViewModel(services);
+        // The desk is built as the bench host builds it (HeadlessDesk), with the tests' one knob between the two calls.
+        var (services, vm) = HeadlessDesk.Create(new SettingsStore(dir), profile);
         // The housekeeping lane whole every tick: a test reads the Install page or the machine's
         // lines after one poll, whatever the machine running the tests is doing. The lanes' own
         // test sets the desk's real budget back.
         vm.PollLanes.BudgetMs = 10_000;
-        var window = new MainWindow { DataContext = vm };
-        services.AttachMainWindow(window);
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
+        var window = HeadlessDesk.Show(services, vm);
         var booted = new Booted(services, vm, window, dir) { Booter = booter };
         lock (Open) Open.Add(booted);
         return booted;

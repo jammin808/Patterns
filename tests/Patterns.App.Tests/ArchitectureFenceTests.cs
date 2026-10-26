@@ -18,6 +18,7 @@ public class ArchitectureFenceTests
     {
         ["Program.cs"] = 1,                                   // is the desk already up, at a second launch
         ["App.axaml.cs"] = 1,                                 // the root sets it, once, after the kernel is built
+        ["Services/HeadlessDesk.cs"] = 1,                     // round 90: the headless root (the test boot, the bench host) sets it, once, as App.axaml.cs does
         ["Views/Controls/LazyPage.cs"] = 3,                   // the switch's build count, the warm-up's headroom, the node's profile
         ["Views/Controls/MonitorTileControl.cs"] = 4,         // a tile's pipeline on the bus, attached and detached by Avalonia
         ["Services/UiFaults.cs"] = 1,                         // the crash note's folder, before anything else is up

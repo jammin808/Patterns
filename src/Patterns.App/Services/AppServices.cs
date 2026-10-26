@@ -354,7 +354,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         ResolveHeld = Kernel.WebPasses.Resolve,
     };
 
-    /// <summary>Tests only: stand in for "is libVLC present" so a video-stinger cue can run headless.</summary>
+    /// <summary>Stands in for "is libVLC present": a test's, so a video-stinger cue can run headless, and the bench host's (its synthetic clips play every video file).</summary>
     public Func<bool>? ValidationVideoOverride { get; set; }
 
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>

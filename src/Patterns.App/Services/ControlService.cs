@@ -285,6 +285,9 @@ public sealed partial class ControlService : IDisposable
     /// <summary>Round 77: the last start failed (a port held by another process); the desk's poll asks again.</summary>
     public bool StartFailed { get; private set; }
 
+    /// <summary>Both control listeners hold their ports and accept — the wire and the web remote (UI thread). What the bench host waits for before it says ready.</summary>
+    public bool Listening => _tcp is not null && _http is not null;
+
     /// <summary>Round 85: why the control ports are closed — the bind is not an address — or "" while they bind (or remote control is off).</summary>
     public string BindProblem { get; private set; } = "";
 
