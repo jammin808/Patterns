@@ -12510,3 +12510,79 @@ rewritten where it lies.
 
 The rig's reading, for the close: the first boot's one log line, "Twin: this desk had no key; one was made for it —
 read it on the Machine page, TWIN …", read beside the Machine page's TWIN, and the ADMIN page's tail read with it.
+
+### 108.2 The key a desk makes is said on its strip alone (90.1 — L63)
+
+**The rule.** A line that names a secret is the status strip's and nobody else's. `ITwinHost` gains
+`NotifyStripOnly(message)` beside `Notify(message)`: the desk's (`AppServices`) sets the strip when the main window is
+attached and says nothing otherwise; a node's (`NodeHost`) goes to `ServiceKernel.NotifyStripOnly`, which calls the
+kernel's new `Strip` — null until a window's view model sets it (`NodeViewModel`, beside `Notifier`; the desk sets it
+to its own `NotifyStripOnly`). `Notify` keeps its log fallback for every other line: a line with no secret in it that
+lands before a window is still worth a file.
+
+**The twin's two lines.** `TwinService.Reconcile` writes one log line whatever the strip — "Twin: this desk had no
+key; one was made for it — read it on the Machine page, TWIN (a caller node that links needs the same key); the port
+opens once it is saved.", and for a main "Twin: this main had no key; … (the standby needs the same key) …" — and
+says the key itself with `NotifyStripOnly`. So a desk whose window is up when the key is made (the operator setting
+its role to main with the key empty) shows the key on the strip as before; a first start, whose key is made inside
+the constructor, shows it nowhere but the Machine page's TWIN, and its log names that place.
+
+**Not a deferred notice.** The words could have been held until the window attaches. They are not: every fresh desk
+accepts callers by default, so every first start would open on a line about a key the operator did not ask for, over
+whatever the strip says first; and a held line names a key the settings may no longer hold by the time it shows (the
+key is set by a posted edit that checks again). The Machine page shows the key the settings hold.
+
+### 108.3 The ADMIN page's log tail masks what the bundle masks (90.2 — L64)
+
+`/api/admin/log` takes the show's secret values with the passcode's check, on the UI thread where the show lives —
+`ServiceKernel.SecretValues()`, the list the support bundle scrubs with (`Secrets.ValuesOf` and the kept addresses,
+longest first) — and `LogTail` passes its eighty lines through `Secrets.Scrub`. A line an older build wrote with the
+twin's key in it, as the bench host's log holds today, leaves the machine with `•••` where the key was; the rest of
+the line reads as written. A refused passcode reads no secrets at all. The tail is read when the page asks, so the
+mask costs one walk of the show per ADMIN read, the bundle's own cost.
+
+### 108.4 With AI offline
+
+Nothing in the round asks the assistant or changes what it reads. The made key never reached its facts; the strip and
+the log are not among them.
+
+### 108.5 The proof
+
+- `TwinAppTests.AFreshDeskIsGivenAKeyAndTheLogSaysWhereToReadItNeverWhatItIs`: a desk booted in an empty folder is
+  given a key; it is in the settings in memory and in the saved file, and absent from `patterns.log`, the journal and
+  STATE; the log has the line that names the Machine page, TWIN. Before 90.1 it failed on the bench host's line, with
+  the key, written before the constructor's `Modules loaded:`.
+- `NodesAppTests.ANodesLineThatNamesASecretReachesItsStripAndNoFile`: a caller node with no window says a secret
+  line nowhere and an ordinary one in the log; once its view model exists the secret line is on the strip.
+- `RemoteTrustTests.TheAdminPagesLogTailMasksTheShowsSecretsAsTheBundleDoes`: a key and a passcode an older build
+  logged come back from `/api/admin/log` masked, the rest of each line as written.
+- `TwinAppTests.AMainWithNoKeyIsGivenOneAndAJoinWithoutItIsRefusedEvenWhenItClaimsTheShow` unchanged: a main given a
+  key while its window is up still says the key on the strip.
+
+### 108.6 What the round did not do
+
+- **The log on the disk is not rewritten.** A line an older build wrote with the key (the bench host's first boot)
+  stays in `patterns.log`, and in `patterns.log.old` after the 2 MB rotation, beside the settings file that holds the
+  key in clear anyway (L40); it leaves the machine masked through the tail and the bundle. A desk whose key may have
+  been read can be given a new one: empty the key on the Machine page's TWIN and the desk makes another, said on its
+  strip — a linked standby or caller then needs the new key.
+- **The log does not scrub secrets as it writes.** Round 89 made every line say a private address in public whoever
+  wrote it; the show's secret values are not known to `Log`, and reading them is a walk of the whole show, so a
+  per-line scrub would need a copy kept in step with every publish. The writers are held to the rule (the round read
+  every one) and the two exits mask.
+- **A follower node can still make a key it cannot use.** The key's guard reads the twin's role, not the node's kind,
+  so a caller or a timer whose file says main with no key is given one, now said on its strip alone; it dials the desk
+  with it and is refused until the desk's key is typed, as with no key at all. L65.
+- **No new verb, no reader added.** STATE, the Eye, the wire, the deck and the assistant never carried the key and
+  carry nothing new.
+
+### 108.7 The ledger and the papers (90.3)
+
+- **OPEN:** L63 and L64 added and closed (90.1, 90.2); L65 added (a follower node given a key it cannot use).
+- **The walk:** `docs/QUALIFICATION.md` §22 step 15 (a first boot: the log's line and the ADMIN tail with no key);
+  `unwalked` until its row is filled.
+- **The papers:** this section; REVIEW round 90; CHANGELOG (with the evidence class); README (the twin's fences, the
+  count);
+  `docs/REMOTE.md` and `docs/INSTALLS.md` (the ADMIN log's mask); the tag table's row 89 (`c6236d6`).
+- **The rig's reading.** No new wire verb lands this round. The close is read on the bench host as the round opened:
+  the first boot's one log line naming the Machine page, TWIN, beside the Machine page's key and the ADMIN page's tail.

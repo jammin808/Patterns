@@ -570,11 +570,16 @@ not a footnote. The files go to `docs/field/round-NN/` (`docs/field/README.md`).
     before round 89 keeps it ticked) and put the private page of step 12 on air — the Machine page's twin
     line on both desks says what the standby is WITHOUT; `TWIN TAKEOVER` on the standby: the page is black
     there with the words; TAKE BACK: the main draws it again.
+15. **A first boot** (round 90 — the twin's key): start the build in an empty folder (`--home <folder>`).
+    `patterns.log` has "Twin: this desk had no key; one was made for it — read it on the Machine page, TWIN …"
+    and no key; the Machine page's TWIN shows the key. Type an admin passcode (Install page) and read the ADMIN
+    page's log: the same line, and no key or passcode in any line. On a desk whose log an older build wrote with
+    its key, the ADMIN page shows `•••` where the key was.
 
 **Pass.** Every step ticked with the readings it asks for; the three lines posted; the four files
 committed. A step that fails is a row of `docs/OPEN.md` with the reading beside it.
 
-| date | machine | build | steps ticked (1–14) | Start-up / Desk tick / Render frame | result | files |
+| date | machine | build | steps ticked (1–15) | Start-up / Desk tick / Render frame | result | files |
 |------|---------|-------|---------------------|-------------------------------------|--------|-------|
 |      |         |       |                     |                                     |        |       |
 

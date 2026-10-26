@@ -12,12 +12,19 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 90 — 2026-10-26 — the bench host's first boot: the key a desk makes is said on its strip alone, and the ADMIN page's log tail masks what the bundle masks
 
-`round-90` · PLAN §108 · 2,884 tests at the opening · module 3.18.1 (unchanged) · evidence: a verbal report from the rig (the bench host's first-boot log line, quoted)
+`round-90` · PLAN §108 · REVIEW round 90 · 2,887 tests · module 3.18.1 (unchanged) · evidence: a verbal report from the rig (the bench host's first-boot log line, quoted)
 
-- **Opened (90.0).** Nothing in `docs/field/`; the bench host's `patterns.log` read `Twin: this desk was given the key
-  xpbe-…` at its first boot. The cause at the head, the other fallbacks read the same way, the ledger's rows the round
-  adds and closes, and each unit read against the standing brief (PLAN §108.1). The papers (90.3) write what landed,
-  REVIEW round 90, and the count at the round's end in place of the opening's; the round's tag waits for that commit.
+- **The made key in no line.** A desk's first start makes its twin key while the desk is still being built, before
+  its window, and the line that said the key landed in `patterns.log` — the bench host's first boot logged `Twin: this
+  desk was given the key xpbe-…`. The key is said on the status strip alone now, a node's too, and never in the log,
+  the journal or STATE; the log says a key was made and that it is read on the Machine page, TWIN. A main given a key
+  with its window up still shows it on the strip.
+- **The ADMIN page's log tail masks what the bundle masks.** `/api/admin/log` scrubs every secret value of the show and
+  the kept addresses, so a line an older build wrote with a key in it leaves the machine as `•••`; the line stays in
+  the file, beside the settings that hold the key (L40). A desk whose key may have been read: empty it on the Machine
+  page's TWIN and the desk makes another.
+- Unwalked (`docs/QUALIFICATION.md` §22 step 15, a first boot). OPEN: L63 and L64 added and closed; L65 added (a
+  follower node given a key it cannot use).
 
 ## Round 89 — 2026-10-25 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
 

@@ -3762,3 +3762,57 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   restart, a second machine black, the probe's `WebView2:` line) and the twin's bind address and takeover (the port on
   the bind, a standby on this machine through a cable pull, a takeover with SEND SECRETS off): `docs/QUALIFICATION.md`
   §22 steps 12 to 14 and §28.
+
+## Round 90 review — the bench host's first boot: the made key in no line, the log's tail masked
+
+### 90.0 — the round opened
+
+- The bench host's first boot, read by the maintainer: its `patterns.log` said `Twin: this desk was given the key
+  xpbe-…` (§108.1). Evidence class: a verbal report from the rig — the line quoted; `docs/field/` holds only its README.
+- The cause read at `c6236d6`: the twin's key made inside the `AppServices` constructor and said through `Notify`,
+  whose fallback with no window is the log; a node's lines through `ServiceKernel.Notifier`, the log until its window.
+  Every other `Notify`, status and log line was read for a secret, and none carries one.
+
+### 90.1 — the key a desk makes is said on its strip alone
+
+- **Done.** §108.2. `ITwinHost.NotifyStripOnly`, `AppServices.NotifyStripOnly`, `ServiceKernel.Strip` and
+  `NotifyStripOnly`, `NodeHost.NotifyStripOnly`, `NodeViewModel` setting the strip; the twin's log line naming the
+  Machine page, TWIN; `TwinAppTests`, `NodesAppTests`.
+- **Reproduced first:** the new desk test failed at the head on the bench host's line, the key in it, written before
+  the constructor's `Modules loaded:`.
+- **Decided:** no deferred notice (§108.2) — the Machine page's TWIN is where a first start's key is read.
+- **Found, not fixed:** a caller or timer node whose file says main with no key is given a key it cannot use (L65).
+
+### 90.2 — the ADMIN page's log tail masks what the bundle masks
+
+- **Done.** §108.3. `/api/admin/log` reads `ServiceKernel.SecretValues()` with the passcode's check and `LogTail`
+  scrubs with it; `RemoteTrustTests`.
+- **Why it is this round's:** the bench host's log holds its key today, and 90.1 cannot take a line back out of a file
+  an older build wrote. The bundle already masked it; the tail was the exit that did not.
+
+### The review's items, answered
+
+- **The made key in the log:** 90.1 — the key in no line, no journal row and no STATE; the log says it was made and
+  where it is read; the strip shows it once the window exists.
+- **The test asked for:** `TwinAppTests.AFreshDeskIsGivenAKeyAndTheLogSaysWhereToReadItNeverWhatItIs` boots a desk
+  with no key and reads the settings, the log, the journal and STATE.
+- **NodeHost and the other fallbacks:** `NodeHost` had the same road (`ServiceKernel.Notifier`), and has the strip-only
+  path now; no other line names a secret — the first run's pairing token was already said by where it is read.
+- **The log served raw:** 90.2.
+
+### The ledger's rows, answered
+
+- **Added and closed:** L63 — the made key written to `patterns.log` (90.1); L64 — the ADMIN page's tail served the log
+  raw (90.2).
+- **Added:** L65 — a follower node given a key it cannot use.
+- **Read and left:** L40 — the settings file holds the key in clear beside the log; the log's old line is masked where
+  it leaves, not rewritten.
+- Closed rows: thirty-five; open: thirty.
+
+### The suites
+
+- Core 1,281, Rendering 672, Devices 8, Audio 13, Assistant 37, Audience 2, App 874 — 2,887 (the App's three new:
+  the fresh desk, the node with no window, the ADMIN tail); the module's 39 node tests, the module unchanged. These ran
+  on Linux at the close, with the build's fences clean.
+- Walk: unwalked — a first boot (`docs/QUALIFICATION.md` §22 step 15): the log's one line naming the Machine page,
+  TWIN, and no key; the ADMIN page's tail with the passcode set, no key in it.

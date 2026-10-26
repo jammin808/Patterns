@@ -80,7 +80,7 @@ A passcode on the Install page (**Admin passcode**) opens the web remote's **ADM
 (`http://<machine>:9696/admin`, linked from the remote's SETUP tab): the health line, the schedule's
 switch and its status, every announcement and advert as a key with its state, a free-text
 announcement, RESTART, the staged update and APPLY, a support bundle to download, the log's last
-eighty lines, and a console for any line of the protocol. The same passcode rides the wire:
+eighty lines (every secret value masked, as in the bundle), and a console for any line of the protocol. The same passcode rides the wire:
 `RESTART <passcode>` (the app restarts under the watchdog with the show put back) and
 `UPDATE APPLY <passcode>`.
 

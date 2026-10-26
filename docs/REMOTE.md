@@ -585,7 +585,9 @@ Behind the Install page's admin passcode (`docs/INSTALLS.md`):
 - `POST /api/admin` with `<passcode>\n<command line>` as the body → `{"ok":…,"msg":"…"}`; a body with the
   passcode alone checks it (the page unlocking). A wrong passcode answers 403 and, after five wrong
   tries, a minute's lock.
-- `GET /api/admin/log` with the passcode in an `X-Patterns-Pass: <passcode>` header → the last eighty lines of `patterns.log`.
+- `GET /api/admin/log` with the passcode in an `X-Patterns-Pass: <passcode>` header → the last eighty lines of `patterns.log`,
+  every secret value of the show masked `•••` as the support bundle masks its log (round 90) — a line an older build
+  wrote with a key in it included.
 - `GET /support-bundle.zip` with the same header → the support bundle, written beside the settings and sent.
   A `?pass=` in the URL is not read (round 65): a browser's history, a proxy's log and a screenshot keep URLs, and never headers.
 
