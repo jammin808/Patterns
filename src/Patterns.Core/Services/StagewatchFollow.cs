@@ -685,10 +685,29 @@ public static class ShowBusView
             foreach (var i in c.Items.OrderByDescending(i => i.Light == "red").ThenByDescending(i => i.Light == "amber").Take(15))
                 lines.Add($"  · {i.Label} ({i.Kind}) — {i.Light}" + (i.State.Length > 0 ? ": " + i.State : ""));
             foreach (var r in c.Recent.TakeLast(5)) lines.Add($"  recent: {r.Text}");
-            if (c.Commands.Count > 0) lines.Add("  may be proposed to it: " + string.Join("; ", c.Commands.Take(12).Select(x => $"{x.Verb} ({x.Risk})")));
+            if (c.Commands.Count > 0 || c.CommandsDropped > 0) lines.Add("  may be proposed to it: " + BriefCommandsLine(c));
             foreach (var p in c.Peers.Take(6)) lines.Add($"  it hears {ShowBusPeers.KindWords(p.Kind)} {p.Name} — {p.Light}" + (p.Headline.Length > 0 ? ": " + p.Headline : ""));
         }
         return lines;
+    }
+
+    /// <summary>The most of a peer's verbs the assistant's brief lists (Show Bus 1.3 §6: a view may show fewer, and says how many it left out).</summary>
+    public const int BriefCommands = 32;
+
+    /// <summary>
+    /// A peer's verbs in the brief: the first <see cref="BriefCommands"/> as the peer listed them (its panic, air and
+    /// transport first), each with its risk, then how many were left out — kept but not listed here, and those this
+    /// desk's reader did not keep at all (<see cref="ShowContext.CommandsDropped"/>).
+    /// </summary>
+    public static string BriefCommandsLine(ShowContext c)
+    {
+        var listed = c.Commands.Take(BriefCommands).Select(x => $"{x.Verb} ({x.Risk})").ToList();
+        var notListed = c.Commands.Count - listed.Count;
+        var left = notListed + c.CommandsDropped;
+        var line = listed.Count > 0 ? string.Join("; ", listed) : "none this desk kept";
+        if (left == 0) return line;
+        return line + $" — {left} more left out here" + (c.CommandsDropped == 0 ? ""
+            : $" ({c.CommandsDropped} not kept by this desk: a verb empty or over {ShowContext.MaxVerbChars} characters, or past the first {ShowContext.MaxCommands})");
     }
 
     /// <summary>A context without its moment: the Eye rebuilds when what a context says moves, not when it was said.</summary>

@@ -175,10 +175,10 @@ public class ShowBus12AppTests
 
         private string Target(string id) => Proposals.TryGetValue(id, out var p) ? p.Target : "";
 
-        public string AddApproved(string line, string target)
+        public string AddApproved(string line, string target, string from = "sw")
         {
             var id = "x" + Interlocked.Increment(ref _next);
-            Proposals[id] = ("", "approved", line, target, "sw");
+            Proposals[id] = ("", "approved", line, target, from);
             return id;
         }
 
@@ -646,6 +646,111 @@ public class ShowBus12AppTests
         {
             vm.State.Control.Stagewatch.Enabled = false;
             services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [Fact]
+    public void AnApplyIsReadAgainstTheProposalItNamesEvenWhenAnotherHoldsTheSameApprovalDeskId()
+    {
+        // Round 91.3: an approval desk's ids can restart with its run, so an entry still held from before a restart and a new
+        // one can carry the same approval-desk id. Each APPLY is read against the entry its line names — never the first
+        // entry holding that id — and an entry that ran is refused, however the ids collected were remembered.
+        const string self = "1a2b3c4d";
+        var approvals = new DeskApprovals();
+        var older = approvals.Add("Look", "Walk-in", "the doors' look", "review", () => (true, "look added"), _ => { });
+        var newer = approvals.Add("Look", "Keynote blue", "the keynote's look", "review", () => (true, "look added"), _ => { });
+        approvals.ByLocal(older)!.DeskId = "p1";
+        approvals.ByLocal(newer)!.DeskId = "p1";
+        DeskProposal Approved(string local) => new() { Id = "p1", State = "approved", Line = approvals.ByLocal(local)!.Line, FromId = self, TargetId = self };
+
+        foreach (var local in new[] { older, newer })
+        {
+            var (entry, refusal) = approvals.ForApply(Approved(local), local, self);
+            Assert.Null(refusal);
+            Assert.Same(approvals.ByLocal(local), entry);
+        }
+
+        approvals.ByLocal(newer)!.Ran = true;
+        Assert.Equal(DeskProposals.AlreadyApplied, approvals.ForApply(Approved(newer), newer, self).Refusal);
+        Assert.Null(approvals.ForApply(Approved(older), older, self).Refusal);
+        var (gone, words) = approvals.ForApply(Approved(newer) with { Line = "APPLY a00000000" }, "a00000000", self);
+        Assert.Null(gone);
+        Assert.Equal(DeskProposals.NoLongerHeld, words);
+    }
+
+    [AvaloniaFact]
+    public void AnApplyRunsOnlyAsTheProposalThisDeskMadeAndACopyIsRefusedNeverApplied()
+    {
+        // Round 91.3: the approval desk lists this desk's APPLY line where any node can read it. Another node proposing the
+        // same words to this desk, or this desk's id on a proposal the desk did not answer this desk's post with, names the
+        // proposal without being it: refused with the reason, in the result and the log, and never applied. The proposal
+        // itself, approved, still lands — once.
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null);
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            var self = services.Kernel.ShowBusId;
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.ApprovalsLive; }, 60000);
+
+            var applied = 0;
+            var said = new ConcurrentQueue<string>();
+            var local = link.Approvals.Add("Look", "Keynote blue", "the keynote's look", "review", () => { applied++; return (true, "look added"); }, said.Enqueue);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Proposals.Any(p => p.Value.Line.Contains(local, StringComparison.Ordinal)); }, 60000);
+            var deskId = sw.Proposals.First(p => p.Value.Line.Contains(local, StringComparison.Ordinal)).Key;
+            var line = sw.Proposals[deskId].Line;
+            Assert.Equal(self, sw.Proposals[deskId].From);
+
+            string Words(string id) => JsonDocument.Parse(sw.Results[id]).RootElement.GetProperty("words").GetString()!;
+            bool Ok(string id) => JsonDocument.Parse(sw.Results[id]).RootElement.GetProperty("ok").GetBoolean();
+            var log = Path.Combine(b.Dir, "patterns.log");
+            int Logged(string id) => File.ReadAllLines(log).Count(l => l.Contains($"approved {id} names this desk's proposal {local} — refused: ", StringComparison.Ordinal));
+
+            // Another node re-proposed this desk's line to this desk, and it was approved there.
+            var copied = sw.AddApproved(line, self, from: "pm-a1b2");
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(copied); }, 60000);
+            Assert.False(Ok(copied));
+            Assert.Equal(DeskProposals.OnlyOwnApply + " — another node proposed this one", Words(copied));
+            Assert.Equal(1, Logged(copied));
+            Assert.Equal(0, applied);
+
+            // This desk's own id on a proposal that is not the one the desk answered this desk's post with.
+            var under = sw.AddApproved(line, self, from: self);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(under); }, 60000);
+            Assert.False(Ok(under));
+            Assert.Equal(DeskProposals.OnlyOwnApply + $" — this desk posted {local} under another id", Words(under));
+            Assert.Equal(1, Logged(under));
+            Assert.Equal(0, applied);
+            Assert.DoesNotContain(said, w => w.StartsWith("applied", StringComparison.Ordinal));
+
+            // The proposal itself, approved: applied here once, and said.
+            sw.Approve(deskId);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(deskId); }, 60000);
+            Assert.True(Ok(deskId));
+            Assert.Equal(1, applied);
+            Assert.Contains(said, w => w.StartsWith("applied", StringComparison.Ordinal));
+            Assert.Equal(0, Logged(deskId));
+
+            // Once applied, a copy approved later is refused the same way: the proposal never runs twice.
+            var late = sw.AddApproved(line, self, from: "pm-a1b2");
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(late); }, 60000);
+            Assert.False(Ok(late));
+            Assert.Equal(1, applied);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
             Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }

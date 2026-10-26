@@ -234,6 +234,37 @@ public class ShowBus12Tests
     }
 
     [Fact]
+    public void AnApplyRunsOnlyAsTheProposalThisDeskMadeUnderItsOwnId()
+    {
+        // Round 91.3: the desk posted APPLY a3f9c2d1 and the approval desk answered p17; only p17, from this desk, runs it, once.
+        const string self = "1a2b3c4d";
+        var line = DeskProposals.Line("a3f9c2d1", "Look", "Keynote blue");
+        var own = new DeskProposal { Id = "p17", State = "approved", Line = line, FromId = self, TargetId = self };
+        Assert.Null(DeskProposals.ApplyRefusal(own, "a3f9c2d1", self, held: true, postedAs: "p17", ran: false));
+
+        // Another node re-proposed the same words to this desk: refused, whatever this desk holds.
+        var copied = own with { Id = "p18", FromId = "pm-a1b2" };
+        Assert.Equal(DeskProposals.OnlyOwnApply + " — another node proposed this one", DeskProposals.ApplyRefusal(copied, "a3f9c2d1", self, held: true, postedAs: "p17", ran: false));
+        Assert.Equal(DeskProposals.OnlyOwnApply + " — another node proposed this one", DeskProposals.ApplyRefusal(copied with { Id = own.Id }, "a3f9c2d1", self, held: true, postedAs: "p17", ran: false));
+        Assert.StartsWith(DeskProposals.OnlyOwnApply, DeskProposals.ApplyRefusal(copied with { FromId = "" }, "a3f9c2d1", self, held: true, postedAs: "p17", ran: false), StringComparison.Ordinal);
+
+        // This desk's id on another proposal than the one it posted the named proposal as: a copy under another id, or one
+        // named before the approval desk answered this desk's post at all.
+        var other = own with { Id = "p19" };
+        Assert.Equal(DeskProposals.OnlyOwnApply + " — this desk posted a3f9c2d1 under another id", DeskProposals.ApplyRefusal(other, "a3f9c2d1", self, held: true, postedAs: "p17", ran: false));
+        Assert.Equal(DeskProposals.OnlyOwnApply + " — this desk posted a3f9c2d1 under another id", DeskProposals.ApplyRefusal(own, "a3f9c2d1", self, held: true, postedAs: "", ran: false));
+
+        // Once it ran here, the same approval again is refused: a proposal runs once, whatever remembers the ids collected.
+        Assert.Equal(DeskProposals.AlreadyApplied, DeskProposals.ApplyRefusal(own, "a3f9c2d1", self, held: true, postedAs: "p17", ran: true));
+
+        // A proposal this desk no longer holds (restarted since): said as that, never applied.
+        Assert.Equal(DeskProposals.NoLongerHeld, DeskProposals.ApplyRefusal(own, "a3f9c2d1", self, held: false, postedAs: "", ran: false));
+
+        // A desk with no id of its own yet runs no APPLY at all.
+        Assert.StartsWith(DeskProposals.OnlyOwnApply, DeskProposals.ApplyRefusal(own with { FromId = "" }, "a3f9c2d1", "", held: true, postedAs: "p17", ran: false), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheTwinsNewWordsParse()
     {
         Assert.Equal(TwinWord.Stagewatch, TwinMessage.Parse("STAGEWATCH {\"name\":\"Hall A\"}").Word);

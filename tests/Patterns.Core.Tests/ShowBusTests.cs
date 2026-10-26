@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -308,6 +309,378 @@ public class ShowBusTests
         Assert.Equal(CheckLight.Red, ShowContext.Worst(new[] { CheckLight.Green, CheckLight.Red, CheckLight.Amber }));
         Assert.Equal(CheckLight.Green, ShowContext.Worst(new[] { CheckLight.Grey, CheckLight.Green }));
         Assert.Equal(CheckLight.Grey, ShowContext.Worst(Array.Empty<CheckLight>()));
+    }
+
+    // ---- what a peer may propose (round 91.3) ----------------------------------------------------
+
+    /// <summary>The fourteen rows the context listed before round 91, in their order: rows are only ever appended.</summary>
+    private static readonly string[] FirstFourteen =
+    {
+        "STATUS", "EYE", "EYE FOCUS <thing>", "STAGE MESSAGE <words>", "STAGE CREW <words>", "VIDEO END <seconds>", "VIDEO PLAY", "VIDEO PAUSE",
+        "VIDEO SEEK <m:ss>", "VIDEO RESTART", "LOOK <name>", "CUE GO", "BLACKOUT ON", "BLACKOUT OFF",
+    };
+
+    /// <summary>
+    /// Every line a §6 form stands for, with a value in each slot: each A|B word one of its words, each […] with and without.
+    /// A form's slots are this table's names, so a row naming a slot the table has not met fails here.
+    /// </summary>
+    private static IReadOnlyList<string> Lines(string form)
+    {
+        var slots = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["<n>"] = "2", ["<name>"] = "Walk-in", ["<cue>"] = "12", ["<key name>"] = "Ctrl+Shift+F5", ["<x>"] = "50", ["<y>"] = "40", ["<page>"] = "slides",
+            ["<thing>"] = "screen-2", ["<words>"] = "Five minutes", ["<seconds>"] = "10", ["<m:ss>"] = "1:23", ["<proposal>"] = "a3f9c2d1",
+        };
+        foreach (var (slot, value) in slots) form = form.Replace(slot, value, StringComparison.Ordinal);
+        Assert.DoesNotContain('<', form);
+        var lines = new List<string> { form };
+        while (lines.Exists(l => l.Contains('[', StringComparison.Ordinal)))
+        {
+            lines = lines.SelectMany(l =>
+            {
+                var a = l.IndexOf('[', StringComparison.Ordinal);
+                var b = l.IndexOf(']', a);
+                return new[] { l[..a] + l[(a + 1)..b] + l[(b + 1)..], (l[..a].TrimEnd() + l[(b + 1)..]).Trim() };
+            }).ToList();
+        }
+        return lines.SelectMany(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Aggregate(new List<string> { "" }, (made, word) => made.SelectMany(m => word.Split('|').Select(w => (m + " " + w).Trim())).ToList()))
+            .Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    [Fact]
+    public void TheContextListsWhatAPeerMayProposeAppendedAfterTheFourteenAndEveryFormIsAVerbOfThisDesk()
+    {
+        var commands = ShowContextBuilder.Commands;
+        Assert.Equal(FirstFourteen, commands.Take(14).Select(c => c.Verb));
+        var appended = commands.Skip(14).Select(c => (c.Verb, c.Risk)).ToArray();
+        Assert.Equal(new[]
+        {
+            ("APPLY <proposal>", "review"),
+            ("VIDEO STOP", "high"),
+            ("EYE NEXT|PREV|RESET", "low"),
+            ("EYE LENS <name>", "low"),
+            ("CUE STANDBY NEXT|PREV|<cue>", "review"),
+            ("PVW LOOK|PRESET|PATTERN <name>", "review"),
+            ("PVW PROGRAM|RESET", "review"),
+            ("SCREEN <n> TAKE|CUT", "high"),
+            ("SCREEN <n> PVW LOOK|PRESET|PATTERN <name>", "review"),
+            ("SCREEN <n> PVW PROGRAM|RESET", "review"),
+            ("LIBRARY <name>", "high"),
+            ("PVW LIBRARY <name>", "high"),
+            ("SCREEN <n> PVW LIBRARY <name>", "high"),
+            ("WEB NEXT|PREV|FIRST|LAST|PRESENT|EXIT [ON <page>]", "high"),
+            ("WEB PLAY|PAUSE|MUTE|RESTART|FORWARD|REWIND [ON <page>]", "high"),
+            ("WEB BLACK|WHITE|CAPTIONS|FULLSCREEN [ON <page>]", "high"),
+            ("WEB KEY <key name> [ON <page>]", "high"),
+            ("WEB CLICK <x> <y> [ON <page>]", "high"),
+            ("WEB RELOAD [<page>]", "high"),
+        }, appended);
+        Assert.All(commands, c => Assert.True(c.Words.Length is > 0 and <= ShowContext.MaxWordsChars && c.Verb.Length <= ShowContextBuilder.OwnVerbMostChars, c.Verb));
+        Assert.All(commands, c => Assert.Contains(c.Risk, new[] { "low", "review", "high" }));                    // every row says its risk, none left to a default
+        Assert.True(ShowContextBuilder.OwnVerbMostChars <= ShowContext.MaxVerbChars);
+        Assert.Equal(commands.Count, commands.Select(c => c.Verb).Distinct(StringComparer.Ordinal).Count());
+        Assert.Contains("only the one this desk proposed (any other is refused)", commands.Single(c => c.Verb == "APPLY <proposal>").Words, StringComparison.Ordinal);
+
+        // Each form's every line parses to the verbs it says, through the wire's own parser; none is WEB OPEN or WEB TYPE.
+        var kinds = new Dictionary<string, ShowActionKind[]>(StringComparer.Ordinal)
+        {
+            ["VIDEO STOP"] = new[] { ShowActionKind.VideoStop },
+            ["EYE NEXT|PREV|RESET"] = new[] { ShowActionKind.EyeNext, ShowActionKind.EyePrev, ShowActionKind.EyeReset },
+            ["EYE LENS <name>"] = new[] { ShowActionKind.EyeLens },
+            ["CUE STANDBY NEXT|PREV|<cue>"] = new[] { ShowActionKind.CueStandby },
+            ["PVW LOOK|PRESET|PATTERN <name>"] = new[] { ShowActionKind.ApplyLookToPreview, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern },
+            ["PVW PROGRAM|RESET"] = new[] { ShowActionKind.ScreenToPreview, ShowActionKind.ScreenStageReset },
+            ["SCREEN <n> TAKE|CUT"] = new[] { ShowActionKind.ScreenTake, ShowActionKind.ScreenCut },
+            ["SCREEN <n> PVW LOOK|PRESET|PATTERN <name>"] = new[] { ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern },
+            ["SCREEN <n> PVW PROGRAM|RESET"] = new[] { ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset },
+            ["LIBRARY <name>"] = new[] { ShowActionKind.ScreenStageLibrary },
+            ["PVW LIBRARY <name>"] = new[] { ShowActionKind.ScreenStageLibrary },
+            ["SCREEN <n> PVW LIBRARY <name>"] = new[] { ShowActionKind.ScreenStageLibrary },
+            ["WEB NEXT|PREV|FIRST|LAST|PRESENT|EXIT [ON <page>]"] = new[] { ShowActionKind.WebKey },
+            ["WEB PLAY|PAUSE|MUTE|RESTART|FORWARD|REWIND [ON <page>]"] = new[] { ShowActionKind.WebKey },
+            ["WEB BLACK|WHITE|CAPTIONS|FULLSCREEN [ON <page>]"] = new[] { ShowActionKind.WebKey },
+            ["WEB KEY <key name> [ON <page>]"] = new[] { ShowActionKind.WebKey },
+            ["WEB CLICK <x> <y> [ON <page>]"] = new[] { ShowActionKind.WebClick },
+            ["WEB RELOAD [<page>]"] = new[] { ShowActionKind.WebReload },
+        };
+        Assert.Equal(appended.Skip(1).Select(a => a.Verb), kinds.Keys);
+        foreach (var (form, allowed) in kinds)
+        {
+            var lines = Lines(form);
+            var seen = new HashSet<ShowActionKind>();
+            foreach (var line in lines)
+            {
+                var parsed = ControlProtocol.Parse(line);
+                Assert.True(parsed.IsAction, $"{form}: '{line}' is not a verb of this desk");
+                Assert.Contains(parsed.Action.Kind, allowed);
+                seen.Add(parsed.Action.Kind);
+            }
+            Assert.Equal(allowed.OrderBy(k => k), seen.OrderBy(k => k));                           // and every verb it says is reached by one of its lines
+        }
+        Assert.Equal(new[] { 6 * 2, 6 * 2, 4 * 2 }, kinds.Keys.Where(k => k.StartsWith("WEB ", StringComparison.Ordinal) && k.Contains('|', StringComparison.Ordinal)).Select(k => Lines(k).Count));
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenStageLibrary, "", "Walk-in"), ControlProtocol.Parse("PVW LIBRARY Walk-in").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenStageLibrary, "2", "Walk-in"), ControlProtocol.Parse("SCREEN 2 PVW LIBRARY Walk-in").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebKey, "slides", "PRESENT"), ControlProtocol.Parse("WEB PRESENT ON slides").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebClick, "slides", "50 40"), ControlProtocol.Parse("WEB CLICK 50 40 ON slides").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueStandby, "12"), ControlProtocol.Parse("CUE STANDBY 12").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenStageLibrary, "FOCUSED", "Walk-in"), ControlProtocol.Parse("LIBRARY Walk-in").Action);
+        Assert.DoesNotContain(commands, c => c.Verb.StartsWith("WEB OPEN", StringComparison.Ordinal) || c.Verb.StartsWith("WEB TYPE", StringComparison.Ordinal) || c.Verb.StartsWith("RESTART", StringComparison.Ordinal) || c.Verb.StartsWith("UPDATE", StringComparison.Ordinal));
+
+        // APPLY is no wire verb: it reaches this desk only as the approval desk's line for one of this desk's own proposals.
+        Assert.False(ControlProtocol.Parse("APPLY a3f9c2d1").IsAction);
+        Assert.Equal("a3f9c2d1", DeskProposals.LocalId(DeskProposals.Line("a3f9c2d1", "Look", "Walk-in")));
+        Assert.Equal("a3f9c2d1", DeskProposals.LocalId("APPLY a3f9c2d1"));
+
+        // The context's own bytes: the rows follow BLACKOUT OFF, and the last closes the list — a reader matching text keeps its matches.
+        var json = ShowContextBuilder.FromEye(Graph(), "ab12cd34", "FOH", Now, Array.Empty<ShowLogEntry>(), Array.Empty<ShowContextPeer>()).ToJson();
+        Assert.Contains("{\"verb\":\"BLACKOUT OFF\",\"risk\":\"high\",\"words\":\"the pictures back\"},{\"verb\":\"APPLY \\u003Cproposal\\u003E\",\"risk\":\"review\",", json, StringComparison.Ordinal);
+        Assert.Contains("{\"verb\":\"WEB RELOAD [\\u003Cpage\\u003E]\",\"risk\":\"high\",\"words\":\"reload the page on air\"}],\"peers\":", json, StringComparison.Ordinal);
+        Assert.Equal(commands.Select(c => (c.Verb, c.Risk, c.Words)), ShowContext.Parse(json)!.Commands.Select(c => (c.Verb, c.Risk, c.Words)));
+    }
+
+    private static int RiskRank(string risk) => risk switch { "low" => 0, "review" => 1, _ => 2 };
+
+    /// <summary>
+    /// Stagewatch's reader and rater as committed for 2.18 to 2.20, until its whole-form matcher: <c>PeerContexts.Parse</c>
+    /// keeps a context's first 64 commands, each verb trimmed and cut at 80 and its risk at 8; <c>ProposalDesk.RiskFromCommands</c>
+    /// rates a line by the rows whose leading literal words — up to the first word that opens with '&lt;' or holds '/' — the
+    /// line starts with, in any case: the longest run wins, the first row a tie, and a line no row starts is high.
+    /// <paramref name="rows"/> reads only that many of the context's rows.
+    /// </summary>
+    private static string TodaysRisk(string contextJson, string line, int rows = 64)
+    {
+        static string Cut(string s, int most) => s.Trim().Length > most ? s.Trim()[..most] : s.Trim();
+        using var doc = JsonDocument.Parse(contextJson);
+        var table = doc.RootElement.GetProperty("commands").EnumerateArray().Take(Math.Min(64, rows))
+            .Select(c => (Verb: Cut(c.GetProperty("verb").GetString()!, 80), Risk: Cut(c.GetProperty("risk").GetString()!, 8)))
+            .Where(c => c.Verb.Length > 0).ToList();
+        var words = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var best = (Len: 0, Risk: "high");
+        foreach (var (verb, risk) in table)
+        {
+            var leading = verb.Split(' ', StringSplitOptions.RemoveEmptyEntries).TakeWhile(w => !w.StartsWith('<') && !w.Contains('/', StringComparison.Ordinal)).ToArray();
+            if (leading.Length == 0 || leading.Length > words.Length) continue;
+            if (!leading.Select((w, i) => w.Equals(words[i], StringComparison.OrdinalIgnoreCase)).All(x => x)) continue;
+            if (leading.Length > best.Len) best = (leading.Length, risk);
+        }
+        return best.Risk is "low" or "review" or "high" ? best.Risk : "high";
+    }
+
+    /// <summary>
+    /// Show Bus 1.3's rule (§6's notation, §11's rating): the most specific whole form a line matches — the most literal words,
+    /// an exact tie the higher risk — and a line no form matches is high. A literal matches in any case; A|B is one word, either;
+    /// […] is optional; a &lt;…&gt; value is one word, but a form's last element and a value named words, text or line take one or more.
+    /// </summary>
+    private static string WholeFormRisk(IEnumerable<ShowContextCommand> rows, string line)
+    {
+        var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var best = (Literals: -1, Risk: "high");
+        foreach (var row in rows)
+        {
+            var literals = FormMatch(FormTokens(row.Verb), 0, words, 0);
+            if (literals < 0) continue;
+            if (literals > best.Literals || (literals == best.Literals && RiskRank(row.Risk) > RiskRank(best.Risk))) best = (literals, row.Risk);
+        }
+        return best.Risk;
+    }
+
+    private static List<string> FormTokens(string form)
+    {
+        var tokens = new List<string>();
+        var word = new StringBuilder();
+        var inValue = false;
+        foreach (var ch in form)
+        {
+            if (inValue || ch == '<')
+            {
+                word.Append(ch);
+                inValue = ch != '>';
+                continue;
+            }
+            if (ch is ' ' or '[' or ']')
+            {
+                if (word.Length > 0) tokens.Add(word.ToString());
+                word.Clear();
+                if (ch != ' ') tokens.Add(ch.ToString());
+                continue;
+            }
+            word.Append(ch);
+        }
+        if (word.Length > 0) tokens.Add(word.ToString());
+        return tokens;
+    }
+
+    /// <summary>The most literal words a match of the form's tokens from <paramref name="i"/> over the line's words from <paramref name="j"/> takes, or -1 when none matches.</summary>
+    private static int FormMatch(List<string> t, int i, string[] w, int j)
+    {
+        if (i == t.Count) return j == w.Length ? 0 : -1;
+        if (t[i] == "]") return FormMatch(t, i + 1, w, j);
+        if (t[i] == "[")
+        {
+            var depth = 0;
+            var close = i;
+            do depth += t[close] == "[" ? 1 : t[close] == "]" ? -1 : 0;
+            while (depth > 0 && ++close < t.Count);
+            return Math.Max(FormMatch(t, i + 1, w, j), FormMatch(t, close + 1, w, j));
+        }
+        var best = -1;
+        foreach (var alt in t[i].Split('|'))
+        {
+            if (alt.StartsWith('<'))
+            {
+                var name = alt.Trim('<', '>');
+                var many = t.Skip(i + 1).All(x => x == "]") || name is "words" or "text" or "line" || name.EndsWith(" words", StringComparison.Ordinal) || name.EndsWith(" line", StringComparison.Ordinal);
+                for (var take = 1; j + take <= w.Length && (many || take == 1); take++) best = Math.Max(best, FormMatch(t, i + 1, w, j + take));
+            }
+            else if (j < w.Length && alt.Equals(w[j], StringComparison.OrdinalIgnoreCase) && FormMatch(t, i + 1, w, j + 1) is var rest and >= 0)
+            {
+                best = Math.Max(best, rest + 1);
+            }
+        }
+        return best;
+    }
+
+    [Fact]
+    public void NoReaderRatesALineLowerThanTheAirItChangesTodaysStagewatchOr13sWholeForms()
+    {
+        // Round 91.3. Stagewatch up to its whole-form matcher rates a line by a row's leading literal words, the first row
+        // winning a tie, so a row appended ahead of a riskier one with the same leading words lowers every line that starts
+        // with them (SCREEN <n> PVW … at review ahead of SCREEN <n> TAKE|CUT read SCREEN 2 TAKE as review). Show Bus 1.3's
+        // whole-form rule reads the table as written. Every line — each listed form's, the screen verbs that act live and the
+        // verbs the table leaves out — is rated by both, against the fourteen rows as they stood and the table as it is now.
+        var json = ShowContextBuilder.FromEye(Graph(), "ab12cd34", "FOH", Now, Array.Empty<ShowLogEntry>(), Array.Empty<ShowContextPeer>()).ToJson();
+        var rows = ShowContextBuilder.Commands;
+        Assert.True(rows.Count <= 64, "Stagewatch's reader keeps a context's first 64 commands");
+
+        // Where rows share their leading literal words, the first of them is the riskiest: the tie today's rater breaks by order.
+        foreach (var group in rows.Select((r, at) => (Key: string.Join(' ', r.Verb.Split(' ').TakeWhile(w => !w.StartsWith('<') && !w.Contains('/', StringComparison.Ordinal))).ToUpperInvariant(), r.Risk, At: at))
+                     .GroupBy(r => r.Key))
+        {
+            Assert.Equal(group.Max(r => RiskRank(r.Risk)), RiskRank(group.OrderBy(r => r.At).First().Risk));
+        }
+
+        var live = new[]
+        {
+            "SCREEN 2 LOOK Walk-in", "SCREEN 2 PRESET Walk-in", "SCREEN 2 PATTERN Grid", "SCREEN 2 ON", "SCREEN 2 OFF", "SCREEN 2 PROGRAM", "SCREEN 2 TAKE", "SCREEN 2 CUT",
+            "SCREEN 2 ROLE confidence", "SCREEN 2 LABEL Stage left", "SCREEN 2 AUDIO HDMI 1", "SCREEN 2 TESTROUTE ON", "SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR", "SCREEN 2 PVW",
+            "LIBRARY Brand", "PVW LIBRARY Brand", "SCREEN 2 PVW LIBRARY Brand", "PVW", "LOOK #3", "CUE GO 12", "VIDEO STOP", "EYE LENS links",
+            "WEB OPEN https://example.com/deck", "WEB TYPE hello", "WEB Ctrl+Shift+F5", "WEB ARM 1:23", "WEB GO https://example.com", "APPLY a3f9c2d1",
+        };
+        var lines = rows.SelectMany(r => Lines(r.Verb)).Concat(live).Distinct(StringComparer.Ordinal).ToList();
+
+        // What may read below high: a read, the desk's own view, a cue on standby, words to a display with a receipt (the
+        // fourteen's own call) and the preview alone. A Library tile is not among them: a brand kit's tile is the show's colours.
+        var belowHigh = new HashSet<ShowActionKind>
+        {
+            ShowActionKind.EyeFocus, ShowActionKind.EyeNext, ShowActionKind.EyePrev, ShowActionKind.EyeReset, ShowActionKind.EyeLens,
+            ShowActionKind.CueStandby, ShowActionKind.StageMessage,
+            ShowActionKind.ApplyLookToPreview, ShowActionKind.ScreenToPreview, ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset,
+            ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset,
+        };
+        var fourteen = rows.Take(14).ToList();
+        var lowerToday = new List<string>();
+        foreach (var line in lines)
+        {
+            var today = TodaysRisk(json, line);
+            var whole = WholeFormRisk(rows, line);
+            var parsed = ControlProtocol.Parse(line);
+            var changesAir = parsed.IsAction && !belowHigh.Contains(parsed.Action.Kind);
+            if (changesAir)
+            {
+                Assert.True(today == "high", $"'{line}' ({parsed.Action.Kind}) changes the air and reads {today} on today's Stagewatch");
+                Assert.True(whole == "high", $"'{line}' ({parsed.Action.Kind}) changes the air and reads {whole} under 1.3's rule");
+            }
+            if (RiskRank(today) < RiskRank(TodaysRisk(json, line, rows: 14))) lowerToday.Add(line);
+            if (RiskRank(whole) < RiskRank(WholeFormRisk(fourteen, line))) Assert.False(changesAir, $"'{line}' reads {whole} under 1.3's rule, lower than before the rows were appended");
+        }
+        // The one line today's Stagewatch reads lower than before is this desk's own APPLY, at the review its row says.
+        Assert.Equal(new[] { "APPLY a3f9c2d1" }, lowerToday);
+
+        // Under 1.3's rule each form's lines read its own risk: the staged verbs at review, the brand-kit forms high.
+        foreach (var row in rows) Assert.All(Lines(row.Verb), line => Assert.Equal((line, row.Risk), (line, WholeFormRisk(rows, line))));
+
+        // Today: every SCREEN line reads its first row's risk, high; the staged verbs read high until the whole-form matcher
+        // (over-rated, never lowered — docs/OPEN.md L71); APPLY reads review and the Eye's moves low, as the rows say.
+        Assert.All(lines.Where(l => l.StartsWith("SCREEN ", StringComparison.Ordinal)), l => Assert.Equal((l, "high"), (l, TodaysRisk(json, l))));
+        Assert.Equal(("high", "review"), (TodaysRisk(json, "PVW LOOK Walk-in"), WholeFormRisk(rows, "PVW LOOK Walk-in")));
+        Assert.Equal(("high", "review"), (TodaysRisk(json, "SCREEN 2 PVW PATTERN Grid"), WholeFormRisk(rows, "SCREEN 2 PVW PATTERN Grid")));
+        Assert.Equal(("review", "review"), (TodaysRisk(json, "APPLY a3f9c2d1"), WholeFormRisk(rows, "APPLY a3f9c2d1")));
+        Assert.Equal(("low", "low"), (TodaysRisk(json, "EYE LENS links"), WholeFormRisk(rows, "EYE LENS links")));
+        Assert.Equal(("high", "high"), (TodaysRisk(json, "WEB OPEN https://example.com/deck"), WholeFormRisk(rows, "WEB OPEN https://example.com/deck")));
+    }
+
+    [Fact]
+    public void AReaderKeeps256OfAPeersCommandsEachVerbWholeOrDroppedAndCountsWhatItDidNotKeep()
+    {
+        static string Context(IEnumerable<string> commands) => "{\"v\":1,\"node\":{\"t\":\"playmap\",\"id\":\"pm-a1b2\",\"name\":\"Stage left\"},\"commands\":[" + string.Join(",", commands) + "]}";
+        static string Row(string verb, string risk = "review", string words = "w") => JsonSerializer.Serialize(new { verb, risk, words });
+
+        // PlayMap's busy context: 199 rows, verbs to 307 characters and words to 403 — every one kept whole (64 kept before).
+        var busy = Enumerable.Range(0, 199).Select(i => Row($"V{i} " + new string('x', i == 7 ? 304 : 20), i % 3 == 0 ? "high" : "review", new string('w', i == 9 ? 403 : 40))).ToList();
+        var c = ShowContext.Parse(Context(busy))!;
+        Assert.Equal(199, c.Commands.Count);
+        Assert.Equal(0, c.CommandsDropped);
+        Assert.Equal(307, c.Commands[7].Verb.Length);
+        Assert.Equal(403, c.Commands[9].Words.Length);
+        Assert.Equal("V198 " + new string('x', 20), c.Commands[^1].Verb);
+
+        // 300 rows: the first 256 kept in the order sent, 44 counted.
+        c = ShowContext.Parse(Context(Enumerable.Range(0, 300).Select(i => Row($"V{i}"))))!;
+        Assert.Equal(ShowContext.MaxCommands, c.Commands.Count);
+        Assert.Equal(Enumerable.Range(0, 256).Select(i => $"V{i}"), c.Commands.Select(x => x.Verb));
+        Assert.Equal(44, c.CommandsDropped);
+
+        // A verb at 512 is kept; at 513 it is dropped whole, never cut, and counted; so is an empty one. Words cut at 512.
+        c = ShowContext.Parse(Context(new[]
+        {
+            Row(new string('a', 512), "low", new string('w', 600)),
+            Row(new string('b', 513)),
+            Row(""),
+            "{\"risk\":\"low\"}",
+            Row("PANIC", "HIGH!"),
+            Row("NOTE <words>", "Low"),
+            "{\"verb\":\"NO RISK\"}",
+            "null",
+        }))!;
+        Assert.Equal(new[] { new string('a', 512), "PANIC", "NOTE <words>", "NO RISK" }, c.Commands.Select(x => x.Verb));
+        Assert.Equal(3, c.CommandsDropped);
+        Assert.Equal(ShowContext.MaxWordsChars, c.Commands[0].Words.Length);
+        Assert.Equal(new[] { "low", "high", "low", "high" }, c.Commands.Select(x => x.Risk));    // an unknown risk is high, never lower — and so is none
+        Assert.DoesNotContain(c.Commands, x => x.Verb.StartsWith('b'));
+
+        // 256 kept after the dropped ones: what is dropped leaves room, never a gap in what is kept.
+        c = ShowContext.Parse(Context(new[] { Row(new string('b', 600)) }.Concat(Enumerable.Range(0, 260).Select(i => Row($"V{i}")))))!;
+        Assert.Equal(256, c.Commands.Count);
+        Assert.Equal("V0", c.Commands[0].Verb);
+        Assert.Equal(5, c.CommandsDropped);
+
+        // What this desk read is never written back: its own context's shape is unchanged.
+        Assert.DoesNotContain("CommandsDropped", c.ToJson(), StringComparison.Ordinal);
+        Assert.Equal(ShowContext.MaxCommands, ShowContext.KeptCommands(Enumerable.Range(0, 1000).Select(i => new ShowContextCommand { Verb = $"V{i}" })).Kept.Count);
+    }
+
+    [Fact]
+    public void TheBriefListsThirtyTwoOfAPeersVerbsInItsOrderAndSaysHowManyItLeftOut()
+    {
+        static EyeShowApp App(ShowContext context) => new("pm-a1b2", "PlayMap", "Stage left", ShowBusState.Live, true, "") { Context = context };
+        static string Proposed(ShowContext context) => ShowBusView.BriefLines(new[] { App(context) }).Single(l => l.StartsWith("  may be proposed to it: ", StringComparison.Ordinal));
+
+        var rows = Enumerable.Range(0, 199).Select(i => new ShowContextCommand { Verb = $"V{i}", Risk = i < 3 ? "high" : "review" }).ToList();
+        var line = Proposed(StagewatchContext() with { Commands = rows });
+        Assert.StartsWith("  may be proposed to it: V0 (high); V1 (high); V2 (high); V3 (review);", line, StringComparison.Ordinal);
+        Assert.Contains("; V31 (review) — 167 more left out here", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("V32 ", line, StringComparison.Ordinal);
+        Assert.EndsWith("— 167 more left out here", line, StringComparison.Ordinal);
+
+        // A context this desk read short: the rows it did not keep are counted among those left out, and said.
+        var read = ShowContext.Parse("{\"v\":1,\"node\":{\"t\":\"playmap\",\"id\":\"pm-a1b2\",\"name\":\"Stage left\"},\"commands\":["
+                                     + string.Join(",", Enumerable.Range(0, 300).Select(i => $"{{\"verb\":\"V{i}\",\"risk\":\"low\"}}")) + "]}")!;
+        Assert.EndsWith("V31 (low) — 268 more left out here (44 not kept by this desk: a verb empty or over 512 characters, or past the first 256)", Proposed(read), StringComparison.Ordinal);
+
+        // Thirty-two or fewer: listed whole, nothing said about what was left out.
+        Assert.Equal("  may be proposed to it: " + string.Join("; ", rows.Take(32).Select(r => $"{r.Verb} ({r.Risk})")), Proposed(StagewatchContext() with { Commands = rows.Take(32).ToList() }));
+        Assert.Equal(32, ShowBusView.BriefCommands);
     }
 
     // ---- the Eye draws the other apps -------------------------------------------------------------

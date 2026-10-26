@@ -1182,12 +1182,21 @@ public sealed class StagewatchLinkService : IDisposable
         lock (_owed) _owed.RemoveAll(o => o.To == to && o.Id == id);
     }
 
-    /// <summary>An approved proposal: one of the assistant's (applied by its id) or another app's wire line (run through the wire path).</summary>
+    /// <summary>
+    /// An approved proposal: one of the assistant's (applied by its id, and only as the proposal this desk made —
+    /// <see cref="DeskProposals.ApplyRefusal"/>) or another app's wire line (run through the wire path).
+    /// </summary>
     private async Task<(bool Ok, string Words)> RunAsync(DeskProposal p, string deskName)
     {
         if (DeskProposals.LocalId(p.Line) is { } local)
         {
-            if (Approvals.ByLocal(local) is not { } e) return (false, "this desk no longer holds that proposal (restarted since?) — ask the assistant again");
+            var (e, refusal) = Approvals.ForApply(p, local, SelfId);
+            if (refusal is not null || e is null)
+            {
+                var words = refusal ?? DeskProposals.NoLongerHeld;
+                Log.Warn($"Approval desk ({deskName}): approved {p.Id} names this desk's proposal {local} — refused: {words}");
+                return (false, words);
+            }
             var outcome = await UiThread.InvokeAsync(() =>
             {
                 var r = e.Apply();

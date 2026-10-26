@@ -41,7 +41,9 @@ public sealed record ShowContextLine
 public sealed record ShowContextCommand
 {
     [JsonPropertyName("verb")] public string Verb { get; init; } = "";
-    [JsonPropertyName("risk")] public string Risk { get; init; } = "review";
+
+    /// <summary>"low", "review" or "high". A row read with no risk is unknown, and a reader reads unknown as high (<see cref="ShowContext.NormalRisk"/>).</summary>
+    [JsonPropertyName("risk")] public string Risk { get; init; } = "";
     [JsonPropertyName("words")] public string Words { get; init; } = "";
 }
 
@@ -67,6 +69,15 @@ public sealed record ShowContext
     public const int MaxRecent = 20;
     public const int MaxItems = 200;
 
+    /// <summary>The most of a peer's commands this reader keeps (Show Bus 1.3 §14 <c>context.commands</c>), in the order sent.</summary>
+    public const int MaxCommands = 256;
+
+    /// <summary>The longest verb this reader keeps (§14 <c>context.verb.chars</c>): a longer one is dropped whole, never cut.</summary>
+    public const int MaxVerbChars = 512;
+
+    /// <summary>The longest <c>words</c> this reader keeps (§14 <c>context.words.chars</c>): longer words are cut here.</summary>
+    public const int MaxWordsChars = 512;
+
     [JsonPropertyName("v")] public int V { get; init; } = Version;
     [JsonPropertyName("node")] public ShowContextNode Node { get; init; } = new();
     [JsonPropertyName("at")] public long At { get; init; }
@@ -77,6 +88,13 @@ public sealed record ShowContext
     [JsonPropertyName("recent")] public IReadOnlyList<ShowContextLine> Recent { get; init; } = Array.Empty<ShowContextLine>();
     [JsonPropertyName("commands")] public IReadOnlyList<ShowContextCommand> Commands { get; init; } = Array.Empty<ShowContextCommand>();
     [JsonPropertyName("peers")] public IReadOnlyList<ShowContextPeer> Peers { get; init; } = Array.Empty<ShowContextPeer>();
+
+    /// <summary>
+    /// How many of the sender's commands this reader did not keep (§6: a verb is kept whole or dropped, and counted): a
+    /// verb that is empty or over <see cref="MaxVerbChars"/>, or one past the <see cref="MaxCommands"/>th kept. Never
+    /// written: it is what this desk read, not what the sender said.
+    /// </summary>
+    [JsonIgnore] public int CommandsDropped { get; init; }
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
 
@@ -90,13 +108,15 @@ public sealed record ShowContext
         {
             var c = JsonSerializer.Deserialize<ShowContext>(json, Options);
             if (c is null || c.Node is null || c.Node.Kind.Length == 0) return null;
+            var (commands, dropped) = KeptCommands(c.Commands);
             return c with
             {
                 Light = NormalLight(c.Light),
                 Items = (c.Items ?? Array.Empty<ShowContextItem>()).Where(i => i is not null && i.Id.Length > 0).Take(MaxItems).Select(i => i with { Light = NormalLight(i.Light) }).ToList(),
                 Links = (c.Links ?? Array.Empty<ShowContextLink>()).Where(l => l is not null).Take(MaxItems * 2).Select(l => l with { Light = NormalLight(l.Light) }).ToList(),
                 Recent = (c.Recent ?? Array.Empty<ShowContextLine>()).Where(r => r is not null).TakeLast(MaxRecent).ToList(),
-                Commands = (c.Commands ?? Array.Empty<ShowContextCommand>()).Where(x => x is not null).Take(64).ToList(),
+                Commands = commands,
+                CommandsDropped = dropped,
                 Peers = (c.Peers ?? Array.Empty<ShowContextPeer>()).Where(x => x is not null).Take(32).Select(x => x with { Light = NormalLight(x.Light) }).ToList(),
             };
         }
@@ -105,6 +125,35 @@ public sealed record ShowContext
             return null;
         }
     }
+
+    /// <summary>
+    /// A peer's commands as this reader keeps them (§6): in the order sent, each verb whole or dropped — empty or over
+    /// <see cref="MaxVerbChars"/> — and the first <see cref="MaxCommands"/> of what is left kept; words cut at
+    /// <see cref="MaxWordsChars"/>; a risk that is not low, review or high — none at all included — read as high, as an
+    /// unknown line is rated (§11).
+    /// Returns what was kept and how many were not.
+    /// </summary>
+    public static (IReadOnlyList<ShowContextCommand> Kept, int Dropped) KeptCommands(IEnumerable<ShowContextCommand?>? sent)
+    {
+        var all = (sent ?? Array.Empty<ShowContextCommand>()).Where(x => x is not null).Select(x => x!).ToList();
+        var kept = all.Where(x => (x.Verb ?? "").Length is > 0 and <= MaxVerbChars)
+            .Take(MaxCommands)
+            .Select(x => x with
+            {
+                Risk = NormalRisk(x.Risk),
+                Words = (x.Words ?? "").Length > MaxWordsChars ? x.Words![..MaxWordsChars] : x.Words ?? "",
+            })
+            .ToList();
+        return (kept, all.Count - kept.Count);
+    }
+
+    /// <summary>"low", "review" or "high" — anything else is unknown, and an unknown risk is high (never pre-ticked).</summary>
+    public static string NormalRisk(string? risk) => (risk ?? "").Trim().ToLowerInvariant() switch
+    {
+        "low" => "low",
+        "review" => "review",
+        _ => "high",
+    };
 
     /// <summary>"red", "amber", "green" or "grey" — anything else is unknown, and unknown is grey.</summary>
     public static string NormalLight(string? light) => (light ?? "").Trim().ToLowerInvariant() switch
@@ -153,7 +202,28 @@ public sealed record ShowContext
 /// </summary>
 public static class ShowContextBuilder
 {
-    /// <summary>The verbs a peer or an assistant may propose to this desk, with their risk (docs/SHOWBUS.md §6).</summary>
+    /// <summary>
+    /// The longest verb this desk lists: Stagewatch's reader up to its whole-form matcher cuts a verb at 80 characters
+    /// (Show Bus 1.3 §14's "today" line for <c>context.verb.chars</c>), and every row fits so that every reader takes it whole.
+    /// </summary>
+    public const int OwnVerbMostChars = 80;
+
+    /// <summary>
+    /// The verbs a peer or an assistant may propose to this desk, with their risk (docs/SHOWBUS.md §6), in §6's notation.
+    /// Rows are only ever appended, so a reader that matches them as text keeps its matches. Each row is a form this
+    /// desk's wire parses; the one that is not a wire verb, APPLY, is the approval desk's line for one of this desk's own
+    /// proposals (<see cref="DeskProposals.Line"/>), run only for the proposal this desk made, under its own id
+    /// (<see cref="DeskProposals.ApplyRefusal"/>). Not offered: WEB OPEN (an address can be a window's pass) and WEB TYPE
+    /// (typed text can be a password), nor the admin verbs.
+    ///
+    /// Read by two rules, and no line rates lower under either than the air it changes. Show Bus 1.3's (§11): the most
+    /// specific whole form a line matches. Stagewatch's up to its whole-form matcher: a row's leading literal words up to
+    /// its first <c>&lt;</c>, the longest run winning and the first row a tie — so where rows share their leading literal
+    /// words the riskiest comes first (<c>SCREEN &lt;n&gt; TAKE|CUT</c> before the staged <c>SCREEN &lt;n&gt; PVW …</c>,
+    /// and every <c>SCREEN</c> line reads high there), and a staged verb reaches review only under 1.3's rule. A form
+    /// that can name a brand kit (<c>LIBRARY</c>) is high: a brand kit's colours go on the show itself, on air at once
+    /// while EDIT SAFE is closed (docs/OPEN.md L72).
+    /// </summary>
     public static readonly IReadOnlyList<ShowContextCommand> Commands = new[]
     {
         new ShowContextCommand { Verb = "STATUS", Risk = "low", Words = "read the desk's state" },
@@ -170,6 +240,25 @@ public static class ShowContextBuilder
         new ShowContextCommand { Verb = "CUE GO", Risk = "high", Words = "fire the standby cue" },
         new ShowContextCommand { Verb = "BLACKOUT ON", Risk = "high", Words = "every screen to black" },
         new ShowContextCommand { Verb = "BLACKOUT OFF", Risk = "high", Words = "the pictures back" },
+        new ShowContextCommand { Verb = "APPLY <proposal>", Risk = "review", Words = "one of this desk's own assistant proposals, by its id — only the one this desk proposed (any other is refused); it lands in the preview, never on air" },
+        new ShowContextCommand { Verb = "VIDEO STOP", Risk = "high", Words = "the clip on air back to its top and held" },
+        new ShowContextCommand { Verb = "EYE NEXT|PREV|RESET", Risk = "low", Words = "move the operator's Eye (the desk's view only)" },
+        new ShowContextCommand { Verb = "EYE LENS <name>", Risk = "low", Words = "change the Eye's lens (the desk's view only)" },
+        new ShowContextCommand { Verb = "CUE STANDBY NEXT|PREV|<cue>", Risk = "review", Words = "put a cue on standby — nothing changes on air" },
+        new ShowContextCommand { Verb = "PVW LOOK|PRESET|PATTERN <name>", Risk = "review", Words = "stage a picture in the preview — nothing reaches the air until a TAKE" },
+        new ShowContextCommand { Verb = "PVW PROGRAM|RESET", Risk = "review", Words = "the preview from the air, or the look's own picture back" },
+        new ShowContextCommand { Verb = "SCREEN <n> TAKE|CUT", Risk = "high", Words = "one screen's preview to its air" },
+        new ShowContextCommand { Verb = "SCREEN <n> PVW LOOK|PRESET|PATTERN <name>", Risk = "review", Words = "stage a picture on one screen's preview — nothing reaches its air until its TAKE" },
+        new ShowContextCommand { Verb = "SCREEN <n> PVW PROGRAM|RESET", Risk = "review", Words = "one screen's preview from its air, or back" },
+        new ShowContextCommand { Verb = "LIBRARY <name>", Risk = "high", Words = "a Library tile onto the editing target's preview; a brand kit's tile puts its colours on the show itself, on air while EDIT SAFE is closed" },
+        new ShowContextCommand { Verb = "PVW LIBRARY <name>", Risk = "high", Words = "a Library tile onto the programme's preview; a brand kit's tile puts its colours on the show itself, on air while EDIT SAFE is closed" },
+        new ShowContextCommand { Verb = "SCREEN <n> PVW LIBRARY <name>", Risk = "high", Words = "a Library tile onto one screen's preview; a brand kit's tile puts its colours on the show itself, on air while EDIT SAFE is closed" },
+        new ShowContextCommand { Verb = "WEB NEXT|PREV|FIRST|LAST|PRESENT|EXIT [ON <page>]", Risk = "high", Words = "a slide action on the web page on air" },
+        new ShowContextCommand { Verb = "WEB PLAY|PAUSE|MUTE|RESTART|FORWARD|REWIND [ON <page>]", Risk = "high", Words = "a player action on the web page on air" },
+        new ShowContextCommand { Verb = "WEB BLACK|WHITE|CAPTIONS|FULLSCREEN [ON <page>]", Risk = "high", Words = "the web page on air to black or white, its captions, or full screen" },
+        new ShowContextCommand { Verb = "WEB KEY <key name> [ON <page>]", Risk = "high", Words = "a key to the web page on air" },
+        new ShowContextCommand { Verb = "WEB CLICK <x> <y> [ON <page>]", Risk = "high", Words = "a click at a point of the page on air, x and y in percent of the page" },
+        new ShowContextCommand { Verb = "WEB RELOAD [<page>]", Risk = "high", Words = "reload the page on air" },
     };
 
     /// <summary>The Eye's kinds that are another app's things, drawn here from its own context.</summary>

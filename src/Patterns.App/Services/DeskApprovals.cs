@@ -37,6 +37,17 @@ public sealed class DeskApprovals
 
     public Entry? ByDesk(string deskId) => _byLocal.Values.FirstOrDefault(e => e.DeskId == deskId);
 
+    /// <summary>
+    /// An approved APPLY naming <paramref name="local"/>: the entry it names and why it may not run, or a null refusal when
+    /// it may (<see cref="DeskProposals.ApplyRefusal"/>). Read against that entry alone — its own approval-desk id and
+    /// whether it ran — never against another entry that shares the id (an approval desk's ids can restart with its run).
+    /// </summary>
+    public (Entry? Entry, string? Refusal) ForApply(DeskProposal p, string local, string selfId)
+    {
+        var e = ByLocal(local);
+        return (e, DeskProposals.ApplyRefusal(p, local, selfId, e is not null, e?.DeskId ?? "", e?.Ran ?? false));
+    }
+
     /// <summary>A proposal for the desk; returns its local id.</summary>
     public string Add(string kindLabel, string title, string reason, string risk, Func<(bool, string)> apply, Action<string> said)
     {

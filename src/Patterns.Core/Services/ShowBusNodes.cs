@@ -250,6 +250,31 @@ public static class DeskProposals
         return id.Length is > 0 and <= 32 && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ? id : null;
     }
 
+    /// <summary>What an approved APPLY that is not this desk's own proposal answers: refused, with this reason.</summary>
+    public const string OnlyOwnApply = "an APPLY runs only for the proposal this desk made, under its own id";
+
+    /// <summary>What an approved APPLY answers when this desk no longer holds the proposal it names.</summary>
+    public const string NoLongerHeld = "this desk no longer holds that proposal (restarted since?) — ask the assistant again";
+
+    /// <summary>What an approved APPLY answers when the proposal it names has already run here: a proposal runs once.</summary>
+    public const string AlreadyApplied = "this desk already applied that proposal — it runs once";
+
+    /// <summary>
+    /// Why an approved APPLY naming <paramref name="local"/> may not run here, or null when it may. It runs only as the
+    /// proposal this desk made, and once: proposed from this desk's own id (<paramref name="selfId"/>), held here
+    /// (<paramref name="held"/>), collected under the very id the approval desk gave this desk's own post of the proposal
+    /// the line names (<paramref name="postedAs"/>: that proposal's approval-desk id as this desk recorded it, "" when it
+    /// has none), and not run yet (<paramref name="ran"/>). The same words re-proposed by another node, or the same
+    /// proposal under another id, name this desk's proposal without being it — refused, never applied.
+    /// </summary>
+    public static string? ApplyRefusal(DeskProposal p, string local, string selfId, bool held, string postedAs, bool ran)
+    {
+        if (selfId.Length == 0 || !string.Equals(p.FromId, selfId, StringComparison.Ordinal)) return OnlyOwnApply + " — another node proposed this one";
+        if (!held) return NoLongerHeld;
+        if (postedAs.Length == 0 || !string.Equals(postedAs, p.Id, StringComparison.Ordinal)) return OnlyOwnApply + $" — this desk posted {local} under another id";
+        return ran ? AlreadyApplied : null;
+    }
+
     public static DeskProposal? ParseOne(string? json)
     {
         if (string.IsNullOrWhiteSpace(json) || json.Length > 256 * 1024) return null;
