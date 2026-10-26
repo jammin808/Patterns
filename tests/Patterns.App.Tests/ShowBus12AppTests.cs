@@ -21,7 +21,9 @@ namespace Patterns.App.Tests;
 /// /tls and /tls.cer, Require HTTPS), the Stagewatch link over TLS (trust on first use from the hello, a changed
 /// certificate refused until ACCEPT), the approval queue as a client (a proposal sent, approved there, applied here,
 /// answered; another app's approved line run through the wire path), and a desk's timer node following the desk's
-/// Stagewatch by relay and sending its own context back — real sockets, a scripted Stagewatch.
+/// Stagewatch by relay and sending its own context back — real sockets, a scripted Stagewatch. Round 92: the link reaches
+/// a name at each of its addresses in turn, against scripted Stagewatches on loopback's addresses and a resolver the test
+/// answers.
 /// </summary>
 public class ShowBus12AppTests
 {
@@ -32,14 +34,15 @@ public class ShowBus12AppTests
         return ((IPEndPoint)probe.LocalEndpoint).Port;
     }
 
-    private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000)
+    /// <summary>Pumps the desk until <paramref name="condition"/> holds; a wait that runs out says what <paramref name="seen"/> reads then.</summary>
+    private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000, Func<string>? seen = null)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (!condition())
         {
             Dispatcher.UIThread.RunJobs();
             Thread.Sleep(5);
-            if (Environment.TickCount64 > deadline) throw new TimeoutException("the condition never held");
+            if (Environment.TickCount64 > deadline) throw new TimeoutException("the condition never held" + (seen is null ? "" : " — " + seen()));
         }
     }
 
@@ -159,13 +162,23 @@ public class ShowBus12AppTests
         public int RefuseResults;
         /// <summary>Every result post, refused or taken, by the proposal's id.</summary>
         public readonly ConcurrentDictionary<string, int> ResultPosts = new();
+        /// <summary>Round 92: its door refuses the upgrade to /ws with this status line ("401 Unauthorized"); null: it upgrades.</summary>
+        public volatile string? RefuseUpgrade;
         private int _next;
+        private int _accepted;
 
-        public FakeStagewatch(string frame, X509Certificate2? certificate, int port = 0)
+        /// <summary>Round 92: every connection it accepted — a dial that reached it, whatever came of it.</summary>
+        public int Accepted => Volatile.Read(ref _accepted);
+
+        /// <summary>
+        /// Listening on <paramref name="at"/> alone (IPv4 loopback unless another is named), as a Stagewatch listens on IPv4
+        /// alone; on <paramref name="port"/>, or a free one.
+        /// </summary>
+        public FakeStagewatch(string frame, X509Certificate2? certificate, int port = 0, IPAddress? at = null)
         {
             _frame = frame;
             Certificate = certificate;
-            _listener = new TcpListener(IPAddress.Loopback, port);
+            _listener = new TcpListener(at ?? IPAddress.Loopback, port);
             _listener.Start();
             Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
             _ = Task.Run(Serve, _cts.Token);
@@ -189,6 +202,7 @@ public class ShowBus12AppTests
                 TcpClient c;
                 try { c = await _listener.AcceptTcpClientAsync(_cts.Token); }
                 catch (Exception) { return; }
+                Interlocked.Increment(ref _accepted);
                 _ = Task.Run(() => Handle(c), _cts.Token);
             }
         }
@@ -229,6 +243,12 @@ public class ShowBus12AppTests
                     Authorization = auth["Authorization:".Length..].Trim();
                     Authorizations.Enqueue(Authorization);
                     if (!overTls) PlainAuthorizations.Enqueue(Authorization);
+                }
+                if (path.StartsWith("/ws", StringComparison.Ordinal) && RefuseUpgrade is { } refusal)
+                {
+                    await s.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 {refusal}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"), _cts.Token);
+                    await s.FlushAsync(_cts.Token);
+                    return;
                 }
                 if (path.StartsWith("/ws", StringComparison.Ordinal))
                 {
@@ -994,6 +1014,279 @@ public class ShowBus12AppTests
             node?.Dispose();
             desk.Dispose();
             try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+        }
+    }
+
+    // ---- round 92: the link reaches every address its name resolves to (L64) ---------------------------------------------
+
+    /// <summary>Loopback, and another address of it: on Linux it can be bound, and nothing listens there unless a test does.</summary>
+    private static readonly IPAddress OtherLoopback = IPAddress.Parse("127.0.0.2");
+
+    /// <summary>The desk's log lines that carry these words (the boot's own patterns.log).</summary>
+    private static int LogLines(string dir, string words)
+        => File.ReadAllLines(Path.Combine(dir, "patterns.log")).Count(l => l.Contains(words, StringComparison.Ordinal));
+
+    /// <summary>A resolver that answers every name with <paramref name="addresses"/>, in that order, and keeps each name asked.</summary>
+    private static Func<string, CancellationToken, Task<IPAddress[]>> Resolves(ConcurrentQueue<string> asked, params IPAddress[] addresses)
+        => (name, _) =>
+        {
+            asked.Enqueue(name);
+            return Task.FromResult(addresses);
+        };
+
+    /// <summary>
+    /// Two scripted Stagewatches on one port — the first on 127.0.0.2, the next on 127.0.0.1: a name's two addresses, each
+    /// with a Stagewatch of its own. A port 127.0.0.1 cannot take is given up for another.
+    /// </summary>
+    private static (FakeStagewatch First, FakeStagewatch Next) OnePortTwice(X509Certificate2? first, X509Certificate2? next)
+    {
+        for (var tries = 1; ; tries++)
+        {
+            var a = new FakeStagewatch(Frame, first, 0, OtherLoopback);
+            try
+            {
+                return (a, new FakeStagewatch(Frame, next, a.Port));
+            }
+            catch (SocketException) when (tries < 8)
+            {
+                a.Dispose();                                                                          // that port is taken on 127.0.0.1: another
+            }
+            catch
+            {
+                a.Dispose();
+                throw;
+            }
+        }
+    }
+
+    [Fact]
+    public void ANameIsDialledAtItsIpv4AddressesFirstThenItsIpv6OnesEachOnceAndAtMostAsManyAsTheHelloKeeps()
+    {
+        static string[] Order(params string[] found) => StagewatchLinkService.DialOrder(found.Select(IPAddress.Parse)).Select(a => a.ToString()).ToArray();
+
+        // A resolver that puts localhost's ::1 before its 127.0.0.1: a Stagewatch listens on IPv4, so 127.0.0.1 is dialled
+        // first, and ::1 after it.
+        Assert.Equal(new[] { "127.0.0.1", "::1" }, Order("::1", "127.0.0.1"));
+        // Each family in the resolver's order; an IPv4 address written as IPv6 is that address; a repeat once; four at most.
+        Assert.Equal(new[] { "10.0.0.9", "127.0.0.1", "192.168.1.2", "10.0.0.10" },
+            Order("::1", "::ffff:10.0.0.9", "127.0.0.1", "fe80::1", "10.0.0.9", "127.0.0.1", "192.168.1.2", "10.0.0.10"));
+        Assert.Equal(new[] { "127.0.0.1", "::1", "fe80::1" }, Order("::1", "fe80::1", "127.0.0.1", "::1"));
+        Assert.Empty(Order());
+        Assert.Equal(ShowBusPeers.MaxAddresses, StagewatchLinkService.DialAddressesAtMost);
+    }
+
+    [AvaloniaFact]
+    public void ANameWhoseFirstAddressHasNothingListeningIsFollowedAtItsNextAndTheLinksWordsSayWhere()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null);                                              // on 127.0.0.1 alone, as a Stagewatch listens on IPv4
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
+        var asked = new ConcurrentQueue<string>();
+        try
+        {
+            // The same on every machine: the name's first address in the dial's order has nothing listening on the port and
+            // its next has the Stagewatch — as for a Stagewatch listening by the name localhost on ::1 alone, where the dial
+            // takes 127.0.0.1 first. A dial of the first address alone never connects.
+            link.ResolveName = Resolves(asked, OtherLoopback, IPAddress.Loopback);
+            config.Host = "stagewatch.test:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => services.Stage.Following.Length > 0 && link.Sight.Context is not null, seen: () => link.Status);
+
+            Assert.Equal("stagewatch.test", Assert.Single(asked.Distinct()));
+            Assert.Equal("plain", link.Carrier);                                                     // both addresses are loopback: the key plain
+            Assert.NotEmpty(sw.Authorizations);
+            Assert.All(sw.Authorizations, a => Assert.Equal("Bearer swk_nodekey", a));
+            // The link's words say, while it is up, where it was reached and what did not answer before; their readers — STATE's
+            // bus.stagewatch.words and the Nodes page's show network line — say so, and the log names the address. The Eye,
+            // the context and the brief read the link's sight, not its words.
+            const string where = " · reached at 127.0.0.1 after 127.0.0.2 refused";
+            Assert.Contains(where, link.Status, StringComparison.Ordinal);
+            var row = JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch");
+            Assert.Contains(where, row.GetProperty("words").GetString(), StringComparison.Ordinal);
+            services.Nodes.Poll();
+            Assert.Contains(where, services.Nodes.ShowBusLine, StringComparison.Ordinal);
+            Assert.Equal(1, LogLines(b.Dir, $"Stagewatch link: stagewatch.test at stagewatch.test:{sw.Port} (reached at 127.0.0.1) over plain ws."));
+
+            // No address answering: the words name each one, and say that nothing was sent.
+            config.Enabled = false;
+            link.Reconcile();
+            link.ResolveName = Resolves(asked, OtherLoopback, IPAddress.Parse("127.0.0.3"));
+            config.Enabled = true;
+            link.Reconcile();
+            var none = $"Stagewatch link: stagewatch.test at stagewatch.test:{sw.Port}: 127.0.0.2 refused, 127.0.0.3 refused — nothing sent; trying again.";
+            PumpUntil(() => link.Status == none, seen: () => link.Status);
+            Assert.Equal("", services.Stage.Following);
+            Assert.Equal("", link.Carrier);
+        }
+        finally
+        {
+            config.Enabled = false;
+            link.Reconcile();
+            link.ResolveName = Dns.GetHostAddressesAsync;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnAnswerAtTheFirstAddressEndsTheDialThereAndTheNextIsNeverDialled()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var certA = Cert("Hall A");
+        using var certB = Cert("Hall A (another)");
+        var fpA = TlsFingerprint.Of(certA);
+        var fpB = TlsFingerprint.Of(certB);
+        var (first, next) = OnePortTwice(null, null);
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
+        try
+        {
+            // The first address's door refuses the key: the far end answered there, so the dial ends there — dialled again
+            // there after its backoff, never at the next address, where another Stagewatch would have taken the key.
+            link.ResolveName = Resolves(new ConcurrentQueue<string>(), OtherLoopback, IPAddress.Loopback);
+            first.RefuseUpgrade = "401 Unauthorized";
+            config.Host = "stagewatch.test:" + first.Port;
+            config.ApiKey = "swk_nodekey";
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => first.Accepted >= 3 && link.Status.Contains("check the Stagewatch key", StringComparison.Ordinal), 20000, () => link.Status);
+            Assert.Equal(0, next.Accepted);
+            Assert.Empty(next.Authorizations);
+            Assert.Equal("", services.Stage.Following);
+
+            // CERTIFICATE CHANGED at the first address, the pinned certificate at the next: the change is held for the
+            // operator and the next address is never asked — a refusal at one address is never taken to another.
+            config.Enabled = false;
+            link.Reconcile();
+            first.RefuseUpgrade = null;
+            first.Certificate = certA;
+            next.Certificate = certB;
+            config.SetPin("addr:stagewatch.test:" + first.Port, fpB);
+            config.Enabled = true;
+            link.Reconcile();
+            var dialled = first.Accepted;
+            PumpUntil(() => link.PendingFingerprint == fpA && first.Accepted >= dialled + 2, 20000, () => link.Status);
+            Assert.StartsWith("CERTIFICATE CHANGED", link.TlsWords);
+            Assert.Equal(0, next.Accepted);
+            Assert.Empty(next.Authorizations);
+            Assert.Equal("", services.Stage.Following);
+        }
+        finally
+        {
+            config.Enabled = false;
+            link.Reconcile();
+            link.ResolveName = Dns.GetHostAddressesAsync;
+            Dispatcher.UIThread.RunJobs();
+            first.Dispose();
+            next.Dispose();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void EachAddressDecidesItsOwnCarrierAndTheKeyNeverGoesPlainToOneThatIsNotLoopback()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null);                                              // on 127.0.0.1 alone, offering no TLS
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
+        try
+        {
+            // The name's first address is this machine's (nothing listens there); its next plays another machine. Whether the
+            // key may go plain is that address's to decide, never the name's or the first address's: TLS first there, and
+            // the Stagewatch, which offers none, read without the key.
+            link.ResolveName = Resolves(new ConcurrentQueue<string>(), OtherLoopback, IPAddress.Loopback);
+            link.IsLocal = a => a.Equals(OtherLoopback);
+            link.TlsAnswerWithin = TimeSpan.FromMilliseconds(500);
+            config.Host = "stagewatch.test:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => link.Carrier == "keyless" && services.Stage.Following.Length > 0, seen: () => link.Status);
+            Assert.Empty(sw.Authorizations);
+            Assert.Empty(sw.PlainAuthorizations);
+            Assert.True(sw.PostedContexts.IsEmpty);
+            Assert.Contains("stagewatch.test offers no TLS — the key stays on this desk", link.Status, StringComparison.Ordinal);
+        }
+        finally
+        {
+            config.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            link.ResolveName = Dns.GetHostAddressesAsync;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ALinkTurnedOffBetweenTwoAddressesOfItsNameReadsOffAndItsStoppedDialSaysNothingAfter()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
+        var next = IPAddress.Parse("127.0.0.3");
+        var asked = new ConcurrentQueue<IPAddress>();
+        var atNext = new ManualResetEventSlim(false);                                                // the dial has come to the name's next address
+        var turnedOff = new ManualResetEventSlim(false);                                             // the test has turned the link off
+        var leaving = new ManualResetEventSlim(false);                                               // the dial goes on from that address's rule
+        try
+        {
+            // The name's first address refuses, and the link is turned off as the dial comes to its next, whose own rule
+            // (IsLocal) is asked of it first. The stopped dial says nothing over "Stagewatch link off." and dials no further.
+            link.ResolveName = Resolves(new ConcurrentQueue<string>(), OtherLoopback, next);
+            link.IsLocal = a =>
+            {
+                asked.Enqueue(a);
+                if (a.Equals(next))
+                {
+                    atNext.Set();
+                    turnedOff.Wait(TimeSpan.FromSeconds(20));
+                    leaving.Set();
+                }
+                return IPAddress.IsLoopback(a);
+            };
+            config.Host = "stagewatch.test:" + FreePort();
+            config.ApiKey = "swk_nodekey";
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => atNext.IsSet, seen: () => link.Status);
+            config.Enabled = false;
+            link.Reconcile();
+            turnedOff.Set();
+            PumpUntil(() => leaving.IsSet, seen: () => link.Status);
+            // What the stopped dial would say it says at once, on its own thread with nothing left to wait for: it is given a
+            // third of a second, the desk pumped meanwhile.
+            var settled = Environment.TickCount64 + 300;
+            while (Environment.TickCount64 < settled)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(10);
+            }
+            Assert.Equal("Stagewatch link off.", link.Status);
+            Assert.Equal("", link.Carrier);
+            Assert.Equal(new[] { OtherLoopback, next }, asked.ToArray());
+        }
+        finally
+        {
+            turnedOff.Set();
+            config.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            link.ResolveName = Dns.GetHostAddressesAsync;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 

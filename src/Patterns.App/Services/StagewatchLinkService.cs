@@ -40,6 +40,11 @@ namespace Patterns.App.Services;
 /// a certificate. The key goes over plain ws or http only to a loopback address: every socket of a dial goes to the one
 /// address resolved for it, and that address, never a name, is what is asked. One log line for each change of the carrier.
 ///
+/// Round 92: a name is dialled at each of its addresses in turn — IPv4 first, then IPv6, at most four — and the next is
+/// tried only while no socket has reached the far end at this one; an answer there, a refusal or CERTIFICATE CHANGED among
+/// them, ends the dial at that address. Every socket of a connection goes to the address that answered, which is still
+/// what is asked whether the key may go plain; the words name the addresses that did not answer, and the log the one that did.
+///
 /// Round 91 (Stagewatch 2.18, Show Bus 1.3 §7.1): the link dials as a node — <c>/ws?node=&lt;this desk's show network
 /// id&gt;&amp;t=patterns</c> — and reads Stagewatch's verdict on its key, the first message a node link hears and sent again
 /// whenever the key, its binding or the PIN changes there. Nothing keyed is sent before a connection's first message is
@@ -157,6 +162,7 @@ public sealed class StagewatchLinkService : IDisposable
     private volatile string _pendingPinKey = "";
     private volatile bool _approvalsLive;
     private volatile string _note = "";
+    private volatile string _reached = "";
     private volatile string _carrier = "";
     private string _carrierSaid = "";
     private long _frames;
@@ -231,8 +237,9 @@ public sealed class StagewatchLinkService : IDisposable
         get
         {
             var line = _status;
-            // Round 91: and what the Stagewatch made of this desk's key, when there is something to say of it.
-            var extra = string.Join(" · ", new[] { _note, _run.Key.Line }.Where(w => w.Length > 0));
+            // Round 91: and what the Stagewatch made of this desk's key, when there is something to say of it. Round 92: and
+            // where a name led, while an address before the one that answered did not answer.
+            var extra = string.Join(" · ", new[] { _note, _reached, _run.Key.Line }.Where(w => w.Length > 0));
             return extra.Length == 0 ? line : line.TrimEnd('.') + " · " + extra + ".";
         }
     }
@@ -270,6 +277,14 @@ public sealed class StagewatchLinkService : IDisposable
     /// it before the link is turned on.
     /// </summary>
     public Func<IPAddress, bool> IsLocal { get; set; } = IPAddress.IsLoopback;
+
+    /// <summary>
+    /// Round 92: how a dial resolves a name — every address the name has, in the resolver's order; the system's resolver
+    /// unless a test answers with addresses of its own (a name whose first address has nothing listening, or that leads to
+    /// several machines). Asked only of a name, never of an address. Read on the link's task: set it before the link is
+    /// turned on.
+    /// </summary>
+    public Func<string, CancellationToken, Task<IPAddress[]>> ResolveName { get; set; } = Dns.GetHostAddressesAsync;
 
     /// <summary>
     /// Round 89: how long a TLS dial waits, from its socket's connect, for the far end's certificate. A far end that shows
@@ -377,6 +392,7 @@ public sealed class StagewatchLinkService : IDisposable
         _approvalWords = "";
         _tlsWords = "";
         _note = "";
+        _reached = "";
         _carrier = "";
         _nodeId = "";
         _held = "";
@@ -463,6 +479,7 @@ public sealed class StagewatchLinkService : IDisposable
             }
             if (Interlocked.Exchange(ref run.Redial, "") is { Length: > 0 } redial) _status = "Stagewatch link: " + redial;
             _carrier = "";
+            _reached = "";
             _sight = _sight with { State = ShowBusState.Gone };
             _approvalsLive = false;
             // Round 91: a hold replaces the wait (Show Bus 1.3 draft §13.15.3): a refused key, or a rate limit, is not
@@ -597,10 +614,14 @@ public sealed class StagewatchLinkService : IDisposable
     }
 
     /// <summary>
-    /// One connection. The carrier, by the pin and the probe (13.3.2, 13.4.2): a pinned Stagewatch over TLS or nothing; any
-    /// other at an address that is not loopback — and one at loopback whose hello names a certificate — over TLS first,
-    /// falling back to plain only when it answers without TLS, the key then sent only to loopback; one at loopback whose
-    /// hello names none, plain with the key as before. Every socket of the dial goes to the one address resolved for it.
+    /// One connection. A name is resolved once and its addresses dialled in turn (<see cref="DialOrder"/>), each as itself —
+    /// the carrier by the pin, the probe and that address (13.3.2, 13.4.2): a pinned Stagewatch over TLS or nothing; at an
+    /// address that is not loopback — and at loopback when the hello names a certificate — TLS first, falling back to plain
+    /// only when it answers without TLS, the key then sent only to loopback; at loopback with no certificate named, plain with
+    /// the key as before. The next address is tried only while no socket of this one has reached the far end (refused,
+    /// unreachable, nothing within the upgrade's budget): once the far end has answered — a certificate or none, a status, a
+    /// verdict — the dial ends there, so nothing said at one address is ever taken to another. Every socket of the
+    /// connection — the upgrade, the side calls, the re-probe — goes to the one address that answered.
     /// </summary>
     private async Task ConnectAsync(Run run, Target target, string apiKey, IReadOnlyDictionary<string, string> pins, CancellationToken outer)
     {
@@ -609,52 +630,90 @@ public sealed class StagewatchLinkService : IDisposable
         var pin = pins.TryGetValue(target.PinKey, out var held) && TlsFingerprint.IsValid(held) ? held : "";
         var pinned = pin.Length > 0;
         _note = pinned ? HelloNote(target, pin) : "";                                   // a hello that contradicts the pin is a note, never a refusal
-        var address = await DialAddressAsync(target, ct);
-        var local = IsLocal(address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address);
+        var addresses = await DialAddressesAsync(target, ct);
         var presented = "";
-        DialProbe? probe = null;
-        RemoteCertificateValidationCallback validate = (_, cert, _, _) =>
+
+        // One address, as itself: its own carrier, and the key over plain ws only when that address is loopback (local). Each
+        // dial's probe is kept in probes, so the caller knows whether any socket of this address reached the far end.
+        async Task<Dialled> DialAtAsync(IPAddress at, bool local, List<DialProbe> probes)
         {
-            probe?.Certificate();
-            return CheckCertificate(target, pins, cert, ref presented);
-        };
-        var tls = pinned || target.HelloTls || !local;
-        var keyed = apiKey.Length > 0;
-        (SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket)? dial = null;
-        if (tls)
+            if (pinned || target.HelloTls || !local)
+            {
+                // The short wait for a certificate is only there to fall back soon: a pinned Stagewatch has no fallback, and
+                // one that answered late before is given the whole budget.
+                var within = pinned || _slowTls == target.PinKey ? UpgradeWithin : TlsAnswerWithin;
+                var probe = new DialProbe(tls: true, within);
+                probes.Add(probe);
+                RemoteCertificateValidationCallback validate = (_, cert, _, _) =>
+                {
+                    probe.Certificate();
+                    return CheckCertificate(target, pins, cert, ref presented);
+                };
+                try
+                {
+                    var (handler, invoker, socket) = await DialAsync(at, probe, validate, target, tls: true, apiKey, SelfId, ct);
+                    return new Dialled(at, handler, invoker, socket, Tls: true, Keyed: apiKey.Length > 0);
+                }
+                catch (Exception ex) when (AnsweredWithoutTls(ex, probe))
+                {
+                    // A pinned certificate is TLS or nothing: a plain answer is not that Stagewatch, and nothing of this desk's goes to it.
+                    if (pinned)
+                    {
+                        var how = probe.Silent
+                            ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"showed no certificate within {within.TotalSeconds:0.#} s")
+                            : "answered without TLS";
+                        throw new DialRefusedException($"{target.Name} at {target.Host}:{target.Port} {how}, and its certificate is pinned ({TlsFingerprint.Short(pin)}) — nothing sent (another machine at its address?); trying again");
+                    }
+                }
+            }
+            // Plain: the key goes only to loopback. Anywhere else, the Stagewatch is read without the key.
+            var keyed = apiKey.Length > 0 && local;
+            var plain = new DialProbe(tls: false, TlsAnswerWithin);
+            probes.Add(plain);
+            var (plainHandler, plainInvoker, plainSocket) = await DialAsync(at, plain, null, target, tls: false, keyed ? apiKey : "", SelfId, ct);
+            return new Dialled(at, plainHandler, plainInvoker, plainSocket, Tls: false, Keyed: keyed);
+        }
+
+        Dialled? dialled = null;
+        var missed = new List<string>(addresses.Count);                                  // each address nothing answered at, and why
+        foreach (var at in addresses)
         {
-            // The short wait for a certificate is only there to fall back soon: a pinned Stagewatch has no fallback, and
-            // one that answered late before is given the whole budget.
-            var within = pinned || _slowTls == target.PinKey ? UpgradeWithin : TlsAnswerWithin;
-            probe = new DialProbe(tls: true, within);
+            var local = IsLocal(at.IsIPv4MappedToIPv6 ? at.MapToIPv4() : at);
+            // A link turned off or dialled anew since the last address has words of its own: the dial ends here, before it
+            // says which address it tries or dials one more.
+            ct.ThrowIfCancellationRequested();
+            if (missed.Count > 0)
+            {
+                _status = $"Stagewatch link: dialling {target.Name} at {target.Host}:{target.Port} — {string.Join(", ", missed)}; trying {at}…";
+                UiThread.Post(_changed);
+            }
+            var probes = new List<DialProbe>(2);
+            presented = "";
             try
             {
-                dial = await DialAsync(address, probe, validate, target, tls: true, keyed ? apiKey : "", SelfId, ct);
+                dialled = await DialAtAsync(at, local, probes);
+                break;
             }
-            catch (Exception ex) when (AnsweredWithoutTls(ex, probe))
+            catch (Exception ex) when (!probes.Exists(p => p.Reached)
+                                       && ex is WebSocketException or HttpRequestException or IOException or SocketException or OperationCanceledException)
             {
-                // A pinned certificate is TLS or nothing: a plain answer is not that Stagewatch, and nothing of this desk's goes to it.
-                if (pinned)
-                {
-                    var how = probe.Silent
-                        ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"showed no certificate within {within.TotalSeconds:0.#} s")
-                        : "answered without TLS";
-                    throw new DialRefusedException($"{target.Name} at {target.Host}:{target.Port} {how}, and its certificate is pinned ({TlsFingerprint.Short(pin)}) — nothing sent (another machine at its address?); trying again");
-                }
-                tls = false;
+                missed.Add($"{at} {Missed(ex)}");                                         // no socket reached it, so nothing of this desk's did: the next
             }
         }
-        if (dial is null)
-        {
-            // Plain: the key goes only to loopback. Anywhere else, the Stagewatch is read without the key.
-            keyed = apiKey.Length > 0 && local;
-            probe = new DialProbe(tls: false, TlsAnswerWithin);
-            dial = await DialAsync(address, probe, null, target, tls: false, keyed ? apiKey : "", SelfId, ct);
-        }
-        var (handler, invoker, ws) = dial.Value;
+        ct.ThrowIfCancellationRequested();                                                // a stopped dial's misses are not the link's words: it ends unsaid
+        if (dialled is null)
+            throw new DialRefusedException($"{target.Name} at {target.Host}:{target.Port}: {string.Join(", ", missed)} — nothing sent; trying again.");
+        var address = dialled.At;
+        var tls = dialled.Tls;
+        var keyed = dialled.Keyed;
+        var ws = dialled.Socket;
+        var handler = dialled.Handler;
         using var ownedHandler = handler;
-        using var ownedInvoker = invoker;
+        using var ownedInvoker = dialled.Invoker;
         using var ownedSocket = ws;
+        // Answered after the link was turned off or dialled anew: the connection is let go unread, before its carrier, the
+        // address it reached or its words are set over the ones the link has now.
+        ct.ThrowIfCancellationRequested();
         var heldBack = apiKey.Length > 0 && !keyed;
         _carrier = tls ? "tls" : heldBack ? "keyless" : "plain";
         if (heldBack)
@@ -663,11 +722,15 @@ public sealed class StagewatchLinkService : IDisposable
                 ? $"{target.Name} answered without TLS though its hello names a certificate — the key stays on this desk"
                 : $"{target.Name} offers no TLS — the key stays on this desk";
         }
-        var said = target.PinKey + "|" + _carrier + "|" + _note;
+        // The address a name led to: the log's line names it, and the link's words do while the connection is up whenever an
+        // address before it did not answer — a name with an address that is dead costs every dial its wait.
+        _reached = missed.Count > 0 ? $"reached at {address} after {string.Join(", ", missed)}" : "";
+        var reached = IPAddress.TryParse(target.Host, out _) ? "" : $" (reached at {address})";
+        var said = target.PinKey + "|" + _carrier + "|" + _note + "|" + reached;
         if (said != _carrierSaid)
         {
             _carrierSaid = said;
-            Log.Info($"Stagewatch link: {target.Name} at {target.Host}:{target.Port} over {(tls ? "TLS" : heldBack ? "plain ws, read without its key" : "plain ws")}" + (_note.Length > 0 ? " — " + _note + "." : "."));
+            Log.Info($"Stagewatch link: {target.Name} at {target.Host}:{target.Port}{reached} over {(tls ? "TLS" : heldBack ? "plain ws, read without its key" : "plain ws")}" + (_note.Length > 0 ? " — " + _note + "." : "."));
         }
         _lastWordAt = ShowClock.Seconds;
         var name = target.Name;
@@ -799,27 +862,76 @@ public sealed class StagewatchLinkService : IDisposable
     }
 
     /// <summary>
-    /// The address this dial reaches: the host as typed or heard when it is an address, else its name resolved once (IPv4
-    /// first) within <see cref="ResolveWithin"/>. Every socket of the dial goes to this address and no other, so whether
-    /// the key may go plain is decided by what is dialled, never by a name.
+    /// The addresses this dial tries, in turn: the host as typed or heard when it is an address, else its name resolved once
+    /// within <see cref="ResolveWithin"/>, in <see cref="DialOrder"/>. Every socket of a connection goes to the one address
+    /// that answered and no other, so whether the key may go plain is decided by what is dialled, never by a name.
     /// </summary>
-    private static async Task<IPAddress> DialAddressAsync(Target target, CancellationToken ct)
+    private async Task<IReadOnlyList<IPAddress>> DialAddressesAsync(Target target, CancellationToken ct)
     {
-        if (IPAddress.TryParse(target.Host, out var literal)) return literal;
+        if (IPAddress.TryParse(target.Host, out var literal)) return [literal];
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(ResolveWithin);
         IPAddress[] found;
         try
         {
             // The wait, not only the lookup, is bounded: a resolver that does not take the cancel is left to finish on its own.
-            found = await Dns.GetHostAddressesAsync(target.Host, deadline.Token).WaitAsync(deadline.Token);
+            found = await ResolveName(target.Host, deadline.Token).WaitAsync(deadline.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             throw new DialRefusedException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{target.Name} at {target.Host}:{target.Port}: the name did not resolve within {ResolveWithin.TotalSeconds:0} s — nothing sent; trying again."));
         }
-        return Array.Find(found, a => a.AddressFamily == AddressFamily.InterNetwork) ?? (found.Length > 0 ? found[0] : throw new SocketException((int)SocketError.HostNotFound));
+        var order = DialOrder(found);
+        return order.Count > 0 ? order : throw new SocketException((int)SocketError.HostNotFound);
     }
+
+    /// <summary>
+    /// Round 92: the most addresses one dial of a name tries — as many as the hello table keeps for one id
+    /// (<see cref="ShowBusPeers.MaxAddresses"/>, Show Bus 1.3 §14 <c>peer.addresses</c>), so a name is dialled at no more
+    /// addresses than one node is heard at, and a pass is bounded: the resolve's 4 s; at each address nothing answers at, at
+    /// most the upgrade's 5 s; at the address that answers, what any one dial may take — at most 15 s: 5 s to connect, 5 s
+    /// for a certificate when the whole budget is waited for one (a pinned Stagewatch, or one slow to answer TLS before),
+    /// then 5 s more, to the upgrade's answer or, when no certificate came, to a plain dial's. So 4 + 3 × 5 + 15 = 34 s at
+    /// worst before the redial's backoff. Set by the hello's bound, not by a measurement.
+    /// </summary>
+    public const int DialAddressesAtMost = ShowBusPeers.MaxAddresses;
+
+    /// <summary>
+    /// Round 92: the order a name's addresses are dialled in — IPv4 first, as a Stagewatch listens on IPv4 alone, then IPv6,
+    /// each family in the resolver's order; an IPv4 address written as IPv6 is its IPv4 one, a repeat is dropped, and at
+    /// most <see cref="DialAddressesAtMost"/> are kept.
+    /// </summary>
+    public static IReadOnlyList<IPAddress> DialOrder(IEnumerable<IPAddress> found)
+    {
+        var plain = found.Select(a => a.IsIPv4MappedToIPv6 ? a.MapToIPv4() : a).Distinct().ToList();
+        return plain.Where(a => a.AddressFamily == AddressFamily.InterNetwork)
+            .Concat(plain.Where(a => a.AddressFamily == AddressFamily.InterNetworkV6))
+            .Take(DialAddressesAtMost)
+            .ToArray();
+    }
+
+    /// <summary>Why nothing answered at an address, in the link's words: refused, unreachable, or silent past the upgrade's budget.</summary>
+    private static string Missed(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is SocketException socket)
+            {
+                return socket.SocketErrorCode switch
+                {
+                    SocketError.ConnectionRefused => "refused",
+                    SocketError.TimedOut => "did not answer",
+                    SocketError.AddressFamilyNotSupported => "unreachable from this machine",
+                    SocketError.HostUnreachable or SocketError.NetworkUnreachable or SocketError.HostDown or SocketError.NetworkDown => "unreachable",
+                    _ => "not reached (" + socket.Message + ")",
+                };
+            }
+        }
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"did not answer within {UpgradeWithin.TotalSeconds:0} s");
+    }
+
+    /// <summary>A dial whose far end answered: the address it reached, its handler, the invoker the upgrade ran on, the WebSocket, and its carrier.</summary>
+    private sealed record Dialled(IPAddress At, SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket, bool Tls, bool Keyed);
 
     /// <summary>
     /// The WebSocket and the side calls of one dial: every socket goes to <paramref name="address"/>, straight (no proxy —

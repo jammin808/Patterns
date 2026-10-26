@@ -22,8 +22,18 @@ jobs:
         run: dotnet restore
       - name: Build
         run: dotnet build -c Release --no-restore
+      # L64: the order this runner resolves localhost in, whichever it is. The App suite's scripted Stagewatch listens by
+      # that name, on the address it resolves to first alone; the link dials a name's IPv4 addresses first, then its IPv6 ones.
+      - name: How this runner resolves localhost
+        run: getent ahosts localhost
       - name: Test
         run: dotnet test -c Release --no-build --logger "trx;LogFileName=results.trx"
+      # L64: the address each scripted Stagewatch was reached at, from the App suite's test output, counted.
+      - name: Where the scripted Stagewatch was reached
+        if: always()
+        run: |
+          grep -ho "Scripted Stagewatch (an HttpListener on localhost:[0-9]*): [^<]*" tests/Patterns.App.Tests/TestResults/*.trx \
+            | sed -E 's/localhost:[0-9]+/localhost/; s/ \([0-9]+ requests?\)//g' | sort | uniq -c || true
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5

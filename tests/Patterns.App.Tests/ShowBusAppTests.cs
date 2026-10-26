@@ -10,6 +10,7 @@ using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.Core.Services;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Patterns.App.Tests;
 
@@ -22,6 +23,15 @@ namespace Patterns.App.Tests;
 public class ShowBusAppTests
 {
     private const string Token = "K7QM-3XWD-P9RA";
+
+    private readonly ITestOutputHelper _out;
+
+    /// <summary>What a wait that runs out says beside its timeout: where each scripted Stagewatch was reached, and each desk's link.</summary>
+    private readonly List<Func<string>> _seen = new();
+
+    private readonly HashSet<AppServices> _watched = new();
+
+    public ShowBusAppTests(ITestOutputHelper output) => _out = output;
 
     private static int FreePort()
     {
@@ -50,14 +60,20 @@ public class ShowBusAppTests
         return task.GetAwaiter().GetResult();
     }
 
-    private static void PumpUntil(Func<bool> done, int timeoutMs = 10000)
+    /// <summary>
+    /// Pumps the desk until <paramref name="done"/> holds. A wait that runs out says what the link and the scripted
+    /// Stagewatches saw (L64): the link's words and the addresses each Stagewatch was reached at, so a red run names a refusal
+    /// rather than only that time ran out.
+    /// </summary>
+    private void PumpUntil(Func<bool> done, int timeoutMs = 10000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (!done())
         {
             Dispatcher.UIThread.RunJobs();
             Thread.Sleep(10);
-            if (Environment.TickCount64 > deadline) throw new TimeoutException("the condition never came");
+            if (Environment.TickCount64 > deadline)
+                throw new TimeoutException("the condition never came" + (_seen.Count == 0 ? "" : " — " + string.Join("; ", _seen.Select(seen => seen()))));
         }
     }
 
@@ -402,7 +418,15 @@ public class ShowBusAppTests
     {
         public const string StuckBeat = "{\"type\":\"beat\",\"live\":false}";
 
+        private readonly ITestOutputHelper _out;
         private readonly HttpListener _listener = new();
+
+        /// <summary>
+        /// L64: every address a request arrived on, with how many came there. The listener is bound by a name, so this is the
+        /// address the name's first resolution gave it — ::1 on a machine whose resolver puts localhost's ::1 first, 127.0.0.1
+        /// where it puts 127.0.0.1 first — which the test output carries and the CI log prints.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, int> _arrivedAt = new(StringComparer.Ordinal);
         private readonly CancellationTokenSource _cts = new();
         private readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _open = new();
         private volatile string _authorization = "";
@@ -455,11 +479,23 @@ public class ShowBusAppTests
 
         public volatile int ContextRetryAfter;
 
-        public FakeStagewatch(string frame)
+        /// <summary>Where requests arrived, in words: "reached at ::1 (12 requests)", or "never reached".</summary>
+        public string ReachedAt => _arrivedAt.IsEmpty
+            ? "never reached"
+            : "reached at " + string.Join(", ", _arrivedAt.OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => a.Value == 1 ? $"{a.Key} (1 request)" : $"{a.Key} ({a.Value} requests)"));
+
+        /// <summary>
+        /// Listening by the name localhost — wherever the machine's resolver puts it first. A wait of <paramref name="test"/>
+        /// that runs out says where it was reached and what <paramref name="desk"/>'s link said; its output, where it was reached.
+        /// </summary>
+        public FakeStagewatch(ShowBusAppTests test, AppServices desk, string frame)
         {
+            _out = test._out;
             Port = FreePort();
             _listener.Prefixes.Add($"http://localhost:{Port}/");
             _listener.Start();
+            test._seen.Add(() => $"the scripted Stagewatch on localhost:{Port} {ReachedAt}");
+            if (test._watched.Add(desk)) test._seen.Add(() => "this desk's " + desk.Kernel.Stagewatch.Status);
             _ = Task.Run(() => Serve(frame), _cts.Token);
         }
 
@@ -493,6 +529,7 @@ public class ShowBusAppTests
                 catch (Exception) { return; }
                 _ = Task.Run(async () =>
                 {
+                    _arrivedAt.AddOrUpdate(ctx.Request.LocalEndPoint.Address.ToString(), 1, (_, n) => n + 1);
                     var auth = ctx.Request.Headers["Authorization"] ?? "";
                     if (ctx.Request.Url!.AbsolutePath == "/ws" && ctx.Request.IsWebSocketRequest)
                     {
@@ -591,6 +628,7 @@ public class ShowBusAppTests
             _cts.Cancel();
             _listener.Close();
             _cts.Dispose();
+            _out.WriteLine($"Scripted Stagewatch (an HttpListener on localhost:{Port}): {ReachedAt}.");     // L64: the CI log prints these lines
         }
     }
 
@@ -599,7 +637,7 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var stagewatch = new FakeStagewatch("{\"type\":\"state\",\"v\":1,\"seq\":3,\"mode\":\"countdown\",\"state\":\"running\",\"seconds\":750,\"total\":1800,\"text\":\"12:30\",\"phase\":\"warning\",\"title\":\"Keynote — Ana\",\"next\":\"Panel\"}");
+        using var stagewatch = new FakeStagewatch(this, services, "{\"type\":\"state\",\"v\":1,\"seq\":3,\"mode\":\"countdown\",\"state\":\"running\",\"seconds\":750,\"total\":1800,\"text\":\"12:30\",\"phase\":\"warning\",\"title\":\"Keynote — Ana\",\"next\":\"Panel\"}");
         try
         {
             var link = vm.State.Control.Stagewatch;
@@ -679,7 +717,7 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var stagewatch = new FakeStagewatch(RunningFrame);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
         const string stuckLine = "Stagewatch link: localhost says its show is stuck — the stage shows no time.";
         const string runsLine = "Stagewatch link: localhost's show runs again.";
         var trusted = ControlService.TrustLoopback;
@@ -806,7 +844,7 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var stagewatch = new FakeStagewatch(RunningFrame) { Stuck = true };
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { Stuck = true };
         try
         {
             Link(vm, services, stagewatch);
@@ -852,8 +890,8 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var hallB = new FakeStagewatch(RunningFrame) { Stuck = true };
-        using var annex = new FakeStagewatch(RunningFrame);
+        using var hallB = new FakeStagewatch(this, services, RunningFrame) { Stuck = true };
+        using var annex = new FakeStagewatch(this, services, RunningFrame);
         const string movedOn = "Stagewatch link: connected to Annex — Hall B, whose show was stuck, is no longer followed.";
         try
         {
@@ -915,7 +953,7 @@ public class ShowBusAppTests
         var (services, vm) = (b.Services, b.Vm);
         // The verdict comes late: a link that sent a keyed call at its connect would be caught before it. Its context echoes
         // the bearer: masked before any reader takes it.
-        using var stagewatch = new FakeStagewatch(RunningFrame) { FirstDelayMs = 1500, LightingState = "standing by: LX 12 (Bearer swk_testkey)" };
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { FirstDelayMs = 1500, LightingState = "standing by: LX 12 (Bearer swk_testkey)" };
         var link = services.Kernel.Stagewatch;
         try
         {
@@ -970,7 +1008,7 @@ public class ShowBusAppTests
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
         // Stagewatch 2.18 on an unknown or revoked key: one refusal, then the public frame on the same socket.
-        using var stagewatch = new FakeStagewatch(RunningFrame) { First = StagewatchBytes.Refusal("unknown or revoked API key", 60) };
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { First = StagewatchBytes.Refusal("unknown or revoked API key", 60) };
         var link = services.Kernel.Stagewatch;
         const string refused = "KEY REFUSED — unknown or revoked API key";
         try
@@ -1039,7 +1077,7 @@ public class ShowBusAppTests
         var id = services.Kernel.ShowBusId;
         // Two installs pasted one key: Stagewatch keeps the frames and says the key speaks for the other one. The binding
         // governs contexts and proposals, not reading (Stagewatch §7.1): the key goes on reading the context.
-        using var stagewatch = new FakeStagewatch(RunningFrame) { First = StagewatchBytes.Verdict("node", "patterns", id, "none", StagewatchBytes.SpeaksFor("1a2b3c4d", id)) };
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { First = StagewatchBytes.Verdict("node", "patterns", id, "none", StagewatchBytes.SpeaksFor("1a2b3c4d", id)) };
         var link = services.Kernel.Stagewatch;
         var words = $"key not accepted for this desk — this key speaks for patterns 1a2b3c4d — make a key for patterns {id}";
         try
@@ -1092,7 +1130,7 @@ public class ShowBusAppTests
         var id = services.Kernel.ShowBusId;
         // The key reads, and every post of this desk's context is refused 403 (a read key; a key bound to another node). Each
         // refusal holds the node routes for 7 s — past a context tick inside it, and past its end to the next post.
-        using var stagewatch = new FakeStagewatch(RunningFrame)
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame)
         {
             ContextStatus = "403",
             ContextBody = "{\"ok\":false,\"error\":\"" + StagewatchBytes.SpeaksFor("1a2b3c4d", id) + "\"}",
@@ -1141,7 +1179,7 @@ public class ShowBusAppTests
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
         // Stagewatch 2.16 with a viewing code, the key unknown there: the bare view refusal, then the close — no verdict.
-        using var stagewatch = new FakeStagewatch(RunningFrame)
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame)
         {
             Legacy = true,
             First = "{\"type\":\"auth\",\"ok\":false,\"view\":true,\"error\":\"This screen needs the viewing code\"}",
@@ -1175,7 +1213,7 @@ public class ShowBusAppTests
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
         // A refused key on a Stagewatch with a viewing code: one view refusal with the key's words and its retry, then the close.
-        using var stagewatch = new FakeStagewatch(RunningFrame)
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame)
         {
             First = StagewatchBytes.ViewRefusal("This screen needs the viewing code", "unknown or revoked API key", 3),
             CloseAfterFirst = true,
@@ -1211,7 +1249,7 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var stagewatch = new FakeStagewatch(RunningFrame)
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame)
         {
             ContextStatus = "429",
             ContextBody = "{\"ok\":false,\"error\":\"rate limit: too many requests with this key\"}",
@@ -1256,7 +1294,7 @@ public class ShowBusAppTests
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
         // Stagewatch 2.16's bytes: the first thing a socket hears is a frame, and a context taken says nothing of its proof.
-        using var stagewatch = new FakeStagewatch(RunningFrame) { Legacy = true };
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { Legacy = true };
         var link = services.Kernel.Stagewatch;
         try
         {
@@ -1478,7 +1516,7 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var stagewatch = new FakeStagewatch(RunningFrame);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
         try
         {
             // A machine elsewhere says hello naming the typed address as its host, the typed door, a name that sorts first and
@@ -1519,7 +1557,7 @@ public class ShowBusAppTests
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
-        using var stagewatch = new FakeStagewatch(RunningFrame);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
         const string words = "two machines say they are a1b2c3d4: STAGE-PC2 at 10.0.0.7 and STAGE-PC at localhost";
         try
         {
