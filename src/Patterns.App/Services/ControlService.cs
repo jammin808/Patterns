@@ -1312,14 +1312,16 @@ public sealed partial class ControlService : IDisposable
             {
                 contentType = "text/plain; charset=utf-8";
                 // The passcode rides in its header (round 65) — never in the URL, which a browser's history and a proxy's log keep.
-                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow)))
+                // Round 90: the show's secret values come off the UI thread with the check, so the tail masks what the bundle masks.
+                var secrets = await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow) ? _kernel.SecretValues() : null);
+                if (secrets is null)
                 {
                     status = "403 Forbidden";
                     payload = _kernel.Gate.Reason;
                 }
                 else
                 {
-                    payload = LogTail(80);
+                    payload = LogTail(80, secrets);
                 }
             }
             else if (method == "GET" && path.StartsWith("/support-bundle.zip", StringComparison.Ordinal))
@@ -1465,8 +1467,8 @@ public sealed partial class ControlService : IDisposable
         ShowActionKind.CueGo or ShowActionKind.CueStandby or ShowActionKind.CueHoldOn or ShowActionKind.CueHoldOff or
         ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.StopAll;
 
-    /// <summary>The last lines of patterns.log, for the ADMIN page — read with a shared lock, the app keeps writing.</summary>
-    private string LogTail(int lines)
+    /// <summary>The last lines of patterns.log, for the ADMIN page — read with a shared lock, the app keeps writing — with every secret value masked, as the support bundle masks its log.</summary>
+    private string LogTail(int lines, IReadOnlyCollection<string> secrets)
     {
         try
         {
@@ -1475,7 +1477,8 @@ public sealed partial class ControlService : IDisposable
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream);
             var all = reader.ReadToEnd().Split('\n');
-            return string.Join("\n", all.Skip(Math.Max(0, all.Length - lines)));
+            // A line an older build wrote with a secret in it leaves the machine masked.
+            return Secrets.Scrub(string.Join("\n", all.Skip(Math.Max(0, all.Length - lines))), secrets);
         }
         catch (Exception ex)
         {

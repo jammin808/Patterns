@@ -674,6 +674,41 @@ public class RemoteTrustTests
         }
     }
 
+    /// <summary>
+    /// Round 90: the ADMIN page's log tail masks what the support bundle masks. A line an older build wrote with the
+    /// twin's key in it — the bench host's first boot logged "this desk was given the key xpbe-…" — leaves the machine
+    /// with the mask where the key was, and so does any other secret value of the show; the rest of the line reads as
+    /// written.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheAdminPagesLogTailMasksTheShowsSecretsAsTheBundleDoes()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            vm.State.Control.HttpPort = FreePort();
+            vm.State.Control.TcpPort = FreePort();
+            vm.State.Install.AdminPasscode = "open-sesame";
+            vm.State.Twin.Key = "xpbe-4kq2-m7rd-9tzc";
+            Dispatcher.UIThread.RunJobs();
+            // As an older build wrote them: the made key in the twin's line, the passcode in another.
+            Log.Info("Twin: this desk was given the key xpbe-4kq2-m7rd-9tzc — a caller node that links needs the same key (Machine page, TWIN).");
+            Log.Info("Remote admin: RESTART open-sesame");
+
+            var tail = Http(vm.State.Control.HttpPort, "GET", "/api/admin/log", "", ("X-Patterns-Pass", "open-sesame"));
+            Assert.Equal("200 OK", tail.Status);
+            Assert.Contains($"Twin: this desk was given the key {Secrets.Mask} — a caller node that links needs the same key", tail.Body, StringComparison.Ordinal);
+            Assert.Contains($"Remote admin: RESTART {Secrets.Mask}", tail.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("xpbe-4kq2-m7rd-9tzc", tail.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain("open-sesame", tail.Body, StringComparison.Ordinal);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void TheControlPortsBindWhereTheRemotePageSaysAndThePagesCarryTheToken()
     {
