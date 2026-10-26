@@ -15,7 +15,8 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   every command answers `OK`, `OK <json>` or `ERR <reason>`; a line that makes the desk fault
   behind the wire is answered `ERR the desk faulted on this line (<type>) — fault #n, logged` and
   the connection stays, the fault in `patterns.log` (round 83). On connect — and on every
-  change — the server pushes `STATE <json>` so controllers can show live feedback. Each
+  change — the server pushes `STATE <json>` so controllers can show live feedback; on a desk
+  with a pairing token, only once the connection has paired (round 91, the Trust paragraph). Each
   connection has one writer on the desk's side (round 65): replies come back in the order the
   lines were sent, `STATE` pushes are latest-wins behind them — a slow deck gets the newest
   state, never a backlog — and a connection that stops reading its answers is closed rather
@@ -97,6 +98,12 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 
 ## Commands
 
+On a desk with a pairing token (round 91, ADR-016), every read in this table — `STATUS`, `EYE`, `EYE AT`, `CONTEXT`,
+`TWIN STATUS`, `NODES` and the other status reads — answers a paired connection only, and every verb waits for the
+token as before; an unpaired connection may ask only the handshake and the five reads the Trust paragraph above names
+(`NAV`, `MENU`, `CUE LIST`, the arcade's and the room's status, `ASSISTANT`). An open desk, and the desk's own machine
+while it trusts it, answer everything as before.
+
 | Command | Effect |
 |---|---|
 | `OUTPUTS ON` | Open the output windows on the enabled screens |
@@ -139,13 +146,13 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `SCREEN <n> TESTROUTE [ON\|OFF]` (or `TEST ROUTE`) | Round 65.10: the diagnostic profile — 1080p50, RGB, 8-bit, SDR; no audio word since round 72, because nothing on the machine observes the audio a link carries — stands in for screen *n*'s contract while a path is proven (ON), the contract holds again (OFF), bare toggles; the contract itself is never touched. A soft or wrong picture that clears on the test route is a capability problem, one that stays is a path problem. The screen's signal view carries a Test route line first; the commissioning flow holds at CONTRACT while any screen is on the route. Desk-only: a running order never puts a screen on the test route |
 | `SCREEN <n> RECEIVED <words>` | Round 65.11: what the far end — the processor, the scaler, the projector — says its input receives on screen *n*'s link, in the contract's words (`3840x2160 50 RGB 8`): the engineer's own reading of the box's panel, held against the contract as the third witness beside Windows' observation; a disagreement is red and the result MISMATCH, whatever Windows believes it sends. `SCREEN <n> RECEIVED CLEAR` forgets it. A device with an input-status adapter (Interactive page: *Input carries*, *Ask*, *Reads*) says it by itself — a PJLink class 2 projector's `IRES ?` out of the box; a box with its own API through the words and the pattern typed. The signal view carries RECEIVED, STATE's screen rows `signal.received`, the journal one line per change. Desk-only: a running order never claims what a box receives |
 | `COMMISSION` / `COMMISSION STATUS` (or `COMMISSIONING`) | Round 65.10: the commissioning flow as JSON — `complete`, `done`, `total`, `percent`, `headline`, `next`, `overall` and `stages` (each `stage`, `title`, `light`, `value`, `next`): DISCOVER (Windows shows every display, none lost), ASSIGN (every planned screen adopted, screens enabled), CONTRACT (every screen says what its link carries; none on the test route), CAPABILITY (every display's EDID offers its contract), OUTPUT TEST (the outputs have opened this run), VERIFY (MATCH on every contracted screen — UNVERIFIED is not a pass) and KNOWN GOOD (saved and unchanged). STATE's `commissioning{complete,done,total,stage,headline,next}` row carries the same |
-| `EYE` / `EYE STATUS` (or `EYE GRAPH`) | Round 66: the God's Eye — the whole show as one picture, as JSON: `headline` (the worst thing and what is wrong, or *all green*), `worst`, `worstLight`, `worstWords`, `counts{green,amber,red,grey,things,links}`, `problems` (ids, reds first then ambers, Video before Control before Audio before Room), `focus`, `lens`, `nodes` (each `id`, `kind`, `plane`, `tier`, `label`, `sub`, `light`, its place `x`, `y`, `w`, `h`, `words`, the desk `page` and `item` that show it, and its own `wire` line) and `edges` (`from`, `to`, `kind` — the link's verb, lower-case — `light`, `words`); round 84 adds `replay` (whether the desk's Eye page is replaying the record), `replayAt` (the instant, ISO 8601 UTC, empty when not) and `moment` (the moment's words, empty when not) at the end — `EYE` itself is always the picture of now. STATE's `eye{headline,worst,worstLight,worstWords,red,amber,green,grey,things,problems,focus,lens,replay,replayAt}` row carries the headline, the counts and the view |
+| `EYE` / `EYE STATUS` (or `EYE GRAPH`) | Round 66: the God's Eye — the whole show as one picture, as JSON: `headline` (the worst thing and what is wrong, or *all green*), `worst`, `worstLight`, `worstWords`, `counts{green,amber,red,grey,things,links}`, `problems` (ids, reds first then ambers, Video before Control before Audio before Room), `focus`, `lens`, `nodes` (each `id`, `kind`, `plane`, `tier`, `label`, `sub`, `light`, its place `x`, `y`, `w`, `h`, `words`, the desk `page` and `item` that show it, and its own `wire` line) and `edges` (`from`, `to`, `kind` — the link's verb, lower-case — `light`, `words`); round 84 adds `replay` (whether the desk's Eye page is replaying the record), `replayAt` (the instant, ISO 8601 UTC, empty when not) and `moment` (the moment's words, empty when not) at the end — `EYE` itself is always the picture of now. STATE's `eye{headline,worst,worstLight,worstWords,red,amber,green,grey,things,problems,focus,lens,replay,replayAt}` row carries the headline, the counts and the view. On a desk with a token, to a paired connection only — an unpaired one hears `ERR not paired …` (round 91, ADR-016) |
 | `EYE FOCUS <words>` | Round 66: the operator's eye on one thing — a screen's number (`EYE FOCUS screen 2`, or `EYE FOCUS 2`), a label (`EYE FOCUS Main LED`), `desk`, or an id from `EYE` (`screen:…`, `display:…`, `source:…`, `device:…`, `deck:…`, `companion:…`, `stack`, `assistant`); the Eye page's camera moves to it and the rest dims by distance. `ERR` names a thing the picture has not got. Desk-only: a running order never moves the operator's eye |
 | `EYE NEXT` / `EYE PREV` (or `PREVIOUS`, `BACK`) | Round 66: the eye steps through the problems — reds first, then ambers — and wraps; `OK` with nothing red or amber |
 | `EYE LENS <name>` | Round 66: one lens over the picture — `all`, `video`, `control`, `audio`, `room` or `problems` (the things that are red or amber, their neighbours and the desk); `ERR` for any other word |
 | `EYE RESET` (or `EYE HOME` / `EYE ALL`) | Round 66: the whole picture — no focus, every band, the view from before the focus |
 | `EYE REPLAY` / `EYE REPLAY ON` / `EYE REPLAY OFF` (or `NOW`, `LIVE`) / `EYE REPLAY <time>` | Round 84: the Eye page's replay — the structure of now relit from what the desk recorded (the journal's rows and the metrics file's samples) at an instant. `ON` (or bare) opens the record at its last stamp, a time opens it there — a clock time (`20:14`, `20:14:03`; today's in the desk's zone, yesterday's when it lies ahead of now) or an ISO 8601 stamp (`2026-09-24T20:14:03Z`, an offset honoured, none read as the desk's zone) — and `OFF` puts the picture of now back. Answers `OK` with the moment's words (`Replay 20:14:03 · 2 rows in the 30 s before · machine amber: p95 frame 40 ms`), `ERR` for a word that is not a time or for a record with nothing in it. Desk-only: a running order never moves what the desk is looking at. While the replay is open the eye verbs (`FOCUS`, `NEXT`, `PREV`) walk the replayed picture; the rail, STATE's counts and `EYE` stay on now. The scrub bar on the page moves the instant without a verb. Round 85: the files are read on a worker — the first open answers `OK Reading the record on a worker — the picture relights when it is read` and the strip says so until the read lands; a later open of a loaded record answers `OK Replay …` at once; the record is the files as they stood at the press (the press's own journal row is not in it), read bounded (the journal's newest 20,000 rows, 60,000 metrics lines a file) and stopped by `OFF` or a second open |
-| `EYE AT <time>` | Round 84: the record at an instant as the Eye's JSON — the same fields as `EYE`, the lights and words the record's, `replay` true, `replayAt` the instant, `moment` its words — without moving the page; the record is read afresh on a worker while the replay is closed, and the reply waits for a read in flight (round 85). A bare `EYE AT` is unknown; a word that is not a time is `ERR` with the shapes a time takes |
+| `EYE AT <time>` | Round 84: the record at an instant as the Eye's JSON — the same fields as `EYE`, the lights and words the record's, `replay` true, `replayAt` the instant, `moment` its words — without moving the page; the record is read afresh on a worker while the replay is closed, and the reply waits for a read in flight (round 85). A bare `EYE AT` is unknown; a word that is not a time is `ERR` with the shapes a time takes. On a desk with a token, to a paired connection only (round 91, ADR-016) |
 | `MIDI` / `MIDI STATUS` (or `MIDI BINDINGS`, `MIDI MAP`) | Round 73: MIDI learn and the surfaces' map as JSON — `learning`, `wire` (the line learn waits for a control for), `label`, `since` (seconds), `surfaces[]` (`name`, `port`, `open`, `bound`), `bindings[]` (`device`, `control` — "NOTE 1 53", `match` — the row's left, `command` — the wire line), `count`, `last` (the last binding written, in words) and `words` (the Eye's line). The bindings are the surfaces' own trigger rows on the Interactive page, saved with the show. STATE's `midi` row is the same |
 | `MIDI LEARN <line>` | Round 73: learn from any button — the desk waits, and the next control moved on any open MIDI surface is bound to that wire line: `MIDI LEARN LOOK Walk-in`, `MIDI LEARN CUE GO`, `MIDI LEARN SCREEN 2 PVW PATTERN Grid`, `MIDI LEARN LT 1`. A pad is written at any velocity (`NOTE 1 53 *`), a fader anywhere in its travel (`CC 1 7 *`) with a trailing number on the line turned into `*` (`MIDI LEARN AUDIO LEVEL 50` on a fader binds `AUDIO LEVEL *`); a release never binds; a control learned twice keeps the last line and the answer says what it replaced. `ERR` for a line the wire does not know, a question (`STATUS`), no MIDI surface in the show, or none open. The same as the MIDI group on every right-click menu (docs/MIDI-LEARN.md); desk-only — a cue never binds a control |
 | `MIDI LEARN OFF` (or `CANCEL`, `STOP`) | Round 73: the learn waiting stops; nothing is bound (Esc on the desk and the Interactive page's CANCEL do the same). A bare `MIDI LEARN` answers `ERR` |
@@ -247,7 +254,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `AUTH <token>` | Presents the show's pairing token (Remote page, TRUST): `OK paired`, `ERR wrong token …`, or `OK open …` on a desk that asks for none. Five wrong tokens close the connection; a mutating verb before it answers `ERR not paired …`, and (round 91, ADR-016) so does a read of the show — `STATUS`, `EYE`, `CONTEXT` and every read but `NAV`, `MENU`, `CUE LIST`, the arcade's and the room's status and `ASSISTANT`. A connection that pairs hears the greeting `STATE` as the line after `OK paired`. Round 87: from the desk's own machine only — another machine answers `ERR plain AUTH is for this machine only …` and proves the token with `AUTH-PROOF` |
 | `AUTH-PROOF <hex>` | Round 87: proves the token without sending it — `hex` = lowercase hex of HMAC-SHA256(key = the token as compared, upper case without dashes or spaces; message = the connection's nonce followed by its `HELLO` name, "" before a HELLO). `OK paired`, `ERR wrong token` (counted with AUTH's five), `OK open …` on a desk that asks for none. A nonce answers one proof, right or wrong: after a wrong one the desk says a fresh `NONCE <hex>` line |
 | `NONCE` | Round 87: `OK <hex>` — a fresh nonce for this connection's next `AUTH-PROOF`. A desk with a token also says `NONCE <hex>` unasked as the first line of every connection that has the token to prove, and no `STATE` until it is proved (round 91, ADR-016); a connection paired from the start — an open desk, the desk's own machine while it trusts it — is greeted with `STATE` and hears no nonce |
-| `CONTEXT` | Round 87: `OK <json>` — this desk in Show Bus 1.1's shared context shape (`docs/SHOWBUS.md` §6): `v`, `node` (`t` patterns, `id` this install's, `name`), `at`, `light` (the worst of the desk's own things), `headline` (the Eye's), `items` and `links` (the Eye's nodes and edges — another app's things are left out, that app says them), `recent` (the journal's last twenty rows in words), `commands` (the verbs a peer or an assistant may propose, each with `risk` low, review or high, in Show Bus §6's notation; round 91 appends nineteen to the fourteen: `APPLY <proposal>` at review — only this desk's own assistant proposal, below — then `VIDEO STOP` at high, `EYE NEXT\|PREV\|RESET` and `EYE LENS` at low, `CUE STANDBY` and the staged verbs `PVW LOOK\|PRESET\|PATTERN`, `PVW PROGRAM\|RESET` and the same on `SCREEN <n> PVW` at review, `SCREEN <n> TAKE\|CUT` at high and ahead of the staged `SCREEN` rows, the Library forms `LIBRARY`, `PVW LIBRARY` and `SCREEN <n> PVW LIBRARY` at high — a brand kit's tile puts its colours on the show itself, on air while EDIT SAFE is closed — and the web page's actions in three rows, its keys, clicks and reload at high; never `WEB OPEN` or `WEB TYPE`. Every verb is at most 80 characters. Read by Show Bus 1.3's whole-form rule, a staged line reads review; a Stagewatch that still rates a line by a row's leading literal words (to 2.20) reads it high, and every `SCREEN` line high, never lower than the air it changes — `docs/OPEN.md` L71) and `peers` (the other show apps heard, one hop). No token, no key. `GET /api/context` on the web, with the token as `/api/state` wants it; on the wire, on a desk with a token, to a paired connection only (round 91, ADR-016) |
+| `CONTEXT` | Round 87: `OK <json>` — this desk in Show Bus 1.1's shared context shape (`docs/SHOWBUS.md` §6): `v`, `node` (`t` patterns, `id` this install's, `name`), `at`, `light` (the worst of the desk's own things), `headline` (the Eye's), `items` and `links` (the Eye's nodes and edges — another app's things are left out, that app says them), `recent` (the journal's last twenty rows in words), `commands` (the verbs a peer or an assistant may propose, each with `risk` low, review or high, in Show Bus §6's notation; round 91 appends nineteen to the fourteen: `APPLY <proposal>` at review — only this desk's own assistant proposal, below — then `VIDEO STOP` at high, `EYE NEXT\|PREV\|RESET` and `EYE LENS` at low, `CUE STANDBY` and the staged verbs `PVW LOOK\|PRESET\|PATTERN`, `PVW PROGRAM\|RESET` and the same on `SCREEN <n> PVW` at review, `SCREEN <n> TAKE\|CUT` at high and ahead of the staged `SCREEN` rows, the Library forms `LIBRARY`, `PVW LIBRARY` and `SCREEN <n> PVW LIBRARY` at high — a brand kit's tile puts its colours on the show itself, on air while EDIT SAFE is closed — and the web page's actions in six rows at high — its slide, player and display actions in three, and its keys, clicks and reload; never `WEB OPEN` or `WEB TYPE`. Every verb is at most 80 characters. Read by Show Bus 1.3's whole-form rule, a staged line reads review; a Stagewatch that still rates a line by a row's leading literal words (to 2.20) reads it high, and every `SCREEN` line high, never lower than the air it changes — `docs/OPEN.md` L71) and `peers` (the other show apps heard, one hop). No token, no key. `GET /api/context` on the web, with the token as `/api/state` wants it; on the wire, on a desk with a token, to a paired connection only (round 91, ADR-016) |
 | `@<id> <line>` | Round 87 (Show Bus 1.1 §3): any line may carry a request id (1–32 of letters, digits, `-`, `_`); every answer to it names the id after its first word — `OK @a1 …`, `ERR @a1 …` — so a sender matches an answer to the line it sent. A line starting `@` with an id that is not one is refused unrun. `/api/cmd` takes the same prefix in its body and gives the id back as `"id"` |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes; on a desk with a token, to a paired connection only — an unpaired one hears `ERR not paired — this desk shows its state only to a paired connection …` (round 91, ADR-016) |
 | `PING` | `OK PONG` |
@@ -637,6 +644,11 @@ listen on (Stagewatch, its presenter PCs, a messenger such as AGMessage):
   `clock` (Unix ms as sent), `inst` (this process, which a machine ignores coming back) — and `id` is now this
   install's, kept beside the settings (`patterns.node-id`), so a renamed desk is still the same node. The old
   top-level `web`, `wire` and `machine` stay for a reader from round 86. It goes to this machine's loopback too.
+- Round 91 (Show Bus 1.3 §2, from Stagewatch's draft): `proto` is 3, the revision whose shapes the desk speaks; the
+  `name` and `host` are one line of at most 64 characters (never cut inside a surrogate pair), `ports` names only the
+  doors served, and the whole hello stays within 1,200 bytes whatever the names; the broadcast and the loopback copy go
+  each on its own, and a broadcast that fails is logged once until one goes again. What the desk hears is the next
+  section's.
 
 ## Round 89: no pass, key or token in clear
 
@@ -668,11 +680,14 @@ What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in on
 
 - **HTTPS on the control HTTP port.** The port reads the connection's first byte: a TLS handshake (`0x16`) gets TLS
   with this install's certificate (ECDSA P-256, self-signed, made at the first start, its key sealed with DPAPI on
-  Windows); anything else is plain HTTP as before. The hello says `"tls":"sha256:<64 hex>"` and `ports.https` (the same
-  port). `GET /tls` — the fingerprint and how to trust the certificate on each kind of device; `GET /tls.cer` — the
-  certificate (DER, no key). **Require HTTPS** (Remote page, `Control.RequireHttps`, off by default): plain HTTP from
-  another machine answers `403` with the way to `https://`; this machine may stay plain. Exempt: the audience port
-  (plain HTTP; phones cannot be asked to trust a certificate), the wire and the twin link (L55).
+  Windows; round 91: 825 days in all, NotBefore a day back, renewed at a start with under 30 days left, and one of the
+  1,826 days earlier rounds made replaced once — the log names the old fingerprint, and a pinned client sees
+  CERTIFICATE CHANGED once); anything else is plain HTTP as before. The hello says `"tls":"sha256:<64 hex>"` and
+  `ports.https` (the same port). `GET /tls` — the fingerprint and how to trust the certificate on each kind of device;
+  `GET /tls.cer` — the certificate (DER, no key). **Require HTTPS** (Remote page, `Control.RequireHttps`, off by
+  default): plain HTTP from another machine answers `403` with the way to `https://`; this machine may stay plain.
+  Exempt: the audience port (plain HTTP; phones cannot be asked to trust a certificate), the wire and the twin link
+  (L55).
 - **The Stagewatch link over TLS.** When Stagewatch's hello names a certificate the link dials `wss://`/`https://` and
   pins the certificate per Stagewatch (`node:<id>`, or `addr:<host>:<port>` for a typed address) on its first
   authenticated answer. A different certificate later is refused — CERTIFICATE CHANGED on the Nodes page and the Eye —
@@ -708,15 +723,38 @@ is Stagewatch's). What Patterns does with it:
   6 s of silence, gone after 12 s, forgotten after a minute. The Nodes page's THE SHOW NETWORK lists them (teal
   Stagewatch, violet AGMessage, sky a Slides agent), the Eye draws them on its CONTROL plane (heard grey, stale
   amber, gone red, linked with the app's own light), the context's `peers` and the assistant's brief read them.
-  Another Patterns is left to the beacon's node cards.
+  Another Patterns is left to the beacon's node cards. Round 91 (Show Bus 1.3 §2): a hello is read in §2's shapes
+  (kind, id, `inst`, caps), one whose format word `v` is other than 1 dropped; one id is one peer, kept with every
+  address it was heard from within 6 s (at most four) and the address the link dials kept while it is still heard; an
+  address names a peer only when its datagrams came from it (a hello's own `host` borrows nothing). An id heard from
+  two running machines taking turns (`inst` A, B, A within 6 s, or two hosts with no `inst`) is **in conflict** until a
+  minute after the last turn: amber with both machines named on the Nodes card, in STATE, the context's peers, the Eye
+  and the brief, and the link dials no new link to it (it keeps one it has; found on the show network it moves off it
+  only to a Stagewatch this desk pinned). The table holds at most 128 ids: a new one takes the place of the one heard
+  longest ago that this desk does not need (the linked and the pinned, at most 64, are kept), and every one put out is
+  counted in STATE's `bus.dropped`. The log's lines for the table are bounded: at most four ids named a minute, the
+  rest counted in one line.
 - **What another app reads of this desk on the wire** (round 91, ADR-016): `STATE`, `STATUS` and `CONTEXT` only after
   its proof is answered `OK paired`. Stagewatch's link (2.18 and later) and PlayMap's take nothing before that answer
   and then ask `STATUS`, so they read the desk as before; a Stagewatch 2.16 that holds the token proves on `NONCE` and
   hears the greeting after `OK paired`. One linked without the token reads nothing of a desk that has one, and keeps
   no context: give it the token (Remote page, TRUST), or the desk none.
 - **Links to a Stagewatch** (Nodes page; off by default; with no address it follows the first Stagewatch it
-  hears). The desk opens Stagewatch's WebSocket (`ws://host:port/ws?cid=patterns&page=/patterns`, `wss://` over TLS)
-  with the key (a Stagewatch API key, `swk_…`) in an `Authorization: Bearer` header — never in the URL. Round 89: the
+  hears). The desk opens Stagewatch's WebSocket (round 91: `ws://host:port/ws?node=<this desk's show network
+  id>&t=patterns&cid=<the id>&page=/patterns`, `wss://` over TLS — a node link, not a screen) with the key (a
+  Stagewatch API key, `swk_…`) in an `Authorization: Bearer` header — never in the URL — and sends nothing keyed until
+  it has read Stagewatch's verdict, the first message on the socket (Stagewatch 2.18 and later):
+  `{"type":"auth","ok":true,…,"node":{…,"verified":"key"|"operator"}}` takes the key; `verified` `none` on a link that
+  carries the key is a key that speaks for no node of this desk's — the context this desk posts, its proposals, the
+  collect and the results wait (a 403 on a side call says the same), the frames and the keyed read of the context go on;
+  `{"type":"auth","ok":false,"error",…,"retry":s}` refuses the key — every keyed call and the redial wait for the larger
+  of 60 s and `retry`, at most an hour, while the timer follows the public frame (a 401 on a side call says the same); a
+  side call's 429 holds the keyed calls for its `Retry-After` and changes nothing else; the viewing code's refusal closes
+  the socket and the redial waits out its hold. A fresh verdict that takes the key lifts every hold. A result a hold
+  stopped is sent once the routes open, and its proposal never runs twice. Against a Stagewatch before 2.18, which sends
+  no verdict, a link that carries the key judges it by its keyed calls' answers and every reader says so in amber
+  ("an older Stagewatch: no verdict on its link — the key is judged by its HTTP answers"; OPEN L66, until Show Bus 1.4).
+  This desk's key and any `swk_` token are masked in every word the Stagewatch sends back. Round 89: the
   pin and a probe choose the carrier, never a hello. A pinned Stagewatch is dialled over TLS whatever its hello says
   (a contradicting hello is a note) and gets nothing if it answers without TLS; any other Stagewatch off loopback is
   tried over TLS first, and one that shows no certificate within 2 s is followed in its public view without the key
@@ -737,8 +775,14 @@ is Stagewatch's). What Patterns does with it:
   `stagewatch` (`on`, `state` off / live / stale / gone, `name`, `following`, `title`, `text`, `light`,
   `headline`, `clock`, `words`, and round 89's `stuck` — `text` empty, the light no better than amber and the stuck
   headline while it is true — and `carrier`: `tls`, `plain` (loopback only), `keyless` (another machine offering no
-  TLS, read without the key) or empty). The module reads `showbus_heard`, `stagewatch_state`, `stagewatch_name`,
-  `stagewatch_headline`, `stagewatch_light`, `stage_follows` and (3.18.1) `stagewatch_stuck`.
+  TLS, read without the key) or empty). Round 91 appends, each at the end of its row: `stagewatch.key` — `key` or
+  `operator` (the key speaks for this desk), `none` (it speaks for no node of this desk's), `refused`, or empty (not said,
+  or a Stagewatch before 2.18 that has refused nothing) — whose line leads the row's headline, its light amber, while the
+  link is live and its show not stuck; `stagewatch.held` — the conflict the link is held off for, empty when none, which
+  leads the headline, the light amber, while nothing live is linked; `apps[].conflict` (true for an id in conflict); and
+  `bus.dropped`, the ids the full table put out since start. The module reads `showbus_heard`, `stagewatch_state`,
+  `stagewatch_name`, `stagewatch_headline`, `stagewatch_light`, `stage_follows`, (3.18.1) `stagewatch_stuck` and
+  (3.19.0) `stagewatch_key`; a conflict's hold reaches a deck through `stagewatch_light` and `stagewatch_headline`.
 - **STATE's `control` row** (round 89, at the very end): `clearSeen[{address, via, first, last, count}]` — each
   machine the pairing token arrived from in clear, `via` `web`, `wire` or `web,wire`, the first and last time in
   ISO 8601 UTC — and `words` ("seen in clear from 10.0.0.7 — rotate it: NEW TOKEN"; empty when none). The marks are

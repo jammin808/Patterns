@@ -670,6 +670,23 @@ a frozen time, a token in the capture, a verb that ran from the stranger, or a h
 |---|---|---|---|---|---|---|---|---|
 | | | | | | | | | unwalked |
 
+**Round 91 (a note to this walk, not a section of its own).** On a build from round 91, with Stagewatch 2.18 or later
+and Companion module 3.19.1: step (1) gains the key's verdict as a real Stagewatch says it on `/ws`. The link dials as a
+node (`/ws?node=<this desk's show network id>&t=patterns&cid=…`, the id on the Nodes page's identity line) and the Nodes
+card and STATE's `bus.stagewatch.key` read `key`. On the Stagewatch, let the desk's node key speak for another node: it
+answers `ok` with `verified` none and its words, and its frames keep coming — the Nodes card says "key not accepted for
+this desk — …" in amber, `bus.stagewatch.key` reads `none`, the stage timer still follows, and the context this desk
+posts and its proposals wait; let it speak for this desk again ("Let it speak for…", in Stagewatch's Settings or its
+Show network) and the card reads the key taken, one log line each way. Revoke the key: `ok:false` with its `retry` —
+"KEY REFUSED — …" in amber, `refused`, no keyed call and no redial for the hold, the timer on the public frame, and the
+log's line in Stagewatch's words. Step (3) gains the wire's order: from a machine that has not paired, open the wire
+(`nc <desk> 9697`): its first line is `NONCE <hex>` and no `STATE`; `STATUS`, `EYE` and `CONTEXT` answer `ERR not paired
+— this desk shows its state only to a paired connection …`, read beside `patterns.log`'s one line for that address
+("Wire: <address> asked STATUS before pairing — refused: … (ADR-016) …") and the Super Check's REMOTE row *Wire reads*,
+amber with the count; the deck, which proves the token, hears `OK paired` and its greeting `STATE` after it. A fail
+adds: a `STATE` line or an answered read before `OK paired`, a refused key sent again inside its hold, or a key that
+speaks for another node shown green. The row above stays as it is, unwalked.
+
 ## 27. TLS, the pins, the approval queue and the node relay (round 88)
 
 **Set up.** The show laptop (the desk) with a timer node on a second machine linked to it, Stagewatch 2.16 on a third
@@ -691,6 +708,17 @@ approved.
 | Build | Date | Machine | Tablet trusts / Require HTTPS | Pin / changed / ACCEPT | Node follows by relay, its card on the Eye | Approved proposal lands | Result |
 |---|---|---|---|---|---|---|---|
 | | | | | | | | unwalked |
+
+**Round 91 (a note to this walk, not a section of its own).** A certificate spans 825 days from round 91 (Show Bus 1.3
+§10), and one longer than that is replaced once. On the first start of a round-91 build, a desk whose certificate rounds
+88 to 90 made (1,826 days) makes a new one: the Remote page's fingerprint and `/tls` change, and `patterns.log` has one
+line naming the old fingerprint ("TLS: this desk's certificate spans 1826 days, more than the 825 a show network allows
+… — replaced once — a new one is made (every client that pinned sha256:… sees CERTIFICATE CHANGED once …)"). Step (1)'s
+tablet, if it trusted the old certificate, warns once: download and trust the new one, and the step reads as written. A
+Stagewatch from 2.19 replaces its own over-long certificate the same way (its SW19.5): step (3) then reads CERTIFICATE
+CHANGED on the Nodes page and the Eye until ACCEPT, which is the step's own check. A fail adds: a second replacement at
+the next start, or a tablet that still warns after trusting the new certificate. The row above stays as it is,
+unwalked.
 
 ## 28. A page's pass, the twin's secrets, the trust rules and a stuck Stagewatch on two machines (round 89)
 

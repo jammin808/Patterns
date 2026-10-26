@@ -3859,3 +3859,163 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   the next run, read there.
 - Walk: none asked — the exe's start, the watchdog and `App.axaml.cs` are unchanged, and no platform path is touched
   (libVLC's start is gated only in the bench's process and in one App test's, which sets it back).
+
+## Round 91 review — Show Bus 1.3 from Patterns' side: the link as a node, the wire's state for the paired, what a peer may propose, the certificate and the hello at 1.3
+
+### 91.0 — the round opened
+
+- The maintainer's ask, made from Stagewatch's side for the whole show network, answered by the rest of the plan's
+  second train's Patterns half, *one contract, one kit* (§109.1). Evidence class: a handed-in critique — the designs of
+  the 1.3 contract, of peers that are not screens and of cross-app proposals, two items of the Eye's critique and the
+  plan revised against its critique; L65 is this tree's own finding (90.1). `docs/field/` holds only its README.
+- Scope A read against this wire's grammar: no `STATE`, `SUBSCRIBE`, `HELP` or `VERBS` verb here, so STATE is the
+  greeting, the push and `STATUS`, and every query kind was put on one side before the code. 91.1 was read against a real
+  Stagewatch's `/ws` bytes (every dial upgraded, the verdict on the socket, a refusal with `retry` while the public frame
+  keeps coming, a key bound to another node answered `verified` none).
+- L65 was taken as 91.7, the next free number, to land before the papers; 91.5 was to wait for 1.3 final and move if it
+  had not come. The opening moved nothing.
+
+### 91.1 — the Stagewatch link dials as a node and reads its verdict
+
+- **Done.** §109.2. `StagewatchFrame.SocketQuery`, `Auth`, `Hold`; `StagewatchKey` (`OfVerdict`, `OfAnswer`, `OlderFirst`,
+  the words) and `StagewatchKeyStep`; the link's holds under the run's gate, the owed results, the masks; STATE
+  `bus.stagewatch.key`; the Nodes card and identity line, the Eye, the context's peers, the brief; the module's
+  `stagewatch_key` (3.19.0); `ShowBusTests`, `ShowBusAppTests` against a Stagewatch speaking 2.18's `/ws`
+  (`StagewatchBytes`), `ShowBus12AppTests`.
+- **The review's items, fixed:** a key the Stagewatch takes that speaks for no node of this desk's held its keyed read and
+  its redial too, so every reader showed its context for about 5 s of every minute — it now holds the node routes only
+  (medium); the key's line led a reader's headline on a link gone quiet or gone; P-legacy's reading of 2.16's bare
+  viewing-code refusal; a 2xx naming an unknown `verified` taken as evidence on a link that heard a verdict; the approval
+  desk's `live` set outside the run's gate; an echoed bearer or `swk_` token reaching a log line; a side call's answer
+  read without a bound (now 1 MiB).
+- **Left, named:** the hold kept in the process only, and a dropped link waiting out a refused key's hold (L67).
+
+### 91.2 — the wire shows its state only to a paired connection
+
+- **Done.** §109.3. ADR-016 (written first); `ControlProtocol.OpenBeforePairing`, `StateNotPaired`, `TokenChanged`,
+  `UnpairedReadLine`; `ControlService`'s greeting after `OK paired`, the push asking again, the counted and bounded
+  refusal; `WirePeer.SayLast`; the Super Check's *Wire reads* row and the dashboard tile; OSC's `/patterns/status` by the
+  list (ADR-017 amended); the desk's words; module 3.19.1; `RemoteTrustTests`, `PairingTokenTests`, `NavAppTests`,
+  `OscAppTests`, the wire helpers in `ShowBusAppTests` and `BenchHostTests`, the module's tests.
+- **The review's items, fixed:** NEW TOKEN left a paired connection open and silent on its last STATE — it now hears the
+  token-changed words and is closed, and each deck's `Paired` is read against the token as it is now; the TRUST hint, the
+  OSC tooltip, the help, the `/api/cmd` comment, ADR-003's pointer and `/api/stage` named as an open read; the module's
+  settles (an unanswered proof, a desk with no proof, a nonce that is not 32 hex) and its words for a token the desk no
+  longer takes, said only on a connection the desk had paired; the refused-read log bounded per address (`SaidOnce`, 64)
+  rather than a line per refusal (L35), and the REMOTE tile.
+- **Decided, named:** OSC's `/patterns/status` follows the pairing — its cost, an OSC poller off OSC ALLOW losing the
+  show's state until listed, is in ADR-017. The refused-read fact does not reach STATE's `control` row or the Eye's
+  control node: it is a health reading, not the desk's own standing.
+
+### 91.3 — the context says what a peer may propose
+
+- **Done.** §109.4. Nineteen rows appended after the fourteen; `APPLY` read against the entry it names
+  (`DeskApprovals.ForApply`, `DeskProposals.ApplyRefusal`) and run once; `ShowContext.Parse` through `KeptCommands` (256,
+  512, a missing risk high); the brief's 32; `ShowBusTests` (the rows and the two raters' fence), `ShowBus12Tests`,
+  `ShowBus12AppTests`. OPEN: L69 added and closed; L70, L71, L72 added.
+- **The review's items, fixed:** §2.8's order let today's Stagewatch rate `SCREEN 2 TAKE` and the live `SCREEN 2 LOOK`
+  as review (the take row now leads the `SCREEN` rows, and the fence replays both raters); the Library forms at review
+  where a brand kit reaches the air (now their own rows at high, L72); a web row of 113 characters that Stagewatch's
+  reader cuts at 80 (three rows); `APPLY` read against the first entry holding the approval desk's id (now the named
+  one, since Stagewatch's ids restart with its run); a proposal already run (refused "it runs once"); a row with no risk
+  read as review (now high).
+- **Departures, named:** nineteen rows where the opening said fifteen, and their order against §2.8 (§109.4).
+
+### 91.4 — certificates 825 days; the hello 1.3; the hello table bounded at 128
+
+- **Done.** §109.5. `TlsIdentity` (825 days, the backdate, the one replacement and its log line); `ShowBusHello` at
+  `proto` 3 within 1,200 bytes; `ShowBusPeers` (§2's shapes, `v`, one id one peer with four addresses and a sticky dial,
+  conflicts, 128 ids with the needed kept and the drops counted), `ShowBusTableLog`; the link held off an id in conflict;
+  STATE `bus.apps[].conflict`, `bus.dropped`, `bus.stagewatch.held`; the Nodes card, the Eye, the context's peers, the
+  brief; `ShowBus13Tests`, `ShowBusTests`, `ShowBusAppTests`.
+- **The review's items, fixed:** the conflict log lines unbounded (at most four ids named a minute); a typed address
+  matched by a hello's own `host` (datagram sources only); the held id put out of a full table (kept as the link's node
+  id); discovery falling through to another Stagewatch (it holds unless a pinned one is clear); `v` ignored (dropped
+  when not 1); the deck not seeing the hold (the row's light, headline and `held`); the desk's words for put out,
+  forgotten and cleared; the tests' flood inputs made deterministic, a start on a 1,826-day certificate, a live link
+  kept through a conflict.
+- **Carried to these papers:** the eviction against §2's wording, this desk's own id said elsewhere, the 9700 table and a
+  forged conflict on the rail — L73 to L76.
+
+### 91.5 moved; 91.7 not landed
+
+- **91.5** (the Show Bus 1.3 copy and its kit, held by this tree's own tests) waits for 1.3 final, Stagewatch's SW19.12,
+  which has not landed: Stagewatch's head (`d9f12b5`, SW19.5) carries the draft through §14, the kit, the hello 1.3,
+  its own context within §14 and its certificates at 825 days, with `peerlink.peer.sha256 pending`. Rule R3 moves it
+  to the first round after SW19.12 lands, and, not committed, it takes that round's number at its opening: round 92 if
+  1.3 is final before 92.1, which reads its vectors from the copy; otherwise 92.1 moves with it (§109.8).
+- **91.7** (L65, the twin's new key out of the log) waits on no answer and on no other tree, so R3 does not move it:
+  nothing blocked it. No commit was made for it before the papers, which do not take it in (one commit per unit, the
+  papers last), so the round closes without it by choice and round 92's opening numbers it with §109.1's scope. The
+  leak is live until then — a first run that makes a twin key before the window exists writes it to `patterns.log` in
+  clear (`TwinService.cs:529-531`, `AppServices.cs:2052`), against the rule that a secret rides in no line; L65 stays
+  open at its weight, low only because the settings beside the exe hold the same key (L40) (§109.8).
+
+### 91.6 — the papers
+
+- §109.2 to §109.9 and §109's heading, this section, the CHANGELOG entry completed, README (the ledger's entry, the Show
+  Bus paragraph, the Quick start's remote-control line, the count), `docs/REMOTE.md` (91.1's and 91.4's parts; 91.2's
+  and 91.3's were written in their commits), `docs/COMPANION.md` (3.19.0's `stagewatch_key` folded into round 91's
+  section), `docs/QUALIFICATION.md` §26's and §27's notes, `docs/OPEN.md`, and the tag table's row 90 (`d2985bc`).
+- **Read again at the papers:** the README's Quick start said "No password — anyone on the network can drive the show",
+  untrue since round 87's first-run token and more so now the wire's reads want it; it says what a new desk does.
+  `docs/REMOTE.md`'s opening line said every connection is pushed STATE on connect; it says a desk with a token waits for
+  the pairing.
+- **The review's items, fixed:** 91.7's absence put on rule R3 though nothing blocked it — now a deferral by choice,
+  the leak's weight stated (L65); 91.5's move named round 92 outright — now the first round after SW19.12 lands;
+  §109.1's opening left contradicting §109.8 (a pointer added); §109.4's web rows counted as three (six: §2.8's long
+  row split into three, and `WEB KEY`, `WEB CLICK`, `WEB RELOAD`); the README's Quick start said a deck proves the token
+  before it reads the show — it reads the show's state, five reads open by name (L68); §27's walk not told of 91.4's
+  one replacement (a note, and L56); REMOTE's `EYE` and `EYE AT` rows without the paired-only rule; §109.5 silent on
+  which readers carry the drops; L66 without the dial's `page=/patterns`; lines past the files' wrap.
+- **Left, named:** two comments the code does not match — the closing test's "at most once a minute for an address"
+  and `ShowAppCard.DroppedWords`' "the brief" — corrected by round 92's first unit that touches those files (§109.8).
+
+### The review's items, answered
+
+- **G32 — fixed cids, a link naming no node:** 91.1, the dial as a node with this desk's id.
+- **G43 — "connected" on a public frame:** 91.1, the verdict read before anything keyed, a refusal held and said.
+- **G45 — reads before pairing:** 91.2, ADR-016 scope A; the remainder L68.
+- **G09 — what a stranger reads (the wire's part):** 91.2.
+- **G03, G33, G35 — APPLY listed and fenced, the rows, WEB OPEN and WEB TYPE declined:** 91.3 (L70 for the two declined).
+- **G39 — certificates within 1.3's span:** 91.4; pinned peers see CERTIFICATE CHANGED once.
+- **G40 — 1.3's numbers (the hello, the table):** 91.4; the copy's half moved with 91.5.
+- **G38, G22 — the 1.3 copy, the kit, the windows' words:** moved with 91.5 to round 92.
+- **The Eye's critique — the readers an unpaired connection reaches; the hello table with no bound:** 91.2; 91.4.
+- **The plan's 91.6 — "91.1, 91.2 and 91.5 land before this unit or move":** 91.1 and 91.2 landed; 91.5 moved (R3).
+  91.7, which the opening added and the plan does not hold, did not land: not a move under R3, the round's choice
+  (§109.8).
+
+### The ledger's rows, answered
+
+- **Closed:** L59 (91.2); L69 (91.3, added and closed in its commit).
+- **Added:** L66 (91.1, P-legacy — the round's one fallback for another app's older version), L67 (91.1), L68 (91.2), L70,
+  L71, L72 (91.3); L73 to L76 (91.4's carried items, written here).
+- **Annotated:** L65 (91.7 not landed, left to round 92 by choice, not by R3; the leak live until then); L66 (the dial's
+  `page=/patterns` named beside the HTTP judging); L47 (the hello 1.3 its walk hears), L50 (the verdict its walk reads),
+  L56 (91.3 and the rig's hello 1.3 landed; S3.3 waits for Stagewatch's cross-app proposals alone; the §27 walk meets
+  91.4's one certificate replacement); L64 (its census signature seen on Linux at the close, below). L64 stays: no run
+  has read a commit after `c6236d6`.
+- Closed rows: thirty-seven; open: thirty-nine.
+
+### The suites
+
+- Core 1,313, Rendering 672, Devices 8, Audio 13, Assistant 37, Audience 2, App 897 — 2,942; the module's
+  45 node tests, `lines.txt` current, `npm run check` clean. These ran on Linux at the close.
+- The App suite at the close: three whole runs on the papers' tree each failed one test, and only it —
+  `LifecycleTests.TheDeskBootsAndClosesRepeatedlyWithTheCensusBackAtBaselineAndNoHeapSlope`, its census at cycle 5
+  ("pictures: was 3, now 2"), at cycle 1 ("desks: was 1, now 0") and, after the papers' review, at cycle 4 ("pictures:
+  was 2, now 1"), each a leftover of an earlier test reclaimed after the baseline was taken — while other trees were
+  building on this machine; it passed alone each time (11 of 11 in its class), and the whole run after each failure
+  was green (897 of 897), the last on the papers as committed, as was the whole run on the same build before the
+  papers' edits. The papers change no code. The second signature is run 278's census failure (L64), seen here on Linux
+  for the first time; L64 is annotated with it, not closed.
+- CI: no run has read round 90 or 91 — the remote's branch is at `c6236d6`, run 278 its newest (L64). The round's push is
+  the next run, read there.
+- The closing row, read at the close:
+  `RemoteTrustTests.AConnectionThatHasNotPairedHearsNonceFirstAndNoStateAndEveryReadButTheOpenOnesIsRefusedWithWords` —
+  `STATUS` from an unpaired connection answered `ERR not paired — this desk shows its state only to a paired
+  connection …`, beside the log's one line "Wire: 127.0.0.1 asked STATUS before pairing — refused: … (ADR-016) …" and the
+  Super Check's REMOTE row *Wire reads* amber with the count.
+- Walk: none asked — no unit touched a platform path; QUALIFICATION §26 and §27 gain a note each for the walks they
+  already ask, and their rows stay unwalked.

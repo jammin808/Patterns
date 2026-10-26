@@ -470,8 +470,17 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
-## Round 91 — the module pairs before it reads (module 3.19.1)
+## Round 91 — what Stagewatch made of the desk's key, and the module pairs before it reads (modules 3.19.0 and 3.19.1)
 
+- **What the linked Stagewatch made of the desk's key** (3.19.0, a minor version: a variable added).
+  `$(patterns:stagewatch_key)` reads STATE's `bus.stagewatch.key`: `key` or `operator` (the desk's key speaks for this
+  desk), `none` (Stagewatch takes the key and lets it speak for no node of the desk's — the desk's context and its
+  proposals wait there while the timer still follows — or the link carries no key), `refused` (the desk holds every
+  keyed call and the redial for the hold Stagewatch names, at least 60 s, while the timer follows the public frame), or
+  empty while Stagewatch has said neither (a Stagewatch older than 2.18 sends no verdict; the desk then judges the key by
+  its HTTP answers and says so in amber). While the link is live and its show not stuck, a refused key or one not
+  accepted turns `stagewatch_light` amber and leads `stagewatch_headline` ("KEY REFUSED — …", "key not accepted for
+  this desk — …"). A desk before round 91 has no such field, and the variable reads empty.
 - **The desk shows its state only to a paired connection** (the desk's ADR-016, the maintainer's scope A). A desk with a
   token says `NONCE <hex>` as a connection's first line and no `STATE` — no greeting, no push, no `ACTION` feed — until
   its proof is answered `OK paired`; the greeting `STATE` is the line after that answer. Before pairing it answers the
@@ -501,6 +510,10 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 - The version moves to 3.19.1 in every file that carries it. A 3.19.0 deck given the token keeps working on a round-91
   desk (it proves on `NONCE` and reads the greeting after `OK paired`, and `NAV` stays open); one with the field empty
   lights nothing from STATE until the token is typed, and says so only when a press is refused.
+- **What the module does not read.** STATE's `bus.stagewatch.held` (the link held off a Stagewatch whose id two machines
+  say), `bus.apps[].conflict` and `bus.dropped` (round 91's hello table) have no variable: while the link is held with
+  nothing live, `stagewatch_light` is amber and `stagewatch_headline` says the conflict, so a key mapped to those sees
+  it. No action was added in either version — the round adds no verb an operator presses.
 
 ## Round 89 — the token never in clear, and a stuck Stagewatch (module 3.18.1)
 

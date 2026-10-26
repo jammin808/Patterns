@@ -10,23 +10,51 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
-## Round 91 — 2026-10-26 — Show Bus 1.3 from Patterns' side: the Stagewatch link dials as a node and reads its verdict, the wire shows its state only to a paired connection, the context says what a peer may propose, the certificate and the hello at 1.3's numbers, and the twin's new key kept out of the log
+## Round 91 — 2026-10-26 — Show Bus 1.3 from Patterns' side: the Stagewatch link dials as a node and reads its verdict, the wire shows its state only to a paired connection, the context says what a peer may propose, and the certificate and the hello at 1.3's numbers
 
-`round-91` · PLAN §109 · 2,891 tests at the opening · module 3.18.1 (unchanged at the opening) · evidence: a handed-in critique (the Show Bus 1.3 designs — the contract, peers that are not screens, cross-app proposals — with two items of the Eye's critique, and the plan revised against its critique); L65 is this tree's own finding (90.1)
+`round-91` · PLAN §109 · REVIEW round 91 · 2,942 tests · module 3.19.1 · evidence: a handed-in critique (the Show Bus 1.3 designs — the contract, peers that are not screens, cross-app proposals — with two items of the Eye's critique, and the plan revised against its critique)
 
-- **Opened (91.0).** Nothing in `docs/field/`; the requester and the evidence class; the owner's answers the round
-  reads (P-legacy for 91.1's older Stagewatch, scope A for ADR-016, X-declines for 91.3); the other trees at this
-  commit — Stagewatch's node links and its link's pairing landed, a real Stagewatch's `/ws` read for what 91.1 must
-  hold (every dial upgraded, the verdict on the socket, a refusal with `retry` while the public frame keeps coming, a
-  key bound to another node answered `verified` none), Show Bus 1.3 not final, so 91.5 waits and moves to the next
-  round if 1.3 is not final when the round's other units have landed; scope A read against this wire's grammar (no
-  STATE, SUBSCRIBE, HELP or VERBS verb here: STATE is the greeting, the push and STATUS), every query kind put on one
-  side; the ledger's rows the round closes (L59, with 91.2; L65, taken as 91.7, the next free number, landing before
-  the papers), the rows it adds (the older Stagewatch's amber fallback, by P-legacy; scope A's remainder of L59) and
-  the rows it keeps (L47, L50, L55, L56, L64); QUALIFICATION §26's note for 91.6; each unit read against the standing
-  brief at the line it stands on (PLAN §109.1). The papers (91.6) write what landed, REVIEW round 91, and the count at
-  the round's end in place of the opening's. The round's tag waits for that commit, which writes round 90's row in the
-  tag table (`tag-rounds.sh` tags this entry at HEAD).
+- **The Stagewatch link dials as a node and reads its verdict (91.1).** It dials `/ws?node=<this desk's show network
+  id>&t=patterns&cid=<id>`, the key in the `Authorization` header only, and sends nothing keyed until it has read
+  Stagewatch's verdict. A refused key holds every keyed call and the redial for the larger of 60 s and the Stagewatch's
+  `retry` (an hour at most) while the timer follows the public frame; a rate limit holds them for its `Retry-After`; a
+  key that speaks for no node of this desk's holds only the context this desk posts and its proposals; a fresh verdict
+  lifts the hold. STATE `bus.stagewatch.key`, the Nodes card, the Eye, the context's peers, the brief and the module's
+  `stagewatch_key` (3.19.0) say the standing, one log line each change; a result a hold stopped is sent once the routes
+  open, never run twice. Against a Stagewatch before 2.18, which sends no verdict, the key is judged by its HTTP answers
+  and labelled amber (P-legacy, L66).
+- **The wire shows its state only to a paired connection (91.2, ADR-016).** On a desk with a token a connection hears
+  `NONCE` first and no STATE — no greeting, push or `ACTION` feed — until `OK paired`; before that it may ask the
+  handshake and five reads the maintainer left open by name (`NAV`, `MENU`, `CUE LIST`, the arcade's and the room's
+  status, `ASSISTANT`), and `STATUS`, `EYE`, `CONTEXT` and every other read answer `ERR not paired — this desk shows its
+  state only to a paired connection …`, counted on the Super Check's REMOTE row *Wire reads* and logged once per
+  address. NEW TOKEN tells a paired connection why and closes it. On a paired desk OSC's `/patterns/status` answers this
+  machine and OSC ALLOW only — an OSC poller off the list loses the show's state until it is listed (ADR-017 amended).
+  The module (3.19.1) pairs before it reads.
+- **The context says what a peer may propose (91.3).** Nineteen rows after the fourteen: `APPLY` (review), `VIDEO STOP`,
+  the Eye's moves, `CUE STANDBY`, the staged and per-screen takes, the Library forms (high: a brand kit reaches the air)
+  and six web rows — `WEB OPEN` and `WEB TYPE` declined (L70); a fence replays today's Stagewatch rater and 1.3's so
+  no line that changes the air reads lower. `APPLY` runs only the proposal this desk made, under its own id, once. A
+  peer's context is read to 256 commands, verbs whole to 512 characters, a missing risk high; the brief lists 32.
+- **The certificate and the hello at 1.3's numbers (91.4).** Certificates span 825 days, and a 1,826-day one is replaced
+  once at a start (pinned clients see CERTIFICATE CHANGED once, the log names the old fingerprint). The hello says
+  `proto` 3 within 1,200 bytes; the reader keeps one peer per id with up to four addresses and a dial that stays, marks
+  an id two running machines say amber in every reader and dials no new link to it, and holds at most 128 ids, counting
+  what it put out (`bus.dropped`).
+- **Opened (91.0).** Nothing in `docs/field/`; the requester and the evidence class; the owner's answers the round reads
+  (P-legacy, scope A, X-declines); the other trees at the opening; scope A read against this wire's grammar, every query
+  kind put on one side; each unit read against the standing brief at the line it stands on (PLAN §109.1).
+- **The papers (91.6).** 91.5, the Show Bus 1.3 copy and its kit, moved under the plan's rule R3: 1.3 is not final
+  (Stagewatch's SW19.12 has not landed), so it takes the number of the first round after it lands — round 92 if 1.3 is
+  final before 92.1, which reads its vectors from the copy; otherwise 92.1 moves with it. 91.7, the twin's new key kept
+  out of the log, did not land: it waited on nothing, so R3 does not cover it, and the round closed without it by
+  choice; round 92's opening numbers it. Until then a first run that makes a twin key before the window exists writes
+  it to `patterns.log` in clear (L65, low: the settings beside the exe hold the same key). OPEN: L59 closed; L66 to L68
+  and L70 to L72 kept as their units added them, L69 closed by 91.3; L73 to L76 added (the hello table's eviction
+  against §2's words, this desk's own id said elsewhere, the 9700 table unbounded, a forged hello lighting the Eye's
+  problems); L47, L50, L56, L64 (run 278's census failure seen here under load), L65 and L66 (the dial's
+  `page=/patterns`) annotated. QUALIFICATION §26 and §27 gain a note each. Round 90's row in the tag table. Walk: none
+  asked. The closing row: an unpaired `STATUS` refused, beside its one log line and *Wire reads*.
 
 ## Round 90 — 2026-10-26 — the bench host: the real desk headless off Windows, for Stagewatch's interop lane
 
