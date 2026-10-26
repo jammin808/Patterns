@@ -68,6 +68,12 @@ for the pictures), `Patterns.Audience.Tests`, and `Patterns.App.Tests` (the head
 composition, the module rules and the node's footprint — and the platform assembly through its
 Source hooks, since its Windows paths only run on the Windows lane).
 
+`tools/Patterns.Bench` (round 90) is neither a module nor a test: the bench host, the real desk booted headless off
+Windows for Stagewatch's interop lane, through `HeadlessDesk` — the boot `TestApp.Boot` uses — and nothing else. It
+references the App and Avalonia's headless platform, ships in no publish, and is fenced as `src/` is (its name does not
+end in `.Tests`, so the banned-API list and every analyzer apply); the App suite starts it as a process of its own
+(`BenchHostTests`).
+
 ## 2. The rules
 
 1. **The core references the runtime and nothing else.** No package, no other module. Its

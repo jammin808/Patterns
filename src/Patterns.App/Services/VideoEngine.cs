@@ -86,7 +86,8 @@ public sealed class VideoEngine : IDisposable
     /// libVLC hears that it is not here, and why (<see cref="LibVlcOffNote"/> as the availability note: the media
     /// pattern's card, the Super Check's video row); a playlist leaves its clips out of the running order, as with no
     /// libVLC. The cue validator hears the bench's own answer instead (<c>AppServices.ValidationVideoOverride</c>: a video
-    /// stinger can play exactly when the bench's clips are on). The desk and its nodes leave it on; nothing else clears it.
+    /// stinger can play exactly when the bench's clips are on). The desk and its nodes leave it on; outside the bench only
+    /// a test clears it, and that test sets it back before it ends.
     /// </summary>
     public static bool LibVlcAllowed { get; set; } = true;
 

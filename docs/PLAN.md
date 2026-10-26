@@ -12499,7 +12499,7 @@ holds the changelog's newest round to the plan's, so round 90's entry opens in t
 - annotates L40 with the files beside the bench's home that hold the show's secrets by design, which the lane's sweep
   exempts by name and never to make a row pass: the settings and their `.bak` (`SettingsStore.cs:111`), the timed
   copies in `backups/` (`:49`), and the recovery record and its `.bak` (`Resilience.cs:232-233`; "the same secrets the
-  settings hold", `RemoteAdmin.cs:133-135`);
+  settings hold", `RemoteAdmin.cs:134-135`);
 - adds a row (L63): the bench's clips are synthetic — `BenchClip`, a wall-clock playhead behind
   `VideoEngine.SourceFactory` (`VideoEngine.cs:80`) — so libVLC (`:648-668`) runs neither in the bench nor in the
   lane, and libVLC on Linux is unmeasured; web pages stay WebView2's (`WebEngine.cs:13-14`), a Windows job or a walk
@@ -12555,8 +12555,195 @@ holds the changelog's newest round to the plan's, so round 90's entry opens in t
   `ApplyProposal` fills, so the lane tests where the assistant's proposals go, never a model's output.
 - *Companion*: no module change; the module's tests run with the papers.
 - *Measured, then governed*: no ladder or governor lands. No measurement this round.
-- *Platform paths*: none. The exe's start, the watchdog, `App.axaml.cs`, libVLC and WebView2 are untouched, so no walk
-  is asked and REVIEW round 90 says "Walk: none asked".
+- *Platform paths*: none. The exe's start, the watchdog, `App.axaml.cs` and WebView2 are untouched, and libVLC's start
+  is gated by a process flag that only the bench clears, and one in-process App test that clears it and restores it in
+  `finally` (`VideoEngine.LibVlcAllowed`, 90.1; the exe never touches it), so no walk is asked and REVIEW round 90 says
+  "Walk: none asked".
 
 The round adds no verb an output can show, so its papers say there is no journal row, log line or Super Check row to
 read for one.
+
+### 108.2 The bench host (90.1 — G44)
+
+**The seam.** `HeadlessDesk` (`src/Patterns.App/Services/HeadlessDesk.cs`) is the real desk booted without the exe's
+start, in two calls: `Create` makes the services over a folder, makes them the process's instance and builds the view
+model; `Show` attaches the main window, shows it and runs the dispatcher's queue once. `TestApp.Boot` and the bench boot
+through these two calls and nothing else, `TestApp.Boot` keeping its housekeeping budget between them, so the desk the
+interop lane drives is the desk the suites prove, built the same way. The promise is that much and no more: the six
+hand-built test boots stay as they are (two of them prove the boot order itself), and the exe's start (`App.axaml.cs`:
+the watchdog's beat, the recovery after a relaunch, EDIT SAFE by default, the exit door) is not this seam.
+`ArchitectureFenceTests` names `HeadlessDesk.cs` as the headless root's one reach for `AppServices.Instance`.
+
+**The bench.** `tools/Patterns.Bench` is an exe on Avalonia's headless platform with real Skia drawing, in
+`Patterns.sln` under a tools folder and in no publish. Its name does not end in `.Tests`, so `Directory.Build.props`
+fences it as `src/` is: the banned-API list and every analyzer. Before the boot it writes the show from
+`SettingsStore.Fresh()` and its options — the ports, the bind, the token read from `--token-file`, mDNS and OSC off, the
+Stagewatch link with the key read from `--stagewatch-key-file` — and it takes no secret from the command line: an
+unknown argument is named by its position and never repeated, and an empty token file is refused, so the bench never
+runs a desk open to the network.
+- *No caller node may link.* A fresh show leaves `Twin.AcceptCallers` on, which opened the twin's port 9699 on every
+  interface — a door the ready line did not name — and made a twin key the desk then said aloud. The bench turns it
+  off: no key is made, the port never opens, and the beacon stays as the Machine page sets it (off). A run by hand
+  holds the web and wire ports and the hello's UDP 9928, and nothing else.
+- *The home is the bench's own.* One the bench makes is 0700 on Unix and marked `patterns.bench`; an existing folder
+  another user can enter is refused (the token and the key are written there), and so is one holding anything the
+  bench did not write — a desk's own show is never written over.
+- *The ready line* is stdout's first, printed once both control listeners hold their ports
+  (`ControlService.Listening`, new and read-only): the ports, the show network id, the build, the clips, the link,
+  `key` true or false (never the key), `trustLoopback`, then `bind` and `hello`. A refusal is `{"patterns":"refused"}`
+  with exit 2; a listener that has not opened within 50 s is `{"patterns":"failed"}` with exit 1.
+- *Clips.* `BenchClip` is a wall-clock playhead on `ShowClock` behind `VideoEngine.SourceFactory`: it plays, pauses,
+  seeks, holds and ends, silent, drawn as a colour with its position, its length kept in its file. With `--clips`
+  omitted the bench opens no clip at all.
+- *Control.* `BenchControl` runs each line on the UI thread, one at a time, in the order read, and answers with what
+  happened. `clip <name> <seconds>` puts a clip on the air and answers with its input key and the length read back from
+  the air — refused while EDIT SAFE is open, where it would land in the preview; `propose look <title>` goes by the
+  approval desk's road alone; `exit` stops. Anything else is refused, never guessed, and an unknown word comes back only
+  when it is a short plain word (at most twelve lower-case letters), otherwise as "?", so a secret pasted into the wrong
+  window never returns on stdout. A line is held to 4,096 characters as it is read and the reader waits while 64 lines
+  are unanswered; the proposals are not kept — the approval desk's own capped entries hold the chip.
+- *Stopping.* The end of the input, SIGTERM, SIGINT, `exit` and `--exit-after` all shut the desk down as at a close,
+  with exit 0.
+
+**The approval desk's road.** `AssistantPage.ProposeToApprovalDesk` reads the approval link once and either queues the
+proposal at the linked Stagewatch's approval desk or refuses with the reason; it never applies the proposal here.
+`ApplyProposal` keeps its fallback to applying here, and the two share `QueueAtApprovalDesk`. A check of
+`ApprovalsLive` before `ApplyProposal` would not have done: the flag is volatile and cleared on the link's worker, so a
+link that dropped between the two reads would have put the look on this desk while the bench answered that it went to
+the desk.
+
+**Beyond the design's files**, three, each named here as 90.1 said it would be:
+- `VideoEngine.LibVlcAllowed`, a process flag that defaults to true. The bench clears it before its desk is built, since
+  the view model's first validation already asks for the decoder; one in-process App test clears it too and restores it
+  in `finally` (`BenchHostTests.TheBenchsDeskLoadsNoLibVlcWhenTheProcessForbidsIt`); nothing else touches it, the exe
+  included (90.2 corrected the flag's comment, which had said nothing else clears it). While it is off, `EnsureVlc`
+  tries no folder and the availability note is `LibVlcOffNote`, so in the bench's process the media pattern's card and
+  the Super Check's VIDEO row say the process's reason rather than an install hint, and a playlist leaves its clips out
+  as it does with no libVLC. §108.1's platform line says libVLC's start is gated, not untouched.
+- `AppServices.ValidationVideoOverride`'s comment names the bench, which sets it to "clips are synthetic", so the cue
+  validator agrees with what the bench can play.
+- `ControlService.Listening`, read by the bench's ready wait, so the ready line reports the ports the listeners hold,
+  not the ports the settings name.
+
+**Against the design's §2.3**, additions: `bind` and `hello` at the end of the ready line; `file` and `lengthMs` in the
+clip's answer; `id` in the propose answer and the proposal's lines; "?" for an unknown word that is not short and plain;
+the home's rules; the refusal and failure lines with exits 2 and 1.
+
+**The readers.** None changes: no wire verb, no STATE field, no menu entry, no deck action, no Eye, Run strip or Super
+Check row, and nothing the assistant reads. The one reader that reads differently does so only in the bench's own
+process (the media card and the VIDEO row, above).
+
+### 108.3 With AI offline
+
+The bench needs no key and no internet. `propose look` drives the assistant's own road to Stagewatch's approval desk —
+the queue `ApplyProposal` fills — so what the lane tests is where the assistant's proposals go, never a model's output.
+
+### 108.4 The proof
+
+- **App:** `BenchHostTests` starts the bench as its own process, as the lane will:
+  - ready within 60 s, the ports matching, the node id matching `patterns.node-id`, the bind 127.0.0.1; the wire
+    refuses a mutating verb before the proof and pairs by `AUTH-PROOF` (its helper reads to the `NONCE` and takes a
+    STATE before it as optional, so it holds before and after ADR-016 removes that push); STATE has its `bus` row;
+  - `propose look` with no desk refused, with the looks, the preview, the air's look and the pattern unchanged;
+    `clip a 30` answered with `lengthMs` 30000 and STATE's video row agreeing on the length, the key and the
+    programme role; an unknown word refused; `exit` ends the process with 0;
+  - the token on no stdout or stderr line and in no home file outside the named exemptions (the settings, their
+    `.bak` and `backups/`, the recovery record and its `.bak`); the saved show has `AcceptCallers` off and no twin key;
+    on Unix the home is 0700;
+  - a second run with a Stagewatch key file and a link to a port nobody answers: `key` true; a 32-hex line answered
+    "?"; a 10,000-character line refused whole and the next line read as its own; `clip` with no clips and
+    `propose look` with no desk refused; the end of the input ends the process with 0 after exactly those answers; the
+    token, the key and the pasted line on no output and in no home file outside the exemptions, and the key in the
+    link's settings;
+  - a third run ends by `--exit-after` and, on Unix, a fourth by SIGTERM, each with 0;
+  - the refusals: a token typed on the command line, an empty token file, a port out of range, a desk's own folder
+    (its show as it was, no marker left) and, on Unix, a home others can enter.
+- **App, in process:** the approval desk's road refuses with no desk and changes nothing while APPLY still lands in the
+  preview with the air unchanged; with `LibVlcAllowed` off no libVLC is probed and the note is the gate's;
+  `ShowBus12AppTests` gains the positive leg against the scripted Stagewatch — queued, nothing landed before the
+  approval, then in the preview with EDIT SAFE open and the air as it was; `ArchitectureFenceTests` names the seam.
+- **The fences:** the analyzers over the bench (0 warnings, 0 errors).
+- **The lifecycle census:** read strict in 90.1 (`PATTERNS_LIFECYCLE_CYCLES=100`, `PATTERNS_LIFECYCLE_STRICT=1`, as
+  CI's lifecycle job runs it: 11 of 11), and in the App suite's default 12 cycles at the close.
+- **Measured:** nothing. The bench runs at the machine class it reads; its 60 s ready deadline and the lane's timed rows
+  are deadlines, not measurements. No measurement this round.
+- **At the close:** Core 1,281, Rendering 672, Devices 8, Audio 13, Assistant 37, Audience 2, App 878 — 2,891 tests;
+  the module's 39 node tests, `lines.txt` unchanged, `npm run check` clean. These ran on Linux; no CI run has read
+  90.0 to 90.2 yet (§108.6).
+
+### 108.5 What the round did not do
+
+- **No interop row ran.** The lane is Stagewatch's and comes after these papers: its first rows pin this tree at the
+  commit the papers push. L47, L50 and L56 are annotated with the rows that will read their paths and stay open — one
+  kernel is not two machines, a firewall's prompt or Windows' UDP stack, and the rig serves plain HTTP, so nothing in
+  the lane meets L56's TLS. Their closes stay the walk's (`docs/QUALIFICATION.md` §26, §27).
+- **No libVLC and no WebView2 off Windows.** The bench's clips are synthetic and libVLC on Linux is unmeasured; web
+  pages stay WebView2's, a Windows job or a walk row (L63).
+- **Not the exe.** The bench has no watchdog, no recovery after a relaunch, no EDIT SAFE by default and no RESTART
+  (refused with words, as a session with no way to restart refuses it); the six hand-built test boots stay hand-built.
+- **No reader moves.** No wire verb, STATE field, menu entry, deck action or Eye, Run strip or Super Check row lands;
+  `docs/REMOTE.md`, `docs/COMPANION.md` and the module are unchanged.
+- **The twin's key in the log.** On a desk's first run `TwinService` says a newly made twin key through `Notify`, and
+  before the window exists `Notify` falls back to the log, so the key reaches `patterns.log` in clear — a line that
+  carries a secret, against the doctrine. It is the desk's behaviour from before the round, found by 90.1; the bench
+  turns the twin's callers off and so makes no key. It waits for round 91 (L65), which takes it as a unit of its own
+  beside the wire's pairing work: the fix moves where a desk says its twin key — the Machine page's TWIN card, the
+  status strip once the window is up — and that is a reader of the desk proper, with its own test (a first run's log
+  holds no twin key), where this round changes the desk only for the bench. Until then the weight is low because the
+  settings beside the exe already hold the same key in clear (L40), and the support bundle masks it while it is the
+  show's key.
+- **Run 278's red test job.** No unit of the round names its cause (L64).
+- **No measurement** (§108.4).
+
+### 108.6 The ledger and the papers (90.2)
+
+- **OPEN:** L25 closed — read as met at the opening: the remote carries the 74 tags `round-15` to `round-88` and round
+  88's Release (2026-10-12); L62 closed on its probe and lifecycle halves, observed in run 278, its test half moved to
+  L64; L40 annotated with the files in the bench's home that hold the show's secrets by design, which the lane's
+  sweep is designed to exempt by name; L47, L50 and L56 annotated, not closed; L63 (the bench's synthetic clips), L64
+  (run 278's test job red on round 89's code) and L65 (the twin's key in the log on a first run) added. Thirty open,
+  thirty-five closed.
+- **The train before, read again.** The plan's rule R1 closes a round's papers only after the train before has closed,
+  and the plan says what validates that train, its first: "Stagewatch's lanes, Round 89 closing with seven suites and
+  the module, PlayMap's batches green on both CI jobs, and AGMessage's check and browser smoke on the branch its owner
+  names". Read at this commit, item by item:
+  - *Stagewatch's lanes.* Each of SW18.1 to SW18.8 names in its commit the `tools/test.sh` lanes it ran green in its
+    own tree before the commit: build and unit at SW18.1 to SW18.7, e2e at SW18.3, SW18.4 and SW18.6, the module at
+    SW18.4, and the unit lane at SW18.8, whose validate names every lane and whose commit, papers only, names that one.
+    The last count, at SW18.7 and SW18.8 (`9c277e3`): 1,301 passed, 0 failed, four Windows-only checks named and not
+    counted. Stagewatch's CI runs on pushes to its main branch, on its tags and on pull requests, so no CI run has read
+    that branch.
+  - *Round 89 closing with seven suites and the module.* 89.9 ran all seven (2,884 tests) and the module green on
+    Linux at `c6236d6`. CI's test job on that commit is red: run 278, attempt 1, still this branch's newest run, since
+    90.0 and 90.1 are not pushed (L64).
+  - *PlayMap's batches green on both CI jobs.* Mapper's run 465, on `a0b629a` — the three batches PM-1 (`2e93f97`), PM-2
+    (`11c572b`) and PM-3 (`91b68c9`) with their papers — passed all three of its jobs (test, windows, installer) on
+    2026-10-25.
+  - *AGMessage's check and browser smoke.* 0.5.0's unit 21 (AG-1, `f8553b8`) and its review's 21.1 and 21.2 landed on
+    the branch the owner named; CI passed the analyzers, the tests and the browser smoke on that branch at 21.2
+    (`774e5a4`) and on the tag `v0.5.0` (`d0e3961`), released on 2026-10-25.
+
+  What is not done is SW18.8's release half. Stagewatch's branch carries 2.18's papers and the first 2.19 units after
+  them, but its version still reads 2.16.0 (`Timer.App.csproj`, the module's `package.json`) and its remote has never
+  carried a tag or a Release, for 2.18 or any version before it. SW18.8 is "papers and release", and its validate ends
+  with `smoke.ps1` and `release.ps1 -Version 2.18.0 -ModuleVersion 2.18.0` on the maintainer's PC. These papers read
+  that half as the PC's work, named and not run, and close on that reading. The reading is the papers' own, not the
+  plan's words: the plan says "WPF work is named as the maintainer's PC work" of Stagewatch's process, and Stagewatch's
+  brief says work that needs the PC "is named as such and left for it", but the plan says "reported as not run" only of
+  SW19.7's Windows run, and R1 names the train's releases beside its papers. Stagewatch's own chain reads it the same
+  way: SW19.1a to SW19.1d, which depend on SW18.8, are committed. The opening read R1 strictly and held these papers to
+  2.18's tag (§108.1); this commit lifts that hold by the reading, not by the tag, and says so. The round goes out at
+  the maintainer's push, so a maintainer who keeps the opening's reading holds that push until 2.18 is released. What
+  stands on either reading is the order of the releases, which is the maintainer's: Stagewatch 2.18 before 2.19, and
+  round 89's tag before round 90's — one run of `tag-rounds.sh` at this round's last commit makes `round-89` at
+  `c6236d6` from the table's row 89 and `round-90` at HEAD, and a tag on a commit whose test job is red releases
+  nothing (L64), so what closes round 89's release stays the maintainer's call, as the opening said.
+- **CI.** No run has read 90.0 to 90.2: the round's push is the next run, and its test job is read there, never
+  assumed; L64 stands until a push's test job is green. The suites ran here at the close (§108.4).
+- **The papers:** this section and §108.1's platform line; REVIEW round 90; CHANGELOG (with the evidence class); README
+  (the ledger's entry, the bench under Building, the count); `docs/MODULES.md` (the bench beside the map);
+  `docs/OPEN.md`; the tag table's row 89 (`c6236d6`). One line outside the papers: `VideoEngine.LibVlcAllowed`'s
+  comment, which had said nothing but the bench clears the flag (§108.2). `docs/REMOTE.md`, `docs/COMPANION.md` and
+  `docs/QUALIFICATION.md` are unchanged: no wire verb, module word or platform path moved, and no walk is asked.
+- **The rig's reading.** The round adds no verb an output can show, so there is no journal row, log line or Super Check
+  row to read for one; the bench's own outputs are its stdout lines, which its tests read.

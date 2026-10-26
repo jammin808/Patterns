@@ -12,17 +12,28 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 90 — 2026-10-26 — the bench host: the real desk headless off Windows, for Stagewatch's interop lane
 
-`round-90` · PLAN §108 · 2,884 tests at the opening · module 3.18.1 (unchanged) · evidence: a handed-in critique (the ecosystem-lane design written on Stagewatch's side, its critique and the plan revised against it)
+`round-90` · PLAN §108 · REVIEW round 90 · 2,891 tests · module 3.18.1 (unchanged) · evidence: a handed-in critique (the ecosystem-lane design written on Stagewatch's side, its critique and the plan revised against it)
 
-- **Opened (90.0).** Nothing in `docs/field/`; the ledger's rows the round annotates (L40, L47, L50, L56), the rows it
-  adds (L63, the bench's synthetic clips; L64, run 278's test job red on round 89's code — five App tests, four of
-  them the Stagewatch link's, which pass on the bench, cause not known) and the rows it reads as met (L62's WebView2
-  and lifecycle halves, in run 278; L25, the tags on the remote); the requester and the evidence class; Stagewatch
-  2.18's release and round 89's red test job read against the rule that a round's papers close only after the train
-  before has closed; each unit read against the standing brief at the line it stands on in the head (PLAN §108.1).
-  The papers (90.2) write what landed, REVIEW round 90, and the count at the round's end in place of the opening's.
-  The round's tag waits for that commit, which writes round 89's row in the tag table (`tag-rounds.sh` tags this
-  entry at HEAD).
+- **The bench host (90.1).** `tools/Patterns.Bench` boots the real desk — its services, view model and main window —
+  headless off Windows through `HeadlessDesk`, the boot the App suite's `TestApp.Boot` now uses too, so Stagewatch's
+  interop lane can run Patterns beside Stagewatch, PlayMap and AGMessage on one Linux kernel. Its settings are written
+  before the boot, with the token and a Stagewatch key read from files and never from the command line, and no caller
+  node may link; its ready line says the ports, the show network id and the build, and no secret; its clips are
+  synthetic (`BenchClip`; libVLC is off in its process alone); `clip`, `propose look` (the approval desk's road only,
+  never applied here) and `exit` are its control lines, and anything else is refused without being repeated. Fenced as
+  `src/` is, in the solution, in no publish. No wire verb, STATE field, menu entry, deck action or Eye, Run strip or
+  Super Check row moves, so there is no journal row, log line or Super Check row to read for one.
+- **Opened (90.0).** Nothing in `docs/field/`; the requester and the evidence class; run 278 read for the ledger;
+  Stagewatch 2.18's release and round 89's red test job read against the rule that a round's papers close only after
+  the train before has closed; each unit read against the standing brief at the line it stands on (PLAN §108.1).
+- **The papers (90.2).** OPEN: L25 closed (the tags `round-15` to `round-88` and round 88's Release on the remote);
+  L62 closed on WebView2's probe and the lifecycle job, both green in run 278, its test half moved to L64; L63 (the
+  bench's synthetic clips, libVLC on Linux unmeasured), L64 (run 278's test job red on round 89's code — four of the
+  five App tests the Stagewatch link's, which pass on Linux here, cause not known) and L65 (the twin's new key in the
+  log on a desk's first run, for round 91) added; L40, L47, L50 and L56 annotated. The train before read again by the
+  plan's four measures, with the evidence for each; Stagewatch 2.18 is not released, and the papers read its release
+  as the maintainer's PC work, named and not run — their own reading, not the plan's words — and the order of the
+  releases stays the maintainer's (§108.6). Round 89's row in the tag table. Walk: none asked.
 
 ## Round 89 — 2026-10-25 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
 
