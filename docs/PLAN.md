@@ -12446,3 +12446,117 @@ shows; CONTEXT, which another app's assistant reads, is under the private-addres
 - **The rig's reading.** No new wire verb lands this round. The close is read on the rig as the round opened: the
   stall's two log lines and the migration's `WebPassesKept` journal row, beside the stage page and the Super Check's
   Private pages row.
+
+## 108. Round 90 — the bench host: the real desk headless off Windows, for Stagewatch's interop lane
+
+### 108.1 What opened the round, and what the files said
+
+**What the files said.** Nothing this round: `docs/field/` holds only its README, and no report has arrived since
+round 79 began keeping them. The last files read were round 78's (§96.1).
+
+**The requester and the evidence class.** The maintainer, with the ask round 89 answered first, made from Stagewatch's
+side for the whole show network: "StageWatch also needs to be able to interact with AGMessage, PlayMap, and Patterns.
+Consider use of the ShowBus." The plan that answers it runs in trains. Its second, *one contract, one kit*, is Show Bus
+1.3 and the kit that proves it, and this round is the part of that train that serves a test: the interop lane designed
+on Stagewatch's side, which runs the four real apps against each other on one Linux kernel, each in a network
+namespace of its own. Today every interop test here plays the other app with a script — the `FakeStagewatch` of
+`ShowBusAppTests.cs:390` and `ShowBus12AppTests.cs:132` — and the lane needs the real desk where it runs: off Windows,
+headless, started from a command line and driven from its standard input.
+
+Evidence class: **a handed-in critique** — the ecosystem-lane design (its Patterns half, which the plan numbers 90.1
+and 90.2), read with the plan's critique and the plan revised against it. It is not *the maintainer's list*: the
+design named that class and quoted the ask, and the critique (its item 19) corrected it — the maintainer asked for the
+show network, not for a bench, and the bench is the design's answer, handed in. Each item below was read against this
+tree's head (`c6236d6`, round 89.9) and is cited at the line it stands on. No rig report and no measurement stands
+behind any of them.
+
+**The questions and the other trees.** The maintainer answered the plan's questions on 2026-10-25, each with the
+answer the plan recommends; the one this round reads is its place — round 90, the bench host, PLAN §108, committed to
+this tree's branch and pushed at its close. No unit of the round waits on an answer or on another tree's unlanded
+unit, so none moves to a later round. The lane itself is Stagewatch's and comes after this round's papers: its first
+rows pin this tree at the commit the papers push. At the opening every unit of the train before has landed in its
+tree — round 89 here, Stagewatch 2.18's papers (`9c277e3`), PlayMap's three fix batches and AGMessage 0.5.0's unit 21
+— except the release half of Stagewatch's SW18.8: 2.18 is released by `release.ps1` on the maintainer's PC, and
+Stagewatch's remote carries no tag yet. Round 89 has no tag here either, and run 278's test job on its last commit is
+red (below, L64); `portable-exe` needs `test` and `release` needs `portable-exe` (`build.yml:99`, `:305`), so a tag
+on `c6236d6` releases nothing while that job stays red. The plan closes a round's papers only after the train before
+it has closed (its rule R1), so 90.2 cannot close before Stagewatch 2.18's tag exists, and what closes round 89's
+release while its own commit's test job is red is the maintainer's call: the opening names it and decides nothing.
+90.2 reads both again before it closes.
+
+The heading above and the changelog's entry name what the round means to land; 90.2 completes both. `ChangelogTests`
+holds the changelog's newest round to the plan's, so round 90's entry opens in this commit. From here until 90.2,
+`tag-rounds.sh` stops at round 89 ("neither in the table nor a tag") unless `round-89` was made at `c6236d6` first;
+90.2 writes round 89's row, and the round's own tag waits for that commit.
+
+**OPEN.md.** Read at the opening, the round:
+- annotates L47, L50 and L56 and closes none of them. The bench is the Patterns half of a lane that meets the rig's
+  real servers — Stagewatch's `WebServer`, `CompanionServer` and `OscServer` around a simulated show — on one kernel.
+  The lane runs after this round's papers, so 90.2's annotation names the bench and the lane rows that will read these
+  paths, and says that none has run. Each row's close stays the walk's (`docs/QUALIFICATION.md` §26, §27): one kernel
+  is not two machines, a firewall's prompt or Windows' UDP stack, and the rig serves plain HTTP, so nothing in the lane
+  meets L56's TLS;
+- annotates L40 with the files beside the bench's home that hold the show's secrets by design, which the lane's sweep
+  exempts by name and never to make a row pass: the settings and their `.bak` (`SettingsStore.cs:111`), the timed
+  copies in `backups/` (`:49`), and the recovery record and its `.bak` (`Resilience.cs:232-233`; "the same secrets the
+  settings hold", `RemoteAdmin.cs:133-135`);
+- adds a row (L63): the bench's clips are synthetic — `BenchClip`, a wall-clock playhead behind
+  `VideoEngine.SourceFactory` (`VideoEngine.cs:80`) — so libVLC (`:648-668`) runs neither in the bench nor in the
+  lane, and libVLC on Linux is unmeasured; web pages stay WebView2's (`WebEngine.cs:13-14`), a Windows job or a walk
+  row;
+- reads L62 against run 278, on `c6236d6` (the push that closed round 89), finished at 00:41 UTC on 2026-10-26 and
+  read at this commit. windows-smoke passed at 00:33 with `--require-webview2`, its line "WebView2: ok — runtime
+  155.0.4283.62 — a page opened, its document script spoke and a script answered, in 3192 ms"; lifecycle passed
+  (100 cycles, strict, and the footprint per role); test failed (next row). L62's probe half and its lifecycle half
+  are met; its test half is not, so 90.2 closes L62 on the probe and lifecycle, naming 89.4 and run 278, and its test
+  half moves to L64;
+- adds a row (L64): run 278's test job is red on round 89's code. Six suites passed; the App suite failed 5 of 871 —
+  four `ShowBusAppTests` that link the desk to the scripted Stagewatch timed out waiting for the link
+  (`TheStageTimerFollowsALinkedStagewatchAndTheEyeDrawsItsThings` at `:504`,
+  `AStuckStagewatchShowsNoTimeEverywhereAndItsNextFrameBringsTheTimeBack` at `:587`,
+  `AStagewatchStuckBeforeItsFirstFrameLeavesTheDesksTimer` at `:706`,
+  `AStallSaidByOneStagewatchIsNeverClaimedOfTheNextOneTheShowNetworkOffers` at `:761`, each "the condition never
+  came"), and `LifecycleTests`' census in the whole suite read "cycle 1 of 12: desks: was 15, now 14", a desk left
+  over from an earlier test reclaimed between the baseline and the first cycle. Round 88's code (`bcdbf28`, run 275)
+  was green there. The four link tests pass on this bench (`--no-build`, 4 of 4, 25 s); the cause is not known at
+  the opening, and the run was not re-run. No unit of round 90 as planned is that row's close; it closes when a unit
+  names the cause and the test job is green on a push. 90.1's validate and 90.2's suites run here, so the round's
+  papers report the test job of its own push as read, never as assumed;
+- reads L25 as met: the remote carries the `round-NN` tags through `round-88` and round 88's Release (published
+  2026-10-12), so the script it asked for has been run; 90.2 moves the row to the closed table with that reading.
+
+**The units, read against the standing brief.**
+
+| Unit | What stands at the head | What the round does | The readers it reaches | Fence; measurement |
+|---|---|---|---|---|
+| 90.1 | The exe builds the desk in `App.axaml.cs:61-67`. The tests build it in seven places: `TestApp.Boot` (`TestApp.cs:139-169`), which builds the services, the view model and the window in one call, sets `PollLanes.BudgetMs` between them (`:161`) and pins the machine class first (`:147-149`); and six tests in four files that build it by hand over a folder they prepared — `SandboxTests.cs:631-636` and `:685-690`, `PlaylistOnAirTests.cs:34-39`, `RunTests.cs:379-384`, and two that prove the boot order itself, `StartupTests.cs:77-91` (the exe's hand-over, `AppServices.Preloaded` read by `new AppServices()`) and `:113-122` (`RecoverWhenReady` asked between `AttachMainWindow` and `Show`). Video needs libVLC (`VideoEngine.cs:648-668`) and the tests swap `SourceFactory` (`AudioFakes.cs:165`); web pages are WebView2's alone. The exe takes the platform it detects (`Program.cs:120`) on plain `net10.0`, so on Linux with a display it opens a desk there; nothing starts a real desk headless, without a display, outside the test runner | `HeadlessDesk.Create` (the services and the view model) and `HeadlessDesk.Show` (the window attached and shown, one `RunJobs`); `TestApp.Boot` and the bench boot through these two calls, `TestApp.Boot` setting the budget between them as it does today, and the comment's invariant says that much and no more: the six hand-built boots stay as they are (the design changes `TestApp.cs` alone, and two of them test the very order the seam would hide). `tools/Patterns.Bench`, an exe on the headless platform, its settings written before the boot and its token read from a file, a ready line on stdout, `--clips synthetic` (`BenchClip`) and three control lines (`clip`, `propose look`, `exit`), each run on the UI thread; the bench in `Patterns.sln`. Beside the design's files, `AssistantPage.cs` gains an approval-desk-only form of `ApplyProposal` for the bench: it reads the link once and queues the proposal at the approval desk or refuses with words, with no road to `ApplyHere`. A check before the call and the call's own second read would not do: `ApprovalsLive` is volatile and cleared on the link's worker (`StagewatchLinkService.cs:85`, `:215`, `:260`, `:326`, `:888`), so a link that dropped between the two reads would apply the look here while the bench answered that it went to the desk | None: no wire verb, no STATE field, no menu entry, no deck action, no Eye, Run strip or Super Check row, and nothing the assistant reads. The bench proposes as the assistant does (`AssistantPage.ApplyProposal`, `:379-396`) without its fallback to applying here (`:386-395`); the assistant's own APPLY keeps that fallback, unchanged | `BenchHostTests`, process-level: ready within 60 s; the wire pairs by proof and STATE has its `bus` row; `propose look` with no desk refused, the looks and the air unchanged; `clip a 30` gives a 30-second length; `exit` gives 0. A test of the approval-desk-only form: with no desk linked it refuses and the looks, the preview and the air are unchanged. The analyzers over the bench (`Directory.Build.props:26` hands `BannedSymbols.txt` to every project whose name does not end in `.Tests`). The lifecycle census unchanged: read in 90.1 by `LifecycleTests` alone with `PATTERNS_LIFECYCLE_CYCLES=100` and `PATTERNS_LIFECYCLE_STRICT=1`, as CI's lifecycle job runs it (`build.yml:40-56`), beside the App suite's default 12 cycles, and by that job again on the round's push. No measurement this round |
+| 90.2 | — | The papers; the tag table's row for round 89 | — | all seven suites and the module |
+
+**What every unit was read against.**
+- *Stability and modularity*: the exe's start (`App.axaml.cs`), the watchdog and the process are not touched; the seam
+  is `TestApp.Boot` cut in two, and the lifecycle census, read strict at 100 cycles, reads the same before and after.
+- *Performance adaptability across system specs*: the bench runs at the machine class it reads, with no override.
+  `LazyPage.MachineGB` and `QualityService.MachineGB` come from the runtime's memory reading (`LazyPage.cs:136`,
+  `QualityService.cs:23`); `TestApp.Boot` pins both to 32 and the housekeeping budget to 10 s (`TestApp.cs:147-149`,
+  `:161`), and those pins stay the tests'. Under 8 GB (`WarmUpPlan.SmallMachineGB`, `TickScheduler.cs:129`) the
+  quality ladder starts a step down (`QualityLadder.cs:202`) and only the likely pages are built ahead, so in a small
+  container the bench's desk is a smaller desk than a test's, and the 60 s ready deadline and the lane's timed rows
+  run against it. Those figures are deadlines, not measurements: no measurement this round.
+- *Attempts are not facts*: the bench's control lines answer with what happened — a proposal queued at the approval
+  desk, or refused when nothing would carry it, from one read of the link and never applied here in its place; a
+  clip's length read back from STATE — never with "sent".
+- *One air*: an approved look lands in the preview with EDIT SAFE open (`AssistantPage.cs:399-411`), and the lane's
+  row asserts the air unchanged.
+- *Fail closed*: an unknown option exits 2 with words, an unknown control line is refused and never guessed, the token
+  comes from a file and never from the command line, and the ready line carries no secret.
+- *Every reader*: nothing a reader shows changes — the desk, the Run strip, the menus, STATE, the Eye, the wire, the
+  deck, the Super Check and the assistant's facts read as before; the papers say so.
+- *AI integration*: the bench drives the assistant's own road to Stagewatch's approval desk, the same queue
+  `ApplyProposal` fills, so the lane tests where the assistant's proposals go, never a model's output.
+- *Companion*: no module change; the module's tests run with the papers.
+- *Measured, then governed*: no ladder or governor lands. No measurement this round.
+- *Platform paths*: none. The exe's start, the watchdog, `App.axaml.cs`, libVLC and WebView2 are untouched, so no walk
+  is asked and REVIEW round 90 says "Walk: none asked".
+
+The round adds no verb an output can show, so its papers say there is no journal row, log line or Super Check row to
+read for one.

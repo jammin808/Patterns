@@ -10,6 +10,20 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 90 — 2026-10-26 — the bench host: the real desk headless off Windows, for Stagewatch's interop lane
+
+`round-90` · PLAN §108 · 2,884 tests at the opening · module 3.18.1 (unchanged) · evidence: a handed-in critique (the ecosystem-lane design written on Stagewatch's side, its critique and the plan revised against it)
+
+- **Opened (90.0).** Nothing in `docs/field/`; the ledger's rows the round annotates (L40, L47, L50, L56), the rows it
+  adds (L63, the bench's synthetic clips; L64, run 278's test job red on round 89's code — five App tests, four of
+  them the Stagewatch link's, which pass on the bench, cause not known) and the rows it reads as met (L62's WebView2
+  and lifecycle halves, in run 278; L25, the tags on the remote); the requester and the evidence class; Stagewatch
+  2.18's release and round 89's red test job read against the rule that a round's papers close only after the train
+  before has closed; each unit read against the standing brief at the line it stands on in the head (PLAN §108.1).
+  The papers (90.2) write what landed, REVIEW round 90, and the count at the round's end in place of the opening's.
+  The round's tag waits for that commit, which writes round 89's row in the tag table (`tag-rounds.sh` tags this
+  entry at HEAD).
+
 ## Round 89 — 2026-10-25 — the harms stopped: a stuck Stagewatch shows no time, a page's pass never leaves the machine, no key or token in clear, the twin keeps its secrets home, loopback trust wants this desk's name, a proof grants nothing to an address
 
 `round-89` · PLAN §107 · REVIEW round 89 · 2,884 tests · module 3.18.1 · evidence: a handed-in critique (the gap analysis across Stagewatch, Patterns, PlayMap and AGMessage, its designs and their review)
