@@ -420,19 +420,43 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     public bool IsDesk => Profile == NodeKind.Desk;
 
-    /// <summary>Every desk made, held weakly: <see cref="Alive"/> counts the ones a collection could not reclaim — a closed desk still counted is a rooted desk (round 64's census).</summary>
-    private static readonly List<WeakReference<AppServices>> Desks = new();
+    /// <summary>
+    /// Every desk made, held weakly with the identity it was given as it registered (one serial,
+    /// under this list's lock, never reused): <see cref="Alive"/> counts the ones a collection could
+    /// not reclaim — a closed desk still counted is a rooted desk (round 64's census) — and
+    /// <see cref="AliveIds"/> names them, so a census can judge only the desks that were not there
+    /// at its mark (<see cref="DeskCensus.Mark"/>).
+    /// </summary>
+    private static readonly List<(WeakReference<AppServices> Desk, long Id)> Desks = new();
+
+    private static long _desksMade;
+
+    /// <summary>Puts a desk in the registry with the next identity, under the registry's lock: no two desks share one.</summary>
+    private static void Register(AppServices desk)
+    {
+        lock (Desks) Desks.Add((new WeakReference<AppServices>(desk), ++_desksMade));
+    }
 
     /// <summary>Desks alive right now — read after a full collection to prove a closed desk is gone.</summary>
-    public static int Alive
+    public static int Alive => AliveNotIn(null);
+
+    /// <summary>The identities of the desks alive right now: what a census mark records.</summary>
+    public static IReadOnlySet<long> AliveIds()
     {
-        get
+        lock (Desks)
         {
-            lock (Desks)
-            {
-                Desks.RemoveAll(w => !w.TryGetTarget(out _));
-                return Desks.Count;
-            }
+            Desks.RemoveAll(d => !d.Desk.TryGetTarget(out _));
+            return Desks.Select(d => d.Id).ToHashSet();
+        }
+    }
+
+    /// <summary>Desks alive right now whose identity <paramref name="there"/> does not hold; with none, every desk alive.</summary>
+    public static int AliveNotIn(IReadOnlySet<long>? there)
+    {
+        lock (Desks)
+        {
+            Desks.RemoveAll(d => !d.Desk.TryGetTarget(out _));
+            return there is null ? Desks.Count : Desks.Count(d => !there.Contains(d.Id));
         }
     }
 
@@ -441,7 +465,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     public AppServices(SettingsStore? store = null, ShowState? preloaded = null, NodeKind? profile = null)
     {
-        lock (Desks) Desks.Add(new WeakReference<AppServices>(this));
+        Register(this);
         RenderingModule.Register();                                                         // the desk draws: the render side reports its bytes and reads pictures for the assistant
         Profile = profile ?? LaunchProfile;
         if (store is null && Preloaded is { } pre)

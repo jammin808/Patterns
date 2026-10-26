@@ -1,66 +1,23 @@
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Threading;
 using Patterns.App.Services;
-using Patterns.App.ViewModels;
-using Patterns.Core.Model;
-using Patterns.Core.Services;
 using Xunit;
 
 namespace Patterns.App.Tests;
 
 /// <summary>
 /// Round 64: closing a surface releases its lifetime, proved by counting. The desk boots, opens
-/// the Run layout (the monitor's pipeline), walks two pages, builds and shuts a node, and closes;
-/// after a full collection the census — desks alive, nodes, render seats, budgets, pools,
-/// frames, pictures, ledger owners, mounts — reads exactly what it read after the first such
-/// boot, cycle after cycle, and the managed heap has no slope. Round 62's leak (every closed
-/// desk rooted through one off-tree pipeline) would fail this in its first cycle. The cycle
-/// count is PATTERNS_LIFECYCLE_CYCLES (CI's lifecycle job runs 100); a dozen in the suite.
+/// the Run layout (the monitor's pipeline), walks two pages, builds and shuts a node, and closes
+/// (<see cref="DeskLifecycle.Cycle"/>); after a full collection the census — desks alive, nodes,
+/// render seats, budgets, pools, frames, pictures, ledger owners, mounts — reads exactly what it
+/// read after the first such boot, cycle after cycle, and the managed heap has no slope. The
+/// desks, timers and pictures are judged by what was not there at that reading (round 92): a
+/// desk, timer or picture a cycle leaves is counted, another test's leaving is not. Round 62's
+/// leak (every closed desk rooted through one off-tree pipeline) would fail this in its first
+/// cycle. The cycle count is PATTERNS_LIFECYCLE_CYCLES (CI's lifecycle job runs 100); a dozen in
+/// the suite.
 /// </summary>
 public class LifecycleTests
 {
-    private static LifetimeCensus Take()
-    {
-        TestApp.DrainDispatcher();                                          // the closed desk's last continuations run to their end first
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-        return DeskCensus.Take();
-    }
-
-    private static void Cycle()
-    {
-        var b = TestApp.Boot();
-        try
-        {
-            var vm = b.Vm;
-            vm.SelectRunCommand.Execute(null);                              // the Run layout: the monitor's tile makes its pipeline
-            Settle();
-            vm.SelectPage(Shell.IndexOf("Screens"));
-            Settle();
-            using (var node = NodeHost.Build(NodeKind.Timer, new SettingsStore(Path.Combine(b.Dir, "node"))))
-            {
-                Dispatcher.UIThread.RunJobs();
-            }
-            vm.SelectPage(Shell.IndexOf("Pattern"));
-            Settle();
-        }
-        finally
-        {
-            b.Dispose();
-        }
-    }
-
-    private static void Settle()
-    {
-        for (var i = 0; i < 3; i++)
-        {
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-        }
-    }
-
     private static long Median(IEnumerable<long> values)
     {
         var sorted = values.OrderBy(v => v).ToList();
@@ -70,30 +27,27 @@ public class LifecycleTests
     [AvaloniaFact]
     public void TheDeskBootsAndClosesRepeatedlyWithTheCensusBackAtBaselineAndNoHeapSlope()
     {
-        Cycle();                                                            // the first boot fills the process-wide caches once
-        var baseline = Take();
-        // Run alone (CI's lifecycle job sets PATTERNS_LIFECYCLE_STRICT) the baseline is nought
-        // everywhere: a closed desk is reclaimed whole, nothing static points at it. In the
-        // whole suite another test's leftovers may sit in the counts; the cycles are then judged
-        // against that baseline, and the memlog's per-test lines name the leftovers' owners.
+        var process = DeskLifecycle.Warm();                                 // the first boot fills the process-wide caches once
+        // Run alone (CI's lifecycle job sets PATTERNS_LIFECYCLE_STRICT) the whole process reads
+        // nought after that boot: a closed desk is reclaimed whole, nothing static points at it.
         if (Environment.GetEnvironmentVariable("PATTERNS_LIFECYCLE_STRICT") == "1")
         {
             foreach (var name in new[] { "desks", "nodes", "timers", "pipelines", "frameBudgets", "ledgerOwners", "inputMounts", "openFrames" })
             {
-                Assert.True(baseline[name] == 0, $"{name} = {baseline[name]} after a closed boot — timers running: {string.Join(", ", DeskTimers.RunningOwners)}");
+                Assert.True(process[name] == 0, $"{name} = {process[name]} after a closed boot — timers running: {string.Join(", ", DeskTimers.RunningOwners)}");
             }
         }
 
+        // The cycles are judged against a mark taken now. In the whole suite another test's
+        // desks, timers and pictures may be there at the mark, and leave on their own clocks
+        // (a late close's shutdown tail, the residency sweep of an idle picture): what was there
+        // at the mark is not a cycle's, and its leaving is no change. What a cycle makes or starts
+        // and leaves is counted, whenever its object was made, and every other row is the whole
+        // process's against the baseline taken at the mark.
         var cycles = int.TryParse(Environment.GetEnvironmentVariable("PATTERNS_LIFECYCLE_CYCLES"), out var n) && n > 0 ? n : 12;
         var managed = new List<long>();
-        for (var i = 1; i <= cycles; i++)
-        {
-            Cycle();
-            var census = Take();
-            var differences = census.Differences(baseline);
-            Assert.True(differences.Count == 0, $"cycle {i} of {cycles}: {string.Join("; ", differences)} — timers running: {string.Join(", ", DeskTimers.RunningOwners)} — baseline {baseline.Describe()}");
-            managed.Add(GC.GetTotalMemory(true));
-        }
+        var change = DeskLifecycle.FirstChange(cycles, afterCycle: _ => managed.Add(GC.GetTotalMemory(true)));
+        Assert.True(change is null, change?.Words);
 
         // No slope: the later cycles' median sits no higher than the earlier ones' plus a margin.
         var third = Math.Max(1, cycles / 3);

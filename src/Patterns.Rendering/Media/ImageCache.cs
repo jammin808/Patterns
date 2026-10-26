@@ -46,6 +46,39 @@ public static class ImageCache
         }
     }
 
+    /// <summary>
+    /// The identities of the pictures resident right now: what a census mark records. Each entry is
+    /// given one as it is made — a serial under <see cref="Gate"/>, never reused — so a census can
+    /// judge only the pictures that were not held at its mark. A picture decoded again is a new
+    /// one, whether its file changed or it was let go (swept, evicted) and asked for again: a
+    /// census counts it as made after its mark even when its path was held there.
+    /// </summary>
+    public static IReadOnlySet<long> HeldIds()
+    {
+        lock (Gate)
+        {
+            return Entries.Values.Select(e => e.Id).ToHashSet();
+        }
+    }
+
+    /// <summary>Pictures resident right now whose identity <paramref name="there"/> does not hold; with none, every one.</summary>
+    public static int CountNotIn(IReadOnlySet<long>? there)
+    {
+        lock (Gate)
+        {
+            return there is null ? Entries.Count : Entries.Values.Count(e => !there.Contains(e.Id));
+        }
+    }
+
+    /// <summary>The paths of the pictures resident right now whose identity <paramref name="there"/> does not hold, for the census's words.</summary>
+    public static IReadOnlyList<string> PathsNotIn(IReadOnlySet<long>? there)
+    {
+        lock (Gate)
+        {
+            return Entries.Where(kv => there?.Contains(kv.Value.Id) != true).Select(kv => kv.Key).ToList();
+        }
+    }
+
     /// <summary>Bytes the resident pictures hold (the graveyard's not counted: it is on its way out).</summary>
     public static long Bytes
     {
@@ -62,6 +95,8 @@ public static class ImageCache
 
     private sealed class Entry
     {
+        /// <summary>This entry's identity, given as it was made (<see cref="HeldIds"/>).</summary>
+        public long Id;
         public SKImage? Image;
         public long Bytes;
         public DateTime WriteTimeUtc;
@@ -87,6 +122,9 @@ public static class ImageCache
     public static readonly TimeSpan StatHold = TimeSpan.FromMilliseconds(500);
 
     private static long _useCounter;
+
+    /// <summary>The last identity given to an entry; read and written under <see cref="Gate"/>.</summary>
+    private static long _entriesMade;
 
     /// <summary>The tick clock the idle ages are read on (round 69): the machine's, or a test's.</summary>
     public static Func<long>? Clock { get; set; }
@@ -173,7 +211,7 @@ public static class ImageCache
                 Retire(old);
                 _bytes -= old.Bytes;
             }
-            var entry = new Entry { Image = image, Bytes = BytesOf(image), WriteTimeUtc = writeTime, LastUse = ++_useCounter, LastDrawnTicks = now, StatAt = now };
+            var entry = new Entry { Id = ++_entriesMade, Image = image, Bytes = BytesOf(image), WriteTimeUtc = writeTime, LastUse = ++_useCounter, LastDrawnTicks = now, StatAt = now };
             Entries[path] = entry;
             _bytes += entry.Bytes;
             RenderFence.Touch(entry.DrewAt);
