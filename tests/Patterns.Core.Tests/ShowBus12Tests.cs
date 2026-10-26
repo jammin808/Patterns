@@ -23,7 +23,8 @@ public class ShowBus12Tests
         Assert.True(TlsFingerprint.IsValid(fp));
         Assert.Equal("CN=FOH Desk", cert.Subject);
         Assert.True(cert.HasPrivateKey);
-        Assert.InRange((cert.NotAfter.ToUniversalTime() - T0).TotalDays, 5 * 365 - 1, 5 * 365 + 1);
+        Assert.Equal(TimeSpan.FromDays(825), cert.NotAfter.ToUniversalTime() - cert.NotBefore.ToUniversalTime());   // Show Bus 1.3 §10: 825 days in all
+        Assert.Equal(T0.AddDays(-1), cert.NotBefore.ToUniversalTime());
         var san = cert.Extensions.OfType<X509SubjectAlternativeNameExtension>().Single();
         Assert.Contains("FOH-PC", san.EnumerateDnsNames());
         Assert.DoesNotContain("bad name!", san.EnumerateDnsNames());
@@ -88,7 +89,7 @@ public class ShowBus12Tests
         Assert.True(peer.OffersTls);
         Assert.Equal(9924, peer.Ports.Https);
         Assert.Contains("approvals", peer.Caps);
-        var noTls = ShowBusPeers.Parse(System.Text.Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1\",\"tls\":\"sha256:nothex\"}"), "10.0.0.9", T0, out _)!;
+        var noTls = ShowBusPeers.Parse(System.Text.Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1x1x1\",\"tls\":\"sha256:nothex\"}"), "10.0.0.9", T0, out _)!;
         Assert.False(noTls.OffersTls);
         var hello = new ShowBusHello { Id = "abcd1234" };
         Assert.DoesNotContain("\"tls\"", hello.ToJson());                              // no certificate, no word

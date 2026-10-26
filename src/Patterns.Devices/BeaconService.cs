@@ -79,18 +79,23 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
     /// <summary>Round 87: whether this desk is listening for the show network's hellos.</summary>
     public bool HearingShowBus => _helloIn is not null;
 
-    /// <summary>Round 86: this machine's hello for the other show apps — who, where its wire is, what it can do; no token, no show data.</summary>
+    /// <summary>
+    /// Round 86: this machine's hello for the other show apps — who, where its wire is, what it can do; no token, no show
+    /// data. Show Bus 1.3 §2: proto 3, this process's inst, a name and a host of one line and at most 64 characters, only
+    /// the doors it serves — within 1,200 bytes whatever the names are.
+    /// </summary>
     public ShowBusHello BuildHello()
     {
         var c = _services.State.Control;
         var id = _services.ShowBusId;
+        var machine = ShowBusHello.Fit(Environment.MachineName);
         return new ShowBusHello
         {
             Id = id.Length > 0 ? id : Instance,
             Instance = Instance,
-            Name = MachineName,
-            Machine = Environment.MachineName,
-            Host = Environment.MachineName,
+            Name = ShowBusHello.Fit(MachineName),
+            Machine = machine,
+            Host = machine,
             Web = c.Enabled ? c.HttpPort : 0,
             Wire = c.Enabled ? c.TcpPort : 0,
             Ports = new ShowBusPorts { Http = c.Enabled ? c.HttpPort : 0, Wire = c.Enabled ? c.TcpPort : 0, Osc = c.Enabled && c.OscEnabled ? c.OscPort : 0, Https = c.Enabled && _services.TlsFingerprint.Length > 0 ? c.HttpPort : 0 },
@@ -99,6 +104,31 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
             Role = NodeKinds.Wire(_services.Profile),
         };
     }
+
+    /// <summary>
+    /// One send of the hello to <paramref name="to"/> on 9928: null when it went, the failure otherwise. A socket closed by a
+    /// reconcile between the build and the send is not a failure — the next tick uses the new one. A socket bound to one
+    /// network address cannot reach loopback on some stacks; that copy is the one no reader relies on.
+    /// </summary>
+    private static Exception? Say(UdpClient hello, byte[] bytes, IPAddress to)
+    {
+        try
+        {
+            hello.Send(bytes, new IPEndPoint(to, ShowBusHello.Port));
+            return null;
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+        catch (SocketException ex)
+        {
+            return ex;
+        }
+    }
+
+    // 1 once a failed broadcast has been logged, until one goes again: a desk with no network says so once, not every beat.
+    private int _helloFailSaid;
 
     /// <summary>Round 86: opens / closes the hello's socket to match the wire (UI thread). A wire bound to one address says hello from that address only.</summary>
     private void ReconcileHello()
@@ -314,27 +344,12 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
             var bytes = BuildHello().ToBytes();
             _ = Task.Run(() =>
             {
-                try
-                {
-                    hello.Send(bytes, new IPEndPoint(IPAddress.Broadcast, ShowBusHello.Port));
-                    // Round 87 (Show Bus 1.1 §2): and to this machine, where a broadcast does not always come back to a listener on another socket.
-                    try
-                    {
-                        hello.Send(bytes, new IPEndPoint(IPAddress.Loopback, ShowBusHello.Port));
-                    }
-                    catch (SocketException)
-                    {
-                        // A socket bound to one network address cannot reach loopback on some stacks: the broadcast went, which is the hello's job.
-                    }
-                }
-                catch (ObjectDisposedException)
-                {
-                    // closed by a reconcile between the build and the send — the next tick uses the new socket
-                }
-                catch (Exception ex)
-                {
-                    Log.Warn("The show network's hello failed.", ex);
-                }
+                // Show Bus 1.3 §2: each send on its own — a broadcast that fails (no network) never stops the copy to this
+                // machine, which no reader relies on: on a shared port it reaches one listener of several.
+                var broadcast = Say(hello, bytes, IPAddress.Broadcast);
+                Say(hello, bytes, IPAddress.Loopback);
+                if (broadcast is not null && Interlocked.Exchange(ref _helloFailSaid, 1) == 0) Log.Warn("The show network's hello could not be broadcast — other machines cannot find this desk until it can.", broadcast);
+                else if (broadcast is null) Volatile.Write(ref _helloFailSaid, 0);
             }, CancellationToken.None);
         }
         var sender = _sender;

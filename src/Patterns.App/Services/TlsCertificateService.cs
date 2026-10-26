@@ -10,7 +10,8 @@ namespace Patterns.App.Services;
 
 /// <summary>
 /// Round 88 (Show Bus 1.2 §10): this install's certificate for the web remote's TLS — made at the first start (ECDSA
-/// P-256, five years), kept beside the settings and renewed a month before it runs out. On Windows the key is sealed
+/// P-256, 825 days in all), kept beside the settings and renewed a month before it runs out, or at once when it spans more
+/// than 825 days (Show Bus 1.3 §10: one made before 1.3 is replaced once). On Windows the key is sealed
 /// with DPAPI to this Windows user, so a copy of the settings folder carries no usable key; elsewhere (the Ubuntu CI)
 /// the file is readable by its owner only and the Super Check says the key is not sealed. A file that cannot be read is
 /// replaced by a new certificate — every client that pinned the old one then sees CERTIFICATE CHANGED, which is the
@@ -48,8 +49,9 @@ public sealed class TlsCertificateService : IDisposable
         {
             if (File.Exists(_path) && Read() is { } kept)
             {
-                if (!TlsIdentity.NeedsRenewal(kept, DateTime.UtcNow)) return kept;
-                Log.Info("TLS: this desk's certificate runs out within a month — a new one is made (clients will be asked to accept it).");
+                var why = TlsIdentity.RenewalReason(kept, DateTime.UtcNow);
+                if (why.Length == 0) return kept;
+                Log.Info($"TLS: {why} — a new one is made (every client that pinned {TlsFingerprint.Of(kept)} sees CERTIFICATE CHANGED once and is asked to accept it).");
                 kept.Dispose();
             }
             using var made = TlsIdentity.Create(_name, Names(), Addresses(), DateTime.UtcNow);

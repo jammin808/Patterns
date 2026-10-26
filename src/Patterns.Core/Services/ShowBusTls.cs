@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -74,16 +75,22 @@ public static class CertificatePins
 }
 
 /// <summary>
-/// Round 88 (Show Bus 1.2 §10): this install's own certificate — self-signed, ECDSA P-256, five years; the subject is the
-/// desk's name; the names it answers to are this machine's name, localhost and the addresses it has now. Made once,
-/// kept beside the settings (the key protected at rest by the platform's protector), never copied to another machine.
+/// Round 88 (Show Bus 1.2 §10): this install's own certificate — self-signed, ECDSA P-256; the subject is the desk's name;
+/// the names it answers to are this machine's name, localhost and the addresses it has now. Made once, kept beside the
+/// settings (the key protected at rest by the platform's protector), never copied to another machine. Show Bus 1.3 §10:
+/// its whole span, NotBefore to NotAfter with the backdating for a skewed clock, is at most <see cref="Life"/> — Apple
+/// devices refuse a TLS server certificate valid for longer — and one that spans more is replaced once, at a start.
 /// Pure apart from the clock and the names handed in.
 /// </summary>
 public static class TlsIdentity
 {
-    public static readonly TimeSpan Life = TimeSpan.FromDays(5 * 365);
+    /// <summary>The whole span, NotBefore to NotAfter (§14 <c>cert.days</c>).</summary>
+    public static readonly TimeSpan Life = TimeSpan.FromDays(825);
 
-    /// <summary>Renewed this long before it runs out, at a start.</summary>
+    /// <summary>How far NotBefore stands before the moment it is made, for a peer whose clock runs behind (§14 <c>cert.backdate.hours</c>).</summary>
+    public static readonly TimeSpan Backdate = TimeSpan.FromHours(24);
+
+    /// <summary>Renewed this long before it runs out, at a start (§14 <c>cert.renew.days</c>).</summary>
     public static readonly TimeSpan RenewBefore = TimeSpan.FromDays(30);
 
     public static X509Certificate2 Create(string name, IEnumerable<string> dnsNames, IEnumerable<IPAddress> addresses, DateTime utcNow)
@@ -100,10 +107,38 @@ public static class TlsIdentity
         foreach (var ip in addresses.Distinct()) san.AddIpAddress(ip);
         request.CertificateExtensions.Add(san.Build());
         request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
-        return request.CreateSelfSigned(new DateTimeOffset(utcNow.AddDays(-1)), new DateTimeOffset(utcNow + Life));
+        var (notBefore, notAfter) = Window(utcNow);
+        return request.CreateSelfSigned(new DateTimeOffset(notBefore), new DateTimeOffset(notAfter));
     }
 
-    public static bool NeedsRenewal(X509Certificate2 certificate, DateTime utcNow) => certificate.NotAfter.ToUniversalTime() - utcNow < RenewBefore;
+    /// <summary>
+    /// NotBefore and NotAfter for a certificate made at <paramref name="utcNow"/>: NotBefore <see cref="Backdate"/> back,
+    /// NotAfter counted from NotBefore, so the span is <see cref="Life"/> exactly. Whole seconds, as a certificate keeps
+    /// them, so the span read back is the span made and a new certificate never reads as over-long.
+    /// </summary>
+    public static (DateTime NotBefore, DateTime NotAfter) Window(DateTime utcNow)
+    {
+        var whole = new DateTime(utcNow.Ticks - utcNow.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var notBefore = whole - Backdate;
+        return (notBefore, notBefore + Life);
+    }
+
+    /// <summary>Whether a start makes a new certificate: fewer than <see cref="RenewBefore"/> left, or a span over <see cref="Life"/>.</summary>
+    public static bool NeedsRenewal(X509Certificate2 certificate, DateTime utcNow) => RenewalReason(certificate, utcNow).Length > 0;
+
+    /// <summary>
+    /// Why a start makes a new certificate, in the words the log says ("" when it keeps the one it has): it runs out within
+    /// <see cref="RenewBefore"/>, or it spans more than <see cref="Life"/> — one made before Show Bus 1.3, replaced once.
+    /// Either way every client that pinned it sees CERTIFICATE CHANGED once.
+    /// </summary>
+    public static string RenewalReason(X509Certificate2 certificate, DateTime utcNow)
+    {
+        var notBefore = certificate.NotBefore.ToUniversalTime();
+        var notAfter = certificate.NotAfter.ToUniversalTime();
+        if (notAfter - utcNow < RenewBefore) return "this desk's certificate runs out within a month";
+        if (notAfter - notBefore > Life) return string.Create(CultureInfo.InvariantCulture, $"this desk's certificate spans {(notAfter - notBefore).TotalDays:0} days, more than the {Life.TotalDays:0} a show network allows (Show Bus 1.3 §10) — replaced once");
+        return "";
+    }
 
     /// <summary>The certificate with its key, as bytes to protect and keep (PKCS#12, no password: the protector is the lock).</summary>
     public static byte[] Export(X509Certificate2 certificate) => certificate.Export(X509ContentType.Pkcs12);

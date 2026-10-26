@@ -22,11 +22,11 @@ public class ShowBusTests
     // ---- the hello heard ------------------------------------------------------------------------
 
     [Fact]
-    public void AHelloIsKeptByIdAndDoorItsOwnComesBackIgnoredAndJunkIsNotAPeer()
+    public void AHelloIsKeptByIdItsOwnComesBackIgnoredAndJunkIsNotAPeer()
     {
         var peers = new ShowBusPeers();
         Assert.True(peers.Hear(Hello("main", "a1b2c3d4", "Hall A", http: 9924), "10.0.0.9", Now, "self"));
-        Assert.False(peers.Hear(Hello("patterns", "ffff0000", "FOH", http: 9696, wire: 9697, inst: "self"), "10.0.0.5", Now, "self"));   // our own, back
+        Assert.False(peers.Hear(Hello("patterns", "ffff0000", "FOH", http: 9696, wire: 9697, inst: "5e1f5e1f"), "10.0.0.5", Now, "5e1f5e1f"));   // our own, back
         Assert.False(peers.Hear(Encoding.UTF8.GetBytes("GET / HTTP/1.1"), "10.0.0.9", Now, "self"));
         Assert.False(peers.Hear(Encoding.UTF8.GetBytes("{\"t\":\"main\"}"), "10.0.0.9", Now, "self"));                                    // no id
         Assert.False(peers.Hear(new byte[] { 0xFF, 0xFE, 0x00 }, "10.0.0.9", Now, "self"));
@@ -45,10 +45,11 @@ public class ShowBusTests
         Assert.Equal(1760101234567, sw.ClockMs);
         Assert.Equal("AGMessage", all[1].KindWords);
 
-        // The same install on another door is another peer (two desks on one machine); the same door replaces.
+        // Show Bus 1.3 §2: one id is one peer — another door or another name from the same id replaces what was kept.
         Assert.True(peers.Hear(Hello("main", "a1b2c3d4", "Hall A (2)", http: 9925), "10.0.0.9", Now, "self"));
         Assert.True(peers.Hear(Hello("main", "a1b2c3d4", "Hall A renamed", http: 9924), "10.0.0.9", Now, "self"));
-        Assert.Equal(new[] { "Hall A (2)", "Hall A renamed" }, peers.Snapshot(Now).Where(p => p.Kind == "main").Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
+        var main = Assert.Single(peers.Snapshot(Now), p => p.Kind == "main");
+        Assert.Equal(("Hall A renamed", 9924), (main.Name, main.Ports.Http));
         Assert.Equal(4, peers.Heard);
     }
 
@@ -61,7 +62,7 @@ public class ShowBusTests
         Assert.Equal(9697, old.Ports.Wire);
         Assert.Equal("FOH-PC", old.Host);
         Assert.Equal("", inst);
-        var stagewatch20 = ShowBusPeers.Parse(Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1\",\"port\":9924}"), "10.0.0.9", Now, out _);
+        var stagewatch20 = ShowBusPeers.Parse(Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1x1x1\",\"port\":9924}"), "10.0.0.9", Now, out _);
         Assert.Equal(9924, stagewatch20!.Ports.Http);
     }
 
@@ -69,7 +70,7 @@ public class ShowBusTests
     public void AHellosNameIsOneLineSoNoHelloWritesALineOfItsOwn()
     {
         // Round 89: a hello is unauthenticated and its name reaches patterns.log with every stall — a line break never passes.
-        var forged = ShowBusPeers.Parse(Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1\",\"name\":\"Hall A\\n2026-10-25 12:00:00.000 [WARN] forged\\u2028line\",\"host\":\"PC\\r\\nB\\t\",\"port\":9924}"), "10.0.0.9", Now, out _);
+        var forged = ShowBusPeers.Parse(Encoding.UTF8.GetBytes("{\"t\":\"main\",\"id\":\"x1x1x1\",\"name\":\"Hall A\\n2026-10-25 12:00:00.000 [WARN] forged\\u2028line\",\"host\":\"PC\\r\\nB\\t\",\"port\":9924}"), "10.0.0.9", Now, out _);
         Assert.Equal("Hall A 2026-10-25 12:00:00.000 [WARN] forged line", forged!.Name);
         Assert.Equal("PC  B", forged.Host);
         Assert.DoesNotContain(new[] { forged.Name, forged.Host }, w => w.Any(c => char.IsControl(c) || c == '\u2028'));
@@ -106,19 +107,20 @@ public class ShowBusTests
     [Fact]
     public void TheHelloSaysTheDoorsAndTheClockByShowBusNamesAndTheInstanceItIgnores()
     {
-        var hello = new ShowBusHello { Id = "ab12cd34", Instance = "p1", Name = "FOH", Machine = "FOH-PC", Host = "FOH-PC", Web = 9696, Wire = 9697, Ports = new ShowBusPorts { Http = 9696, Wire = 9697, Osc = 9698 }, Clock = 1760101234567 };
+        var hello = new ShowBusHello { Id = "ab12cd34", Instance = "0a1b2c3d", Name = "FOH", Machine = "FOH-PC", Host = "FOH-PC", Web = 9696, Wire = 9697, Ports = new ShowBusPorts { Http = 9696, Wire = 9697, Osc = 9698 }, Clock = 1760101234567 };
         using var doc = JsonDocument.Parse(hello.ToJson());
         var r = doc.RootElement;
         Assert.Equal(9696, r.GetProperty("ports").GetProperty("http").GetInt32());
         Assert.Equal(9698, r.GetProperty("ports").GetProperty("osc").GetInt32());
         Assert.Equal(1760101234567, r.GetProperty("clock").GetInt64());
-        Assert.Equal("p1", r.GetProperty("inst").GetString());
+        Assert.Equal("0a1b2c3d", r.GetProperty("inst").GetString());
         foreach (var cap in new[] { "video", "eye", "context", "receipts", "clock" }) Assert.Contains(cap, r.GetProperty("caps").EnumerateArray().Select(e => e.GetString()));
         Assert.DoesNotContain("token", hello.ToJson(), StringComparison.OrdinalIgnoreCase);
         // A hello parses back into the peer another desk keeps.
         var back = ShowBusPeers.Parse(hello.ToBytes(), "10.0.0.5", Now, out var inst);
-        Assert.Equal("p1", inst);
+        Assert.Equal("0a1b2c3d", inst);
         Assert.Equal(9697, back!.Ports.Wire);
+        Assert.Equal("0a1b2c3d", back.Instance);
     }
 
     [Fact]

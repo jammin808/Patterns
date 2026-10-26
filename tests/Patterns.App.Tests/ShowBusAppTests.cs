@@ -743,7 +743,7 @@ public class ShowBusAppTests
             Assert.Equal("amber", row.GetProperty("light").GetString());
             Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
             Assert.True(row.GetProperty("stuck").GetBoolean());
-            Assert.Equal(new[] { "stuck", "carrier", "key" }, row.EnumerateObject().Select(p => p.Name).TakeLast(3));   // stuck appended, the carrier after it, then the key (round 91)
+            Assert.Equal(new[] { "stuck", "carrier", "key", "held" }, row.EnumerateObject().Select(p => p.Name).TakeLast(4));   // stuck appended, the carrier after it, then the key (round 91), then the hold (Show Bus 1.3 §2)
             Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
             // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
@@ -938,7 +938,7 @@ public class ShowBusAppTests
             // Taken: every reader says nothing of the key, STATE says key at the row's end; one log line.
             var row = StagewatchRow(services);
             Assert.Equal("key", row.GetProperty("key").GetString());
-            Assert.Equal("key", row.EnumerateObject().Last().Name);
+            Assert.Equal(new[] { "key", "held" }, row.EnumerateObject().Select(p => p.Name).TakeLast(2));   // the key appended, the hold (Show Bus 1.3 §2) after it
             Assert.Equal("", link.Key.Line);
             Assert.Equal(TimeSpan.Zero, link.KeyHeld);
             services.Nodes.Poll();
@@ -1303,6 +1303,307 @@ public class ShowBusAppTests
             vm.State.Control.Stagewatch.Enabled = false;
             link.Reconcile();
             Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    // ---- Show Bus 1.3 §2: one id, one peer; two machines with one id; the table bounded ----------------------------
+
+    /// <summary>A hello as the desk's listener hears it, now, from <paramref name="address"/> — the datagram's own source.</summary>
+    private static bool Heard(AppServices services, string t, string id, string inst, string host, string address, string name = "Hall A", int port = 9924, string tls = "")
+        => services.Kernel.Beacon.ShowBus.Hear(Encoding.UTF8.GetBytes($"{{\"t\":\"{t}\",\"v\":1,\"proto\":3,\"id\":\"{id}\",\"inst\":\"{inst}\",\"name\":\"{name}\",\"host\":\"{host}\",\"ports\":{{\"http\":{port},\"ws\":{port}}},\"caps\":[\"context\"]{(tls.Length > 0 ? $",\"tls\":\"{tls}\"" : "")}}}"), address, DateTime.UtcNow, "not-this-desk");
+
+    /// <summary>A forged id of the floods, from <paramref name="i"/>: the same at every run.</summary>
+    private static string Forged(string prefix, int i) => prefix + i.ToString("x4", System.Globalization.CultureInfo.InvariantCulture);
+
+    [AvaloniaFact]
+    public void AnIdTwoMachinesSayIsAmberInEveryReaderAndGetsNoNewLinkWhileAFloodIsBoundedCountedAndSaid()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        const string words = "two machines say they are c1a5c1a5c1a5: FOH-PC at 10.0.0.5 and FOH-PC2 at 10.0.0.7";
+        try
+        {
+            // Two running Stagewatches say one id, taking turns.
+            Heard(services, "main", "c1a5c1a5c1a5", "aaaaaaaa", "FOH-PC", "10.0.0.5");
+            Heard(services, "main", "c1a5c1a5c1a5", "bbbbbbbb", "FOH-PC2", "10.0.0.7");
+            Heard(services, "main", "c1a5c1a5c1a5", "aaaaaaaa", "FOH-PC", "10.0.0.5");
+
+            // The link that finds a Stagewatch on the show network dials no new link to it while the mark stands, and says why.
+            var link = vm.State.Control.Stagewatch;
+            link.Host = "";
+            link.ApiKey = "swk_testkey";
+            link.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            services.Kernel.Stagewatch.Reconcile();
+            PumpUntil(() =>
+            {
+                Heard(services, "main", "c1a5c1a5c1a5", "aaaaaaaa", "FOH-PC", "10.0.0.5");
+                return services.Kernel.Stagewatch.Status.Contains(words + " — no new link to it", StringComparison.Ordinal);
+            });
+            Assert.Equal("c1a5c1a5c1a5", services.Kernel.Stagewatch.NodeId);                        // held off, the id stays the link's
+            Assert.Equal(words, services.Kernel.Stagewatch.Held);
+            Assert.Equal("", services.Kernel.Stagewatch.Sight.Name);                                  // nothing dialled
+
+            // STATE: the app's row amber with both machines named, its conflict flagged at the row's end; the link's row amber
+            // with the same words while nothing is linked, so a deck that reads its light and headline sees the hold.
+            var bus = JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus");
+            var row = bus.GetProperty("apps").EnumerateArray().Single(a => a.GetProperty("id").GetString() == "c1a5c1a5c1a5");
+            Assert.Equal(("amber", words, true), (row.GetProperty("light").GetString(), row.GetProperty("headline").GetString(), row.GetProperty("conflict").GetBoolean()));
+            var sw = bus.GetProperty("stagewatch");
+            Assert.Equal(("off", "amber", words, words), (sw.GetProperty("state").GetString(), sw.GetProperty("light").GetString(), sw.GetProperty("headline").GetString(), sw.GetProperty("held").GetString()));
+            Assert.Contains(words, sw.GetProperty("words").GetString(), StringComparison.Ordinal);
+            Assert.Equal(0, bus.GetProperty("dropped").GetInt64());
+
+            // The Nodes page: the card amber, the words on it; one log line for the mark.
+            services.Nodes.Poll();
+            var card = services.Nodes.ShowApps.Single(c => c.Id == "c1a5c1a5c1a5");
+            Assert.Equal("#FFB020", card.Hue);
+            Assert.Contains(words, card.Line, StringComparison.Ordinal);
+            PumpUntil(() => LogLines(b.Dir, "Show network: " + words) == 1);
+            // The context any app's assistant reads, and the Eye.
+            Assert.Contains(words, services.ContextJson(), StringComparison.Ordinal);
+            Assert.Contains(services.ShowApps(DateTime.UtcNow), a => a.Conflict == words);
+
+            // A flood while the link is held: the id it is held off is needed, so its entry and its mark stay whatever is
+            // heard, and the link still dials nothing — a flood cannot wipe the mark and let the next hello be dialled.
+            for (var i = 0; i < 300; i++)
+                Assert.True(Heard(services, "messenger", Forged("f0rged", i), "0a0a0a0a", "X", "10.9." + (i / 250) + "." + (i % 250)));
+            var kept = services.Kernel.Beacon.ShowBus.Snapshot(DateTime.UtcNow);
+            Assert.Equal(ShowBusPeers.MaxPeers, kept.Count);
+            Assert.NotNull(kept.Single(p => p.Id == "c1a5c1a5c1a5").Conflict);
+            Assert.Equal(300 + 1 - ShowBusPeers.MaxPeers, services.Kernel.Beacon.ShowBus.Dropped);
+            PumpFor(1500);
+            Assert.Equal(("c1a5c1a5c1a5", ""), (services.Kernel.Stagewatch.NodeId, services.Kernel.Stagewatch.Sight.Name));
+            Assert.Contains(words + " — no new link to it", services.Kernel.Stagewatch.Status, StringComparison.Ordinal);
+            services.Nodes.Poll();
+            PumpUntil(() => LogLines(b.Dir, "apps dropped from the hello table (173 since start)") == 1);
+
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+
+            // A Stagewatch this desk pinned is needed: a flood of 300 more forged ids never puts it out; the id no longer held
+            // goes first, said so — put out, not cleared; every drop is counted, and said once a minute.
+            Heard(services, "main", "5ca1ab1e0001", "0a1b2c3d", "STAGE-PC", "10.0.0.9");
+            link.SetPin("node:5ca1ab1e0001", TlsFingerprint.Prefix + new string('a', 64));
+            services.Nodes.Poll();
+            for (var i = 0; i < 300; i++)
+                Assert.True(Heard(services, "messenger", Forged("f1rged", i), "0a0a0a0a", "X", "10.8." + (i / 250) + "." + (i % 250)));
+            var held = services.Kernel.Beacon.ShowBus.Snapshot(DateTime.UtcNow);
+            Assert.Equal(ShowBusPeers.MaxPeers, held.Count);
+            Assert.Contains(held, p => p.Id == "5ca1ab1e0001");
+            Assert.DoesNotContain(held, p => p.Id == "c1a5c1a5c1a5");                                    // not needed once the link is off: out first
+            Assert.Equal(474, services.Kernel.Beacon.ShowBus.Dropped);                                   // 173, then the old mark, then 300
+            Assert.Equal(474, JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus").GetProperty("dropped").GetInt64());
+            services.Nodes.Poll();
+            Assert.Contains("474 apps dropped from the hello table since start", services.Nodes.ShowBusLine, StringComparison.Ordinal);
+            PumpUntil(() => LogLines(b.Dir, "Show network: c1a5c1a5c1a5 was put out of the full hello table") == 1);
+            Assert.Equal(0, LogLines(b.Dir, "c1a5c1a5c1a5 — no two machines heard taking turns"));        // never said cleared
+            Assert.Equal(1, LogLines(b.Dir, "apps dropped from the hello table ("));                      // once in the minute
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FoundOnTheShowNetworkTheLinkHoldsOffAStagewatchInConflictAndMovesOnlyToOneThisDeskPinned()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        try
+        {
+            // Hall A, the first heard, is said by two machines; Hall B is heard alone (at a door nothing answers on).
+            var annex = FreePort();
+            void Hall()
+            {
+                Heard(services, "main", "a0a0a0a0a0a0", "aaaaaaaa", "FOH-PC", "10.0.0.5", "Hall A");
+                Heard(services, "main", "b0b0b0b0b0b0", "cccccccc", "ANNEX-PC", "127.0.0.1", "Hall B", annex);
+            }
+            Hall();
+            Heard(services, "main", "a0a0a0a0a0a0", "bbbbbbbb", "FOH-PC2", "10.0.0.7", "Hall A");
+            Hall();
+
+            var link = vm.State.Control.Stagewatch;
+            link.Host = "";
+            link.ApiKey = "swk_testkey";
+            link.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            services.Kernel.Stagewatch.Reconcile();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            PumpUntil(() =>
+            {
+                Hall();
+                seen.Add(services.Kernel.Stagewatch.NodeId);
+                return services.Kernel.Stagewatch.Held.Length > 0;
+            });
+            // Held, and held: the link does not move to Hall B, whose id this desk never pinned, with this desk's key.
+            for (var i = 0; i < 30; i++)
+            {
+                Hall();
+                PumpFor(50);
+                seen.Add(services.Kernel.Stagewatch.NodeId);
+            }
+            Assert.DoesNotContain("b0b0b0b0b0b0", seen);
+            Assert.Equal("a0a0a0a0a0a0", services.Kernel.Stagewatch.NodeId);
+            Assert.StartsWith("two machines say they are a0a0a0a0a0a0", services.Kernel.Stagewatch.Held, StringComparison.Ordinal);
+
+            // Hall B pinned: a Stagewatch this desk has linked to before is one the link may move to.
+            link.SetPin("node:b0b0b0b0b0b0", TlsFingerprint.Prefix + new string('b', 64));
+            Dispatcher.UIThread.RunJobs();
+            services.Kernel.Stagewatch.Reconcile();
+            PumpUntil(() =>
+            {
+                Hall();
+                return services.Kernel.Stagewatch.NodeId == "b0b0b0b0b0b0";
+            });
+            Assert.Equal("", services.Kernel.Stagewatch.Held);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ATypedAddressNeverBorrowsTheRecordOfAHelloThatOnlySaysItIsThatHost()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(RunningFrame);
+        try
+        {
+            // A machine elsewhere says hello naming the typed address as its host, the typed door, a name that sorts first and
+            // another certificate. Its datagrams come from its own address: it is heard, never taken for the typed one.
+            void Forger() => Heard(services, "main", "e1110001", "0e0e0e0e", "localhost", "10.0.0.66", "A", stagewatch.Port, TlsFingerprint.Prefix + new string('c', 64));
+            Forger();
+            Link(vm, services, stagewatch);
+            PumpUntil(() =>
+            {
+                Forger();
+                return services.Kernel.Stagewatch.Sight is { State: ShowBusState.Live, Frame: not null };
+            }, 20000);
+
+            // The link keeps the typed address's own record: no node id borrowed, its own name, no hello's TLS words.
+            Assert.Equal("", services.Kernel.Stagewatch.NodeId);
+            Assert.Equal("localhost", services.Stage.Following);
+            Assert.DoesNotContain("cccccc", services.Kernel.Stagewatch.TlsWords, StringComparison.Ordinal);   // never the hello's certificate
+            Assert.Equal(0, LogLines(b.Dir, "the hello heard for A"));
+            // Every reader: the forged app is only heard; the link is drawn as an app of its own.
+            var apps = services.ShowApps(DateTime.UtcNow);
+            Assert.False(apps.Single(a => a.Id == "e1110001").Linked);
+            var linked = Assert.Single(apps, a => a.Linked);
+            Assert.NotEqual("e1110001", linked.Id);
+            var row = JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus").GetProperty("apps").EnumerateArray().Single(a => a.GetProperty("id").GetString() == "e1110001");
+            Assert.Equal("heard on the show network", row.GetProperty("headline").GetString());
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ALiveLinkIsKeptWhenItsIdFallsIntoConflictAndEveryReaderSaysSo()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(RunningFrame);
+        const string words = "two machines say they are a1b2c3d4: STAGE-PC2 at 10.0.0.7 and STAGE-PC at localhost";
+        try
+        {
+            // Found on the show network and linked.
+            void Stage() => Heard(services, "main", "a1b2c3d4", "0a1b2c3d", "STAGE-PC", "localhost", "Hall A", stagewatch.Port);
+            Stage();
+            var link = vm.State.Control.Stagewatch;
+            link.Host = "";
+            link.ApiKey = "swk_testkey";
+            link.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            services.Kernel.Stagewatch.Reconcile();
+            PumpUntil(() =>
+            {
+                Stage();
+                return services.Kernel.Stagewatch.Sight is { State: ShowBusState.Live, Frame: not null } && services.Kernel.Stagewatch.Sight.Context is not null;
+            }, 20000);
+            var dials = stagewatch.Dials;
+
+            // Another machine starts saying its id: A, B, A — the id is in conflict, and the link it has is kept (13.4.4).
+            Heard(services, "main", "a1b2c3d4", "0b1c2d3e", "STAGE-PC2", "10.0.0.7", "Hall A", stagewatch.Port);
+            Stage();
+            Assert.Equal(words, services.Kernel.Beacon.ShowBus.Snapshot(DateTime.UtcNow).Single(p => p.Id == "a1b2c3d4").Conflict?.Words);
+            for (var i = 0; i < 40; i++)
+            {
+                Stage();
+                PumpFor(50);
+            }
+            Assert.Equal(ShowBusState.Live, services.Kernel.Stagewatch.Sight.State);
+            Assert.Equal(dials, stagewatch.Dials);                                                     // never dropped, never redialled
+            Assert.Equal("", services.Kernel.Stagewatch.Held);
+
+            // Every reader: the linked app amber with both machines named — STATE's apps row and the link's own row.
+            var bus = JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus");
+            var row = bus.GetProperty("apps").EnumerateArray().Single(a => a.GetProperty("id").GetString() == "a1b2c3d4");
+            Assert.Equal(("amber", true), (row.GetProperty("light").GetString(), row.GetProperty("conflict").GetBoolean()));
+            var sw = bus.GetProperty("stagewatch");
+            Assert.Equal(("live", "amber", words, ""), (sw.GetProperty("state").GetString(), sw.GetProperty("light").GetString(), sw.GetProperty("headline").GetString(), sw.GetProperty("held").GetString()));
+            var app = services.ShowApps(DateTime.UtcNow).Single(a => a.Id == "a1b2c3d4");
+            Assert.True(app.Linked);
+            Assert.True(ShowBusView.ConflictAmber(app));
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ACertificateMadeBefore13IsReplacedOnceAtAStartAndItsReplacementIsKeptAtTheNext()
+    {
+        // A five-year certificate as Patterns made before Show Bus 1.3, kept beside the settings, 800 days left.
+        string oldPrint = "";
+        var b = TestApp.Boot(prepare: dir =>
+        {
+            using var key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+            var request = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=FOH", key, System.Security.Cryptography.HashAlgorithmName.SHA256);
+            var notAfter = DateTime.UtcNow.AddDays(800);
+            using var old = request.CreateSelfSigned(new DateTimeOffset(notAfter.AddDays(-1826)), new DateTimeOffset(notAfter));
+            oldPrint = TlsFingerprint.Of(old);
+            File.WriteAllText(Path.Combine(dir, TlsCertificateService.FileName),
+                JsonSerializer.Serialize(new { v = 1, protection = "owner-only-file", pkcs12 = Convert.ToBase64String(TlsIdentity.Export(old)) }));
+        });
+        try
+        {
+            var made = b.Services.Kernel.Tls.Certificate;
+            Assert.NotNull(made);
+            var print = TlsFingerprint.Of(made!);
+            Assert.NotEqual(oldPrint, print);                                                         // replaced at this start
+            Assert.Equal(TlsIdentity.Life, made!.NotAfter.ToUniversalTime() - made.NotBefore.ToUniversalTime());
+            PumpUntil(() => LogLines(b.Dir, $"TLS: this desk's certificate spans 1826 days, more than the 825") == 1);
+            Assert.Equal(1, LogLines(b.Dir, $"every client that pinned {oldPrint} sees CERTIFICATE CHANGED once"));
+
+            // The next start reads the replacement and keeps it: the change is seen once.
+            using var next = new TlsCertificateService(b.Dir, "FOH");
+            Assert.Equal(print, next.Fingerprint);
+            Assert.Equal(1, LogLines(b.Dir, "more than the 825"));
+            Assert.Equal(0, LogLines(b.Dir, $"every client that pinned {print}"));
+        }
+        finally
+        {
             b.Dispose();
         }
     }

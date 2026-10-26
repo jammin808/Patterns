@@ -178,11 +178,11 @@ public class VideoTransportTests
         Assert.Equal("ab12cd34", root.GetProperty("id").GetString());
         Assert.Equal(9697, root.GetProperty("wire").GetInt32());
         Assert.Equal(9696, root.GetProperty("web").GetInt32());
-        Assert.Equal(1, root.GetProperty("proto").GetInt32());
+        Assert.Equal(3, root.GetProperty("proto").GetInt32());                                   // Show Bus 1.3 §2: the revision whose shapes it speaks
         Assert.Contains("video.seek", root.GetProperty("caps").EnumerateArray().Select(e => e.GetString()));
         var names = root.EnumerateObject().Select(p => p.Name).ToHashSet();
         Assert.Equal(new HashSet<string> { "t", "v", "id", "name", "machine", "web", "wire", "role", "caps", "proto", "host", "ports", "clock", "inst" }, names);
-        Assert.True(hello.ToBytes().Length < 1024);
+        Assert.True(hello.ToBytes().Length <= ShowBusHello.MaxBytes);
         Assert.Equal(9928, ShowBusHello.Port);
     }
 

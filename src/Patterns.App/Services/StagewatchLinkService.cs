@@ -307,6 +307,24 @@ public sealed class StagewatchLinkService : IDisposable
     /// <summary>Round 88: the linked Stagewatch is an approval desk and this desk's key may use it: the assistant sends there.</summary>
     public bool ApprovalsLive => _approvalsLive && _sight.State == ShowBusState.Live;
 
+    /// <summary>
+    /// The show network id of the Stagewatch the link dials now, or is held off for while two running nodes say it — "" for
+    /// a typed address no hello names, or with none to dial. The desk's hello table never puts it out to make room for
+    /// another app (Show Bus 1.3 §2), so a flood cannot wipe the mark a hold stands on.
+    /// </summary>
+    public string NodeId => _nodeId;
+
+    private volatile string _nodeId = "";
+
+    /// <summary>
+    /// Show Bus 1.3 §2, 13.15.3: while the link is held off an id two running nodes say, the words naming both machines;
+    /// "" otherwise. STATE's <c>bus.stagewatch</c> carries it — its light amber and its headline these words while nothing
+    /// is linked — so the deck sees the hold.
+    /// </summary>
+    public string Held => _held;
+
+    private volatile string _held = "";
+
     /// <summary>Round 88: a certificate the link refused as changed, waiting for the operator (the Nodes page's ACCEPT).</summary>
     public string PendingFingerprint => _pendingFingerprint;
 
@@ -360,6 +378,8 @@ public sealed class StagewatchLinkService : IDisposable
         _tlsWords = "";
         _note = "";
         _carrier = "";
+        _nodeId = "";
+        _held = "";
         if (key.Length == 0)
         {
             _status = "Stagewatch link off.";
@@ -390,17 +410,40 @@ public sealed class StagewatchLinkService : IDisposable
     private async Task RunAsync(Run run, string typedHost, string apiKey, IReadOnlyDictionary<string, string> pins, CancellationToken ct)
     {
         var attempt = 0;
+        // The id this run last dialled or was held off: found on the show network, it is dialled again while it is heard.
+        var last = "";
         while (!ct.IsCancellationRequested)
         {
-            var target = Resolve(typedHost);
+            var target = Resolve(typedHost, pins, last, out var conflict);
             if (target is null)
             {
-                _status = typedHost.Length > 0
-                    ? $"Stagewatch link: '{typedHost}' is not an address — host:port, or empty to find one on the show network."
-                    : "Stagewatch link: no Stagewatch heard on the show network yet (UDP 9928).";
-                await Delay(ShowBusLiveness.Redial(attempt++, RandomNumberGenerator.GetInt32(1000) / 1000.0), ct);
+                var wait = ShowBusLiveness.Redial(attempt++, RandomNumberGenerator.GetInt32(1000) / 1000.0);
+                var wasHeld = _held;
+                if (conflict is not null)
+                {
+                    // Show Bus 1.3 §2, 13.15.3: no new link to an id two running nodes say; dialled again once the mark clears.
+                    // The id stays this link's, so the hello table keeps its entry and its mark whatever else is heard.
+                    _status = $"Stagewatch link: {conflict.Words} — {ShowBusView.ConflictHoldWords}.";
+                    var clears = conflict.ClearsUtc - DateTime.UtcNow + TimeSpan.FromMilliseconds(100);
+                    if (clears > TimeSpan.Zero && clears < wait) wait = clears;
+                    _nodeId = last = conflict.Id;
+                    _held = conflict.Words;
+                }
+                else
+                {
+                    _status = typedHost.Length > 0
+                        ? $"Stagewatch link: '{typedHost}' is not an address — host:port, or empty to find one on the show network."
+                        : "Stagewatch link: no Stagewatch heard on the show network yet (UDP 9928).";
+                    _nodeId = "";
+                    _held = "";
+                }
+                if (!string.Equals(wasHeld, _held, StringComparison.Ordinal)) UiThread.Post(_changed);   // the hold reaches the desk's readers
+                await Delay(wait, ct);
                 continue;
             }
+            _held = "";
+            _nodeId = target.PinKey.StartsWith("node:", StringComparison.Ordinal) ? target.PinKey[5..] : "";
+            if (_nodeId.Length > 0) last = _nodeId;
             try
             {
                 await ConnectAsync(run, target, apiKey, pins, ct);
@@ -476,24 +519,48 @@ public sealed class StagewatchLinkService : IDisposable
         : ex.Message.Length > 120 ? ex.Message[..120] : ex.Message;
 
     /// <summary>
-    /// The address to dial: the typed one, or the first live Stagewatch heard on the show network — with what its hello
-    /// says of TLS and the approval queue. A typed address that a hello also names borrows that hello's words. Over TLS
-    /// or not is the dial's to decide (the pin and the probe), never this.
+    /// The address to dial: the typed one, or a live Stagewatch heard on the show network — with what its hello says of TLS
+    /// and the approval queue. A typed address borrows a hello's words only when that hello came from it (an address its
+    /// id's datagrams came from, never what a hello says of its own host: Show Bus 1.3 §2, 13.4.3): one such Stagewatch, or
+    /// of several the one whose id this desk pinned; else none, and the address stays its own record. Found on the show
+    /// network, the one this run last dialled is dialled again while it is heard, else one this desk pinned, else the first;
+    /// at the address the table keeps for it while that address is still heard, so a node heard on two addresses is not
+    /// dialled on each in turn. An id two running nodes say gets no new link while the mark stands: null, with
+    /// <paramref name="conflict"/> saying which — and the link holds rather than moving to another Stagewatch, unless it is
+    /// one this desk pinned. Over TLS or not is the dial's to decide (the pin and the probe), never this.
     /// </summary>
-    private Target? Resolve(string typed)
+    private Target? Resolve(string typed, IReadOnlyDictionary<string, string> pins, string last, out ShowBusConflict? conflict)
     {
+        conflict = null;
         var now = DateTime.UtcNow;
         var live = _peers(now).Where(p => p.Kind == "main" && p.StateAt(now) == ShowBusState.Live && p.Address.Length > 0 && (p.Ports.Ws > 0 || p.Ports.Http > 0)).ToList();
+        bool Pinned(ShowBusPeer p) => pins.ContainsKey("node:" + p.Id);
         if (typed.Length > 0)
         {
             if (StageFollow.ParseAddress(typed) is not { } t) return null;
-            var named = live.FirstOrDefault(p => string.Equals(p.Address, t.Host, StringComparison.OrdinalIgnoreCase) && (p.Ports.Http == t.Port || p.Ports.Ws == t.Port || p.Ports.Https == t.Port));
+            var heard = live.Where(p => p.HeardAt(t.Host) && (p.Ports.Http == t.Port || p.Ports.Ws == t.Port || p.Ports.Https == t.Port)).ToList();
+            var named = heard.Count == 1 ? heard[0] : heard.Where(Pinned).ToList() is { Count: 1 } pinned ? pinned[0] : null;
+            if (named?.Conflict is { } held)
+            {
+                conflict = held;
+                return null;
+            }
             if (named is not null) return Of(named, t.Host, t.Port);
             var key = "addr:" + t.Host.ToLowerInvariant() + ":" + t.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return new Target(t.Host, t.Port, t.Host, key, "", false, false);
         }
-        var peer = live.FirstOrDefault();
-        return peer is null ? null : Of(peer, peer.Address, peer.Ports.Https > 0 && peer.OffersTls ? peer.Ports.Https : peer.Ports.Ws > 0 ? peer.Ports.Ws : peer.Ports.Http);
+        var peer = live.FirstOrDefault(p => last.Length > 0 && p.Id == last) ?? live.FirstOrDefault(Pinned) ?? live.FirstOrDefault();
+        if (peer?.Conflict is { } marked)
+        {
+            peer = live.FirstOrDefault(p => p.Conflict is null && Pinned(p));
+            if (peer is null)
+            {
+                conflict = marked;
+                return null;
+            }
+        }
+        if (peer is null) return null;
+        return Of(peer, peer.Address, peer.Ports.Https > 0 && peer.OffersTls ? peer.Ports.Https : peer.Ports.Ws > 0 ? peer.Ports.Ws : peer.Ports.Http);
 
         static Target Of(ShowBusPeer p, string host, int port)
             => new(host, p.OffersTls && p.Ports.Https > 0 ? p.Ports.Https : port, p.Name.Length > 0 ? p.Name : p.Host, "node:" + p.Id, p.Tls, true,

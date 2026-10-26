@@ -90,7 +90,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="svc:ShowAppCard">
           <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" BorderBrush="{Binding Hue}" BorderThickness="1"
-                  ToolTip.Tip="Another show app heard on UDP 9928 — teal Stagewatch, violet AGMessage, sky a Slides agent; amber once quiet, dark red once gone">
+                  ToolTip.Tip="Another show app heard on UDP 9928 — teal Stagewatch, violet AGMessage, sky a Slides agent; amber once quiet, while its show is stuck or this desk's key is not taken, or while two machines say its id (both named on the card, and no new link to it until they stop taking turns for a minute); dark red once gone">
             <StackPanel>
               <TextBlock FontWeight="SemiBold" Foreground="{Binding Hue}">
                 <Run Text="{Binding KindLabel}" />

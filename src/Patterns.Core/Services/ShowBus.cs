@@ -15,6 +15,19 @@ public sealed record ShowBusHello
     /// <summary>The port every show app hears hellos on.</summary>
     public const int Port = 9928;
 
+    /// <summary>
+    /// The Show Bus revision whose shapes this desk speaks (§2's <c>proto</c>, §14's row): 3 is 1.3. It only grows; a reader
+    /// never refuses a hello for it and never decides a safety question by it. What this desk does not keep yet of 1.3 is
+    /// its §8 row's.
+    /// </summary>
+    public const int Revision = 3;
+
+    /// <summary>The most bytes a hello is as sent (§14 <c>hello.bytes</c>): one datagram that needs no fragmenting on any LAN.</summary>
+    public const int MaxBytes = 1200;
+
+    /// <summary>The most characters of a hello's <c>name</c> and <c>host</c> (§14 <c>hello.name.chars</c>), as sent and as kept.</summary>
+    public const int NameChars = 64;
+
     /// <summary>How often a hello goes out: the other apps forget a node after a few missed.</summary>
     public static readonly TimeSpan Every = TimeSpan.FromSeconds(2);
 
@@ -39,8 +52,8 @@ public sealed record ShowBusHello
     /// <summary>The role: desk, caller, arcade, timer.</summary>
     [JsonPropertyName("role")] public string Role { get; init; } = "";
     [JsonPropertyName("caps")] public string[] Caps { get; init; } = Capabilities;
-    /// <summary>The wire's version as other apps read it: 1 is Show Bus 1.1's contract.</summary>
-    [JsonPropertyName("proto")] public int Proto { get; init; } = 1;
+    /// <summary>The Show Bus revision whose shapes this desk speaks (<see cref="Revision"/>).</summary>
+    [JsonPropertyName("proto")] public int Proto { get; init; } = Revision;
     /// <summary>Round 87: the machine's name under Show Bus 1.1's word for it (the same as <see cref="Machine"/>).</summary>
     [JsonPropertyName("host")] public string Host { get; init; } = "";
     /// <summary>Round 87: the doors, by Show Bus 1.1's names — http, wire, osc; only those served.</summary>
@@ -52,11 +65,46 @@ public sealed record ShowBusHello
     /// <summary>Round 88 (Show Bus 1.2 §10): the fingerprint of this desk's certificate when the web remote serves TLS; absent otherwise.</summary>
     [JsonPropertyName("tls")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Tls { get; init; }
 
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
+    // A name goes out as its UTF-8 — at most three bytes for each of its characters — not as \u escapes, but for the few
+    // characters JSON always escapes (six bytes each).
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = false, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    public string ToJson() => JsonSerializer.Serialize(this, Options);
+    /// <summary>The hello as it goes out (<see cref="ToBytes"/>), as text.</summary>
+    public string ToJson() => System.Text.Encoding.UTF8.GetString(ToBytes());
 
-    public byte[] ToBytes() => System.Text.Encoding.UTF8.GetBytes(ToJson());
+    /// <summary>
+    /// The hello as it goes out: within <see cref="MaxBytes"/> whatever its names are. Names of characters JSON must
+    /// escape can still go over, so the longest of the name, the host and the machine is cut, a few characters at a time
+    /// and never inside a surrogate pair, until it fits. A name that fits goes whole.
+    /// </summary>
+    public byte[] ToBytes()
+    {
+        var hello = this;
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(hello, Options);
+        while (bytes.Length > MaxBytes && Shorter(hello) is { } cut)
+        {
+            hello = cut;
+            bytes = JsonSerializer.SerializeToUtf8Bytes(hello, Options);
+        }
+        return bytes;
+    }
+
+    private static ShowBusHello? Shorter(ShowBusHello h)
+    {
+        var longest = Math.Max(h.Name.Length, Math.Max(h.Host.Length, h.Machine.Length));
+        if (longest == 0) return null;
+        var keep = Math.Max(0, longest - 8);
+        return h with { Name = Cut(h.Name, keep), Host = Cut(h.Host, keep), Machine = Cut(h.Machine, keep) };
+    }
+
+    private static string Cut(string s, int keep) => s.Length <= keep ? s : s[..(keep > 0 && char.IsHighSurrogate(s[keep - 1]) ? keep - 1 : keep)];
+
+    /// <summary>
+    /// A name as a hello says it (§2): one line — a control or line-break character is a space, a lone surrogate the
+    /// replacement character — and at most <see cref="NameChars"/> characters, never cut inside a surrogate pair. Every
+    /// reader keeps it whole.
+    /// </summary>
+    public static string Fit(string? name) => ShowBusPeers.OneLine(name ?? "", NameChars);
 
     /// <summary>
     /// Whether a hello may go out for a control listener bound to <paramref name="bind"/>: "" (every

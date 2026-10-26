@@ -154,6 +154,12 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     /// for no node of this desk's, or P-legacy's fallback, each said by every reader and amber while the link is live.
     /// </summary>
     public StagewatchKey Key { get; init; } = StagewatchKey.Unknown;
+
+    /// <summary>
+    /// Show Bus 1.3 §2: two running nodes say this app's id — the words naming both machines and their addresses ("" when
+    /// none). Every reader shows it amber while the app is live; this desk dials no new link to it while it stands.
+    /// </summary>
+    public string Conflict { get; init; } = "";
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -806,20 +812,24 @@ public sealed class EyeGraph
             // Round 91: this desk's key refused, speaking for no node of this desk's, or read by P-legacy's fallback: amber
             // while the link is live, never red for the key alone; a fault said on the card itself while the link is live.
             var keyAmber = ShowBusView.KeyAmber(app);
+            // Show Bus 1.3 §2: two running nodes say its id — amber while it is live, both machines named; never red for that alone.
+            var conflict = ShowBusView.ConflictAmber(app);
             var light = app.State switch
             {
                 ShowBusState.Gone => CheckLight.Red,
                 ShowBusState.Stale => CheckLight.Amber,
-                _ when stuck || keyAmber => ShowContext.LightOf(ShowBusView.StuckLight(ctx?.Light)),
+                _ when stuck || keyAmber || conflict => ShowContext.LightOf(ShowBusView.StuckLight(ctx?.Light)),
                 _ => ctx is not null ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
             };
             var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
             var sub = stuck ? ShowBusView.StuckWords
                 : ShowBusView.KeyLineLeads(app) ? app.Key.Line
+                : conflict ? app.Conflict
                 : ctx is not null && app.State == ShowBusState.Live && ctx.Headline.Length > 0 ? ctx.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
             var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
             if (stuck) words.Add($"the link is live; it {ShowBusView.StuckWords}");
             if (app.Linked && app.Key.Line.Length > 0) words.Add("this desk's key: " + app.Key.Line);
+            if (app.Conflict.Length > 0) words.Add(app.Conflict + " — " + ShowBusView.ConflictHoldWords);
             if (app.Words.Length > 0) words.Add(app.Words);
             if (ctx is not null)
             {
@@ -829,7 +839,9 @@ public sealed class EyeGraph
             Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light) { Words = words, Route = new MenuRoute("Nodes") });
             if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck");
             else if (app.Linked && keyAmber) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, app.Key.Fault ? "linked · this desk's key " + (app.Key.Refused ? "refused" : "not accepted") : "linked · an older Stagewatch");
+            else if (app.Linked && conflict) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · " + ShowBusView.ConflictEdgeWords);
             else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, app.State == ShowBusState.Live ? "linked" : state);
+            else if (conflict) Link(id, DeskId, EyeEdgeKind.Hears, CheckLight.Amber, "heard · " + ShowBusView.ConflictEdgeWords);
             else Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state);
             if (ctx is null || app.State == ShowBusState.Gone) continue;
             // Its own things, one tier out — at most a dozen, the reds and ambers first, so a busy app does not drown the picture.

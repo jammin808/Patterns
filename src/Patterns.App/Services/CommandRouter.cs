@@ -765,11 +765,18 @@ public sealed class CommandRouter : IRouter
         // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
         var stuck = sight.StuckLive;
         // Round 91: this desk's key refused or not speaking for it, or read by P-legacy's fallback — amber while live, as every reader shows it.
-        var keyAmber = linked is not null && ShowBusView.KeyAmber(linked);
+        // Show Bus 1.3 §2: so is an id two running nodes say.
+        var amber = linked is not null && (ShowBusView.KeyAmber(linked) || ShowBusView.ConflictAmber(linked));
+        // Show Bus 1.3 §2, 13.15.3: the link held off an id two running nodes say, with nothing live linked — amber, and the
+        // words naming both machines in the headline, so a deck that reads only the light and the headline sees the hold.
+        var held = link.Held;
+        var heldLeads = held.Length > 0 && linked is not { State: ShowBusState.Live };
+        // ShowBusView.Peers keeps the apps' order, one row each: a row's conflict is its app's.
+        var rows = ShowBusView.Peers(apps);
         return new
         {
             heard = apps.Count(a => a.State == ShowBusState.Live),
-            apps = ShowBusView.Peers(apps).Select(p => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline }).ToArray(),
+            apps = rows.Select((p, i) => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline, conflict = apps[i].Conflict.Length > 0 }).ToArray(),
             stagewatch = new
             {
                 on = _services.State.Control.Stagewatch.Enabled,
@@ -778,15 +785,19 @@ public sealed class CommandRouter : IRouter
                 following = _services.Stage.Following.Length > 0,
                 title = sight.Frame?.Title ?? "",
                 text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
-                light = stuck || keyAmber ? ShowBusView.StuckLight(linked?.Context?.Light) : linked?.Context?.Light ?? "grey",
+                light = stuck || amber ? ShowBusView.StuckLight(linked?.Context?.Light) : heldLeads ? "amber" : linked?.Context?.Light ?? "grey",
                 // Round 91: a key refused or speaking for no node of this desk's, on a live link, leads — as the apps row says it.
-                headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line : linked?.Context?.Headline ?? "",
+                headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line
+                    : linked is not null && ShowBusView.ConflictAmber(linked) ? linked.Conflict
+                    : heldLeads ? held : linked?.Context?.Headline ?? "",
                 clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
                 words = link.Status,
                 stuck,                                                                   // round 89: appended at the row's end
                 carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
                 key = sight.Key.Word,                                                    // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
+                held,                                                                    // Show Bus 1.3 §2: the conflict the link is held off for ("" when none) — appended at the row's end
             },
+            dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
         };
     }
 

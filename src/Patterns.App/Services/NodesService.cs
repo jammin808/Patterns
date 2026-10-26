@@ -79,11 +79,17 @@ public sealed class NodesService
     private void PollShowApps()
     {
         var now = DateTime.UtcNow;
-        var apps = ShowBusView.Apps(_s.Beacon.ShowBus.Snapshot(now), now, _s.Stagewatch.Sight);
+        var table = _s.Beacon.ShowBus;
+        // Show Bus 1.3 §2: the ids this desk needs — the Stagewatch its link dials, the ones it pinned — are never put out of
+        // the hello table to make room for another app.
+        table.Need(new[] { _s.Stagewatch.NodeId }.Concat(_s.State.Control.Stagewatch.Pins.Select(p => p.Key).Where(k => k.StartsWith("node:", StringComparison.Ordinal)).Select(k => k[5..])));
+        var peers = table.Snapshot(now);
+        SayHelloTable(peers, table.Dropped, now);
+        var apps = ShowBusView.Apps(peers, now, _s.Stagewatch.Sight);
         var cards = apps.Select(ShowAppCard.Of).ToList();
         var link = _s.Stagewatch;
         var extra = string.Join(" ", new[] { link.TlsWords, link.ApprovalWords }.Where(w => w.Length > 0).Select(w => w.EndsWith('.') ? w : w + "."));
-        var line = ShowAppCard.NetworkLine(cards.Count, _s.Beacon.HearingShowBus, link.Status) + (extra.Length > 0 ? " " + extra : "");   // round 88: TLS and the approval desk
+        var line = ShowAppCard.NetworkLine(cards.Count, _s.Beacon.HearingShowBus, link.Status, table.Dropped) + (extra.Length > 0 ? " " + extra : "");   // round 88: TLS and the approval desk
         var key = line + "|" + string.Join("|", cards.Select(c => c.Key));
         if (key == _appsSeen) return;
         _appsSeen = key;
@@ -91,6 +97,23 @@ public sealed class NodesService
         Rev++;
         ShowApps.Clear();
         foreach (var c in cards) ShowApps.Add(c);
+    }
+
+    // The log's lines for the hello table: bounded however many ids a flood marks (Show Bus 1.3 §2).
+    private readonly ShowBusTableLog _tableLog = new();
+
+    /// <summary>
+    /// The log's lines for the hello table (Show Bus 1.3 §2): an id marked in conflict, naming both machines, and its mark
+    /// gone — cleared, forgotten or put out of the full table; how many apps the full table put out, at most once a minute.
+    /// At most <see cref="ShowBusTableLog.NamedPerMinute"/> ids are named a minute, the rest counted in one line.
+    /// </summary>
+    private void SayHelloTable(IReadOnlyList<ShowBusPeer> peers, long dropped, DateTime now)
+    {
+        foreach (var line in _tableLog.Lines(peers, dropped, now))
+        {
+            if (line.Warn) Log.Warn(line.Text);
+            else Log.Info(line.Text);
+        }
     }
 
     /// <summary>Moves when the cards change — a deck's node keys are pushed on it.</summary>

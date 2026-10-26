@@ -551,11 +551,14 @@ public static class ShowBusView
     {
         var apps = new List<EyeShowApp>();
         var linkedSeen = false;
+        var linkedId = LinkedId(peers, sight);
         foreach (var p in peers.Where(p => p.Kind != "patterns"))
         {
-            var linked = sight.Address.Length > 0 && p.Kind == "main" && LinkedTo(sight, p);
+            var linked = linkedId is not null && p.Id == linkedId;
             linkedSeen |= linked;
-            var words = string.Join(" · ", new[] { p.Host.Length > 0 && p.Host != p.Name ? p.Host : "", p.Address, p.Caps.Count > 0 ? string.Join(", ", p.Caps.Take(6)) : "" }.Where(w => w.Length > 0));
+            // Show Bus 1.3 §2: every address the id was heard from, the one dialled first.
+            var addresses = p.Addresses.Count > 0 ? string.Join(", ", p.Addresses) : p.Address;
+            var words = string.Join(" · ", new[] { p.Host.Length > 0 && p.Host != p.Name ? p.Host : "", addresses, p.Caps.Count > 0 ? string.Join(", ", p.Caps.Take(6)) : "" }.Where(w => w.Length > 0));
             var state = linked ? Worse(p.StateAt(utcNow), sight.State) : p.StateAt(utcNow);
             var stuck = linked && sight.Stuck && state == ShowBusState.Live;
             apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, state, linked, words)
@@ -563,6 +566,7 @@ public static class ShowBusView
                 Context = linked ? Shown(sight.Context, stuck) : null,
                 Stuck = stuck,
                 Key = linked ? sight.Key : StagewatchKey.Unknown,                                   // round 91: the linked one's verdict on this desk's key
+                Conflict = p.Conflict?.Words ?? "",                                                 // Show Bus 1.3 §2: two running nodes say its id
             });
         }
         // A Stagewatch reached by a typed address that never said hello (another subnet, a loopback-only hello) is still drawn.
@@ -594,6 +598,18 @@ public static class ShowBusView
     /// app's own. A link gone quiet or gone says that instead; a stuck show says so first.
     /// </summary>
     public static bool KeyLineLeads(EyeShowApp app) => app.Linked && app.State == ShowBusState.Live && !app.Stuck && app.Key.Fault;
+
+    /// <summary>
+    /// Show Bus 1.3 §2: an app whose id two running nodes say, while it is live — every reader takes the worse of its own
+    /// light and amber and names both machines; never red for that alone. Quiet or gone says that instead.
+    /// </summary>
+    public static bool ConflictAmber(EyeShowApp app) => app.Conflict.Length > 0 && app.State == ShowBusState.Live;
+
+    /// <summary>What every reader adds to a conflict's words: what this desk does about it (Show Bus 1.3 §2, 13.15.3).</summary>
+    public const string ConflictHoldWords = "no new link to it until they stop taking turns for a minute";
+
+    /// <summary>A conflict on the Eye's edge.</summary>
+    public const string ConflictEdgeWords = "two machines say this id";
 
     /// <summary>What every reader says of a linked app whose show is stuck (PeerLink profile 13.16.1).</summary>
     public const string StuckWords = "says its show is stuck — no time shown";
@@ -646,22 +662,41 @@ public static class ShowBusView
         {
             ShowBusState.Gone => "red",
             ShowBusState.Stale => "amber",
-            _ when a.Stuck || KeyAmber(a) => StuckLight(a.Context?.Light),
+            _ when a.Stuck || KeyAmber(a) || ConflictAmber(a) => StuckLight(a.Context?.Light),
             _ => a.Context?.Light ?? "grey",
         },
         // Round 91: a key refused or not speaking for this desk, on a live link, is what this desk can say of it now: said in place of the headline.
+        // Show Bus 1.3 §2: so is an id two running nodes say, while it is live.
         Headline = KeyLineLeads(a) ? a.Key.Line
+            : ConflictAmber(a) && !a.Stuck ? a.Conflict
             : a.Context?.Headline is { Length: > 0 } h ? h
             : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : "heard on the show network")
             : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
     }).ToList();
 
+    /// <summary>
+    /// The id of the heard Stagewatch the link is to, or null: one whose hellos came from the link's address at its port. Two
+    /// heard there (an id renewed, a datagram's source forged) are told apart by the id the link's own context names, or
+    /// neither is taken — the link is then drawn as an app of its own, never one heard app shown as another.
+    /// </summary>
+    private static string? LinkedId(IReadOnlyList<ShowBusPeer> peers, StagewatchSight sight)
+    {
+        if (sight.Address.Length == 0) return null;
+        var heard = peers.Where(p => p.Kind == "main" && LinkedTo(sight, p)).Select(p => p.Id).Distinct(StringComparer.Ordinal).ToList();
+        if (heard.Count == 1) return heard[0];
+        return sight.Context?.Node.Id is { Length: > 0 } verified && heard.Contains(verified, StringComparer.Ordinal) ? verified : null;
+    }
+
+    /// <summary>
+    /// Whether the link's address names this peer: an address its hellos came from, at one of its doors (Show Bus 1.3 §2) —
+    /// never what a hello says of its own host.
+    /// </summary>
     private static bool LinkedTo(StagewatchSight sight, ShowBusPeer p)
     {
         var colon = sight.Address.LastIndexOf(':');
         var host = colon > 0 ? sight.Address[..colon].Trim('[', ']') : sight.Address;
         var port = colon > 0 && int.TryParse(sight.Address[(colon + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 0;
-        return string.Equals(host, p.Address, StringComparison.OrdinalIgnoreCase) && (port == 0 || port == p.Ports.Http || port == p.Ports.Ws);
+        return p.HeardAt(host) && (port == 0 || port == p.Ports.Http || port == p.Ports.Ws || port == p.Ports.Https);
     }
 
     /// <summary>
@@ -678,9 +713,11 @@ public static class ShowBusView
             var c = a.Context;
             // A stuck show: the link is live and amber, its counting things carry no time (the context says so, NoTime).
             if (a.Stuck && a.State == ShowBusState.Live && c is null) lines.Add($"{a.KindWords} {a.Name} — {state} — {StuckLight(null)}: {StuckWords}");
-            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {(KeyAmber(a) ? StuckLight(c.Light) : c.Light)}: {c.Headline}"));
+            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {(KeyAmber(a) || ConflictAmber(a) ? StuckLight(c.Light) : c.Light)}: {c.Headline}"));
             // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
             if (a.Linked && a.Key.Line.Length > 0) lines.Add($"  this desk's key: {a.Key.Line}");
+            // Show Bus 1.3 §2: two running nodes say its id.
+            if (a.Conflict.Length > 0) lines.Add($"  {a.Conflict} — {ConflictHoldWords}");
             if (c is null || a.State == ShowBusState.Gone) continue;
             foreach (var i in c.Items.OrderByDescending(i => i.Light == "red").ThenByDescending(i => i.Light == "amber").Take(15))
                 lines.Add($"  · {i.Label} ({i.Kind}) — {i.Light}" + (i.State.Length > 0 ? ": " + i.State : ""));
@@ -729,12 +766,14 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
             : app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
         // Round 91: what it made of this desk's key — a refusal, a key that speaks for another desk, P-legacy's label.
         if (app.Linked && app.Key.Line.Length > 0) line += " · " + app.Key.Line;
+        // Show Bus 1.3 §2: two running nodes say its id — both named, and what this desk does about it.
+        if (app.Conflict.Length > 0) line += " · " + app.Conflict + " — " + ShowBusView.ConflictHoldWords;
         var hue = app.State switch
         {
             ShowBusState.Gone => "#B03030",
             ShowBusState.Stale => "#FFB020",
-            // A stuck show, or this desk's key refused: the worse of the app's own light and amber — red only when its own light is red.
-            _ when app.Stuck || ShowBusView.KeyAmber(app) => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
+            // A stuck show, this desk's key refused, or its id said by two machines: the worse of the app's own light and amber — red only when its own light is red.
+            _ when app.Stuck || ShowBusView.KeyAmber(app) || ShowBusView.ConflictAmber(app) => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
             _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
         };
         return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked);
@@ -750,9 +789,20 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         : $" · show network id {id} — not kept (its folder is not writable): a Stagewatch key bound to it refuses this desk after a restart";
 
     /// <summary>"2 apps on the show network · Stagewatch link: following Hall A." — or why there are none.</summary>
-    public static string NetworkLine(int count, bool hearing, string linkStatus)
+    public static string NetworkLine(int count, bool hearing, string linkStatus) => NetworkLine(count, hearing, linkStatus, 0);
+
+    /// <summary>
+    /// The line, and — once the hello table has had to put an app out or turn one away — how many, since start (Show Bus
+    /// 1.3 §2: it keeps <see cref="ShowBusPeers.MaxPeers"/>; something on the network says hello as many apps).
+    /// </summary>
+    public static string NetworkLine(int count, bool hearing, string linkStatus, long dropped)
     {
         var heard = !hearing ? "Not listening on the show network (remote control is off)." : count == 0 ? "No other show app heard on the show network yet (UDP 9928)." : count == 1 ? "1 app on the show network." : $"{count} apps on the show network.";
+        if (dropped > 0) heard += " " + DroppedWords(dropped);
         return linkStatus.Length > 0 ? heard + " " + linkStatus : heard;
     }
+
+    /// <summary>What the Nodes page, the log and the brief say of the hello table's drops: "" with none.</summary>
+    public static string DroppedWords(long dropped) => dropped <= 0 ? ""
+        : string.Create(CultureInfo.InvariantCulture, $"{dropped} {(dropped == 1 ? "app" : "apps")} dropped from the hello table since start — it keeps {ShowBusPeers.MaxPeers}, the one heard longest ago that this desk does not need going first: something on the network says hello as many apps.");
 }
