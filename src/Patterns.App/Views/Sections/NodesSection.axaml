@@ -124,6 +124,6 @@
               ToolTip.Tip="The stage and timer pages show the Stagewatch's time and colours while it answers; quiet, the time is held back; gone, this desk's own countdown runs. Pause and add-time are the Stagewatch's then" />
 
     <TextBlock Classes="hint tip"
-               Text="How the pieces find each other: every Patterns sends a beacon once a second (UDP, port 9700 by default) and hears the others'; a node always does, a desk does while it accepts callers. A caller node presses LINK on the desk it follows and joins with that desk's twin key; the desk's Nodes page counts it under LINKED and its Machine page's TWIN line names it. NODES on the wire lists every card as JSON. The other show apps (Stagewatch, AGMessage, Slides agents) say hello on UDP 9928 every two seconds — who they are and where their doors are, never what the show is (docs/SHOWBUS.md)." />
+               Text="How the pieces find each other: every Patterns sends a beacon once a second (UDP, port 9700 by default) and hears the others'; a node always does, a desk does while it accepts callers. A caller node presses LINK on the desk it follows and joins with that desk's twin key; the desk's Nodes page counts it under LINKED and its Machine page's TWIN line names it. NODES on the wire lists every card as JSON. The other show apps (Stagewatch, PlayMap, AGMessage, Slides agents) say hello on UDP 9928 every two seconds — who they are and where their doors are, never what the show is (Show Bus 1.3, docs/SHOWBUS.md)." />
   </StackPanel>
 </UserControl>

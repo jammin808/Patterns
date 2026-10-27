@@ -307,8 +307,11 @@ public sealed class StagewatchLinkService : IDisposable
     /// </summary>
     private volatile string _slowTls = "";
 
-    /// <summary>The budget of one WebSocket upgrade; a TLS dial's is cut to <see cref="TlsAnswerWithin"/> until a certificate comes.</summary>
-    private static readonly TimeSpan UpgradeWithin = TimeSpan.FromSeconds(5);
+    /// <summary>
+    /// The budget of one WebSocket upgrade, its connection taken in (<see cref="StagewatchFrame.DialWithin"/>); a TLS dial's is
+    /// cut to <see cref="TlsAnswerWithin"/> until a certificate comes.
+    /// </summary>
+    private static readonly TimeSpan UpgradeWithin = StagewatchFrame.DialWithin;
 
     /// <summary>How long a dial waits for its host's name to resolve.</summary>
     private static readonly TimeSpan ResolveWithin = TimeSpan.FromSeconds(4);
@@ -482,7 +485,7 @@ public sealed class StagewatchLinkService : IDisposable
             _reached = "";
             _sight = _sight with { State = ShowBusState.Gone };
             _approvalsLive = false;
-            // Round 91: a hold replaces the wait (Show Bus 1.3 draft §13.15.3): a refused key, or a rate limit, is not
+            // Round 91: a hold replaces the wait (Show Bus 1.3 §13.15.3): a refused key, or a rate limit, is not
             // presented again by a redial inside it. It was recorded as its word was read, so a connection that ended in an
             // exception waits it as a clean end does.
             var backoff = ShowBusLiveness.Redial(attempt++, RandomNumberGenerator.GetInt32(1000) / 1000.0);
@@ -755,7 +758,7 @@ public sealed class StagewatchLinkService : IDisposable
         // The side calls ride the dial's own handler: the same address, the same pin, the key only where the socket's carried it.
         var sideKey = keyed ? apiKey : "";
         // Every answer is read whole before it is parsed, an error's body too: bounded here, well above a context's 64 KiB.
-        using var http = new HttpClient(handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(4), MaxResponseContentBufferSize = SideAnswerMost };
+        using var http = new HttpClient(handler, disposeHandler: false) { Timeout = StagewatchFrame.SideCallWithin, MaxResponseContentBufferSize = SideAnswerMost };
         var baseUri = Address(target, tls, socket: false);
         var sendGate = new SemaphoreSlim(1, 1);
         var connection = new Connection(run, target, tls, sideKey.Length > 0, pins, () => presented, apiKey);
@@ -1115,7 +1118,7 @@ public sealed class StagewatchLinkService : IDisposable
             {
                 sendGate.Release();
             }
-            if (ShowClock.Seconds - lastContext >= 5)
+            if (ShowClock.Seconds - lastContext >= StagewatchFrame.ContextEvery.TotalSeconds)
             {
                 if (!c.Keyed || KeyedCallsOpen(c))
                 {

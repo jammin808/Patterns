@@ -227,14 +227,30 @@ public sealed record StagewatchFrame
         return sb.Append(line, from, line.Length - from).ToString();
     }
 
-    /// <summary>The least a refused key is held (Show Bus 1.3 draft §14's <c>peerlink.hold.refused.ms</c>, Stagewatch's own <c>retry</c>).</summary>
+    /// <summary>The least a refused key is held (Show Bus 1.3 §14's <c>peerlink.hold.refused.ms</c>, Stagewatch's own <c>retry</c>).</summary>
     public static readonly TimeSpan RefusedHold = TimeSpan.FromSeconds(60);
 
     /// <summary>The most a far end's <c>retry</c> or <c>Retry-After</c> holds the link: its number is bounded here.</summary>
     public static readonly TimeSpan MostHold = TimeSpan.FromHours(1);
 
     /// <summary>
-    /// Round 91: how long an answer holds what it holds (Show Bus 1.3 draft §13.15.3; <see cref="StagewatchHoldKind"/> says
+    /// The most one dial of the link spends on its connection and its upgrade before it counts as a failed dial (Show Bus 1.3
+    /// §14's <c>link.connect.timeout.ms</c>); a TLS dial with no certificate yet is cut shorter.
+    /// </summary>
+    public static readonly TimeSpan DialWithin = TimeSpan.FromSeconds(5);
+
+    /// <summary>The most one side call of the link — the context's read and post, each approval call — takes (§14's <c>link.sidecall.timeout.ms</c>).</summary>
+    public static readonly TimeSpan SideCallWithin = TimeSpan.FromSeconds(4);
+
+    /// <summary>
+    /// The least time, on one link, between two of its reads of the Stagewatch's context and two posts of this desk's own: they ride
+    /// the first beat (<see cref="ShowBusLiveness.Beat"/>) at least this long after the last, so a post comes within this and a
+    /// beat (§6's <c>context.post.min.ms</c> to <c>context.post.max.ms</c>).
+    /// </summary>
+    public static readonly TimeSpan ContextEvery = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Round 91: how long an answer holds what it holds (Show Bus 1.3 §13.15.3; <see cref="StagewatchHoldKind"/> says
     /// what). A refused key — 401 (and a refusal on the socket, which stands for one) — or a node route refused (403) holds
     /// for the larger of <paramref name="atLeast"/> and the far end's <paramref name="retrySeconds"/>; a rate limit (429) its
     /// <c>Retry-After</c>, or <paramref name="atLeast"/> when it names none; anything else holds nothing. Never more than
@@ -359,8 +375,8 @@ public sealed record StagewatchKey
     /// at least <paramref name="atLeast"/>, the socket kept for the public frame (a rate limit, which Stagewatch says on the
     /// socket as a refused key, is held as that); the viewing code asked of a link that carried no key holds the next dial
     /// and says so, the key's standing unchanged. <c>ok:true</c> naming this desk's id: verified key or operator takes the
-    /// key; verified none on a link that carried the key is the key not speaking for this desk (the draft's "bound to
-    /// another", §13.15.3) — its node routes held, its reads and frames kept; on a link that carried none it is what the
+    /// key; verified none on a link that carried the key is the key not speaking for this desk (Show Bus 1.3 §13.15.3's
+    /// "bound to another") — its node routes held, its reads and frames kept; on a link that carried none it is what the
     /// Stagewatch says of a claim, and holds nothing. A verdict naming another node, or none (a control page's), is not
     /// this link's: null.
     /// </summary>
@@ -802,7 +818,10 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         return linkStatus.Length > 0 ? heard + " " + linkStatus : heard;
     }
 
-    /// <summary>What the Nodes page, the log and the brief say of the hello table's drops: "" with none.</summary>
+    /// <summary>
+    /// The words the Nodes page's show network line gives the hello table's drops since start: "" with none. The log says them
+    /// in its own bounded line (<see cref="ShowBusTableLog"/>) and STATE counts them in <c>bus.dropped</c>; the brief carries none.
+    /// </summary>
     public static string DroppedWords(long dropped) => dropped <= 0 ? ""
         : string.Create(CultureInfo.InvariantCulture, $"{dropped} {(dropped == 1 ? "app" : "apps")} dropped from the hello table since start — it keeps {ShowBusPeers.MaxPeers}, the one heard longest ago that this desk does not need going first: something on the network says hello as many apps.");
 }

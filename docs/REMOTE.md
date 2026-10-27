@@ -713,10 +713,29 @@ What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in on
   The desk relays the Stagewatch it follows to its followers (`STAGEWATCH <json>`, once a second: the frame and its
   age, never a key or an address).
 
-## The show network (round 87, Show Bus 1.1)
+## The show network (Show Bus 1.3; round 87 on)
 
-The contract between Patterns, Stagewatch, AGMessage and their micro-apps is `docs/SHOWBUS.md` (the master copy
-is Stagewatch's). What Patterns does with it:
+The contract between Stagewatch, Patterns, PlayMap, AGMessage and their micro-apps is Show Bus 1.3, `docs/SHOWBUS.md`:
+this tree's copy of Stagewatch's master, byte for byte, beside the scripted peer its §13.20 names
+(`tools/showbus/peerlink-peer.mjs`, byte for byte too). `ShowBusSpecTests` reads them from this tree alone and holds
+the body's bytes to the SHA-256 the header prints and the peer's to the one §14 pins, this desk's code to every row of
+§14's block it keeps — the Stagewatch link's dial, side-call and context timings among them, read from Core — and the
+`peerlink` vectors it answers today (liveness, the redial, the legacy proof as the wire checks it, and the clock the
+twin and the Stagewatch link both measure, where it keeps 13.11); every other row and vector is named there with what
+this desk does today. The copy's §8.2 row is the master's words for Patterns as they were written: of what it lists as
+not kept yet, round 91 ended the first four (the wire's state before pairing, the link that named no node, the 64
+commands, the hello and certificates of 1.2); LINK, TLS on the wire, app keys and receipts, and `CONTEXT POST` remain.
+What else this desk does not keep yet is named in `ShowBusSpecTests` with what it does:
+- its own context's per-field sizes and trimming (§6);
+- on the clock the twin and the Stagewatch link measure, 13.11's refusals, error and freshness, and 13.11.5's CLOCKS
+  APART — it takes the offset alone, at 2 s or more, so an offset of 2010 ms with an error of 16 is apart here and not
+  there;
+- the Stagewatch link's pings: one a beat, the beat's wait coming after its side calls, which run in its path, so two
+  pings are further apart than `ping.max.ms`;
+- the names §14 gives a Slides agent and PlayMap, §2's words for a full table (OPEN L73) and 13.12.9's resends of an
+  owed result.
+
+What Patterns does with it:
 
 - **Hears every hello on UDP 9928** (a shared port: Stagewatch and AGMessage may listen on the same machine), on
   the control bind address when one is set. Each app is kept by its id and door: live while heard, stale after

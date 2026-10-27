@@ -1,0 +1,4 @@
+# Show Bus's contract and its scripted peer are carried byte for byte from Stagewatch's master (docs/SHOWBUS.md §14.5):
+# ShowBusSpecTests hashes the peer as its bytes, so neither is ever converted to CRLF on a checkout, Windows included.
+docs/SHOWBUS.md text eol=lf
+tools/showbus/*.mjs text eol=lf

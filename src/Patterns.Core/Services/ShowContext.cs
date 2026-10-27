@@ -204,7 +204,7 @@ public static class ShowContextBuilder
 {
     /// <summary>
     /// The longest verb this desk lists: Stagewatch's reader up to its whole-form matcher cuts a verb at 80 characters
-    /// (Show Bus 1.3 §14's "today" line for <c>context.verb.chars</c>), and every row fits so that every reader takes it whole.
+    /// (Show Bus 1.3 §8.1's "today" line for <c>context.verb.chars</c>), and every row fits so that every reader takes it whole.
     /// </summary>
     public const int OwnVerbMostChars = 80;
 
