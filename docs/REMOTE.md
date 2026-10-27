@@ -617,6 +617,10 @@ Behind the Install page's admin passcode (`docs/INSTALLS.md`):
   passcode alone checks it (the page unlocking). A wrong passcode answers 403 and, after five wrong
   tries, a minute's lock.
 - `GET /api/admin/log` with the passcode in an `X-Patterns-Pass: <passcode>` header → the last eighty lines of `patterns.log`.
+  Round 92: masked as the support bundle masks its copy — the show's secret values (the twin's key, the passcode, the
+  keys and passwords the settings hold) read with the passcode's check, and a page's address with its pass said in its
+  public form — so a line an older build wrote leaves the machine the same way by both exits. A wrong passcode reads no
+  line. Since round 92 the log says a twin key was made by where it is read (the Machine page, TWIN) and never the key.
 - `GET /support-bundle.zip` with the same header → the support bundle, written beside the settings and sent.
   A `?pass=` in the URL is not read (round 65): a browser's history, a proxy's log and a screenshot keep URLs, and never headers.
 
@@ -725,7 +729,8 @@ twin and the Stagewatch link both measure, where it keeps 13.11); every other ro
 this desk does today. The copy's §8.2 row is the master's words for Patterns as they were written: of what it lists as
 not kept yet, round 91 ended the first four (the wire's state before pairing, the link that named no node, the 64
 commands, the hello and certificates of 1.2); LINK, TLS on the wire, app keys and receipts, and `CONTEXT POST` remain.
-What else this desk does not keep yet is named in `ShowBusSpecTests` with what it does:
+What else this desk does not keep yet is named in `ShowBusSpecTests` with what it does (each a row of `docs/OPEN.md`,
+L73 and L83 to L87):
 - its own context's per-field sizes and trimming (§6);
 - on the clock the twin and the Stagewatch link measure, 13.11's refusals, error and freshness, and 13.11.5's CLOCKS
   APART — it takes the offset alone, at 2 s or more, so an offset of 2010 ms with an error of 16 is apart here and not
@@ -783,6 +788,15 @@ What Patterns does with it:
   reads `GET /api/context` with the same header. Stale after 6 s of silence (the stage holds its time back), dropped
   and redialled after 12 s, the redial from half a second to five with jitter. The key is a secret by its name
   (`Control.Stagewatch.ApiKey`): masked in every bundle, never mirrored to a twin.
+  Round 92: a name is resolved once a dial and dialled at every address it gives — IPv4 first (a Stagewatch listens on
+  IPv4), then IPv6, each family in the resolver's order, at most four — each address deciding its own carrier and key by
+  the rules above. The next address is tried only while nothing has answered at this one (refused, unreachable, silent
+  past the upgrade's 5 s), so a refused key, a hold or CERTIFICATE CHANGED at one address is never taken to another, and
+  the connection's side calls and re-probe stay on the address that answered. While a later address is tried the words
+  say which refused (`bus.stagewatch.words` and the Nodes line: "Stagewatch link: dialling <name> at <host>:<port> —
+  <address> refused; trying <next>…"), a connection reached after a miss says where (" · reached at <address> after
+  <address> refused"), and the log's carrier line names the address a name led to; the Eye, the context's peers and the
+  assistant read the link's health, not which address answered. A pass is at most 34 s before the backoff.
 - **One room, one timer.** While a linked Stagewatch answers, `/stage`, `/timer`, STAGE STATUS, STATE's `stage`
   block and the stage timer node show its time, its colours and its title; the pages say "following Stagewatch
   Hall A". `TIMER PAUSE`, `RESUME` and `ADD` are refused then ("run it there"); STAGE messages stay this desk's.

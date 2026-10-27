@@ -470,6 +470,23 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 92 — no module change (3.19.1); the proof's key read against Show Bus 1.3
+
+- **Nothing the deck reads moved.** Round 92 adds no verb, STATE field or action. The Stagewatch link's new words —
+  which of a name's addresses refused and where it was reached — ride STATE's `bus.stagewatch.words`, which the module
+  maps to no variable; `stagewatch_state`, `stagewatch_light`, `stagewatch_headline` and `stagewatch_key` read as
+  before. The module's tests run with the round's papers, unchanged; one of them, the package test that imports the
+  built entrypoint, leaves its unpacked copy in the temp path on every run (`docs/OPEN.md` L93).
+- **The legacy proof's key, read against 1.3 §13.6.8** (the desk's copy of Show Bus 1.3 landed this round). The module
+  keys `AUTH-PROOF` with the token stripped of every white space JavaScript's `\s` knows (U+00A0 and U+FEFF among them)
+  and upper-cased by full mapping (`ß` → `SS`); 13.6.8 removes `-`, space, tab, CR and LF alone, upper-cases one UTF-16
+  unit at a time by simple mapping, and does not prove a token that still holds a character 1.3's canonical form
+  removes, saying "this token holds an invisible character — retype it". The desk compares as 13.6.8 does, so such a
+  token's proof fails closed — the desk answers `ERR wrong token` and the status says the token is not the desk's, the
+  wrong cause. A desk's own tokens are letters, digits and dashes, so only a token typed with an odd character meets it.
+  The module keeps its rule this round; the patch that keys by 13.6.8 and says its words is the desk's `docs/OPEN.md`
+  L89.
+
 ## Round 91 — what Stagewatch made of the desk's key, and the module pairs before it reads (modules 3.19.0 and 3.19.1)
 
 - **What the linked Stagewatch made of the desk's key** (3.19.0, a minor version: a variable added).

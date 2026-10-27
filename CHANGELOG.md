@@ -10,34 +10,33 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
-## Round 92 — 2026-10-26 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, and the twin's new key in no line, masked on the ADMIN page's log tail
+## Round 92 — 2026-10-26 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, the twin's new key in no line and masked on the ADMIN page's log tail, Show Bus 1.3 copied byte for byte, and the seven suites leave no temporary folder behind
 
-`round-92` · PLAN §110 · 2,942 tests at the opening · module 3.19.1 (unchanged at the opening) · evidence: CI's own runs (275 to 280 — the test job red on every push since round 89) and round 91's papers (L64, L65), with web research behind the cause (the .NET 10 `HttpListener`'s source, the runner image's build script, glibc's address order); none of the five classes whole, and no one asked for the round in words
+`round-92` · PLAN §110 · REVIEW round 92 · 2,977 tests · module 3.19.1 (unchanged) · evidence: CI's own runs (runs 275 to 280, the test job red on every push since round 89, and run 281 on the round's code, green) and round 91's papers (L64, L65), with web research behind the cause (the .NET 10 `HttpListener`'s source, the runner image's build script, glibc's address order) and, for 92.5, a measurement on this bench (its disk); none of the five classes whole, and no one asked for the round in words
 
-- **Opened (92.0).** Nothing in `docs/field/`; CI's runs read as the files, each run with what it means and what it
-  asks. L64's two halves are two defects. Since 89.5 the Stagewatch link dials only the first IPv4 address of a name,
-  while on GitHub's runner (`localhost` on the `::1` line, `::1` first) the scripted Stagewatch's `HttpListener` listens
-  on `::1` alone — so every test of that fake fails at its first wait, 4, 4 and 14 in runs 278 to 280, and passes here,
-  where `localhost` is 127.0.0.1 alone; the fault is the product's too, since a Stagewatch whose name resolves to
-  several addresses is never reached through the others. The cause is inferred: 92.1 keeps the name-bound fake, so the
-  runner's green is the fix's evidence, and makes the job's log show the resolver's order and where the fake listened.
-  The census compares whole-process counts, and an earlier test's desk or picture let go on its own clock after the
-  baseline reads as a cycle's change; 92.2 judges a cycle by what is alive or running that was not there at a mark, so
-  a timer made before the mark and armed after it is still caught. The requester: the ledger — L64's no Release while
-  the test job is red, L65 handed to this opening by round 91's papers — and the evidence class. The round is inserted
-  before the plan's PeerLink round, which becomes round 93 (PLAN §111), every later Patterns round of the plan one
-  higher (to round 100, §118), against the numbers the answer *P-numbers* took; the opening says why and that the
-  maintainer may put it back. The key reaches other trees' papers and the owner's answers too: Stagewatch's 1.3
-  contract ("after Patterns' Round 96", `SHOWBUS.md:592`) and *M-decision17* mean round 97 here, and Stagewatch's
-  chain is asked to name the work there before SW19.12 freezes the text. 92.4 (91.5 moved) waits for SW19.12 and moves
-  again if 1.3 is not final when 92.1 to 92.3 have landed. OPEN: L64 taken as 92.1 and 92.2, each half closing on its
-  own evidence (the census half on its tests and mutation checks, not on a green job); L65 as 92.3, wider than 91.7's
-  scope — the key in no notice on a desk or a node, never on the strip a NAV refusal quotes, and the ADMIN page's log
-  tail masked as the bundle is (another branch's `95805b0` and `56324a6` read); L62's closed row read again in run 280
-  (WebView2 and lifecycle green); rows to add for the census's side findings. The code units go out first, and the
-  papers (92.6) read that push's test job on GitHub before L64 closes (PLAN §110.1). The papers write what landed,
-  REVIEW round 92 and the count at the round's end in place of the opening's. The round's tag waits for that commit,
-  which writes round 91's row in the tag table (`tag-rounds.sh` tags this entry at HEAD).
+- **The Stagewatch link dials every address its name resolves to (92.1, L64's link half).** Since 89.5 it kept a name's
+  first IPv4 address alone, so a Stagewatch whose name gives several addresses — a laptop on wired and Wi-Fi, the first
+  not answering — was never reached through the others, and on GitHub's runner every test of the name-bound scripted
+  Stagewatch failed. It now dials them in turn, IPv4 first, then IPv6, at most four (the hello's bound), each address
+  deciding its own carrier and key (TLS first off loopback, the key plain only to loopback), and ends the dial at the
+  first that answers: a refused key, a hold or CERTIFICATE CHANGED at one address is never taken to another. The link's
+  words say which addresses refused and where it was reached — the Nodes line, STATE's `bus.stagewatch.words` and the
+  log's carrier line; the Eye, the context and the assistant read the link's health, as before. A pass is at most 34 s
+  before the backoff. Run 281 observed the cause and the fix: the runner resolves `localhost` to `::1` first, and every
+  test of the fake reached it there, at the dial's second address.
+- **The lifecycle census judges a cycle by what was not there at its mark (92.2, L64's census half).** An earlier
+  test's desk, timer or picture leaving on its own clock no longer reads as a cycle's change, and a cycle's leak another
+  test's leaving would have hidden is caught; a timer made before the mark and armed again is still counted. STATE's
+  census, the support ticket and the memlog read as before. Its reading found who leaves the leftovers and two more
+  holders, each an OPEN row.
+- **The twin's new key in no line (92.3, L65).** A desk, a main or a node that is given a key says where it is read
+  (the Machine page, TWIN; a node's Machine tab) and never the key, in the log alone before the window exists and on the
+  strip once it does, and only once the key has landed. The ADMIN page's log tail is masked as the support bundle is, so
+  a key or a page's pass an older build wrote leaves the machine masked by both exits.
+- **Show Bus 1.3 copied byte for byte with its scripted peer (92.4, round 91's 91.5).** Once Stagewatch's SW19.12 made
+  1.3 final, `docs/SHOWBUS.md` and `tools/showbus/peerlink-peer.mjs` became the master's bytes, and `ShowBusSpecTests`
+  holds both hashes and places every row of §14 — kept by this desk's code, not kept yet (each said and checked), or not
+  this desk's part yet — and the `peerlink` vectors it answers today. What it found not kept is in OPEN (L83 to L89).
 - **Added after the opening (92.5): the tests leave no temporary folder behind.** A measured cause on this bench:
   92.4's validation stopped on a full disk (ENOSPC), the machine's `/tmp` held 59,685 `patterns-tests-*` folders and
   thousands more of the suites' families, and one whole App run left 867 desk folders (111 MB), a closed test desk
@@ -47,7 +46,30 @@ is the Bitfocus Companion module, where its version moved.
   its run's folder, naming the test that made it (PLAN §110.2). Its first whole run found two desk tests that read or
   wrote a closed desk's folder (both mended), and that a save asked of a closed desk still writes, named for the
   papers; four mutations each fail it, and a fifth shows the tests still hold the code that makes a missing folder.
-  Earlier runs' leftovers are never read or removed. The papers are 92.6.
+  Earlier runs' leftovers are never read or removed. The fence holds the seven suites; the Companion module's node
+  tests are outside it, and one of them leaves a folder in the temp path on every run (L93).
+- **Opened (92.0).** Nothing in `docs/field/`; CI's runs read as the files, each run with what it means and what it
+  asks. L64's two halves are two defects: the link half's cause inferred from the runs' differential and four sources,
+  to be observed in the job's own log (the resolver's order and where the fake was reached); the census half closing on
+  its own tests and mutation checks, never on a green job. The requester: the ledger — L64's no Release while the test
+  job is red, L65 handed to this opening by round 91's papers. The round is inserted before the plan's PeerLink round,
+  which becomes round 93 (PLAN §111), every later Patterns round of the plan one higher (to round 100, §118), against
+  the numbers the answer *P-numbers* took; the opening says why and that the maintainer may put it back. The key reaches
+  other trees' papers and the owner's answers too: Stagewatch's 1.3 contract ("after Patterns' Round 96") and
+  *M-decision17* mean round 97 here.
+- **The papers (92.6).** OPEN: L64 closed (92.1 on run 281's observation, 92.2 on its tests and mutations), L65 closed
+  (92.3); L77 to L93 added — the link tests' fake and an assertion that proves nothing, the census's side findings and
+  three tests seen failing under load, the twin key on a launched standby's command line, what 1.3 final asks that
+  this desk does not keep yet, the copy's words about this desk (its "Round 96" is round 97 here), the deck's legacy
+  proof key against 13.6.8, a save on a closed desk, desks closed late in the App suite, 92.5's fences not yet run on
+  Windows, and the module's node test that leaves a folder in the temp path; L73 read again against 1.3 final, L67 and
+  L50 annotated, the plan's live round numbers renumbered. QUALIFICATION §26 gains a round-92 note for the dial by a
+  name, and §22 a step 15 for the twin's first run. Round 91's row in the tag table. Walk: unwalked — 92.1 changes how
+  the link reaches a name, which is the machine's resolver (§26's row), and 92.3 the twin's first run (§22's step 15).
+  The round adds no verb an output can show: the rig reads run 281's test job (the App suite's count beside the
+  `getent` line and the fakes' "reached at" lines), the link's carrier line beside the Nodes line and
+  `bus.stagewatch.words`, the twin's first-run line beside the strip and the TWIN card, and each suite's fence line
+  beside its count.
 
 ## Round 91 — 2026-10-26 — Show Bus 1.3 from Patterns' side: the Stagewatch link dials as a node and reads its verdict, the wire shows its state only to a paired connection, the context says what a peer may propose, and the certificate and the hello at 1.3's numbers
 

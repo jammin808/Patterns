@@ -570,11 +570,16 @@ not a footnote. The files go to `docs/field/round-NN/` (`docs/field/README.md`).
     before round 89 keeps it ticked) and put the private page of step 12 on air — the Machine page's twin
     line on both desks says what the standby is WITHOUT; `TWIN TAKEOVER` on the standby: the page is black
     there with the words; TAKE BACK: the main draws it again.
+15. **The twin's first run** (round 92): copy the exe into an empty folder and start it there, so the desk is given a
+    twin key: `patterns.log` has one line "Twin: this desk was given a key — a caller node that links needs the same
+    key; read it on the Machine page, TWIN." and no line holds the key; the desk does not open on that line in its
+    status strip; the Machine page's TWIN card shows the key. Turn remote administration on (a passcode) and read the
+    web remote's ADMIN page's log from the phone: the same line, and no key. Close the desk and delete the folder.
 
 **Pass.** Every step ticked with the readings it asks for; the three lines posted; the four files
 committed. A step that fails is a row of `docs/OPEN.md` with the reading beside it.
 
-| date | machine | build | steps ticked (1–14) | Start-up / Desk tick / Render frame | result | files |
+| date | machine | build | steps ticked (1–15) | Start-up / Desk tick / Render frame | result | files |
 |------|---------|-------|---------------------|-------------------------------------|--------|-------|
 |      |         |       |                     |                                     |        |       |
 
@@ -686,6 +691,21 @@ log's line in Stagewatch's words. Step (3) gains the wire's order: from a machin
 amber with the count; the deck, which proves the token, hears `OK paired` and its greeting `STATE` after it. A fail
 adds: a `STATE` line or an answered read before `OK paired`, a refused key sent again inside its hold, or a key that
 speaks for another node shown green. The row above stays as it is, unwalked.
+
+**Round 92 (a note to this walk, not a section of its own).** On a build from round 92 the link reaches a Stagewatch
+typed by a name at every address the name resolves to — IPv4 first, then IPv6, at most four — each address deciding its
+own carrier and key, and the dial ends at the first address that answers. Step (1) gains a typed name: put the
+Stagewatch's machine on the control network by two addresses (its wired and its Wi-Fi, say) and type its name in the
+link's address instead of leaving it empty. Pull the cable of the address the link is on — `patterns.log`'s carrier
+line names it, "(reached at <first>)": within one pass (at most 34 s) the Nodes page's show network line reads
+"Stagewatch link: dialling <name> at <name>:<port> — <first> did not answer within 5 s; trying <second>…" (or
+"refused", "unreachable" or "did not answer"), then follows, its words ending " · reached at <second> after <first> …";
+STATE's `bus.stagewatch.words` says the same, and the carrier line names "(reached at <second>)". The order is the
+desk's, read from these words, not from `Resolve-DnsName`, which shows the name server's order and not the sorted one
+the desk's resolver gives. Plug it back and pull the second: the link follows the first again at its next dial. With
+the key refused at the first address (step (1)'s revoked key), the second is never asked. A fail adds: a key sent plain
+to an address that is not loopback, a refusal at one address taken to another, or a link that keeps redialling the one
+address that does not answer. The row above stays as it is, unwalked.
 
 ## 27. TLS, the pins, the approval queue and the node relay (round 88)
 

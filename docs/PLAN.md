@@ -13320,7 +13320,7 @@ ask the assistant* on (L68).
   card and STATE's `bus.stagewatch.key`; 91.3's as an `APPLY` copied by another node, refused with its result words
   beside its "Approval desk … — refused:" line; 91.4's as the table's bounded lines beside `bus.dropped`.
 
-## 110. Round 92 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, and the twin's new key in no line, masked on the ADMIN page's log tail
+## 110. Round 92 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, the twin's new key in no line and masked on the ADMIN page's log tail, Show Bus 1.3 copied byte for byte, and the seven suites leave no temporary folder behind
 
 ### 110.1 What opened the round, and what the files said
 
@@ -13583,6 +13583,15 @@ fake's end-point lines — and 92.1's carrier log line naming the address that a
 STATE's `bus.stagewatch.words`; 92.3's first run is read as the log's line naming where the key is read, beside the
 status strip, the TWIN card and the ADMIN page's tail.
 
+*At the papers (92.6).* This opening is kept as written, the record of what the round meant to do. Where the round
+departed from it the sections after it say so: a unit added before the papers, which made the papers 92.6 (§110.2);
+92.1's readers — the Eye, the context's peers and the assistant's facts read the link's sight, not its words — and its
+bound, 34 s and not 24 (§110.3); the fourth mutation's expected result (§110.4); 92.4's place in the round and what it
+found not kept (§110.6); the walk, which these papers ask for 92.1 and 92.3 (§110.10). Its `build.yml` lines are
+92.0's: 92.1 added ten lines to the test job, which now runs `:14-43`, so `:99` is now `:109`, `:249` (windows-smoke's
+desk classes) `:259` and `:305` `:315`, and the lifecycle job's command stands at `:66`; both `~LifecycleTests` filters
+also match `StingerLifecycleTests`, as they did before the round (§110.4).
+
 ### 110.2 A unit added after the opening: 92.5, the tests leave no temporary folder behind
 
 **Why it was added.** The opening planned four units and the papers (§110.1). This unit was not among them: it is
@@ -13731,3 +13740,342 @@ retry and its words run only where one does (Windows, below).
 desk, the right-click menus and the wire stay in step by gaining nothing; no platform path, so no walk is asked
 (REVIEW round 92, written with 92.6's papers, says "Walk: none asked" for it). The round's reading for this unit is
 each suite's fence line in its test output, beside the suite's count.
+
+### 110.3 The Stagewatch link dials every address its name resolves to (92.1 — L64's link half)
+
+**The harm.** Since 89.5 (`c5ee7a9`) the link resolved a name once and kept its first IPv4 address; every socket of a
+dial went there and no other address of the name was tried. Round 88 dialled the name, and the runtime tried each
+address. So a Stagewatch whose name resolves to several addresses, the first not answering — a laptop on its wired and
+its Wi-Fi network — was redialled at the one that refused for as long as the link was on, the Nodes line saying only
+"dialling …". On GitHub's runner the same fault failed every test of the App suite's name-bound scripted Stagewatch at
+its first wait (4, 4 and 14 in runs 278 to 280, §110.1).
+
+**What landed.**
+- `DialAddressesAsync` resolves a name once, within the 4 s it had, through a new seam, `ResolveName`
+  (`Dns.GetHostAddressesAsync` unless a test answers; set before the link is turned on, as `IsLocal` is). `DialOrder`
+  puts IPv4 first — a Stagewatch listens on IPv4 alone — then IPv6, each family in the resolver's order; an IPv4
+  address written as IPv6 is its IPv4 one, a repeat is dropped, and at most `DialAddressesAtMost` are kept. That
+  constant is `ShowBusPeers.MaxAddresses`, 4, the hello's bound for one id; nothing measured sets it.
+- `ConnectAsync` tries the addresses in turn, and each decides its own carrier and key: `IsLocal` of that address, TLS
+  first off loopback or when the hello names a certificate, the key over plain `ws` only to loopback, a pin's rule
+  unchanged.
+- The next address is tried only while no socket of this one reached the far end (`DialProbe.Reached` false: refused,
+  unreachable, nothing within the upgrade's budget). Once the far end has answered — a certificate or none, a status, a
+  verdict — the dial ends there, so a refused key, a hold, the view refusal or CERTIFICATE CHANGED at one address is
+  never taken to another. The upgrade, the side calls and the re-probe stay on the address that answered: 89.5's
+  invariant, every socket of a connection to the one address it reached and its plainness decided by that address,
+  holds per connection.
+- A dial whose link was turned off or dialled anew says nothing more: the token is checked at each address, after the
+  last, and once an address has answered, so a run left behind between two addresses never writes "dialling …" over
+  "Stagewatch link off." and a refusal that lands with the cancel ends the run instead of reaching "trying again".
+- **The bound.** A pass is the resolve's 4 s, at most 5 s (the upgrade's budget) at each address nothing answers at,
+  and at the address that answers what one dial may take, at most 15 s — 5 s to connect, 5 s for a certificate when the
+  whole budget is waited for one (a pinned Stagewatch, or one slow to answer TLS), 5 s more to the upgrade's answer or a
+  plain dial's: 4 + 3 × 5 + 15 = 34 s at worst before the backoff. §110.1's "4 + 4 × 5 = 24 s" counted only addresses
+  that never connect, and its "9 s today" the same way; one address's pass could already take 4 + 15 = 19 s before this
+  unit. `DialAddressesAtMost`'s comment states the true bound. No measurement.
+
+**The words.** While a later address is tried: "Stagewatch link: dialling <name> at <host>:<port> — 127.0.0.2
+refused; trying 127.0.0.1…". When none answers: "Stagewatch link: <name> at <host>:<port>: 127.0.0.2 refused,
+127.0.0.3 refused — nothing sent; trying again." A miss is "refused", "did not answer" (the socket's own timeout),
+"unreachable", "unreachable from this machine" or "not reached (<the socket's words>)", and "did not answer within 5 s"
+when nothing answered inside the dial's budget. While connected after a miss the link's words end " · reached at
+127.0.0.1 after 127.0.0.2 refused", cleared at the connection's end and at a reconcile; the carrier's log line names the
+address a name led to, "(reached at 127.0.0.1)". (The addresses are the tests'.)
+
+**Readers reached, and not.** The words reach STATE's `bus.stagewatch.words` (`CommandRouter`), the Nodes page's show
+network line on a desk and on a node (`NodesService`) and the log. The Eye's CONTROL plane, the context's peers and the
+assistant's facts are built from `AppServices.ShowApps`, which reads the link's sight — the Stagewatch as typed or
+heard, `host:port`, and its health — never its words, so they do not carry the address; §110.1's 92.1 row named them
+among the readers, and that row was wrong. That is the design, not a gap: which of a name's addresses answered is the
+dial's own detail, said where the link's words are read, and the sight stays a health reading. The module maps no
+variable to `bus.stagewatch.words`, so the deck reads what it read. No wire verb, STATE field, menu entry or deck action
+changed: the desk, the Run strip and the right-click menus stay in step by gaining nothing.
+
+**The tests.** `ShowBus12AppTests`, through the resolver seam and the same on every machine (127.0.0.2 can be bound on
+Linux, where the test job runs): a name's IPv4 addresses first, then its IPv6 ones, each once and at most four; a name
+whose first address has nothing listening followed at its next, the key plain to loopback, and the words, STATE, the
+Nodes line and the log saying where — and, with both refusing, the exact words; a 401, then CERTIFICATE CHANGED, at the
+first address ending the dial there, the second accepting no connection and seeing no `Authorization`; each address
+deciding its own carrier, the key never plain to one that is not loopback; a link turned off between two addresses
+reading off, its stopped dial saying nothing after. `ShowBusAppTests` keeps its name-bound `HttpListener` fake, as
+§110.1 asked: on a resolver that puts `::1` first every test of it reaches the fake only through the dial's second
+address. The fake records the address each request arrived on and writes "Scripted Stagewatch (an HttpListener on
+localhost:N): reached at A (k requests)." to the test output; `PumpUntil`'s failure words carry each fake's addresses
+and the link's words. No timeout or assertion changed. The test job prints `getent ahosts localhost` before the suites
+and, after them, the fakes' lines counted by address (`build.yml`).
+
+**What CI observed.** Run 281 (job `test`, on `c06e548`, which carries 92.1 to 92.4; image ubuntu-24.04
+20261012.334.1, the same as run 280's): `getent ahosts localhost` printed `::1` first and `127.0.0.1` after it; the App
+suite passed 914 of 914 in 15 m 24 s, and the step after it printed "15 Scripted Stagewatch (an HttpListener on
+localhost): reached at ::1." — fifteen fakes in fourteen tests, one test making two. Every test of the name-bound fake
+(the fourteen run 280 failed) passed, each reaching the fake at `::1`, the name's second address in the dial's order,
+after its first, `127.0.0.1`, had nothing listening. The cause §110.1 inferred is observed: the runner resolves
+`localhost` to `::1` first, the managed listener bound by that name listens there alone, and the one-address dial could
+not reach it. On this bench (`localhost` 127.0.0.1 alone, no IPv6) the same step's pipeline over a local run prints
+"reached at 127.0.0.1", as 92.1's commit recorded.
+
+### 110.4 The lifecycle census judges a cycle by what was not there at its mark (92.2 — L64's census half)
+
+**The harm.** `LifecycleTests` read a baseline of whole-process counts after its warm-up and required every cycle's
+census to equal it. In the whole App suite another test's desk, timer or picture can be there at the baseline and leave
+on a clock the test does not hold — a late close's shutdown tail, an idle picture's residency sweep — and the census
+read that leaving as a cycle's change: run 278's "cycle 1 of 12: desks: was 15, now 14", and round 91's three local
+failures. Write W for the whole-process count, M for what was there at the mark and N for what is new since it:
+W_t = |M alive at t| + N_t. The old judgement failed whenever W_t differed from W_0; the new one fails whenever N_t > 0.
+A desk, timer or picture a cycle leaves is still caught, and a cycle's leak that another test's leaving cancels in W —
+which the old judgement missed — is caught now. What it stops reporting is an object there at the mark leaving, which
+is no leak. The blind spot is unchanged: a cycle that keeps an object from before the mark alive.
+
+**What landed.** `AppServices`, `DeskTimers` and `ImageCache` give each desk, desk timer and picture an identity as it
+registers, a serial taken under the lock that registers it and never reused (desks through a static `Register(this)`:
+S3010 refuses a static counter in a constructor). `DeskCensus.Mark()` records which desks are alive, which desk timers
+are running and which pictures are held — numbers only, so a mark keeps nothing alive — and `Take(services, since)`
+counts, in those three rows, only what is alive, running or held now that was not at the mark. A timer is marked by
+running, not by birth: desk timers are made once and re-armed with `Stop`/`Start`, so one made before the mark and
+started again by a cycle is counted. A picture decoded again is a new one. With no mark every row is the whole
+process's. `DeskLifecycle` (tests) holds the cycle and its judgement once: `FirstChange` drains the dispatcher and
+collects, takes the mark, reads the baseline at it (nought in the three rows), runs the cycles and returns the first
+change with its fields. `LifecycleTests`' warm-up and `PATTERNS_LIFECYCLE_STRICT` stay whole-process; no timeout, cycle
+count or margin changed. `LifecycleCensusTests` (seven tests; the `~LifecycleTests` filters of the lifecycle job,
+`build.yml:66`, and windows-smoke, `:259`, do not match it, so neither command changed — both match
+`StingerLifecycleTests`, as they did before the round): a desk, a picture and a running timer left by every cycle, each
+caught; a timer made before the mark and started again, caught; a release still queued when the cycles are asked for
+landing before the mark; L64 staged — an earlier test's desk, timer and picture leaving in cycle 1 — no change; and a
+cycle's leak netted to nought by that leaving, caught.
+
+**Readers.** None of the desk's moved: STATE's `census`, the support ticket's "Lifetime census:" line and the memlog
+take no mark and read the whole process as before. The test job's and windows-smoke's `LifecycleTests` run the new
+judgement; the lifecycle job's strict baseline is unchanged.
+
+**Departure.** §110.1's fourth mutation expected `AChangeAfterTheDeskClosedArmsNoTimer` to fail with `ArmSave`'s
+`if (_shutDown) return;` removed. It passes: `OnStateChanged` returns on a closed desk before it reaches `ArmSave`, and
+either guard alone holds. With both removed it fails ("timers armed after the close: AppServices..ctor (900 ms)").
+REVIEW round 92 records the single-guard mutation as passing and the two-guard one as the one the test catches.
+
+**What the census's reading found beside its cause** (rows, not fixed — 92.2 closes none of them): the memlog of a
+whole App run names `ShutdownPhaseTests.AFailureInjectedIntoEveryStepInTurnNeverStopsTheStepsAfterIt` as the maker of
+the leftovers — across its 39 boots `leaked_desks` climbs from 0 to 16 and the running desk timers to 13, and 14 desks
+and 13 timers stay to the run's end (run 278's baseline read desks 15, timers 13): each injected step failure leaves
+that step's release undone, so the desk's timers keep running and keep it alive, and those desks' one-second samplers
+(`SystemMetricsService` → `ResidencyService` → `ImageCache.SweepIdle`) are a second clock, beside a cycle desk's, that
+lets other tests' pictures go (L80). `DeviceService.DeliverAsync` waits out a device's confirm timeout with no token
+(`await Task.Delay(timeout)`, `DeviceService.cs:522`), so a disposed service and its desk stay reachable for up to
+30 s (L78). `AppServices.Shutdown` stops neither `Kernel.Stagewatch` nor `Kernel.Tls` — only `NodeHost` calls
+`Kernel.Dispose` — so a desk closed in its process with its link on keeps the link's redial loop, and the loop keeps
+the desk (L79). Two tests failed under heavy load in code the unit does not touch:
+`CueSettlementAppTests.AnAcceptedReceiptSettlesTheCueThatSentTheLineAsDone` ("Expected Requested, Actual FailedLate",
+its 400 ms confirm budget run out, twice) and `ShowBusAppTests`' flood test counting 174 dropped where 173 was expected
+(once) (L81).
+
+**CI.** Run 281 on `c06e548` (92.2 under it): the test job's App suite green; the lifecycle job's 100 cycles, strict,
+11 of 11 in 2 m 13 s, and the footprint per role, 2 of 2; windows-smoke's desk classes, 32 of 32. The census passed in
+runs 279 and 280 with no fix, so these are a supporting reading only: the half closes on `LifecycleCensusTests` and the
+mutation checks REVIEW records (§110.1).
+
+### 110.5 The twin's new key in no line; the ADMIN page's log tail masked (92.3 — L65)
+
+**The harm.** On a first run with no twin key — a main, or a desk that hosts callers, as a desk does by default —
+`TwinService.Reconcile` made one and said it with the key in the words, through its host's `Notify`, which before the
+window exists falls back to `patterns.log`; a caller or timer node whose settings say Main did the same through its
+kernel's notifier. The log leaves the machine through the ADMIN page's tail, `/api/admin/log`, which served its last
+eighty lines as written while the support bundle masks its copy. With the window up the key went to the status strip,
+which NAV, BACK and HOME quote back on the wire as a refusal's words.
+
+**What landed.**
+- `TwinService.KeyMadeWords` says where the key is read and never what it is: "Twin: this desk was given a key — a
+  caller node that links needs the same key; read it on the Machine page, TWIN.", the main's twin of it ("… the standby
+  needs the same key …"), and a caller's or a timer's, which names its Machine tab's THE DESK'S KEY (a node has no TWIN
+  card). The log's own line folds into them.
+- **Said once it lands.** The line is said inside the posted edit, after the assignment and before the publish opens
+  the port, for the role the key landed for; an edit the settings no longer want — a key typed, or a role moved, in
+  between — is neither made nor said. One predicate, `WantsAKey`, decides the ask and the edit.
+- **Where it is said** is decided as the key is asked for (`ITwinHost.HasStrip`): a key asked for before the window
+  exists (a first start, desk or node) is said in the log alone, so no desk or node opens on a line about a key the
+  operator did not ask for; one asked for with the window up is said through `NotifyLogged`, written to the log once and
+  to the strip. `NotifyLogged` is on `AppServices`, `NodeHost` and `ServiceKernel`, whose notifier falls back to the log
+  while no window has set one (`NotifierSet`), so the fallback and the strip never write the line twice.
+- **The ADMIN tail** is masked as the bundle masks (`RemoteAdmin.Build`'s shape): the show's secret values are read on
+  the UI thread with the passcode's check and only when it passes, and `LogTail` returns
+  `Secrets.Scrub(WindowAddresses.RedactText(tail), secrets)`. A line an older build wrote — the twin's key, the
+  passcode, a page's address with its pass from before the log said addresses in public — leaves the machine the same
+  way by both exits, a secret masked while it is still the show's. A refused passcode reads no line.
+- The `Notify` sweep: every other caller in `src/` carries names, hosts, kept ids and cue words only.
+- §109.8's comment in `RemoteTrustTests` (a refused read logged "at most once a minute for an address") is corrected:
+  at most once per connection, at its first refused read, each address named once per process for up to
+  `ControlProtocol.UnpairedReadsNamedMost` (64).
+
+**Readers reached, and not.** The log, the desk's and a node's status strips and the ADMIN page's tail: none holds the
+key. The Machine page's TWIN card and a node's Machine tab show it, as they did; the support bundle masks it as before;
+TWIN STATUS carries no key; a NAV, BACK or HOME refusal can no longer echo it. No wire verb, STATE field, menu entry or
+deck action moved.
+
+**The tests.** `TwinAppTests`: a fresh desk is given a key (in memory and on disk) and the log has the line once, holds
+no key, and the desk does not open on it; the journal, STATE, TWIN STATUS and the strip hold no key; with the window up
+a key made then is said on the strip by the same words and logged again, without the key; a key typed before the made
+one lands is kept and no line says one was made; `AMainWithNoKeyIsGivenOneAndAJoinWithoutItIsRefusedEvenWhenItClaims-
+TheShow` reads the main's words on the strip exactly — the one assertion the opening said would change on purpose — no
+key there, and the key in the settings in memory and on disk. `NodesAppTests`, for a caller and a timer whose settings
+say Main: the same for the node's log and strip. `RemoteTrustTests`: the ADMIN tail masks the twin's key and the
+passcode in an older build's lines and says a raw private address with its pass in its public form, the rest of each
+line as written, asked as another machine would ask; a refused passcode reads no line. Both ADMIN tests set
+`ControlService.TrustLoopback = false` and restore it in `finally`.
+
+**Read, not changed.** A follower node given a key — a caller or a timer whose settings say Main — never hosts a link,
+and a key made there cannot match the desk's until one is copied to the other, so it does nothing useful there; it is
+read here and left. The twin key rides a launched standby's command line:
+`TwinLaunch.Arguments` passes `--key <key>` to the standby the main starts on this machine, and `Supervisor.Forwarded`
+passes it on to a restarted child, where any process listing on the machine reads it (L82).
+
+### 110.6 Show Bus 1.3 copied byte for byte with its scripted peer (92.4 — 91.5 moved under R3; L73)
+
+**The harm.** `docs/SHOWBUS.md` here was round 88's copy of 1.2; no test read the contract; the readers that cite it
+named 1.3's draft by section, and round 91's link, hello and context had been built to a draft no fence held them to.
+
+**Its place.** Round 91's 91.5 waited for 1.3 final, Stagewatch's SW19.12, which landed at `ec8ad25` ("2.19 SW19.12:
+Show Bus 1.3 final") after 92.1 to 92.3, so it landed in this round as §110.1 allowed, numbered 92.4. Stagewatch's head
+as read for the copy was `e3d215c`, and as read for these papers `b256a9f` and, at their close, `1dc5ff8`: no commit
+after `ec8ad25` touches either file, and both are byte for byte this tree's (`cmp`). SW19.12 kept "after Patterns'
+Round 96" in §8.3's PlayMap row; §110.1's ask to name the work rather than the number did not reach the text before it
+froze, so the row §110.1 promised is L88.
+
+**What landed.** `docs/SHOWBUS.md` is Stagewatch's master and `tools/showbus/peerlink-peer.mjs` its scripted peer,
+byte for byte (git blobs `da480a3` and `73f00fa`, Stagewatch's own). The body, from "## 1. Rules every node follows" to
+the end, hashes to `9ca83889…01fd5`, which the header's Body line prints; the peer hashes to `f36847cf…bc28`, §14's
+`peerlink.peer.sha256`. The Landed line names Stagewatch alone until the master's next release names this tree.
+`.gitattributes` keeps both LF on every checkout (windows-smoke checks out with `core.autocrlf=true` and runs the Core
+suite). `ShowBusSpecTests`, eleven tests reading this tree alone by plain file reads: both hashes over bytes (a copy
+saved with CRLF, one CR in the body or a BOM fails; the header outside the body may change, as §14.5 intends); §14's
+pin of the peer and the peer's seventeen "// 14:" constants; the block's grammar and revision; every single-word row
+placed — held to this desk's code (a number of Core and how it stands to the row), not kept yet (said as it is today,
+checked where it can be), or not this desk's part yet (§12's windows, §13's PeerLink, the approval desk's rows), a new
+row or a name that is no row failing; the hello's doors, a datagram of `hello.read.bytes` and its first 32 caps; the
+kinds and caps; §6's sizes as this desk reads a context and sends its own; L73's two sides; the `peerlink` vectors this
+desk answers today — liveness 4, the redial 7, three legacy proofs through `WireProof`, the clock's two sample rows and
+its refusal of a stamp of 0, and CLOCKS APART where the offset alone gives 13.11.5's answer, 19 held — each counted so
+a new vector fails until it is placed (109 in all). The link's dial budget (5 s), side-call timeout (4 s) and context
+interval (5 s) now live in Core (`StagewatchFrame.DialWithin`, `SideCallWithin`, `ContextEvery`) and the link reads
+them there; each is the number it used, so nothing the link does changes.
+
+**What it found this desk does not keep yet**, each said in `ShowBusSpecTests` as it is today and checked both ways
+where it can be, and each a row: on the clock the twin and the Stagewatch link both measure (`LinkClock`), 13.11's
+refusals, its error, freshness and quality, and 13.11.5's CLOCKS APART, which takes the offset alone at 2 s or more
+where 13.11.5 takes the offset less the sample's error past 2 s — an offset of 2010 ms with an error of 16 is apart
+here and not there (L83); the link pings once a beat and waits the whole beat after the beat's side calls, which run in
+its path rather than on 13.7.2's lane of their own, so two pings are a beat and that work apart, past `ping.max.ms`
+(L84); this desk's own context's per-field sizes and its trimming in §6's order (L85); the kind words §14 gives a
+Slides agent and PlayMap, which the desk names "Slides agent" and "Playmap" (L86); 13.12.9's resends of an owed §11
+result, which go on each two-second turn of the approval queue until an answer settles them, with no doubling and no
+span (L87). The copy's own words about this desk are the master's (L88), and the deck module's legacy proof keys a
+token by a different rule from 13.6.8's (L89). §2's full table: 1.3 final keeps "a new id beyond that is dropped",
+and this desk's table still makes room (L73, read again below).
+
+**Readers.** `docs/REMOTE.md`'s show network section names Show Bus 1.3, the copy, the peer and what `ShowBusSpecTests`
+holds, that the copy's §8.2 row for Patterns predates round 91, and what this desk does not keep yet; the Nodes page's
+hint names PlayMap among the apps that say hello; the code comments that cited the 1.3 draft name 1.3.
+`ShowAppCard.DroppedWords`' summary, which §109.8 named as wrong (it named the brief, which carries no drops), names the
+Nodes page's show network line now, with the log's line and STATE's `bus.dropped` beside it — §110.1 left it to the
+first round-92 unit that touched `StagewatchFollow.cs`, which this was. No verb, STATE field, menu entry or deck action
+changed.
+
+### 110.7 With AI offline
+
+Nothing in the round needs a key or the internet. The dial, the census, the twin's words, the ADMIN tail's mask, the
+copy and its fence and the tests' temporary folders are rules on this machine and its control network. The assistant's
+facts and the context's peers read the link's sight, as before: they say a Stagewatch is linked, stale or gone, never
+which of its name's addresses answered (§110.3).
+
+### 110.8 The proof
+
+- **CI.** Run 281 (id 40425234549) is the push of 92.1 to 92.4, on `c06e548`, started 2026-10-27 at 00:15 UTC, and every
+  job is green: `test` (ubuntu-24.04 20261012.334.1; `getent ahosts localhost` `::1` first, then `127.0.0.1`; Core
+  1,324, Rendering 672, Devices 8, Audio 13, Assistant 37, Audience 2, App 914 in 15 m 24 s; "15 Scripted Stagewatch (an
+  HttpListener on localhost): reached at ::1."), `lifecycle` (100 cycles, strict, 11 of 11 in 2 m 13 s; the footprint
+  per role 2 of 2), `windows-smoke` (windows-2025-vs2026 20261021.278.1; the six suites that are not the desk's, the
+  same counts; the desk's classes 32 of 32; "WebView2: ok — runtime 155.0.4283.62 — a page opened, its document script
+  spoke and a script answered, in 6280 ms"), `companion-module`, `rollback-script` and `portable-exe`; `release`
+  skipped, the push no tag. Runs 277, 278 and 280 on this branch (279 another branch's) were red or stopped; with the
+  test job green `portable-exe` ran again, so a tag on this branch would release once more. 92.5 (`c81a3d2`) was
+  committed after it and goes out with these papers.
+- **Core:** `ShowBusSpecTests` (92.4), `ChangelogTests`, `DeskWordsFenceTests`, and the six suites' fences (92.5).
+- **App:** `ShowBus12AppTests`' five dial tests and `ShowBusAppTests` with the fake's addresses (92.1);
+  `LifecycleCensusTests` and `LifecycleTests` through `DeskLifecycle` (92.2); `TwinAppTests`, `NodesAppTests` and
+  `RemoteTrustTests` (92.3); the App fence (92.5).
+- **Mutation checks:** every unit's, applied, built, run and restored, recorded in REVIEW round 92 under the unit — four
+  for 92.1, six for 92.2, seven for 92.3, nine for 92.4 (one a change the fence must let pass) and five for 92.5.
+- **Measured:** 92.5's cause alone, on this bench (§110.2). The dial's four addresses and 34 s, the census's mark and
+  the fences' retry are bounds and rules, not measurements; no product measurement this round.
+- **At the close:** Core 1,325, Rendering 673, Devices 9, Audio 14, Assistant 38, Audience 3, App 915 (18 m 47 s) —
+  2,977 tests — and the module's 45 node tests, `lines.txt` current, `npm run check` clean, run on this bench with
+  `TMPDIR` under the tree's `artifacts/` (REVIEW round 92 has each fence's line). The papers change no code.
+
+### 110.9 What the round did not do
+
+- **No PeerLink.** The link dials, reads its verdict and holds as rounds 91 and 92 left it; LINK, matched pongs, the
+  five outcomes, persisted holds and the link's record are round 93's (§111), which reads its vectors from this copy.
+- **What 1.3 final asks that this desk does not keep yet** (L73, L83 to L87): §2's full table, 13.11 on `LinkClock`,
+  13.7.2's lane for the side calls, §6's own-context sizes and trimming, §14's kind words, 13.12.9's resends. Each is
+  said in `ShowBusSpecTests`, which fails when the code moves, so the row and the fence move together.
+- **The copy's words about this desk** (L88) are the master's: §8.3's PlayMap row ends 9941's exemption "after Patterns'
+  Round 96", which is round 97 here, and §8.2's Patterns row lists four items round 91 ended as not kept. A copy is byte
+  for byte or it is not the contract; both wait on Stagewatch's next release of the master.
+- **The deck module's legacy proof** keys a token by JavaScript's every-white-space strip and full upper-casing, not
+  13.6.8's rule (L89); it fails closed — the desk answers "wrong token" — and the module is unchanged this round.
+- **The link's App tests** keep the name-bound fake and `FreePort`'s reserve-and-release window, and one assertion of
+  round 88 that proves nothing of the carrier (L77): 92.1 kept the fake on purpose, as its green is the fix's evidence.
+- **The census's side findings** (L78, L79, L80) and three tests seen failing under load (L81) are named,
+  not fixed: 92.2 does not depend on them.
+- **The twin key on a launched standby's command line** (L82); a follower node given a key, read only (§110.5).
+- **92.5's named items:** a save asked of a closed desk still written (L90), 120 desks closed late by the next boot
+  (L91), and the fences not yet run on Windows (L92); and §110.2's own list.
+- **The Companion module's node tests** are outside 92.5's fence, which holds the seven suites: the package test that
+  imports the built entrypoint unpacks it into a `patterns-module-*` folder in the temp path and never removes it, on
+  every `npm test` and every run of CI's `companion-module` job (L93, found by the papers' review).
+- **No walk was made**, and the two these papers ask for — §26's row for 92.1, §22's new step 15 for 92.3 — stay
+  `unwalked` (§110.10).
+- **No measurement** (§110.8).
+
+### 110.10 The ledger and the papers (92.6)
+
+- **OPEN.** L64 closed by 92.1 and 92.2, each half on its own evidence: the link half on run 281's test job — green on
+  `c06e548` with every test of the name-bound fake among the 914, the resolver's order (`::1` first) and the fake's
+  address (`::1`, fifteen fakes in fourteen tests) read in its log — beside 92.1's five seam tests, each failed by one
+  of its recorded mutations; the census half on `LifecycleCensusTests` and its six recorded mutations, the job's green
+  census a supporting reading. L65 closed by 92.3, naming
+  `TwinAppTests.AFreshDeskIsGivenAKeyAndNoLineHoldsItTheLogAndTheStripSayWhereItIsRead`,
+  `NodesAppTests.ANodeWhoseSettingsSayMainIsGivenAKeyAndNoLineHoldsIt` and
+  `RemoteTrustTests.TheAdminPagesLogTailMasksTheShowsSecretsAsTheBundleDoes`. Added: L77 (92.1), L78 to L81 (92.2's
+  reading and 92.5's sighting), L82 (92.3), L83 to L89 (92.4), L90 to L92 (92.5), L93 (the papers' review: the
+  module's node test). Read again: L73 against 1.3 final — the contract settled on dropping a new id, this desk still
+  makes room, the row's close now names the reader made to the words, and its Where cites this tree's copy; L67's "the
+  1.3 draft's §13.15.3" reads "Show Bus 1.3's §13.15.3"; L50 annotated with 92.1's dial and §26's note. Renumbered, as
+  §110.1 handed on: L42's "round 97" is round 98, L60's "round 95's" round 96's, L61's "from round 92 on" from round 93
+  on and its "round 98" round 99, L76's "round 98's" round 99's. Fifty-four open, thirty-nine closed.
+- **QUALIFICATION §26** gains a round-92 note for 92.1's dial: step (1) with the Stagewatch typed by a name that
+  resolves to several addresses, the address the link is on unplugged and the dial's order read from the desk's own
+  words. **§22** gains step 15 for 92.3: the twin's first run in an empty folder — the log's one line naming where the
+  key is read, no key on the strip, the key on the TWIN card, and the ADMIN page's log. Both rows stay `unwalked`.
+- **The walk.** §110.1 read 92.1 as no platform path — a choice among a name's addresses. These papers read it as one:
+  which addresses a name gives, and in what order, is the machine's resolver — on Windows its hosts file, DNS, LLMNR and
+  mDNS and the order it puts IPv6 and IPv4 in — and the evidence has seen two orders on two Linux machines (the runner's
+  `::1` first; this bench's 127.0.0.1 alone) and none on the show laptop. So REVIEW round 92 names §26's row for it.
+  §110.1 read 92.3 as no platform path too, and these papers read it again: the twin's link, port and takeover and how
+  a key is drawn are as they were, but the twin's own first-run path changed — the posted edit that applies a made key
+  is governed by `WantsAKey` and says the line, and whether a window is up decides where — and the twin is one of the
+  paths the brief names. So §22 gains step 15, the walk it asks. The round is `unwalked`; 92.2, 92.4 and 92.5 touch no
+  platform path.
+- **CI.** Run 281 read (§110.8). The papers' push carries 92.5 and 92.6; its run — the six non-App fences on Windows for
+  the first time among them (L92) — is read by the round after.
+- **The papers:** §110's heading, a pointer at the end of §110.1, §110.3 to §110.10; REVIEW round 92; CHANGELOG
+  (92.1 to 92.4 and these papers, the count, the evidence class); README (the ledger's entry for round 92, round 91's
+  entry no longer saying the copy and the key wait, the Show Bus paragraph, the count and the tests' temporary folder);
+  `docs/REMOTE.md` (the link's dial per address; the ADMIN tail masked; 92.4 wrote its own part); `docs/COMPANION.md`
+  (no module change; the proof's key against 13.6.8, L89); `docs/QUALIFICATION.md` §26's note and §22's step 15;
+  `docs/OPEN.md`; the tag table's row 91 (`5a8ad8f`).
+- **The rig's reading.** The round adds no verb an output can show, so there is no journal row, log line or Super Check
+  row of a new verb to read. The rig reads what the round changed beside the output it names: run 281's test job — the
+  App suite's 914 beside the `getent ahosts localhost` line and the fifteen "reached at ::1" lines; 92.1's carrier log
+  line naming the address that answered, "(reached at …)", beside the Nodes page's show network line and STATE's
+  `bus.stagewatch.words`; 92.3's first run as the log's one line naming where the key is read, beside the status strip
+  (no line), the TWIN card (the key) and the ADMIN page's tail (masked); 92.2's census at nought in the three rows at
+  every cycle beside the lifecycle job's memlog; and 92.5's fence line beside each suite's count.
