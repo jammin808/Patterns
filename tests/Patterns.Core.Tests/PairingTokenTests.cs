@@ -164,7 +164,7 @@ public class PairingTokenTests
             RemoteCommandKind.Status, RemoteCommandKind.Context, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus,
             RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.RigDayStatus,
             RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus,
-            RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus,
+            RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus, RemoteCommandKind.StagewatchStatus,
         };
         var verbs = new[] { RemoteCommandKind.Action, RemoteCommandKind.Record, RemoteCommandKind.NavDeck };
         Assert.Equal(open, ControlProtocol.OpenKinds);
@@ -182,7 +182,7 @@ public class PairingTokenTests
         }
         foreach (var line in new[] { "STATUS", "EYE", "EYE STATUS", "EYE GRAPH", "EYE AT 12:00", "CONTEXT", "CONTEXT STATUS", "TWIN STATUS", "SHOWLOCK STATUS",
                      "CALIBRATE STATUS", "NODES", "STAGE STATUS", "RIGDAY STATUS", "ALIGN STATUS", "SCREEN 2 SIGNAL", "SCREEN 2 EDID", "RIG STATUS", "COMMISSION", "MIDI",
-                     "BLACKOUT ON", "RECORD ON", "NAV DECK PLAN › Looks", "NAV Looks", "AUDIENCE ON", "PLAY START" })
+                     "BLACKOUT ON", "RECORD ON", "NAV DECK PLAN › Looks", "NAV Looks", "AUDIENCE ON", "PLAY START", "STAGEWATCH", "STAGEWATCH STATUS", "STAGEWATCH LINK 10.0.0.9", "STAGEWATCH TRUST" })
         {
             Assert.False(ControlProtocol.OpenBeforePairing(ControlProtocol.Parse(line)), line);
         }
@@ -197,7 +197,7 @@ public class PairingTokenTests
         Assert.Equal("ALIGN STATUS", ControlProtocol.ReadName(ControlProtocol.Parse("ALIGN STATUS")));
         Assert.Equal("SCREEN SIGNAL", ControlProtocol.ReadName(ControlProtocol.Parse("SCREEN 2 SIGNAL")));
         Assert.Equal(
-            new[] { "STATUS", "CONTEXT", "TWIN STATUS", "SHOWLOCK STATUS", "CALIBRATE STATUS", "NODES", "STAGE STATUS", "RIGDAY STATUS", "SCREEN SIGNAL", "SCREEN EDID", "RIG STATUS", "COMMISSION", "EYE", "EYE AT", "MIDI" },
+            new[] { "STATUS", "CONTEXT", "TWIN STATUS", "SHOWLOCK STATUS", "CALIBRATE STATUS", "NODES", "STAGE STATUS", "RIGDAY STATUS", "SCREEN SIGNAL", "SCREEN EDID", "RIG STATUS", "COMMISSION", "EYE", "EYE AT", "MIDI", "STAGEWATCH STATUS" },
             refusedReads.Select(k => ControlProtocol.ReadName(new RemoteCommand(k, default))));                    // each refused read in the wire's own words
     }
 

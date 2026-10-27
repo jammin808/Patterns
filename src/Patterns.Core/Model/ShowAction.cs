@@ -527,6 +527,31 @@ public enum ShowActionKind
     /// that certificate and no other. The desk's alone, and a person's: no wire verb, deck, cue or assistant reaches it.
     /// </summary>
     StagewatchTrust,
+    /// <summary>
+    /// The Stagewatch link set (G34): Value = ON, OFF, AUTO (the first Stagewatch heard on the show network), a typed
+    /// <c>host[:port]</c>, or <c>id:&lt;id&gt;</c> (a heard Stagewatch by its show network id, wherever it is heard). The key is never
+    /// a value: a link set from anywhere but the desk sends no key the desk has not bound to its target.
+    /// </summary>
+    StagewatchLinkSet,
+    /// <summary>Show Bus 1.3 §13.16.6's <i>Link again now</i>: every hold of the key and the redial's wait end, so the next dial is due now; the link and its redial count go on.</summary>
+    StagewatchLinkAgain,
+    /// <summary>The stage pages and the stage timer follow the linked Stagewatch's time (Value ON) or this desk's own (OFF).</summary>
+    StagewatchFollow,
+    /// <summary>
+    /// Show Bus 1.3 §13.8.3's <i>Accept certificate</i> after CERTIFICATE CHANGED: Value = at least 8 hex of the certificate shown
+    /// now, typed by a person on this desk beside it. The desk's alone, and a person's: no wire verb, deck, cue or assistant reaches it.
+    /// </summary>
+    StagewatchAccept,
+    /// <summary>Show Bus 1.3 §13.9.3's <i>Lower floor</i>, one press: the floor a verified link recorded for the Stagewatch is gone.</summary>
+    StagewatchFloorLower,
+    /// <summary>Show Bus 1.3 §13.17's <i>Release held fact</i>: a fact followed for safety, held since the link was lost, let go.</summary>
+    StagewatchRelease,
+    /// <summary>
+    /// The Stagewatch key bound to the Stagewatch a person was shown beside the press (Value = its <c>node:&lt;id&gt;</c> or
+    /// <c>addr:&lt;host&gt;:&lt;port&gt;</c>): from then on the key goes to it and to no other. The desk's alone: the wire's
+    /// <c>STAGEWATCH KEY …</c> carries nothing and is refused, so a key never rides a line.
+    /// </summary>
+    StagewatchKeyBind,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

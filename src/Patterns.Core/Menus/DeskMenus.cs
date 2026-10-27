@@ -995,23 +995,23 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
         }));
     }
 
-    // ---- another show app's card (Show Bus §2, 13.6.8) ---------------------------------
+    // ---- another show app's card (Show Bus §2, 13.6.8, 13.16.6) ------------------------
 
     /// <summary>
-    /// Another show app's card on the Nodes page (Show Bus §2): what this desk can do about it. On the linked Stagewatch whose
-    /// certificate waits for a person, Trust beside its short fingerprint (13.6.8) — the card's button's own action, a person's on
-    /// this desk, with no wire line, so no deck, cue or assistant pins a certificate. ASK with the card's words in the question.
+    /// Another show app's card on the Nodes page (Show Bus §2): what this desk can do about it. On a Stagewatch, its LINK group
+    /// (<see cref="LinkGroup"/>) — the link's own verbs in step with the Nodes page's boxes and buttons. ASK with the card's words in the
+    /// question.
     /// </summary>
     public static DeskMenu ShowApp(DeskFacts d, MenuShowApp app)
     {
         var groups = new List<MenuGroup>();
-        if (TrustFor(d, app.Id) is { } trust) groups.Add(TrustGroup(trust));
+        if (LinkGroup(d, app.Id, app.KindLabel == "Stagewatch", app.Name) is { } link) groups.Add(link);
         groups.Add(new MenuGroup("ASK", MenuTone.Ask, new[]
         {
             new MenuEntry("app.ask", "What is this?", MenuScope.Ask, MenuTone.Ask)
             {
                 Detail = "The app, its link and what it said, in the question",
-                Question = $"On the Nodes page, the show app '{app.KindLabel} {app.Name}' reads: {app.Line}. What is it, and what does it need from me now — answer from these words, and say unknown where they are silent.",
+                Question = $"On the Nodes page, the show app '{app.KindLabel} {app.Name}' reads: {app.Line}. What is it, and what does it need from me now? Answer from these words, and say unknown where they are silent.",
                 Because = d.AssistantReady ? "" : NeedKey,
             },
         })
@@ -1023,21 +1023,107 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
     public static MenuTrust? TrustFor(DeskFacts d, string appId) => d.StagewatchTrust is { } t && appId.Length > 0 && t.AppId == appId ? t : null;
 
     /// <summary>
-    /// The LINK group of a linked Stagewatch whose key waits for Trust: one entry, the Nodes card's button's own action (Show Bus 1.3
-    /// §13.6.8), a person's press beside the short fingerprint. No wire line: the wire, a deck and an assistant never pin a certificate.
+    /// The LINK group of a Stagewatch's card, here and on the Eye (G34, Show Bus 1.3 §13.16.6), or null for an app that is none. The
+    /// linked one: Unlink, the stage following its timer, Link again now, its floor lowered when one is recorded — each the wire's own
+    /// line, so a deck and the menu press the same verb — and the person's own presses beside its fingerprint, which no line carries:
+    /// Trust (13.6.8), the key sent to it (its binding), and Accept, which takes typed hex and so opens the Nodes page where it is typed,
+    /// never pre-filled. Release held fact is there with the reason it is greyed: this desk follows no fact of a Stagewatch's for safety,
+    /// so none is ever held (13.17). Another Stagewatch heard: Link to it by its show network id. The assistant proposes none of them.
     /// </summary>
-    public static MenuGroup TrustGroup(MenuTrust t)
+    public static MenuGroup? LinkGroup(DeskFacts d, string appId, bool stagewatch, string name)
+    {
+        var sw = d.Stagewatch;
+        var linked = sw.On && appId.Length > 0 && sw.LinkedId == appId;
+        var trust = TrustFor(d, appId);
+        if (!stagewatch && !linked && trust is null) return null;
+        var who = name.Length > 0 ? name : "this Stagewatch";
+        var entries = new List<MenuEntry>();
+        if (linked)
+        {
+            entries.Add(new MenuEntry("link.off", "Unlink", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "The link off — this desk's own stage timer runs",
+                Wire = "STAGEWATCH LINK OFF",
+                Action = new ShowAction(ShowActionKind.StagewatchLinkSet, "", "OFF"),
+            });
+            entries.Add(new MenuEntry("link.follow", "The stage follows its timer", MenuScope.Live, MenuTone.Tile)
+            {
+                IsOn = sw.Follow,
+                Detail = sw.Follow ? $"On: choose to give the stage pages this desk's own timer instead of {who}'s" : $"Off: choose to put {who}'s time on the stage pages",
+                Wire = sw.Follow ? "STAGEWATCH FOLLOW OFF" : "STAGEWATCH FOLLOW ON",
+                Action = new ShowAction(ShowActionKind.StagewatchFollow, "", sw.Follow ? "OFF" : "ON"),
+            });
+            entries.Add(new MenuEntry("link.again", "Link again now", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "A refused key's hold and the redial's wait end; the next dial is due now",
+                Wire = "STAGEWATCH LINK AGAIN",
+                Action = new ShowAction(ShowActionKind.StagewatchLinkAgain),
+            });
+            entries.Add(new MenuEntry("link.release", "Release held fact", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "A blackout or a hold followed for safety, held since the link was lost, let go",
+                Wire = "STAGEWATCH RELEASE",
+                Action = new ShowAction(ShowActionKind.StagewatchRelease),
+                Because = StagewatchVerbs.NothingHeldWords,
+            });
+        }
+        else if (stagewatch && sw.Heard.Contains(appId))
+        {
+            entries.Add(new MenuEntry("link.to", "Link to this Stagewatch", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = sw.On && sw.LinkedId.Length > 0
+                    ? $"In place of {(sw.LinkedName.Length > 0 ? sw.LinkedName : "the one linked now")} — dialled by its show network id; the key goes only where it is bound"
+                    : "Dialled by its show network id, wherever it is heard; the key goes only where it is bound",
+                Wire = "STAGEWATCH LINK " + StageFollow.IdPrefix + appId,
+                Action = new ShowAction(ShowActionKind.StagewatchLinkSet, "", StageFollow.IdPrefix + appId),
+            });
+        }
+        if (trust is not null) entries.Add(TrustEntry(trust));
+        if (linked && TlsFingerprint.IsValid(sw.Pending))
+        {
+            var shortFp = TlsFingerprint.Short(sw.Pending);
+            entries.Add(new MenuEntry("link.accept", "Accept its new certificate…", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = $"Compare {shortFp} with the fingerprint on {who}'s own screen, then type at least 8 hex of it beside ACCEPT on the Nodes page",
+                Route = new MenuRoute("Nodes"),
+            });
+        }
+        if (linked && sw.Floor)
+        {
+            entries.Add(new MenuEntry("link.floor", "Lower its floor", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = $"{who} proved itself before and now offers less — take the lesser link, said amber",
+                Wire = "STAGEWATCH FLOOR LOWER",
+                Action = new ShowAction(ShowActionKind.StagewatchFloorLower),
+            });
+        }
+        if (sw.BindTarget.Length > 0 && (linked || sw.BindTarget == StagewatchKeyFor.Node(appId)))
+        {
+            entries.Add(new MenuEntry("link.bind", "Send it this desk's key", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = $"The key is bound to another Stagewatch — bind it to {(sw.BindName.Length > 0 ? sw.BindName : who)} and it goes there from the next dial",
+                Action = new ShowAction(ShowActionKind.StagewatchKeyBind, "", sw.BindTarget),
+            });
+        }
+        if (entries.Count == 0) return null;
+        return new MenuGroup("LINK", MenuTone.Tile, entries)
+        {
+            Note = "The link's verbs are the operator's: never proposed by the assistant. Trust, Accept and the key are a person's on this desk, beside the fingerprint — never on the wire or a deck.",
+        };
+    }
+
+    /// <summary>
+    /// Trust beside the short fingerprint (Show Bus 1.3 §13.6.8): the Nodes card's button's own action, a person's on this desk, with no
+    /// wire line, so no deck, cue or assistant pins a certificate.
+    /// </summary>
+    private static MenuEntry TrustEntry(MenuTrust t)
     {
         var shortFp = TlsFingerprint.Short(t.Fingerprint);
-        return new MenuGroup("LINK", MenuTone.Tile, new[]
+        return new MenuEntry("link.trust", "Trust its certificate " + shortFp, MenuScope.Live, MenuTone.Tile)
         {
-            new MenuEntry("link.trust", "Trust its certificate " + shortFp, MenuScope.Live, MenuTone.Tile)
-            {
-                Detail = $"Compare {shortFp} with the fingerprint on {t.Name}'s own screen first — then this desk sends it its key",
-                Action = new ShowAction(ShowActionKind.StagewatchTrust, "", t.Fingerprint),
-            },
-        })
-        { Note = "A person's choice on this desk, beside the fingerprint: never on the wire, a deck or the assistant." };
+            Detail = $"Compare {shortFp} with the fingerprint on {t.Name}'s own screen first — then this desk sends it its key",
+            Action = new ShowAction(ShowActionKind.StagewatchTrust, "", t.Fingerprint),
+        };
     }
 
     // ---- MIDI learn (round 73) ----------------------------------------------------------

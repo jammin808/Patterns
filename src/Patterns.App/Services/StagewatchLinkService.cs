@@ -167,7 +167,17 @@ public sealed class StagewatchLinkService : IDisposable
         /// <summary>The kid of the key this run holds (13.5.1) — the name its holds are kept by, never the key or a hash of it; null with no key.</summary>
         public string? Kid;
 
-        /// <summary>The link is configured to be followed: the show needs it (13.1), and only then may its light be red.</summary>
+        /// <summary>
+        /// G34: where this run's key may go (<see cref="StagewatchLinkConfig.KeyFor"/>) — read at every dial, so a binding the first
+        /// 2xx makes holds for this run's next Stagewatch too, which then gets no key that is bound to another.
+        /// </summary>
+        public volatile string KeyFor = "";
+
+        /// <summary>
+        /// The link is configured to be followed: the show needs it (13.1), and only then may its light be red. Written under the service's
+        /// core gate, with every machine of the run told (<see cref="PeerLinkMachine.ShowNeedsLink"/>), so a FOLLOW moves the record's light
+        /// at once without a new run.
+        /// </summary>
         public bool ShowNeeds;
 
         /// <summary>
@@ -374,7 +384,7 @@ public sealed class StagewatchLinkService : IDisposable
             var line = _status;
             // And what the Stagewatch made of this desk's key, and the Trust it waits for, when there is something to say of it;
             // and where a name led, while an address before the one that answered did not answer.
-            var extra = string.Join(" · ", new[] { _note, _reached, KeyNow().Line }.Where(w => w.Length > 0));
+            var extra = string.Join(" · ", new[] { _note, _reached, KeyNow().Line, BindWords }.Where(w => w.Length > 0));
             return extra.Length == 0 ? line : line.TrimEnd('.') + " · " + extra + ".";
         }
     }
@@ -606,22 +616,28 @@ public sealed class StagewatchLinkService : IDisposable
     }
 
     /// <summary>
-    /// ACCEPT on the Nodes page (UI thread) — the changed certificate becomes the pin, a person's, and the link dials again.
-    /// Returns the words for the strip.
+    /// ACCEPT on the Nodes page (UI thread) — Show Bus 1.3 §13.8.3: at least 8 hex of the changed certificate, typed by a person who
+    /// compared it with the Stagewatch's own screen (<see cref="StagewatchVerbs.AcceptRefusal"/>); then it becomes the pin, a person's,
+    /// and the link dials again. Hex that is not the waiting certificate's own beginning — a press made for one that has changed again
+    /// — accepts nothing. Returns whether it was accepted, and the words for the strip.
     /// </summary>
-    public string AcceptPendingCertificate()
+    public (bool Accepted, string Words) AcceptCertificate(string typedHex)
     {
         var fp = _pendingFingerprint;
         var key = _pendingPinKey;
-        if (fp.Length == 0 || key.Length == 0) return "No changed certificate is waiting.";
+        if (fp.Length == 0 || key.Length == 0) return (false, "No changed certificate is waiting.");
+        if (StagewatchVerbs.AcceptRefusal(typedHex, fp, PendingName) is { } refusal) return (false, refusal);
         _config().SetPin(key, fp, PinTrust.Person);
         _pendingFingerprint = "";
         _pendingPinKey = "";
         _runningKey = "";                                                                   // dial again with the new pin
         Reconcile();
-        Log.Info($"Stagewatch link: the changed certificate {TlsFingerprint.Short(fp)} of {key} accepted by a person on this desk.");
-        return $"Accepted the Stagewatch's new certificate {TlsFingerprint.Short(fp)} — the link dials again.";
+        Log.Info($"Stagewatch link: the changed certificate {TlsFingerprint.Short(fp)} of {key} accepted by a person on this desk, its hex typed.");
+        return (true, $"Accepted the Stagewatch's new certificate {TlsFingerprint.Short(fp)} — the link dials again.");
     }
+
+    /// <summary>The name of the Stagewatch whose certificate changed, as its words say it ("the Stagewatch" while none is named).</summary>
+    public string PendingName => _sight.Name is { Length: > 0 } n ? n : "the Stagewatch";
 
     /// <summary>
     /// Trust on the Nodes card (UI thread) — Show Bus 1.3 §13.6.8's one press beside the short fingerprint: the certificate pinned
@@ -649,13 +665,182 @@ public sealed class StagewatchLinkService : IDisposable
         return (true, $"Trusted Stagewatch {offer.Name}'s certificate {TlsFingerprint.Short(offer.Fingerprint)} — the key goes to it from now; the link dials again.");
     }
 
+    /// <summary>
+    /// G34: the key held back from the Stagewatch the link dials because it is bound to another — that Stagewatch's name (its pin key)
+    /// and the binding it stands under. Null while the key goes, or no key is set.
+    /// </summary>
+    private sealed record BindOffer(string Target, string Name, string KeyFor);
+
+    private BindOffer? _bindOffer;
+
+    /// <summary>G34: the target (<c>node:&lt;id&gt;</c> or <c>addr:…</c>) the key is held back from by its binding; "" when none.</summary>
+    public string KeyBindTarget => Volatile.Read(ref _bindOffer)?.Target ?? "";
+
+    /// <summary>The name of the Stagewatch the key is held back from by its binding; "" when none.</summary>
+    public string KeyBindName => Volatile.Read(ref _bindOffer)?.Name ?? "";
+
+    /// <summary>The record's words for a key its binding holds back from the Stagewatch the link dials: where it is bound, and the press that moves it.</summary>
+    public static string HeldBackWords(string keyFor)
+        => (keyFor == StagewatchKeyFor.None ? "this desk's key is bound to no Stagewatch" : $"this desk's key is bound to {StagewatchKeyFor.Words(keyFor)}")
+           + " and is not sent here; BIND KEY on the Nodes page sends it here";
+
+    /// <summary>"the key is bound to Stagewatch a1b2c3d4 — not sent to Hall B; BIND KEY …" while the binding holds it back; "" otherwise.</summary>
+    public string BindWords => Volatile.Read(ref _bindOffer) is { } o
+        ? $"this desk's key is bound to {StagewatchKeyFor.Words(o.KeyFor)} — not sent to {o.Name}, whose public view is read; type its own key on the Nodes page, or BIND KEY to send this one"
+        : "";
+
+    /// <summary>What the link runs under: its address and key, where the key may go, and the pins a person or a proof made.</summary>
+    private static string RunningKey(StagewatchLinkConfig c, string hostKey) => c.Enabled ? $"{hostKey}|{c.KeyFor}|{c.PinsKey}" : "";
+
+    /// <summary>
+    /// G34: an unbound key binds to the Stagewatch whose first 2xx took it — a key-shaped key (<c>swk_…</c>) only: Stagewatch looks a
+    /// key up and refuses an unknown one, while any other value is a PIN, which a Stagewatch with none set lets through and so proves
+    /// nothing. From then on the key goes to that Stagewatch and no other; the running link goes on as it is.
+    /// </summary>
+    private void BindAtFirstAnswer(Connection c, string apiKey)
+    {
+        if (c.Run.KeyFor.Length > 0 || !apiKey.StartsWith(StagewatchFrame.KeyPrefix, StringComparison.Ordinal)) return;
+        UiThread.Post(() =>
+        {
+            var cfg = _config();
+            var run = c.Run;
+            if (!ReferenceEquals(run, _run) || run.KeyFor.Length > 0 || cfg.KeyFor.Length > 0) return;
+            var bind = c.Target.PinKey;
+            var before = RunningKey(cfg, _runningHostKey);
+            cfg.KeyFor = bind;
+            run.KeyFor = bind;
+            if (string.Equals(_runningKey, before, StringComparison.Ordinal)) _runningKey = RunningKey(cfg, _runningHostKey);   // the link runs on: the key goes where it went
+            Log.Info($"Stagewatch link: this desk's key is bound to {c.Target.Name} ({bind}) — its first answer took it; it goes to no other Stagewatch from now.");
+            _changed();
+        });
+    }
+
+    /// <summary>
+    /// BIND KEY on the Nodes page (UI thread) — a person's: the key goes to the Stagewatch the press was shown beside
+    /// (<paramref name="target"/>, its pin key) from the next dial, made at once. Only while that is the one it is held back from, so a
+    /// press drawn for one Stagewatch never binds another. Returns whether it bound, and the words for the strip.
+    /// </summary>
+    public (bool Bound, string Words) BindKey(string target)
+    {
+        var c = _config();
+        if (c.ApiKey.Length == 0) return (false, "No Stagewatch key is set — type one on the Nodes page first.");
+        if (Volatile.Read(ref _bindOffer) is not { } offer) return (false, "The key is held back from no Stagewatch now — nothing to bind.");
+        if (!string.Equals(offer.Target, (target ?? "").Trim(), StringComparison.Ordinal))
+            return (false, $"The key is held back from {offer.Name} now, not the Stagewatch pressed for — look again.");
+        c.KeyFor = offer.Target;
+        _runningKey = "";                                                                   // dial again with the key
+        Reconcile();
+        Log.Info($"Stagewatch link: this desk's key bound to {offer.Name} ({offer.Target}) by a person on this desk — it goes there from now.");
+        return (true, $"The Stagewatch key is bound to {offer.Name} — it goes there from the next dial, now.");
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.6's <i>Link again now</i> (UI thread): every hold this desk keeps for the key ends — a refusal's, a rate limit's
+    /// and the node routes', in this run and on disk under any target — and the redial's wait with them, so the next dial is due now
+    /// (13.15.3). The run and its machines go on: a live link stays up, and the redial count stays where it is, which only a link
+    /// verified and stable returns to 0 (13.15.2). Refused, with the reason, while the link is off, while a changed certificate waits for a
+    /// person, and while nothing is held and no redial waits — a press then would change nothing.
+    /// </summary>
+    public (bool Done, string Words) LinkAgain()
+    {
+        var c = _config();
+        if (!c.Enabled) return (false, "The Stagewatch link is off — STAGEWATCH LINK ON (or the Nodes page) first.");
+        if (_pendingFingerprint.Length > 0)
+            return (false, $"The Stagewatch's certificate changed to {TlsFingerprint.Short(_pendingFingerprint)} — nothing is dialled until a person accepts it on the desk (ACCEPT, at least 8 hex typed).");
+        var run = _run;
+        var mono = MonoMs();
+        var wall = WallMs();
+        bool runHeld;
+        lock (run.Gate) runHeld = run.HeldUntilMs > mono || run.BusyUntilMs > mono || run.NodeHeldUntilMs > mono;
+        var kept = run.Kid is { } k && Holds.Holding(k, wall);
+        var record = Record;
+        var machineHeld = record.State == "held" && record.Refusal != "conflict";
+        if (!runHeld && !kept && !machineHeld && record.State != "down") return (false, NothingToDialWords(record));
+        lock (run.Gate)
+        {
+            run.HeldUntilMs = run.BusyUntilMs = run.NodeHeldUntilMs = 0;
+            if (run.Key.Refused) run.Key = StagewatchKey.Unknown;
+        }
+        lock (_core) run.Core?.Machine.LinkAgainNow(Now());
+        var lifted = run.Kid is { } kid ? Holds.Lift(kid, wall) : 0;
+        SayChange();
+        UiThread.Post(_changed);
+        var held = runHeld || kept || machineHeld;
+        Log.Info(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"Stagewatch link: link again now, pressed — {(held ? $"every hold of this desk's key ended, {lifted} of them lifted from the store kept for a restart" : "the redial's wait ended")}; the next dial is due now, attempt {record.Attempt + 1}."));
+        return (true, held
+            ? "Stagewatch link: every hold of this desk's key ended — the next dial is due now and may present the key again; the link's record says when it goes."
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Stagewatch link: the redial's wait ended — the next dial is due now (attempt {record.Attempt + 1}; the count goes on until a link stays up)."));
+    }
+
+    /// <summary>Why LINK AGAIN would change nothing now, by the record's state.</summary>
+    private static string NothingToDialWords(LinkRecord record) => record.State switch
+    {
+        "live" or "stale" => "The Stagewatch link is up and nothing of this desk's key is held — nothing to dial again.",
+        "connecting" => "The Stagewatch link is dialling now and nothing is held — nothing to dial again.",
+        "finding" => "No Stagewatch is heard on the show network yet — nothing to dial again; the link dials one as soon as it is heard.",
+        "held" => $"{record.Words} — LINK AGAIN does not lift it: the link dials again once only one machine says that id.",
+        "refused" => $"The Stagewatch link waits for a person on the desk: {record.Words}.",
+        _ => "Nothing is held and no redial waits — nothing to dial again.",
+    };
+
+    /// <summary>A Stagewatch heard live on the show network by its id, at an address it can be dialled at; null when none is.</summary>
+    public ShowBusPeer? HeardStagewatch(string id)
+    {
+        var now = DateTime.UtcNow;
+        return _peers(now).FirstOrDefault(p => p.Kind == "main" && p.Id == id && p.StateAt(now) == ShowBusState.Live && p.Address.Length > 0 && (p.Ports.Ws > 0 || p.Ports.Http > 0));
+    }
+
+    /// <summary>A floor a verified link recorded for the Stagewatch the link dials (13.9.3); never at level 0, where nothing verifies.</summary>
+    public bool HasFloor
+    {
+        get
+        {
+            lock (_core) return _run.Core?.Machine.Record(Now()).Floor is not null;
+        }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.9.3's <i>Lower floor</i> (UI thread), one press: the floor is gone and a floor's refusal with it. Refused, with
+    /// the reason, while none is recorded — a floor comes only from a verified link.
+    /// </summary>
+    public (bool Done, string Words) LowerFloor()
+    {
+        lock (_core)
+        {
+            if (_run.Core is not { } core || core.Machine.Record(Now()).Floor is null) return (false, StagewatchVerbs.NoFloorWords + " — nothing to lower.");
+            core.Machine.LowerFloor();
+        }
+        SayChange();
+        Log.Info("Stagewatch link: the floor recorded for the Stagewatch lowered by the operator.");
+        return (true, "The Stagewatch link's floor is lowered — it takes a lesser link from now, said amber.");
+    }
+
+    /// <summary>
+    /// The show needs the link while the stage follows it (13.1): a change is told to the run and to each machine its record comes from,
+    /// so the light is red only while the show needs the link — the connection, the redial count and every hold go on as they were.
+    /// </summary>
+    private void NeedsNow(bool needs)
+    {
+        var run = _run;
+        lock (_core)
+        {
+            if (run.ShowNeeds == needs) return;
+            run.ShowNeeds = needs;
+            run.Core?.Machine.ShowNeedsLink(needs);
+            run.Idle?.ShowNeedsLink(needs);
+        }
+        SayChange();
+    }
+
     /// <summary>Start, restart or stop the link to match its settings (UI thread; cheap when nothing changed).</summary>
     public void Reconcile()
     {
         var c = _config();
+        NeedsNow(c.FollowStage);
         var kid = c.ApiKey.Length > 0 ? PeerLink.Kid(PeerLink.KeyKey(c.ApiKey)) : "";
         var hostKey = c.Enabled ? $"{c.Host}|{kid}" : "";
-        var key = c.Enabled ? $"{hostKey}|{c.PinsKey}" : "";
+        var key = RunningKey(c, hostKey);
         if (key == _runningKey) return;
         var carry = hostKey.Length > 0 && hostKey == _runningHostKey;                       // the same key at the same address: a person's pin set, say
         _runningKey = key;
@@ -664,10 +849,10 @@ public sealed class StagewatchLinkService : IDisposable
         _cts?.Dispose();
         _cts = null;
         var previous = _run;
-        var run = new Run { Kid = kid.Length > 0 ? kid : null, ShowNeeds = c.FollowStage };
+        var run = new Run { Kid = kid.Length > 0 ? kid : null, ShowNeeds = c.FollowStage, KeyFor = c.KeyFor };
         if (carry) run.Carry(previous);                                                     // its holds and standing go on
         var typed = StageFollow.ParseAddress(c.Host) is { } t ? $"{t.Host}:{t.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null;
-        run.NotAnAddress = key.Length > 0 && typed is null && c.Host.Length > 0;                     // as the run resolves it: any typed text it cannot read
+        run.NotAnAddress = key.Length > 0 && typed is null && c.Host.Length > 0 && StageFollow.ParseId(c.Host) is null;   // as the run resolves it: any typed text it cannot read
         lock (_core) run.Idle = new PeerLinkMachine(IdleSettings(key.Length > 0 && !run.NotAnAddress, typed, null, run.ShowNeeds), null, Now(), Jitter);
         _sight = StagewatchSight.None;
         lock (_trustGate)
@@ -684,6 +869,7 @@ public sealed class StagewatchLinkService : IDisposable
         _carrier = "";
         _nodeId = "";
         _held = "";
+        _bindOffer = null;
         if (key.Length == 0)
         {
             _status = "Stagewatch link off.";
@@ -697,7 +883,8 @@ public sealed class StagewatchLinkService : IDisposable
         var pins = new Dictionary<string, CertificatePin>(StringComparer.Ordinal);
         foreach (var p in c.Pins) pins[p.Key] = p;
         var ct = _cts.Token;
-        _status = host.Length > 0 ? $"Stagewatch link: dialling {host}…" : "Stagewatch link: listening for a Stagewatch on the show network…";
+        _status = StageFollow.ParseId(host) is { } wanted ? $"Stagewatch link: listening for Stagewatch {wanted} on the show network…"
+            : host.Length > 0 ? $"Stagewatch link: dialling {host}…" : "Stagewatch link: listening for a Stagewatch on the show network…";
         SayChange();
         // A lane that faults is said, never lost in silence: the link stops there until it is turned off and on.
         _ = Task.Run(() => RunAsync(run, host, apiKey, pins, ct), CancellationToken.None).ContinueWith(
@@ -716,6 +903,9 @@ public sealed class StagewatchLinkService : IDisposable
     /// </summary>
     private sealed record Target(string Host, int Port, string Name, string PinKey, string Advertised, bool Heard, bool Approvals, string Inst = "")
     {
+        /// <summary>G34: the <c>addr:</c> binding of the address typed to reach this Stagewatch ("" when it was found, or named by id).</summary>
+        public string TypedKey { get; init; } = "";
+
         public bool HelloTls => TlsFingerprint.IsValid(Advertised);
     }
 
@@ -758,9 +948,11 @@ public sealed class StagewatchLinkService : IDisposable
                         if (run.Idle is { NodeId: not null }) run.Idle = new PeerLinkMachine(IdleSettings(true, null, null, run.ShowNeeds), null, Now(), Jitter);
                         run.Current = null;                                                  // finding one again: the record says so
                     }
-                    _status = typedHost.Length > 0
-                        ? $"Stagewatch link: '{typedHost}' is not an address — host:port, or empty to find one on the show network."
-                        : "Stagewatch link: no Stagewatch heard on the show network yet (UDP 9928).";
+                    _status = StageFollow.ParseId(typedHost) is { } wanted
+                        ? $"Stagewatch link: no Stagewatch with id {wanted} heard on the show network yet (UDP 9928)."
+                        : typedHost.Length > 0
+                            ? $"Stagewatch link: '{typedHost}' is not an address — host:port, id:<a heard Stagewatch's id>, or empty to find one on the show network."
+                            : "Stagewatch link: no Stagewatch heard on the show network yet (UDP 9928).";
                     _nodeId = "";
                     _held = "";
                 }
@@ -856,7 +1048,10 @@ public sealed class StagewatchLinkService : IDisposable
             var nodeId = target.PinKey.StartsWith("node:", StringComparison.Ordinal) ? target.PinKey[5..] : null;
             var saved = pins.TryGetValue(target.PinKey, out var p) && TlsFingerprint.IsValid(p.Fingerprint) ? p : null;
             var pin = saved is null ? null : new LinkPin(nodeId, saved.Fingerprint[TlsFingerprint.Prefix.Length..], saved.Trust);
-            var hold = run.Kid is { } kid ? Holds.For(target.PinKey, kid, now.Wall) : null;
+            // G34: a key bound to another Stagewatch never goes to this one and no hold of it is kept here, but it is set and held back:
+            // the record names its kid, reads keyless amber and says where the key is bound, so every reader says so from the record.
+            var keyed = run.Kid is not null && StagewatchKeyFor.Goes(run.KeyFor, target.PinKey, target.TypedKey);
+            var hold = keyed && run.Kid is { } kid ? Holds.For(target.PinKey, kid, now.Wall) : null;
             var settings = new LinkSettings
             {
                 Carrier = LinkCarrier.Ws,
@@ -865,6 +1060,7 @@ public sealed class StagewatchLinkService : IDisposable
                 NodeId = nodeId,
                 Address = $"{target.Host}:{target.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
                 Key = run.Kid,
+                KeyHeldBack = run.Kid is not null && !keyed ? HeldBackWords(run.KeyFor) : null,
                 ShowNeeds = run.ShowNeeds,
                 Uses = "post",
             };
@@ -880,7 +1076,7 @@ public sealed class StagewatchLinkService : IDisposable
             run.Core = new LinkCore(target.PinKey, machine) { FirstSaved = saved is { Trust: PinTrust.First } ? saved.Fingerprint : "" };
             run.Current = machine;                                                           // the record is this Stagewatch's from now
             run.Targets.Add(target.PinKey);
-            if (run.Kid is { } heldKid && machine.Kept is { HeldUntilWall: { } until } carried)
+            if (keyed && run.Kid is { } heldKid && machine.Kept is { HeldUntilWall: { } until } carried)
                 Holds.Hold(target.PinKey, heldKid, until, carried.HeldRefusal ?? "key", now.Wall, carried.HeldPublic);
             if (hold is not null && before is null) RestoreHold(run, target, hold, now);
             return run.Core;
@@ -962,6 +1158,17 @@ public sealed class StagewatchLinkService : IDisposable
         var now = DateTime.UtcNow;
         var live = _peers(now).Where(p => p.Kind == "main" && p.StateAt(now) == ShowBusState.Live && p.Address.Length > 0 && (p.Ports.Ws > 0 || p.Ports.Http > 0)).ToList();
         bool Pinned(ShowBusPeer p) => pins.ContainsKey("node:" + p.Id);
+        // G34: a heard Stagewatch by its show network id — dialled wherever its hello is heard, held while two machines say it.
+        if (StageFollow.ParseId(typed) is { } wanted)
+        {
+            var byId = live.FirstOrDefault(p => p.Id == wanted);
+            if (byId?.Conflict is { } marked2)
+            {
+                conflict = marked2;
+                return null;
+            }
+            return byId is null ? null : Of(byId, byId.Address, byId.Ports.Https > 0 && byId.OffersTls ? byId.Ports.Https : byId.Ports.Ws > 0 ? byId.Ports.Ws : byId.Ports.Http);
+        }
         if (typed.Length > 0)
         {
             if (StageFollow.ParseAddress(typed) is not { } t) return null;
@@ -972,9 +1179,9 @@ public sealed class StagewatchLinkService : IDisposable
                 conflict = held;
                 return null;
             }
-            if (named is not null) return Of(named, t.Host, t.Port);
-            var key = "addr:" + t.Host.ToLowerInvariant() + ":" + t.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            return new Target(t.Host, t.Port, t.Host, key, "", false, false);
+            var typedKey = StagewatchKeyFor.Address(t.Host, t.Port);
+            if (named is not null) return Of(named, t.Host, t.Port) with { TypedKey = typedKey };
+            return new Target(t.Host, t.Port, t.Host, typedKey, "", false, false) { TypedKey = typedKey };
         }
         var peer = live.FirstOrDefault(p => last.Length > 0 && p.Id == last) ?? live.FirstOrDefault(Pinned) ?? live.FirstOrDefault();
         if (peer?.Conflict is { } marked)
@@ -1061,7 +1268,11 @@ public sealed class StagewatchLinkService : IDisposable
         var pin = saved is { Trust: not PinTrust.First } ? saved.Fingerprint : "";            // a person's (or a proof's) pin: TLS or nothing, and the key over it
         var first = saved is { Trust: PinTrust.First } ? saved.Fingerprint : "";              // the desk's pin at first use: compared, never trusted
         var pinned = pin.Length > 0;
-        var key = isPublic ? "" : apiKey;
+        // G34: the key goes only to the Stagewatch it is bound to; to any other the link reads the public view, and the desk offers to
+        // bind it to this one (BIND KEY), a person's press.
+        var bound = StagewatchKeyFor.Goes(run.KeyFor, target.PinKey, target.TypedKey);
+        var key = isPublic || !bound ? "" : apiKey;
+        Volatile.Write(ref _bindOffer, apiKey.Length > 0 && !bound ? new BindOffer(target.PinKey, target.Name, run.KeyFor) : null);
         _note = pinned ? HelloNote(target, pin) : "";                                       // a hello that contradicts the pin is a note, never a refusal
         var addresses = await DialAddressesAsync(target, ct);
         var presented = "";
@@ -1807,6 +2018,7 @@ public sealed class StagewatchLinkService : IDisposable
             using var request = Request(HttpMethod.Post, url, apiKey, json);
             using var response = await http.SendAsync(request, ct);
             var said = Answered(c, (int)response.StatusCode, await response.Content.ReadAsStringAsync(ct), RetryAfterOf(response), asked, context: true);
+            if (response.IsSuccessStatusCode) BindAtFirstAnswer(c, apiKey);
             _approvalsLive = response.IsSuccessStatusCode && _approvalsLive;
             if (!response.IsSuccessStatusCode)
             {

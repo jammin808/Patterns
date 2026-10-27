@@ -667,7 +667,10 @@
           "unmatched": 0
         },
         "floor": null
-      }
+      },
+      "follow": true,
+      "pending": "",
+      "keyFor": ""
     }
   },
   "control": {

@@ -26,6 +26,7 @@ public static class DeskMenuFacts
             PrepMode = state.Mode == ShowMode.Prep,
             AssistantReady = s.Assistant.HasKey,
             StagewatchTrust = StagewatchLinkActions.MenuFact(s.Kernel.Stagewatch, s.Nodes.ShowApps),
+            Stagewatch = StagewatchLinkActions.MenuStagewatch(s.Kernel.Stagewatch, state.Control.Stagewatch, s.Nodes.ShowApps),
             LookOnAirId = onAir?.Id ?? "",
             LookOnAirName = onAir?.Name ?? "",
             LookEdited = s.LookTally.AirEdited(),

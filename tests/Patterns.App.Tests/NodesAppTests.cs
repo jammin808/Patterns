@@ -572,8 +572,43 @@ public class NodesAppTests
             Assert.Equal(new[] { ("companion FOH deck", "Refused"), ("desk", "Done") }, rows);
             PumpUntil(() => sw.Authorization == "Bearer swk_nodekey");
 
+            // G34: the node's own link verbs run here too — the stage's follow set from a deck, ACCEPT refused off the desk — and
+            // never at the desk; the desk's own link stays as it was.
+            var deskFollows = desk.Vm.State.Control.Stagewatch.FollowStage;
+            var follow = c.Actions.Execute(new ShowAction(ShowActionKind.StagewatchFollow, "", deskFollows ? "OFF" : "ON"), new ActionOrigin(OriginKind.Companion, "FOH deck"));
+            Assert.True(follow.Ok, follow.Message);
+            Assert.Equal(!deskFollows, config.FollowStage);
+            Assert.Equal(deskFollows, desk.Vm.State.Control.Stagewatch.FollowStage);
+            var accept = c.Actions.Execute(new ShowAction(ShowActionKind.StagewatchAccept), new ActionOrigin(OriginKind.Companion, "FOH deck"));
+            Assert.StartsWith(StagewatchVerbs.DeskOnlyWords, accept.Message, StringComparison.Ordinal);
+            Assert.Contains(c.Kernel.Journal.Tail(30), e => (e.Kind, e.Origin, e.Target, e.Outcome) == (nameof(ShowActionKind.StagewatchFollow), "companion FOH deck", deskFollows ? "OFF" : "ON", "Done"));
+            Assert.Contains(c.Kernel.Journal.Tail(30), e => (e.Kind, e.Origin, e.Target, e.Outcome) == (nameof(ShowActionKind.StagewatchAccept), "companion FOH deck", "", "Refused"));
+
+            // The node's own link is read as the desk's is: STAGEWATCH STATUS answers from this node's link and settings, the same row its
+            // STATE's bus.stagewatch carries — the record, then follow, pending and keyFor at the row's end — so a deck on a node reads
+            // what it set.
+            var nodeRouter = new NodeRouter(c);
+            var status = TestApp.Pump(nodeRouter.ExecuteAsync(ControlProtocol.Parse("STAGEWATCH STATUS"), new ActionOrigin(OriginKind.Tcp, "", "10.0.0.12:51234")));
+            Assert.StartsWith("OK {", status, StringComparison.Ordinal);
+            using (var read = System.Text.Json.JsonDocument.Parse(status[3..]))
+            {
+                Assert.Equal(new[] { "link", "follow", "pending", "keyFor" }, read.RootElement.EnumerateObject().Select(p => p.Name));
+                Assert.Equal(!deskFollows, read.RootElement.GetProperty("follow").GetBoolean());
+                Assert.Equal("", read.RootElement.GetProperty("pending").GetString());
+                var keyFor = read.RootElement.GetProperty("keyFor").GetString()!;
+                Assert.True(keyFor.Length == 0 || keyFor.StartsWith("addr:127.0.0.1:", StringComparison.Ordinal), keyFor);
+            }
+            using (var state = System.Text.Json.JsonDocument.Parse(nodeRouter.StateJson()))
+            {
+                var row = state.RootElement.GetProperty("bus").GetProperty("stagewatch");
+                Assert.Equal(new[] { "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name));
+                Assert.Equal(!deskFollows, row.GetProperty("follow").GetBoolean());
+            }
+            Assert.DoesNotContain("swk_nodekey", nodeRouter.StateJson(), StringComparison.Ordinal);
+
             // Nothing of it crossed the twin: the desk journalled no Trust and pinned nothing.
             Assert.DoesNotContain(desk.Services.Journal.Tail(100), e => e.Kind == nameof(ShowActionKind.StagewatchTrust));
+            Assert.DoesNotContain(desk.Services.Journal.Tail(100), e => e.Kind is nameof(ShowActionKind.StagewatchFollow) or nameof(ShowActionKind.StagewatchAccept));
             Assert.Empty(desk.Vm.State.Control.Stagewatch.Pins);
             Assert.True(c.Twin.IsLinkedToDesk);
         }

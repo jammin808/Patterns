@@ -78,6 +78,9 @@ public sealed record DeskFacts
     /// </summary>
     public MenuTrust? StagewatchTrust { get; init; }
 
+    /// <summary>G34: the Stagewatch link as the menus read it — on, which Stagewatch it dials, the stage's follow, what waits for a person.</summary>
+    public MenuStagewatch Stagewatch { get; init; } = MenuStagewatch.Off;
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;
@@ -268,6 +271,27 @@ public sealed record PageFacts(string Header)
 /// and the Eye name it, its name, and the certificate (sha256:…) a person compares on its screen before pressing Trust.
 /// </summary>
 public sealed record MenuTrust(string AppId, string Name, string Fingerprint);
+
+/// <summary>
+/// G34 (Show Bus 1.3 §13.16.6): the Stagewatch link as the menus read it. <see cref="LinkedId"/> is the app id of the Stagewatch the
+/// link dials now ("" when none); <see cref="Heard"/> the ids of the Stagewatches heard on the show network it could be linked to by id;
+/// <see cref="Pending"/> a changed certificate (sha256:…) waiting for ACCEPT; <see cref="Floor"/> a floor a verified link recorded;
+/// <see cref="BindTarget"/> the target (<c>node:&lt;id&gt;</c> or <c>addr:…</c>) the key is held back from by its binding, with its name.
+/// </summary>
+public sealed record MenuStagewatch
+{
+    public static readonly MenuStagewatch Off = new();
+
+    public bool On { get; init; }
+    public string LinkedId { get; init; } = "";
+    public string LinkedName { get; init; } = "";
+    public bool Follow { get; init; } = true;
+    public IReadOnlyList<string> Heard { get; init; } = Array.Empty<string>();
+    public string Pending { get; init; } = "";
+    public bool Floor { get; init; }
+    public string BindTarget { get; init; } = "";
+    public string BindName { get; init; } = "";
+}
 
 /// <summary>Another show app's card on the Nodes page, as its menu reads it.</summary>
 public sealed record MenuShowApp(string Id, string KindLabel, string Name, string Line, bool Linked);

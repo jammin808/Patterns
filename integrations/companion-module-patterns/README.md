@@ -107,6 +107,13 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
   sends no record: the three read empty and the feedback lights for no light — the module says nothing of a link the desk did
   not describe. `stagewatch_light` stays the linked app's light (no better than the record's while the link is live); a link
   that is held, down or refused while the show needs it is red on `stagewatch_link_light`, whatever the app's light.
+  The link's verbs on keys (round 93, Show Bus 1.3 §13.16.6): **Stagewatch link** sends `STAGEWATCH LINK AUTO|ON|OFF|AGAIN`,
+  an address (`STAGEWATCH LINK 10.0.0.9:9924`) or a heard Stagewatch by its show network id (`STAGEWATCH LINK id:a1b2c3d4`);
+  **Stagewatch follow** `STAGEWATCH FOLLOW ON|OFF`; **lower floor** `STAGEWATCH FLOOR LOWER` and **release** `STAGEWATCH
+  RELEASE` (the desk follows no fact of a Stagewatch's for safety, so it answers that nothing is held). `stagewatch_follow`
+  reads on or off and `stagewatch_pending` the short fingerprint of a changed certificate waiting for ACCEPT. TRUST and
+  ACCEPT are a person's choice on the desk, beside the fingerprint, and the Stagewatch key is typed there too: the module has
+  no action for any of them, and the desk refuses their words from a deck.
 - **3.19.1** — the module pairs before it reads (round 91, the desk's ADR-016): a desk with a token says `NONCE` first
   and shows no `STATE` to a connection that has not paired, and refuses `STATUS`, `EYE`, `CONTEXT` and the other reads
   with `ERR not paired …`. With the **Pairing token** field filled the proof is asked and its answer read: `NAV` (the

@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -71,6 +72,22 @@ public class CompanionModuleContractTests
         }
         Assert.True(failures.Count == 0, "A deck recording these would not get them back:\n" + string.Join("\n", failures));
         Assert.True(roundTripped > 120, $"only {roundTripped} action lines round-tripped");
+    }
+
+    /// <summary>
+    /// G34: the module's keys set and follow the Stagewatch link with the wire's own verbs, and none of its lines is
+    /// TRUST, ACCEPT or the key's binding — a person's on the desk, beside the fingerprint.
+    /// </summary>
+    [Fact]
+    public void TheModuleSaysTheLinksVerbsAndNoneOfAPersonsOwn()
+    {
+        var actions = File.ReadAllLines(Path.Combine(ModuleDir, "test", "lines.txt")).Where(l => l.Trim().Length > 0)
+            .Select(l => ControlProtocol.Parse(l)).Where(c => c.IsAction).Select(c => c.Action).ToList();
+        foreach (var kind in new[] { ShowActionKind.StagewatchLinkSet, ShowActionKind.StagewatchLinkAgain, ShowActionKind.StagewatchFollow, ShowActionKind.StagewatchFloorLower, ShowActionKind.StagewatchRelease })
+        {
+            Assert.Contains(actions, a => a.Kind == kind);
+        }
+        Assert.DoesNotContain(actions, a => a.Kind is ShowActionKind.StagewatchTrust or ShowActionKind.StagewatchAccept or ShowActionKind.StagewatchKeyBind);
     }
 
     [Fact]

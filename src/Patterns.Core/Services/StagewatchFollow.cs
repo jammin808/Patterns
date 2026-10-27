@@ -589,6 +589,21 @@ public static class StageFollow
     /// <summary>Stagewatch's web port.</summary>
     public const int DefaultPort = 9924;
 
+    /// <summary>What names a heard Stagewatch by its show network id where an address could stand: <c>id:a1b2c3d4</c> (a bare word is a host).</summary>
+    public const string IdPrefix = "id:";
+
+    /// <summary>
+    /// The id in a typed <c>id:&lt;id&gt;</c> — an id of the shape a hello carries (Show Bus §2: <see cref="ShowBusPeers.IdMin"/> to
+    /// <see cref="ShowBusPeers.IdMax"/> letters, digits, '-' or '_'); null for anything else, an address among them.
+    /// </summary>
+    public static string? ParseId(string? typed)
+    {
+        var t = (typed ?? "").Trim();
+        if (!t.StartsWith(IdPrefix, StringComparison.OrdinalIgnoreCase)) return null;
+        var id = t[IdPrefix.Length..];
+        return id.Length is >= ShowBusPeers.IdMin and <= ShowBusPeers.IdMax && id.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_') ? id : null;
+    }
+
     /// <summary>The name a link's record gives the Stagewatch it has none to dial yet: off, or finding one.</summary>
     public const string Unnamed = "a Stagewatch";
 }
@@ -797,6 +812,8 @@ public static class ShowBusView
             else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {ShowContext.Word(WithLink(a, ShowContext.LightOf(KeyAmber(a) || ConflictAmber(a) ? StuckLight(c.Light) : c.Light)))}: {c.Headline}"));
             // Show Bus 1.3 §13.16.4: the link's record — its state, light, mark, words and flags — as every reader says it.
             if (a.Linked && a.Link is { } link) lines.Add($"  the link: {link.State}, {link.Light} — {link.Said}");
+            // G34: the link's verbs, named as the operator's — the assistant suggests them in words and never proposes one.
+            if (a.Linked && a.KindWords == "Stagewatch") lines.Add("  " + StagewatchVerbs.BriefWords);
             // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
             if (a.Linked && a.Key.Line.Length > 0) lines.Add($"  this desk's key: {a.Key.Line}");
             // Show Bus 1.3 §2: two running nodes say its id.

@@ -30,12 +30,12 @@ public sealed class NodeActions : IActionLayer
     public ActionResult Execute(ShowAction action, ActionOrigin origin)
     {
         ActionResult result;
-        // A person's Trust on this node's own Stagewatch link runs here, never at the desk: the link and the fingerprint
-        // beside the press are this node's (Show Bus 1.3 §13.6.8).
-        if (action.Kind == ShowActionKind.StagewatchTrust)
+        // This node's own Stagewatch link's verbs run here, never at the desk: the link, its settings and the fingerprint beside a
+        // press are this node's (G34, Show Bus 1.3 §13.16.6).
+        if (StagewatchLinkActions.IsLinkVerb(action.Kind))
         {
-            result = StagewatchLinkActions.Trust(Kernel.Stagewatch, action.Value, origin);
-            Kernel.Journal.Record(origin.Label, action.Kind.ToString(), action.Target, result.Status.ToString(), result.Message);
+            result = StagewatchLinkActions.Run(Kernel.Stagewatch, _host.State.Control.Stagewatch, action, origin);
+            Kernel.Journal.Record(origin.Label, action.Kind.ToString(), StagewatchLinkActions.JournalTarget(action), result.Status.ToString(), result.Message);
             Performed?.Invoke(action, origin, result);
             return result;
         }
@@ -338,6 +338,8 @@ public sealed class NodeRouter : IRouter
                 return _host.HasRoom ? ControlProtocol.Ok(_host.RoomStatusJson(cmd.Text)) : ControlProtocol.Err("the audience room is not on this node");
             case RemoteCommandKind.NodesStatus:
                 return ControlProtocol.Ok(_host.Kernel.Nodes.StatusJson());
+            case RemoteCommandKind.StagewatchStatus:
+                return ControlProtocol.Ok(JsonUtil.SerializeCompact(StagewatchRow()));   // G34: this node's own link, as its STATE's bus.stagewatch carries it
             case RemoteCommandKind.StageStatus when _host.IsFollower:
                 return ControlProtocol.Ok(_host.Stage.StatusJson());
             case RemoteCommandKind.CueList when _host.Kind == NodeKind.Caller:
@@ -388,8 +390,27 @@ public sealed class NodeRouter : IRouter
             control = _host.Control.ControlRow(),                      // round 89: the machines this node's pairing token arrived from in clear — appended at the end
             // Show Bus 1.3 §13.16.4: this node's own Stagewatch link's record, where the desk's STATE carries the desk's (bus.stagewatch.link)
             // so a deck reads it by one path on either; off while the node follows its desk's relay, which is the desk's to publish.
-            bus = new { stagewatch = new { link = _host.Kernel.Stagewatch.Record.ToElement() } },
+            bus = new { stagewatch = StagewatchRow() },
         });
+    }
+
+    /// <summary>
+    /// This node's own Stagewatch link as its STATE's <c>bus.stagewatch</c> carries it and STAGEWATCH STATUS answers it, one projection:
+    /// the link's record, then <c>follow</c> (this node's stage follows the Stagewatch's timer), <c>pending</c> (the short fingerprint of a
+    /// changed certificate waiting for ACCEPT here, "" with none) and <c>keyFor</c> (where this node's key goes) — the desk's row's own
+    /// names, so a deck reads them by one path on either; where the key goes, never the key.
+    /// </summary>
+    private object StagewatchRow()
+    {
+        var config = _host.State.Control.Stagewatch;
+        var link = _host.Kernel.Stagewatch;
+        return new
+        {
+            link = link.Record.ToElement(),
+            follow = config.FollowStage,
+            pending = TlsFingerprint.Short(link.PendingFingerprint),
+            keyFor = config.KeyFor,
+        };
     }
 
     /// <summary>A caller's whole list with notes, as the desk's wire gives it — GET /api/cues and CUE LIST.</summary>
@@ -551,7 +572,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         Kernel.Stagewatch.OwnContext = ContextJson;              // round 88: a node says what it is, in the shared shape (closes L52)
         Kernel.Stagewatch.RunApprovedLine = async line =>
         {
-            var answer = await NewRouter().ExecuteAsync(ControlProtocol.Parse(line), new ActionOrigin(OriginKind.Tcp, "approval desk"));
+            var answer = await NewRouter().ExecuteAsync(ControlProtocol.Parse(line), new ActionOrigin(OriginKind.Tcp, StagewatchVerbs.ApprovalDesk));
             return (answer.StartsWith("OK", StringComparison.Ordinal), answer);
         };
         if (IsFollower)

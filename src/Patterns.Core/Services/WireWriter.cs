@@ -26,8 +26,9 @@ public static class WireWriter
     {
         ShowActionKind.Unknown, ShowActionKind.Note, ShowActionKind.Take, ShowActionKind.Cut,
         ShowActionKind.ListGo, ShowActionKind.ListBack, ShowActionKind.ListReset, ShowActionKind.CueFire,
-        // A person's trust decision, beside the fingerprint on this desk: the wire has no word that pins a certificate.
-        ShowActionKind.StagewatchTrust,
+        // A person's trust decision, beside the fingerprint on this desk: the wire has no word that pins a certificate, accepts a
+        // changed one, or chooses where the Stagewatch key goes.
+        ShowActionKind.StagewatchTrust, ShowActionKind.StagewatchAccept, ShowActionKind.StagewatchKeyBind,
     };
 
     public static string Line(ShowAction a)
@@ -103,6 +104,11 @@ public static class WireWriter
             ShowActionKind.EyeReplay => Join("EYE REPLAY", v),
             ShowActionKind.NextTransition => v.Equals("CLEAR", StringComparison.OrdinalIgnoreCase) ? "TAKE NEXT" : Join("TAKE NEXT", v),
             ShowActionKind.MidiLearn => Join("MIDI LEARN", v),
+            ShowActionKind.StagewatchLinkSet => v.Length == 0 ? "" : Join("STAGEWATCH LINK", v),
+            ShowActionKind.StagewatchLinkAgain => "STAGEWATCH LINK AGAIN",
+            ShowActionKind.StagewatchFollow => v.Length == 0 ? "" : Join("STAGEWATCH FOLLOW", v),
+            ShowActionKind.StagewatchFloorLower => "STAGEWATCH FLOOR LOWER",
+            ShowActionKind.StagewatchRelease => "STAGEWATCH RELEASE",
             ShowActionKind.MidiLearnOff => "MIDI LEARN OFF",
             ShowActionKind.MidiForget => Join("MIDI FORGET", v),
             ShowActionKind.NavPage => Join("NAV", t, v),

@@ -282,6 +282,17 @@ public class WireVocabularyTests
         ("VOG 2", new(ShowActionKind.StingerFire, "2", "vog")),
         ("STING Whoosh", new(ShowActionKind.StingerFire, "Whoosh", "sting")),
         ("STINGER STOP", new(ShowActionKind.StingerStop)),
+        ("STAGEWATCH LINK 10.0.0.9:9924", new(ShowActionKind.StagewatchLinkSet, "", "10.0.0.9:9924")),     // G34: the link from the wire
+        ("STAGEWATCH LINK 10.0.0.9", new(ShowActionKind.StagewatchLinkSet, "", "10.0.0.9:9924")),
+        ("STAGEWATCH LINK id:a1b2c3d4", new(ShowActionKind.StagewatchLinkSet, "", "id:a1b2c3d4")),
+        ("STAGEWATCH LINK auto", new(ShowActionKind.StagewatchLinkSet, "", "AUTO")),
+        ("STAGEWATCH LINK OFF", new(ShowActionKind.StagewatchLinkSet, "", "OFF")),
+        ("STAGEWATCH LINK ON", new(ShowActionKind.StagewatchLinkSet, "", "ON")),
+        ("STAGEWATCH LINK AGAIN", new(ShowActionKind.StagewatchLinkAgain)),
+        ("STAGEWATCH FOLLOW ON", new(ShowActionKind.StagewatchFollow, "", "ON")),
+        ("STAGEWATCH FOLLOW off", new(ShowActionKind.StagewatchFollow, "", "OFF")),
+        ("STAGEWATCH FLOOR LOWER", new(ShowActionKind.StagewatchFloorLower)),
+        ("STAGEWATCH RELEASE", new(ShowActionKind.StagewatchRelease)),
     };
 
     [Fact]
@@ -289,7 +300,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.AuthProof, RemoteCommandKind.Nonce, RemoteCommandKind.Context, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus, RemoteCommandKind.NavStatus, RemoteCommandKind.NavDeck, RemoteCommandKind.Record },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.AuthProof, RemoteCommandKind.Nonce, RemoteCommandKind.Context, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu, RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus, RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus, RemoteCommandKind.NavStatus, RemoteCommandKind.NavDeck, RemoteCommandKind.Record, RemoteCommandKind.StagewatchStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)

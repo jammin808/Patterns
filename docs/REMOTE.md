@@ -272,6 +272,12 @@ while it trusts it, answer everything as before.
 | `CALIBRATE APPLY` / `UNDO` | Each projector into its solved place with its mesh and its blend mask, its blend zones off; and back as it was before APPLY |
 | `CALIBRATE STATUS` | `OK <json>` — `running`, `progress` (0–1), `status`, `solved`, `applied`, `canvas` (`width`, `height`), `projectors` (each `id`, `name`, `x`, `y`, `mesh`, `coverage`, `residualPx`, `words`) and the `report`. `CALIBRATION` and `CAL` are aliases of the verb |
 | `NODES` | `OK <json>` — the nodes the beacon hears: `me` (this instance's `kind`, `machine`, `instance`, `link`), `linked` (callers on this desk's link), `nodes` (each `instance`, `kind` — desk, caller, timer, arcade — `name`, `address`, `show`, `live`, `fresh`, `link`, `http`, `heardSecondsAgo`) |
+| `STAGEWATCH` / `STAGEWATCH STATUS` | Round 93.4: `OK <json>` — the Stagewatch link as STATE's `bus.stagewatch` carries it (one projection: `on`, `state`, `name`, the record `link`, and at the end `follow`, `pending` and `keyFor`). On a node, the node's own link as its STATE's `bus.stagewatch` carries it: the record `link`, then `follow`, `pending` and `keyFor`. A read: a paired connection only on a desk with a token |
+| `STAGEWATCH LINK <host[:port]>` / `id:<id>` / `AUTO` / `ON` / `OFF` / `AGAIN` | Round 93.4 (Show Bus 1.3 §13.16.6): the link set as the Nodes page's boxes set it — an address (port 9924 when none is typed; an IPv6 host bracketed), a Stagewatch heard on the show network by its id (`id:a1b2c3d4`, dialled wherever its hello is heard; refused while none with that id is heard, or two machines say it), `AUTO` the first one heard, `ON` / `OFF` as set. `AGAIN` is *Link again now*: every hold of this desk's key ends — a refusal's, a rate limit's and the node routes', in this run and in `patterns.linkholds.json` under every target — and the redial's wait with them, so the next dial is due now; the link goes on, a live one is never dropped by it, and the redial count stays, which only a link verified and stable returns to 0 (§13.15.2). Refused, with the reason, while the link is off, while a changed certificate waits for ACCEPT, and while nothing is held and no redial waits. A take that would change nothing is refused with the reason; the `OK` of a LINK says what the key's binding allows at the target ("the key is bound to it; the link's record says when it goes"), never that the key went. **A line never sends the key to a target it chose**: a key not yet bound to a Stagewatch is bound to nothing by a LINK from the wire or a deck — any line, a tablet's menu choice among them, as against a person on the desk (`keyFor` `none`), and the link reads the public view until a person binds it on the Nodes page (BIND KEY) or types a key there; a key bound to a Stagewatch goes to that one only. Refused from an approval desk (the link is this desk's operator's) |
+| `STAGEWATCH FOLLOW ON` / `OFF` | Round 93.4: the stage pages and the stage timer follow the linked Stagewatch's time, or this desk's own (`ERR` when it already does). The show needs the link only while the stage follows it, so the link's record moves at once — red while followed and down, held or refused; amber once not followed — with no new dial (§13.1, §13.16.1) |
+| `STAGEWATCH FLOOR LOWER` | Round 93.4 (§13.9.3): the floor a verified link recorded is lowered — `ERR` while none is recorded, which at level 0 is always: a floor comes only from a link that proved itself |
+| `STAGEWATCH RELEASE` | Round 93.4 (§13.17): always `ERR` with the reason — this desk follows no blackout or hold of a Stagewatch's, and a counting time is never held, so nothing is held to release. Kept so a deck's key answers in words rather than as unknown; the card's right-click menu and the Nodes page show *Release held fact* greyed with the same reason |
+| `STAGEWATCH TRUST` / `ACCEPT` / `KEY` | Round 93.4: always `ERR TRUST and ACCEPT are a person's choice on the desk, beside the fingerprint …` (`KEY`: the key is typed on the Nodes page only). Nothing after the word is carried — a fingerprint, typed hex or a key on the line goes nowhere, not into the journal, the reply or the log — and the refusal is one journal row. The module has no action for any of them, the writer spells none of them and the assistant proposes no link verb |
 | `TIMER PAUSE` / `RESUME` | The stage timer (the countdown overlay's clock) holds its remaining seconds, and runs on again from them |
 | `TIMER ADD <seconds>` / `TIMER MINUS <seconds>` | The clock nudged — `TIMER ADD 90`, `TIMER ADD 1:30`, `TIMER MINUS 30`; `TIMER +60` and `TIMER -30` are the same. A nudge is finite and at most a week: past that, or NaN or an infinity, the line is refused (round 82) |
 | `TIMER FLASH` | The stage pages blink for three seconds — the speaker's eye to the clock |
@@ -704,7 +710,25 @@ What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in on
   Trust is the desk's alone: no wire verb, deck or assistant presses it, and each press is one journal row. A
   Stagewatch at loopback gets the key as before. A certificate a person pinned that changes is refused — CERTIFICATE CHANGED
   on the Nodes page and the Eye, nothing of this desk's sent, the certificate looked at again at most once a minute — until
-  ACCEPT. A hello that names another certificate than the pin is a note, never a refusal: the pin decides. A refused key's
+  ACCEPT. Round 93.4 (§13.8.3): ACCEPT takes at least 8 hex of the certificate shown now, typed beside it on the Nodes page
+  (spaces dropped, either case — as the core and Stagewatch's own desk read it; a colon is not hex) and never pre-filled; fewer, or another certificate's, accept nothing and say the
+  waiting one's start. The card's right-click entry (here and on the Eye) opens the Nodes page where it is typed; each press
+  is one journal row, the typed hex in none. On the wire `STAGEWATCH ACCEPT` and `STAGEWATCH TRUST` are refused in those words.
+- **Where the key goes** (round 93.4, `Control.Stagewatch.KeyFor`, STATE's `bus.stagewatch.keyFor`). The key is typed on
+  the desk and goes only to the Stagewatch it is bound to: `node:<id>` (that Stagewatch, at whatever address it is heard) or
+  `addr:<host>:<port>` (that address). A key typed anew follows the Stagewatch this desk's own settings name and binds to it
+  at its first 2xx (a `swk_…` key only: any other value is a PIN, which proves nothing); a LINK from a line turns an unbound
+  key to `none`, so it goes nowhere a line chose. To a Stagewatch it is not bound to the link reads the public view, and the
+  link's one record says the key is set and held back (§13.16.2): the flag `keyless`, amber, the key's kid, and the words
+  "Hall B · public view — this desk's key is bound to Stagewatch a1b2c3d4 and is not sent here; BIND KEY on the Nodes page
+  sends it here" — so STATE's `link`, the Eye, the Nodes card and the Run strip, the context's link item, the Super Check, the
+  assistant's brief and the module's `stagewatch_link_flags` say it from that record. **BIND KEY** on the Nodes page — or the
+  card's right-click entry — sends it there from the next dial: a person's press, one journal row, never a line. Only a key
+  typed anew in the Nodes page's box starts unbound; a key read with its binding — the settings at start, a show loaded —
+  keeps it, so a load never turns a line's `none` back into the Stagewatch the settings name. A key saved before round 93 is
+  read unbound (it follows the Stagewatch the settings name and binds at its first answer), not bound to the configured host
+  at load. The Nodes page's other boxes — the link on, its address (taken when the box is left), the stage's follow — and its
+  LINK AGAIN, LOWER FLOOR (while a floor is recorded) and RELEASE (greyed) buttons are the same verbs, one journal row each. A hello that names another certificate than the pin is a note, never a refusal: the pin decides. A refused key's
   hold is kept beside the settings (`patterns.linkholds.json`: the link's target, the key's kid, the end in wall time and
   the word — never the key), so a desk started inside it presents the key no sooner, reading the public view meanwhile.
 - **The approval queue (Stagewatch's cap `approvals`; a `node` key).** Every 5 s the desk posts its own context to
@@ -833,6 +857,10 @@ What Patterns does with it:
   `bus.dropped`, the ids the full table put out since start. The module reads `showbus_heard`, `stagewatch_state`,
   `stagewatch_name`, `stagewatch_headline`, `stagewatch_light`, `stage_follows`, (3.18.1) `stagewatch_stuck` and
   (3.19.0) `stagewatch_key`; a conflict's hold reaches a deck through `stagewatch_light` and `stagewatch_headline`.
+  Round 93.4 appends, after the record `link`: `follow` (the stage follows the Stagewatch's timer), `pending` (the short
+  fingerprint of a changed certificate waiting for ACCEPT, empty when none) and `keyFor` (where the key goes — `node:<id>`,
+  `addr:<host>:<port>`, `none`, or empty for the Stagewatch the settings name; never the key). The module (3.20.0) reads
+  `stagewatch_follow` and `stagewatch_pending`, and its keys send `STAGEWATCH LINK`, `FOLLOW`, `FLOOR LOWER` and `RELEASE`.
 - **STATE's `control` row** (round 89, at the very end): `clearSeen[{address, via, first, last, count}]` — each
   machine the pairing token arrived from in clear, `via` `web`, `wire` or `web,wire`, the first and last time in
   ISO 8601 UTC — and `words` ("seen in clear from 10.0.0.7 — rotate it: NEW TOKEN"; empty when none). The marks are

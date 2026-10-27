@@ -82,6 +82,13 @@ public sealed class MidiLearnService
             // Round 75: a bound line sits in the show file in clear, and the show file travels (the twin, a stick, a bundle).
             return ActionResult.Refused("An admin verb (UPDATE APPLY, RESTART) carries the passcode — not a line to bind. The admin verbs stay on the desk and the Remote page.");
         }
+        if (parsed.Action.Kind is ShowActionKind.StagewatchTrust or ShowActionKind.StagewatchAccept or ShowActionKind.StagewatchKeyBind)
+        {
+            // G34: a person's choice beside the fingerprint on this desk, and the key typed there — no pad presses either.
+            return ActionResult.Refused(parsed.Action.Kind == ShowActionKind.StagewatchKeyBind
+                ? StagewatchVerbs.KeyWords + " — not a line to bind."
+                : StagewatchVerbs.DeskOnlyWords + " — not a line to bind.");
+        }
         if (!HasSurface) return ActionResult.Refused("No MIDI control surface in the show — add one on the Interactive page (+ MIDI CONTROL SURFACE) first.");
         if (!SurfaceOpen) return ActionResult.Refused("No MIDI surface is open — switch the Interactive area on and check the surface's port on the Interactive page.");
         // Round 89: the line is bound into the show, so a private page address in it is kept on this machine first and

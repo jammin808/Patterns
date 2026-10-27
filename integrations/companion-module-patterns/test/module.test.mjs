@@ -911,3 +911,42 @@ test("round 91 — what the linked Stagewatch made of the desk's key reads as a 
 	const old = await boot({ state: older })
 	assert.equal(old.ctx.variables.stagewatch_key, '')
 })
+
+test("G34, Show Bus 1.3 §13.16.6 — the Stagewatch link's verbs on keys: LINK, FOLLOW, FLOOR LOWER and RELEASE; no action trusts, accepts or carries the key", async () => {
+	const b = await boot()
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'AUTO', host: '', node: '' }), ['STAGEWATCH LINK AUTO'])
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'OFF', host: '', node: '' }), ['STAGEWATCH LINK OFF'])
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'AGAIN', host: '', node: '' }), ['STAGEWATCH LINK AGAIN'])
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'HOST', host: ' 10.0.0.9:9924 ', node: '' }), ['STAGEWATCH LINK 10.0.0.9:9924'])
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'ID', host: '', node: 'id:a1b2c3d4' }), ['STAGEWATCH LINK id:a1b2c3d4'])
+	// Nothing typed, two words, or an id the show network cannot name: nothing goes — the desk would refuse it anyway.
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'HOST', host: '  ', node: '' }), [])
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'HOST', host: '10.0.0.9 10.0.0.8', node: '' }), [])
+	assert.deepEqual(pressAction(b, 'stagewatch_link', { to: 'ID', host: '', node: 'ab' }), [])
+	assert.deepEqual(pressAction(b, 'stagewatch_follow', { mode: 'OFF' }), ['STAGEWATCH FOLLOW OFF'])
+	assert.deepEqual(pressAction(b, 'stagewatch_floor', {}), ['STAGEWATCH FLOOR LOWER'])
+	assert.deepEqual(pressAction(b, 'stagewatch_release', {}), ['STAGEWATCH RELEASE'])
+	// TRUST and ACCEPT are a person's choice on the desk, beside the fingerprint, and the key is typed there: no key says them.
+	const lines = await allLines()
+	assert.ok(lines.includes('STAGEWATCH LINK id:a1b2c3d4'))
+	for (const line of lines) assert.doesNotMatch(line, /^STAGEWATCH\s+(TRUST|ACCEPT|KEY)\b/i, line)
+	for (const id of Object.keys(b.ctx.actions)) assert.doesNotMatch(id, /trust|accept/i, id)
+})
+
+test('G34 — whether the stage follows the linked Stagewatch and a changed certificate waiting for ACCEPT read as variables; an older desk reads empty', async () => {
+	const b = await boot()
+	assert.equal(b.ctx.variables.stagewatch_follow, 'on')
+	assert.equal(b.ctx.variables.stagewatch_pending, '')
+	for (const id of ['stagewatch_follow', 'stagewatch_pending']) assert.ok(b.ctx.variableDefs[id], id + ' defined for the host')
+	const s = sampleState()
+	s.bus.stagewatch = { ...s.bus.stagewatch, follow: false, pending: '8e8b c45b b14f 9c74' }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_follow, 'off')
+	assert.equal(b.ctx.variables.stagewatch_pending, '8e8b c45b b14f 9c74')
+	const older = sampleState()
+	delete older.bus.stagewatch.follow
+	delete older.bus.stagewatch.pending
+	const old = await boot({ state: older })
+	assert.equal(old.ctx.variables.stagewatch_follow, '')
+	assert.equal(old.ctx.variables.stagewatch_pending, '')
+})

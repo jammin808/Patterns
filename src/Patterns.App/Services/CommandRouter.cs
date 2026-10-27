@@ -110,6 +110,8 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Calibration.StatusJson());
             case RemoteCommandKind.NodesStatus:
                 return ControlProtocol.Ok(_services.Nodes.StatusJson());
+            case RemoteCommandKind.StagewatchStatus:
+                return ControlProtocol.Ok(JsonSerializer.Serialize(StagewatchRow(_services.ShowApps(DateTime.UtcNow))));   // G34: STATE's bus.stagewatch row, one projection
             case RemoteCommandKind.StageStatus:
                 return ControlProtocol.Ok(_services.Stage.StatusJson());
             case RemoteCommandKind.ArcadeStatus:
@@ -759,7 +761,27 @@ public sealed class CommandRouter : IRouter
     {
         var now = DateTime.UtcNow;
         var apps = _services.ShowApps(now);
+        // ShowBusView.Peers keeps the apps' order, one row each: a row's conflict is its app's.
+        var rows = ShowBusView.Peers(apps);
+        return new
+        {
+            heard = apps.Count(a => a.State == ShowBusState.Live),
+            apps = rows.Select((p, i) => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline, conflict = apps[i].Conflict.Length > 0 }).ToArray(),
+            stagewatch = StagewatchRow(apps),
+            dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
+        };
+    }
+
+    /// <summary>
+    /// The Stagewatch link as STATE's <c>bus.stagewatch</c> carries it and STAGEWATCH STATUS answers it — one projection. G34 appends, at
+    /// the row's end, <c>follow</c> (the stage follows the Stagewatch's timer), <c>pending</c> (the short fingerprint of a changed
+    /// certificate waiting for ACCEPT, "" when none) and <c>keyFor</c> (where the key goes: <c>node:&lt;id&gt;</c>, <c>addr:…</c>,
+    /// <c>none</c>, or "" for the target this desk's settings name) — where, never what: no field carries the key.
+    /// </summary>
+    private object StagewatchRow(IReadOnlyList<EyeShowApp> apps)
+    {
         var link = _services.Kernel.Stagewatch;
+        var config = _services.State.Control.Stagewatch;
         var sight = link.Sight;
         var linked = apps.FirstOrDefault(a => a.Linked && a.KindWords == "Stagewatch");      // the link's own card, never one of this desk's nodes
         // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
@@ -771,35 +793,30 @@ public sealed class CommandRouter : IRouter
         // words naming both machines in the headline, so a deck that reads only the light and the headline sees the hold.
         var held = link.Held;
         var heldLeads = held.Length > 0 && linked is not { State: ShowBusState.Live };
-        // ShowBusView.Peers keeps the apps' order, one row each: a row's conflict is its app's.
-        var rows = ShowBusView.Peers(apps);
         return new
         {
-            heard = apps.Count(a => a.State == ShowBusState.Live),
-            apps = rows.Select((p, i) => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline, conflict = apps[i].Conflict.Length > 0 }).ToArray(),
-            stagewatch = new
-            {
-                on = _services.State.Control.Stagewatch.Enabled,
-                state = sight.Name.Length == 0 && sight.Address.Length == 0 ? "off" : sight.State.ToString().ToLowerInvariant(),
-                name = sight.Name,
-                following = _services.Stage.Following.Length > 0,
-                title = sight.Frame?.Title ?? "",
-                text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
-                // Show Bus 1.3 §13.16.4: a live link's record darker than this — amber at level 0 — is the row's light too.
-                light = Folded(linked, stuck || amber ? ShowBusView.StuckLight(linked?.Context?.Light) : heldLeads ? "amber" : linked?.Context?.Light ?? "grey"),
-                // Round 91: a key refused or speaking for no node of this desk's, on a live link, leads — as the apps row says it.
-                headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line
-                    : linked is not null && ShowBusView.ConflictAmber(linked) ? linked.Conflict
-                    : heldLeads ? held : linked?.Context?.Headline ?? "",
-                clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
-                words = link.Status,
-                stuck,                                                                   // round 89: appended at the row's end
-                carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
-                key = sight.Key.Word,                                                    // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
-                held,                                                                    // Show Bus 1.3 §2: the conflict the link is held off for ("" when none) — appended at the row's end
-                link = (linked?.Link ?? link.Record).ToElement(),                        // Show Bus 1.3 §13.16.3: the link's record, one object — appended at the row's end
-            },
-            dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
+            on = config.Enabled,
+            state = sight.Name.Length == 0 && sight.Address.Length == 0 ? "off" : sight.State.ToString().ToLowerInvariant(),
+            name = sight.Name,
+            following = _services.Stage.Following.Length > 0,
+            title = sight.Frame?.Title ?? "",
+            text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
+            // Show Bus 1.3 §13.16.4: a live link's record darker than this — amber at level 0 — is the row's light too.
+            light = Folded(linked, stuck || amber ? ShowBusView.StuckLight(linked?.Context?.Light) : heldLeads ? "amber" : linked?.Context?.Light ?? "grey"),
+            // Round 91: a key refused or speaking for no node of this desk's, on a live link, leads — as the apps row says it.
+            headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line
+                : linked is not null && ShowBusView.ConflictAmber(linked) ? linked.Conflict
+                : heldLeads ? held : linked?.Context?.Headline ?? "",
+            clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
+            words = link.Status,
+            stuck,                                                                   // round 89: appended at the row's end
+            carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
+            key = sight.Key.Word,                                                    // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
+            held,                                                                    // Show Bus 1.3 §2: the conflict the link is held off for ("" when none) — appended at the row's end
+            link = (linked?.Link ?? link.Record).ToElement(),                        // Show Bus 1.3 §13.16.3: the link's record, one object — appended at the row's end
+            follow = config.FollowStage,                                             // G34: the stage follows its timer — appended at the row's end
+            pending = TlsFingerprint.Short(link.PendingFingerprint),                 // G34: a changed certificate waiting for a person's ACCEPT, "" when none
+            keyFor = config.KeyFor,                                                  // G34: where the key goes, never the key
         };
     }
 

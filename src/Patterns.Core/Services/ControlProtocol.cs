@@ -69,6 +69,11 @@ public enum RemoteCommandKind
     NavDeck,
     /// <summary>RECORD ON / OFF (round 74): the connection asks for the desk's actions as ACTION lines while a deck records a button (Text = ON / OFF); the port keeps it; nothing runs.</summary>
     Record,
+    /// <summary>
+    /// STAGEWATCH / STAGEWATCH STATUS (G34): the Stagewatch link as STATE's <c>bus.stagewatch</c> row carries it — on, state, the
+    /// link's record, <c>follow</c>, <c>pending</c> and <c>keyFor</c> — as JSON. The key is no field of it.
+    /// </summary>
+    StagewatchStatus,
 }
 
 /// <summary>
@@ -1324,6 +1329,12 @@ public static class ControlProtocol
                     _ => Unknown(s),
                 };
 
+            // G34 (Show Bus 1.3 §13.16.6): the Stagewatch link set and followed from the wire as the Nodes page sets it — LINK
+            // ON|OFF|AUTO|AGAIN|<host[:port]>|id:<id>, FOLLOW ON|OFF, FLOOR LOWER, RELEASE and the read; TRUST, ACCEPT and KEY are the
+            // desk's, carried with nothing after them and refused there. Any other word is unknown, never defaulted.
+            case "STAGEWATCH":
+                return StagewatchVerbs.Parse(arg) ?? Unknown(s);
+
             // The camera calibration: a run through a camera, cancelled, the demo, applied, undone, or read.
             case "CALIBRATE":
             case "CALIBRATION":
@@ -1498,6 +1509,7 @@ public static class ControlProtocol
         RemoteCommandKind.ArcadeStatus => "ARCADE STATUS",
         RemoteCommandKind.PlayStatus => "PLAY STATUS",
         RemoteCommandKind.AssistantAsk => "ASSISTANT",
+        RemoteCommandKind.StagewatchStatus => "STAGEWATCH STATUS",
         _ => cmd.Kind.ToString().ToUpperInvariant(),
     };
 

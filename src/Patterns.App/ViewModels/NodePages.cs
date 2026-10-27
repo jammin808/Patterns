@@ -61,8 +61,25 @@ public interface INodesPage
     string ShowBusLine { get; }
     /// <summary>Round 88: the Stagewatch's certificate changed and the link refuses it until ACCEPT.</summary>
     bool HasPendingCertificate { get; }
-    /// <summary>Round 88: ACCEPT — the changed certificate becomes the pin.</summary>
+    /// <summary>
+    /// Show Bus 1.3 §13.8.3: ACCEPT — at least 8 hex of the changed certificate, typed in <see cref="AcceptHex"/> by a person who compared
+    /// it with the Stagewatch's own screen, through the show action (one journal row); then it becomes the pin.
+    /// </summary>
     RelayCommand AcceptCertificateCommand { get; }
+    /// <summary>The hex a person types beside ACCEPT — never pre-filled, emptied once a certificate is accepted.</summary>
+    string AcceptHex { get; set; }
+    /// <summary>CERTIFICATE CHANGED in words, with the short fingerprint of the certificate waiting; "" when none waits.</summary>
+    string AcceptWords { get; }
+    /// <summary>G34: LINK AGAIN — Show Bus 1.3 §13.16.6's <i>Link again now</i>, the menu's and the wire's verb.</summary>
+    RelayCommand LinkAgainCommand { get; }
+    /// <summary>G34: the link's boxes — on, the address, the stage's follow, Lower floor, Release — each the link's show action; the key typed here.</summary>
+    StagewatchBoxes LinkBoxes { get; }
+    /// <summary>G34: the key is held back from the Stagewatch the link dials because it is bound to another.</summary>
+    bool HasKeyBind { get; }
+    /// <summary>The binding in words, and the Stagewatch BIND KEY would send the key to; "" when none.</summary>
+    string KeyBindWords { get; }
+    /// <summary>BIND KEY — a person's: the key goes to the Stagewatch shown beside the press from the next dial.</summary>
+    RelayCommand BindKeyCommand { get; }
     /// <summary>Show Bus 1.3 §13.6.8: the Stagewatch link holds its key back from a certificate no person pinned — Trust waits beside its short fingerprint.</summary>
     bool HasTrust { get; }
     /// <summary>The certificate waiting for Trust in words, with its short fingerprint; "" when none waits.</summary>

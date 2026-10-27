@@ -158,6 +158,7 @@ public sealed partial class ShowActions : IActionLayer
         ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.ListGo or ShowActionKind.ListBack or ShowActionKind.ListReset
             => CueStacks.Find(State, action.Target)?.Name ?? action.Target,
         ShowActionKind.SpotifyPlay when action.Target.Length > 0 => SpotifyLibrary.Find(State, action.Target)?.DisplayName ?? action.Target,
+        _ when StagewatchLinkActions.IsLinkVerb(action.Kind) => StagewatchLinkActions.JournalTarget(action),   // G34: what the link was set to, never typed hex
         _ when ActionSpec.CarriesSecret(action.Kind) => "",   // round 75: the admin passcode rides the target — the row keeps the kind and the outcome, never the secret
         _ => WindowAddresses.RedactText(action.Target),        // round 89: a page named by a private address is written in public — never its pass
     };

@@ -837,7 +837,7 @@ public class ShowBusAppTests
             Assert.Equal("amber", row.GetProperty("light").GetString());
             Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
             Assert.True(row.GetProperty("stuck").GetBoolean());
-            Assert.Equal(new[] { "stuck", "carrier", "key", "held", "link" }, row.EnumerateObject().Select(p => p.Name).TakeLast(5));   // stuck appended, the carrier after it, then the key (round 91), the hold (Show Bus 1.3 §2), the link's record (§13.16.3)
+            Assert.Equal(new[] { "stuck", "carrier", "key", "held", "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name).TakeLast(8));   // stuck appended, the carrier after it, then the key (round 91), the hold (Show Bus 1.3 §2), the link's record (§13.16.3), and G34's follow, pending and keyFor
             Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
             // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
@@ -1008,10 +1008,10 @@ public class ShowBusAppTests
         const string id = "c0c0c0c0";
         try
         {
-            // Off: the record says so, STATE carries it as the row's last field, and no reader shows a link that is not there.
+            // Off: the record says so, STATE carries it after the hold — G34's follow, pending and keyFor after it — and no reader shows a link that is not there.
             Assert.Equal(("off", "grey", "○"), (link.Record.State, link.Record.Light, link.Record.Mark));
             var quiet = StagewatchRow(services);
-            Assert.Equal("link", quiet.EnumerateObject().Last().Name);
+            Assert.Equal(new[] { "held", "link", "follow", "pending", "keyFor" }, quiet.EnumerateObject().Select(p => p.Name).TakeLast(5));
             Assert.Equal("off", quiet.GetProperty("link").GetProperty("state").GetString());
             Assert.DoesNotContain("STAGEWATCH", services.GlanceWords, StringComparison.Ordinal);
             Assert.DoesNotContain(ShowContext.Parse(services.ContextJson())!.Items, i => i.Kind == "link");
@@ -1036,9 +1036,9 @@ public class ShowBusAppTests
             Assert.Equal(("live", "amber", "△", 0, "legacy", "local", id, "Hall C"), (r.State, r.Light, r.Mark, r.Level, r.Proof, r.Tls, r.PeerId, r.PeerName));
             Assert.Equal(new[] { "legacy" }, r.Flags);
 
-            // STATE: the record, one object at the row's end, in 13.16.3's fields; the row's own light no better than it.
+            // STATE: the record, one object after the hold (G34's follow, pending and keyFor after it), in 13.16.3's fields; the row's own light no better than it.
             var row = StagewatchRow(services);
-            Assert.Equal("link", row.EnumerateObject().Last().Name);
+            Assert.Equal(new[] { "held", "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name).TakeLast(5));
             var json = row.GetProperty("link");
             Assert.Equal(new[] { "peer", "carrier", "level", "tls", "pin", "proof", "kid", "scope", "state", "refusal", "show", "flags", "light", "mark", "words", "since", "heardMs", "attempt", "nextMs", "clock", "counts", "floor" },
                 json.EnumerateObject().Select(p => p.Name));
@@ -1213,7 +1213,7 @@ public class ShowBusAppTests
             // Taken: every reader says nothing of the key, STATE says key at the row's end; one log line.
             var row = StagewatchRow(services);
             Assert.Equal("key", row.GetProperty("key").GetString());
-            Assert.Equal(new[] { "key", "held", "link" }, row.EnumerateObject().Select(p => p.Name).TakeLast(3));   // the key appended, the hold (Show Bus 1.3 §2) after it, the link's record (§13.16.3) last
+            Assert.Equal(new[] { "key", "held", "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name).TakeLast(6));   // the key appended, the hold (Show Bus 1.3 §2) after it, the link's record (§13.16.3), then G34's three
             Assert.Equal("", link.Key.Line);
             Assert.Equal(TimeSpan.Zero, link.KeyHeld);
             services.Nodes.Poll();
@@ -1543,6 +1543,62 @@ public class ShowBusAppTests
         finally
         {
             stagewatch.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.15.3, 13.16.6: <i>Link again now</i> — a refused key's hold kept beside the settings ends at a person's or a deck's
+    /// press, in memory and on disk, under every target it was kept, before the dial it makes due: the Stagewatch that now takes the key
+    /// gets it on the next socket, long before the hold's own end. One journal row for the press; the key in no line of the log.
+    /// </summary>
+    [AvaloniaFact]
+    public void LinkAgainEndsARefusedKeysHoldOnDiskAndTheNextSocketCarriesTheKey()
+    {
+        using var home = TempRun.Folder("patterns-tests-");
+        var kid = PeerLink.Kid(PeerLink.KeyKey("swk_testkey"));
+        var path = Path.Combine(home.Path, LinkHolds.FileName);
+        long Wall() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var b = TestApp.Boot(dir: home.Path);
+        var (services, vm) = (b.Services, b.Vm);
+        var link = services.Kernel.Stagewatch;
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { First = StagewatchBytes.Refusal("unknown or revoked API key", 60) };
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => link.Key.Refused && link.Holds.All(Wall()).Count > 0, 15000);       // the hold is written as the refusal is read
+            var hold = Assert.Single(link.Holds.All(Wall()));
+            Assert.Equal(kid, hold.Kid);
+            Assert.True(hold.UntilWallMs - Wall() > 50_000, "held for the refusal's minute");
+            Assert.Contains(kid, File.ReadAllText(path), StringComparison.Ordinal);
+            PumpUntil(() => link.Record.State == "held", 15000);
+
+            // Its operator lets the key speak again; the press ends the hold here, and the next socket carries the key.
+            stagewatch.First = null;
+            var before = stagewatch.Requests.Count;
+            var router = new CommandRouter(services);
+            var deck = new Patterns.Core.Model.ActionOrigin(Patterns.Core.Model.OriginKind.Tcp, "", "10.0.0.12:51234");
+            Assert.Equal("OK", TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("STAGEWATCH LINK AGAIN"), deck)));
+            Assert.Empty(link.Holds.All(Wall()));
+            Assert.DoesNotContain(kid, File.ReadAllText(path), StringComparison.Ordinal);       // written before the dial
+            var row = services.Journal.Tail(300).Last(e => e.Kind == nameof(Patterns.Core.Model.ShowActionKind.StagewatchLinkAgain));
+            Assert.Equal("Done", row.Outcome);
+            Assert.StartsWith("Stagewatch link: every hold of this desk's key ended", row.Message, StringComparison.Ordinal);
+            PumpUntil(() => stagewatch.Requests.Skip(before).Any(r => r.What == "ws" && r.Authorization == "Bearer swk_testkey"), 10000);
+            PumpUntil(() => link.Key.Word == "key", 10000);
+            Assert.True(Wall() < hold.UntilWallMs, "the key went before the hold would have ended");
+
+            // Said again with nothing held on a live link: refused, the link left as it is.
+            PumpUntil(() => link.Record.State == "live", 10000);
+            Assert.StartsWith("ERR The Stagewatch link is up", TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("STAGEWATCH LINK AGAIN"), deck)), StringComparison.Ordinal);
+            TestApp.FlushFiles(services);
+            Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 

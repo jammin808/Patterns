@@ -111,6 +111,32 @@ public sealed class StagewatchLinkCoreTests
         Assert.False(new LinkHolds(dir.Path).For("node:sw0002", Kid, Wall + 1_000)!.Public);
     }
 
+    /// <summary>
+    /// <i>Link again now</i> (13.15.3, 13.16.6): every hold of the key ends under whatever target it was kept — one the run has not
+    /// dialled yet among them — a rate limit's with it, and the store is written before the dial; a hold of another key stays, and an
+    /// ended one is gone.
+    /// </summary>
+    [Fact]
+    public void LinkAgainLiftsEveryHoldOfTheKeyUnderAnyTargetAndLeavesAnotherKeys()
+    {
+        using var dir = TempRun.Folder("patterns-holds-");
+        var holds = new LinkHolds(dir.Path);
+        holds.Hold(Target, Kid, Wall + 60_000, "key", Wall);
+        holds.Hold("addr:10.0.0.5:9924", Kid, Wall + 30_000, "busy", Wall);
+        holds.Hold("node:swdesk02", OtherKid, Wall + 60_000, "key", Wall);
+        holds.Hold("node:swdesk03", OtherKid, Wall + 1_000, "key", Wall);
+        Assert.True(holds.Holding(Kid, Wall + 2_000));
+
+        Assert.Equal(2, holds.Lift(Kid, Wall + 2_000));
+        Assert.False(holds.Holding(Kid, Wall + 2_000));
+        var kept = new LinkHolds(dir.Path).All(Wall + 2_000);                              // written before the caller dials
+        var left = Assert.Single(kept);
+        Assert.Equal(("node:swdesk02", OtherKid), (left.Target, left.Kid));
+        Assert.DoesNotContain(Kid, File.ReadAllText(Path.Combine(dir.Path, LinkHolds.FileName)), StringComparison.Ordinal);
+        Assert.Equal(0, holds.Lift(Kid, Wall + 3_000));                                       // nothing more of it to end
+        Assert.True(holds.Holding(OtherKid, Wall + 3_000));
+    }
+
     [Fact]
     public void AHoldsFileThatCannotBeReadStartsTheStoreEmpty()
     {
@@ -426,6 +452,80 @@ public sealed class StagewatchLinkCoreTests
         Assert.Equal("first", config.Pins.Single(p => p.Key == "node:b").Made);
     }
 
+    /// <summary>
+    /// G34, 13.16.2: a key held back from this Stagewatch by its binding is a key set and held back — the bearer goes nowhere, on a local
+    /// link too, the flag is <c>keyless</c>, and the words say where the key is bound; the record names the kid. Where nothing else is
+    /// amber (a link that offered LINK), it is the held-back key that makes the light amber: with no key set the same link is green,
+    /// keyless only as information.
+    /// </summary>
+    [Fact]
+    public void AKeyHeldBackByItsBindingIsKeylessAmberAndSaysWhereItIsBound()
+    {
+        const string why = "this desk's key is bound to Stagewatch a1b2c3d4 and is not sent here; BIND KEY on the Nodes page sends it here";
+        var held = new PeerLinkMachine(Settings(local: true) with { KeyHeldBack = why }, null, 0, () => 0.5);
+        long t = 0;
+        Up(held, ref t);
+        Assert.DoesNotContain(held.Drain(), w => w.Credential is not null);                 // a local link, and still no bearer
+        var record = held.Record(t);
+        Assert.Contains("keyless", record.Flags);
+        Assert.Equal(("amber", Kid), (record.Light, record.Kid));
+        Assert.Equal("Hall A · public view — " + why, record.Words);
+
+        var offered = new PeerLinkMachine(Settings(local: true) with { KeyHeldBack = why }, null, 0, () => 0.5);
+        t = 0;
+        Offered(offered, ref t);
+        Assert.DoesNotContain(offered.Drain(), w => w.Credential is not null);              // no proof of a key held back either
+        var amber = offered.Record(t);
+        Assert.Equal(("live", "amber", "△"), (amber.State, amber.Light, amber.Mark));
+        Assert.Contains("keyless", amber.Flags);
+        Assert.DoesNotContain("legacy", amber.Flags);
+
+        var none = new PeerLinkMachine(Settings(local: true) with { Key = null }, null, 0, () => 0.5);
+        t = 0;
+        Offered(none, ref t);
+        var plain = none.Record(t);
+        Assert.Contains("keyless", plain.Flags);
+        Assert.Equal(("live", "green", "Hall A · public view"), (plain.State, plain.Light, plain.Words));
+    }
+
+    /// <summary>
+    /// 13.1, 13.16.1–2: the show's need moves only the light — a link down is red while the show needs it and amber once it does not —
+    /// and the redial count, the wait and the state stay as they were.
+    /// </summary>
+    [Fact]
+    public void TheShowsNeedMovesTheLightAndNothingElse()
+    {
+        var m = new PeerLinkMachine(Settings(local: true) with { ShowNeeds = true }, null, 0, () => 0.5);
+        long t = 0;
+        Fail(m, ref t);
+        Fail(m, ref t);
+        var before = m.Record(t);
+        Assert.Equal(("down", "red", 2), (before.State, before.Light, before.Attempt));
+        m.ShowNeedsLink(false);
+        var after = m.Record(t);
+        Assert.Equal(("down", "amber", 2, before.NextMs), (after.State, after.Light, after.Attempt, after.NextMs));
+        m.ShowNeedsLink(true);
+        Assert.Equal("red", m.Record(t).Light);
+    }
+
+    /// <summary>13.15.2–3: <i>Link again now</i> ends the redial's wait — the next dial is due at once — and the count goes on.</summary>
+    [Fact]
+    public void LinkAgainNowEndsTheWaitAndKeepsTheRedialCount()
+    {
+        var m = new PeerLinkMachine(Settings(local: true), null, new LinkNow(0, Wall), () => 0.5);
+        long t = 0;
+        Fail(m, ref t);
+        Fail(m, ref t);
+        Fail(m, ref t);
+        Assert.True(m.DialIn(new LinkNow(t, Wall + t)) > 0);
+        m.LinkAgainNow(new LinkNow(t, Wall + t));
+        Assert.Equal(0, m.DialIn(new LinkNow(t, Wall + t)));
+        Assert.Equal(3, m.Attempt);
+        Assert.NotNull(m.Dial(new LinkNow(t, Wall + t)));
+        m.Closed(new LinkNow(t + 1, Wall + t + 1));
+        Assert.Equal(4, m.Attempt);                                                           // a dial that fails after it is the fourth
+    }
+
     [Fact]
     public void AKeyHeldBackForTrustIsAmberAndSaysWhatToCompare()
     {
@@ -449,6 +549,16 @@ public sealed class StagewatchLinkCoreTests
         Assert.NotNull(m.Dial(t));
         m.Closed(t + 1);
         t++;
+    }
+
+    /// <summary>A dial that comes up when its wait is over: plain ws, its first message the acceptor's LINK offer, then a frame.</summary>
+    private static void Offered(PeerLinkMachine m, ref long t)
+    {
+        t += m.DialIn(t) ?? throw new InvalidOperationException("no dial is due");
+        Assert.NotNull(m.Dial(t));
+        m.NoTls(t);
+        m.LinkOffered(t, new LinkOffer(PeerLink.Version, "main", "swdesk01", new string('0', 32), "plain"));
+        m.Frame(t);
     }
 
     /// <summary>A dial that comes up when its wait is over: plain ws, its first message a frame — level 0.</summary>

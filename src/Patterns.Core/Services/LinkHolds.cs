@@ -110,6 +110,33 @@ public sealed class LinkHolds
         }
     }
 
+    /// <summary>
+    /// The operator pressed <i>Link again now</i> (Show Bus 1.3 §13.15.3, 13.16.6): every hold of <paramref name="kid"/> is over, under
+    /// whatever target it was kept — one this run has not dialled yet among them — and a rate limit's standing inside it with it: the
+    /// person asked to dial now. A hold of another key stays; the store is written before the dial. Returns how many holds of the key
+    /// it ended.
+    /// </summary>
+    public int Lift(string kid, long nowWallMs)
+    {
+        lock (_gate)
+        {
+            var dropped = DropEnded(nowWallMs);
+            var lifted = _holds.RemoveAll(h => h.Kid == kid);
+            if (dropped || lifted > 0) Write();
+            return lifted;
+        }
+    }
+
+    /// <summary>Whether a hold of <paramref name="kid"/> stands at <paramref name="nowWallMs"/>, under any target.</summary>
+    public bool Holding(string kid, long nowWallMs)
+    {
+        lock (_gate)
+        {
+            if (DropEnded(nowWallMs)) Write();
+            return _holds.Exists(h => h.Kid == kid);
+        }
+    }
+
     /// <summary>The link holds <paramref name="kid"/> now (null: no key): every hold of another key is over, and so is every ended one.</summary>
     public void KeyIs(string? kid, long nowWallMs)
     {

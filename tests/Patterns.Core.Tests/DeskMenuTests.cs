@@ -111,6 +111,19 @@ public class DeskMenuTests
         yield return DeskMenus.Monitor(d, Monitor("OFF"));
         yield return DeskMenus.Transport(d);
         foreach (var page in DeskPages.All) yield return DeskMenus.Page(d, PageFor(page.Header));   // round 74: every page's own menu
+        // G34: a Stagewatch's card, linked with everything waiting for a person, and another one heard.
+        const string pending = "sha256:8e8bc45bb14f9c74a1b2c3d4e5f60718293a4b5c6d7e8f901122334455667788";
+        var linked = d with
+        {
+            Stagewatch = new MenuStagewatch
+            {
+                On = true, LinkedId = "a1b2c3d4", LinkedName = "Hall A", Heard = new[] { "a1b2c3d4", "e5f6a7b8" }, Pending = pending, Floor = true,
+                BindTarget = "node:a1b2c3d4", BindName = "Stagewatch Hall A",
+            },
+            StagewatchTrust = new MenuTrust("a1b2c3d4", "Hall A", pending),
+        };
+        yield return DeskMenus.ShowApp(linked, new MenuShowApp("a1b2c3d4", "Stagewatch", "Hall A", "linked", true));
+        yield return DeskMenus.ShowApp(linked, new MenuShowApp("e5f6a7b8", "Stagewatch", "Hall B", "heard", false));
         foreach (var (kind, _) in PreviewEdits.OverlayKinds)
         {
             yield return DeskMenus.Overlay(d, new OverlayFacts { Kind = kind, AirOn = kind == "clock", PreviewOn = kind is "clock" or "logo", Anchor = kind == "info" ? null : Anchor9.TopRight, Words = kind == "message" ? "Welcome" : "" });

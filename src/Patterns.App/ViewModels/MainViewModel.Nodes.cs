@@ -45,8 +45,54 @@ public sealed partial class MainViewModel
     public string TokenClearWords => _services.Kernel.TokenClearWords;
 
     private RelayCommand? _acceptCertificate;
+    private string _acceptHex = "";
 
-    public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _services.Kernel.Stagewatch.AcceptPendingCertificate());
+    /// <summary>The hex typed beside ACCEPT: never pre-filled, emptied once a certificate is accepted.</summary>
+    public string AcceptHex { get => _acceptHex; set => Set(ref _acceptHex, value ?? ""); }
+
+    /// <summary>CERTIFICATE CHANGED in words, beside the box ACCEPT reads.</summary>
+    public string AcceptWords => StagewatchLinkActions.AcceptWords(_services.Kernel.Stagewatch.PendingName, _services.Kernel.Stagewatch.PendingFingerprint);
+
+    /// <summary>ACCEPT with the hex typed beside the changed certificate: the one show action, journalled; a menu entry opens this page for it.</summary>
+    public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() =>
+    {
+        var result = Report(_services.Actions.Execute(StagewatchLinkActions.AcceptAction(AcceptHex), ActionOrigin.Desk));
+        StatusMessage = result.Message;
+        if (result.Ok) AcceptHex = "";
+        PollNodes();
+    });
+
+    private StagewatchBoxes? _linkBoxes;
+
+    /// <summary>G34: the Nodes page's Stagewatch boxes, each a press of the link's show action from the desk.</summary>
+    public StagewatchBoxes LinkBoxes => _linkBoxes ??= new StagewatchBoxes(State.Control.Stagewatch, _services.Kernel.Stagewatch,
+        a => Report(_services.Actions.Execute(a, ActionOrigin.Desk)));
+
+    private RelayCommand? _linkAgain;
+
+    /// <summary>LINK AGAIN on the Nodes page: the menu's entry and the wire's STAGEWATCH LINK AGAIN, one action.</summary>
+    public RelayCommand LinkAgainCommand => _linkAgain ??= new RelayCommand(() =>
+    {
+        StatusMessage = Report(_services.Actions.Execute(new ShowAction(ShowActionKind.StagewatchLinkAgain), ActionOrigin.Desk)).Message;
+        PollNodes();
+    });
+
+    /// <summary>G34: the Stagewatch the key is held back from by its binding, as the last poll drew it — the one BIND KEY sends it to.</summary>
+    private string _bindShown = "";
+    private string _bindShownName = "";
+
+    public bool HasKeyBind => _bindShown.Length > 0;
+
+    public string KeyBindWords => _bindShown.Length > 0 ? $"△ This desk's key is bound to another Stagewatch — {_bindShownName} reads without it. BIND KEY sends it there from the next dial; type that Stagewatch's own key instead if it has one." : "";
+
+    private RelayCommand? _bindKey;
+
+    /// <summary>BIND KEY beside the Stagewatch the key is held back from: the menu entry's action too, a person's, journalled.</summary>
+    public RelayCommand BindKeyCommand => _bindKey ??= new RelayCommand(() =>
+    {
+        StatusMessage = Report(_services.Actions.Execute(StagewatchLinkActions.BindAction(_bindShown), ActionOrigin.Desk)).Message;
+        PollNodes();
+    });
 
     /// <summary>
     /// Show Bus 1.3 §13.6.8: the certificate the Nodes card shows beside TRUST, as the last poll drew it ("" when none waits). The
@@ -73,12 +119,18 @@ public sealed partial class MainViewModel
     private void PollNodes()
     {
         _services.Nodes.Poll();
+        LinkBoxes.Look();
         var link = _services.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
-        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}|{trust}|{trustName}";
+        var (bind, bindName) = (link.KeyBindTarget, link.KeyBindName);
+        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{link.PendingFingerprint}|{TokenClearWords}|{trust}|{trustName}|{bind}|{bindName}";
         if (now == _nodesSeen) return;
         _nodesSeen = now;
         (_trustShown, _trustShownName) = (trust, trustName);
+        (_bindShown, _bindShownName) = (bind, bindName);
+        Raise(nameof(AcceptWords));
+        Raise(nameof(HasKeyBind));
+        Raise(nameof(KeyBindWords));
         Raise(nameof(TokenClearWords));
         Raise(nameof(ShowBusLine));
         Raise(nameof(HasPendingCertificate));

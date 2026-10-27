@@ -154,6 +154,9 @@ public static class ActionSpec
         ShowActionKind.CountdownLabel => (TargetKind.None, ValueKind.Text),
         ShowActionKind.CountdownFollow => (TargetKind.None, ValueKind.Switch),
         ShowActionKind.StagewatchTrust => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.StagewatchLinkSet or ShowActionKind.StagewatchAccept or ShowActionKind.StagewatchKeyBind => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.StagewatchFollow => (TargetKind.None, ValueKind.Switch),
+        ShowActionKind.StagewatchLinkAgain or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease => (TargetKind.None, ValueKind.None),
         ShowActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageScroll => (TargetKind.None, ValueKind.Switch),
         ShowActionKind.ClockFormat => (TargetKind.None, ValueKind.Hours),
@@ -438,6 +441,13 @@ public static class ActionSpec
         ShowActionKind.CalibrateApply => "Calibrate — apply the solution to the rig",
         ShowActionKind.CalibrateUndo => "Calibrate — undo the last apply",
         ShowActionKind.StagewatchTrust => "Stagewatch link — trust the certificate shown beside the press",
+        ShowActionKind.StagewatchLinkSet => "Stagewatch link — on, off, the first one heard, an address or a heard id",
+        ShowActionKind.StagewatchLinkAgain => "Stagewatch link — link again now: every hold of the key and the redial's wait end; the next dial is due now",
+        ShowActionKind.StagewatchFollow => "Stagewatch link — the stage follows its timer, or this desk's own",
+        ShowActionKind.StagewatchAccept => "Stagewatch link — accept a changed certificate, at least 8 hex of it typed",
+        ShowActionKind.StagewatchFloorLower => "Stagewatch link — lower the floor its proof recorded",
+        ShowActionKind.StagewatchRelease => "Stagewatch link — release a fact held since the link was lost",
+        ShowActionKind.StagewatchKeyBind => "Stagewatch link — send the key to the Stagewatch shown beside the press",
         _ => kind.ToString(),
     };
 
@@ -537,6 +547,10 @@ public static class ActionSpec
             => "the audience listener is a control setting — the Remote page and the wire, never a cue",
         ShowActionKind.StageAck => "a stage display's own receipt — the ACK on the stage page, forwarded by a timer node; never a cue",
         ShowActionKind.StagewatchTrust => "a person's trust decision, beside the fingerprint on this desk (Show Bus 1.3 §13.6.8) — a running order, a deck, the wire or an assistant never pins a certificate",
+        ShowActionKind.StagewatchAccept => "a person's trust decision, typed beside the fingerprint on this desk (Show Bus 1.3 §13.8.3) — a running order, a deck, the wire or an assistant never accepts a certificate",
+        ShowActionKind.StagewatchKeyBind => "the key is typed on this desk and goes only to the Stagewatch a person bound it to — a running order, a deck, the wire or an assistant never chooses where it goes",
+        ShowActionKind.StagewatchLinkSet or ShowActionKind.StagewatchLinkAgain or ShowActionKind.StagewatchFollow or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease
+            => "the operator's own link to a Stagewatch — the desk, its menus, the wire and a deck set it (Show Bus 1.3 §13.16.6); a running order or an assistant never repoints a key-bearing link or the speaker's timer",
         _ => null,
     };
 

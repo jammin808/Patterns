@@ -609,6 +609,40 @@ export function buildActions(ctx) {
 			callback: (a) => { const t = clean(a.options.text); if (t) send(a.options.channel === 'crew' ? `STAGE CREW ${t}` : `STAGE MESSAGE ${t}`) },
 		},
 		stage_clear: { name: 'Stage — every pending message marked seen', options: [], callback: () => send('STAGE CLEAR') },
+		// ---- the Stagewatch link (G34, Show Bus 1.3 §13.16.6) — the operator's verbs. TRUST and ACCEPT are a person's
+		// choice on the desk, beside the fingerprint, and the key is typed there too: the module has no action for any of them.
+		stagewatch_link: {
+			name: 'Stagewatch link — on, off, the first one heard (AUTO), link again now, an address, or a heard Stagewatch by its id',
+			options: [
+				{ type: 'dropdown', id: 'to', label: 'Link', default: 'AUTO', choices: [
+					{ id: 'AUTO', label: 'The first Stagewatch heard on the show network' }, { id: 'ON', label: 'On (as set on the desk)' }, { id: 'OFF', label: 'Off — the desk\'s own stage timer' },
+					{ id: 'AGAIN', label: 'Link again now (a refused key\'s hold ends)' }, { id: 'HOST', label: 'The address below' }, { id: 'ID', label: 'The heard Stagewatch with the id below' },
+				] },
+				text('host', 'Address — host or host:port (for the address)', ''),
+				text('node', 'Show network id (for the id)', ''),
+			],
+			callback: (a) => {
+				const to = a.options.to
+				if (to === 'HOST') { const h = clean(a.options.host); if (h && !/\s/.test(h)) send(`STAGEWATCH LINK ${h}`); return }
+				if (to === 'ID') { const n = clean(a.options.node).replace(/^id:/i, ''); if (/^[A-Za-z0-9_-]{6,40}$/.test(n)) send(`STAGEWATCH LINK id:${n}`); return }
+				send(`STAGEWATCH LINK ${to}`)
+			},
+		},
+		stagewatch_follow: {
+			name: 'Stagewatch link — the stage pages follow its timer (on) or the desk\'s own (off)',
+			options: [onOrOff('ON')],
+			callback: (a) => send(`STAGEWATCH FOLLOW ${a.options.mode}`),
+		},
+		stagewatch_floor: {
+			name: 'Stagewatch link — lower the floor its proof recorded (refused while none is)',
+			options: [],
+			callback: () => send('STAGEWATCH FLOOR LOWER'),
+		},
+		stagewatch_release: {
+			name: 'Stagewatch link — release a fact held since the link was lost (the desk holds none from a Stagewatch, and says so)',
+			options: [],
+			callback: () => send('STAGEWATCH RELEASE'),
+		},
 		timer: {
 			name: 'Stage timer — pause, resume, pause / resume, add or take seconds, flash the stage pages',
 			options: [

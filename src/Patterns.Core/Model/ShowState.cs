@@ -2401,6 +2401,30 @@ public sealed class StagewatchLinkConfig : Observable
         SetPin(key, fingerprint, Services.PinTrust.First);
         return true;
     }
+
+    private string _keyFor = "";
+
+    /// <summary>
+    /// G34: the Stagewatch the key goes to and to no other (<see cref="Services.StagewatchKeyFor"/>) — <c>node:&lt;id&gt;</c>,
+    /// <c>addr:&lt;host&gt;:&lt;port&gt;</c>, <c>none</c>, or "" (unbound: the target this desk's own settings name, bound to it at
+    /// the first 2xx a key-shaped key earns). Set by the key typed on the Nodes page, a person's BIND KEY there and that first answer;
+    /// a link set from a line turns "" to <c>none</c>, and no line's value is ever written here. Not a secret — where, never what.
+    /// </summary>
+    public string KeyFor { get => _keyFor; set => Set(ref _keyFor, (value ?? "").Trim()); }
+
+    /// <summary>
+    /// G34: the key as a person types it on the Nodes page — the one way a new key is bound to nothing: a key that differs from the one
+    /// kept starts unbound (<see cref="KeyFor"/> ""), following the target this desk's own settings name until its first answer binds
+    /// it, whatever the key before it was bound to. A key and its binding read together from the settings or a show stay together:
+    /// they are copied as a pair, never through here.
+    /// </summary>
+    public void TypeKey(string? key)
+    {
+        var typed = (key ?? "").Trim();
+        if (string.Equals(typed, _apiKey, StringComparison.Ordinal)) return;
+        KeyFor = "";
+        ApiKey = typed;
+    }
 }
 
 /// <summary>

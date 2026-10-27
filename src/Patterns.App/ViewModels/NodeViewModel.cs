@@ -135,13 +135,19 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>On the tick: the words as they move.</summary>
     public void Poll()
     {
+        LinkBoxes.Look();
         var link = _host.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
-        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}|{trust}|{trustName}";
+        var (bind, bindName) = (link.KeyBindTarget, link.KeyBindName);
+        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}|{link.PendingFingerprint}|{TokenClearWords}|{trust}|{trustName}|{bind}|{bindName}";
         if (now != _seen)
         {
             _seen = now;
             (_trustShown, _trustShownName) = (trust, trustName);
+            (_bindShown, _bindShownName) = (bind, bindName);
+            Raise(nameof(AcceptWords));
+            Raise(nameof(HasKeyBind));
+            Raise(nameof(KeyBindWords));
             Raise(nameof(TokenClearWords));
             Raise(nameof(HasPendingCertificate));
             Raise(nameof(HasTrust));
@@ -330,8 +336,57 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     public string TokenClearWords => _host.Kernel.TokenClearWords;
 
     private RelayCommand? _acceptCertificate;
+    private string _acceptHex = "";
 
-    public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _host.Kernel.Stagewatch.AcceptPendingCertificate());
+    /// <summary>The hex typed beside ACCEPT on this node's own link: never pre-filled, emptied once a certificate is accepted.</summary>
+    public string AcceptHex { get => _acceptHex; set => Set(ref _acceptHex, value ?? ""); }
+
+    /// <summary>CERTIFICATE CHANGED on this node's own link, in words, beside the box ACCEPT reads.</summary>
+    public string AcceptWords => StagewatchLinkActions.AcceptWords(_host.Kernel.Stagewatch.PendingName, _host.Kernel.Stagewatch.PendingFingerprint);
+
+    /// <summary>ACCEPT with the hex typed, on this node's own link: the one show action, journalled here.</summary>
+    public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() =>
+    {
+        var result = _host.Actions.Execute(StagewatchLinkActions.AcceptAction(AcceptHex), ActionOrigin.Desk);
+        StatusMessage = result.Message;
+        if (result.Ok) AcceptHex = "";
+        Poll();
+    });
+
+    private StagewatchBoxes? _linkBoxes;
+
+    /// <summary>G34: this node's own Stagewatch boxes, each a press of the link's show action here, on this node's link.</summary>
+    public StagewatchBoxes LinkBoxes => _linkBoxes ??= new StagewatchBoxes(_host.State.Control.Stagewatch, _host.Kernel.Stagewatch, a =>
+    {
+        var result = _host.Actions.Execute(a, ActionOrigin.Desk);
+        StatusMessage = result.Message;
+        return result;
+    });
+
+    private RelayCommand? _linkAgain;
+
+    /// <summary>LINK AGAIN on this node's own link.</summary>
+    public RelayCommand LinkAgainCommand => _linkAgain ??= new RelayCommand(() =>
+    {
+        StatusMessage = _host.Actions.Execute(new ShowAction(ShowActionKind.StagewatchLinkAgain), ActionOrigin.Desk).Message;
+        Poll();
+    });
+
+    private string _bindShown = "";
+    private string _bindShownName = "";
+
+    public bool HasKeyBind => _bindShown.Length > 0;
+
+    public string KeyBindWords => _bindShown.Length > 0 ? $"△ This node's key is bound to another Stagewatch — {_bindShownName} reads without it. BIND KEY sends it there from the next dial; type that Stagewatch's own key instead if it has one." : "";
+
+    private RelayCommand? _bindKey;
+
+    /// <summary>BIND KEY on this node's own link, for the Stagewatch shown beside the press.</summary>
+    public RelayCommand BindKeyCommand => _bindKey ??= new RelayCommand(() =>
+    {
+        StatusMessage = _host.Actions.Execute(StagewatchLinkActions.BindAction(_bindShown), ActionOrigin.Desk).Message;
+        Poll();
+    });
 
     /// <summary>
     /// Show Bus 1.3 §13.6.8: the certificate this node's Nodes card shows beside TRUST, as the last poll drew it ("" when none waits);
@@ -357,11 +412,16 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>A show app's card on this node's Nodes page: Trust on its own link when a certificate waits; the assistant lives on the desk.</summary>
     private DeskMenuVm ShowAppMenu(ShowAppCard card)
     {
-        var facts = Services.DeskMenuFacts.Node(_host.State) with { StagewatchTrust = StagewatchLinkActions.MenuFact(_host.Kernel.Stagewatch, _host.Kernel.Nodes.ShowApps) };
+        var facts = Services.DeskMenuFacts.Node(_host.State) with
+        {
+            StagewatchTrust = StagewatchLinkActions.MenuFact(_host.Kernel.Stagewatch, _host.Kernel.Nodes.ShowApps),
+            Stagewatch = StagewatchLinkActions.MenuStagewatch(_host.Kernel.Stagewatch, _host.State.Control.Stagewatch, _host.Kernel.Nodes.ShowApps),
+        };
         return new DeskMenuVm(DeskMenus.ShowApp(facts, new MenuShowApp(card.Id, card.KindLabel, card.Name, card.Line, card.Linked)), e =>
         {
             var said = e.Scope == MenuScope.Live && e.Action is { } action ? _host.Actions.Execute(action, ActionOrigin.Desk).Message
                 : e.Scope == MenuScope.Ask ? "The assistant lives on the desk — ask there."
+                : e.Scope == MenuScope.Go && e.Id == "link.accept" ? "Type at least 8 hex of the certificate it shows now beside ACCEPT on this page — after comparing it on its own screen."
                 : null;
             if (said is not null) StatusMessage = said;
             return said;

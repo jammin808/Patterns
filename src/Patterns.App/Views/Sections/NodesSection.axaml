@@ -105,29 +105,46 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <CheckBox Content="Link to a Stagewatch — its timer on the stage pages, its things on the Eye, its context in the assistant's brief"
-              IsChecked="{Binding State.Control.Stagewatch.Enabled}"
-              ToolTip.Tip="Off by default. With no address the desk follows the first Stagewatch it hears on the show network. One room, one timer: the stage pages show the Stagewatch's time while it answers" />
+              IsChecked="{Binding LinkBoxes.On}"
+              ToolTip.Tip="Off by default. With no address the desk follows the first Stagewatch it hears on the show network. One room, one timer: the stage pages show the Stagewatch's time while it answers. The same verb as STAGEWATCH LINK ON|OFF on a deck or the wire, one journal row" />
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding State.Control.Stagewatch.Enabled}">
       <TextBlock Classes="label" Text="Address" VerticalAlignment="Center" Margin="0,0,8,0" />
-      <TextBox Grid.Column="1" Text="{Binding State.Control.Stagewatch.Host}" Watermark="host:port — empty finds one on the show network"
-               ToolTip.Tip="A Stagewatch's address and web port (9924 when left out). Empty: the first Stagewatch heard on UDP 9928" />
+      <TextBox Grid.Column="1" Text="{Binding LinkBoxes.Address, UpdateSourceTrigger=LostFocus}" Watermark="host:port, or id:&lt;a heard Stagewatch's id&gt; — empty finds one on the show network"
+               ToolTip.Tip="A Stagewatch's address and web port (9924 when left out), or id: and the show network id of one heard (it is dialled wherever it is heard). Empty: the first Stagewatch heard on UDP 9928. Taken when you leave the box, as STAGEWATCH LINK from a deck or the wire is, one journal row" />
       <TextBlock Grid.Row="1" Classes="label" Text="Key" VerticalAlignment="Center" Margin="0,6,8,0" />
-      <TextBox Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" Text="{Binding State.Control.Stagewatch.ApiKey}" PasswordChar="•" Watermark="swk_… — a node key made on the Stagewatch (a read key follows the timer only; the approval queue needs node)"
-               ToolTip.Tip="Made in Stagewatch: Settings → Remote → API keys. Sent in the Authorization header, never in a URL; masked in every bundle, never mirrored to a twin" />
+      <TextBox Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" Text="{Binding LinkBoxes.Key, UpdateSourceTrigger=LostFocus}" PasswordChar="•" Watermark="swk_… — a node key made on the Stagewatch (a read key follows the timer only; the approval queue needs node)"
+               ToolTip.Tip="Made in Stagewatch: Settings → Remote → API keys. Sent in the Authorization header, never in a URL; masked in every bundle, never mirrored to a twin. Typed here and nowhere else: a new key goes to the Stagewatch this page names and binds to the first one that takes it — never to one a deck or the wire chose" />
     </Grid>
     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasTrust}" Margin="0,4,0,0">
       <TextBlock Text="{Binding TrustWords, StringFormat='△ {0}'}" Foreground="#FFB020" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
       <Button Content="TRUST" Command="{Binding TrustCertificateCommand}"
               ToolTip.Tip="Show Bus 1.3 §13.6.8: an older Stagewatch cannot prove itself, so its key goes only to a certificate a person has trusted. Compare this fingerprint with the one on the Stagewatch's Settings → Remote, then press TRUST. The card's right-click menu holds the same press" />
     </StackPanel>
-    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasPendingCertificate}" Margin="0,4,0,0">
-      <TextBlock Text="CERTIFICATE CHANGED — the Stagewatch now shows another certificate; the link refuses it until you accept" Foreground="#FFB020" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
-      <Button Content="ACCEPT" Command="{Binding AcceptCertificateCommand}"
-              ToolTip.Tip="Round 88: only when you know why it changed (the Stagewatch was reinstalled, its certificate renewed). Compare the fingerprint on its Settings → Remote first" />
+    <StackPanel Spacing="4" IsVisible="{Binding HasPendingCertificate}" Margin="0,4,0,0">
+      <TextBlock Text="{Binding AcceptWords, StringFormat='✕ {0}'}" Foreground="#FF5C7A" TextWrapping="Wrap" MaxWidth="560" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox Text="{Binding AcceptHex}" Watermark="at least 8 hex of the new certificate" MinWidth="220"
+                 ToolTip.Tip="Show Bus 1.3 §13.8.3: type the first hex of the fingerprint the Stagewatch shows on its own Settings → Remote — never copied here for you. A certificate that has changed again since is refused" />
+        <Button Content="ACCEPT" Command="{Binding AcceptCertificateCommand}"
+                ToolTip.Tip="Only when you know why it changed (the Stagewatch was reinstalled, its certificate renewed). A person's choice on this desk — never on the wire, a deck or the assistant; the card's right-click entry opens this box" />
+      </StackPanel>
     </StackPanel>
-    <CheckBox Content="The stage timer follows the Stagewatch (one room, one timer)" IsChecked="{Binding State.Control.Stagewatch.FollowStage}"
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasKeyBind}" Margin="0,4,0,0">
+      <TextBlock Text="{Binding KeyBindWords}" Foreground="#FFB020" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
+      <Button Content="BIND KEY" Command="{Binding BindKeyCommand}"
+              ToolTip.Tip="G34: the key goes only to the Stagewatch it is bound to — typed here, or bound by the first Stagewatch that took it. A person's choice on this desk; the wire's STAGEWATCH KEY is refused, so a key never rides a line" />
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding State.Control.Stagewatch.Enabled}" Margin="0,4,0,0">
+      <Button Content="LINK AGAIN" Command="{Binding LinkAgainCommand}"
+              ToolTip.Tip="Show Bus 1.3 §13.16.6: a refused key's hold and the redial's wait end, and the next dial is due now — refused, with the reason, while nothing is held and no redial waits. The card's right-click entry, a deck's key and the wire's STAGEWATCH LINK AGAIN are the same press" />
+      <Button Content="LOWER FLOOR" Command="{Binding LinkBoxes.LowerFloorCommand}" IsVisible="{Binding LinkBoxes.HasFloor}"
+              ToolTip.Tip="Show Bus 1.3 §13.9.3: the Stagewatch proved itself before and now offers less — take the lesser link, said amber. The card's right-click entry, a deck's key and the wire's STAGEWATCH FLOOR LOWER are the same press" />
+      <Button Content="RELEASE" Command="{Binding LinkBoxes.ReleaseCommand}" IsEnabled="False" ToolTip.ShowOnDisabled="True"
+              ToolTip.Tip="{Binding LinkBoxes.ReleaseWords}" />
+    </StackPanel>
+    <CheckBox Content="The stage timer follows the Stagewatch (one room, one timer)" IsChecked="{Binding LinkBoxes.Follow}"
               IsVisible="{Binding State.Control.Stagewatch.Enabled}"
-              ToolTip.Tip="The stage and timer pages show the Stagewatch's time and colours while it answers; quiet, the time is held back; gone, this desk's own countdown runs. Pause and add-time are the Stagewatch's then" />
+              ToolTip.Tip="The stage and timer pages show the Stagewatch's time and colours while it answers; quiet, the time is held back; gone, this desk's own countdown runs. Pause and add-time are the Stagewatch's then. The same verb as STAGEWATCH FOLLOW ON|OFF on a deck or the wire, one journal row; the link's light is red only while the stage follows it" />
 
     <TextBlock Classes="hint tip"
                Text="How the pieces find each other: every Patterns sends a beacon once a second (UDP, port 9700 by default) and hears the others'; a node always does, a desk does while it accepts callers. A caller node presses LINK on the desk it follows and joins with that desk's twin key; the desk's Nodes page counts it under LINKED and its Machine page's TWIN line names it. NODES on the wire lists every card as JSON. The other show apps (Stagewatch, PlayMap, AGMessage, Slides agents) say hello on UDP 9928 every two seconds — who they are and where their doors are, never what the show is (Show Bus 1.3, docs/SHOWBUS.md)." />

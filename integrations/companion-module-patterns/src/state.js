@@ -323,6 +323,10 @@ export function variableValues(s) {
 		stagewatch_link_state: typeof s.bus?.stagewatch?.link?.state === 'string' ? s.bus.stagewatch.link.state : '',
 		stagewatch_link_light: typeof s.bus?.stagewatch?.link?.light === 'string' ? s.bus.stagewatch.link.light : '',
 		stagewatch_link_flags: Array.isArray(s.bus?.stagewatch?.link?.flags) ? s.bus.stagewatch.link.flags.join(', ') : '',
+		// G34: whether the stage follows the linked Stagewatch's timer, and a changed certificate waiting for a person's
+		// ACCEPT on the desk (its short fingerprint) — empty from a desk that does not say, never a guess.
+		stagewatch_follow: typeof s.bus?.stagewatch?.follow === 'boolean' ? (s.bus.stagewatch.follow ? 'on' : 'off') : '',
+		stagewatch_pending: typeof s.bus?.stagewatch?.pending === 'string' ? s.bus.stagewatch.pending : '',
 		...bankVariables(s),
 	}
 }

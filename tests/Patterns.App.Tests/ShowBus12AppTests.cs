@@ -192,6 +192,11 @@ public class ShowBus12AppTests
         /// <summary>Round 92: every connection it accepted — a dial that reached it, whatever came of it.</summary>
         public int Accepted => Volatile.Read(ref _accepted);
 
+        private int _upgrades;
+
+        /// <summary>The /ws sockets it has taken: a link that is dropped and dialled again opens another.</summary>
+        public int Upgrades => Volatile.Read(ref _upgrades);
+
         /// <summary>
         /// Listening on <paramref name="at"/> alone (IPv4 loopback unless another is named), as a Stagewatch listens on IPv4
         /// alone; on <paramref name="port"/>, or a free one.
@@ -277,6 +282,7 @@ public class ShowBus12AppTests
                     var key = head.Split("\r\n").First(l => l.StartsWith("Sec-WebSocket-Key:", StringComparison.OrdinalIgnoreCase))["Sec-WebSocket-Key:".Length..].Trim();
                     var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
                     await s.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"), _cts.Token);
+                    Interlocked.Increment(ref _upgrades);
                     using var ws = WebSocket.CreateFromStream(s, new WebSocketCreationOptions { IsServer = true, KeepAliveInterval = TimeSpan.Zero });
                     // Round 91: as Stagewatch 2.18 does, a node link hears its verdict before any frame.
                     if (StagewatchBytes.FirstFor(path, auth is null ? "" : auth["Authorization:".Length..].Trim()) is { } verdict)
@@ -468,8 +474,29 @@ public class ShowBus12AppTests
             Assert.Equal(0, link.CertificateProbes);
             Assert.Empty(sw.Authorizations);
             Assert.DoesNotContain(config.Pins, p => p.Fingerprint == fpB);
-            Assert.Contains("Accepted", link.AcceptPendingCertificate(), StringComparison.Ordinal);
+
+            // S6's typed half (13.8.3): ACCEPT takes at least 8 hex of the certificate shown now, typed on the desk — never on the
+            // wire, a deck or the assistant, and never a guess: too few hex, or another certificate's, accepts nothing.
+            var hexB = fpB[TlsFingerprint.Prefix.Length..];
+            var hexA = fpA[TlsFingerprint.Prefix.Length..];
+            var router = new CommandRouter(services);
+            var wire = TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("STAGEWATCH ACCEPT " + hexB[..8]), new ActionOrigin(OriginKind.Tcp, "", "10.0.0.12:51234")));
+            Assert.StartsWith("ERR " + StagewatchVerbs.DeskOnlyWords, wire, StringComparison.Ordinal);
+            Assert.False(services.Actions.Execute(StagewatchLinkActions.AcceptAction(hexB[..7]), ActionOrigin.Desk).Ok);
+            var stale = services.Actions.Execute(StagewatchLinkActions.AcceptAction(hexA[..8]), ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Refused, stale.Status);
+            Assert.Contains(TlsFingerprint.Short(fpB), stale.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(config.Pins, p => p.Fingerprint == fpB);
+            Assert.Equal(fpB, link.PendingFingerprint);
+            // LINK AGAIN dials nothing past CERTIFICATE CHANGED: it is refused with the reason until a person accepts it.
+            var again = TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("STAGEWATCH LINK AGAIN"), new ActionOrigin(OriginKind.Tcp, "", "10.0.0.12:51234")));
+            Assert.StartsWith("ERR The Stagewatch's certificate changed to " + TlsFingerprint.Short(fpB), again, StringComparison.Ordinal);
+            vm.AcceptHex = hexB[..4].ToUpperInvariant() + " " + hexB[4..8];                         // the desk's own box, typed as a person reads it
+            vm.AcceptCertificateCommand.Execute(null);
+            Assert.Equal("", vm.AcceptHex);                                                        // emptied once taken, never left filled
             Assert.Equal("person", config.Pins.Single(p => p.Fingerprint == fpB).Made);
+            var accepts = services.Journal.Tail(30).Where(e => e.Kind == nameof(ShowActionKind.StagewatchAccept)).Select(e => (e.Origin, e.Outcome)).ToList();
+            Assert.Equal(new[] { ("tcp 10.0.0.12:51234", "Refused"), ("desk", "Refused"), ("desk", "Refused"), ("desk", "Done") }, accepts);
             PumpUntil(() => { Hear(services, port, fpB); return services.Stage.Following.Length > 0 && link.PendingFingerprint.Length == 0 && sw.Authorization == "Bearer swk_nodekey"; });
             Assert.Empty(sw.PlainAuthorizations);
 

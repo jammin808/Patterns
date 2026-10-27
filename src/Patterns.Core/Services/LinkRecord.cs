@@ -359,6 +359,13 @@ public sealed record LinkSettings
     /// <summary>The kid, or <c>code</c>, of what this connector holds for the node; null when it holds none.</summary>
     public string? Key { get; init; }
 
+    /// <summary>
+    /// Why the key <see cref="Key"/> names is held back from this node by a rule of the connector's own outside the link — a key bound
+    /// to another node — in words; null when no such rule holds it. Held back, the link carries no key, as with none, and every reader
+    /// says so from the record: 13.16.2's <c>keyless</c> with a key set, amber, in these words.
+    /// </summary>
+    public string? KeyHeldBack { get; init; }
+
     /// <summary>The dialled address is a loopback address (13.1's local) — never because of a host name.</summary>
     public bool Local { get; init; }
 

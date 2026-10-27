@@ -46,6 +46,16 @@ public class ControlProtocolTests
     [InlineData("MUSIC PAUSE", ShowActionKind.SpotifyPause)]
     [InlineData("SPOTIFY NEXT", ShowActionKind.SpotifyNext)]      // the frozen alias
     [InlineData("MUSIC VOL 40", ShowActionKind.SpotifyVolume)]
+    [InlineData("STAGEWATCH LINK 10.0.0.9:9924", ShowActionKind.StagewatchLinkSet)]     // G34: the link's verbs
+    [InlineData("stagewatch link id:a1b2c3d4", ShowActionKind.StagewatchLinkSet)]
+    [InlineData("STAGEWATCH LINK AUTO", ShowActionKind.StagewatchLinkSet)]
+    [InlineData("STAGEWATCH LINK OFF", ShowActionKind.StagewatchLinkSet)]
+    [InlineData("STAGEWATCH LINK AGAIN", ShowActionKind.StagewatchLinkAgain)]
+    [InlineData("STAGEWATCH FOLLOW ON", ShowActionKind.StagewatchFollow)]
+    [InlineData("STAGEWATCH FLOOR LOWER", ShowActionKind.StagewatchFloorLower)]
+    [InlineData("STAGEWATCH RELEASE", ShowActionKind.StagewatchRelease)]
+    [InlineData("STAGEWATCH TRUST", ShowActionKind.StagewatchTrust)]                 // parsed so it is refused in words, carrying nothing
+    [InlineData("STAGEWATCH ACCEPT 8e8bc45b", ShowActionKind.StagewatchAccept)]
     public void ParsesVerbs(string line, ShowActionKind kind)
     {
         var cmd = ControlProtocol.Parse(line);
@@ -64,6 +74,12 @@ public class ControlProtocolTests
     [InlineData("HELLO FOH deck", RemoteCommandKind.Hello)]
     [InlineData("HELLO", RemoteCommandKind.Unknown)]
     [InlineData("MUSIC", RemoteCommandKind.Unknown)]
+    [InlineData("STAGEWATCH", RemoteCommandKind.StagewatchStatus)]
+    [InlineData("STAGEWATCH STATUS", RemoteCommandKind.StagewatchStatus)]
+    [InlineData("STAGEWATCH LINK", RemoteCommandKind.Unknown)]
+    [InlineData("STAGEWATCH LINK http://10.0.0.9", RemoteCommandKind.Unknown)]
+    [InlineData("STAGEWATCH FOLLOW SOMETIMES", RemoteCommandKind.Unknown)]
+    [InlineData("STAGEWATCH UNLINK", RemoteCommandKind.Unknown)]
     public void ParsesTheWiresOwnWords(string line, RemoteCommandKind kind)
     {
         var cmd = ControlProtocol.Parse(line);
@@ -85,6 +101,11 @@ public class ControlProtocolTests
         Assert.Equal(new ShowAction(ShowActionKind.ListDisarm, "caller"), ControlProtocol.Parse("CUE ARM OFF").Action);
         Assert.Equal(new ShowAction(ShowActionKind.CueHoldOff), ControlProtocol.Parse("CUE HOLD OFF").Action);
         Assert.Equal("FOH deck", ControlProtocol.Parse("HELLO FOH deck").Text);
+        // G34: the link's value in its one written form; a person's words carry nothing from the line.
+        Assert.Equal(new ShowAction(ShowActionKind.StagewatchLinkSet, "", "10.0.0.9:9924"), ControlProtocol.Parse("STAGEWATCH LINK 10.0.0.9").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StagewatchFollow, "", "OFF"), ControlProtocol.Parse("STAGEWATCH FOLLOW off").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StagewatchAccept), ControlProtocol.Parse("STAGEWATCH ACCEPT 8e8bc45b").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StagewatchKeyBind), ControlProtocol.Parse("STAGEWATCH KEY swk_live_k7qm3xwdp9ra").Action);
     }
 
     [Fact]

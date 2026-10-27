@@ -761,7 +761,8 @@ public sealed class PeerLinkMachine
 
     /// <summary>
     /// The operator's <i>Link again now</i> (13.15.3, 13.16.6): the hold ends and the connector dials at once; a <c>ws</c>
-    /// socket kept as a public viewer after its key was refused ends, so the key is proved again on a fresh one.
+    /// socket kept as a public viewer after its key was refused ends, so the key is proved again on a fresh one. The redial count
+    /// stays where it is: only a link verified and stable returns it to 0 (13.15.2).
     /// </summary>
     public void LinkAgainNow(LinkNow now)
     {
@@ -770,6 +771,15 @@ public sealed class PeerLinkMachine
         _holdPublic = true;
         _nextDialAt = now.Mono;
         if (_phase == Phase.Up && _c is { Keyless: true } c && c.ReproveAt != long.MinValue) Relink(now);
+    }
+
+    /// <summary>
+    /// The show's need of the link changed (13.1: the operator followed the peer, or stopped following it): from now the light is red
+    /// only while the show needs the link (13.16.1–2). Nothing of the connection, the redial count, a hold or a pin moves.
+    /// </summary>
+    public void ShowNeedsLink(bool needs)
+    {
+        if (_s.ShowNeeds != needs) _s = _s with { ShowNeeds = needs };
     }
 
     /// <summary>The operator's <i>Trust certificate</i> on a <c>first</c> pin, one press beside its short fingerprint: pinned by a person (13.6.8). False when there is no first pin.</summary>
@@ -1071,6 +1081,9 @@ public sealed class PeerLinkMachine
 
     private bool AddressKnown => _s.Address is not null || _addressHeard;
 
+    /// <summary>A key is set and no rule of the connector's own holds it back from this node: the only key the link may prove or present.</summary>
+    private bool Carries => _s.Key is not null && _s.KeyHeldBack is null;
+
     private static int Rank(string? scope) => scope switch
     {
         "follow" => 1,
@@ -1202,7 +1215,7 @@ public sealed class PeerLinkMachine
         c.Legacy = false;
         c.Level = -1;
         c.Proof = "none";
-        if (_s.Key is null)
+        if (!Carries)
         {
             if (_s.Carrier == LinkCarrier.Ws)
             {
@@ -1210,7 +1223,7 @@ public sealed class PeerLinkMachine
                 c.Keyless = true;
                 return;
             }
-            _why = "it asks for a key this desk does not hold";
+            _why = _s.KeyHeldBack ?? "it asks for a key this desk does not hold";
             Close(now, failed: true);
             return;
         }
@@ -1346,14 +1359,14 @@ public sealed class PeerLinkMachine
         // The bearer goes inside TLS to a certificate a proof or a person pinned, or to a local link, where it never leaves this
         // machine (13.3.4, 13.19.1); never while a refused key's hold runs, whose socket reads the public view until it ends.
         var held = _holdUntil > now.Mono;
-        if (_s.Key is not null && !held && (_s.Local || (c.Tls && c.Cert is { } shown && _pin is { Trust: not PinTrust.First } p && p.Fingerprint == shown)))
+        if (Carries && !held && (_s.Local || (c.Tls && c.Cert is { } shown && _pin is { Trust: not PinTrust.First } p && p.Fingerprint == shown)))
         {
             c.Keyless = false;
             Write(now, null, "bearer");
             return;
         }
         c.Keyless = true;
-        if (held && _s.Key is not null) c.ReproveAt = _holdUntil;
+        if (held && Carries) c.ReproveAt = _holdUntil;
         if (c.Tls && c.Cert is { } seen && (_pin is null || (_pin.Trust == PinTrust.First && _pin.Fingerprint != seen)))
             _pin = new LinkPin(NodeId, seen, PinTrust.First);
     }
@@ -1362,7 +1375,7 @@ public sealed class PeerLinkMachine
     private void ProveLegacy(LinkNow now)
     {
         var c = _c!;
-        if (_s.Key != "code" || c.AuthProofWritten || c.ProofWritten) return;
+        if (_s.Key != "code" || !Carries || c.AuthProofWritten || c.ProofWritten) return;
         c.AuthProofWritten = true;
         Write(now, "AUTH-PROOF", "auth-proof");
     }
@@ -1533,6 +1546,7 @@ public sealed class PeerLinkMachine
     {
         var name = _s.Name;
         if (_s.Key is null) return name + " · public view";
+        if (_s.KeyHeldBack is { } why) return name + " · public view — " + why;
         if (!c.Tls && !_s.Local) return name + " offers no TLS — the key stays on this machine";
         if (c.Legacy)
             return name + " cannot prove itself yet (an older Stagewatch) — "

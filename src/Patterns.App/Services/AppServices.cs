@@ -723,7 +723,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Kernel.Stagewatch.OwnContext = ContextJson;
         Kernel.Stagewatch.RunApprovedLine = async line =>
         {
-            var answer = await Router.ExecuteAsync(ControlProtocol.Parse(line), new ActionOrigin(OriginKind.Tcp, "approval desk"));
+            var answer = await Router.ExecuteAsync(ControlProtocol.Parse(line), new ActionOrigin(OriginKind.Tcp, StagewatchVerbs.ApprovalDesk));
             return (answer.StartsWith("OK", StringComparison.Ordinal), answer);
         };
         Kernel.Air = this;                                       // the beacon packet and the nodes page read the desk's air from here on
