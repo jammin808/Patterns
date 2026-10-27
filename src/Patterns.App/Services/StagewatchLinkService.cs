@@ -419,9 +419,10 @@ public sealed class StagewatchLinkService : IDisposable
     /// <summary>
     /// Where to dial and what the show network says of it. <paramref name="Heard"/>: a hello names this Stagewatch;
     /// <paramref name="Advertised"/>: the certificate that hello names ("" when none). A hello is a hint — try TLS first —
-    /// and never decides the carrier: the pin and the probe do.
+    /// and never decides the carrier: the pin and the probe do. <paramref name="Inst"/>: the process its hello names ("" when
+    /// none), whose clock the link measures (Show Bus 1.3 §13.11.7).
     /// </summary>
-    private sealed record Target(string Host, int Port, string Name, string PinKey, string Advertised, bool Heard, bool Approvals)
+    private sealed record Target(string Host, int Port, string Name, string PinKey, string Advertised, bool Heard, bool Approvals, string Inst = "")
     {
         public bool HelloTls => TlsFingerprint.IsValid(Advertised);
     }
@@ -461,6 +462,9 @@ public sealed class StagewatchLinkService : IDisposable
                 continue;
             }
             _held = "";
+            // Show Bus 1.3 §13.11.7: the clock measures one Stagewatch process; another node, or the same one restarted (a new
+            // inst in its hello), empties the window before its first pong. ShowClock never steps, so this side's own step never does.
+            _clock.Measuring(target.PinKey + " " + target.Inst);
             _nodeId = target.PinKey.StartsWith("node:", StringComparison.Ordinal) ? target.PinKey[5..] : "";
             if (_nodeId.Length > 0) last = _nodeId;
             try
@@ -584,7 +588,7 @@ public sealed class StagewatchLinkService : IDisposable
 
         static Target Of(ShowBusPeer p, string host, int port)
             => new(host, p.OffersTls && p.Ports.Https > 0 ? p.Ports.Https : port, p.Name.Length > 0 ? p.Name : p.Host, "node:" + p.Id, p.Tls, true,
-                p.Caps.Contains(DeskProposals.Cap, StringComparer.Ordinal));
+                p.Caps.Contains(DeskProposals.Cap, StringComparer.Ordinal), p.Instance);
     }
 
     /// <summary>
@@ -1599,7 +1603,7 @@ public sealed class StagewatchLinkService : IDisposable
                     {
                         Interlocked.Increment(ref _frames);
                         _sight = _sight with { Frame = frame, FrameAtSeconds = arrived, State = ShowBusState.Live };
-                        _status = $"Stagewatch link: following {name}" + (_clock.Known && LinkClock.Apart(_clock.Offset) ? " · " + LinkClock.ApartWords("Stagewatch", _clock.Offset) : "") + ".";
+                        _status = $"Stagewatch link: following {name}" + (_clock.IsApart ? " · " + LinkClock.ApartWords("Stagewatch", _clock.Offset) : "") + ".";
                         if (show.Stuck)
                         {
                             show.Stuck = false;                                                 // after the new frame is held, never before

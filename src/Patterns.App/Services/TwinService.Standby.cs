@@ -437,8 +437,9 @@ public sealed partial class TwinService
         if (!beat.HasStamps) return;
         if (beat.HasEcho)
         {
-            _linkClock.Sample(beat.PeerSentTicks, beat.PeerReceivedTicks, beat.SentTicks, heardUtc.Ticks);
-            if (IsFollowerNode && _kernel.Clock.Follow(_linkClock.Offset)) Log.Info($"Twin: {_kernel.Clock.Words} (measured on the link, round trip {_linkClock.Delay.TotalMilliseconds:0} ms).");
+            // Show Bus 1.3 §13.11.2: an exchange the clock refuses is no sample, so the room clock moves on admitted ones only.
+            if (_linkClock.Sample(beat.PeerSentTicks, beat.PeerReceivedTicks, beat.SentTicks, heardUtc.Ticks)
+                && IsFollowerNode && _kernel.Clock.Follow(_linkClock.Offset)) Log.Info($"Twin: {_kernel.Clock.Words} (measured on the link, round trip {_linkClock.Delay.TotalMilliseconds:0} ms).");
         }
         Interlocked.Exchange(ref _lastMainSentTicks, beat.SentTicks);
         Interlocked.Exchange(ref _lastMainReceivedTicks, heardUtc.Ticks);
@@ -447,28 +448,28 @@ public sealed partial class TwinService
     /// <summary>The peer's clock against this desk's, from the link's beats — null before an exchange closed.</summary>
     public TimeSpan? ClockOffset => _linkClock.Known ? _linkClock.Offset : null;
 
-    /// <summary>On a main or a desk hosting callers: each peer's clock against this desk's, by its label on the line.</summary>
-    public IReadOnlyList<(string Name, TimeSpan Offset)> PeerClocks
+    /// <summary>On a main or a desk hosting callers: each peer's clock against this desk's, by its label on the line, with its sample's error (Show Bus 1.3 §13.11.3).</summary>
+    public IReadOnlyList<(string Name, TimeSpan Offset, TimeSpan Error)> PeerClocks
     {
         get
         {
             lock (_gate)
             {
-                return _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset)).ToList();
+                return _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset, s.Clock.Error)).ToList();
             }
         }
     }
 
-    /// <summary>The clocks apart on either side — "CLOCKS 3.2 s APART — …" — or "" while within two seconds.</summary>
+    /// <summary>The clocks apart on either side — "CLOCKS 3.2 s APART — …" — or "" while the offset less its sample's error is within two seconds (Show Bus 1.3 §13.11.5).</summary>
     public string ClockApartWords
     {
         get
         {
             if (_role == TwinRole.Main || _hosting)
             {
-                return string.Join(" · ", PeerClocks.Where(c => LinkClock.Apart(c.Offset)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
+                return string.Join(" · ", PeerClocks.Where(c => LinkClock.Apart(c.Offset, c.Error)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
             }
-            return _linkClock.Known && LinkClock.Apart(_linkClock.Offset)
+            return _linkClock.IsApart
                 ? LinkClock.ApartWords(_mainName.Length > 0 ? _mainName : IsFollowerNode ? "the desk" : "the main", _linkClock.Offset)
                 : "";
         }

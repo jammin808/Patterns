@@ -329,11 +329,11 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 case TwinRole.Main:
                     if (_listener is null) return _note.Length > 0 ? _note : "Twin off.";
                     List<(string, DateTime)> beats;
-                    List<(string, TimeSpan)> clocks;
+                    List<(string, TimeSpan, TimeSpan)> clocks;
                     lock (_gate)
                     {
                         beats = _standbys.Select(s => (PeerLabel(s), s.LastBeatUtc)).ToList();
-                        clocks = _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset)).ToList();
+                        clocks = _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset, s.Clock.Error)).ToList();
                     }
                     return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote, clocks, _listenAt,
                         StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why)).ToList());
@@ -481,11 +481,12 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                 offsetMs = Math.Round(_linkClock.Offset.TotalMilliseconds, 1),
                 roundTripMs = Math.Round(_linkClock.Delay.TotalMilliseconds, 1),
                 samples = _linkClock.Samples,
-                apart = LinkClock.Apart(_linkClock.Offset),
+                apart = _linkClock.IsApart,                                            // Show Bus 1.3 §13.11.5: the offset less the sample's error past 2 s
                 followed = IsFollowerNode,
                 roomOffsetMs = Math.Round(_kernel.Clock.Offset.TotalMilliseconds, 1),
+                errMs = _linkClock.Error.TotalMilliseconds,                            // Show Bus 1.3 §13.11.3: the error of the sample believed, at the object's end
             } : null,
-            clocks = PeerClocks.Select(c => new { name = c.Name, offsetMs = Math.Round(c.Offset.TotalMilliseconds, 1), apart = LinkClock.Apart(c.Offset) }).ToArray(),
+            clocks = PeerClocks.Select(c => new { name = c.Name, offsetMs = Math.Round(c.Offset.TotalMilliseconds, 1), apart = LinkClock.Apart(c.Offset, c.Error), errMs = c.Error.TotalMilliseconds }).ToArray(),
             handover = _handover is null ? null : new
             {
                 id = _handover.Id,

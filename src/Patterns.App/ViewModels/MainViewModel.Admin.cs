@@ -545,6 +545,54 @@ public sealed partial class MainViewModel
     /// <summary>Round 65: a fresh pairing token — the show's, saved with it; every remote paired with the old one is cut off until the new one is typed into it.</summary>
     public RelayCommand NewPairingTokenCommand => _newPairingToken ??= new RelayCommand(() => _services.BulkEdit(() => State.Control.Token = PairingToken.New()));
 
+    private string? _tokenTyped;
+    private string _tokenEntryWords = "";
+
+    /// <summary>
+    /// The Remote page's pairing token box. The box hands its text here when it is left (its binding updates on lost focus), so
+    /// a token half typed is never the one in use and never cuts a paired remote off. What it hands reaches the show's token
+    /// only when this desk takes it — empty (open), or a token whose Show Bus 1.3 §13.5.1 canonical form is letters and digits
+    /// and is the key the legacy proof compares (<see cref="PairingToken.EntryRefusal"/>); a token it refuses stays in the box,
+    /// with the contract's words below it (<see cref="TokenEntryWords"/>), and the token in use is unchanged. NEW TOKEN's
+    /// tokens are always taken.
+    /// </summary>
+    public string PairingTokenEntry
+    {
+        get => _tokenTyped ?? State.Control.Token;
+        set
+        {
+            var typed = value ?? "";
+            if (PairingToken.EntryRefusal(typed.Trim()) is { } why)
+            {
+                _tokenTyped = typed;
+                TokenEntryWords = why + " — not taken: the pairing token stays as it was";
+                return;
+            }
+            _tokenTyped = null;
+            TokenEntryWords = "";
+            State.Control.Token = typed;
+        }
+    }
+
+    /// <summary>Why the token typed in the box was not taken; "" when it was.</summary>
+    public string TokenEntryWords { get => _tokenEntryWords; private set => Set(ref _tokenEntryWords, value); }
+
+    /// <summary>
+    /// A token the show already holds that this desk would not take now (saved by an older build) is kept — the legacy proof and
+    /// the web header still take it — and the Remote page says so beside it, in Show Bus 1.3 §13.5.1's or §13.6.8's words; ""
+    /// otherwise.
+    /// </summary>
+    public string PairingTokenShapeWords => PairingToken.LinkWords(State.Control.Token);
+
+    /// <summary>The show's token changed — typed, NEW TOKEN, a show loaded: the box shows it, and a refused entry's words go.</summary>
+    private void PairingTokenChanged()
+    {
+        _tokenTyped = null;
+        TokenEntryWords = "";
+        Raise(nameof(PairingTokenEntry));
+        Raise(nameof(PairingTokenShapeWords));
+    }
+
     public ObservableCollection<CheckRowView> SuperCheckRows { get; } = new();
 
     public string SuperCheckHeadline { get => _superCheckHeadline; private set => Set(ref _superCheckHeadline, value); }

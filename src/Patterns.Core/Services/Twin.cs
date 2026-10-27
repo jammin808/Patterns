@@ -646,10 +646,10 @@ public static class TwinWatch
         }
     }
 
-    /// <summary>The main's line: the port, and each standby with when it was last heard and, when the beats have measured it, its clock against this desk's — and, when a standby has the show, that this desk's outputs wait on TAKE BACK. Clocks two seconds apart are said at the end, with the fix.</summary>
+    /// <summary>The main's line: the port, and each standby with when it was last heard and, when the beats have measured it, its clock against this desk's — and, when a standby has the show, that this desk's outputs wait on TAKE BACK. Clocks apart by Show Bus 1.3 §13.11.5 — the offset less its sample's error past two seconds — are said at the end, with the fix.</summary>
     /// <param name="at">Round 89: " at 10.0.0.5 only" when the port binds the desk's one address; "" on every interface.</param>
     /// <param name="without">Round 89: the standbys without the show's secrets, each in <see cref="TwinSecrets.OnMain"/>'s words (a sentence).</param>
-    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "", IReadOnlyList<(string Name, TimeSpan Offset)>? clocks = null, string at = "", IReadOnlyList<string>? without = null)
+    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "", IReadOnlyList<(string Name, TimeSpan Offset, TimeSpan Error)>? clocks = null, string at = "", IReadOnlyList<string>? without = null)
     {
         var tail = launcher.Length > 0 ? " " + launcher : "";
         // A hand-back that stopped short — at the wall switch, at the operator's own switch, at a
@@ -669,7 +669,7 @@ public static class TwinWatch
                 ? $"standby {s.Name} SILENT for {(utcNow - s.LastBeatUtc).TotalSeconds:0} s"
                 : $"standby {s.Name} in step (heard {Age(s.LastBeatUtc, utcNow)}{(note.Length > 0 ? ", " + note : "")})";
         });
-        var apart = clocks is null ? "" : string.Join(" ", clocks.Where(c => LinkClock.Apart(c.Offset)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
+        var apart = clocks is null ? "" : string.Join(" ", clocks.Where(c => LinkClock.Apart(c.Offset, c.Error)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
         var lacks = without is { Count: > 0 } ? " " + string.Join(" ", without) : "";
         return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent." + lacks + (apart.Length > 0 ? " " + apart : "") + tail;
     }

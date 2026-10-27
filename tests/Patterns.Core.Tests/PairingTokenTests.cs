@@ -50,6 +50,66 @@ public class PairingTokenTests
         Assert.Equal("K7QM3XWDP9RA", PairingToken.Normal(" k7qm-3xwd p9ra\n"));
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.5.1, §13.6.8: the token's two forms. <see cref="PairingToken.Normal"/> stays the key §7's
+    /// legacy proof and the web header compare by — <c>-</c>, space, tab, CR and LF removed, each other unit upper-cased by
+    /// its simple mapping — and <see cref="PairingToken.Canonical"/> is 13.5.1's: every separator 13.5.1 lists removed, only
+    /// <c>a</c>–<c>z</c> upper-cased, letters and digits alone left, or none.
+    /// </summary>
+    [Fact]
+    public void TheTokenHasTheLegacyKeyAndThePeerLinkCanonicalForm()
+    {
+        Assert.Equal("K7QM3XWDP9RA", PairingToken.Normal(" k7qm-3xwd p9ra\n"));
+        Assert.Equal("K7QM3XWDP9RA", PairingToken.Canonical(" k7qm-3xwd p9ra\n"));
+        Assert.Equal("K7QM\u00A03XWD", PairingToken.Normal("k7qm\u00A03xwd"));                 // the legacy key keeps what 1.1 desks kept
+        Assert.Equal("K7QM3XWD", PairingToken.Canonical("k7qm\u00A03xwd"));
+        Assert.Equal("BÜHNE", PairingToken.Normal("bühne"));
+        Assert.Null(PairingToken.Canonical("bühne"));                                          // 13.5.1 upper-cases a to z alone, and keeps letters and digits
+        Assert.Null(PairingToken.Canonical(""));
+        Assert.Null(PairingToken.Canonical(new string('A', 65)));
+        Assert.Equal(new string('A', 64), PairingToken.Canonical(new string('a', 64)));
+        // A token NEW TOKEN makes has one form: the two keys name the same letters and digits.
+        for (var i = 0; i < 50; i++)
+        {
+            var token = PairingToken.New();
+            Assert.Equal(PairingToken.Normal(token), PairingToken.Canonical(token));
+            Assert.Null(PairingToken.EntryRefusal(token));
+        }
+    }
+
+    /// <summary>
+    /// The Remote page takes a token only when its two forms agree on letters and digits — empty (open) taken too —
+    /// and refuses the rest in the contract's words: 13.5.1's for a token of other characters, 13.6.8's for one holding an
+    /// invisible character the legacy key keeps. A token an older build saved that it would not take now is kept, and the
+    /// page says so beside it (<see cref="PairingToken.LinkWords"/>); the legacy proof still takes it.
+    /// </summary>
+    [Fact]
+    public void TheRemotePageTakesATokenOnlyWhenItsTwoFormsAgree()
+    {
+        Assert.Null(PairingToken.EntryRefusal(""));
+        Assert.Null(PairingToken.EntryRefusal(null));
+        Assert.Null(PairingToken.EntryRefusal("K7QM-3XWD-P9RA"));
+        Assert.Null(PairingToken.EntryRefusal("k7qm 3xwd p9ra"));
+        Assert.Null(PairingToken.EntryRefusal("show2026"));
+        Assert.Equal(PeerLink.CodeShapeWords, PairingToken.EntryRefusal("bühne-7"));
+        Assert.Equal(PeerLink.CodeShapeWords, PairingToken.EntryRefusal("hunter_2!"));
+        Assert.Equal(PeerLink.CodeShapeWords, PairingToken.EntryRefusal(new string('A', 65)));
+        Assert.Equal(PeerLink.CodeShapeWords, PairingToken.EntryRefusal("k7qm\u20113xwd"));      // a non-breaking hyphen is not one 13.5.1 removes
+        foreach (var invisible in new[] { "\u00A0", "\uFEFF", "\u2028", "\u3000", "\u000B", "\u0085", "\u2009" })
+            Assert.Equal(PeerLink.InvisibleWords, PairingToken.EntryRefusal("K7QM" + invisible + "3XWD"));
+        Assert.StartsWith("PeerLink pairs a token of letters and digits", PeerLink.CodeShapeWords, StringComparison.Ordinal);
+        Assert.Equal("this token holds an invisible character — retype it", PeerLink.InvisibleWords);
+
+        // A token an older build saved is kept as it is: the legacy proof and the web header still take it, and the page says why it reaches only an older build.
+        const string saved = "hunter_2!";
+        Assert.True(PairingToken.Matches(saved, "HUNTER_2!"));
+        Assert.Equal(PeerLink.CodeShapeWords, PairingToken.LinkWords(saved));
+        Assert.Equal("", PairingToken.LinkWords("K7QM-3XWD-P9RA"));
+        Assert.Equal("", PairingToken.LinkWords(""));
+        var nonce = WireProof.NewNonce();
+        Assert.True(WireProof.Verify(saved, nonce, "Stagewatch", WireProof.Proof(saved, nonce, "Stagewatch")));
+    }
+
     [Fact]
     public void TheConfigKeepsTheTokenAndTheBindTrimmed()
     {

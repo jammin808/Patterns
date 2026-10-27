@@ -2,10 +2,14 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
+using Patterns.App.Views.Sections;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
@@ -397,6 +401,127 @@ public class RemoteTrustTests
             ControlService.TrustLoopback = trusted;
             vm.State.Control.Token = "";
             services.State.Blackout = false;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.5.1, §13.6.8: the Remote page's token box takes a token only when its canonical form is letters and
+    /// digits and is the key the legacy proof compares; a token it refuses stays in the box with the contract's words below
+    /// it, and the token in use is unchanged. NEW TOKEN's tokens are always taken, and a token the show already holds that the
+    /// box would not take now (saved by an older build) is kept and said beside it.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheTokenBoxTakesOnlyATokenWhoseTwoFormsAgreeAndSaysWhyItRefusesOne()
+    {
+        var b = TestApp.Boot();
+        var vm = b.Vm;
+        try
+        {
+            vm.PairingTokenEntry = "k7qm-3xwd p9ra";
+            Assert.Equal("k7qm-3xwd p9ra", vm.State.Control.Token);
+            Assert.Equal("", vm.TokenEntryWords);
+            Assert.Equal("", vm.PairingTokenShapeWords);
+
+            vm.PairingTokenEntry = "K7QM\u00A03XWD-P9RA";
+            Assert.Equal("k7qm-3xwd p9ra", vm.State.Control.Token);                         // the token in use is unchanged
+            Assert.Equal("K7QM\u00A03XWD-P9RA", vm.PairingTokenEntry);                    // the box keeps what was typed
+            Assert.StartsWith(PeerLink.InvisibleWords + " — not taken", vm.TokenEntryWords, StringComparison.Ordinal);
+            vm.PairingTokenEntry = "bühne-7";
+            Assert.StartsWith(PeerLink.CodeShapeWords + " — not taken", vm.TokenEntryWords, StringComparison.Ordinal);
+            Assert.Equal("k7qm-3xwd p9ra", vm.State.Control.Token);
+
+            vm.NewPairingTokenCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("", vm.TokenEntryWords);                                            // the box shows the new token, and the refusal's words go
+            Assert.Equal(vm.State.Control.Token, vm.PairingTokenEntry);
+            Assert.Null(PairingToken.EntryRefusal(vm.State.Control.Token));
+
+            // A token an older build saved — as a show file loads it — is kept as it is, and said.
+            vm.State.Control.Token = "hunter_2!";
+            Assert.Equal("hunter_2!", vm.PairingTokenEntry);
+            Assert.Equal(PeerLink.CodeShapeWords, vm.PairingTokenShapeWords);
+            vm.PairingTokenEntry = "";
+            Assert.Equal("", vm.State.Control.Token);                                      // empty is taken: the open desk
+            Assert.Equal("", vm.PairingTokenShapeWords);
+        }
+        finally
+        {
+            vm.State.Control.Token = "";
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The token box hands its text to the desk only when it is left. Typed a key at a time — "show-2026" and then a "!" — no
+    /// prefix is ever the token in use, so none cuts a paired remote off, and the refused whole leaves the token as it was,
+    /// as its words say; a token the box takes lands once, when the box is left. Driven through the Remote page's own box.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheTokenBoxTakesWhatIsTypedOnlyWhenItIsLeft()
+    {
+        var b = TestApp.Boot();
+        var vm = b.Vm;
+        Window? host = null;
+        var changes = 0;
+        void Count(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ControlConfig.Token)) changes++;
+        }
+        try
+        {
+            vm.State.Control.Token = Token;
+            var section = new WebSection();
+            var elsewhere = new TextBox();
+            host = new Window { DataContext = vm, Width = 700, Height = 2400, Content = new StackPanel { Children = { section, elsewhere } } };
+            host.Show();
+            host.Activate();
+            Dispatcher.UIThread.RunJobs();
+            var box = section.GetVisualDescendants().OfType<TextBox>()
+                .Single(t => t.Watermark?.StartsWith("empty: open", StringComparison.Ordinal) == true);
+            Assert.Equal(Token, box.Text);
+            vm.State.Control.PropertyChanged += Count;
+
+            void Type(string text)
+            {
+                Assert.True(box.Focus(), "the token box took focus");
+                box.SelectAll();
+                foreach (var c in text)
+                {
+                    host.KeyTextInput(c.ToString());
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(Token, vm.State.Control.Token);                       // no prefix is the token in use
+                }
+                Assert.Equal(text, box.Text);
+            }
+            void Leave()
+            {
+                Assert.True(elsewhere.Focus(), "the other box took focus");
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Type("show-2026!");
+            Assert.Equal("", vm.TokenEntryWords);
+            Leave();
+            Assert.Equal(Token, vm.State.Control.Token);                                  // the refused whole: the token stays as it was
+            Assert.Equal(0, changes);
+            Assert.StartsWith(PeerLink.CodeShapeWords + " — not taken: the pairing token stays as it was", vm.TokenEntryWords, StringComparison.Ordinal);
+            Assert.Equal("show-2026!", box.Text);                                         // the box keeps what was typed
+
+            Type("show-2026");
+            Assert.Equal(0, changes);
+            Leave();
+            Assert.Equal("show-2026", vm.State.Control.Token);                            // taken once, when the box is left
+            Assert.Equal(1, changes);
+            Assert.Equal("", vm.TokenEntryWords);
+        }
+        finally
+        {
+            vm.State.Control.PropertyChanged -= Count;
+            host?.Close();
+            vm.State.Control.Token = "";
             Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }

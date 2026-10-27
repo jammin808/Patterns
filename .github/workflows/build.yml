@@ -18,6 +18,11 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
+      # The App suite's PeerLinkWireTests run the scripted PeerLink peer (tools/showbus/peerlink-peer.mjs) on Node 22,
+      # the version the Show Bus tools are written for; without it those tests fail, they never skip.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Restore
         run: dotnet restore
       - name: Build

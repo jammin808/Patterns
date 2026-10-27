@@ -50,7 +50,36 @@ public static class PairingToken
         return a.Length > 0 && a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
     }
 
-    /// <summary>A token as compared: no dashes or spaces, upper case.</summary>
+    /// <summary>
+    /// Show Bus 1.3 §13.5.1: the token's canonical form as a PeerLink code — <c>-</c> and the separators 13.5.1 lists removed,
+    /// <c>a</c>–<c>z</c> upper-cased — or null when what is left is not <c>[A-Z0-9]{1,64}</c>. It sits beside
+    /// <see cref="Normal"/>, which stays the key §7's 1.1 proof and the web header compare by (13.6.8).
+    /// </summary>
+    public static string? Canonical(string? token) => PeerLink.Canon(token);
+
+    /// <summary>
+    /// Why a token typed on this desk is not taken, in the contract's words; null when it is. Empty is taken — the open desk.
+    /// Any other token is taken only when its canonical form (13.5.1) is <c>[A-Z0-9]{1,64}</c> and is the key the legacy proof
+    /// compares (<see cref="Normal"/>, 13.6.8): a token holding a character 13.5.1 removes and the legacy key keeps — U+00A0,
+    /// U+FEFF and the rest of 13.5.1's list — is said as 13.6.8 says it, so on every token this desk takes the two forms name
+    /// the same letters and digits. Every token NEW TOKEN makes is taken (<see cref="Alphabet"/>, in groups of four).
+    /// </summary>
+    public static string? EntryRefusal(string? typed)
+    {
+        if (string.IsNullOrEmpty(typed)) return null;
+        var canonical = Canonical(typed);
+        if (canonical is not null && canonical == Normal(typed)) return null;
+        return Normal(typed).Any(PeerLink.CanonRemoves) && canonical is not null ? PeerLink.InvisibleWords : PeerLink.CodeShapeWords;
+    }
+
+    /// <summary>
+    /// What the Remote page says beside a token the show already holds that this desk would not take now (saved by an older
+    /// build): kept as it is — the legacy proof and the web header still take it — with 13.5.1's or 13.6.8's words; "" for a
+    /// token it would take.
+    /// </summary>
+    public static string LinkWords(string? token) => EntryRefusal(token) ?? "";
+
+    /// <summary>A token as compared: no dashes or spaces, upper case — §7's 1.1 desks' key, which 13.6.8's legacy proof keeps.</summary>
     public static string Normal(string? token)
     {
         if (string.IsNullOrWhiteSpace(token)) return "";

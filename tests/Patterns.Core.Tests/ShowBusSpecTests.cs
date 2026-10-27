@@ -13,8 +13,9 @@ namespace Patterns.Core.Tests;
 /// prints, and the peer's, §14's <c>peerlink.peer.sha256</c>, each hashed as its bytes. Inside the hashed body every row of the
 /// <c>```showbus</c> block is placed — held to the code of this desk that keeps it, or named: what this desk does without keeping
 /// the row yet (said as it is today, and checked so), or a part of the contract this desk does not speak yet — so a copy that
-/// brings a row nobody placed fails here. The <c>```peerlink</c> vectors this desk's code answers today are held to it, the ones it
-/// answers otherwise are checked both ways, and every other case is named as the PeerLink core's. Nothing here reads another tree.
+/// brings a row nobody placed fails here. The <c>```peerlink</c> vectors the code beside the core answers are held to it here — the
+/// hello's liveness and redial, the wire's legacy proof, the one <see cref="LinkClock"/> — and every other row is counted as the
+/// PeerLink core's, which <c>PeerLinkVectorsTests</c> runs whole. Nothing here reads another tree.
 /// </summary>
 public sealed class ShowBusSpecTests
 {
@@ -64,7 +65,8 @@ public sealed class ShowBusSpecTests
     /// The rows a number of this desk's Core keeps, each with that number and how it stands to the row. The Stagewatch link's
     /// intervals are its beat loop's waits: a ping, the collect and the context's read and post ride a beat, and the beat's side
     /// calls run in its path rather than on 13.7.2's lane of their own, so a slow one stretches the beat it runs in
-    /// (<c>ping.max.ms</c>, not kept yet).
+    /// (<c>ping.max.ms</c>, not kept yet). Then §13's numbers the PeerLink core keeps (<see cref="PeerLink"/>,
+    /// <see cref="LinkClock"/>), each where it lives — the ones this desk kept before the core are read where they were.
     /// </summary>
     private static readonly (string Row, Relation How, Func<long> Code)[] Kept =
     [
@@ -111,6 +113,23 @@ public sealed class ShowBusSpecTests
         ("cert.backdate.hours", Relation.Same, () => (long)TlsIdentity.Backdate.TotalHours),
         ("cert.renew.days", Relation.Same, () => (long)TlsIdentity.RenewBefore.TotalDays),
         ("peerlink.hold.refused.ms", Relation.Same, () => Ms(StagewatchFrame.RefusedHold)),
+        ("peerlink.version", Relation.Same, () => PeerLink.Version),
+        ("peerlink.can.words", Relation.Same, () => PeerLink.CanWords),
+        ("peerlink.nonce.bytes", Relation.Same, () => PeerLink.NonceBytes),
+        ("peerlink.kid.bytes", Relation.Same, () => PeerLink.KidBytes),
+        ("peerlink.lid.bytes", Relation.Same, () => PeerLink.LidBytes),
+        ("peerlink.handshake.ms", Relation.Same, () => Ms(PeerLink.Handshake)),
+        ("peerlink.stable.ms", Relation.Same, () => Ms(PeerLink.Stable)),
+        ("peerlink.pings.matched", Relation.Same, () => PeerLink.PingsMatched),
+        ("link.selfgap.ms", Relation.Same, () => Ms(PeerLink.SelfGap)),
+        ("link.inflight.max", Relation.Same, () => PeerLink.InFlightMost),
+        ("clock.rtt.max.ms", Relation.Same, () => Ms(LinkClock.RoundTripMost)),
+        ("clock.fresh.ms", Relation.Same, () => Ms(LinkClock.FreshFor)),
+        ("receipt.deadline.ms", Relation.Same, () => Ms(PeerLink.ReceiptDeadline)),
+        ("receipt.final.ms", Relation.Same, () => Ms(PeerLink.ReceiptFinal)),
+        ("receipts.kept", Relation.Same, () => PeerLink.ReceiptsKept),
+        ("receipts.kept.ms", Relation.Same, () => Ms(PeerLink.ReceiptsKeptFor)),
+        ("receipts.ask.max", Relation.Same, () => PeerLink.ReceiptsAskMost),
     ];
 
     /// <summary>The rows held by what this desk's code does rather than a number of it, each by a test below that names it.</summary>
@@ -118,6 +137,7 @@ public sealed class ShowBusSpecTests
     [
         "revision",                    // TheBlockIsWellFormed
         PeerRow,                       // TheScriptedPeerIsTheOneSection14Pins
+        "peerlink.label",              // TheNumbersThisDesksCoreKeepsAreTheBlocks (the core's label; its features beside it)
         "peerlink.redial.jitter.pct",  // TheNumbersThisDesksCoreKeepsAreTheBlocks
         "context.links",               // TheContextsThisDeskReadsAndSendsKeepSection6sSizes (the reader)
         "context.peers",               // TheContextsThisDeskReadsAndSendsKeepSection6sSizes
@@ -142,7 +162,6 @@ public sealed class ShowBusSpecTests
         ["context.link.end.chars"] = "this desk's own links name its items' ids, not cut to it",
         ["context.recent.chars"] = "this desk's own recent lines are cut at 240 characters (checked)",
         ["ping.max.ms"] = "the Stagewatch link pings once a beat and waits the whole beat, this row's number, after the beat's side calls — the context's read and post, the approval queue's calls, each up to link.sidecall.timeout.ms — which run in its path, not on 13.7.2's lane of their own: two pings are a beat and that work apart (checked)",
-        ["clock.apart.ms"] = "the number is held; CLOCKS APART takes the offset alone at the number or more, not the offset less the sample's error past it (13.11.5; the best-sample vectors, checked)",
         ["report.retry.first.ms"] = "an owed §11 result is sent again on each two-second turn of the approval queue until an answer settles it",
         ["report.retry.max.ms"] = "an owed §11 result is sent again on each two-second turn of the approval queue until an answer settles it",
         ["report.retry.for.ms"] = "an owed §11 result is kept until an answer settles it (at most a hundred owed), with no span of its own",
@@ -159,45 +178,27 @@ public sealed class ShowBusSpecTests
         ["context.kept.ms"] = "a node that takes CONTEXT POST keeps one this long; this desk takes none yet (§8.2)",
         ["proposal.undelivered.ms"] = "the approval desk's (§11): Stagewatch keeps the queue; this desk proposes and collects",
         ["proposal.result.ms"] = "the approval desk's (§11): Stagewatch keeps the queue; this desk proposes and collects",
-        ["receipt.deadline.ms"] = PeerLink,
-        ["peerlink.version"] = PeerLink,
-        ["peerlink.label"] = PeerLink,
-        ["peerlink.can.words"] = PeerLink,
-        ["peerlink.nonce.bytes"] = PeerLink,
-        ["peerlink.kid.bytes"] = PeerLink,
-        ["peerlink.lid.bytes"] = PeerLink,
-        ["peerlink.key.bits.min"] = PeerLink,
-        ["peerlink.handshake.ms"] = PeerLink,
-        ["peerlink.unpaired.per.address"] = PeerLink,
-        ["peerlink.wrong.proofs.per.minute"] = PeerLink,
-        ["peerlink.hold.disconnect.ms"] = PeerLink,
-        ["peerlink.cert.probe.ms"] = PeerLink,
-        ["peerlink.stable.ms"] = PeerLink,
-        ["peerlink.pings.matched"] = PeerLink,
-        ["link.check.max.ms"] = PeerLink,
-        ["link.selfgap.ms"] = PeerLink,
-        ["link.inflight.max"] = PeerLink,
-        ["link.replies.max"] = PeerLink,
-        ["link.write.deadline.max.ms"] = PeerLink,
-        ["link.command.bytes"] = PeerLink,
-        ["link.read.min.bytes"] = PeerLink,
-        ["link.ws.in.bytes"] = PeerLink,
-        ["link.sidecall.inflight"] = PeerLink,
-        ["clock.rtt.max.ms"] = PeerLink,
-        ["clock.fresh.ms"] = PeerLink,
-        ["show.stuck.min.ms"] = PeerLink,
-        ["show.stuck.max.ms"] = PeerLink,
-        ["receipt.final.ms"] = PeerLink,
-        ["receipt.late.ms"] = PeerLink,
-        ["receipts.kept"] = PeerLink,
-        ["receipts.kept.ms"] = PeerLink,
-        ["receipts.ask.max"] = PeerLink,
-        ["cmd.expire.max.ms"] = PeerLink,
-        ["log.repeat.summary.ms"] = PeerLink,
+        ["peerlink.key.bits.min"] = Acceptor,
+        ["peerlink.unpaired.per.address"] = Acceptor,
+        ["peerlink.wrong.proofs.per.minute"] = Acceptor,
+        ["peerlink.hold.disconnect.ms"] = "the connector's hold after an acceptor operator's disconnect, which no verdict or message of 1.3 names: not scheduled",
+        ["peerlink.cert.probe.ms"] = "13.8.3's probe of a changed certificate, a MAY: the Stagewatch link's carrier, which takes the core at 93.2 (S6's first half)",
+        ["link.check.max.ms"] = "the evaluator's own timer: the Stagewatch link's carrier, which takes the core at 93.2",
+        ["link.replies.max"] = Acceptor,
+        ["link.write.deadline.max.ms"] = "the link's writer lane: the Stagewatch link's carrier, which takes the core at 93.2",
+        ["link.command.bytes"] = Acceptor,
+        ["link.read.min.bytes"] = "what the link's reader takes whole: the Stagewatch link's carrier, which takes the core at 93.2",
+        ["link.ws.in.bytes"] = "a message the link sends to Stagewatch's /ws: the Stagewatch link's carrier, which takes the core at 93.2",
+        ["link.sidecall.inflight"] = "the side calls' lane of their own: the Stagewatch link's carrier, which takes the core at 93.2 (L84)",
+        ["show.stuck.min.ms"] = Acceptor,
+        ["show.stuck.max.ms"] = Acceptor,
+        ["receipt.late.ms"] = Acceptor,
+        ["cmd.expire.max.ms"] = Acceptor,
+        ["log.repeat.summary.ms"] = "the link's log while a state repeats: the link's record in every reader, round 93's 93.3",
     };
 
     private const string Windows = "§12's windows: this desk holds no granted window yet";
-    private const string PeerLink = "§13's PeerLink: this desk has no PeerLink core yet, and its wire offers no LINK";
+    private const string Acceptor = "a LINK acceptor's: this desk accepts no LINK before round 98 (the plan's 97), and its wire offers none";
 
     /// <summary>
     /// §2's words this desk does not keep yet (docs/OPEN.md L73), as the copy says them: checked both ways, the words still the
@@ -340,6 +341,10 @@ public sealed class ShowBusSpecTests
         Assert.Equal(Math.Round(Whole("link.redial.first.ms") * (1 + pct)), ShowBusLiveness.Redial(0, 1).TotalMilliseconds);
         Assert.Equal(Math.Round(Whole("link.redial.max.ms") * (1 + pct)), ShowBusLiveness.Redial(30, 1).TotalMilliseconds);
 
+        // The core's label and its features are the block's words (§14.1, 13.1).
+        Assert.True(Number("peerlink.label") == PeerLink.Label, "the core's label is not §14's peerlink.label");
+        Assert.Equal(Many("peerlink.feature").Select(w => w[0]), PeerLink.Features);
+
         // Not kept yet: the link's wait after a beat's work is the whole of ping.max.ms, so any work puts two pings past it.
         Assert.True(Ms(ShowBusLiveness.Beat) == Whole("ping.max.ms"), "the beat is no longer ping.max.ms: look again at where the row stands");
     }
@@ -466,25 +471,20 @@ public sealed class ShowBusSpecTests
     // ---- the vectors -------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// The <c>```peerlink</c> vectors this desk's code answers today, held to it: liveness and the redial (the Show Bus link's
-    /// rule), §7's legacy proof as the wire checks it, and the clock the twin and the Stagewatch link measure (one
-    /// <see cref="LinkClock"/>) where it keeps 13.11 — the offset and round trip of a sample, the refusal of a stamp of 0, and
-    /// CLOCKS APART where the offset alone gives 13.11.5's answer. Checked both ways, so keeping them moves the rows here: the
-    /// three samples 13.11.2 refuses that the clock takes, and the best sample whose error 13.11.5 takes off its offset before
-    /// it is apart (2010 ms with an error of 16 is not apart there, and is here). A legacy row that proves nothing is a
-    /// connector's rule, and this tree's legacy connector is the deck's module; every other case — a best sample's age and
-    /// fitness among them — is the PeerLink core's. Counted, so a vector nobody placed fails here.
+    /// The <c>```peerlink</c> vectors the code beside the PeerLink core answers, held to it here: liveness and the redial (the
+    /// hello's own rule, which the core reads), §7's legacy proof as the wire's 9697 checks it, and the one <see cref="LinkClock"/>
+    /// the twin, the Stagewatch link and the core measure — its admission (13.11.2: three samples a clock that checks only its
+    /// stamps takes, and a stamp of 0, refused), its error and CLOCKS APART (13.11.5: 2010 ms with an error of 16 is not apart,
+    /// 2020 is), and a best sample's freshness and fitness (13.11.4). Every other row — the four legacy rows that prove nothing among them — is
+    /// the core's, which <c>PeerLinkVectorsTests</c> runs whole. Counted, so a vector nobody placed fails here.
     /// </summary>
     [Fact]
     public void TheVectorsThisDeskAnswersHold()
     {
-        string[] core = ["canon", "key", "proof", "refuse", "parse", "errms", "outcome", "machine"];
+        string[] core = ["canon", "key", "proof", "refuse", "legacy", "parse", "errms", "outcome", "machine"];
         var vectors = Block("peerlink");
         Assert.NotEmpty(vectors);
         var held = 0;
-        var clockNotKept = 0;
-        var apartNotKept = new List<double>();
-        var connectors = 0;
         var cores = 0;
         foreach (var text in vectors)
         {
@@ -518,10 +518,6 @@ public sealed class ShowBusSpecTests
                     Assert.True(WireProof.Verify(code, nonce, name, proof.GetString()!), text);
                     held++;
                     break;
-                case "legacy":
-                    Assert.False(v.GetProperty("prove").GetBoolean(), text);
-                    connectors++;
-                    break;
                 case "clock" when v.TryGetProperty("samples", out var samples):
                     var clock = new LinkClock();
                     foreach (var s in samples.EnumerateArray())
@@ -529,26 +525,32 @@ public sealed class ShowBusSpecTests
                         var t = s.EnumerateArray().Select(x => x.GetInt64() * TimeSpan.TicksPerMillisecond).ToArray();
                         clock.Sample(t[0], t[1], t[2], t[3]);
                     }
-                    if (v.TryGetProperty("refused", out _))
+                    if (v.TryGetProperty("refused", out var refused))
                     {
-                        if (clock.Known) clockNotKept++;   // taken here, refused by 13.11.2
-                        else held++;
+                        Assert.False(clock.Known, text);
+                        Assert.Equal(refused.GetInt32(), clock.Refused);
+                        held++;
                         break;
                     }
                     var clockTol = v.GetProperty("tol").GetDouble();
                     Assert.True(clock.Known, text);
                     Assert.InRange(clock.Offset.TotalMilliseconds, v.GetProperty("offsetMs").GetDouble() - clockTol, v.GetProperty("offsetMs").GetDouble() + clockTol);
                     Assert.InRange(clock.Delay.TotalMilliseconds, v.GetProperty("rttMs").GetDouble() - clockTol, v.GetProperty("rttMs").GetDouble() + clockTol);
-                    Assert.Equal(v.GetProperty("apart").GetBoolean(), LinkClock.Apart(clock.Offset));
+                    Assert.InRange(clock.Error.TotalMilliseconds, v.GetProperty("errMs").GetDouble() - clockTol, v.GetProperty("errMs").GetDouble() + clockTol);
+                    Assert.Equal(v.GetProperty("apart").GetBoolean(), clock.IsApart);
                     held++;
                     break;
-                case "clock" when v.TryGetProperty("best", out var best) && v.TryGetProperty("apart", out var apart):
-                    var offsetMs = best.GetProperty("offsetMs").GetDouble();
-                    if (LinkClock.Apart(TimeSpan.FromMilliseconds(offsetMs)) == apart.GetBoolean()) held++;
-                    else apartNotKept.Add(offsetMs);   // 13.11.5 takes the sample's error off the offset; LinkClock.Apart does not
-                    break;
-                case "clock":
-                    cores++;   // a best sample's age and fitness (13.11.4): the clock keeps no age, the PeerLink core's
+                case "clock" when v.TryGetProperty("best", out var best):
+                    var offset = TimeSpan.FromMilliseconds(best.GetProperty("offsetMs").GetDouble());
+                    var error = TimeSpan.FromMilliseconds(best.GetProperty("errMs").GetDouble());
+                    if (v.TryGetProperty("apart", out var apart)) Assert.True(LinkClock.Apart(offset, error) == apart.GetBoolean(), text);
+                    if (best.TryGetProperty("ageMs", out var age))
+                    {
+                        var ageSpan = TimeSpan.FromMilliseconds(age.GetInt64());
+                        Assert.Equal(v.GetProperty("fresh").GetBoolean(), LinkClock.Fresh(ageSpan));
+                        Assert.Equal(v.GetProperty("fitFor300").GetBoolean(), LinkClock.FitFor(ageSpan, error, TimeSpan.FromMilliseconds(300)));
+                    }
+                    held++;
                     break;
                 default:
                     Assert.True(core.Contains(kind), $"the vector case '{kind}' is placed nowhere: {text}");
@@ -556,12 +558,9 @@ public sealed class ShowBusSpecTests
                     break;
             }
         }
-        Assert.Equal(4 + 7 + 3 + 2 + 1 + 2, held);
-        Assert.Equal(3, clockNotKept);
-        Assert.Equal(new[] { 2010.0 }, apartNotKept);
-        Assert.Equal(4, connectors);
-        Assert.Equal(vectors.Count - held - clockNotKept - apartNotKept.Count - connectors, cores);
-        Assert.Equal(82, cores);
+        Assert.Equal(4 + 7 + 3 + 6 + 4, held);
+        Assert.Equal(vectors.Count - held, cores);
+        Assert.Equal(85, cores);
     }
 
     // ---- reading the copy --------------------------------------------------------------------------------------------

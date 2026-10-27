@@ -31,6 +31,9 @@ internal static class Program
         var token = ReadSecret(options.TokenFile, "the token file", out refusal);
         if (token is null) return Refuse(output, refusal);
         if (!PairingToken.Needed(token)) return Refuse(output, "the token file holds no token: the bench never runs a desk open to the network");
+        // The Remote page's entry rule (Show Bus 1.3 §13.5.1, §13.6.8), in its words and never the token's: the bench enters a
+        // token as the desk's box does, so its two forms agree on letters and digits.
+        if (PairingToken.EntryRefusal(token) is { } why) return Refuse(output, "the token file's token is not taken — " + why);
         var key = "";
         if (options.StagewatchKeyFile is { } keyFile)
         {

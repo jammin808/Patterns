@@ -458,6 +458,18 @@ public class BenchHostTests
                 Assert.False(File.Exists(Path.Combine(dir, "b", "patterns.settings.json")));
             }
 
+            // A token the Remote page's box would not take is refused in the box's words, the token itself never repeated.
+            var shaped = SecretFile(dir, "shaped", "hunter_2!\n");
+            using (var unshaped = new Bench("--home", Path.Combine(dir, "d"), "--token-file", shaped))
+            {
+                var refused = unshaped.Next(ReadyWithin);
+                Assert.Equal("refused", refused.GetProperty("patterns").GetString());
+                Assert.Equal("the token file's token is not taken — " + PeerLink.CodeShapeWords, refused.GetProperty("error").GetString());
+                Assert.Equal(2, unshaped.ExitCode(ReadyWithin));
+                Assert.DoesNotContain(unshaped.Seen.Concat(unshaped.Stderr), l => l.Contains("hunter", StringComparison.Ordinal));
+                Assert.False(File.Exists(Path.Combine(dir, "d", "patterns.settings.json")));
+            }
+
             // A value out of its range is refused with what the option takes.
             using (var port = new Bench("--home", Path.Combine(dir, "c"), "--token-file", tokenFile, "--wire", "80"))
             {

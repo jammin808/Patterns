@@ -319,6 +319,10 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         {
             if (e.PropertyName == nameof(AdminConfig.VideoDecoding)) Raise(nameof(VideoDecodingText));
         };
+        State.Control.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ControlConfig.Token)) PairingTokenChanged();
+        };
         HookTransition();
         HookMonitor();
         RefreshMonitorDevices();
