@@ -521,6 +521,12 @@ public enum ShowActionKind
     PlanCatchUp,
     /// <summary>The countdown follows the running order — its target is the standby cue's planned start (Value: on / off).</summary>
     CountdownFollow,
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8's Trust: the certificate the Stagewatch link pinned at first use becomes a person's pin, and the link's
+    /// key goes to it from the next dial. Value = the fingerprint (sha256:…) the person saw beside the press, so the press trusts
+    /// that certificate and no other. The desk's alone, and a person's: no wire verb, deck, cue or assistant reaches it.
+    /// </summary>
+    StagewatchTrust,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

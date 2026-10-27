@@ -113,7 +113,7 @@ public class WirePeerTests
             peer.Push("STATE stuck");
             Until(() => peer.Closed, "the peer closed on the deadline");
             Assert.Contains("took longer than", peer.ClosedBecause);
-            Assert.True(stream.Disposed);
+            Until(() => stream.Disposed, "the stream disposed by the close, which reads closed before it disposes");
         }
         finally
         {

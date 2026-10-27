@@ -97,6 +97,9 @@ public static class EyeMenus
         {
             new("EYE", MenuTone.Tile, eye) { Note = "Moves what the desk is looking at, never the show." },
         };
+        // Show Bus 1.3 §13.6.8: the linked Stagewatch's certificate waiting for a person — the Nodes card's Trust, the same action.
+        if (n.Kind == EyeKind.ShowApp && n.Id.StartsWith("app:", StringComparison.Ordinal) && DeskMenus.TrustFor(d, n.Id[4..]) is { } trust)
+            groups.Add(DeskMenus.TrustGroup(trust));
         if (linked.Count > 0) groups.Add(new MenuGroup("LINKED TO", MenuTone.Tile, linked) { Note = "Each is a focus of its own." });
         if (go.Count > 0) groups.Add(new MenuGroup("GO TO", MenuTone.Go, go));
         groups.Add(new MenuGroup("ASK", MenuTone.Ask, ask) { Note = "The assistant answers from the facts; the desk runs nothing." });

@@ -267,6 +267,75 @@ public class DeskMenuAppTests
         }
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8's Trust, in step everywhere: the Stagewatch card's right-click entry and the Eye's app-card entry carry
+    /// the Nodes page's TRUST action itself — the certificate waiting, by its fingerprint — and no wire line; chosen, it is one
+    /// journal row and the pin a person's. Nothing but the desk runs it, and once trusted no menu offers it.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheStagewatchCardsTrustEntryIsTheNodesPagesTrustPressOnTheCardAndTheEye()
+    {
+        var b = TestApp.Boot();
+        var (services, vm, _) = b;
+        using var cert = ShowBus12AppTests.Cert("Hall A");
+        var fp = TlsFingerprint.Of(cert);
+        using var sw = new ShowBus12AppTests.FakeStagewatch(ShowBus12AppTests.Frame, cert);
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
+        try
+        {
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            ShowBus12AppTests.Hear(services, sw.Port, fp);
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            ShowBus12AppTests.PumpUntil(() => { ShowBus12AppTests.Hear(services, sw.Port, fp); return link.TrustFingerprint == fp && services.Stage.Following.Length > 0; });
+
+            services.Nodes.Poll();
+            var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
+            var press = StagewatchLinkActions.TrustAction(link.TrustFingerprint);
+            var onCard = vm.MenuFor("showapp", card)!.Find("link.trust")!;
+            Assert.Equal(press, onCard.Entry.Action);
+            Assert.False(onCard.HasWire);
+            services.Eye.Refresh();
+            var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Id == "app:" + card.Id);
+            var onEye = vm.MenuFor("eye", node)!.Find("link.trust")!;
+            Assert.Equal(press, onEye.Entry.Action);
+            Assert.Equal(onCard.Text, onEye.Text);
+
+            // Not the desk: refused, nothing trusted. The desk's entry: trusted, one journal row.
+            Assert.False(services.Actions.Execute(press, new ActionOrigin(OriginKind.Companion, "FOH deck")).Ok);
+            Assert.Equal(fp, link.TrustFingerprint);
+            var chosen = vm.MenuFor("showapp", card)!;
+            Choose(chosen, "link.trust");
+            Assert.True(link.TrustFingerprint.Length == 0, chosen.LastWords);
+            Assert.StartsWith("Trusted Stagewatch", chosen.LastWords, StringComparison.Ordinal);
+            Assert.Equal("person", config.Pins.Single(p => p.Fingerprint == fp).Made);
+            var rows = services.Journal.Tail(20).Where(e => e.Kind == nameof(ShowActionKind.StagewatchTrust)).ToList();
+            Assert.Equal(2, rows.Count);                                                              // the refusal and the press, each said
+            Assert.Equal(("desk", "Done"), (rows[^1].Origin, rows[^1].Outcome));
+            // The press dials again with the person's pin: once its card is linked again, no menu offers Trust.
+            ShowBus12AppTests.PumpUntil(() =>
+            {
+                ShowBus12AppTests.Hear(services, sw.Port, fp);
+                services.Nodes.Poll();
+                return services.Nodes.ShowApps.Any(c => c.Linked);
+            });
+            Assert.Null(vm.MenuFor("showapp", Assert.Single(services.Nodes.ShowApps, c => c.Linked))!.Find("link.trust"));
+            Assert.Equal("", link.TrustFingerprint);
+        }
+        finally
+        {
+            config.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = System.Net.IPAddress.IsLoopback;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void TheFlyoutAttachesBuildsAtTheRightClickAndClosesOnAChoice()
     {

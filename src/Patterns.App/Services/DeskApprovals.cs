@@ -24,6 +24,13 @@ public sealed class DeskApprovals
         public string DeskId { get; set; } = "";
         public string State { get; set; } = "";
         public bool Ran { get; set; }
+
+        /// <summary>
+        /// The link's monotonic ms at a post the approval desk's answer said nothing of — no answer, a 5xx, a 408 (13.12.3) — or
+        /// <see cref="long.MinValue"/>: while set the proposal is not posted again blind (13.12.7); a read of this desk's proposals
+        /// settles it.
+        /// </summary>
+        public long UnconfirmedAt { get; set; } = long.MinValue;
     }
 
     private readonly ConcurrentDictionary<string, Entry> _byLocal = new(StringComparer.Ordinal);

@@ -63,10 +63,11 @@ public sealed class ShowBusSpecTests
 
     /// <summary>
     /// The rows a number of this desk's Core keeps, each with that number and how it stands to the row. The Stagewatch link's
-    /// intervals are its beat loop's waits: a ping, the collect and the context's read and post ride a beat, and the beat's side
-    /// calls run in its path rather than on 13.7.2's lane of their own, so a slow one stretches the beat it runs in
-    /// (<c>ping.max.ms</c>, not kept yet). Then §13's numbers the PeerLink core keeps (<see cref="PeerLink"/>,
-    /// <see cref="LinkClock"/>), each where it lives — the ones this desk kept before the core are read where they were.
+    /// intervals are its lanes' waits: a ping on the beat's own timer, due <see cref="PeerLink.PingEvery"/> after the last left —
+    /// strictly inside 13.10.1's band, so a timer that fires late still pings within <c>ping.max.ms</c>; the collect and
+    /// the context's read and post on the side calls' lane, one call at a time, never in the beat's path (13.7.2); the evaluator on
+    /// a timer of its own. Then §13's numbers the PeerLink core keeps (<see cref="PeerLink"/>, <see cref="LinkClock"/>,
+    /// <see cref="OwedReports"/>), each where it lives — the ones this desk kept before the core are read where they were.
     /// </summary>
     private static readonly (string Row, Relation How, Func<long> Code)[] Kept =
     [
@@ -96,7 +97,8 @@ public sealed class ShowBusSpecTests
         ("link.redial.max.ms", Relation.Same, () => Ms(ShowBusLiveness.RedialMost)),
         ("link.connect.timeout.ms", Relation.Same, () => Ms(StagewatchFrame.DialWithin)),
         ("link.sidecall.timeout.ms", Relation.Same, () => Ms(StagewatchFrame.SideCallWithin)),
-        ("ping.min.ms", Relation.WaitsAtLeast, () => Ms(ShowBusLiveness.Beat)),
+        ("ping.min.ms", Relation.WaitsAtLeast, () => Ms(PeerLink.PingEvery)),
+        ("ping.max.ms", Relation.WaitsAtMost, () => Ms(PeerLink.PingEvery)),
         ("context.post.min.ms", Relation.WaitsAtLeast, () => Ms(StagewatchFrame.ContextEvery)),
         ("context.post.max.ms", Relation.WaitsAtMost, () => Ms(StagewatchFrame.ContextEvery + ShowBusLiveness.Beat)),
         ("proposal.collect.ms", Relation.WaitsAtMost, () => Ms(ShowBusLiveness.Beat)),
@@ -130,6 +132,15 @@ public sealed class ShowBusSpecTests
         ("receipts.kept", Relation.Same, () => PeerLink.ReceiptsKept),
         ("receipts.kept.ms", Relation.Same, () => Ms(PeerLink.ReceiptsKeptFor)),
         ("receipts.ask.max", Relation.Same, () => PeerLink.ReceiptsAskMost),
+        ("link.check.max.ms", Relation.WaitsAtMost, () => Ms(PeerLink.CheckEvery)),
+        ("link.write.deadline.max.ms", Relation.WaitsAtMost, () => Ms(PeerLink.WriteDeadline)),
+        ("link.sidecall.inflight", Relation.Same, () => PeerLink.SideCallsAtOnce),
+        ("link.read.min.bytes", Relation.TakesAtLeast, () => StagewatchFrame.ReadWholeMost),
+        ("link.ws.in.bytes", Relation.SendsAtMost, () => Encoding.UTF8.GetByteCount(StagewatchFrame.Ping(long.MinValue))),
+        ("peerlink.cert.probe.ms", Relation.WaitsAtLeast, () => Ms(PeerLink.CertProbe)),
+        ("report.retry.first.ms", Relation.Same, () => Ms(OwedReports.RetryFirst)),
+        ("report.retry.max.ms", Relation.Same, () => Ms(OwedReports.RetryMost)),
+        ("report.retry.for.ms", Relation.Same, () => Ms(OwedReports.RetryFor)),
     ];
 
     /// <summary>The rows held by what this desk's code does rather than a number of it, each by a test below that names it.</summary>
@@ -161,10 +172,6 @@ public sealed class ShowBusSpecTests
         ["context.item.state.chars"] = "this desk's own items carry the Eye's sub-lines, not cut to it",
         ["context.link.end.chars"] = "this desk's own links name its items' ids, not cut to it",
         ["context.recent.chars"] = "this desk's own recent lines are cut at 240 characters (checked)",
-        ["ping.max.ms"] = "the Stagewatch link pings once a beat and waits the whole beat, this row's number, after the beat's side calls — the context's read and post, the approval queue's calls, each up to link.sidecall.timeout.ms — which run in its path, not on 13.7.2's lane of their own: two pings are a beat and that work apart (checked)",
-        ["report.retry.first.ms"] = "an owed §11 result is sent again on each two-second turn of the approval queue until an answer settles it",
-        ["report.retry.max.ms"] = "an owed §11 result is sent again on each two-second turn of the approval queue until an answer settles it",
-        ["report.retry.for.ms"] = "an owed §11 result is kept until an answer settles it (at most a hundred owed), with no span of its own",
     };
 
     /// <summary>Rows of what this desk does not do yet, or of another node's part.</summary>
@@ -182,14 +189,8 @@ public sealed class ShowBusSpecTests
         ["peerlink.unpaired.per.address"] = Acceptor,
         ["peerlink.wrong.proofs.per.minute"] = Acceptor,
         ["peerlink.hold.disconnect.ms"] = "the connector's hold after an acceptor operator's disconnect, which no verdict or message of 1.3 names: not scheduled",
-        ["peerlink.cert.probe.ms"] = "13.8.3's probe of a changed certificate, a MAY: the Stagewatch link's carrier, which takes the core at 93.2 (S6's first half)",
-        ["link.check.max.ms"] = "the evaluator's own timer: the Stagewatch link's carrier, which takes the core at 93.2",
         ["link.replies.max"] = Acceptor,
-        ["link.write.deadline.max.ms"] = "the link's writer lane: the Stagewatch link's carrier, which takes the core at 93.2",
         ["link.command.bytes"] = Acceptor,
-        ["link.read.min.bytes"] = "what the link's reader takes whole: the Stagewatch link's carrier, which takes the core at 93.2",
-        ["link.ws.in.bytes"] = "a message the link sends to Stagewatch's /ws: the Stagewatch link's carrier, which takes the core at 93.2",
-        ["link.sidecall.inflight"] = "the side calls' lane of their own: the Stagewatch link's carrier, which takes the core at 93.2 (L84)",
         ["show.stuck.min.ms"] = Acceptor,
         ["show.stuck.max.ms"] = Acceptor,
         ["receipt.late.ms"] = Acceptor,
@@ -344,9 +345,6 @@ public sealed class ShowBusSpecTests
         // The core's label and its features are the block's words (§14.1, 13.1).
         Assert.True(Number("peerlink.label") == PeerLink.Label, "the core's label is not §14's peerlink.label");
         Assert.Equal(Many("peerlink.feature").Select(w => w[0]), PeerLink.Features);
-
-        // Not kept yet: the link's wait after a beat's work is the whole of ping.max.ms, so any work puts two pings past it.
-        Assert.True(Ms(ShowBusLiveness.Beat) == Whole("ping.max.ms"), "the beat is no longer ping.max.ms: look again at where the row stands");
     }
 
     /// <summary>§2: the hello this desk says names only §14's doors, and its reader takes a datagram of <c>hello.read.bytes</c> and keeps the first <c>hello.caps</c> caps.</summary>

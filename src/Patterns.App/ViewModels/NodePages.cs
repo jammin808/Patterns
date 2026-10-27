@@ -63,6 +63,12 @@ public interface INodesPage
     bool HasPendingCertificate { get; }
     /// <summary>Round 88: ACCEPT — the changed certificate becomes the pin.</summary>
     RelayCommand AcceptCertificateCommand { get; }
+    /// <summary>Show Bus 1.3 §13.6.8: the Stagewatch link holds its key back from a certificate no person pinned — Trust waits beside its short fingerprint.</summary>
+    bool HasTrust { get; }
+    /// <summary>The certificate waiting for Trust in words, with its short fingerprint; "" when none waits.</summary>
+    string TrustWords { get; }
+    /// <summary>TRUST — one press beside the short fingerprint: the certificate becomes a person's pin and the key goes to it (the same action as the card's right-click entry).</summary>
+    RelayCommand TrustCertificateCommand { get; }
     /// <summary>Round 89: the pairing token was seen in clear from another machine — the words, amber; "" when it was not.</summary>
     string TokenClearWords { get; }
 }

@@ -48,10 +48,11 @@ public sealed record LinkFloor(bool Tls, int Level, string Proof);
 
 /// <summary>
 /// What a connector keeps across a restart (13.15.3, 13.9.3, 13.8, 13.4.3): the pin, the floor, a refused key's hold with its
-/// end in wall time and the word it was refused with, and the node id and kind a verified link or the operator bound it to.
-/// Never a key, code, K, S, proof or nonce.
+/// end in wall time, the word it was refused with and whether the public view may be read inside it (false after a refusal that
+/// let no keyless link read either), and the node id and kind a verified link or the operator bound it to. Never a key, code, K,
+/// S, proof or nonce.
 /// </summary>
-public sealed record LinkKept(LinkPin? Pin, LinkFloor? Floor, long? HeldUntilWall, string? HeldRefusal, string? NodeId = null, string? NodeKind = null);
+public sealed record LinkKept(LinkPin? Pin, LinkFloor? Floor, long? HeldUntilWall, string? HeldRefusal, string? NodeId = null, string? NodeKind = null, bool HeldPublic = true);
 
 /// <summary>One injected now: the monotonic clock and the wall clock, in ms. One number stands for both, as 13.20's machine rows read it.</summary>
 public readonly record struct LinkNow(long Mono, long Wall)

@@ -48,6 +48,27 @@ public static class PeerLink
     /// <summary>The evaluator's own gap past which it takes itself for paused, never the link (§14 <c>link.selfgap.ms</c>, 13.10.4).</summary>
     public static readonly TimeSpan SelfGap = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// How often a connector pings (§14 <c>ping.min.ms</c>–<c>ping.max.ms</c>, 13.10.1): strictly inside the band, so a ping due a beat
+    /// after the last one left and sent a little late by its timer is still within <c>ping.max.ms</c>.
+    /// </summary>
+    public static readonly TimeSpan PingEvery = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>
+    /// How often a link's state is evaluated, on a timer of its own that never waits behind a side call or a write (§14
+    /// <c>link.check.max.ms</c>, 13.10.3): strictly inside the row, so an evaluator whose timer fires a little late still runs within it.
+    /// </summary>
+    public static readonly TimeSpan CheckEvery = TimeSpan.FromMilliseconds(750);
+
+    /// <summary>How long one write to a link may take before the connection is cut (§14 <c>link.write.deadline.max.ms</c>, 13.14).</summary>
+    public static readonly TimeSpan WriteDeadline = TimeSpan.FromSeconds(10);
+
+    /// <summary>The side calls of one kind a link runs at once, on their lane of their own (§14 <c>link.sidecall.inflight</c>, 13.7.2).</summary>
+    public const int SideCallsAtOnce = 1;
+
+    /// <summary>The least time between two looks at the certificate a node shows after CERTIFICATE CHANGED, each one TLS greeting that sends nothing (§14 <c>peerlink.cert.probe.ms</c>, 13.8.3).</summary>
+    public static readonly TimeSpan CertProbe = TimeSpan.FromSeconds(60);
+
     /// <summary>The most commands that wait for answers on one link (§14 <c>link.inflight.max</c>, 13.12.8).</summary>
     public const int InFlightMost = 32;
 

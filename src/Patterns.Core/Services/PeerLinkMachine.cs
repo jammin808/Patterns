@@ -54,6 +54,7 @@ public sealed class PeerLinkMachine
         public int Level = -1;
         public string Proof = "none";
         public bool Verified;
+        public bool Settled;
         public bool Keyless;
         public bool Legacy;
         public bool Open;
@@ -79,7 +80,7 @@ public sealed class PeerLinkMachine
         public long Left { get; set; }
     }
 
-    private readonly LinkSettings _s;
+    private LinkSettings _s;
     private readonly Func<double> _j;
     private readonly LinkClock _clock = new();
     private readonly List<long> _pings = new();
@@ -114,8 +115,13 @@ public sealed class PeerLinkMachine
 
     private long _holdUntil = long.MinValue;
     private long _holdUntilWall;
+    private bool _holdPublic = true;
     private long _holdAt;
     private string? _holdRefusal;
+
+    // A rate limit's own end inside the hold: a word that takes the key lifts a refusal's hold, never a rate limit's (13.7.3).
+    private long _busyUntil = long.MinValue;
+    private long _busyUntilWall;
     private string? _refused;
     private long _refusedAt;
     private string? _lastClass;
@@ -156,16 +162,13 @@ public sealed class PeerLinkMachine
         _now = now.Mono;
         _wallOffset = now.Wall - now.Mono;
         if (kept is { HeldUntilWall: { } until } && until > now.Wall)
-        {
-            _holdUntil = now.Mono + (until - now.Wall);
-            _holdUntilWall = until;
-            _holdRefusal = kept.HeldRefusal ?? "key";
-            _holdAt = now.Mono;
-        }
+            HoldTo(now, kept.HeldRefusal ?? "key", now.Mono + (until - now.Wall), until, kept.HeldPublic);
     }
 
     /// <summary>What the machine keeps across a restart, to be persisted whenever it changes and before any further I/O (13.15.3).</summary>
-    public LinkKept Kept => new(_pin, _floor, _holdUntil > _now ? _holdUntilWall : null, _holdUntil > _now ? _holdRefusal : null, _boundId, _boundT);
+    public LinkKept Kept => _holdUntil > _now
+        ? new(_pin, _floor, _holdUntilWall, _holdRefusal, _boundId, _boundT, _holdPublic)
+        : new(_pin, _floor, null, null, _boundId, _boundT);
 
     /// <summary>The node this link is for: the one a verified link or the operator bound it to, else the settings', else the pin's.</summary>
     public string? NodeId => _boundId ?? _s.NodeId ?? _pin?.NodeId;
@@ -340,14 +343,7 @@ public sealed class PeerLinkMachine
     /// On <c>ws</c>, the acceptor's first message is a state frame, not <c>link</c>: an acceptor that does not speak LINK
     /// (13.6.8). After a <c>link</c> message a frame before the verdict is discarded and counted.
     /// </summary>
-    public void FirstFrame(LinkNow now)
-    {
-        Advance(now);
-        if (_phase is Phase.Idle or Phase.Dialling && !UpFromDial(now, greet: false)) return;
-        if (_refused is not null || _c is null) return;
-        if (_c.Offer is null && !_c.ProofWritten) LevelZero(now);
-        if (_refused is null) Frame(now);
-    }
+    public void FirstFrame(LinkNow now) => FirstMessage(now, frame: true);
 
     /// <summary>
     /// A line acceptor's NONCE (13.6.8): kept only as whether it was exactly 32 lowercase hex, and answered with 1.1's proof of
@@ -431,6 +427,132 @@ public sealed class PeerLinkMachine
 
     /// <summary>A complete message from the acceptor, and nothing more (13.10.2).</summary>
     public void Heard(LinkNow now) => Hear(now);
+
+    /// <summary>
+    /// On <c>ws</c>, the acceptor's first message is not <c>link</c> — a state frame, or (Stagewatch §7.1) its verdict on the bearer
+    /// key before any frame: an acceptor that does not speak LINK (13.6.8). The message is heard; only a frame makes the show live.
+    /// </summary>
+    public void FirstMessage(LinkNow now, bool frame)
+    {
+        Advance(now);
+        if (_phase is Phase.Idle or Phase.Dialling && !UpFromDial(now, greet: false)) return;
+        if (_refused is not null || _c is null) return;
+        if (_c.Offer is null && !_c.ProofWritten) LevelZero(now);
+        if (_refused is not null) return;
+        if (frame) Frame(now);
+        else Hear(now);
+    }
+
+    /// <summary>
+    /// 13.15.2 at level 0, where no proof verifies: the acceptor's own word settled this connection — a verdict that let this
+    /// connector's key speak for its node, or a first frame on a connection that carries no key (none set, or held back) and so
+    /// asks nothing the acceptor must take. From now, a connection that stays up, never down, for <c>peerlink.stable.ms</c>
+    /// returns the redial count to 0, as a verified one does; its level, proof, pin and floor are left as they are. A refusal on
+    /// it ends the settling.
+    /// </summary>
+    public void Settled(LinkNow now)
+    {
+        Advance(now);
+        if (_phase != Phase.Up || _c is not { Level: 0 } c || c.Settled || c.Verified) return;
+        c.Settled = true;
+        c.VerifiedAt = now.Mono;
+        c.StableDone = false;
+        c.WentDown = false;
+    }
+
+    /// <summary>
+    /// The dial reached an address, and the connection's sockets go there: <paramref name="local"/> when that address is a
+    /// loopback address (13.1) — never because of a host name — which a name's addresses decide one at a time.
+    /// </summary>
+    public void Reached(LinkNow now, bool local)
+    {
+        Advance(now);
+        if (_s.Local != local) _s = _s with { Local = local };
+    }
+
+    /// <summary>
+    /// 13.11.7: the inst the acceptor names — in a hello, a verdict or a frame. Another one than the clock measured empties its
+    /// window: another process answers now, and its clock is another.
+    /// </summary>
+    public void PeerInst(LinkNow now, string inst)
+    {
+        Advance(now);
+        if (inst.Length == 0) return;
+        if (_peerInst is not null && inst != _peerInst) _clock.Clear();
+        _peerInst = inst;
+    }
+
+    /// <summary>
+    /// 13.13.2: the acceptor restarted — the first frame on a connection counts from below the last connection's — so the clock it
+    /// measured is another process's: the window is emptied (13.11.7), as another inst empties it, and the inst it knew is
+    /// forgotten, so the next one named is the new process's own.
+    /// </summary>
+    public void PeerRestarted(LinkNow now)
+    {
+        Advance(now);
+        _clock.Clear();
+        _peerInst = null;
+    }
+
+    /// <summary>
+    /// A level-0 key refused by the acceptor's own word — a refusing verdict on the socket, or a side call's refusal (13.7.3) —
+    /// held for <paramref name="holdMs"/>, recorded with its end in wall time (13.15.3). A refused key's socket stays a public
+    /// viewer and the key is proved again on a fresh one when the hold ends; a rate limit (<c>busy</c>) leaves the socket as it
+    /// is. With <paramref name="publicView"/> false nothing at all is dialled inside the hold (an acceptor that let no keyless
+    /// link read it either).
+    /// </summary>
+    public void KeyRefused(LinkNow now, string word, long holdMs, bool publicView = true)
+    {
+        Advance(now);
+        Hold(now, word, holdMs, publicView);
+        if (_phase != Phase.Up || _c is null || word == "busy") return;
+        _c.Verified = _c.Settled = false;
+        _c.Keyless = true;
+        _c.ReproveAt = _holdUntil;
+    }
+
+    /// <summary>
+    /// A later word takes the key a refusal held (the acceptor's operator let it speak again): the refusal's hold ends — a rate
+    /// limit's standing inside it goes on to its own end (13.7.3) — and a socket that carried the key carries it again rather than
+    /// ending at the hold's end.
+    /// </summary>
+    public void KeyTaken(LinkNow now)
+    {
+        Advance(now);
+        if (_busyUntil > now.Mono)
+        {
+            (_holdUntil, _holdUntilWall, _holdRefusal) = (_busyUntil, _busyUntilWall, "busy");
+            _holdPublic = true;
+        }
+        else
+        {
+            _holdUntil = long.MinValue;
+            _holdPublic = true;
+        }
+        if (_phase == Phase.Up && _c is { Keyless: true } c && c.ReproveAt != long.MinValue)
+        {
+            c.Keyless = false;
+            c.ReproveAt = long.MinValue;
+        }
+    }
+
+    /// <summary>
+    /// The connector's link goes on in this machine: one run reaches its node under another name — a typed address the node's hello
+    /// names one moment and not the next (§2) — and what the link owes stays the link's. The redial count and the wait it gave carry
+    /// over, so a flapping hello never resets the backoff (13.15.1–2), and so does a key's hold with its word and whether the public
+    /// view may be read inside it, so the key is proved again only when the hold ends (13.15.3). Nothing of an earlier connection, a
+    /// pin or a clock comes with it. Called once, before this machine dials.
+    /// </summary>
+    public void Continue(LinkNow now, PeerLinkMachine before)
+    {
+        Advance(now);
+        _failed = Math.Max(_failed, before._failed);
+        _waitMs = Math.Max(_waitMs, before._waitMs);
+        if (before._nextDialAt > _nextDialAt) _nextDialAt = before._nextDialAt;
+        if (before._busyUntil > now.Mono) HoldTo(now, "busy", before._busyUntil, before._busyUntilWall, publicView: true);
+        if (before._holdUntil > now.Mono) HoldTo(now, before._holdRefusal ?? "key", before._holdUntil, before._holdUntilWall, before._holdPublic);
+        if (before._holdUntil > now.Mono) _holdAt = Math.Min(_holdAt, before._holdAt);
+    }
 
     /// <summary>A state frame. On <c>ws</c> it, and only it, makes the show live (13.10.5).</summary>
     public void Frame(LinkNow now)
@@ -609,7 +731,7 @@ public sealed class PeerLinkMachine
         if (!reading.Hold) return;
         Hold(now, "key", Math.Max(HoldRefusedMs, reading.RetryAfter * 1000L));
         if (_phase != Phase.Up) return;
-        _c!.Verified = false;
+        _c!.Verified = _c.Settled = false;
         _c.Keyless = true;
         _c.ReproveAt = _holdUntil;
     }
@@ -644,7 +766,8 @@ public sealed class PeerLinkMachine
     public void LinkAgainNow(LinkNow now)
     {
         Advance(now);
-        _holdUntil = long.MinValue;
+        _holdUntil = _busyUntil = long.MinValue;
+        _holdPublic = true;
         _nextDialAt = now.Mono;
         if (_phase == Phase.Up && _c is { Keyless: true } c && c.ReproveAt != long.MinValue) Relink(now);
     }
@@ -730,6 +853,45 @@ public sealed class PeerLinkMachine
         return Scheme();
     }
 
+    /// <summary>
+    /// 13.15.3 on <c>ws</c>: while a refused key's hold runs, the connector may still read the acceptor's public view. The dial it
+    /// makes now for that — its wait over, no refusal or conflict standing — or null. A dial made so carries no key, and its socket
+    /// ends when the hold does, so the key is proved again on a fresh one.
+    /// </summary>
+    public string? PublicDialDue(LinkNow now)
+    {
+        Advance(now);
+        if (_phase == Phase.Dialling) return _scheme;
+        if (_phase != Phase.Idle || !_s.Enabled || _refused is not null || !AddressKnown || _s.Carrier != LinkCarrier.Ws) return null;
+        if (_holdUntil <= now.Mono || !_holdPublic || _markUntil > now.Mono || _nextDialAt > now.Mono) return null;
+        return Scheme();
+    }
+
+    /// <summary>The connector dials for the public view inside a key's hold (<see cref="PublicDialDue"/>): the scheme, or null when none is due.</summary>
+    public string? DialPublic(LinkNow now)
+    {
+        Advance(now);
+        if (_phase != Phase.Idle || PublicDialDue(now) is not { } scheme) return null;
+        _phase = Phase.Dialling;
+        _phaseAt = _attemptAt = now.Mono;
+        _scheme = scheme;
+        return scheme;
+    }
+
+    /// <summary>
+    /// How long until the connector's next dial — keyed, or for the public view inside a key's hold — in ms; 0 when one is due
+    /// now. Null while a dial or a connection is out, and while nothing will be dialled until a person acts, the link is turned on
+    /// or the node is heard.
+    /// </summary>
+    public long? DialIn(LinkNow now)
+    {
+        Advance(now);
+        if (_phase != Phase.Idle || !_s.Enabled || _refused is not null || !AddressKnown) return null;
+        var at = Math.Max(_nextDialAt, _markUntil);
+        if (_holdUntil > now.Mono && !(_holdPublic && _s.Carrier == LinkCarrier.Ws)) at = Math.Max(at, _holdUntil);
+        return at <= now.Mono ? 0 : at - now.Mono;                                         // the unset marks are long.MinValue: never subtracted
+    }
+
     /// <summary>Whether the connector keeps a dial or a connection at <paramref name="now"/>: false once it ended one, and the carrier closes its socket.</summary>
     public bool KeepsConnection(LinkNow now)
     {
@@ -767,6 +929,9 @@ public sealed class PeerLinkMachine
 
     /// <summary>The next request id, <c>&lt;prefix&gt;&lt;n&gt;-&lt;inst&gt;</c> (13.12.1).</summary>
     public string NextId() => PeerLink.RequestId(_s.IdPrefix, ++_nextId, _s.Inst);
+
+    /// <summary>How many writes wait for the carrier's next <see cref="Drain"/>.</summary>
+    public int WritesWaiting => _writes.Count;
 
     /// <summary>What to write since the last drain, in order.</summary>
     public IReadOnlyList<LinkWrite> Drain()
@@ -858,7 +1023,8 @@ public sealed class PeerLinkMachine
         var state = State(now);
         var light = Light(now);
         var known = _clock.Known;
-        long? next = _phase == Phase.Idle && _refused is null ? Math.Max(0, Math.Max(_nextDialAt, Math.Max(_holdUntil, _markUntil)) - now.Mono) : null;
+        var nextAt = Math.Max(_nextDialAt, Math.Max(_holdUntil, _markUntil));
+        long? next = _phase == Phase.Idle && _refused is null ? (nextAt <= now.Mono ? 0 : nextAt - now.Mono) : null;   // an unset mark is long.MinValue: never subtracted
         var clock = new LinkRecordClock(
             known ? _clock.Offset.TotalMilliseconds : null,
             known ? (long)_clock.Error.TotalMilliseconds : null,
@@ -939,7 +1105,7 @@ public sealed class PeerLinkMachine
             _why = "no link in " + (HandshakeMs / 1000).ToString(CultureInfo.InvariantCulture) + " s";
             Close(At(_phaseAt + HandshakeMs + 1), failed: true);
         }
-        if (_phase == Phase.Up && _c is { Verified: true, StableDone: false } v && now.Mono >= v.VerifiedAt + StableMs)
+        if (_phase == Phase.Up && _c is { StableDone: false } v && (v.Verified || v.Settled) && now.Mono >= v.VerifiedAt + StableMs)
         {
             if (!v.WentDown && v.VerifiedAt + StableMs - _lastHeard <= DropMs) _failed = 0;
             v.StableDone = true;
@@ -1159,13 +1325,17 @@ public sealed class PeerLinkMachine
             return;
         }
         Linked(now);
-        if (_s.Key is not null && c.Tls && c.Cert is { } shown && _pin is { Trust: not PinTrust.First } p && p.Fingerprint == shown)
+        // The bearer goes inside TLS to a certificate a proof or a person pinned, or to a local link, where it never leaves this
+        // machine (13.3.4, 13.19.1); never while a refused key's hold runs, whose socket reads the public view until it ends.
+        var held = _holdUntil > now.Mono;
+        if (_s.Key is not null && !held && (_s.Local || (c.Tls && c.Cert is { } shown && _pin is { Trust: not PinTrust.First } p && p.Fingerprint == shown)))
         {
             c.Keyless = false;
             Write(now, null, "bearer");
             return;
         }
         c.Keyless = true;
+        if (held && _s.Key is not null) c.ReproveAt = _holdUntil;
         if (c.Tls && c.Cert is { } seen && (_pin is null || (_pin.Trust == PinTrust.First && _pin.Fingerprint != seen)))
             _pin = new LinkPin(NodeId, seen, PinTrust.First);
     }
@@ -1230,12 +1400,25 @@ public sealed class PeerLinkMachine
         _nextDialAt = now.Mono + _waitMs;
     }
 
-    private void Hold(LinkNow now, string word, long ms)
+    private void Hold(LinkNow now, string word, long ms, bool publicView = true) => HoldTo(now, word, now.Mono + ms, now.Wall + ms, publicView);
+
+    /// <summary>
+    /// A hold to <paramref name="until"/>. One standing is never shortened: the later end stands, a refusal's word stands over a
+    /// rate limit's (<c>busy</c>), and the public view may be read inside it only while no word that held it forbade that. A rate
+    /// limit's own end is kept apart, so a word that takes the key leaves it standing.
+    /// </summary>
+    private void HoldTo(LinkNow now, string word, long until, long untilWall, bool publicView)
     {
-        _holdAt = now.Mono;
-        _holdUntil = now.Mono + ms;
-        _holdUntilWall = now.Wall + ms;
-        _holdRefusal = word;
+        if (word == "busy" && until > _busyUntil) (_busyUntil, _busyUntilWall) = (until, untilWall);
+        if (_holdUntil <= now.Mono)
+        {
+            _holdAt = now.Mono;
+            (_holdUntil, _holdUntilWall, _holdRefusal, _holdPublic) = (until, untilWall, word, publicView);
+            return;
+        }
+        if (until > _holdUntil) (_holdUntil, _holdUntilWall) = (until, untilWall);
+        if (word != "busy") _holdRefusal = word;
+        _holdPublic &= publicView;
     }
 
     /// <summary>

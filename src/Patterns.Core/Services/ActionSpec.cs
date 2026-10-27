@@ -153,6 +153,7 @@ public static class ActionSpec
         ShowActionKind.CountdownTo => (TargetKind.None, ValueKind.ClockTime),
         ShowActionKind.CountdownLabel => (TargetKind.None, ValueKind.Text),
         ShowActionKind.CountdownFollow => (TargetKind.None, ValueKind.Switch),
+        ShowActionKind.StagewatchTrust => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageScroll => (TargetKind.None, ValueKind.Switch),
         ShowActionKind.ClockFormat => (TargetKind.None, ValueKind.Hours),
@@ -436,6 +437,7 @@ public static class ActionSpec
         ShowActionKind.CalibrateDemo => "Calibrate — a run against a room that is not there",
         ShowActionKind.CalibrateApply => "Calibrate — apply the solution to the rig",
         ShowActionKind.CalibrateUndo => "Calibrate — undo the last apply",
+        ShowActionKind.StagewatchTrust => "Stagewatch link — trust the certificate shown beside the press",
         _ => kind.ToString(),
     };
 
@@ -534,6 +536,7 @@ public static class ActionSpec
         ShowActionKind.AudienceOn or ShowActionKind.AudienceOff
             => "the audience listener is a control setting — the Remote page and the wire, never a cue",
         ShowActionKind.StageAck => "a stage display's own receipt — the ACK on the stage page, forwarded by a timer node; never a cue",
+        ShowActionKind.StagewatchTrust => "a person's trust decision, beside the fingerprint on this desk (Show Bus 1.3 §13.6.8) — a running order, a deck, the wire or an assistant never pins a certificate",
         _ => null,
     };
 

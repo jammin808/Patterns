@@ -27,4 +27,27 @@ public static class ShowClock
 
     /// <summary>The wall time a master instant corresponds to.</summary>
     public static DateTime UtcAt(double seconds) => BaseUtc + TimeSpan.FromSeconds(seconds);
+
+    /// <summary>The master clock in ticks (100 ns), monotonic: what <see cref="ShowClockTime"/> stamps with.</summary>
+    public static long Ticks => Watch.Elapsed.Ticks;
+}
+
+/// <summary>
+/// The master clock as a <see cref="TimeProvider"/>: its wall time is <see cref="ShowClock.UtcNow"/>, which never steps, and its
+/// timestamps are the master clock's ticks, so a reader that takes its time through the provider reads the clock every sink reads.
+/// A link takes one as its seam: the desk runs on this one, and a test hands it another.
+/// </summary>
+public sealed class ShowClockTime : TimeProvider
+{
+    public static readonly ShowClockTime Instance = new();
+
+    private ShowClockTime()
+    {
+    }
+
+    public override DateTimeOffset GetUtcNow() => new(ShowClock.UtcNow, TimeSpan.Zero);
+
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    public override long GetTimestamp() => ShowClock.Ticks;
 }

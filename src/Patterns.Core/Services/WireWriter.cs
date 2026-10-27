@@ -26,6 +26,8 @@ public static class WireWriter
     {
         ShowActionKind.Unknown, ShowActionKind.Note, ShowActionKind.Take, ShowActionKind.Cut,
         ShowActionKind.ListGo, ShowActionKind.ListBack, ShowActionKind.ListReset, ShowActionKind.CueFire,
+        // A person's trust decision, beside the fingerprint on this desk: the wire has no word that pins a certificate.
+        ShowActionKind.StagewatchTrust,
     };
 
     public static string Line(ShowAction a)

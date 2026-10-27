@@ -72,6 +72,12 @@ public sealed record DeskFacts
     /// <summary>Round 73: the wire line MIDI learn is armed for now, "" when it is not.</summary>
     public string MidiLearning { get; init; } = "";
 
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8: the linked Stagewatch whose certificate waits for a person's Trust — its card's id, its name and the
+    /// certificate pinned at first use; null when none waits.
+    /// </summary>
+    public MenuTrust? StagewatchTrust { get; init; }
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;
@@ -256,3 +262,12 @@ public sealed record PageFacts(string Header)
     public IReadOnlyList<MenuThing> Music { get; init; } = Array.Empty<MenuThing>();
     public IReadOnlyList<MenuThing> Games { get; init; } = Array.Empty<MenuThing>();
 }
+
+/// <summary>
+/// The Stagewatch link's key held back from a certificate no person pinned (Show Bus 1.3 §13.6.8): the linked app's id as its card
+/// and the Eye name it, its name, and the certificate (sha256:…) a person compares on its screen before pressing Trust.
+/// </summary>
+public sealed record MenuTrust(string AppId, string Name, string Fingerprint);
+
+/// <summary>Another show app's card on the Nodes page, as its menu reads it.</summary>
+public sealed record MenuShowApp(string Id, string KindLabel, string Name, string Line, bool Linked);

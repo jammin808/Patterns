@@ -435,6 +435,8 @@ public class ShowBusAppTests
         private int _contextReads;
         private int _stuckBeats;
         private int _dials;
+        private int _drops;
+        private int _stays;
 
         public int Port { get; }
         public string Authorization => _authorization;
@@ -445,6 +447,12 @@ public class ShowBusAppTests
 
         /// <summary>How many times /ws was dialled.</summary>
         public int Dials => Volatile.Read(ref _dials);
+
+        /// <summary>How many sockets the far end cut (<see cref="DropAfterMs"/>), each counted as it is cut.</summary>
+        public int Drops => Volatile.Read(ref _drops);
+
+        /// <summary>How many dials were counted while <see cref="DropAfterMs"/> was 0 — sockets the far end never cuts.</summary>
+        public int Stays => Volatile.Read(ref _stays);
 
         /// <summary>Every request in arrival order: a /ws dial as "ws", else "METHOD path", with the Authorization it carried ("" for none).</summary>
         public readonly ConcurrentQueue<(string What, string Authorization)> Requests = new();
@@ -471,6 +479,27 @@ public class ShowBusAppTests
 
         /// <summary>How long a dial waits after its upgrade before it hears anything (a busy show thread, a slow path).</summary>
         public volatile int FirstDelayMs;
+
+        /// <summary>When each ping arrived, on the test's clock (ms).</summary>
+        public readonly ConcurrentQueue<long> PingTimes = new();
+
+        /// <summary>How long GET /api/context takes to answer — a side call slow on its own lane.</summary>
+        public volatile int ContextDelayMs;
+
+        /// <summary>Every pong names a ping that was never sent (its t one less): no sample may come of it.</summary>
+        public volatile bool ForgePongs;
+
+        /// <summary>Each socket is closed by the far end this long after its upgrade, as it stood when the dial was counted; 0: never.</summary>
+        public volatile int DropAfterMs;
+
+        /// <summary>The far end says nothing more on any socket — no pong, no frame — and keeps it open.</summary>
+        public volatile bool Silent;
+
+        /// <summary>The frame every socket counted from now hears in place of the one it was made with (a Stagewatch run again); null: that one.</summary>
+        public volatile string? FrameNow;
+
+        /// <summary>How long POST /api/peers/context takes to answer — past the side call's time, no answer at all.</summary>
+        public volatile int PostContextDelayMs;
 
         /// <summary>What POST /api/peers/context answers: the status line, its JSON body and a Retry-After (0: none).</summary>
         public volatile string ContextStatus = "";
@@ -533,6 +562,11 @@ public class ShowBusAppTests
                     var auth = ctx.Request.Headers["Authorization"] ?? "";
                     if (ctx.Request.Url!.AbsolutePath == "/ws" && ctx.Request.IsWebSocketRequest)
                     {
+                        // What this connection drops after and which run's frames it hears are fixed as it is counted: a test that
+                        // sees the count and then changes them changes the next connection, never this one.
+                        var after = DropAfterMs;
+                        var shown = FrameNow ?? frame;
+                        if (after <= 0) Interlocked.Increment(ref _stays);
                         Interlocked.Increment(ref _dials);
                         Requests.Enqueue(("ws", auth));
                         _authorization = auth;
@@ -552,9 +586,27 @@ public class ShowBusAppTests
                             return;
                         }
                         _open[ws] = gate;
+                        if (after > 0)
+                        {
+                            // The far end drops the link: the socket and its connection cut, no close handshake.
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await Task.Delay(after, _cts.Token);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    return;
+                                }
+                                Interlocked.Increment(ref _drops);                              // counted before the cut, so before the redial it brings
+                                ws.Abort();
+                                ctx.Response.Abort();
+                            }, _cts.Token);
+                        }
                         try
                         {
-                            await SendShow(ws, gate, frame);
+                            await SendShow(ws, gate, shown);
                             var buffer = new byte[4096];
                             while (ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
                             {
@@ -564,10 +616,12 @@ public class ShowBusAppTests
                                 if (doc.RootElement.GetProperty("cmd").GetString() == "ping")
                                 {
                                     Interlocked.Increment(ref _pings);
-                                    var t = doc.RootElement.GetProperty("t").GetInt64();
+                                    PingTimes.Enqueue(Environment.TickCount64);
+                                    if (Silent) continue;
+                                    var t = doc.RootElement.GetProperty("t").GetInt64() - (ForgePongs ? 1 : 0);
                                     var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                                     await Send(ws, gate, $"{{\"type\":\"pong\",\"t\":{t},\"t2\":{now},\"t3\":{now}}}");
-                                    await SendShow(ws, gate, frame);
+                                    await SendShow(ws, gate, shown);
                                 }
                             }
                         }
@@ -580,6 +634,8 @@ public class ShowBusAppTests
                     var path = ctx.Request.Url.AbsolutePath;
                     Requests.Enqueue((ctx.Request.HttpMethod + " " + ctx.Request.Url.PathAndQuery, auth));
                     if (path == "/api/context") Interlocked.Increment(ref _contextReads);
+                    if (path == "/api/context" && ContextDelayMs > 0) await Task.Delay(ContextDelayMs, _cts.Token);
+                    if (path == "/api/peers/context" && PostContextDelayMs > 0) await Task.Delay(PostContextDelayMs, _cts.Token);
                     var (status, body, retryAfter) = path switch
                     {
                         "/api/context" when ServeContext => (200,
@@ -1065,6 +1121,349 @@ public class ShowBusAppTests
         }
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.7.2 and §14's <c>ping.max.ms</c>: the side calls run on a lane of their own, one at a time, and the beat on
+    /// a timer of its own — a context read that takes three seconds (within <c>link.sidecall.timeout.ms</c>) never stretches the
+    /// beat, and is no fault.
+    /// </summary>
+    [AvaloniaFact]
+    public void ASideCallSlowOnItsOwnLaneNeverStretchesTheBeat()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { ContextDelayMs = 3000 };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && stagewatch.ContextReads >= 1, 15000);
+            var from = stagewatch.PingTimes.Count;
+            PumpUntil(() => stagewatch.ContextReads >= 3 && stagewatch.PingTimes.Count >= from + 6, 30000);
+            var times = stagewatch.PingTimes.Skip(from).ToArray();
+            var gaps = times.Zip(times.Skip(1), (a, c) => c - a).ToArray();
+            Assert.True(gaps.Max() < (long)PeerLink.PingEvery.TotalMilliseconds + 750, "the gaps between pings, ms: " + string.Join(", ", gaps));
+            Assert.Equal(0, link.SideCallFaults);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// S13: a pong that answers none of this link's last pings is counted on the link's record and is never a clock sample; the
+    /// clock comes once the pongs answer what was sent.
+    /// </summary>
+    [AvaloniaFact]
+    public void AForgedPongIsCountedAndNeverAClockSample()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { ForgePongs = true };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && link.Record is { Counts.Unmatched: >= 3 }, 20000);
+            Assert.Null(link.ClockOffset);
+            Assert.Equal(0, link.Record!.Clock.Samples);
+
+            stagewatch.ForgePongs = false;
+            PumpUntil(() => link.ClockOffset is not null, 20000);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 13.15.2 on the Stagewatch link: a link whose verdict took the key but that dropped before <c>peerlink.stable.ms</c> leaves
+    /// the redial count growing; one that stays up that long, never down, returns it to 0.
+    /// </summary>
+    [AvaloniaFact]
+    public void ALinkThatDropsBeforeTenSecondsNeverResetsItsRedialCount()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { DropAfterMs = 2500 };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => stagewatch.Dials >= 3 && link.Key.Word == "key", 30000);
+            // Every dial counted before this drops (the far end fixes a socket's drop as it counts the dial); the first after it stays.
+            stagewatch.DropAfterMs = 0;
+            PumpUntil(() => stagewatch.Stays >= 1 && services.Stage.Following.Length > 0, 30000);
+            var drops = stagewatch.Drops;                                                        // all of them: the link redials only after a drop
+            Assert.True(drops >= 3, $"{drops} drops");
+            Assert.Equal(drops, link.Record!.Attempt);                                           // every drop counted, none of them stable
+            PumpUntil(() => link.Record!.Attempt == 0, (int)PeerLink.Stable.TotalMilliseconds + 8000);
+            Assert.Equal(drops + 1, stagewatch.Dials);                                           // the one that stayed up was never dialled again
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// S11: a Stagewatch that goes silent is stale past <c>link.stale.ms</c>, and past <c>link.drop.ms</c> the link is dropped on
+    /// the evaluator's own timer and dialled again.
+    /// </summary>
+    [AvaloniaFact]
+    public void ASilentStagewatchIsStaleThenDroppedAndDialledAgain()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Stage.Following.Length > 0 && stagewatch.Pings > 0, 15000);
+            var dials = stagewatch.Dials;
+            stagewatch.Silent = true;
+            var silentFrom = Environment.TickCount64;
+            PumpUntil(() => link.Sight.State == ShowBusState.Stale, 15000);
+            Assert.Equal(dials, stagewatch.Dials);
+            PumpUntil(() => stagewatch.Dials > dials, 30000);
+            var dropped = Environment.TickCount64 - silentFrom;
+            Assert.InRange(dropped, (long)ShowBusLiveness.DropAfter.TotalMilliseconds - 2500, (long)ShowBusLiveness.DropAfter.TotalMilliseconds + 8000);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 13.15.3: a refused key's hold is kept beside the settings by the link's target and the key's kid — never the key — before
+    /// anything more is sent; a desk started again inside it reads only the public view and presents nothing keyed until it ends;
+    /// at its end the key is presented again on a fresh link, and once a word takes it the record is gone.
+    /// </summary>
+    [AvaloniaFact]
+    public void ARefusedKeysHoldIsKeptByKidOutlastsARestartAndIsGoneOnceTheKeyIsTaken()
+    {
+        using var home = TempRun.Folder("patterns-tests-");
+        var kid = PeerLink.Kid(PeerLink.KeyKey("swk_testkey"));
+        var path = Path.Combine(home.Path, LinkHolds.FileName);
+        long Wall() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var first = TestApp.Boot(dir: home.Path);
+        var stagewatch = new FakeStagewatch(this, first.Services, RunningFrame) { First = StagewatchBytes.Refusal("unknown or revoked API key", 20) };
+        try
+        {
+            try
+            {
+                first.Services.Kernel.Stagewatch.RefusedHoldAtLeast = TimeSpan.FromSeconds(1);
+                Link(first.Vm, first.Services, stagewatch);
+                PumpUntil(() => first.Services.Kernel.Stagewatch.Key.Refused, 15000);
+                var hold = Assert.Single(first.Services.Kernel.Stagewatch.Holds.All(Wall()));
+                Assert.Equal((kid, "key"), (hold.Kid, hold.Word));
+                Assert.InRange(hold.UntilWallMs - Wall(), 10_000, 20_500);
+                var kept = File.ReadAllText(path);
+                Assert.Contains(kid, kept, StringComparison.Ordinal);
+                Assert.Contains(hold.Target, kept, StringComparison.Ordinal);
+                Assert.DoesNotContain("swk_", kept, StringComparison.Ordinal);
+            }
+            finally
+            {
+                first.Vm.State.Control.Stagewatch.Enabled = false;
+                first.Services.Kernel.Stagewatch.Reconcile();
+                Dispatcher.UIThread.RunJobs();
+                first.Dispose();
+            }
+
+            // Started again inside the hold: the Stagewatch now takes the key, but the desk presents it only once the hold ends.
+            stagewatch.First = null;
+            var before = stagewatch.Requests.Count;
+            var second = TestApp.Boot(dir: home.Path);
+            var link = second.Services.Kernel.Stagewatch;
+            try
+            {
+                Link(second.Vm, second.Services, stagewatch);
+                PumpUntil(() => second.Services.Stage.Following.Length > 0, 15000);
+                Assert.True(link.Key.Refused);
+                Assert.Single(link.Holds.All(Wall()), h => h.Kid == kid);
+                Assert.All(stagewatch.Requests.Skip(before), r => Assert.Equal("", r.Authorization));
+
+                PumpUntil(() => link.Key.Word == "key", 30000);
+                Assert.Contains(stagewatch.Requests.Skip(before), r => r.What == "ws" && r.Authorization == "Bearer swk_testkey");
+                Assert.Empty(link.Holds.All(Wall()));
+                Assert.DoesNotContain(kid, File.ReadAllText(path), StringComparison.Ordinal);
+                Assert.Equal(0, LogLines(second.Dir, "swk_testkey"));                         // S19: the key in no log line
+            }
+            finally
+            {
+                second.Vm.State.Control.Stagewatch.Enabled = false;
+                link.Reconcile();
+                Dispatcher.UIThread.RunJobs();
+                second.Dispose();
+            }
+        }
+        finally
+        {
+            stagewatch.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 13.15.2–3 across a hello that comes and goes: a typed address its Stagewatch's hello names one moment and not the next is one
+    /// link under two names. Its key refused, the hold stands under either name — kept for each, every dial inside it reading the
+    /// public view, the key never presented again — and the redial count goes on across the names, never back to 0 by a flip.
+    /// </summary>
+    [AvaloniaFact]
+    public void AHelloThatComesAndGoesInsideARefusedHoldNeitherPresentsTheKeyAgainNorResetsTheRedial()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        // The far end drops every connection a little after its first word: each one a failed dial, the refused one too.
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { First = StagewatchBytes.Refusal("unknown or revoked API key", 60), DropAfterMs = 2500 };
+        var link = services.Kernel.Stagewatch;
+        long Wall() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        void Hello() => Heard(services, "main", "a1b2c3d4", "0a1b2c3d", "STAGE-PC", "localhost", "Hall A", stagewatch.Port);
+        try
+        {
+            Hello();
+            Link(vm, services, stagewatch);
+            PumpUntil(() =>
+            {
+                Hello();
+                return link.Key.Refused && link.NodeId == "a1b2c3d4";
+            }, 15000);
+            stagewatch.First = null;                                                          // a public view's dial hears no word on a key
+            stagewatch.DropAfterMs = 1200;
+            PumpUntil(() =>
+            {
+                Hello();
+                return link.Record is { Attempt: >= 2 };
+            }, 20000);
+
+            // The hello stops: the typed address goes on under its own name, the hold and the count with it.
+            var before = link.Record!.Attempt;
+            PumpUntil(() => link.NodeId.Length == 0, 15000);
+            var low = int.MaxValue;
+            var dials = stagewatch.Dials;
+            PumpUntil(() =>
+            {
+                low = Math.Min(low, link.Record?.Attempt ?? 0);
+                return stagewatch.Dials >= dials + 2;
+            }, 20000);
+            Assert.True(low >= before, $"the redial count fell from {before} to {low} when the name changed");
+            Assert.Contains(link.Holds.All(Wall()), h => h.Target == "addr:localhost:" + stagewatch.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+            // The hello comes back: the node's own name again, the count still going on.
+            before = link.Record!.Attempt;
+            dials = stagewatch.Dials;
+            PumpUntil(() =>
+            {
+                Hello();
+                low = Math.Min(low, link.Record?.Attempt ?? 0);
+                return link.NodeId == "a1b2c3d4" && stagewatch.Dials >= dials + 1;
+            }, 20000);
+            Assert.True(link.Record!.Attempt >= before, $"the redial count fell from {before} to {link.Record.Attempt} when the hello came back");
+
+            // Inside the hold, under either name: the one dial that carried the key is the first, and nothing keyed went since.
+            Assert.Equal(1, stagewatch.Requests.Count(r => r.What == "ws" && r.Authorization.Length > 0));
+            Assert.Equal(0, stagewatch.KeyedCalls);
+            Assert.True(link.Key.Refused);
+            Assert.Contains(link.Holds.All(Wall()), h => h.Target == "node:a1b2c3d4");
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// S14 on the link's own side calls (13.12.3): this desk's context post answered 503, or not answered within
+    /// <c>link.sidecall.timeout.ms</c>, says nothing of what became of it — unconfirmed in the link's words, never refused or
+    /// failed, the key's standing and its holds as they were — and it is posted again on its own schedule while the link lives on.
+    /// </summary>
+    [AvaloniaFact]
+    public void AContextPostTheStagewatchDidNotConfirmIsSaidUnconfirmedNeverFailedAndPostedAgain()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { ContextStatus = "503", ContextBody = "{\"ok\":false,\"error\":\"busy\"}" };
+        var link = services.Kernel.Stagewatch;
+        int Posts() => stagewatch.Requests.Count(r => r.What.StartsWith("POST /api/peers/context", StringComparison.Ordinal));
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => link.ApprovalWords.Contains("did not confirm this desk's context (503", StringComparison.Ordinal), 20000);
+            Assert.DoesNotContain("refused", link.ApprovalWords, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("fail", link.ApprovalWords, StringComparison.OrdinalIgnoreCase);
+            Assert.False(link.Key.Refused);
+            Assert.Equal(TimeSpan.Zero, link.KeyHeld);
+            var posts = Posts();
+            PumpUntil(() => Posts() > posts, 15000);
+
+            // No answer within the side call's time: the same words, the link going on.
+            stagewatch.ContextStatus = "";
+            stagewatch.PostContextDelayMs = (int)StagewatchFrame.SideCallWithin.TotalMilliseconds + 2000;
+            PumpUntil(() => link.ApprovalWords.Contains("did not confirm this desk's context (no answer", StringComparison.Ordinal), 30000);
+            Assert.DoesNotContain("refused", link.ApprovalWords, StringComparison.OrdinalIgnoreCase);
+            Assert.False(link.Key.Refused);
+            Assert.Equal(ShowBusState.Live, link.Sight.State);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 13.13.2 on a typed address no hello names: a Stagewatch whose next connection's first frame counts from below the last one's
+    /// is another run of it, and the clock the link measured is emptied — said in one log line.
+    /// </summary>
+    [AvaloniaFact]
+    public void AStagewatchWhoseFramesCountFromBelowTheLastConnectionsHasItsClockMeasuredAfresh()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { DropAfterMs = 4000 };
+        var link = services.Kernel.Stagewatch;
+        const string restarted = "Stagewatch link: localhost counts its frames from 1 again — another run of it; its clock is measured afresh.";
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => link.ClockOffset is not null, 20000);
+            Assert.Equal(0, LogLines(b.Dir, restarted));
+            var dials = stagewatch.Dials;                                                             // read first: a dial counted after it may be the old run's
+            stagewatch.FrameNow = RunningFrame.Replace("\"seq\":3", "\"seq\":1", StringComparison.Ordinal);    // restarted: it counts again
+            stagewatch.DropAfterMs = 0;
+            PumpUntil(() => stagewatch.Dials > dials && LogLines(b.Dir, restarted) == 1, 20000);
+            PumpFor(3000);
+            Assert.Equal(1, LogLines(b.Dir, restarted));                                              // its frames count on from there: said once
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
     /// <summary>The requests to a node route — the context this desk posts, its proposals — in arrival order.</summary>
     private static int NodeRouteCalls(FakeStagewatch stagewatch)
         => stagewatch.Requests.Count(r => r.What.StartsWith("POST /api/peers/context", StringComparison.Ordinal) || r.What.Contains("/api/proposals", StringComparison.Ordinal));
@@ -1105,7 +1504,7 @@ public class ShowBusAppTests
 
             // A pin set starts a new run for the same key at the same address: what was said goes on — the standing and the
             // node routes' hold — and the dial, which that hold never holds, goes at once.
-            vm.State.Control.Stagewatch.SetPin("addr:elsewhere:1", TlsFingerprint.Prefix + new string('a', 64));
+            vm.State.Control.Stagewatch.SetPin("addr:elsewhere:1", TlsFingerprint.Prefix + new string('a', 64), PinTrust.Person);
             link.Reconcile();
             Assert.Equal(words, link.Key.Line);
             Assert.True(link.KeyHeld > TimeSpan.FromSeconds(45), $"held {link.KeyHeld}");
@@ -1492,7 +1891,7 @@ public class ShowBusAppTests
             Assert.StartsWith("two machines say they are a0a0a0a0a0a0", services.Kernel.Stagewatch.Held, StringComparison.Ordinal);
 
             // Hall B pinned: a Stagewatch this desk has linked to before is one the link may move to.
-            link.SetPin("node:b0b0b0b0b0b0", TlsFingerprint.Prefix + new string('b', 64));
+            link.SetPin("node:b0b0b0b0b0b0", TlsFingerprint.Prefix + new string('b', 64), PinTrust.Person);
             Dispatcher.UIThread.RunJobs();
             services.Kernel.Stagewatch.Reconcile();
             PumpUntil(() =>

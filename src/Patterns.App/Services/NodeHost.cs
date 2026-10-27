@@ -30,6 +30,15 @@ public sealed class NodeActions : IActionLayer
     public ActionResult Execute(ShowAction action, ActionOrigin origin)
     {
         ActionResult result;
+        // A person's Trust on this node's own Stagewatch link runs here, never at the desk: the link and the fingerprint
+        // beside the press are this node's (Show Bus 1.3 §13.6.8).
+        if (action.Kind == ShowActionKind.StagewatchTrust)
+        {
+            result = StagewatchLinkActions.Trust(Kernel.Stagewatch, action.Value, origin);
+            Kernel.Journal.Record(origin.Label, action.Kind.ToString(), action.Target, result.Status.ToString(), result.Message);
+            Performed?.Invoke(action, origin, result);
+            return result;
+        }
         // In step with a desk, this node calls it: the verb runs there as this node's own. A note
         // is the caller's pad and stays here; a receipt goes where the message came from.
         if (_host.Twin is { IsLinkedToDesk: true } twin && action.Kind != ShowActionKind.Note)

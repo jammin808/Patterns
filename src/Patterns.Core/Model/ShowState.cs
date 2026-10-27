@@ -2372,22 +2372,62 @@ public sealed class StagewatchLinkConfig : Observable
     /// </summary>
     public ShowCollection<CertificatePin> Pins { get; init; } = new();
 
-    /// <summary>What the link compares to know the pins moved.</summary>
+    /// <summary>
+    /// What the link compares to know the pins it dials by moved: the pins a person or a proof made. A <c>first</c> pin is
+    /// kept for comparison and changes nothing a dial does (Show Bus 1.3 §13.8.2), so pinning one never starts the link again.
+    /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public string PinsKey => string.Join(";", Pins.Select(p => p.Key + "=" + p.Fingerprint));
+    public string PinsKey => string.Join(";", Pins.Where(p => p.Trust != Services.PinTrust.First).Select(p => p.Key + "=" + p.Fingerprint + "=" + p.Made));
 
-    /// <summary>Pin (or re-pin, after ACCEPT) a node's certificate (UI thread).</summary>
-    public void SetPin(string key, string fingerprint)
+    /// <summary>
+    /// Pin (or re-pin) a node's certificate (UI thread), saying who made the pin: the desk at first use (<c>first</c>, compared
+    /// and never trusted), a person on this desk (Trust beside the short fingerprint, or ACCEPT after a change), or a proof.
+    /// </summary>
+    public void SetPin(string key, string fingerprint, Services.PinTrust trust = Services.PinTrust.First)
     {
         if (key.Length == 0 || !Services.TlsFingerprint.IsValid(fingerprint)) return;
         foreach (var old in Pins.Where(p => p.Key == key).ToList()) Pins.Remove(old);
         while (Pins.Count >= 64) Pins.RemoveAt(0);
-        Pins.Add(new CertificatePin(key, fingerprint, DateTime.UtcNow));
+        Pins.Add(new CertificatePin(key, fingerprint, DateTime.UtcNow, CertificatePin.WordOf(trust)));
+    }
+
+    /// <summary>
+    /// The desk's pin at first use (UI thread): kept for comparison unless a person or a proof pinned that key already — a first
+    /// pin that lands after a person's Trust never takes its place. False when it was not kept.
+    /// </summary>
+    public bool PinFirst(string key, string fingerprint)
+    {
+        if (Pins.Any(p => p.Key == key && p.Trust != Services.PinTrust.First)) return false;
+        SetPin(key, fingerprint, Services.PinTrust.First);
+        return true;
     }
 }
 
-/// <summary>Round 88: one pinned certificate — whose (a node id or an address), its fingerprint, and when it was pinned.</summary>
-public sealed record CertificatePin(string Key, string Fingerprint, DateTime PinnedUtc);
+/// <summary>
+/// Round 88: one pinned certificate — whose (a node id or an address), its fingerprint, and when it was pinned. Show Bus 1.3
+/// §13.8.2: <see cref="Made"/> says who made it, at the record's end — <c>person</c> (a person on this desk confirmed or typed
+/// it), <c>proof</c> (a proof verified over it) or <c>first</c>. A pin with no word (one the desk made before it said who) reads
+/// <c>first</c>: the desk made it, neither a proof nor a person, so it carries no key until someone presses Trust.
+/// </summary>
+public sealed record CertificatePin(string Key, string Fingerprint, DateTime PinnedUtc, string Made = "")
+{
+    /// <summary>Who made the pin, as the core reads it.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Services.PinTrust Trust => Made switch
+    {
+        "person" => Services.PinTrust.Person,
+        "proof" => Services.PinTrust.Proof,
+        _ => Services.PinTrust.First,
+    };
+
+    /// <summary>The word a pin made by <paramref name="trust"/> is kept with.</summary>
+    public static string WordOf(Services.PinTrust trust) => trust switch
+    {
+        Services.PinTrust.Person => "person",
+        Services.PinTrust.Proof => "proof",
+        _ => "first",
+    };
+}
 
 /// <summary>How a device is reached: an Arduino on a serial port, or a Raspberry Pi, ESP32 or show controller over IP.</summary>
 public enum DeviceLink

@@ -48,16 +48,42 @@ public sealed partial class MainViewModel
 
     public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _services.Kernel.Stagewatch.AcceptPendingCertificate());
 
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8: the certificate the Nodes card shows beside TRUST, as the last poll drew it ("" when none waits). The
+    /// press carries this one, so it trusts what the person compared, never a certificate that came after the words were drawn.
+    /// </summary>
+    private string _trustShown = "";
+    private string _trustShownName = "";
+
+    /// <summary>Show Bus 1.3 §13.6.8: the Stagewatch's certificate waits for a person's Trust.</summary>
+    public bool HasTrust => _trustShown.Length > 0;
+
+    public string TrustWords => StagewatchLinkActions.Words(_trustShownName, _trustShown);
+
+    private RelayCommand? _trustCertificate;
+
+    /// <summary>TRUST beside the short fingerprint: the one action the card's right-click entry runs too, journalled through the action layer.</summary>
+    public RelayCommand TrustCertificateCommand => _trustCertificate ??= new RelayCommand(() =>
+    {
+        StatusMessage = Report(_services.Actions.Execute(StagewatchLinkActions.TrustAction(_trustShown), ActionOrigin.Desk)).Message;
+        PollNodes();
+    });
+
     /// <summary>On the desk's tick: the beacons onto the cards, the rail's word when it moved.</summary>
     private void PollNodes()
     {
         _services.Nodes.Poll();
-        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}";
+        var link = _services.Kernel.Stagewatch;
+        var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
+        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}|{trust}|{trustName}";
         if (now == _nodesSeen) return;
         _nodesSeen = now;
+        (_trustShown, _trustShownName) = (trust, trustName);
         Raise(nameof(TokenClearWords));
         Raise(nameof(ShowBusLine));
         Raise(nameof(HasPendingCertificate));
+        Raise(nameof(HasTrust));
+        Raise(nameof(TrustWords));
         Raise(nameof(NodesWord));
         Raise(nameof(NodesLine));
         Raise(nameof(NodesHue));

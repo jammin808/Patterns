@@ -18,8 +18,9 @@ namespace Patterns.App.Tests;
 
 /// <summary>
 /// Round 88 (Show Bus 1.2): the web remote's TLS on its one port (the handshake, the certificate the hello names,
-/// /tls and /tls.cer, Require HTTPS), the Stagewatch link over TLS (trust on first use from the hello, a changed
-/// certificate refused until ACCEPT), the approval queue as a client (a proposal sent, approved there, applied here,
+/// /tls and /tls.cer, Require HTTPS), the Stagewatch link over TLS (since Show Bus 1.3 §13.6.8 a certificate pinned at first
+/// use carries no key off this machine until a person's Trust, and a trusted one that changes is refused until ACCEPT), the
+/// approval queue as a client (a proposal sent, approved there, applied here,
 /// answered; another app's approved line run through the wire path), and a desk's timer node following the desk's
 /// Stagewatch by relay and sending its own context back — real sockets, a scripted Stagewatch. Round 92: the link reaches
 /// a name at each of its addresses in turn, against scripted Stagewatches on loopback's addresses and a resolver the test
@@ -35,7 +36,7 @@ public class ShowBus12AppTests
     }
 
     /// <summary>Pumps the desk until <paramref name="condition"/> holds; a wait that runs out says what <paramref name="seen"/> reads then.</summary>
-    private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000, Func<string>? seen = null)
+    internal static void PumpUntil(Func<bool> condition, int timeoutMs = 15000, Func<string>? seen = null)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (!condition())
@@ -46,7 +47,18 @@ public class ShowBus12AppTests
         }
     }
 
-    private static X509Certificate2 Cert(string name)
+    /// <summary>Pumps the desk for <paramref name="ms"/>: what must not happen in that time is then asserted.</summary>
+    internal static void PumpFor(int ms)
+    {
+        var until = Environment.TickCount64 + ms;
+        while (Environment.TickCount64 < until)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(10);
+        }
+    }
+
+    internal static X509Certificate2 Cert(string name)
     {
         using var made = TlsIdentity.Create(name, new[] { "localhost" }, new[] { IPAddress.Loopback }, DateTime.UtcNow);
         return TlsIdentity.Import(TlsIdentity.Export(made));
@@ -132,7 +144,7 @@ public class ShowBus12AppTests
     }
 
     /// <summary>A scripted Stagewatch: /ws (frames, pongs), /api/context, /api/peers/context and the approval queue — plain or TLS.</summary>
-    private sealed class FakeStagewatch : IDisposable
+    internal sealed class FakeStagewatch : IDisposable
     {
         private readonly TcpListener _listener;
         private readonly CancellationTokenSource _cts = new();
@@ -164,6 +176,16 @@ public class ShowBus12AppTests
         public readonly ConcurrentDictionary<string, int> ResultPosts = new();
         /// <summary>Round 92: its door refuses the upgrade to /ws with this status line ("401 Unauthorized"); null: it upgrades.</summary>
         public volatile string? RefuseUpgrade;
+        /// <summary>How many result posts still to answer 503 — no answer that says what became of it, so the result stays owed.</summary>
+        public int FailResults;
+        /// <summary>How many result posts still to answer 409 "settled": another post of it settled it already.</summary>
+        public int SettledResults;
+        /// <summary>How many proposal posts still to keep and answer 503 — the answer lost, the proposal there all the same.</summary>
+        public int LoseProposalAnswers;
+        /// <summary>Every proposal post, kept or not.</summary>
+        public int ProposalPosts;
+        /// <summary>When each result post arrived, by the proposal's id, on the test's clock (ms).</summary>
+        public readonly ConcurrentDictionary<string, ConcurrentQueue<long>> ResultTimes = new();
         private int _next;
         private int _accepted;
 
@@ -296,9 +318,11 @@ public class ShowBus12AppTests
             }
             if (path == "/api/proposals" && method == "POST")
             {
+                Interlocked.Increment(ref ProposalPosts);
                 var id = "p" + Interlocked.Increment(ref _next);
                 using var doc = JsonDocument.Parse(body);
                 Proposals[id] = (body, "pending", doc.RootElement.GetProperty("line").GetString()!, doc.RootElement.GetProperty("target").GetProperty("id").GetString()!, doc.RootElement.GetProperty("from").GetProperty("id").GetString()!);
+                if (Interlocked.Decrement(ref LoseProposalAnswers) >= 0) return ("503 Service Unavailable", "{\"ok\":false,\"error\":\"busy\"}");
                 return ("200 OK", JsonSerializer.Serialize(new { id, state = "pending" }));
             }
             if (path.StartsWith("/api/proposals?", StringComparison.Ordinal))
@@ -316,6 +340,9 @@ public class ShowBus12AppTests
             {
                 var id = path["/api/proposals/".Length..^"/result".Length];
                 ResultPosts.AddOrUpdate(id, 1, (_, n) => n + 1);
+                ResultTimes.GetOrAdd(id, _ => new ConcurrentQueue<long>()).Enqueue(Environment.TickCount64);
+                if (Interlocked.Decrement(ref FailResults) >= 0) return ("503 Service Unavailable", "{\"ok\":false,\"error\":\"busy\"}");
+                if (Interlocked.Decrement(ref SettledResults) >= 0) return ("409 Conflict", "{\"ok\":false,\"error\":\"settled\"}");
                 if (Interlocked.Decrement(ref RefuseResults) >= 0) return ("403 Forbidden", JsonSerializer.Serialize(new { ok = false, error = "this key speaks for patterns 1a2b3c4d — make a key for patterns " + Target(id) }));
                 Results[id] = body;
                 using var doc = JsonDocument.Parse(body);
@@ -357,17 +384,24 @@ public class ShowBus12AppTests
         }
     }
 
-    private const string Frame = "{\"type\":\"state\",\"v\":1,\"seq\":4,\"mode\":\"countdown\",\"state\":\"running\",\"seconds\":600,\"total\":900,\"text\":\"10:00\",\"phase\":\"normal\",\"title\":\"Keynote — Ana\"}";
+    internal const string Frame = "{\"type\":\"state\",\"v\":1,\"seq\":4,\"mode\":\"countdown\",\"state\":\"running\",\"seconds\":600,\"total\":900,\"text\":\"10:00\",\"phase\":\"normal\",\"title\":\"Keynote — Ana\"}";
 
     /// <summary>A hello from the scripted Stagewatch, as the desk's listener would hear it (kept live by hearing it again).</summary>
-    private static void Hear(AppServices services, int port, string fingerprint, params string[] caps)
+    internal static void Hear(AppServices services, int port, string fingerprint, params string[] caps)
     {
         var hello = JsonSerializer.Serialize(new { t = "main", v = 1, proto = 1, id = "swdesk01", name = "Hall A", ports = new { http = port, ws = port, https = fingerprint.Length > 0 ? port : 0 }, caps, tls = fingerprint.Length > 0 ? fingerprint : null });
         services.Kernel.Beacon.ShowBus.Hear(Encoding.UTF8.GetBytes(hello), "127.0.0.1", DateTime.UtcNow, "not-this-process");
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8 and S6's first half, against an older Stagewatch on another machine (one that cannot prove itself): its
+    /// certificate is pinned at first use and its public view read, and no key goes to it until a person compares the fingerprint
+    /// and presses TRUST — one journal row, every reader saying so meanwhile. Trusted, the key goes over that certificate. Then it
+    /// is reinstalled: another certificate on the same door is CERTIFICATE CHANGED — nothing sent, no dial hammering it, its
+    /// certificate looked at again no sooner than <c>peerlink.cert.probe.ms</c> — until ACCEPT.
+    /// </summary>
     [AvaloniaFact]
-    public void TheLinkTrustsAStagewatchsCertificateOnFirstUseAndRefusesAChangeUntilAccepted()
+    public void OffThisMachineTheKeyGoesOnlyToACertificateAPersonTrustedAndAChangeOfItWaitsForAccept()
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
@@ -376,39 +410,150 @@ public class ShowBus12AppTests
         var fpA = TlsFingerprint.Of(certA);
         var fpB = TlsFingerprint.Of(certB);
         var sw = new FakeStagewatch(Frame, certA);
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
         try
         {
-            var link = vm.State.Control.Stagewatch;
-            link.Host = "127.0.0.1:" + sw.Port;
-            link.ApiKey = "swk_nodekey";
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
             Hear(services, sw.Port, fpA);
-            link.Enabled = true;
+            config.Enabled = true;
             Dispatcher.UIThread.RunJobs();
-            services.Kernel.Stagewatch.Reconcile();
-            PumpUntil(() => { Hear(services, sw.Port, fpA); return services.Stage.Following.Length > 0; });
-            Assert.Equal("Bearer swk_nodekey", sw.Authorization);
-            PumpUntil(() => { Hear(services, sw.Port, fpA); return link.Pins.Any(p => p.Fingerprint == fpA); });    // pinned once the key's read was answered
-            Assert.Contains("over TLS", services.Kernel.Stagewatch.Status + " over TLS", StringComparison.Ordinal);
+            link.Reconcile();
 
-            // The Stagewatch is reinstalled: a new certificate on the same door. The link refuses it until ACCEPT.
+            // First contact: TLS, the public view read and the certificate pinned first — and no key, nothing keyed sent.
+            PumpUntil(() => { Hear(services, sw.Port, fpA); return services.Stage.Following.Length > 0 && link.TrustFingerprint == fpA; });
+            Assert.Equal("tls", link.Carrier);
+            PumpUntil(() => { Hear(services, sw.Port, fpA); return config.Pins.Any(p => p.Fingerprint == fpA); });
+            Assert.Equal("first", config.Pins.Single(p => p.Fingerprint == fpA).Made);
+            Assert.Empty(sw.Authorizations);
+            Assert.True(sw.PostedContexts.IsEmpty);
+            Assert.Empty(sw.Proposals);
+
+            // Every reader says what to compare and what to press: STATE's words, the Nodes page's line, the desk's TRUST row.
+            var words = StagewatchKey.TrustWords(TlsFingerprint.Short(fpA));
+            var row = JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch");
+            Assert.Contains(words, row.GetProperty("words").GetString(), StringComparison.Ordinal);
+            services.Nodes.Poll();
+            Assert.Contains(words, services.Nodes.ShowBusLine, StringComparison.Ordinal);
+            PumpUntil(() => vm.HasTrust);                                                             // the desk's tick draws it
+            Assert.Contains(TlsFingerprint.Short(fpA), vm.TrustWords, StringComparison.Ordinal);
+
+            // TRUST: one journal row, the desk's; the pin a person's; the key over that certificate from the next dial, never plain.
+            vm.TrustCertificateCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            var trusted = Assert.Single(services.Journal.Tail(20), e => e.Kind == nameof(ShowActionKind.StagewatchTrust));
+            Assert.Equal(("desk", "Done"), (trusted.Origin, trusted.Outcome));
+            Assert.Equal("person", config.Pins.Single(p => p.Fingerprint == fpA).Made);
+            Assert.Equal("", link.TrustFingerprint);
+            PumpUntil(() => { Hear(services, sw.Port, fpA); return sw.Authorization == "Bearer swk_nodekey" && services.Stage.Following.Length > 0; });
+            Assert.Empty(sw.PlainAuthorizations);
+            Assert.False(vm.HasTrust);
+
+            // Reinstalled: a new certificate on the same door. CERTIFICATE CHANGED — nothing of this desk's sent, no redial
+            // hammering it, the certificate looked at again only after peerlink.cert.probe.ms — until ACCEPT.
             var port = sw.Port;
             sw.Dispose();
             sw = new FakeStagewatch(Frame, certB, port);
-            link.Host = "127.0.0.1:" + port + " ";                                                // a nudge so the link dials again at once
-            link.Host = "127.0.0.1:" + port;
-            services.Kernel.Stagewatch.Reconcile();
-            PumpUntil(() => { Hear(services, port, fpB); return services.Kernel.Stagewatch.PendingFingerprint == fpB; });
-            Assert.StartsWith("CERTIFICATE CHANGED", services.Kernel.Stagewatch.TlsWords);
+            config.Host = "127.0.0.1:" + port + " ";                                              // a nudge so the link dials again at once
+            config.Host = "127.0.0.1:" + port;
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, port, fpB); return link.PendingFingerprint == fpB; });
+            Assert.StartsWith("CERTIFICATE CHANGED", link.TlsWords);
             Assert.Contains(services.ShowApps(DateTime.UtcNow), a => a.Words.StartsWith("CERTIFICATE CHANGED", StringComparison.Ordinal));
-            Assert.DoesNotContain(link.Pins, p => p.Fingerprint == fpB);
-            Assert.Contains("Accepted", services.Kernel.Stagewatch.AcceptPendingCertificate(), StringComparison.Ordinal);
-            Assert.Contains(link.Pins, p => p.Fingerprint == fpB);
-            PumpUntil(() => { Hear(services, port, fpB); return services.Stage.Following.Length > 0 && services.Kernel.Stagewatch.PendingFingerprint.Length == 0; });
+            var looked = sw.Accepted;
+            PumpFor(3000);
+            Assert.Equal(looked, sw.Accepted);
+            Assert.Equal(0, link.CertificateProbes);
+            Assert.Empty(sw.Authorizations);
+            Assert.DoesNotContain(config.Pins, p => p.Fingerprint == fpB);
+            Assert.Contains("Accepted", link.AcceptPendingCertificate(), StringComparison.Ordinal);
+            Assert.Equal("person", config.Pins.Single(p => p.Fingerprint == fpB).Made);
+            PumpUntil(() => { Hear(services, port, fpB); return services.Stage.Following.Length > 0 && link.PendingFingerprint.Length == 0 && sw.Authorization == "Bearer swk_nodekey"; });
+            Assert.Empty(sw.PlainAuthorizations);
+
+            // S19: the key in no log line, journal row, STATE or context — only its fingerprint's words and the kid ride anywhere.
+            TestApp.FlushFiles(services);
+            Assert.DoesNotContain("swk_nodekey", File.ReadAllText(Path.Combine(b.Dir, "patterns.log")), StringComparison.Ordinal);
+            Assert.DoesNotContain("swk_nodekey", File.ReadAllText(services.Journal.Path), StringComparison.Ordinal);
+            Assert.DoesNotContain("swk_nodekey", new CommandRouter(services).StateJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain("swk_nodekey", services.ContextJson(), StringComparison.Ordinal);
         }
         finally
         {
-            vm.State.Control.Stagewatch.Enabled = false;
-            services.Kernel.Stagewatch.Reconcile();
+            config.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
+            Dispatcher.UIThread.RunJobs();
+            sw.Dispose();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8: TRUST trusts the certificate its words showed and no other. The Nodes card draws Hall A's first
+    /// certificate beside the press; the Stagewatch is reinstalled at the same door and its new certificate waits instead before the
+    /// desk draws again; the press carries the one it was shown, so it is refused in words, journalled as refused, and nothing is
+    /// pinned as a person's. Drawn again, the new one is the one trusted.
+    /// </summary>
+    [AvaloniaFact]
+    public void TrustIsRefusedWhenTheCertificateChangedBetweenTheWordsAndThePress()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var certA = Cert("Hall A");
+        using var certB = Cert("Hall A (reinstalled)");
+        var fpA = TlsFingerprint.Of(certA);
+        var fpB = TlsFingerprint.Of(certB);
+        var sw = new FakeStagewatch(Frame, certA);
+        var link = services.Kernel.Stagewatch;
+        var config = vm.State.Control.Stagewatch;
+        try
+        {
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => link.TrustFingerprint == fpA && vm.HasTrust);
+            Assert.Contains(TlsFingerprint.Short(fpA), vm.TrustWords, StringComparison.Ordinal);
+
+            // Reinstalled at the same door while the words still show the first certificate: the desk's tick does not run (no pump),
+            // so the card still draws fpA when the press comes.
+            var port = sw.Port;
+            sw.Dispose();
+            sw = new FakeStagewatch(Frame, certB, port);
+            var deadline = Environment.TickCount64 + 20000;
+            while (link.TrustFingerprint != fpB)
+            {
+                Assert.True(Environment.TickCount64 < deadline, "the link never offered the reinstalled certificate: " + link.Status);
+                Thread.Sleep(20);
+            }
+            Assert.Contains(TlsFingerprint.Short(fpA), vm.TrustWords, StringComparison.Ordinal);
+
+            vm.TrustCertificateCommand.Execute(null);
+            var refused = Assert.Single(services.Journal.Tail(20), e => e.Kind == nameof(ShowActionKind.StagewatchTrust));
+            Assert.Equal(("desk", "Refused"), (refused.Origin, refused.Outcome));
+            Assert.Contains(TlsFingerprint.Short(fpB), refused.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(config.Pins, p => p.Made == "person");
+            Assert.Equal(fpB, link.TrustFingerprint);
+            Assert.Empty(sw.Authorizations);
+
+            // Drawn again: the press now carries the certificate that waits, and that one is trusted.
+            PumpUntil(() => vm.TrustWords.Contains(TlsFingerprint.Short(fpB), StringComparison.Ordinal));
+            vm.TrustCertificateCommand.Execute(null);
+            Assert.Equal("person", config.Pins.Single(p => p.Fingerprint == fpB).Made);
+            Assert.DoesNotContain(config.Pins, p => p.Fingerprint == fpA && p.Made == "person");
+            PumpUntil(() => sw.Authorization == "Bearer swk_nodekey");
+            Assert.Empty(sw.PlainAuthorizations);
+        }
+        finally
+        {
+            config.Enabled = false;
+            link.Reconcile();
+            link.IsLocal = IPAddress.IsLoopback;
             Dispatcher.UIThread.RunJobs();
             sw.Dispose();
             b.Dispose();
@@ -531,7 +676,11 @@ public class ShowBus12AppTests
             Assert.Contains("Hall A answered without TLS though its hello names a certificate — the key stays on this desk", link.Status, StringComparison.Ordinal);
 
             // Asked again while keyless, it shows its certificate: the link dials again over TLS, waiting long enough this
-            // time, and the key goes over that — never over the plain connection.
+            // time. That certificate no person has trusted yet, so the key waits for TRUST beside it (13.6.8) — then goes over
+            // that certificate, never over the plain connection.
+            PumpUntil(() => { Hear(services, sw.Port, fp, "timer"); return link.Carrier == "tls" && link.TrustFingerprint == fp; }, 20000);
+            Assert.Empty(sw.Authorizations);
+            Assert.StartsWith("Trusted Stagewatch", StagewatchLinkActions.Trust(link, fp, ActionOrigin.Desk).Message, StringComparison.Ordinal);
             PumpUntil(() => { Hear(services, sw.Port, fp, "timer"); return link.Carrier == "tls" && sw.Authorization == "Bearer swk_nodekey"; }, 20000);
             Assert.Empty(sw.PlainAuthorizations);
             Assert.DoesNotContain("the key stays on this desk", link.Status, StringComparison.Ordinal);
@@ -567,18 +716,22 @@ public class ShowBus12AppTests
             Dispatcher.UIThread.RunJobs();
             link.Reconcile();
 
-            // No pin, off this machine: TLS first. It answers with TLS, so the key goes over it, and the certificate is
-            // pinned once the key's read is answered.
+            // No pin, off this machine: TLS first. It answers with TLS: its public view is read, its certificate pinned first
+            // after the first frame — and no key goes until a person trusts that certificate (13.6.8).
             PumpUntil(() => { Hear(services, port, ""); return services.Stage.Following.Length > 0; });
             Assert.Equal("tls", link.Carrier);
-            Assert.Equal("Bearer swk_nodekey", sw.Authorization);
             PumpUntil(() => { Hear(services, port, ""); return config.Pins.Any(p => p.Key == "node:swdesk01" && p.Fingerprint == fp); });
+            Assert.Equal("first", config.Pins.Single(p => p.Key == "node:swdesk01").Made);
+            Assert.Empty(sw.Authorizations);
 
-            // Pinned now: the next dial is TLS whatever the hello says, and the hello that names no TLS is a note, never a refusal.
-            link.Reconcile();                                                                         // the pin moved: the link dials again with it
+            // Trusted (S5): the next dial is TLS whatever the hello says, the key over it, and the hello that names no TLS is a
+            // note, never a refusal.
+            Assert.True(StagewatchLinkActions.Trust(link, fp, ActionOrigin.Desk).Ok);                 // the pin moved: the link dials again with it
             PumpUntil(() => { Hear(services, port, ""); return services.Stage.Following.Length > 0 && link.Status.Contains("names no TLS", StringComparison.Ordinal); });
             Assert.Equal("tls", link.Carrier);
             Assert.Contains("the hello heard for Hall A names no TLS — a stale or forged hello; dialling TLS as before", link.Status, StringComparison.Ordinal);
+            PumpUntil(() => { Hear(services, port, ""); return sw.Authorization == "Bearer swk_nodekey"; });
+            Assert.Empty(sw.PlainAuthorizations);
 
             // A hello that names another certificate: the pin decides — TLS against the one pinned, the hello a note, the pin unchanged.
             using var other = Cert("Not Hall A");
@@ -855,6 +1008,110 @@ public class ShowBus12AppTests
             vm.State.Control.Stagewatch.Enabled = false;
             link.Reconcile();
             link.RefusedHoldAtLeast = StagewatchFrame.RefusedHold;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.12.9: a result this desk owes the approval desk is owed before its proposal runs, and an answer that says
+    /// nothing of what became of it (a 503) leaves it owed: posted again from <c>report.retry.first.ms</c>, doubling, until an answer
+    /// settles it — a 409 "settled" counts as delivered and is never posted again. The proposal runs once.
+    /// </summary>
+    [AvaloniaFact]
+    public void AnOwedResultIsPostedAgainOnItsScheduleUntilAnAnswerSettlesIt()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null) { FailResults = 2 };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            link.Jitter = () => 0;                                                                    // each wait at its low end: 2.4 s, then 4.8 s
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.ApprovalsLive; }, 60000);
+
+            var applied = 0;
+            var local = link.Approvals.Add("Look", "Keynote blue", "the keynote's look", "review", () => { applied++; return (true, "look added"); }, _ => { });
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Proposals.Any(p => p.Value.Line.Contains(local, StringComparison.Ordinal)); }, 60000);
+            var deskId = sw.Proposals.First(p => p.Value.Line.Contains(local, StringComparison.Ordinal)).Key;
+            sw.Approve(deskId);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.Results.ContainsKey(deskId); }, 60000);
+            var times = sw.ResultTimes[deskId].ToArray();
+            Assert.Equal(3, times.Length);                                                            // twice unanswered, then taken
+            Assert.True(times[1] - times[0] >= 2300 && times[2] - times[1] >= 4700, $"posted {times[1] - times[0]} ms, then {times[2] - times[1]} ms apart");
+            Assert.Equal(1, applied);
+            Assert.Contains("\"ok\":true", sw.Results[deskId], StringComparison.Ordinal);
+
+            // S14 (13.12.3): the 503s said nothing of the result — unconfirmed in the log's words, once, and never refused or failed.
+            TestApp.FlushFiles(services);
+            var log = File.ReadAllLines(Path.Combine(b.Dir, "patterns.log")).Where(l => l.Contains($"the result of {deskId} ", StringComparison.Ordinal)).ToList();
+            Assert.Single(log, l => l.Contains($"the result of {deskId} is unconfirmed — 503 — it may have run (busy); it is posted again from 3 s", StringComparison.Ordinal));
+            Assert.DoesNotContain(log, l => l.Contains("refused", StringComparison.Ordinal) || l.Contains("fail", StringComparison.OrdinalIgnoreCase));
+
+            // Another's line approved here: its result answered 409 — settled, delivered, never posted again.
+            sw.SettledResults = 1;
+            var lineId = sw.AddApproved("PING", services.Kernel.ShowBusId);
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return sw.ResultPosts.ContainsKey(lineId); }, 60000);
+            var settledAt = Environment.TickCount64;
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return Environment.TickCount64 - settledAt > 6000; }, 10000);
+            Assert.Equal(1, sw.ResultPosts[lineId]);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            link.Jitter = PeerLink.Jitter;
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 13.12.7 on the approval queue: a proposal post whose answer said nothing of it (a 503, the proposal kept there all the same)
+    /// is never posted again blind — the queue's read of this desk's proposals finds it there, it carries the approval desk's id
+    /// from then on, and it was posted once. Said unconfirmed in one log line, never refused.
+    /// </summary>
+    [AvaloniaFact]
+    public void AProposalPostThatWasNotConfirmedIsFoundThereAndNeverPostedTwice()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var sw = new FakeStagewatch(Frame, null) { LoseProposalAnswers = 1 };
+        var link = services.Kernel.Stagewatch;
+        try
+        {
+            var config = vm.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            Hear(services, sw.Port, "", "timer", "approvals");
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.ApprovalsLive; }, 60000);
+
+            var local = link.Approvals.Add("Look", "Keynote blue", "the keynote's look", "review", () => (true, "look added"), _ => { });
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return link.Approvals.ByLocal(local) is { DeskId.Length: > 0 }; }, 60000);
+            var kept = Assert.Single(sw.Proposals, p => p.Value.Line.Contains(local, StringComparison.Ordinal));
+            Assert.Equal(kept.Key, link.Approvals.ByLocal(local)!.DeskId);
+            var settledAt = Environment.TickCount64;
+            PumpUntil(() => { Hear(services, sw.Port, "", "timer", "approvals"); return Environment.TickCount64 - settledAt > 5000; }, 10000);
+            Assert.Equal(1, Volatile.Read(ref sw.ProposalPosts));
+            TestApp.FlushFiles(services);
+            var log = File.ReadAllText(Path.Combine(b.Dir, "patterns.log"));
+            Assert.Contains($"the proposal {local} is unconfirmed — 503 — it may have run", log, StringComparison.Ordinal);
+            Assert.DoesNotContain("refused this desk's proposal", log, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
             Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }
@@ -1168,12 +1425,15 @@ public class ShowBus12AppTests
             first.RefuseUpgrade = null;
             first.Certificate = certA;
             next.Certificate = certB;
-            config.SetPin("addr:stagewatch.test:" + first.Port, fpB);
+            config.SetPin("addr:stagewatch.test:" + first.Port, fpB, PinTrust.Person);
             config.Enabled = true;
             link.Reconcile();
             var dialled = first.Accepted;
-            PumpUntil(() => link.PendingFingerprint == fpA && first.Accepted >= dialled + 2, 20000, () => link.Status);
+            PumpUntil(() => link.PendingFingerprint == fpA && first.Accepted > dialled, 20000, () => link.Status);
             Assert.StartsWith("CERTIFICATE CHANGED", link.TlsWords);
+            var looked = first.Accepted;
+            PumpFor(3000);                                                                           // held for the operator: not dialled again meanwhile
+            Assert.Equal(looked, first.Accepted);
             Assert.Equal(0, next.Accepted);
             Assert.Empty(next.Authorizations);
             Assert.Equal("", services.Stage.Following);

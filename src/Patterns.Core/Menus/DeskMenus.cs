@@ -995,6 +995,51 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
         }));
     }
 
+    // ---- another show app's card (Show Bus §2, 13.6.8) ---------------------------------
+
+    /// <summary>
+    /// Another show app's card on the Nodes page (Show Bus §2): what this desk can do about it. On the linked Stagewatch whose
+    /// certificate waits for a person, Trust beside its short fingerprint (13.6.8) — the card's button's own action, a person's on
+    /// this desk, with no wire line, so no deck, cue or assistant pins a certificate. ASK with the card's words in the question.
+    /// </summary>
+    public static DeskMenu ShowApp(DeskFacts d, MenuShowApp app)
+    {
+        var groups = new List<MenuGroup>();
+        if (TrustFor(d, app.Id) is { } trust) groups.Add(TrustGroup(trust));
+        groups.Add(new MenuGroup("ASK", MenuTone.Ask, new[]
+        {
+            new MenuEntry("app.ask", "What is this?", MenuScope.Ask, MenuTone.Ask)
+            {
+                Detail = "The app, its link and what it said, in the question",
+                Question = $"On the Nodes page, the show app '{app.KindLabel} {app.Name}' reads: {app.Line}. What is it, and what does it need from me now — answer from these words, and say unknown where they are silent.",
+                Because = d.AssistantReady ? "" : NeedKey,
+            },
+        })
+        { Note = "The assistant answers from the facts; the desk runs nothing." });
+        return WithMidi(d, new DeskMenu("showapp", app.Id, $"{app.KindLabel} {app.Name}".Trim(), app.Line, app.Linked ? MenuTone.Tile : MenuTone.Plain, groups));
+    }
+
+    /// <summary>The trust waiting for the app with this id (a card's id, or an Eye node's after <c>app:</c>); null when none waits for it.</summary>
+    public static MenuTrust? TrustFor(DeskFacts d, string appId) => d.StagewatchTrust is { } t && appId.Length > 0 && t.AppId == appId ? t : null;
+
+    /// <summary>
+    /// The LINK group of a linked Stagewatch whose key waits for Trust: one entry, the Nodes card's button's own action (Show Bus 1.3
+    /// §13.6.8), a person's press beside the short fingerprint. No wire line: the wire, a deck and an assistant never pin a certificate.
+    /// </summary>
+    public static MenuGroup TrustGroup(MenuTrust t)
+    {
+        var shortFp = TlsFingerprint.Short(t.Fingerprint);
+        return new MenuGroup("LINK", MenuTone.Tile, new[]
+        {
+            new MenuEntry("link.trust", "Trust its certificate " + shortFp, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = $"Compare {shortFp} with the fingerprint on {t.Name}'s own screen first — then this desk sends it its key",
+                Action = new ShowAction(ShowActionKind.StagewatchTrust, "", t.Fingerprint),
+            },
+        })
+        { Note = "A person's choice on this desk, beside the fingerprint: never on the wire, a deck or the assistant." };
+    }
+
     // ---- MIDI learn (round 73) ----------------------------------------------------------
 
     public const string MidiNote = "Choose a line, then press the control on the surface: the next thing it sends is bound to that line, saved with the show.";

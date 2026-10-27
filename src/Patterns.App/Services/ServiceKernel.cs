@@ -246,6 +246,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         {
             SelfId = ShowBusId,                                                 // round 88: the id this desk posts its context and its proposals under
             SelfName = Beacon.MachineName,
+            Holds = new LinkHolds(Store.BaseDirectory),                         // a refused key's hold outlasts a restart (Show Bus 1.3 §13.15.3)
         };
         Mdns = new MdnsService(this);
         Nodes = new NodesService(this);

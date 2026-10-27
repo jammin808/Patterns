@@ -516,4 +516,79 @@ public class NodesAppTests
             return n;
         }
     }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8 on a node in step with a desk: TRUST on the node's own Stagewatch link runs on the node — the link and
+    /// the fingerprint beside the press are the node's — and is never forwarded over the twin; the node's journal holds one row for
+    /// each press, a deck's refused, the node's own desk's done, its pin a person's; the desk it follows hears nothing of it.
+    /// </summary>
+    [AvaloniaFact]
+    public void ANodeInStepWithADeskTrustsItsOwnStagewatchHereAndSendsNothingToTheDesk()
+    {
+        var twinPort = FreePort();
+        var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
+        {
+            s.Name = "Gala";
+            s.Twin.Port = twinPort;
+            s.Twin.Key = "hunter2";
+            s.Control.HttpPort = FreePort();
+            s.Control.TcpPort = FreePort();
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+        }));
+        NodeHost? node = null;
+        var dir = "";
+        using var cert = ShowBus12AppTests.Cert("Hall A");
+        var fp = TlsFingerprint.Of(cert);
+        using var sw = new ShowBus12AppTests.FakeStagewatch(ShowBus12AppTests.Frame, cert);
+        try
+        {
+            PumpUntil(() => desk.Services.Twin.LinkPort == twinPort);
+            (node, dir) = BootNode(NodeKind.Caller, s => s.Twin.Key = "hunter2");
+            var c = node;
+            c.Twin!.LinkTo(new NodeCard("d1", NodeKind.Desk, "FOH-PC", IPAddress.Loopback, "Gala", "", twinPort, 0, TimeSpan.Zero, false));
+            PumpUntil(() => c.Twin.Phase == TwinPhase.InStep);
+            Assert.True(c.Twin.IsLinkedToDesk);
+
+            // The node's own link to an older Stagewatch on another machine: its key held back, the certificate waiting here.
+            var link = c.Kernel.Stagewatch;
+            link.IsLocal = _ => false;                                                                // loopback plays another machine
+            var config = c.State.Control.Stagewatch;
+            config.Host = "127.0.0.1:" + sw.Port;
+            config.ApiKey = "swk_nodekey";
+            config.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() => link.TrustFingerprint == fp);
+            var press = StagewatchLinkActions.TrustAction(fp);
+
+            var deck = c.Actions.Execute(press, new ActionOrigin(OriginKind.Companion, "FOH deck"));
+            Assert.False(deck.Ok);
+            Assert.Equal(fp, link.TrustFingerprint);
+            var done = c.Actions.Execute(press, ActionOrigin.Desk);
+            Assert.True(done.Ok, done.Message);
+            Assert.Equal("person", config.Pins.Single(p => p.Fingerprint == fp).Made);
+            var rows = c.Kernel.Journal.Tail(20).Where(e => e.Kind == nameof(ShowActionKind.StagewatchTrust)).Select(e => (e.Origin, e.Outcome));
+            Assert.Equal(new[] { ("companion FOH deck", "Refused"), ("desk", "Done") }, rows);
+            PumpUntil(() => sw.Authorization == "Bearer swk_nodekey");
+
+            // Nothing of it crossed the twin: the desk journalled no Trust and pinned nothing.
+            Assert.DoesNotContain(desk.Services.Journal.Tail(100), e => e.Kind == nameof(ShowActionKind.StagewatchTrust));
+            Assert.Empty(desk.Vm.State.Control.Stagewatch.Pins);
+            Assert.True(c.Twin.IsLinkedToDesk);
+        }
+        finally
+        {
+            if (node is not null)
+            {
+                node.State.Control.Stagewatch.Enabled = false;
+                node.Kernel.Stagewatch.Reconcile();
+                node.Kernel.Stagewatch.IsLocal = IPAddress.IsLoopback;
+                Dispatcher.UIThread.RunJobs();
+                node.Dispose();
+            }
+            desk.Dispose();
+            if (dir.Length > 0) TempRun.Remove(dir);
+        }
+    }
 }

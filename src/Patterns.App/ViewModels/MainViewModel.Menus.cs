@@ -79,6 +79,10 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 return new DeskMenuVm(DeskMenus.Transport(facts), e => RunMenuEntry(e, null));   // round 73: GO, HOLD, BLACKOUT, STOP ALL — learnable like everything else
             case "eye":
                 return subject is EyeNode node ? EyeMenu(node, facts) : null;
+            case "showapp":
+                return subject is ShowAppCard card
+                    ? new DeskMenuVm(DeskMenus.ShowApp(facts, new MenuShowApp(card.Id, card.KindLabel, card.Name, card.Line, card.Linked)), e => RunMenuEntry(e, card))
+                    : null;
             default:
                 return null;
         }

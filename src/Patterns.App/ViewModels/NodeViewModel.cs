@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Patterns.App.Services;
 using Patterns.Core.Arcade;
 using Patterns.Arcade;
+using Patterns.Core.Menus;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
 using Patterns.Core.Services;
@@ -24,6 +25,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>A cue row's right-click menu on a node: the stack's own verbs and edits over the mirrored show; the preview and the assistant live on the desk.</summary>
     public DeskMenuVm? MenuFor(string kind, object? subject)
     {
+        if (kind == "showapp") return subject is ShowAppCard card ? ShowAppMenu(card) : null;
         if (kind != "cue") return null;
         var cue = subject switch { RunRow r => r.Cue, CueRow c => c.Cue, Patterns.Core.Model.RunCueConfig q => q, _ => null };
         if (cue is null) return null;
@@ -133,12 +135,17 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>On the tick: the words as they move.</summary>
     public void Poll()
     {
-        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}";
+        var link = _host.Kernel.Stagewatch;
+        var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
+        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}|{ShowBusLine}|{HasPendingCertificate}|{TokenClearWords}|{trust}|{trustName}";
         if (now != _seen)
         {
             _seen = now;
+            (_trustShown, _trustShownName) = (trust, trustName);
             Raise(nameof(TokenClearWords));
             Raise(nameof(HasPendingCertificate));
+            Raise(nameof(HasTrust));
+            Raise(nameof(TrustWords));
             Raise(nameof(ArcadeWords));
             Raise(nameof(ArcadeStatus));
             Raise(nameof(ArcadeBoard));
@@ -325,6 +332,41 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     private RelayCommand? _acceptCertificate;
 
     public RelayCommand AcceptCertificateCommand => _acceptCertificate ??= new RelayCommand(() => StatusMessage = _host.Kernel.Stagewatch.AcceptPendingCertificate());
+
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8: the certificate this node's Nodes card shows beside TRUST, as the last poll drew it ("" when none waits);
+    /// the press carries this one, never a certificate that came after the words were drawn.
+    /// </summary>
+    private string _trustShown = "";
+    private string _trustShownName = "";
+
+    /// <summary>Show Bus 1.3 §13.6.8: this node's Stagewatch certificate waits for a person's Trust.</summary>
+    public bool HasTrust => _trustShown.Length > 0;
+
+    public string TrustWords => StagewatchLinkActions.Words(_trustShownName, _trustShown);
+
+    private RelayCommand? _trustCertificate;
+
+    /// <summary>TRUST beside the short fingerprint, on this node's own link: the one action its card's right-click entry runs too.</summary>
+    public RelayCommand TrustCertificateCommand => _trustCertificate ??= new RelayCommand(() =>
+    {
+        StatusMessage = _host.Actions.Execute(StagewatchLinkActions.TrustAction(_trustShown), ActionOrigin.Desk).Message;
+        Poll();
+    });
+
+    /// <summary>A show app's card on this node's Nodes page: Trust on its own link when a certificate waits; the assistant lives on the desk.</summary>
+    private DeskMenuVm ShowAppMenu(ShowAppCard card)
+    {
+        var facts = Services.DeskMenuFacts.Node(_host.State) with { StagewatchTrust = StagewatchLinkActions.MenuFact(_host.Kernel.Stagewatch, _host.Kernel.Nodes.ShowApps) };
+        return new DeskMenuVm(DeskMenus.ShowApp(facts, new MenuShowApp(card.Id, card.KindLabel, card.Name, card.Line, card.Linked)), e =>
+        {
+            var said = e.Scope == MenuScope.Live && e.Action is { } action ? _host.Actions.Execute(action, ActionOrigin.Desk).Message
+                : e.Scope == MenuScope.Ask ? "The assistant lives on the desk — ask there."
+                : null;
+            if (said is not null) StatusMessage = said;
+            return said;
+        });
+    }
 
     /// <summary>Plans are offered to a desk; a node holds none.</summary>
     public ObservableCollection<TwinService.PlanOffer> Plans { get; } = new();

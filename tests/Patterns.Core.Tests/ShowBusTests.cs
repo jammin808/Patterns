@@ -1328,6 +1328,12 @@ public class ShowBusTests
         Assert.False(ShowBusView.KeyLineLeads(stuckApp));
         Assert.Equal(ShowBusView.StuckWords, Graph(stuckApp).Nodes.Single(n => n.Id == "app:a1b2c3d4").Sub);
 
+        // A key held back for a person's Trust: amber, and its words — what to compare, what to press — lead every headline.
+        var withheld = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Key = new StagewatchKey { TrustFor = "8e8b c45b b14f 9c74" } }).Single(a => a.Linked);
+        Assert.True(ShowBusView.KeyLineLeads(withheld));
+        Assert.Equal(("amber", withheld.Key.Line), (ShowBusView.Peers(new[] { withheld })[0].Light, ShowBusView.Peers(new[] { withheld })[0].Headline));
+        Assert.Equal(withheld.Key.Line, Graph(withheld).Nodes.Single(n => n.Id == "app:a1b2c3d4").Sub);
+
         // P-legacy's label: amber, the headline kept, said beside it.
         var legacy = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Key = new StagewatchKey { Keyed = true, Legacy = true } }).Single(a => a.Linked);
         Assert.True(ShowBusView.KeyAmber(legacy));

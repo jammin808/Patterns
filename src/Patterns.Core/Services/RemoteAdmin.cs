@@ -85,6 +85,8 @@ public static class SupportBundle
         PlayheadStore.FileName, QualityProfileStore.FileName,
         // Round 87: this install's id on the show network — what another app's logs name this desk by.
         ShowBusIdentity.FileName,
+        // A refused key's holds by link target and kid, with their ends — why a link did not present its key after a restart.
+        LinkHolds.FileName,
     };
 
     /// <summary>

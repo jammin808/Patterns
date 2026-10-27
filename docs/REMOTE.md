@@ -692,15 +692,30 @@ What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in on
   default): plain HTTP from another machine answers `403` with the way to `https://`; this machine may stay plain.
   Exempt: the audience port (plain HTTP; phones cannot be asked to trust a certificate), the wire and the twin link
   (L55).
-- **The Stagewatch link over TLS.** When Stagewatch's hello names a certificate the link dials `wss://`/`https://` and
-  pins the certificate per Stagewatch (`node:<id>`, or `addr:<host>:<port>` for a typed address) on its first
-  authenticated answer. A different certificate later is refused — CERTIFICATE CHANGED on the Nodes page and the Eye —
-  until ACCEPT on the Nodes page. A certificate that is not the one the hello names is refused.
+- **The Stagewatch link over TLS.** The link dials `wss://`/`https://` to a Stagewatch on another machine (and to one at
+  loopback whose hello names a certificate, or whose certificate is pinned), pinning per Stagewatch (`node:<id>`, or
+  `addr:<host>:<port>` for a typed address). Round 93 (Show Bus 1.3 §13.6.8): a Stagewatch older than LINK cannot prove
+  itself, so its certificate is pinned *first* after its first frame — kept for comparison, never trusted — and its public
+  view is read without the key; every reader says what to compare ("compare its fingerprint 03e9 b152 ca42 518c and press
+  Trust to send the key"). **TRUST** beside the fingerprint on the Nodes page — or the same entry in the right-click menu of
+  its card there and of its card on the Eye — makes it a person's pin, and the key goes over that certificate from the next
+  dial. The press carries the fingerprint its words showed: a certificate that came after them is refused, nothing pinned.
+  While the key waits for Trust its words lead STATE's `bus.stagewatch.headline`, the Eye's card and the context's peers.
+  Trust is the desk's alone: no wire verb, deck or assistant presses it, and each press is one journal row. A
+  Stagewatch at loopback gets the key as before. A certificate a person pinned that changes is refused — CERTIFICATE CHANGED
+  on the Nodes page and the Eye, nothing of this desk's sent, the certificate looked at again at most once a minute — until
+  ACCEPT. A hello that names another certificate than the pin is a note, never a refusal: the pin decides. A refused key's
+  hold is kept beside the settings (`patterns.linkholds.json`: the link's target, the key's kid, the end in wall time and
+  the word — never the key), so a desk started inside it presents the key no sooner, reading the public view meanwhile.
 - **The approval queue (Stagewatch's cap `approvals`; a `node` key).** Every 5 s the desk posts its own context to
   `POST /api/peers/context`. Every 2 s it posts waiting proposals to `POST /api/proposals` (`{"from":{"t":"patterns",
   "id":<this install's id>,"name"},"target":{"t":"patterns","id":<the same>},"line":"APPLY <local id>: <kind> \"<title>\"",
   "reason","risk":"review"}`), reads `GET /api/proposals?from=<id>` and `GET /api/proposals?target=<id>&state=approved`,
-  runs each approved one once and answers `POST /api/proposals/<id>/result` with `{"ok":true|false,"words":"…"}`. An
+  runs each approved one once and answers `POST /api/proposals/<id>/result` with `{"ok":true|false,"words":"…"}` — owed
+  before it runs, and posted again from 3 s, doubling to 30 s, for 30 minutes until a 2xx or a 409 "settled" answers it.
+  A post the approval desk's answer says nothing of — no answer, a 5xx, a 408 — is unconfirmed, never refused or failed:
+  this desk's context is posted again five seconds on, and a proposal is not posted again blind but looked for in
+  `?from=<id>`, sent again only when a read made after its post does not list it. An
   approved line that is not an `APPLY` of this desk's runs through the wire's own path, its refusals intact. Round 91:
   an `APPLY` runs only as the proposal this desk made — proposed from this desk's own id and collected under the id
   the approval desk answered this desk's post with. The same line re-proposed by another node, or under another id,
@@ -784,9 +799,11 @@ What Patterns does with it:
   tried over TLS first, and one that shows no certificate within 2 s is followed in its public view without the key
   ("Hall A offers no TLS — the key stays on this desk"), asked again every 30 s. The key goes plain only to a loopback
   address; a Stagewatch on this machine heard at a network address is another machine's here. The desk reads its state
-  frames; every two seconds it sends `{"cmd":"ping","t":…}` (the beat and the clock exchange) and every five it
-  reads `GET /api/context` with the same header. Stale after 6 s of silence (the stage holds its time back), dropped
-  and redialled after 12 s, the redial from half a second to five with jitter. The key is a secret by its name
+  frames; every one and a half seconds — inside Show Bus 1.3's 1–2 s band — it sends `{"cmd":"ping","t":…}` (the beat
+  and the clock exchange) and every five it reads `GET /api/context` with the same header. Stale after 6 s of silence
+  (the stage holds its time back), dropped and redialled after 12 s, the redial from half a second to five with jitter,
+  its count back to 0 only after a link that stayed up 10 s. A typed address its Stagewatch's hello names one moment and
+  not the next is one link under two names: a refused key's hold and the redial's count go on under either. The key is a secret by its name
   (`Control.Stagewatch.ApiKey`): masked in every bundle, never mirrored to a twin.
   Round 92: a name is resolved once a dial and dialled at every address it gives — IPv4 first (a Stagewatch listens on
   IPv4), then IPv6, each family in the resolver's order, at most four — each address deciding its own carrier and key by

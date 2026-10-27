@@ -243,6 +243,12 @@ public sealed record StagewatchFrame
     public static readonly TimeSpan SideCallWithin = TimeSpan.FromSeconds(4);
 
     /// <summary>
+    /// The longest message the link takes whole from a Stagewatch's socket (§14's <c>link.read.min.bytes</c> is the least a
+    /// connector must take): a longer one is counted, said once and skipped, and the link stays up (13.14).
+    /// </summary>
+    public const int ReadWholeMost = 1024 * 1024;
+
+    /// <summary>
     /// The least time, on one link, between two of its reads of the Stagewatch's context and two posts of this desk's own: they ride
     /// the first beat (<see cref="ShowBusLiveness.Beat"/>) at least this long after the last, so a post comes within this and a
     /// beat (§6's <c>context.post.min.ms</c> to <c>context.post.max.ms</c>).
@@ -334,6 +340,16 @@ public sealed record StagewatchKey
     /// <summary>The link heard no verdict (a Stagewatch older than 2.18): its key is judged by the answers to its keyed calls.</summary>
     public bool Legacy { get; init; }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8: the key is held back from a Stagewatch off this machine whose certificate no proof and no person
+    /// pinned — its short fingerprint, which a person compares on the Stagewatch's screen before pressing Trust; "" otherwise.
+    /// The link reads its public view meanwhile.
+    /// </summary>
+    public string TrustFor { get; init; } = "";
+
+    /// <summary>The key waits for a person's Trust beside <see cref="TrustFor"/>.</summary>
+    public bool Withheld => TrustFor.Length > 0;
+
     public bool Refused => Word == "refused";
 
     /// <summary>The link carried the key and the Stagewatch lets it speak for no node of this desk's.</summary>
@@ -345,8 +361,8 @@ public sealed record StagewatchKey
     /// </summary>
     public bool Fault => Refused || NotAccepted;
 
-    /// <summary>Amber in every reader: a fault, or P-legacy's labelled fallback on a link that carried the key.</summary>
-    public bool Amber => Fault || (Legacy && Keyed);
+    /// <summary>Amber in every reader: a fault, P-legacy's labelled fallback on a link that carried the key, or a key held back for Trust.</summary>
+    public bool Amber => Fault || (Legacy && Keyed) || Withheld;
 
     /// <summary>What every reader says of a refused key.</summary>
     public const string RefusedWords = "KEY REFUSED";
@@ -357,16 +373,27 @@ public sealed record StagewatchKey
     /// <summary>P-legacy's label: what every reader says of a link that carried the key and heard no verdict.</summary>
     public const string LegacyWords = "an older Stagewatch: no verdict on its link — the key is judged by its HTTP answers";
 
-    /// <summary>"KEY REFUSED — unknown or revoked API key", "key not accepted for this desk — …", P-legacy's label, or "" when there is nothing to say.</summary>
+    /// <summary>
+    /// "KEY REFUSED — unknown or revoked API key", "key not accepted for this desk — …", P-legacy's label, the words of a key held
+    /// back for Trust, or "" when there is nothing to say.
+    /// </summary>
     public string Line
     {
         get
         {
             var fault = Refused ? Join(RefusedWords, Said) : NotAccepted ? Join(NotAcceptedWords, Said) : "";
             var legacy = Legacy && Keyed ? LegacyWords : "";
-            return fault.Length > 0 && legacy.Length > 0 ? fault + " · " + legacy : fault + legacy;
+            var trust = Withheld ? TrustWords(TrustFor) : "";
+            return string.Join(" · ", new[] { fault, legacy, trust }.Where(w => w.Length > 0));
         }
     }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.6.8's words for a key held back from a certificate no proof and no person pinned, with its short
+    /// fingerprint: what every reader says until someone presses Trust on this desk.
+    /// </summary>
+    public static string TrustWords(string shortFingerprint)
+        => $"it cannot prove itself yet (an older Stagewatch) — compare its fingerprint {shortFingerprint} and press Trust to send the key";
 
     private static string Join(string head, string said) => said.Length > 0 ? head + " — " + said : head;
 
@@ -608,12 +635,13 @@ public static class ShowBusView
     public static bool KeyAmber(EyeShowApp app) => app.Linked && app.State == ShowBusState.Live && app.Key.Amber;
 
     /// <summary>
-    /// Round 91: a linked app whose verdict on this desk's key is a fault (refused, or speaking for no node of this desk's),
-    /// its link live and its show not stuck: the key's line is what this desk can say of the link, so every reader with one
-    /// headline — the context's peers, the Eye's card, STATE's <c>bus.stagewatch.headline</c> — says it in place of the
-    /// app's own. A link gone quiet or gone says that instead; a stuck show says so first.
+    /// Round 91: a linked app whose verdict on this desk's key is a fault (refused, or speaking for no node of this desk's) — or
+    /// whose key this desk holds back for a person's Trust (Show Bus 1.3 §13.6.8) — its link live and its show not stuck: the
+    /// key's line is what this desk can say of the link, so every reader with one headline — the context's peers, the Eye's card,
+    /// STATE's <c>bus.stagewatch.headline</c> and the deck that reads it — says it in place of the app's own, the amber it shows
+    /// with its reason. A link gone quiet or gone says that instead; a stuck show says so first.
     /// </summary>
-    public static bool KeyLineLeads(EyeShowApp app) => app.Linked && app.State == ShowBusState.Live && !app.Stuck && app.Key.Fault;
+    public static bool KeyLineLeads(EyeShowApp app) => app.Linked && app.State == ShowBusState.Live && !app.Stuck && (app.Key.Fault || app.Key.Withheld);
 
     /// <summary>
     /// Show Bus 1.3 §2: an app whose id two running nodes say, while it is live — every reader takes the worse of its own

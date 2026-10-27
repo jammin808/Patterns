@@ -26,7 +26,7 @@ namespace Patterns.App.Tests;
 /// of them nor a proof reaches the link's record or what the machine asks to write. A proof crosses the wire by design (LINK
 /// PROOF, AUTH-PROOF, the verdict's), so it is held to the record and the writes alone.
 /// </summary>
-public sealed class PeerLinkWireTests
+public sealed partial class PeerLinkWireTests
 {
     private const string SelfId = "9f8e7d6c";
     private const string StagewatchId = "3f9c2a1b7d0e";
@@ -281,6 +281,108 @@ public sealed class PeerLinkWireTests
         Assert.Equal("auth-proof", Str(await peer.Wait(e => Str(e, "ev") == "paired"), "how"));
         Assert.DoesNotContain(peer.Events, e => Str(e, "ev") == "read" && (Str(e, "line") ?? "").StartsWith("AUTH ", StringComparison.Ordinal));
         NoSecretCrossed(peer, m, steps, [.. CodeForms(code), Convert.ToHexStringLower(PeerLink.CodeKey(PeerLink.Canon(code)!))], [PeerLink.LegacyProof(code, nonce, "Patterns")!]);
+    }
+
+    /// <summary>
+    /// The core at level 0 against the scripted peer as a Stagewatch older than LINK, the test playing the carrier as the Stagewatch
+    /// link does and the core deciding: the bearer goes in the upgrade only because the link is local (13.3.4), and the verdict that
+    /// takes it settles the link (13.15.2 at level 0). S13: a pong that answers a ping sent is a clock sample; one that answers
+    /// none (<c>pongs</c> "unmatched") is counted and never a sample. S12: the stuck beat makes the show stuck, a pong never clears it,
+    /// a state frame does. S11: silence is stale past <c>link.stale.ms</c> and down past <c>link.drop.ms</c> on the evaluator's own
+    /// runs. S19: the key reaches nothing the peer read off the wire but the upgrade's bearer, said there by its kind alone, and
+    /// neither the record nor a write.
+    /// </summary>
+    [Fact]
+    public async Task AnOlderStagewatchAtLevelZeroHasItsPongsMatchedItsStallSaidAndItsSilenceDropped()
+    {
+        using var files = new KitFiles();
+        var key = "swk_" + RandomNumberGenerator.GetString("abcdefghijkmnpqrstuvwxyz23456789", 32);
+        var kid = PeerLink.Kid(PeerLink.KeyKey(key));
+        await using var peer = ScriptedPeer.Start();
+        var listening = await peer.Ask(new JsonObject
+        {
+            ["do"] = "listen", ["carrier"] = "ws", ["tls"] = "plain", ["node"] = Node("main", StagewatchId), ["level"] = 0, ["clock"] = 5,
+            ["keys"] = new JsonArray(new JsonObject { ["file"] = files.Write("key", key), ["kind"] = "key", ["bound"] = "patterns:" + SelfId }),
+        });
+        var steps = new Steps();
+        var m = new PeerLinkMachine(Settings(LinkCarrier.Ws, kid, local: true) with { NodeId = StagewatchId, Kind = "main" }, null, steps.Now());
+        Assert.NotNull(m.Dial(steps.Next()));
+        m.NoTls(steps.Next());
+        using var ws = new ClientWebSocket();
+        ws.Options.SetRequestHeader("Authorization", "Bearer " + key);
+        await ws.ConnectAsync(new Uri($"ws://127.0.0.1:{Int(listening, "port")}/ws?node={SelfId}&t=patterns"), Timeout());
+
+        // Its first message is its verdict, not link: level 0, the bearer the core asks for, and the key taken — settled.
+        var verdict = await Receive(ws);
+        Assert.Equal(("auth", "key"), (PeerLink.Text(verdict, "type"), PeerLink.Text(verdict.GetProperty("node"), "verified")));
+        m.FirstMessage(steps.Next(), frame: false);
+        Assert.Equal(new[] { "bearer" }, m.Drain().Select(w => w.Credential).OfType<string>());
+        m.Settled(steps.Next());
+        Assert.Equal("state", PeerLink.Text(await Receive(ws), "type"));
+        m.Frame(steps.Next());
+        Assert.Equal((LinkState.Live, LinkShow.Live), (m.State(steps.Now()), m.Show));
+        Assert.Equal("bearer", Str(await peer.Wait(e => Str(e, "ev") == "upgrade"), "authorization"));
+
+        async Task<JsonElement> Ping()
+        {
+            var now = steps.Next();
+            m.Ping(now, now.Wall);
+            await SendJson(ws, new JsonObject { ["cmd"] = "ping", ["t"] = now.Wall });
+            return await Receive(ws);
+        }
+        void Pong(JsonElement pong)
+            => m.Pong(steps.Next(), pong.GetProperty("t").GetInt64(), pong.GetProperty("t2").GetInt64(), pong.GetProperty("t3").GetInt64(), stuck: false);
+
+        // S13: matched, a sample; unmatched, counted and no sample.
+        Pong(await Ping());
+        Assert.Equal(1, m.Clock.Samples);
+        await peer.Ask(new JsonObject { ["do"] = "set", ["pongs"] = "unmatched" });
+        Pong(await Ping());
+        Pong(await Ping());
+        Assert.Equal(1, m.Clock.Samples);
+        Assert.Equal(2, m.Record(steps.Now()).Counts.Unmatched);
+        await peer.Ask(new JsonObject { ["do"] = "set", ["pongs"] = true });
+
+        // S12: the stuck beat; a pong never clears it on ws; a state frame does.
+        await peer.Ask(new JsonObject { ["do"] = "set", ["stuck"] = true });
+        var beat = await Receive(ws);
+        Assert.Equal(("beat", false), (PeerLink.Text(beat, "type"), beat.GetProperty("live").GetBoolean()));
+        m.Beat(steps.Next(), live: false);
+        Assert.Equal(LinkShow.Stuck, m.Show);
+        Pong(await Ping());
+        Assert.Equal(LinkShow.Stuck, m.Show);
+        await peer.Ask(new JsonObject { ["do"] = "set", ["stuck"] = false });
+        Assert.Equal("state", PeerLink.Text(await Receive(ws), "type"));
+        m.Frame(steps.Next());
+        Assert.Equal(LinkShow.Live, m.Show);
+
+        // S11: the peer answers no ping; the evaluator runs each second on its own timer — stale past 6 s, down past 12 s.
+        await peer.Ask(new JsonObject { ["do"] = "set", ["pongs"] = false });
+        var heard = steps.Now().Mono;
+        await PingUnanswered();
+        var stale = (long)ShowBusLiveness.StaleAfter.TotalMilliseconds;
+        var drop = (long)ShowBusLiveness.DropAfter.TotalMilliseconds;
+        var states = new List<(long Silent, LinkState State, bool Closed)>();
+        for (var at = heard + 1000; ; at = Math.Min(at + 1000, heard + drop + 1))
+        {
+            var ev = m.Evaluate(steps.At(at));
+            states.Add((at - heard, m.State(steps.Now()), ev.Closed));
+            if (ev.Closed || at == heard + drop + 1) break;
+        }
+        Assert.Equal(LinkState.Live, states.Single(x => x.Silent == stale).State);
+        Assert.Equal(LinkState.Stale, states.Single(x => x.Silent == stale + 1000).State);
+        Assert.Equal(LinkState.Stale, states.Single(x => x.Silent == drop).State);
+        Assert.Equal((drop + 1, LinkState.Down, true), states[^1]);
+
+        NoSecretCrossed(peer, m, steps, [key, Convert.ToHexStringLower(PeerLink.KeyKey(key))], []);
+        ws.Abort();
+
+        async Task PingUnanswered()
+        {
+            var at = steps.Next();
+            m.Ping(at, at.Wall);
+            await SendJson(ws, new JsonObject { ["cmd"] = "ping", ["t"] = at.Wall });
+        }
     }
 
     // ---- the carrier the test plays ------------------------------------------------------------------------------------
