@@ -132,6 +132,131 @@ public sealed record LinkRecord(
     /// <summary>The show's word as the record writes it.</summary>
     public static string ShowWord(LinkShow show) => show.ToString().ToLowerInvariant();
 
+    /// <summary>13.16.1's words for a link that is off and says no more of why.</summary>
+    public const string OffWords = "link off";
+
+    /// <summary>The record's light as every reader draws it.</summary>
+    public CheckLight LightValue => ShowContext.LightOf(Light);
+
+    /// <summary>13.16.1's <c>live</c>: the link is up and heard within <c>link.stale.ms</c>.</summary>
+    public bool IsLive => State == "live";
+
+    /// <summary>The link is configured: any state but 13.16.1's <c>off</c>.</summary>
+    public bool IsOn => State != "off";
+
+    /// <summary>13.16.2's flags in a reader's words, in the record's order; a flag no row of 13.16.2 names is left out.</summary>
+    public IReadOnlyList<string> FlagLines => Flags.Select(f => FlagWords(f, PeerName)).Where(w => w.Length > 0).ToList();
+
+    /// <summary>
+    /// What every reader says of the link in one line: its mark beside its words, then its flags in words — the record's own, so
+    /// the Eye's edge, the Nodes card, the assistant's facts and the Super Check say one thing.
+    /// </summary>
+    public string Said => FlagLines is { Count: > 0 } flags ? $"{Mark} {Words} · {string.Join(" · ", flags)}" : $"{Mark} {Words}";
+
+    /// <summary>
+    /// The record's words without a running count: its own words where they say what stands (13.16.1's off, finding, connecting,
+    /// live and refused), else its peer, its state and its refusal — stale, down and held count seconds in their words, which a reader
+    /// that redraws only when what it shows moves would otherwise freeze or redraw every second.
+    /// </summary>
+    public string SteadyWords => State is "stale" or "down" or "held"
+        ? $"{PeerName} {State}" + (Refusal.Length > 0 ? " — " + Refusal : "")
+        : Words;
+
+    /// <summary>
+    /// <see cref="Said"/> without a running count: the face a reader keyed or hashed on what it draws shows — the Eye's card and edge,
+    /// the Nodes card — so it moves when the link's state, light, refusal or flags do, never once a second.
+    /// </summary>
+    public string Steady => FlagLines is { Count: > 0 } flags ? $"{Mark} {SteadyWords} · {string.Join(" · ", flags)}" : $"{Mark} {SteadyWords}";
+
+    /// <summary>
+    /// The Run strip's word for the link: its kind, its mark and its state in capitals, its flags after it ("STAGEWATCH △ LIVE
+    /// (legacy)"); "" while it is off.
+    /// </summary>
+    public string Glance(string kind)
+        => !IsOn ? "" : $"{kind.ToUpperInvariant()} {Mark} {State.ToUpperInvariant()}" + (Flags.Count > 0 ? " (" + string.Join(", ", Flags) + ")" : "");
+
+    /// <summary>
+    /// §6's <c>link</c> of the peer's <c>peers</c> row: the carrier of a live link LINK verified to that node (13.1) — <c>""</c> at
+    /// level 0, where nothing proved who answered, and while no link is up.
+    /// </summary>
+    public string PeerRowLink => IsLive && Level >= 1 && Proof == "mutual" ? Carrier : "";
+
+    /// <summary>
+    /// §6's <c>verified</c> of the peer's <c>peers</c> row, from a LINK verdict (13.6.6): <c>key</c> for a key, <c>operator</c> for the
+    /// operator's code, and <c>none</c> while the link stands on no proof (level 0, a public view, or no link up).
+    /// </summary>
+    public string PeerRowVerified => IsLive && Level >= 1 && Proof == "mutual" ? Kid == "code" ? "operator" : "key" : "none";
+
+    /// <summary>
+    /// The words of one change of state, as its journal row and its log line say it (13.16.7): from, to, the reason — the record's
+    /// words, its refusal's class — and the attempt. <paramref name="from"/> is the state said before ("" before any).
+    /// </summary>
+    public string ChangeWords(string from)
+        => (from.Length > 0 ? from : "none") + " → " + State + ": " + Words
+           + (Refusal.Length > 0 ? " (" + Refusal + ")" : "")
+           + " · attempt " + Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// 13.16.2's words for one flag, as a reader shows it beside the link's own words — its advice too where 13.16.2 gives one and it
+    /// applies on this desk (no GO is timed over this desk's links, so <c>plain</c> says nothing of timed GO); "" for a word 13.16.2
+    /// does not name, which no reader shows. <paramref name="peer"/> names the node a <c>code-plain</c> link's app key is made on.
+    /// </summary>
+    public static string FlagWords(string flag, string? peer = null) => flag switch
+    {
+        "plain" => "proved, not private — its wire offers no TLS yet",
+        "keyless" => "public view — the key stays on this desk",
+        "legacy" => "proved at level 0 — the peer does not prove itself to this link",
+        "open" => "it asks for no key",
+        "code-plain" => "proved with a pairing code over plain — a recording of this proof can be guessed offline; make an app key on "
+            + (string.IsNullOrEmpty(peer) ? "the node" : peer),
+        "scope" => "its key's scope is below what the link is used for",
+        "first" => "pinned at first use — compare the fingerprint",
+        "note" => "a hello contradicts this link",
+        "apart" => "CLOCKS APART",
+        "unfit" => "its clock is not fit for timed commands",
+        "oversize" => "a message past the most read whole, counted and skipped",
+        "malformed" => "messages it could not read",
+        _ => "",
+    };
+
+    /// <summary>
+    /// What a person can do on this desk or at the peer to end what the record shows, in words — the Nodes page's press, a key to
+    /// make, an id to change, a peer to bring back; "" when nothing a person presses ends it (a link quiet for now, a level-0 peer that
+    /// cannot prove itself yet, a hold that ends by itself), which a reader says as <see cref="Ends"/> instead of a fix.
+    /// </summary>
+    public string Remedy => State switch
+    {
+        "refused" => "the Nodes page shows what to accept",
+        "held" when Refusal == "conflict" => "give one of the two machines that say " + (PeerId ?? PeerName) + " another id",
+        "held" when Refusal is "key" or "binding" or "scope" => "make a node key on " + PeerName + " and type it on the Nodes page",
+        "down" => "check " + PeerName + " runs and is on the show network",
+        "live" or "stale" when Flags.Contains("first") && Flags.Contains("keyless") => "compare its fingerprint and press Trust on the Nodes page",   // the key held back for a person's Trust
+        "live" or "stale" when Flags.Contains("code-plain") => "make an app key on " + PeerName,
+        _ => "",
+    };
+
+    /// <summary>
+    /// What ends an amber or red light no press of a person's ends (<see cref="Remedy"/> is empty), in words; "" for a green or grey
+    /// one, or one a person can act on.
+    /// </summary>
+    public string Ends => Remedy.Length > 0 || Light is "green" or "grey" ? "" : State switch
+    {
+        "stale" => "it ends when " + PeerName + " is heard again",
+        "held" => "it ends when the hold does",
+        "connecting" => "it ends once the link is made",
+        _ when Flags.Contains("legacy") => "it ends once " + PeerName + " proves itself with PeerLink — nothing to press on this desk",
+        _ when Flags.Contains("plain") => "it ends once " + PeerName + " offers TLS",
+        _ when Flags.Contains("apart") => "it ends once the clocks agree",
+        _ => "",
+    };
+
+    /// <summary>13.16.3's object as one JSON value, for a STATE written by a serializer: <see cref="ToJson"/>'s bytes, its order kept.</summary>
+    public JsonElement ToElement()
+    {
+        using var doc = JsonDocument.Parse(ToJson());
+        return doc.RootElement.Clone();
+    }
+
     /// <summary>13.16.3's object, its fields — the nested ones too — in its order.</summary>
     public string ToJson()
     {

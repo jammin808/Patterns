@@ -104,6 +104,9 @@ public sealed record NodeContextFacts
     public CheckLight StackLight { get; init; } = CheckLight.Grey;
     public bool Arcade { get; init; }
     public string ArcadeWords { get; init; } = "";
+
+    /// <summary>Show Bus 1.3 §13.16.3: the record of this node's own Stagewatch link — never the desk's relay; null with none.</summary>
+    public LinkRecord? OwnLink { get; init; }
 }
 
 /// <summary>
@@ -126,6 +129,11 @@ public static class NodeContextBuilder
         // Round 89 (profile 13.10.5, 13.16.1): a stuck show leaves the link live and amber; the stage that follows it shows
         // no time, red — a frozen count is worse than none.
         var stuck = f.Stagewatch.State == ShowBusState.Live && (f.Stagewatch.Stuck || f.Stagewatch.Frame is { Live: false });
+        // Show Bus 1.3 §6 P2, §13.16.4: the node's own Stagewatch link while it is on — never the desk's relay, which is the desk's to
+        // publish — is one item of kind link from its record, first, with its one row to the Stagewatch; a live link's record darker than
+        // the item that shows the Stagewatch it follows lends that item its light.
+        var ownLink = ShowContextPeerLink.Stagewatch(f.OwnLink);
+        if (ownLink is not null) items.Insert(0, ShowContextBuilder.LinkItem(ownLink));
         if (f.Stagewatch.Name.Length > 0 || f.Stagewatch.Address.Length > 0)
         {
             var light = f.Stagewatch.State switch
@@ -135,6 +143,7 @@ public static class NodeContextBuilder
                 ShowBusState.Stale => CheckLight.Amber,
                 _ => CheckLight.Red,
             };
+            if (!f.StagewatchViaDesk && ownLink is { Record: { IsLive: true } live } && f.Stagewatch.State == ShowBusState.Live) light = ShowContext.Worst(new[] { light, live.LightValue });
             items.Add(new ShowContextItem
             {
                 Id = "stagewatch", Kind = "stagewatch", Label = "Stagewatch " + f.Stagewatch.Name, Light = ShowContext.Word(light),
@@ -168,7 +177,8 @@ public static class NodeContextBuilder
             Light = ShowContext.Word(worst),
             Headline = headline,
             Items = items,
-            Links = new[] { new ShowContextLink { From = "node", To = "desk", Kind = "follows", Light = ShowContext.Word(f.DeskLight) } }
+            Links = (ownLink is not null && ShowContextBuilder.LinkRow(ownLink) is { } row ? new[] { row } : Array.Empty<ShowContextLink>())
+                .Concat(new[] { new ShowContextLink { From = "node", To = "desk", Kind = "follows", Light = ShowContext.Word(f.DeskLight) } })
                 .Concat(items.Any(i => i.Id == "stagewatch") ? new[] { new ShowContextLink { From = "stage", To = "stagewatch", Kind = "follows", Light = items.First(i => i.Id == "stagewatch").Light } } : Array.Empty<ShowContextLink>())
                 .ToList(),
             Recent = journal.TakeLast(ShowContext.MaxRecent).Select(ShowContextBuilder.Line).ToList(),

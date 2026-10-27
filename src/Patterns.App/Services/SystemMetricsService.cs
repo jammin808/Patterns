@@ -703,6 +703,7 @@ public sealed class SystemMetricsService : IDisposable
             WireReadsRefused = _services.Control.UnpairedReadsRefused,                                 // round 91 (ADR-016): reads refused to an unpaired connection
             WireReadRefusedLast = _services.Control.LastUnpairedRead,
             TokenSeenInClear = _services.Kernel.TokenSeenInClear.For(state.Control.Token),             // round 89: the token arrived unencrypted from these machines
+            ShowNetworkLinks = new[] { _services.Kernel.Stagewatch.Record },                          // Show Bus 1.3 §13.16.4: the link's record, read once
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             PrivatePages = privatePages,

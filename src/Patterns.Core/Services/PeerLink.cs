@@ -69,6 +69,9 @@ public static class PeerLink
     /// <summary>The least time between two looks at the certificate a node shows after CERTIFICATE CHANGED, each one TLS greeting that sends nothing (§14 <c>peerlink.cert.probe.ms</c>, 13.8.3).</summary>
     public static readonly TimeSpan CertProbe = TimeSpan.FromSeconds(60);
 
+    /// <summary>§14 <c>log.repeat.summary.ms</c>: while a link's states repeat, one summary line this often in their place (13.19.4).</summary>
+    public static readonly TimeSpan RepeatSummary = TimeSpan.FromSeconds(60);
+
     /// <summary>The most commands that wait for answers on one link (§14 <c>link.inflight.max</c>, 13.12.8).</summary>
     public const int InFlightMost = 32;
 

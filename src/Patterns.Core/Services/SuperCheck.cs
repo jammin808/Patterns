@@ -261,6 +261,12 @@ public sealed class CheckFacts
     /// </summary>
     public IReadOnlyList<ClearSighting> TokenSeenInClear { get; init; } = Array.Empty<ClearSighting>();
 
+    /// <summary>
+    /// Show Bus 1.3 §13.16.4: the record of each PeerLink this desk holds as connector — its Stagewatch link — as the link published
+    /// it when the facts were gathered; the "Show network links" row takes them and derives no link fact of its own.
+    /// </summary>
+    public IReadOnlyList<LinkRecord> ShowNetworkLinks { get; init; } = Array.Empty<LinkRecord>();
+
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
 
@@ -301,6 +307,7 @@ public static class SuperCheck
         Audio(f, rows);
         Remote(f, rows);
         Osc(f, rows);
+        ShowNetwork(f, rows);
         Video(f, rows);
         AdviceRows(f, rows);
         var level = Grade(f);
@@ -1171,6 +1178,33 @@ public static class SuperCheck
         }
         rows.Add(new CheckRow("REMOTE", "OSC", CheckLight.Amber, $"port {f.OscPort} · open on every interface",
             "FIX: OSC cannot pair, so the show's token does not cover it — anyone on any network this machine is on can drive the show over it: bind the control ports to the control network's address (Remote page), or untick OSC in when it is not needed"));
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.4: "Show network links" — each PeerLink this desk holds as connector, in its record's light, mark, state and
+    /// words, flags in words beside them; the row's light the worst of the records' (grey while none is on, which counts for nothing;
+    /// an off record that says why it is off — an address that is not one — says so). "FIX:" leads only where a person can act —
+    /// accept, Trust, make a key, change an id, bring a peer back (the record's remedy); an amber no press ends (a level-0 peer that
+    /// cannot prove itself yet, a link quiet for now) says what ends it instead.
+    /// </summary>
+    private static void ShowNetwork(CheckFacts f, List<CheckRow> rows)
+    {
+        var on = f.ShowNetworkLinks.Where(r => r.IsOn).ToList();
+        if (on.Count == 0)
+        {
+            var why = f.ShowNetworkLinks.Select(r => r.Words).FirstOrDefault(w => w != LinkRecord.OffWords);
+            rows.Add(new CheckRow("SHOW NETWORK", "Show network links", CheckLight.Grey, "none on", why ?? "the Stagewatch link is off — the Nodes page turns it on"));
+            return;
+        }
+        var light = ShowContext.Worst(on.Select(r => r.LightValue));
+        var value = string.Join(" · ", on.Select(r => $"{ShowContextPeerLink.Stagewatch(r)!.Label} {r.Mark} {r.State}"));
+        var note = string.Join(" · ", on.Select(r => r.Said));
+        var remedies = on.Select(r => r.Remedy).Where(w => w.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        var ends = on.Select(r => r.Ends).Where(w => w.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        rows.Add(new CheckRow("SHOW NETWORK", "Show network links", light, value,
+            remedies.Count > 0 ? "FIX: " + note + " — " + string.Join("; ", remedies)
+            : ends.Count > 0 ? note + " — " + string.Join("; ", ends)
+            : note));
     }
 
     private static void Video(CheckFacts f, List<CheckRow> rows)

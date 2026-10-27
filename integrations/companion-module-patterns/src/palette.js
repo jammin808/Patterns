@@ -92,6 +92,7 @@ export const STATES = {
 	node: { desk: 'desk', caller: 'caller', arcade: 'arcade', timer: 'timer', gone: 'gone' },
 	twin: { inStep: 'green', silent: 'red', tookOver: 'amber', standby: 'steel' },
 	stage: { running: 'green', amber: 'amber', red: 'red', pending: 'amber', paused: 'sky' },
+	link: { red: 'red', amber: 'amber', green: 'green' },
 }
 
 /** The style for a kind in a state: style('look', 'air'). */

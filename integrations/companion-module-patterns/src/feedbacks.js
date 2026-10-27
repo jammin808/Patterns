@@ -232,6 +232,12 @@ export function buildFeedbacks(ctx) {
 		}),
 		// Round 89: the linked Stagewatch says its show is stuck — the stage shows no time from it until its next frame.
 		stagewatch_stuck: bool('The linked Stagewatch says its show is stuck — the stage shows no time from it', style('stage', 'red'), [], () => s().bus?.stagewatch?.stuck === true),
+		// The Stagewatch link's own light, from its record (Show Bus 1.3 §13.16.4) — red while a link the show needs is down,
+		// held or refused, amber for one that cannot prove itself yet or is quiet; never a light the module works out for itself.
+		stagewatch_link_light_is: bool("The Stagewatch link's own light, from its record, is …", style('link', 'red'), [{ type: 'dropdown', id: 'light', label: 'Light', default: 'red', choices: [
+			{ id: 'red', label: 'red — a link the show needs is down, held or refused' }, { id: 'amber', label: 'amber — it needs a look (quiet, level 0, a flag)' },
+			{ id: 'green', label: 'green — live and proved' }, { id: 'grey', label: 'grey — off, finding or dialling' },
+		] }], (fb) => (s().bus?.stagewatch?.link?.light ?? '') === fb.options.light),
 		// ---- round 74: the Navigator's keys and the desk's whereabouts ----------------------------------------------
 		nav_slot_on: bool('Navigator — slot n is ticked (the look on air, the standby cue, a switch that is on)', style('nav', 'on'), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => ctx.nav().slots[fb.options.n - 1]?.on === true),
 		nav_slot_empty: bool('Navigator — slot n has nothing on it', emptyStyle(), [{ type: 'number', id: 'n', label: 'Slot', default: 1, min: 1, max: 24 }], (fb) => !ctx.nav().slots[fb.options.n - 1]),

@@ -85,7 +85,7 @@ public sealed class NodesService
         table.Need(new[] { _s.Stagewatch.NodeId }.Concat(_s.State.Control.Stagewatch.Pins.Select(p => p.Key).Where(k => k.StartsWith("node:", StringComparison.Ordinal)).Select(k => k[5..])));
         var peers = table.Snapshot(now);
         SayHelloTable(peers, table.Dropped, now);
-        var apps = ShowBusView.Apps(peers, now, _s.Stagewatch.Sight);
+        var apps = ShowBusView.Apps(peers, now, _s.Stagewatch.SightWithLink);
         var cards = apps.Select(ShowAppCard.Of).ToList();
         var link = _s.Stagewatch;
         var extra = string.Join(" ", new[] { link.TlsWords, link.ApprovalWords }.Where(w => w.Length > 0).Select(w => w.EndsWith('.') ? w : w + "."));

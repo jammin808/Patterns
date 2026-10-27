@@ -503,6 +503,13 @@ public sealed record StagewatchSight(string Name, string Address, ShowBusState S
 
     /// <summary>Round 91: what the Stagewatch made of this desk's key — its verdict, or P-legacy's HTTP evidence.</summary>
     public StagewatchKey Key { get; init; } = StagewatchKey.Unknown;
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.3: the link's record as the connector published it when the sight was read with it — the one record
+    /// every reader that draws the link takes its link facts from (13.16.4); null on a sight read without it (the stage's own
+    /// readers, which need none), a sight the desk relayed, or one made by hand.
+    /// </summary>
+    public LinkRecord? Link { get; init; }
 }
 
 /// <summary>
@@ -581,6 +588,9 @@ public static class StageFollow
 
     /// <summary>Stagewatch's web port.</summary>
     public const int DefaultPort = 9924;
+
+    /// <summary>The name a link's record gives the Stagewatch it has none to dial yet: off, or finding one.</summary>
+    public const string Unnamed = "a Stagewatch";
 }
 
 /// <summary>
@@ -602,7 +612,8 @@ public static class ShowBusView
             // Show Bus 1.3 §2: every address the id was heard from, the one dialled first.
             var addresses = p.Addresses.Count > 0 ? string.Join(", ", p.Addresses) : p.Address;
             var words = string.Join(" · ", new[] { p.Host.Length > 0 && p.Host != p.Name ? p.Host : "", addresses, p.Caps.Count > 0 ? string.Join(", ", p.Caps.Take(6)) : "" }.Where(w => w.Length > 0));
-            var state = linked ? Worse(p.StateAt(utcNow), sight.State) : p.StateAt(utcNow);
+            var heard = p.StateAt(utcNow);
+            var state = linked ? Worse(heard, sight.State) : heard;
             var stuck = linked && sight.Stuck && state == ShowBusState.Live;
             apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, state, linked, words)
             {
@@ -610,6 +621,8 @@ public static class ShowBusView
                 Stuck = stuck,
                 Key = linked ? sight.Key : StagewatchKey.Unknown,                                   // round 91: the linked one's verdict on this desk's key
                 Conflict = p.Conflict?.Words ?? "",                                                 // Show Bus 1.3 §2: two running nodes say its id
+                Link = linked ? sight.Link : null,                                                  // Show Bus 1.3 §13.16.3: the link's own record
+                Heard = HeardWord(heard),                                                           // §6: its hello's age
             });
         }
         // A Stagewatch reached by a typed address that never said hello (another subnet, a loopback-only hello) is still drawn.
@@ -622,10 +635,29 @@ public static class ShowBusView
                 Context = Shown(sight.Context, stuck),
                 Stuck = stuck,
                 Key = sight.Key,
+                Link = sight.Link,                                                                  // no hello names it: §6's heard stays empty
             });
         }
         return apps;
     }
+
+    /// <summary>§6's <c>heard</c> for a hello's age: <c>live</c>, <c>stale</c> or <c>gone</c>.</summary>
+    public static string HeardWord(ShowBusState state) => state switch
+    {
+        ShowBusState.Live => "live",
+        ShowBusState.Stale => "stale",
+        _ => "gone",
+    };
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.4: the light a reader draws for an app — <paramref name="own"/>, what it draws of the app itself — no
+    /// better than its link's record while that link is live, so the record's amber (level 0's <c>legacy</c>, a key held back, a
+    /// clock apart) reaches the Eye's card, the Nodes card, the context's peers, STATE and the assistant's facts alike, and no
+    /// reader derives a link light of its own. A link that is not live says so through the app's own state; its record's light is
+    /// the edge's and the link's own readers'.
+    /// </summary>
+    public static CheckLight WithLink(EyeShowApp app, CheckLight own)
+        => app.Linked && app.Link is { IsLive: true } r ? ShowContext.Worst(new[] { own, r.LightValue }) : own;
 
     /// <summary>
     /// Round 91: a linked app whose verdict on this desk's key is amber (refused, speaking for no node of this desk's, or
@@ -702,13 +734,13 @@ public static class ShowBusView
         Kind = a.KindWords switch { "Stagewatch" => "main", "AGMessage" => "messenger", "Slides agent" => "agent", "Patterns node" => "patterns", _ => a.KindWords.ToLowerInvariant() },
         Id = a.Id,
         Name = a.Name,
-        Light = a.State switch
+        Light = ShowContext.Word(WithLink(a, ShowContext.LightOf(a.State switch
         {
             ShowBusState.Gone => "red",
             ShowBusState.Stale => "amber",
             _ when a.Stuck || KeyAmber(a) || ConflictAmber(a) => StuckLight(a.Context?.Light),
             _ => a.Context?.Light ?? "grey",
-        },
+        }))),
         // Round 91: a key refused or not speaking for this desk, on a live link, is what this desk can say of it now: said in place of the headline.
         // Show Bus 1.3 §2: so is an id two running nodes say, while it is live.
         Headline = KeyLineLeads(a) ? a.Key.Line
@@ -716,6 +748,11 @@ public static class ShowBusView
             : a.Context?.Headline is { Length: > 0 } h ? h
             : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : "heard on the show network")
             : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
+        // §6, appended at the row's end: its hello's age; the carrier of a link LINK verified to it ("" at level 0); and what proves
+        // the row's light and headline — the link's record for the one this desk links to, nothing beyond a hello for the rest.
+        Heard = a.Heard,
+        Link = a.Linked && a.Link is { } r ? r.PeerRowLink : "",
+        Verified = a.Linked && a.Link is { } v ? v.PeerRowVerified : "",
     }).ToList();
 
     /// <summary>
@@ -757,7 +794,9 @@ public static class ShowBusView
             var c = a.Context;
             // A stuck show: the link is live and amber, its counting things carry no time (the context says so, NoTime).
             if (a.Stuck && a.State == ShowBusState.Live && c is null) lines.Add($"{a.KindWords} {a.Name} — {state} — {StuckLight(null)}: {StuckWords}");
-            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {(KeyAmber(a) || ConflictAmber(a) ? StuckLight(c.Light) : c.Light)}: {c.Headline}"));
+            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {ShowContext.Word(WithLink(a, ShowContext.LightOf(KeyAmber(a) || ConflictAmber(a) ? StuckLight(c.Light) : c.Light)))}: {c.Headline}"));
+            // Show Bus 1.3 §13.16.4: the link's record — its state, light, mark, words and flags — as every reader says it.
+            if (a.Linked && a.Link is { } link) lines.Add($"  the link: {link.State}, {link.Light} — {link.Said}");
             // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
             if (a.Linked && a.Key.Line.Length > 0) lines.Add($"  this desk's key: {a.Key.Line}");
             // Show Bus 1.3 §2: two running nodes say its id.
@@ -810,6 +849,8 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
             : app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
         // Round 91: what it made of this desk's key — a refusal, a key that speaks for another desk, P-legacy's label.
         if (app.Linked && app.Key.Line.Length > 0) line += " · " + app.Key.Line;
+        // Show Bus 1.3 §13.16.4: the link's record, its mark beside its words and flags — its steady face, so the card moves with the link's state, never once a second.
+        if (app.Linked && app.Link is { } link) line += " · link " + link.Steady;
         // Show Bus 1.3 §2: two running nodes say its id — both named, and what this desk does about it.
         if (app.Conflict.Length > 0) line += " · " + app.Conflict + " — " + ShowBusView.ConflictHoldWords;
         var hue = app.State switch
@@ -818,7 +859,13 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
             ShowBusState.Stale => "#FFB020",
             // A stuck show, this desk's key refused, or its id said by two machines: the worse of the app's own light and amber — red only when its own light is red.
             _ when app.Stuck || ShowBusView.KeyAmber(app) || ShowBusView.ConflictAmber(app) => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
-            _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
+            // Show Bus 1.3 §13.16.4: a live link's record darker than the app's own colour — amber at level 0 — wears its light.
+            _ => ShowBusView.WithLink(app, CheckLight.Green) switch
+            {
+                CheckLight.Red => "#B03030",
+                CheckLight.Amber => "#FFB020",
+                _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
+            },
         };
         return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked);
     }

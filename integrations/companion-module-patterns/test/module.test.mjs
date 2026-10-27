@@ -826,6 +826,47 @@ test('round 87 — the show network and the Stagewatch link read as variables, a
 	assert.ok(old.ctx.variableDefs.stagewatch_headline, 'defined for the host')
 })
 
+test('round 93 — the Stagewatch link\'s own record: its state, light and flags read as variables, its light as a feedback; a desk without the record reads empty', async () => {
+	const b = await boot()
+	// The desk's own fixture: a level-0 link, live and flagged legacy (Show Bus 1.3 §13.16.2), amber — the row's light amber with it.
+	assert.equal(b.ctx.variables.stagewatch_link_state, 'live')
+	assert.equal(b.ctx.variables.stagewatch_link_light, 'amber')
+	assert.equal(b.ctx.variables.stagewatch_link_flags, 'legacy')
+	assert.equal(b.ctx.variables.stagewatch_light, 'amber')
+	for (const id of ['stagewatch_link_state', 'stagewatch_link_light', 'stagewatch_link_flags']) assert.ok(b.ctx.variableDefs[id], id + ' defined for the host')
+	assert.equal(askFeedback(b, 'stagewatch_link_light_is', { light: 'amber' }), true)
+	assert.equal(askFeedback(b, 'stagewatch_link_light_is', { light: 'red' }), false)
+	assert.deepEqual(b.ctx.feedbacks.stagewatch_link_light_is.defaultStyle, style('link', 'red'))
+	// The key held back for a person's Trust: the record says so in its flags.
+	const s = sampleState()
+	s.bus.stagewatch.link = { ...s.bus.stagewatch.link, flags: ['first', 'keyless', 'legacy'] }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_link_flags, 'first, keyless, legacy')
+	// Held by a refused key while the show needs it: the record red — its feedback lights red though the app's own light reads amber.
+	s.bus.stagewatch = { ...s.bus.stagewatch, light: 'amber', link: { ...s.bus.stagewatch.link, state: 'held', refusal: 'key', flags: [], light: 'red', mark: '✕' } }
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_link_state, 'held')
+	assert.equal(b.ctx.variables.stagewatch_link_light, 'red')
+	assert.equal(b.ctx.variables.stagewatch_link_flags, '')
+	assert.equal(b.ctx.variables.stagewatch_light, 'amber')
+	assert.equal(askFeedback(b, 'stagewatch_link_light_is', { light: 'red' }), true)
+	// A desk before round 93 sends no record: state, light and flags read empty — nothing said of a link the desk did not describe —
+	// and the feedback lights for no light; a record with fields of the wrong shape reads empty too.
+	const older = sampleState()
+	delete older.bus.stagewatch.link
+	const old = await boot({ state: older })
+	assert.equal(old.ctx.variables.stagewatch_link_state, '')
+	assert.equal(old.ctx.variables.stagewatch_link_light, '')
+	assert.equal(old.ctx.variables.stagewatch_link_flags, '')
+	for (const light of ['red', 'amber', 'green', 'grey']) assert.equal(askFeedback(old, 'stagewatch_link_light_is', { light }), false)
+	const odd = sampleState()
+	odd.bus.stagewatch.link = { state: 7, light: null, flags: 'legacy' }
+	const strange = await boot({ state: odd })
+	assert.equal(strange.ctx.variables.stagewatch_link_state, '')
+	assert.equal(strange.ctx.variables.stagewatch_link_light, '')
+	assert.equal(strange.ctx.variables.stagewatch_link_flags, '')
+})
+
 test('round 89 — a stuck Stagewatch: the variable says yes and the red feedback lights, while the link reads live; its next frame puts both back', async () => {
 	const b = await boot()
 	// The desk's own fixture: the link live, its show running.

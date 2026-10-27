@@ -55,6 +55,34 @@ public sealed record ShowContextPeer
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("light")] public string Light { get; init; } = "grey";
     [JsonPropertyName("headline")] public string Headline { get; init; } = "";
+
+    /// <summary>§6: <c>live</c>, <c>stale</c> or <c>gone</c> by its hello's age (§2); "" when no hello names it.</summary>
+    [JsonPropertyName("heard")] public string Heard { get; init; } = "";
+
+    /// <summary>§6: the carrier of a link LINK verified to or from that node (13.1, 13.16.4), or <c>ws</c> for a node link on this node's <c>/ws</c>; "" otherwise.</summary>
+    [JsonPropertyName("link")] public string Link { get; init; } = "";
+
+    /// <summary>§6: what proves the row's light and headline now — <c>key</c>, <c>operator</c> or <c>none</c> — or "" when only a hello named the node.</summary>
+    [JsonPropertyName("verified")] public string Verified { get; init; } = "";
+}
+
+/// <summary>
+/// Show Bus 1.3 §6 P2: one PeerLink this node holds as connector, as its context publishes it — the item's name after
+/// <c>link:</c>, its label, its use K (<c>controls</c>, <c>follows</c> or <c>sends</c>) and the link's record (13.16.3).
+/// </summary>
+public sealed record ShowContextPeerLink(string Name, string Label, string Use, LinkRecord Record)
+{
+    /// <summary>The item's id: <c>link:</c> and the name.</summary>
+    public string ItemId => "link:" + Name;
+
+    /// <summary>
+    /// The Stagewatch link as a context publishes it: item <c>link:stagewatch</c>, labelled by the Stagewatch its record names, its use
+    /// <c>follows</c> (it reads the Stagewatch's state and context); null while the link is off, when there is nothing to publish.
+    /// </summary>
+    public static ShowContextPeerLink? Stagewatch(LinkRecord? record)
+        => record is { IsOn: true } r
+            ? new ShowContextPeerLink("stagewatch", r.PeerName == StageFollow.Unnamed ? "Stagewatch link" : "Stagewatch " + r.PeerName, "follows", r)
+            : null;
 }
 
 /// <summary>
@@ -264,24 +292,56 @@ public static class ShowContextBuilder
     /// <summary>The Eye's kinds that are another app's things, drawn here from its own context.</summary>
     public static bool IsBorrowed(EyeKind kind) => kind is EyeKind.ShowApp or EyeKind.ShowAppItem;
 
-    public static ShowContext FromEye(EyeGraph graph, string id, string name, DateTime utcNow, IEnumerable<ShowLogEntry> journal, IEnumerable<ShowContextPeer> peers)
+    /// <summary>
+    /// This desk's context: the Eye's own things and their links; first, each PeerLink it holds as connector (§6 P1, P2, P7) — one
+    /// item of kind <c>link</c> in its record's light and words, and its one row to the peer node; the journal's last lines; the
+    /// verbs a peer may propose; and the apps it hears.
+    /// </summary>
+    public static ShowContext FromEye(EyeGraph graph, string id, string name, DateTime utcNow, IEnumerable<ShowLogEntry> journal, IEnumerable<ShowContextPeer> peers, IReadOnlyList<ShowContextPeerLink>? links = null)
     {
-        var own = graph.Nodes.Where(n => !IsBorrowed(n.Kind)).Take(ShowContext.MaxItems).ToList();
+        var held = (links ?? Array.Empty<ShowContextPeerLink>()).Where(l => l.Record.IsOn).Take(ShowContext.MaxItems).ToList();
+        var linkItems = held.Select(LinkItem).ToList();
+        var own = graph.Nodes.Where(n => !IsBorrowed(n.Kind)).Take(ShowContext.MaxItems - linkItems.Count).ToList();
         var ids = own.Select(n => n.Id).ToHashSet(StringComparer.Ordinal);
         return new ShowContext
         {
             Node = new ShowContextNode { Kind = "patterns", Id = id, Name = name },
             At = ClockPing.Ms(utcNow),
-            Light = ShowContext.Word(ShowContext.Worst(own.Select(n => n.Light))),
+            Light = ShowContext.Word(ShowContext.Worst(own.Select(n => n.Light).Concat(held.Select(l => l.Record.LightValue)))),
             Headline = graph.Headline,
-            Items = own.Select(n => new ShowContextItem { Id = n.Id, Kind = n.Kind.ToString().ToLowerInvariant(), Label = n.Label, Light = ShowContext.Word(n.Light), State = n.Sub }).ToList(),
-            Links = graph.Edges.Where(e => ids.Contains(e.From) && ids.Contains(e.To))
-                .Select(e => new ShowContextLink { From = e.From, To = e.To, Kind = e.Verb, Light = ShowContext.Word(e.Light) }).ToList(),
+            Items = linkItems.Concat(own.Select(n => new ShowContextItem { Id = n.Id, Kind = n.Kind.ToString().ToLowerInvariant(), Label = n.Label, Light = ShowContext.Word(n.Light), State = n.Sub })).ToList(),
+            Links = held.Select(LinkRow).OfType<ShowContextLink>().Concat(graph.Edges.Where(e => ids.Contains(e.From) && ids.Contains(e.To))
+                .Select(e => new ShowContextLink { From = e.From, To = e.To, Kind = e.Verb, Light = ShowContext.Word(e.Light) })).ToList(),
             Recent = journal.TakeLast(ShowContext.MaxRecent).Select(Line).ToList(),
             Commands = Commands,
             Peers = peers.Take(32).ToList(),
         };
     }
+
+    /// <summary>
+    /// §6 P2's item for a PeerLink this desk holds as connector, from its record alone (13.16.4): kind <c>link</c>, the record's light,
+    /// and its state's words with the key's scope among them; a link not yet proved — level 0's <c>legacy</c>, a <c>keyless</c> public
+    /// view — says "not proved".
+    /// </summary>
+    public static ShowContextItem LinkItem(ShowContextPeerLink link)
+    {
+        var r = link.Record;
+        var words = new List<string> { r.Words };
+        if (!r.Words.Contains("scope ", StringComparison.Ordinal)) words.Add("scope " + r.Scope);
+        if (r.Flags.Contains("legacy") || r.Flags.Contains("keyless")) words.Add("not proved");
+        return new ShowContextItem { Id = link.ItemId, Kind = "link", Label = link.Label, Light = r.Light, State = string.Join(" · ", words) };
+    }
+
+    /// <summary>
+    /// §6 P2's one row for a PeerLink this desk holds as connector: from its item to <c>@</c> the peer's id, of kind K, in the record's
+    /// light. None while the record names no peer id (a typed address no hello or answer named), which no reader could place, and
+    /// none while §2's mark holds the link off an id two machines say (refusal <c>conflict</c>): §6 gives that id no peers row, so a
+    /// row to it would draw an edge to whichever of the two a reader shows under it. The item says the hold either way.
+    /// </summary>
+    public static ShowContextLink? LinkRow(ShowContextPeerLink link)
+        => link.Record.PeerId is { Length: > 0 } peer && link.Record.Refusal != "conflict"
+            ? new ShowContextLink { From = link.ItemId, To = "@" + peer, Kind = link.Use, Light = link.Record.Light }
+            : null;
 
     /// <summary>
     /// A journal row as one line of words — who, what, the outcome; never a secret (the journal holds none since round 75,

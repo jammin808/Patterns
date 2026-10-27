@@ -785,7 +785,8 @@ public sealed class CommandRouter : IRouter
                 following = _services.Stage.Following.Length > 0,
                 title = sight.Frame?.Title ?? "",
                 text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
-                light = stuck || amber ? ShowBusView.StuckLight(linked?.Context?.Light) : heldLeads ? "amber" : linked?.Context?.Light ?? "grey",
+                // Show Bus 1.3 §13.16.4: a live link's record darker than this — amber at level 0 — is the row's light too.
+                light = Folded(linked, stuck || amber ? ShowBusView.StuckLight(linked?.Context?.Light) : heldLeads ? "amber" : linked?.Context?.Light ?? "grey"),
                 // Round 91: a key refused or speaking for no node of this desk's, on a live link, leads — as the apps row says it.
                 headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line
                     : linked is not null && ShowBusView.ConflictAmber(linked) ? linked.Conflict
@@ -796,10 +797,14 @@ public sealed class CommandRouter : IRouter
                 carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
                 key = sight.Key.Word,                                                    // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
                 held,                                                                    // Show Bus 1.3 §2: the conflict the link is held off for ("" when none) — appended at the row's end
+                link = (linked?.Link ?? link.Record).ToElement(),                        // Show Bus 1.3 §13.16.3: the link's record, one object — appended at the row's end
             },
             dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
         };
     }
+
+    /// <summary>The linked app's light as every reader draws it: no better than its link's record while the link is live (Show Bus 1.3 §13.16.4).</summary>
+    private static string Folded(EyeShowApp? linked, string light) => linked is null ? light : ShowContext.Word(ShowBusView.WithLink(linked, ShowContext.LightOf(light)));
 
     /// <summary>The weather chip for remotes: on air, the view, the place, the line the desk reads, the figure alone, the source and the status.</summary>
     private object WeatherRow()

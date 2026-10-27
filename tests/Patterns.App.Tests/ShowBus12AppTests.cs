@@ -1234,6 +1234,16 @@ public class ShowBus12AppTests
             Assert.Equal(t.Kernel.ShowBusId, own.Node.Id);
             Assert.Contains(own.Items, i => i.Id == "stagewatch" && i.State.Contains("relayed by the desk", StringComparison.Ordinal));
             Assert.Contains(own.Items, i => i.Id == "desk" && i.Light == "green");
+            // Show Bus 1.3 §13.16.4: the relay is the desk's link, not the node's — the node's own record is off in its STATE, at the end
+            // where the desk's STATE carries the desk's, and its context and glance show no link of its own.
+            using (var nodeState = JsonDocument.Parse(t.NewRouter().StateJson()))
+            {
+                Assert.Equal("bus", nodeState.RootElement.EnumerateObject().Last().Name);
+                Assert.Equal("off", nodeState.RootElement.GetProperty("bus").GetProperty("stagewatch").GetProperty("link").GetProperty("state").GetString());
+            }
+            Assert.DoesNotContain(own.Items, i => i.Kind == "link");
+            Assert.DoesNotContain(own.Links, l => l.From == "link:stagewatch");
+            Assert.DoesNotContain("STAGEWATCH", t.GlanceWords, StringComparison.Ordinal);
             PumpUntil(() => d.Twin.NodeContexts(DateTime.UtcNow).Any(), 20000);
             Assert.Contains(d.ShowApps(DateTime.UtcNow), a => a.KindWords == "Patterns node" && a.Context is { } c && c.Items.Any(i => i.Id == "stage"));
             d.Eye.Refresh();
@@ -1265,6 +1275,34 @@ public class ShowBus12AppTests
             d.State.Control.Stagewatch.Enabled = false;
             d.Kernel.Stagewatch.Reconcile();
             PumpUntil(() => !t.FollowedStagewatch.Following, 20000);
+
+            // The node's own link (Show Bus 1.3 §13.16.4): its record reaches the node's STATE, its context — one item of kind link,
+            // first, and its row to the Stagewatch when the record names its id — and its glance line, each from the one record.
+            t.State.Control.Stagewatch.Host = "127.0.0.1:" + sw.Port;
+            t.State.Control.Stagewatch.ApiKey = "swk_node";
+            t.State.Control.Stagewatch.Enabled = true;
+            t.Kernel.Stagewatch.Reconcile();
+            PumpUntil(() => t.Kernel.Stagewatch.Record.State == "live", 20000);
+            var record = t.Kernel.Stagewatch.Record;
+            using (var nodeState = JsonDocument.Parse(t.NewRouter().StateJson()))
+            {
+                var link = nodeState.RootElement.GetProperty("bus").GetProperty("stagewatch").GetProperty("link");
+                Assert.Equal(("live", record.Light, record.Mark), (link.GetProperty("state").GetString(), link.GetProperty("light").GetString(), link.GetProperty("mark").GetString()));
+                Assert.DoesNotContain("swk_node", nodeState.RootElement.GetRawText(), StringComparison.Ordinal);
+            }
+            var linked = ShowContext.Parse(Pump(t.NewRouter().ContextJsonAsync()))!;
+            Assert.Equal(("link:stagewatch", "link", record.Light), (linked.Items[0].Id, linked.Items[0].Kind, linked.Items[0].Light));
+            Assert.StartsWith(record.Words, linked.Items[0].State, StringComparison.Ordinal);
+            if (record.PeerId is { Length: > 0 } peerId)
+                Assert.Contains(linked.Links, l => l.From == "link:stagewatch" && l.To == "@" + peerId && l.Kind == "follows");
+            else
+                Assert.DoesNotContain(linked.Links, l => l.From == "link:stagewatch");
+            Assert.Contains(record.Glance("Stagewatch"), t.GlanceWords, StringComparison.Ordinal);
+            Assert.StartsWith("STAGEWATCH " + record.Mark + " LIVE", record.Glance("Stagewatch"), StringComparison.Ordinal);
+            t.State.Control.Stagewatch.Enabled = false;
+            t.Kernel.Stagewatch.Reconcile();
+            Assert.Equal("off", t.Kernel.Stagewatch.Record.State);
+            Assert.DoesNotContain("STAGEWATCH", t.GlanceWords, StringComparison.Ordinal);
         }
         finally
         {

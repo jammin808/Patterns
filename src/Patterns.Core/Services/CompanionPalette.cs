@@ -77,6 +77,7 @@ public static class CompanionPalette
         ["node"] = Row(("desk", "desk"), ("caller", "caller"), ("arcade", "arcade"), ("timer", "timer"), ("gone", "gone")),
         ["twin"] = Row(("inStep", "green"), ("silent", "red"), ("tookOver", "amber"), ("standby", "steel")),
         ["stage"] = Row(("running", "green"), ("amber", "amber"), ("red", "red"), ("pending", "amber"), ("paused", "sky")),
+        ["link"] = Row(("red", "red"), ("amber", "amber"), ("green", "green")),                   // a PeerLink's own light, from its record (Show Bus 1.3 §13.16.4)
     };
 
     private static IReadOnlyDictionary<string, string> Row(params (string State, string Colour)[] pairs)

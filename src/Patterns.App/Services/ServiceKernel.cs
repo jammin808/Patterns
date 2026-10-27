@@ -107,6 +107,17 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// <summary>Round 89: the words for this process's token seen in clear — "" when it has not been, or no token is set.</summary>
     public string TokenClearWords => TokenClearSightings.Words(TokenSeenInClear.For(State.Control.Token)) is { Length: > 0 } w ? "Pairing token " + w + " (Remote page, TRUST)" : "";
 
+    /// <summary>
+    /// Show Bus 1.3 §6 P2: the PeerLinks this process holds as connector, as its context publishes them — its Stagewatch link while
+    /// it is configured, item <c>link:stagewatch</c>, its use <c>follows</c> (it reads the Stagewatch's state and context), from the
+    /// link's record alone.
+    /// </summary>
+    public IReadOnlyList<ShowContextPeerLink> PeerLinks()
+        => ShowContextPeerLink.Stagewatch(Stagewatch.Record) is { } link ? new[] { link } : Array.Empty<ShowContextPeerLink>();
+
+    /// <summary>The Run strip's word for the Stagewatch link, from its record ("STAGEWATCH △ LIVE (legacy)"); "" while it is off.</summary>
+    public string LinkGlance => Stagewatch.Record.Glance("Stagewatch");
+
     /// <summary>Round 87: a Stagewatch frame or context landed, or the link came or went (UI thread): the stage pages read again.</summary>
     public event Action? StagewatchChanged;
 
@@ -247,6 +258,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
             SelfId = ShowBusId,                                                 // round 88: the id this desk posts its context and its proposals under
             SelfName = Beacon.MachineName,
             Holds = new LinkHolds(Store.BaseDirectory),                         // a refused key's hold outlasts a restart (Show Bus 1.3 §13.15.3)
+            Journal = Journal,                                                  // one row per change of the link's state (Show Bus 1.3 §13.16.7)
         };
         Mdns = new MdnsService(this);
         Nodes = new NodesService(this);

@@ -837,7 +837,7 @@ public class ShowBusAppTests
             Assert.Equal("amber", row.GetProperty("light").GetString());
             Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
             Assert.True(row.GetProperty("stuck").GetBoolean());
-            Assert.Equal(new[] { "stuck", "carrier", "key", "held" }, row.EnumerateObject().Select(p => p.Name).TakeLast(4));   // stuck appended, the carrier after it, then the key (round 91), then the hold (Show Bus 1.3 §2)
+            Assert.Equal(new[] { "stuck", "carrier", "key", "held", "link" }, row.EnumerateObject().Select(p => p.Name).TakeLast(5));   // stuck appended, the carrier after it, then the key (round 91), the hold (Show Bus 1.3 §2), the link's record (§13.16.3)
             Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
             // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
@@ -989,6 +989,187 @@ public class ShowBusAppTests
         }
     }
 
+    // ---- Show Bus 1.3 §13.16.4: the link's record in every reader -----------------------------------------------------
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.3–4 and §13.16.7: the link's one record reaches every reader this desk has — STATE's
+    /// <c>bus.stagewatch.link</c> at the row's end, the Eye's card and its Follows edge, the Nodes card, the Run strip, the context's
+    /// <c>link:stagewatch</c> item with its row to the Stagewatch and the <c>peers</c> row's three fields, the assistant's facts and the
+    /// Super Check's "Show network links" row — each taking the record's state, light, mark and words, none a light of its own; and
+    /// each change of its state is one journal row and one log line, never one per beat. At level 0 a key taken is amber, legacy.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheLinksRecordReachesEveryReaderAndEachChangeIsOneJournalRowAndOneLogLine()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
+        var link = services.Kernel.Stagewatch;
+        const string id = "c0c0c0c0";
+        try
+        {
+            // Off: the record says so, STATE carries it as the row's last field, and no reader shows a link that is not there.
+            Assert.Equal(("off", "grey", "○"), (link.Record.State, link.Record.Light, link.Record.Mark));
+            var quiet = StagewatchRow(services);
+            Assert.Equal("link", quiet.EnumerateObject().Last().Name);
+            Assert.Equal("off", quiet.GetProperty("link").GetProperty("state").GetString());
+            Assert.DoesNotContain("STAGEWATCH", services.GlanceWords, StringComparison.Ordinal);
+            Assert.DoesNotContain(ShowContext.Parse(services.ContextJson())!.Items, i => i.Kind == "link");
+            var none = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Item == "Show network links");
+            Assert.Equal(("SHOW NETWORK", CheckLight.Grey, "none on"), (none.Section, none.Light, none.Value));
+
+            // Found on the show network and linked with a key it takes: the record is live, level 0, legacy — amber.
+            Hello(services, id, "Hall C", stagewatch.Port);
+            var settings = vm.State.Control.Stagewatch;
+            settings.Host = "";
+            settings.ApiKey = "swk_testkey";
+            settings.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpUntil(() =>
+            {
+                Hello(services, id, "Hall C", stagewatch.Port);
+                return services.Stage.Following.Length > 0 && link.Key.Word == "key" && link.Record.State == "live" && link.Sight.Context is not null;
+            }, 20000);
+            Hello(services, id, "Hall C", stagewatch.Port);
+            var r = link.Record;
+            Assert.Equal(("live", "amber", "△", 0, "legacy", "local", id, "Hall C"), (r.State, r.Light, r.Mark, r.Level, r.Proof, r.Tls, r.PeerId, r.PeerName));
+            Assert.Equal(new[] { "legacy" }, r.Flags);
+
+            // STATE: the record, one object at the row's end, in 13.16.3's fields; the row's own light no better than it.
+            var row = StagewatchRow(services);
+            Assert.Equal("link", row.EnumerateObject().Last().Name);
+            var json = row.GetProperty("link");
+            Assert.Equal(new[] { "peer", "carrier", "level", "tls", "pin", "proof", "kid", "scope", "state", "refusal", "show", "flags", "light", "mark", "words", "since", "heardMs", "attempt", "nextMs", "clock", "counts", "floor" },
+                json.EnumerateObject().Select(p => p.Name));
+            Assert.Equal(("live", "amber", "△", id, "ws"), (json.GetProperty("state").GetString(), json.GetProperty("light").GetString(), json.GetProperty("mark").GetString(),
+                json.GetProperty("peer").GetProperty("id").GetString(), json.GetProperty("carrier").GetString()));
+            Assert.Equal(r.Kid, json.GetProperty("kid").GetString());
+            Assert.Equal("amber", row.GetProperty("light").GetString());
+            Assert.DoesNotContain("swk_", row.GetRawText(), StringComparison.Ordinal);
+
+            // The Eye: its card amber with the record's words among its own, its Follows edge the record's light, mark and words.
+            services.Eye.Refresh();
+            var card = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
+            Assert.Equal(CheckLight.Amber, card.Light);
+            Assert.Contains("the link: " + r.Steady, card.Words);
+            var edge = services.Eye.Graph.Edges.Single(e => e.From == card.Id && e.To == EyeGraph.DeskId);
+            Assert.Equal((EyeEdgeKind.Follows, CheckLight.Amber, "△ " + r.Words), (edge.Kind, edge.Light, edge.Words));
+
+            // The Nodes card: amber, the record's steady face at the line's end; the Run strip: the link's word.
+            services.Nodes.Poll();
+            var nodeCard = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
+            Assert.Equal("#FFB020", nodeCard.Hue);
+            Assert.EndsWith(" · link " + r.Steady, nodeCard.Line, StringComparison.Ordinal);
+            Assert.Contains("STAGEWATCH △ LIVE (legacy)", services.GlanceWords, StringComparison.Ordinal);
+
+            // The context: the link's item first, of kind link, in the record's light and words with the key's scope and "not
+            // proved"; its one row to the Stagewatch; the peers row's heard, link and verified at its end.
+            var context = ShowContext.Parse(services.ContextJson())!;
+            var item = context.Items[0];
+            Assert.Equal(("link:stagewatch", "link", "Stagewatch Hall C", "amber"), (item.Id, item.Kind, item.Label, item.Light));
+            Assert.StartsWith(r.Words, item.State, StringComparison.Ordinal);
+            Assert.Contains("scope none", item.State, StringComparison.Ordinal);
+            Assert.Contains("not proved", item.State, StringComparison.Ordinal);
+            var rowTo = Assert.Single(context.Links, l => l.From == "link:stagewatch");
+            Assert.Equal(("@" + id, "follows", "amber"), (rowTo.To, rowTo.Kind, rowTo.Light));
+            var peer = Assert.Single(context.Peers, p => p.Id == id);
+            Assert.Equal(("amber", "live", "", "none"), (peer.Light, peer.Heard, peer.Link, peer.Verified));
+            Assert.Contains("\"heard\":\"live\",\"link\":\"\",\"verified\":\"none\"}", services.ContextJson(), StringComparison.Ordinal);   // appended at the row's end
+
+            // The assistant's facts and the Super Check say the same record.
+            var brief = ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow));
+            Assert.Contains(brief, l => l.StartsWith("  the link: live, amber — △ ", StringComparison.Ordinal) && l.Contains("level 0", StringComparison.Ordinal));
+            var check = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r2 => r2.Item == "Show network links");
+            Assert.Equal((CheckLight.Amber, "Stagewatch Hall C △ live"), (check.Light, check.Value));
+            Assert.Equal(r.Said + " — " + r.Ends, check.Note);                                   // no press ends level 0's amber: no FIX, what ends it
+            Assert.Contains("proves itself with PeerLink", check.Note, StringComparison.Ordinal);
+
+            // One journal row and one log line per change, from → to with the reason and the attempt: none per beat.
+            PumpFor(2000);
+            var rows = services.Journal.Tail(60).Where(e => e.Kind == "StagewatchLink").ToList();
+            Assert.Equal(new[] { "finding", "connecting", "live" }, rows.Select(e => e.Outcome));
+            Assert.StartsWith("off → finding: listening for a Stagewatch on the show network", rows[0].Message, StringComparison.Ordinal);
+            Assert.StartsWith("finding → connecting: dialling Hall C", rows[1].Message, StringComparison.Ordinal);
+            Assert.StartsWith("connecting → live: " + r.Words, rows[2].Message, StringComparison.Ordinal);
+            Assert.All(rows, e => Assert.Equal("Show network", e.Origin));
+            Assert.All(rows, e => Assert.EndsWith("· attempt 0", e.Message, StringComparison.Ordinal));
+            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link to a Stagewatch: off → finding: "));
+            Assert.Equal(1, LogLines(b.Dir, $"Stagewatch link to main {id}") - LogLines(b.Dir, ": connecting → live: "));   // the dial's line, then the link's
+            Assert.Equal(1, LogLines(b.Dir, ": connecting → live: "));
+            Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));
+
+            // Off again: one more row, and every reader is back to no link.
+            settings.Enabled = false;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            Assert.Equal("off", link.Record.State);
+            var last = services.Journal.Tail(5).Last(e => e.Kind == "StagewatchLink");
+            Assert.Equal("off", last.Outcome);
+            Assert.StartsWith("live → off: link off", last.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(ShowContext.Parse(services.ContextJson())!.Items, i => i.Kind == "link");
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.1: a link turned on with a typed address that is not one dials nothing and listens for nothing, so its
+    /// record is off and says why — never "finding" — and every reader repeats only that: STATE, the Super Check, the Run strip, the
+    /// context and the journal. The typed text is not repeated in any of them. Typed again as an address, the link is on.
+    /// </summary>
+    [AvaloniaFact]
+    public void ALinkTurnedOnWithATypedAddressThatIsNotOneIsOffAndSaysWhyInEveryReader()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var link = services.Kernel.Stagewatch;
+        const string typed = "stage left/timer";
+        try
+        {
+            var settings = vm.State.Control.Stagewatch;
+            settings.Host = typed;
+            settings.ApiKey = "swk_testkey";
+            settings.Enabled = true;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            PumpFor(1500);                                                                   // the run looks for a target and finds none it can read
+            var r = link.Record;
+            Assert.Equal(("off", "grey", StagewatchLinkService.NotAnAddressWords), (r.State, r.Light, r.Words));
+            Assert.Contains("is not an address", link.Status, StringComparison.Ordinal);
+            var json = StagewatchRow(services).GetProperty("link");
+            Assert.Equal(("off", StagewatchLinkService.NotAnAddressWords), (json.GetProperty("state").GetString(), json.GetProperty("words").GetString()));
+            var check = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, row => row.Item == "Show network links");
+            Assert.Equal((CheckLight.Grey, "none on", StagewatchLinkService.NotAnAddressWords), (check.Light, check.Value, check.Note));
+            Assert.DoesNotContain("STAGEWATCH", services.GlanceWords, StringComparison.Ordinal);
+            Assert.DoesNotContain(ShowContext.Parse(services.ContextJson())!.Items, i => i.Kind == "link");
+            Assert.DoesNotContain(services.Journal.Tail(40), e => e.Kind == "StagewatchLink" && e.Outcome == "finding");
+            Assert.DoesNotContain(typed, json.GetRawText(), StringComparison.Ordinal);                                   // the record never repeats the typed text
+            Assert.DoesNotContain(typed, services.ContextJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain(services.Journal.Tail(40), e => e.Message.Contains(typed, StringComparison.Ordinal));
+
+            // Typed again as an address: the link is on, dialling it.
+            settings.Host = "127.0.0.1:" + FreePort();
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            Assert.True(link.Record.IsOn);
+            Assert.NotEqual("finding", link.Record.State);
+            Assert.Contains(services.Journal.Tail(40), e => e.Kind == "StagewatchLink" && e.Message.StartsWith("off → ", StringComparison.Ordinal));
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
     // ---- round 91: the node link and its verdict ------------------------------------------------------------------
 
     /// <summary>Pumps the desk for <paramref name="ms"/> without waiting on anything: what the link does on its own meanwhile.</summary>
@@ -1032,12 +1213,15 @@ public class ShowBusAppTests
             // Taken: every reader says nothing of the key, STATE says key at the row's end; one log line.
             var row = StagewatchRow(services);
             Assert.Equal("key", row.GetProperty("key").GetString());
-            Assert.Equal(new[] { "key", "held" }, row.EnumerateObject().Select(p => p.Name).TakeLast(2));   // the key appended, the hold (Show Bus 1.3 §2) after it
+            Assert.Equal(new[] { "key", "held", "link" }, row.EnumerateObject().Select(p => p.Name).TakeLast(3));   // the key appended, the hold (Show Bus 1.3 §2) after it, the link's record (§13.16.3) last
             Assert.Equal("", link.Key.Line);
             Assert.Equal(TimeSpan.Zero, link.KeyHeld);
             services.Nodes.Poll();
             var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
-            Assert.Equal("#35E0D0", card.Hue);
+            // Show Bus 1.3 §13.16.2: a key taken at level 0 is a link flagged legacy — amber, the record's light, on the card too.
+            Assert.Equal(("live", "amber"), (link.Record.State, link.Record.Light));
+            Assert.Contains("legacy", link.Record.Flags);
+            Assert.Equal("#FFB020", card.Hue);
             Assert.DoesNotContain("KEY REFUSED", card.Line, StringComparison.Ordinal);
             Assert.DoesNotContain(StagewatchKey.NotAcceptedWords, card.Line, StringComparison.Ordinal);
             Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
@@ -1089,12 +1273,19 @@ public class ShowBusAppTests
             services.Nodes.Poll();
             var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
             Assert.Equal("#FFB020", card.Hue);
-            Assert.EndsWith(refused, card.Line, StringComparison.Ordinal);
+            Assert.Contains(" · " + refused + " · link ", card.Line, StringComparison.Ordinal);
+            // Show Bus 1.3 §13.16.1: the refused key's hold is the link's state — held, red while the show follows it — and the card,
+            // the edge and STATE's link say it from the record.
+            var held = link.Record;
+            Assert.Equal(("held", "key", "red", "✕"), (held.State, held.Refusal, held.Light, held.Mark));
+            Assert.EndsWith(" · link " + held.Steady, card.Line, StringComparison.Ordinal);
+            Assert.Equal("held", row.GetProperty("link").GetProperty("state").GetString());
             Assert.Contains(refused, services.Nodes.ShowBusLine, StringComparison.Ordinal);
             services.Eye.Refresh();
             var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
             Assert.Equal((CheckLight.Amber, refused), (node.Light, node.Sub));
-            Assert.Equal(CheckLight.Amber, services.Eye.Graph.Edges.Single(e => e.From == node.Id && e.To == EyeGraph.DeskId).Light);
+            var edge = services.Eye.Graph.Edges.Single(e => e.From == node.Id && e.To == EyeGraph.DeskId);
+            Assert.Equal((CheckLight.Red, $"✕ {held.SteadyWords}"), (edge.Light, edge.Words));
             var peers = ShowContext.Parse(services.ContextJson())!.Peers;
             Assert.Contains(peers, p => p.Kind == "main" && p.Light == "amber" && p.Headline == refused);
             Assert.Contains("  this desk's key: " + refused, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
@@ -1109,7 +1300,11 @@ public class ShowBusAppTests
             Assert.Equal(1, stagewatch.Dials);
             Assert.Equal("key", StagewatchRow(services).GetProperty("key").GetString());
             services.Nodes.Poll();
-            Assert.Equal("#35E0D0", Assert.Single(services.Nodes.ShowApps, c => c.Linked).Hue);
+            // Taken again: the hold is over and the link live — amber still, its record's legacy (level 0), never the refusal's red.
+            PumpUntil(() => link.Record.State == "live", 10000);
+            Assert.Equal("amber", link.Record.Light);
+            services.Nodes.Poll();
+            Assert.Equal("#FFB020", Assert.Single(services.Nodes.ShowApps, c => c.Linked).Hue);
             Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
         }
         finally
@@ -1218,19 +1413,23 @@ public class ShowBusAppTests
 
     /// <summary>
     /// S11: a Stagewatch that goes silent is stale past <c>link.stale.ms</c>, and past <c>link.drop.ms</c> the link is dropped on
-    /// the evaluator's own timer and dialled again.
+    /// the evaluator's own timer and dialled again. Show Bus 1.3 §13.16.7 and §13.19.4: each change of the link's state on the way
+    /// is one journal row and one log line — the evaluator's turn says the stale and the down a link silent says no word of — none
+    /// per beat; the recovery's coming live again, a change said within the minute, is counted, and said as one summary just
+    /// before the next row, with its count.
     /// </summary>
     [AvaloniaFact]
-    public void ASilentStagewatchIsStaleThenDroppedAndDialledAgain()
+    public void ASilentStagewatchIsStaleThenDroppedAndDialledAgainEachChangeOneRow()
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
         using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
         var link = services.Kernel.Stagewatch;
+        List<ShowLogEntry> Rows() => services.Journal.Tail(80).Where(e => e.Kind == "StagewatchLink").ToList();
         try
         {
             Link(vm, services, stagewatch);
-            PumpUntil(() => services.Stage.Following.Length > 0 && stagewatch.Pings > 0, 15000);
+            PumpUntil(() => services.Stage.Following.Length > 0 && stagewatch.Pings > 0 && link.Record.State == "live", 15000);
             var dials = stagewatch.Dials;
             stagewatch.Silent = true;
             var silentFrom = Environment.TickCount64;
@@ -1239,6 +1438,34 @@ public class ShowBusAppTests
             PumpUntil(() => stagewatch.Dials > dials, 30000);
             var dropped = Environment.TickCount64 - silentFrom;
             Assert.InRange(dropped, (long)ShowBusLiveness.DropAfter.TotalMilliseconds - 2500, (long)ShowBusLiveness.DropAfter.TotalMilliseconds + 8000);
+
+            // Heard again on the new socket: live, well within a minute of the first time it came live.
+            stagewatch.Silent = false;
+            PumpUntil(() => link.Record.State == "live", 15000);
+            PumpFor(2000);                                                                   // beats and evaluator turns: none a row
+            Assert.Equal(new[] { "connecting", "live", "stale", "down", "connecting" }, Rows().Select(e => e.Outcome));
+            var said = Rows();
+            Assert.StartsWith("off → connecting: ", said[0].Message, StringComparison.Ordinal);
+            Assert.StartsWith("connecting → live: ", said[1].Message, StringComparison.Ordinal);
+            Assert.StartsWith("live → stale: ", said[2].Message, StringComparison.Ordinal);
+            Assert.StartsWith("stale → down: ", said[3].Message, StringComparison.Ordinal);
+            Assert.StartsWith("down → connecting: ", said[4].Message, StringComparison.Ordinal);
+            Assert.Equal(1, LogLines(b.Dir, ": live → stale: "));
+            Assert.Equal(1, LogLines(b.Dir, ": stale → down: "));
+            Assert.Equal(1, LogLines(b.Dir, ": connecting → live: "));                        // the recovery counted, not said yet
+
+            // The next row — the link turned off — comes after the summary of the one change counted, so the rows keep their order
+            // and say where the link stood: live, until it was turned off.
+            vm.State.Control.Stagewatch.Enabled = false;
+            Dispatcher.UIThread.RunJobs();
+            link.Reconcile();
+            var rows = Rows();
+            Assert.Equal(new[] { "connecting", "live", "stale", "down", "connecting", "repeating", "off" }, rows.Select(e => e.Outcome));
+            Assert.StartsWith("still live — ", rows[5].Message, StringComparison.Ordinal);
+            Assert.Contains(", 1 change since the last line, the last connecting → live: ", rows[5].Message, StringComparison.Ordinal);
+            Assert.StartsWith("live → off: ", rows[6].Message, StringComparison.Ordinal);
+            Assert.Equal(1, LogLines(b.Dir, ": still live — "));
+            Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));
         }
         finally
         {
@@ -1495,7 +1722,7 @@ public class ShowBusAppTests
             var apps = JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus").GetProperty("apps").Clone();
             Assert.Contains(apps.EnumerateArray(), a => a.GetProperty("headline").GetString() == words);                              // STATE's two readers agree
             services.Nodes.Poll();
-            Assert.EndsWith(words, Assert.Single(services.Nodes.ShowApps, c => c.Linked).Line, StringComparison.Ordinal);
+            Assert.Contains(" · " + words + " · link ", Assert.Single(services.Nodes.ShowApps, c => c.Linked).Line, StringComparison.Ordinal);
             services.Eye.Refresh();
             var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
             Assert.Equal((CheckLight.Amber, words), (node.Light, node.Sub));
@@ -1708,7 +1935,7 @@ public class ShowBusAppTests
             services.Nodes.Poll();
             var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
             Assert.Equal("#FFB020", card.Hue);
-            Assert.EndsWith(StagewatchKey.LegacyWords, card.Line, StringComparison.Ordinal);
+            Assert.Contains(" · " + StagewatchKey.LegacyWords + " · link ", card.Line, StringComparison.Ordinal);
             services.Eye.Refresh();
             var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
             Assert.Equal(CheckLight.Amber, node.Light);

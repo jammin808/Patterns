@@ -950,7 +950,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var refused = Kernel.Stagewatch.PendingFingerprint.Length > 0;
         var whose = Kernel.Stagewatch.PendingPinKey;
         bool Refused(EyeShowApp a) => refused && a.KindWords == "Stagewatch" && (whose.StartsWith("node:", StringComparison.Ordinal) ? a.Id == whose[5..] : a.Linked);
-        return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.Sight)
+        return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink)
             // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
             .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
             .Concat(ShowBusView.Nodes(Twin.NodeContexts(utcNow), utcNow))                // round 88: the desk's own nodes, each from its own context (L52)
@@ -966,7 +966,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         Eye.Refresh();
         var now = DateTime.UtcNow;
-        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowApps(now))).ToJson();
+        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowApps(now)),
+            Kernel.PeerLinks()).ToJson();
     }
 
     /// <summary>Round 87: the Stagewatch the stage timer follows, when its link is on and following is on.</summary>
@@ -1970,6 +1971,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             var device = Devices.HealthWords;
             if (device.Length > 0) parts.Add(device);
             if (Outputs.IsLive) parts.Add(ShowLock.Locked ? "LOCK ON" : "LOCK OFF");
+            var link = Kernel.LinkGlance;                                                    // Show Bus 1.3 §13.16.4: the Stagewatch link's record on the Run strip
+            if (link.Length > 0) parts.Add(link);
             return string.Join(" · ", parts);
         }
     }

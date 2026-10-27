@@ -386,6 +386,9 @@ public sealed class NodeRouter : IRouter
             last = stack.LastCue is { } last ? new { id = last.Id, number = last.Number, name = last.Name } : null,
             stageRev = _host.Stage?.Rev ?? 0,
             control = _host.Control.ControlRow(),                      // round 89: the machines this node's pairing token arrived from in clear — appended at the end
+            // Show Bus 1.3 §13.16.4: this node's own Stagewatch link's record, where the desk's STATE carries the desk's (bus.stagewatch.link)
+            // so a deck reads it by one path on either; off while the node follows its desk's relay, which is the desk's to publish.
+            bus = new { stagewatch = new { link = _host.Kernel.Stagewatch.Record.ToElement() } },
         });
     }
 
@@ -701,7 +704,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     int ITwinHost.DeviceSentSince(long mark) => 0;
 
     /// <summary>The glance line on a node: the link to the desk it follows, and nothing of a rig it does not have.</summary>
-    public string GlanceWords => Twin?.GlanceWords ?? "";
+    public string GlanceWords => string.Join(" · ", new[] { Twin?.GlanceWords ?? "", Kernel.LinkGlance }.Where(w => w.Length > 0));   // the twin; the Stagewatch link's record (Show Bus 1.3 §13.16.4)
 
     Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Task.FromResult((IReadOnlyList<DeviceReceipt>)Array.Empty<DeviceReceipt>());
 
@@ -798,6 +801,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
             Linked = twin?.IsLinkedToDesk ?? false,
             Stagewatch = sight,
             StagewatchViaDesk = sight.Address == "via the desk",
+            OwnLink = Kernel.Stagewatch.Record,                                     // Show Bus 1.3 §6 P2: this node's own link, from its record
             StageWords = stageWords,
             StackWords = stackWords,
             StackLight = stack is null ? CheckLight.Grey : stack.Armed ? CheckLight.Green : CheckLight.Grey,

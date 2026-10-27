@@ -606,7 +606,7 @@
         "kind": "main",
         "id": "a1b2c3d4",
         "name": "Hall A",
-        "light": "green",
+        "light": "amber",
         "headline": "Keynote \u2014 Ana"
       }
     ],
@@ -617,13 +617,57 @@
       "following": false,
       "title": "",
       "text": "",
-      "light": "green",
+      "light": "amber",
       "headline": "Keynote \u2014 Ana",
       "clock": "",
       "words": "Stagewatch link: connected to Hall A at 10.0.0.9:9924.",
       "stuck": false,
       "carrier": "plain",
-      "key": "key"
+      "key": "key",
+      "held": "",
+      "link": {
+        "peer": {
+          "t": "main",
+          "id": "a1b2c3d4",
+          "name": "Hall A"
+        },
+        "carrier": "ws",
+        "level": 0,
+        "tls": "local",
+        "pin": "",
+        "proof": "legacy",
+        "kid": "e63c317763b14546",
+        "scope": "none",
+        "state": "live",
+        "refusal": "",
+        "show": "live",
+        "flags": [
+          "legacy"
+        ],
+        "light": "amber",
+        "mark": "\u25b3",
+        "words": "Hall A cannot prove itself yet \u2014 an older build; anything at its address could answer",
+        "since": 1761591600000,
+        "heardMs": 420,
+        "attempt": 0,
+        "nextMs": null,
+        "clock": {
+          "offsetMs": 12.5,
+          "errMs": 3,
+          "ageMs": 900,
+          "samples": 6,
+          "apart": false
+        },
+        "counts": {
+          "unconfirmed": 0,
+          "late": 0,
+          "replayed": 0,
+          "oversize": 0,
+          "malformed": 0,
+          "unmatched": 0
+        },
+        "floor": null
+      }
     }
   },
   "control": {

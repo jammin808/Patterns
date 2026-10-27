@@ -141,6 +141,7 @@ public sealed class ShowBusSpecTests
         ("report.retry.first.ms", Relation.Same, () => Ms(OwedReports.RetryFirst)),
         ("report.retry.max.ms", Relation.Same, () => Ms(OwedReports.RetryMost)),
         ("report.retry.for.ms", Relation.Same, () => Ms(OwedReports.RetryFor)),
+        ("log.repeat.summary.ms", Relation.Same, () => Ms(PeerLink.RepeatSummary)),
     ];
 
     /// <summary>The rows held by what this desk's code does rather than a number of it, each by a test below that names it.</summary>
@@ -195,7 +196,6 @@ public sealed class ShowBusSpecTests
         ["show.stuck.max.ms"] = Acceptor,
         ["receipt.late.ms"] = Acceptor,
         ["cmd.expire.max.ms"] = Acceptor,
-        ["log.repeat.summary.ms"] = "the link's log while a state repeats: the link's record in every reader, round 93's 93.3",
     };
 
     private const string Windows = "§12's windows: this desk holds no granted window yet";

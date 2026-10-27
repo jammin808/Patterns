@@ -143,6 +143,21 @@ public sealed class StagewatchLinkService : IDisposable
         /// <summary>The core for the Stagewatch this run dials now (read and replaced under the service's core gate); null before its first.</summary>
         public LinkCore? Core;
 
+        /// <summary>
+        /// The machine the link's record comes from (under the core gate): <see cref="Core"/>'s while this run dials a Stagewatch, else
+        /// <see cref="Idle"/>'s — off, finding one, or held off an id two running nodes say.
+        /// </summary>
+        public PeerLinkMachine? Current;
+
+        /// <summary>The machine of a run with no Stagewatch to dial (under the core gate): its record says off, finding or a conflict's hold.</summary>
+        public PeerLinkMachine? Idle;
+
+        /// <summary>
+        /// The run was turned on with a typed address that is not one: it dials nothing and listens for nothing, so its record is off
+        /// and says why — never "finding", which would claim a listening the run does not do.
+        /// </summary>
+        public bool NotAnAddress;
+
         /// <summary>Every name this run has dialled its Stagewatch by (under the core gate): a refusal's hold kept for one is lifted for each when a word takes the key.</summary>
         public readonly HashSet<string> Targets = new(StringComparer.Ordinal);
 
@@ -334,6 +349,12 @@ public sealed class StagewatchLinkService : IDisposable
         }
     }
 
+    /// <summary>
+    /// <see cref="Sight"/> with the link's record (Show Bus 1.3 §13.16.3) — what the readers that draw the link take: the Eye, the Nodes
+    /// card, the context's peers, the assistant's facts, STATE. The stage's own readers take <see cref="Sight"/>, which reads no record.
+    /// </summary>
+    public StagewatchSight SightWithLink => Sight with { Link = Record };
+
     /// <summary>The key's standing as every reader shows it: the Stagewatch's word, and the Trust a held-back key waits for.</summary>
     private StagewatchKey KeyNow()
     {
@@ -492,12 +513,74 @@ public sealed class StagewatchLinkService : IDisposable
         }
     }
 
-    /// <summary>Show Bus 1.3 §13.16.3's record of the link to the Stagewatch dialled now, from its core; null before the first target.</summary>
-    public LinkRecord? Record
+    /// <summary>
+    /// Show Bus 1.3 §13.16.3: the link's record now — the one object every reader takes its link facts from (13.16.4): the core's for
+    /// the Stagewatch this run dials, else the run's own while it is off, finding one or held off an id in conflict.
+    /// </summary>
+    public LinkRecord Record
     {
         get
         {
-            lock (_core) return _run.Core?.Machine.Record(Now());
+            var run = _run;
+            lock (_core)
+            {
+                var now = Now();
+                var record = (run.Current ?? run.Idle)?.Record(now) ?? PeerLinkMachine.Unlinked(IdleSettings(false, null, null, false), now);
+                return run.Current is null && run.NotAnAddress ? record with { Words = NotAnAddressWords } : record;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The record's words for a link turned on with a typed address that is not one — off, since it neither dials nor listens; the typed
+    /// text itself is not repeated, so nothing pasted into the address by mistake rides into STATE, the context or the journal.
+    /// </summary>
+    public const string NotAnAddressWords = LinkRecord.OffWords + " — the address typed is not one: host:port, or leave it empty to find a Stagewatch on the show network";
+
+    /// <summary>The name a link's record gives the Stagewatch it has none to dial yet.</summary>
+    public const string IdleName = StageFollow.Unnamed;
+
+    /// <summary>What a run with no Stagewatch to dial yet is set to: on or off, the address typed, the id held off, whether the show needs it.</summary>
+    private static LinkSettings IdleSettings(bool on, string? address, string? nodeId, bool showNeeds) => new()
+    {
+        Carrier = LinkCarrier.Ws,
+        Enabled = on,
+        Name = IdleName,
+        Kind = "main",
+        NodeId = nodeId,
+        Address = address,
+        ShowNeeds = showNeeds,
+        Uses = "post",
+    };
+
+    /// <summary>Where the link's record moves are journalled (13.16.7); the kernel hands the desk's journal, a test may leave none.</summary>
+    public ShowLog? Journal { get; set; }
+
+    private readonly object _saidGate = new();
+    private readonly LinkChangeLog _said = new();
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.7 and §13.19.4: the record read now, and one journal row and one log line for each change of its state —
+    /// from, to, the reason and the attempt, with the peer's kind and id and the address — or a repeat's summary; never per beat.
+    /// Called wherever the state may move: a dial, a first word, a verdict, a close, a run, and each turn of the evaluator, which sees
+    /// a link go quiet. Read and said under one gate, so two callers never say one change twice or out of order.
+    /// </summary>
+    private void SayChange()
+    {
+        lock (_saidGate)
+        {
+            var record = Record;
+            foreach (var line in _said.Take(record, MonoMs()))
+            {
+                var peer = record.PeerId is { Length: > 0 } id ? $"{record.PeerT ?? "main"} {id}" : record.PeerName;
+                var address = _sight.Address is { Length: > 0 } at ? " (" + at + ")" : "";
+                var words = $"Stagewatch link to {peer}{address}: {line.Words}";
+                if (line.Warn) Log.Warn(words);
+                else Log.Info(words);
+                var label = ShowContextPeerLink.Stagewatch(record)?.Label ?? "Stagewatch link";
+                Journal?.Record("Show network", "StagewatchLink", record.PeerId is { Length: > 0 } pid ? $"{label} ({pid})" : label,
+                    line.Summary ? "repeating" : record.State, line.Words);
+            }
         }
     }
 
@@ -583,6 +666,9 @@ public sealed class StagewatchLinkService : IDisposable
         var previous = _run;
         var run = new Run { Kid = kid.Length > 0 ? kid : null, ShowNeeds = c.FollowStage };
         if (carry) run.Carry(previous);                                                     // its holds and standing go on
+        var typed = StageFollow.ParseAddress(c.Host) is { } t ? $"{t.Host}:{t.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null;
+        run.NotAnAddress = key.Length > 0 && typed is null && c.Host.Length > 0;                     // as the run resolves it: any typed text it cannot read
+        lock (_core) run.Idle = new PeerLinkMachine(IdleSettings(key.Length > 0 && !run.NotAnAddress, typed, null, run.ShowNeeds), null, Now(), Jitter);
         _sight = StagewatchSight.None;
         lock (_trustGate)
         {
@@ -601,6 +687,7 @@ public sealed class StagewatchLinkService : IDisposable
         if (key.Length == 0)
         {
             _status = "Stagewatch link off.";
+            SayChange();
             _changed();
             return;
         }
@@ -611,6 +698,7 @@ public sealed class StagewatchLinkService : IDisposable
         foreach (var p in c.Pins) pins[p.Key] = p;
         var ct = _cts.Token;
         _status = host.Length > 0 ? $"Stagewatch link: dialling {host}…" : "Stagewatch link: listening for a Stagewatch on the show network…";
+        SayChange();
         // A lane that faults is said, never lost in silence: the link stops there until it is turned off and on.
         _ = Task.Run(() => RunAsync(run, host, apiKey, pins, ct), CancellationToken.None).ContinueWith(
             t => Log.Error("Stagewatch link: the link stopped on a fault — turn it off and on to dial again.", t.Exception!.GetBaseException()),
@@ -653,9 +741,23 @@ public sealed class StagewatchLinkService : IDisposable
                     if (clears > TimeSpan.Zero && clears < wait) wait = clears;
                     _nodeId = last = conflict.Id;
                     _held = conflict.Words;
+                    // The record says the hold (13.16.1's held, refusal conflict) until the mark clears.
+                    lock (_core)
+                    {
+                        var now = Now();
+                        if (run.Idle is not { NodeId: { } idleFor } || idleFor != conflict.Id)
+                            run.Idle = new PeerLinkMachine(IdleSettings(true, null, conflict.Id, run.ShowNeeds), null, now, Jitter);
+                        run.Idle.Conflict(now, Math.Max(1, (long)clears.TotalMilliseconds));
+                        run.Current = null;
+                    }
                 }
                 else
                 {
+                    lock (_core)
+                    {
+                        if (run.Idle is { NodeId: not null }) run.Idle = new PeerLinkMachine(IdleSettings(true, null, null, run.ShowNeeds), null, Now(), Jitter);
+                        run.Current = null;                                                  // finding one again: the record says so
+                    }
                     _status = typedHost.Length > 0
                         ? $"Stagewatch link: '{typedHost}' is not an address — host:port, or empty to find one on the show network."
                         : "Stagewatch link: no Stagewatch heard on the show network yet (UDP 9928).";
@@ -663,6 +765,7 @@ public sealed class StagewatchLinkService : IDisposable
                     _held = "";
                 }
                 if (!string.Equals(wasHeld, _held, StringComparison.Ordinal)) UiThread.Post(_changed);   // the hold reaches the desk's readers
+                SayChange();
                 await Delay(wait, ct);
                 continue;
             }
@@ -695,6 +798,7 @@ public sealed class StagewatchLinkService : IDisposable
                 // 13.11.7: the clock measures one Stagewatch process; another inst in its hello empties the window.
                 core.Machine.PeerInst(now, target.Inst);
             }
+            SayChange();
             try
             {
                 await ConnectAsync(run, core, target, apiKey, isPublic, pins, ct);
@@ -719,6 +823,7 @@ public sealed class StagewatchLinkService : IDisposable
                 core.Machine.Drain();
             }
             if (Interlocked.Exchange(ref run.Redial, "") is { Length: > 0 } redial) _status = "Stagewatch link: " + redial;
+            SayChange();
             _carrier = "";
             _reached = "";
             _sight = _sight with { State = ShowBusState.Gone };
@@ -742,7 +847,11 @@ public sealed class StagewatchLinkService : IDisposable
     {
         lock (_core)
         {
-            if (run.Core is { } kept && kept.Target == target.PinKey) return kept;
+            if (run.Core is { } kept && kept.Target == target.PinKey)
+            {
+                run.Current = kept.Machine;                                                  // the record is this Stagewatch's again
+                return kept;
+            }
             var now = Now();
             var nodeId = target.PinKey.StartsWith("node:", StringComparison.Ordinal) ? target.PinKey[5..] : null;
             var saved = pins.TryGetValue(target.PinKey, out var p) && TlsFingerprint.IsValid(p.Fingerprint) ? p : null;
@@ -769,6 +878,7 @@ public sealed class StagewatchLinkService : IDisposable
             if (heldUntil > now.Mono && (machine.Kept.HeldUntilWall ?? long.MinValue) < now.Wall + (heldUntil - now.Mono)) machine.KeyRefused(now, "key", heldUntil - now.Mono);
             if (busyUntil > now.Mono) machine.KeyRefused(now, "busy", busyUntil - now.Mono);
             run.Core = new LinkCore(target.PinKey, machine) { FirstSaved = saved is { Trust: PinTrust.First } ? saved.Fingerprint : "" };
+            run.Current = machine;                                                           // the record is this Stagewatch's from now
             run.Targets.Add(target.PinKey);
             if (run.Kid is { } heldKid && machine.Kept is { HeldUntilWall: { } until } carried)
                 Holds.Hold(target.PinKey, heldKid, until, carried.HeldRefusal ?? "key", now.Wall, carried.HeldPublic);
@@ -1527,6 +1637,7 @@ public sealed class StagewatchLinkService : IDisposable
             {
                 return;
             }
+            if (ReferenceEquals(run, _run)) SayChange();                                     // a link gone quiet moves its state with no word
             var c = run.Live;
             LinkEvaluation ev;
             bool keeps;
@@ -2317,6 +2428,7 @@ public sealed class StagewatchLinkService : IDisposable
                     }
                     break;
             }
+            if (!c.Heard || type == "auth") SayChange();                                   // a first word or a verdict moves the record
             c.Heard = true;                                                                 // after the first word is applied: no keyed call before it
         }
     }

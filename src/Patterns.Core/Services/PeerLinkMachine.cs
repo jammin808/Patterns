@@ -1017,6 +1017,24 @@ public sealed class PeerLinkMachine
     /// <summary>The pin as it stands: the certificate, the node and who made it; null with none.</summary>
     public LinkPin? Pin => _pin;
 
+    /// <summary>
+    /// The record of a link with no peer to dial yet (13.16.1): <c>off</c> while it is not configured, <c>finding</c> while no
+    /// address is typed and no hello of its kind is heard, <c>connecting</c> to a typed address before its first dial.
+    /// </summary>
+    public static LinkRecord Unlinked(LinkSettings settings, LinkNow now) => new PeerLinkMachine(settings, null, now).Record(now);
+
+    /// <summary>
+    /// §2's mark, told by a connector whose own hello table marks the link's id in conflict: nothing new is dialled to it until
+    /// <paramref name="clearsInMs"/> pass — state <c>held</c>, refusal <c>conflict</c> (13.15.3) — and a link it has keeps running.
+    /// Told again while the mark stands, it moves the mark's end and keeps its start.
+    /// </summary>
+    public void Conflict(LinkNow now, long clearsInMs)
+    {
+        Advance(now);
+        if (_markUntil <= now.Mono) _markAt = now.Mono;
+        _markUntil = now.Mono + Math.Max(1, clearsInMs);
+    }
+
     /// <summary>13.16.3's record at <paramref name="now"/>.</summary>
     public LinkRecord Record(LinkNow now)
     {
@@ -1548,7 +1566,7 @@ public sealed class PeerLinkMachine
         var name = _s.Name;
         return state switch
         {
-            LinkState.Off => "link off",
+            LinkState.Off => LinkRecord.OffWords,
             LinkState.Finding => "listening for " + name + " on the show network",
             LinkState.Connecting => "dialling " + name + (_s.Address is { } at ? " at " + at : "") + (_scheme == "plain" ? "" : " over TLS")
                 + " (attempt " + (_failed + 1).ToString(CultureInfo.InvariantCulture) + ")",

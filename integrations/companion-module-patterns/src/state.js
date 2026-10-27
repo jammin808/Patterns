@@ -318,6 +318,11 @@ export function variableValues(s) {
 		stagewatch_stuck: s.bus?.stagewatch?.stuck === true ? 'yes' : 'no',
 		// Round 91: what the linked Stagewatch made of the desk's key — key, operator, none, refused, or empty when it said neither.
 		stagewatch_key: s.bus?.stagewatch?.key ?? '',
+		// Show Bus 1.3 §13.16.3: the link's own record — its state, its light and its flags as the desk published them; empty from
+		// a desk that sends no record, which says nothing of the link rather than a state it never named.
+		stagewatch_link_state: typeof s.bus?.stagewatch?.link?.state === 'string' ? s.bus.stagewatch.link.state : '',
+		stagewatch_link_light: typeof s.bus?.stagewatch?.link?.light === 'string' ? s.bus.stagewatch.link.light : '',
+		stagewatch_link_flags: Array.isArray(s.bus?.stagewatch?.link?.flags) ? s.bus.stagewatch.link.flags.join(', ') : '',
 		...bankVariables(s),
 	}
 }

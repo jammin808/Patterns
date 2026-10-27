@@ -160,6 +160,20 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     /// none). Every reader shows it amber while the app is live; this desk dials no new link to it while it stands.
     /// </summary>
     public string Conflict { get; init; } = "";
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.3: linked, the link's record as its connector published it — the light, mark and words every reader
+    /// draws for the link (13.16.4); null for an app this desk does not link to. Left out of the Eye's hash: its counts and ages
+    /// move every read; <see cref="LinkFace"/> stands for it there.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public LinkRecord? Link { get; init; }
+
+    /// <summary>What the Eye's hash reads of the link: its record's steady face (<see cref="LinkRecord.Steady"/>), "" with none.</summary>
+    public string LinkFace => Link?.Steady ?? "";
+
+    /// <summary>§6's <c>heard</c>: its hello's age — <c>live</c>, <c>stale</c> or <c>gone</c> — or "" when no hello names it.</summary>
+    public string Heard { get; init; } = "";
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -814,13 +828,14 @@ public sealed class EyeGraph
             var keyAmber = ShowBusView.KeyAmber(app);
             // Show Bus 1.3 §2: two running nodes say its id — amber while it is live, both machines named; never red for that alone.
             var conflict = ShowBusView.ConflictAmber(app);
-            var light = app.State switch
+            // Show Bus 1.3 §13.16.4: a live link's record darker than the card — amber at level 0 — is the card's light too.
+            var light = ShowBusView.WithLink(app, app.State switch
             {
                 ShowBusState.Gone => CheckLight.Red,
                 ShowBusState.Stale => CheckLight.Amber,
                 _ when stuck || keyAmber || conflict => ShowContext.LightOf(ShowBusView.StuckLight(ctx?.Light)),
                 _ => ctx is not null ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
-            };
+            });
             var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
             var sub = stuck ? ShowBusView.StuckWords
                 : ShowBusView.KeyLineLeads(app) ? app.Key.Line
@@ -829,6 +844,7 @@ public sealed class EyeGraph
             var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
             if (stuck) words.Add($"the link is live; it {ShowBusView.StuckWords}");
             if (app.Linked && app.Key.Line.Length > 0) words.Add("this desk's key: " + app.Key.Line);
+            if (app.Linked && app.Link is { } record) words.Add("the link: " + record.Steady);
             if (app.Conflict.Length > 0) words.Add(app.Conflict + " — " + ShowBusView.ConflictHoldWords);
             if (app.Words.Length > 0) words.Add(app.Words);
             if (ctx is not null)
@@ -837,7 +853,9 @@ public sealed class EyeGraph
                 foreach (var peer in ctx.Peers.Take(6)) words.Add($"hears {ShowBusPeers.KindWords(peer.Kind)} {peer.Name} — {peer.Light}{(peer.Headline.Length > 0 ? ": " + peer.Headline : "")}");
             }
             Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light) { Words = words, Route = new MenuRoute("Nodes") });
-            if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck");
+            // Show Bus 1.3 §13.16.4: the link's edge is its record — its light, its mark beside its words — and nothing this Eye derives.
+            if (app.Linked && app.Link is { } link) Link(id, DeskId, EyeEdgeKind.Follows, link.LightValue, $"{link.Mark} {link.SteadyWords}");
+            else if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck");
             else if (app.Linked && keyAmber) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, app.Key.Fault ? "linked · this desk's key " + (app.Key.Refused ? "refused" : "not accepted") : "linked · an older Stagewatch");
             else if (app.Linked && conflict) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · " + ShowBusView.ConflictEdgeWords);
             else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, app.State == ShowBusState.Live ? "linked" : state);
