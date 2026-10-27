@@ -24,8 +24,7 @@ public class PlaylistOnAirTests
     [AvaloniaFact]
     public void TheOnAirPlaylistKeepsPlayingWhileThePreviewShowsSomethingElse()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-playlist-air-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-playlist-air-");
         var slideA = Path.Combine(dir, "a.png");
         var slideB = Path.Combine(dir, "b.png");
         File.WriteAllBytes(slideA, new byte[] { 1 });

@@ -45,8 +45,7 @@ public class RetirementTests : IDisposable
     [Fact]
     public void APictureLetGoWaitsForTheSinksThatDrewItAndNoOther()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-retire-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-retire-").Path;
         var wasBudget = ImageCache.BudgetBytes;
         try
         {
@@ -89,7 +88,7 @@ public class RetirementTests : IDisposable
         {
             ImageCache.BudgetBytes = wasBudget;
             ImageCache.ClearForTests();
-            try { Directory.Delete(dir, true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
     }
 

@@ -24,8 +24,7 @@ public class RestartRecordTests
     [Fact]
     public void TheRecordCarriesTheProgramItself()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-rec-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-rec-").Path;
         try
         {
             var air = new ShowState();
@@ -54,15 +53,14 @@ public class RestartRecordTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
     [Fact]
     public void ARecordFromAnOlderBuildStillReads()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-rec-old-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-rec-old-").Path;
         try
         {
             // Exactly what a build before the state vehicle wrote: a look, and none of the new
@@ -88,7 +86,7 @@ public class RestartRecordTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

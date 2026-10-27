@@ -14,9 +14,9 @@ namespace Patterns.Core.Tests;
 [Collection("InputBus")]
 public class LayerTests
 {
-    private static string RedPng()
+    private static string RedPng([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var path = Path.Combine(Path.GetTempPath(), "patterns-layer-" + Guid.NewGuid().ToString("N") + ".png");
+        var path = TempRun.FilePath("patterns-layer.png", file, member);
         using var bmp = new SKBitmap(64, 64);
         bmp.Erase(SKColors.Red);
         using var img = SKImage.FromBitmap(bmp);
@@ -105,7 +105,7 @@ public class LayerTests
         }
         finally
         {
-            File.Delete(png);
+            TempRun.Remove(png);
         }
     }
 

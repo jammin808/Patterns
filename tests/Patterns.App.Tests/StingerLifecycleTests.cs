@@ -47,9 +47,9 @@ public class StingerLifecycleTests
         public void Dispose() { }
     }
 
-    private static StingerItemConfig Clip(TestApp.Booted b, string name)
+    private static StingerItemConfig Clip(TestApp.Booted b, string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var item = new StingerItemConfig { Path = AudioFakes.TempFile(name + ".mp4"), Name = name };
+        var item = new StingerItemConfig { Path = AudioFakes.TempFile(b, name + ".mp4", file, member), Name = name };
         b.Vm.State.Stingers.Items.Add(item);
         return item;
     }
@@ -350,8 +350,7 @@ public class StingerLifecycleTests
     [AvaloniaFact]
     public void RecoveryNeverPutsAClipBackAsTheShow()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-cliprec-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-cliprec-");
         var clip = AudioFakes.TempFile("crash-sting.mp4");
 
         // The show as saved: a grid, with the clip in its library.
@@ -386,7 +385,7 @@ public class StingerLifecycleTests
         {
             window.Close();
             services.Shutdown();
-            File.Delete(clip);
+            TempRun.Remove(clip);
         }
     }
 }

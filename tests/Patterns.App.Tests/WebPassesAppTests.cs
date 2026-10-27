@@ -35,24 +35,10 @@ public class WebPassesAppTests
         Assert.False(t.Contains("4321", StringComparison.Ordinal), $"{where} carries the PIN:\n{t}");
     }
 
-    private static string TempDir()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-webpasses-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static string TempDir([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TempRun.Folder("patterns-webpasses-", file, member).Path;
 
-    private static void Remove(string dir)
-    {
-        try
-        {
-            Directory.Delete(dir, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder the system cleans up later.
-        }
-    }
+    private static void Remove(string dir) => TempRun.Remove(dir);
 
     private static List<FakeWebSource> FakePages(AppServices services)
     {
@@ -558,7 +544,7 @@ public class WebPassesAppTests
     [Fact]
     public void TheNativePlayerAsksItsToolForTheRealAddressAndKeepsTheAnswerUnderTheHeldOne()
     {
-        var tool = Path.Combine(Path.GetTempPath(), "patterns-yt-dlp-" + Guid.NewGuid().ToString("N") + ".exe");
+        var tool = TempRun.FilePath("patterns-yt-dlp.exe");
         File.WriteAllText(tool, "stand-in");
         const string Kept = "kept://10.0.0.5:9924/abcdefghijkl";
         var service = new WebVideoService
@@ -599,7 +585,7 @@ public class WebPassesAppTests
         finally
         {
             service.Dispose();
-            File.Delete(tool);
+            TempRun.Remove(tool);
         }
     }
 

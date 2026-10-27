@@ -41,10 +41,9 @@ public class LinkClockAppTests
         File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(state));
     }
 
-    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState> edit)
+    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState> edit, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"patterns-tests-clock-{NodeKinds.Wire(kind)}-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder($"patterns-tests-clock-{NodeKinds.Wire(kind)}-", file, member).Path;
         Settings(dir, s =>
         {
             s.Control.Enabled = true;
@@ -132,7 +131,7 @@ public class LinkClockAppTests
         {
             node?.Dispose();
             desk.Dispose();
-            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+            if (dir.Length > 0) { TempRun.Remove(dir); }
         }
     }
 }

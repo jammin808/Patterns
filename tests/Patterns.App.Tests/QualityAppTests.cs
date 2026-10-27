@@ -184,7 +184,8 @@ public class QualityAppTests
     public void AutoStartsWhereTheLastSessionOnThisMachineSettledAndWritesWhereItEnds()
     {
         // The profile this machine left last time: level 2 — and Auto begins there, with the reason on the line.
-        var b = TestApp.Boot(prepare: dir => new QualityProfileStore(dir).Write(new QualityProfile(QualityService.MachineKey(), 2, 4, DateTime.UtcNow)));
+        using var home = TempRun.Folder("patterns-tests-");                                    // read after the desk has closed
+        var b = TestApp.Boot(dir: home, prepare: dir => new QualityProfileStore(dir).Write(new QualityProfile(QualityService.MachineKey(), 2, 4, DateTime.UtcNow)));
         try
         {
             var (services, vm, _) = b;

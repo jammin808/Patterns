@@ -12,7 +12,7 @@ public class AtomicFileTests
     [Fact]
     public void AWriteLandsWholeLeavesNoTempFileAndCanKeepTheOldAsBackup()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-atomic-" + Guid.NewGuid().ToString("N"));
+        var dir = TempRun.Folder("patterns-atomic-").Path;
         try
         {
             var path = Path.Combine(dir, "deeper", "record.json");             // the directory is made
@@ -41,15 +41,14 @@ public class AtomicFileTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
     [Fact]
     public void TheRecoveryRecordKeepsTheOneBeforeItAndReadsItWhenTheRecordIsTorn()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-recovery-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-recovery-").Path;
         try
         {
             var store = new RecoveryStore(dir);
@@ -115,7 +114,7 @@ public class AtomicFileTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

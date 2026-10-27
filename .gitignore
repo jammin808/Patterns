@@ -8,3 +8,4 @@ dist/
 TestResults/
 *.snupkg
 *.DotSettings
+artifacts/

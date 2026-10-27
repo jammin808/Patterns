@@ -445,8 +445,7 @@ public class InstallTests
     [Fact]
     public void TheSupportBundleCarriesTheLogsAndBlanksEverySecret()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-bundle-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-bundle-").Path;
         try
         {
             File.WriteAllText(Path.Combine(dir, "patterns.log"), "2026-09-07 10:00:00.000 [INFO] hello\n");
@@ -469,7 +468,7 @@ public class InstallTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -498,7 +497,7 @@ public class InstallTests
     [Fact]
     public void AnUpdatePackageIsReadRefusedOrAppliedAndRolledBack()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-update-" + Guid.NewGuid().ToString("N"));
+        var dir = TempRun.Folder("patterns-update-").Path;
         var app = Path.Combine(dir, "app");
         var updates = UpdatePackage.Folder(dir);
         Directory.CreateDirectory(app);
@@ -567,7 +566,7 @@ public class InstallTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -605,9 +604,15 @@ public class InstallTests
         Assert.Contains("not JSON", CheckIn.Parse("{oops", "").Problem);
         Assert.Equal(CheckIn.MaxCommands, CheckIn.Parse("{\"commands\":[" + string.Join(",", Enumerable.Repeat("\"PING\"", 30)) + "]}", "").Commands.Count);
 
-        var file = Path.GetTempFileName();
-        File.WriteAllText(file, "abc");
-        Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", CheckIn.Sha256Of(file));
-        File.Delete(file);
+        var file = TempRun.FilePath("checkin.bin");
+        try
+        {
+            File.WriteAllText(file, "abc");
+            Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", CheckIn.Sha256Of(file));
+        }
+        finally
+        {
+            TempRun.Remove(file);
+        }
     }
 }

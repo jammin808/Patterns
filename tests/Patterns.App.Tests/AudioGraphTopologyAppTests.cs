@@ -87,7 +87,7 @@ public class AudioGraphTopologyAppTests
             // A clip on the programme: its tap is an input on the programme's lane, at its gain, not fading.
             vm.State.Pattern.Kind = PatternKind.Media;
             vm.State.Pattern.Media.Source = MediaSource.Video;
-            vm.State.Pattern.Media.VideoPath = AudioFakes.TempFile("leaving.mp4");
+            vm.State.Pattern.Media.VideoPath = AudioFakes.TempFile(b, "leaving.mp4");
             Settle(window);
             services.ReconcileInputs();
             graph.Reconcile();

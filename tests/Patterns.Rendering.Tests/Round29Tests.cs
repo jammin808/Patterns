@@ -82,8 +82,7 @@ public class Round29Tests
     [Fact]
     public void AShowFileWithAnOddRowLoadsInsteadOfBeingQuarantined()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-tests-").Path;
         try
         {
             var store = new SettingsStore(dir);
@@ -103,7 +102,7 @@ public class Round29Tests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
     }
 

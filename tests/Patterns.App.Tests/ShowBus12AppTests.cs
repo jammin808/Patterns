@@ -940,7 +940,7 @@ public class ShowBus12AppTests
             s.Control.Stagewatch.ApiKey = "swk_desk";
         }));
         NodeHost? node = null;
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-node88-" + Guid.NewGuid().ToString("N"));
+        var dir = TempRun.Folder("patterns-tests-node88-").Path;
         try
         {
             var d = desk.Services;
@@ -1013,7 +1013,7 @@ public class ShowBus12AppTests
         {
             node?.Dispose();
             desk.Dispose();
-            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
     }
 

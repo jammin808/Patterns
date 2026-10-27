@@ -20,12 +20,11 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public sealed class AppearanceMatrixTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "patterns-appear-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TempRun.Folder("patterns-appear-").Path;
     private readonly string _logo;
 
     public AppearanceMatrixTests()
     {
-        Directory.CreateDirectory(_dir);
         using var bmp = new SKBitmap(64, 64);
         bmp.Erase(new SKColor(230, 230, 230));
         using var data = bmp.Encode(SKEncodedImageFormat.Png, 100);
@@ -36,7 +35,7 @@ public sealed class AppearanceMatrixTests : IDisposable
     public void Dispose()
     {
         ImageCache.ClearForTests();
-        try { Directory.Delete(_dir, true); } catch { /* best effort */ }
+        TempRun.Remove(_dir);
     }
 
     public static readonly string[] Subjects = { "Badge", "Logo", "Clock", "Weather", "Countdown", "Message", "Pip", "Layer1", "Layer2" };

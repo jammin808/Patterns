@@ -12,8 +12,7 @@ public sealed class FakeAudienceHost : IAudienceHost, IDisposable
 {
     public FakeAudienceHost()
     {
-        Dir = Path.Combine(Path.GetTempPath(), "patterns-audience-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(Dir);
+        Dir = TempRun.Folder("patterns-audience-").Path;
         Store = new SettingsStore(Dir);
         State = new ShowState { Name = "Gala" };
     }
@@ -25,7 +24,7 @@ public sealed class FakeAudienceHost : IAudienceHost, IDisposable
     public List<string> Moderated { get; } = new();
     public void Notify(string message) => Notices.Add(message);
     public Task<string?> ModerateAsync(string text) { Moderated.Add(text); return Task.FromResult(ModerationReply); }
-    public void Dispose() { try { Directory.Delete(Dir, true); } catch { /* a temp folder left behind is not a failed test */ } }
+    public void Dispose() => TempRun.Remove(Dir);
 }
 
 /// <summary>The desk as the room asks of it: an edit scope, the wall's start, the door's addresses.</summary>

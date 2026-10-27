@@ -37,8 +37,7 @@ public class NodeLightnessTests
     public void ATimerNodeBootsOnTheKernelsModulesAndSaysWhatItLoaded()
     {
         var before = Modules.LoadedAssemblies();
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-light-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-tests-light-").Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = false;
         s.Control.HttpPort = FreePort();
@@ -71,7 +70,7 @@ public class NodeLightnessTests
         finally
         {
             host.Dispose();
-            try { Directory.Delete(dir, true); } catch { /* a log still open */ }
+            TempRun.Remove(dir);
         }
     }
 
@@ -83,10 +82,9 @@ public class NodeLightnessTests
         Assert.NotEqual("", host.Play!.Code);
     }
 
-    private static string FreshDir()
+    private static string FreshDir([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-role-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-tests-role-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = false;
         s.Control.HttpPort = FreePort();
@@ -148,7 +146,7 @@ public class NodeLightnessTests
             finally
             {
                 host.Dispose();
-                try { Directory.Delete(dir, true); } catch { /* a log still open */ }
+                TempRun.Remove(dir);
             }
         }
     }

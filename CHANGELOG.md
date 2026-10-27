@@ -35,9 +35,19 @@ is the Bitfocus Companion module, where its version moved.
   scope — the key in no notice on a desk or a node, never on the strip a NAV refusal quotes, and the ADMIN page's log
   tail masked as the bundle is (another branch's `95805b0` and `56324a6` read); L62's closed row read again in run 280
   (WebView2 and lifecycle green); rows to add for the census's side findings. The code units go out first, and the
-  papers (92.5) read that push's test job on GitHub before L64 closes (PLAN §110.1). The papers write what landed,
+  papers (92.6) read that push's test job on GitHub before L64 closes (PLAN §110.1). The papers write what landed,
   REVIEW round 92 and the count at the round's end in place of the opening's. The round's tag waits for that commit,
   which writes round 91's row in the tag table (`tag-rounds.sh` tags this entry at HEAD).
+- **Added after the opening (92.5): the tests leave no temporary folder behind.** A measured cause on this bench:
+  92.4's validation stopped on a full disk (ENOSPC), the machine's `/tmp` held 59,685 `patterns-tests-*` folders and
+  thousands more of the suites' families, and one whole App run left 867 desk folders (111 MB), a closed test desk
+  never removing its own. Each suite's process now points its temp path at a folder of its run's own; every fixture
+  and test that makes a folder or a file there removes it when it ends, through one helper that waits briefly for a
+  file a process still holds and says what it could not remove; and each suite's last test fails on anything left in
+  its run's folder, naming the test that made it (PLAN §110.2). Its first whole run found two desk tests that read or
+  wrote a closed desk's folder (both mended), and that a save asked of a closed desk still writes, named for the
+  papers; four mutations each fail it, and a fifth shows the tests still hold the code that makes a missing folder.
+  Earlier runs' leftovers are never read or removed. The papers are 92.6.
 
 ## Round 91 — 2026-10-26 — Show Bus 1.3 from Patterns' side: the Stagewatch link dials as a node and reads its verdict, the wire shows its state only to a paired connection, the context says what a peer may propose, and the certificate and the hello at 1.3's numbers
 

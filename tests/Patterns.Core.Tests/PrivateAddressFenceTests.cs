@@ -115,12 +115,8 @@ public class PrivateAddressFenceTests
     /// <summary>An address the book keeps that the rule does not read as private — kept by hand, or by a later rule — so only the book can mask it.</summary>
     private const string KeptByHand = "https://10.0.0.5:9924/stage/room-7";
 
-    private static string Temp()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-fence-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static string Temp([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TempRun.Folder("patterns-fence-", file, member).Path;
 
     private static string Entry(ZipArchive zip, string name)
     {
@@ -169,7 +165,7 @@ public class PrivateAddressFenceTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -206,7 +202,7 @@ public class PrivateAddressFenceTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -244,7 +240,7 @@ public class PrivateAddressFenceTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -296,7 +292,7 @@ public class PrivateAddressFenceTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

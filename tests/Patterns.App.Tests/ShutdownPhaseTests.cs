@@ -74,7 +74,8 @@ public class ShutdownPhaseTests
     [AvaloniaFact]
     public void AnAutosaveStuckOnADeadShareCannotHoldTheExitAndTheRecoveryRecordIsKept()
     {
-        var b = TestApp.Boot();
+        using var home = TempRun.Folder("patterns-tests-");                                    // read after the desk has closed
+        var b = TestApp.Boot(dir: home);
         var services = b.Services;
         var gate = new ManualResetEventSlim(false);
         var wasWait = AppServices.ExitSaveWait;
@@ -98,6 +99,7 @@ public class ShutdownPhaseTests
         {
             gate.Set();
             AppServices.ExitSaveWait = wasWait;
+            TestApp.FlushFiles(services);                                                          // the released save lands before its folder goes
         }
     }
 }

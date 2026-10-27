@@ -15,9 +15,9 @@ namespace Patterns.App.Tests;
 /// <summary>The remote multiview endpoints and the stream service against the live app.</summary>
 public class MultiviewStreamAppTests
 {
-    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot()
+    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm, b.Window);
     }
 

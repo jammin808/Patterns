@@ -45,8 +45,7 @@ public class SupportBundleFenceTests
     [Fact]
     public void AFileFromANewerBuildIsReadAsItIsAndNeverMigratedDown()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-newer-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-newer-").Path;
         try
         {
             var state = new ShowState { Name = "From tomorrow", SchemaVersion = ShowState.CurrentSchemaVersion + 3 };
@@ -74,7 +73,7 @@ public class SupportBundleFenceTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 }

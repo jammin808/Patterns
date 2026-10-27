@@ -23,9 +23,9 @@ public class CallerHomeTests
         return LookService.Find(vm.State, name)!;
     }
 
-    private static string TempCsv(string text)
+    private static string TempCsv(string text, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var path = Path.Combine(Path.GetTempPath(), "patterns-sheet-" + Guid.NewGuid().ToString("N") + ".csv");
+        var path = TempRun.FilePath("patterns-sheet.csv", file, member);
         File.WriteAllText(path, text);
         return path;
     }
@@ -104,8 +104,8 @@ public class CallerHomeTests
         }
         finally
         {
-            File.Delete(sheet);
-            File.Delete(more);
+            TempRun.Remove(sheet);
+            TempRun.Remove(more);
             b.Dispose();
         }
     }

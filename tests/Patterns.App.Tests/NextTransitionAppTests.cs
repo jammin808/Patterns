@@ -182,7 +182,7 @@ public class NextTransitionAppTests
             services.Video.SourceFactory = _ => clip;
             Rig(b);
             Programme(b, PatternKind.Grid);
-            var sting = new StingerItemConfig { Kind = StingerKind.Sting, Path = AudioFakes.TempFile("whoosh.mp4"), Name = "Whoosh" };
+            var sting = new StingerItemConfig { Kind = StingerKind.Sting, Path = AudioFakes.TempFile(b, "whoosh.mp4"), Name = "Whoosh" };
             vm.State.Stingers.Items.Add(sting);
             var router = new CommandRouter(services);
 
@@ -231,7 +231,7 @@ public class NextTransitionAppTests
             services.Video.SourceFactory = _ => clip;
             Rig(b);
             Programme(b, PatternKind.Grid);
-            vm.State.Stingers.Items.Add(new StingerItemConfig { Kind = StingerKind.Sting, Path = AudioFakes.TempFile("whoosh.mp4"), Name = "Whoosh" });
+            vm.State.Stingers.Items.Add(new StingerItemConfig { Kind = StingerKind.Sting, Path = AudioFakes.TempFile(b, "whoosh.mp4"), Name = "Whoosh" });
             var router = new CommandRouter(services);
             SwitcherTile Tile(string id) => vm.SwitcherTiles.Single(t => t.TargetId == id);
 

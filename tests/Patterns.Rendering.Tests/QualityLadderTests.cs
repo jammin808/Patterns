@@ -124,8 +124,7 @@ public class QualityLadderTests
         Assert.False(ladder.Start(3, "ignored under a lock"));
         Assert.Equal(0, ladder.Level);
 
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-quality-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-quality-").Path;
         try
         {
             var store = new QualityProfileStore(dir);
@@ -138,7 +137,7 @@ public class QualityLadderTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

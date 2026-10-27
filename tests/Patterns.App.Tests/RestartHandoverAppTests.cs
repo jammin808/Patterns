@@ -268,7 +268,7 @@ public class RestartHandoverAppTests
             vm.IsSandboxActive = false;
             vm.State.Pattern.Kind = PatternKind.Media;
             vm.State.Pattern.Media.Source = MediaSource.Video;
-            vm.State.Pattern.Media.VideoPath = AudioFakes.TempFile("resume.mp4");
+            vm.State.Pattern.Media.VideoPath = AudioFakes.TempFile(b, "resume.mp4");
             vm.State.Pattern.Media.Loop = false;   // a clip that plays once: the ended case below is real
             Dispatcher.UIThread.RunJobs();
             services.ReconcileInputs();
@@ -344,8 +344,8 @@ public class RestartHandoverAppTests
         try
         {
             var (services, vm, _) = b;
-            vm.State.AudioPlayer.Items.Add(new AudioTrackConfig { Path = AudioFakes.TempFile("one.wav") });
-            vm.State.AudioPlayer.Items.Add(new AudioTrackConfig { Path = AudioFakes.TempFile("two.wav") });
+            vm.State.AudioPlayer.Items.Add(new AudioTrackConfig { Path = AudioFakes.TempFile(b, "one.wav") });
+            vm.State.AudioPlayer.Items.Add(new AudioTrackConfig { Path = AudioFakes.TempFile(b, "two.wav") });
             services.AudioPlayer.ResumeAt(1, 30, DateTime.UtcNow.AddSeconds(-5));
             Assert.InRange(services.AudioPlayer.PendingSeekSeconds, 34, 36.5);
 

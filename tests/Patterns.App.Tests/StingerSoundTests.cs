@@ -83,7 +83,8 @@ public class StingerSoundTests
 
     // ---- the voice, through the live service ------------------------------------------
 
-    private static string TempSound(string name) => AudioFakes.TempFile(name);
+    private static string TempSound(string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => AudioFakes.TempFile(name, file, member);
 
     [AvaloniaFact]
     public void StopReleasesTheSoundAndTheNextPressIsAFreshVoice()
@@ -145,7 +146,7 @@ public class StingerSoundTests
         }
         finally
         {
-            File.Delete(wav);
+            TempRun.Remove(wav);
             b.Dispose();
         }
     }
@@ -184,8 +185,8 @@ public class StingerSoundTests
         }
         finally
         {
-            File.Delete(wav);
-            File.Delete(wav2);
+            TempRun.Remove(wav);
+            TempRun.Remove(wav2);
             b.Dispose();
         }
     }

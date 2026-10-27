@@ -15,8 +15,7 @@ public class TakeFactsCoreTests
     [Fact]
     public void AJournalRowCarriesTheStampsAsFieldsAndLeavesThemOutWhenNothingStamped()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-facts-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-facts-").Path;
         try
         {
             var log = new ShowLog(dir);
@@ -47,7 +46,7 @@ public class TakeFactsCoreTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

@@ -194,8 +194,7 @@ public class ContentTargetTests
     [Fact]
     public void AnOlderShowFileIsReportedAsMigratedAndItsLooksGetIdsOnce()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-migrate-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-migrate-");
         var store = new SettingsStore(dir);
 
         var state = new ShowState { SchemaVersion = 3 };

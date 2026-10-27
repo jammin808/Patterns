@@ -10,10 +10,9 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public class PersistenceRuntimeTests
 {
-    private static (PersistenceRuntime Lane, SettingsStore Store, string Dir) Make()
+    private static (PersistenceRuntime Lane, SettingsStore Store, string Dir) Make([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-lane-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-lane-", file, member).Path;
         var store = new SettingsStore(dir);
         return (new PersistenceRuntime(store, new RecoveryStore(dir)), store, dir);
     }
@@ -49,7 +48,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir, true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -73,7 +72,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir, true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -102,7 +101,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir, true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -123,7 +122,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir, true);
+            TempRun.Remove(dir);
         }
         var (lane2, store2, dir2) = Make();
         try
@@ -133,7 +132,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir2, true);
+            TempRun.Remove(dir2);
         }
     }
 
@@ -153,7 +152,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir, true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -170,7 +169,7 @@ public class PersistenceRuntimeTests
         }
         finally
         {
-            Directory.Delete(dir, true);
+            TempRun.Remove(dir);
         }
     }
 }

@@ -36,14 +36,14 @@ public class ImageCacheResidencyTests : IDisposable
     [Fact]
     public void AnIdlePictureGoesWhenItsGraceIsUpANamedOrDrawnOneStays()
     {
-        var dir = Directory.CreateTempSubdirectory("residency");
+        var dir = TempRun.Folder("residency-").Path;
         long now = 1_000_000;
         ImageCache.Clock = () => now;
         try
         {
-            var idle = Picture(dir.FullName, "idle.png", 10);
-            var named = Picture(dir.FullName, "named.png", 20);
-            var drawn = Picture(dir.FullName, "drawn.png", 30);
+            var idle = Picture(dir, "idle.png", 10);
+            var named = Picture(dir, "named.png", 20);
+            var drawn = Picture(dir, "drawn.png", 30);
             Assert.NotNull(ImageCache.Get(idle));
             Assert.NotNull(ImageCache.Get(named));
             now += 100_000;                                                    // a hundred seconds on, a sink fetches the third
@@ -79,7 +79,7 @@ public class ImageCacheResidencyTests : IDisposable
         finally
         {
             ImageCache.Clock = null;
-            dir.Delete(recursive: true);
+            TempRun.Remove(dir);
         }
     }
 }

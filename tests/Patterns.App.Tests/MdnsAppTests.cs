@@ -38,10 +38,9 @@ public class MdnsAppTests
         }
     }
 
-    private static (NodeHost Host, string Dir, int Wire) BootNode(bool announce = true)
+    private static (NodeHost Host, string Dir, int Wire) BootNode(bool announce = true, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-mdns-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-tests-mdns-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Name = "Gala";
         s.Control.Enabled = true;
@@ -60,7 +59,7 @@ public class MdnsAppTests
     private static void Clean(NodeHost host, string dir)
     {
         host.Dispose();
-        try { Directory.Delete(dir, true); } catch (Exception) { /* a temp folder left behind is not a failed test */ }
+        TempRun.Remove(dir);
     }
 
     [AvaloniaFact]

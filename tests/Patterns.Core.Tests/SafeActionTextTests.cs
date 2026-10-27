@@ -70,8 +70,7 @@ public class SafeActionTextTests
     [Fact]
     public void OldJournalRowsCarryingThePasscodeAreBlankedOnceAndTheRestOfTheJournalIsUntouched()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-scrub-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-scrub-").Path;
         try
         {
             var log = new ShowLog(dir);
@@ -102,15 +101,14 @@ public class SafeActionTextTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
     [Fact]
     public void TheSupportBundleMasksTheShowsOwnSecretValuesInEveryTextEntry()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-bundle-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-bundle-").Path;
         try
         {
             const string admin = "ADMIN_PASSCODE_TEST";
@@ -157,7 +155,7 @@ public class SafeActionTextTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

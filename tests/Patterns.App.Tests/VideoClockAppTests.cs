@@ -30,13 +30,13 @@ public class VideoClockAppTests
     private static string Send(CommandRouter router, string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
 
     /// <summary>A clip on the program's media pattern, decoded by a fake: the clock has something to read.</summary>
-    private static FakeSource PutClipOnAir(TestApp.Booted b, AudioFakes fakes, string name)
+    private static FakeSource PutClipOnAir(TestApp.Booted b, AudioFakes fakes, string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
         var (services, vm, _) = b;
         vm.ActivePattern.Kind = PatternKind.Media;
         vm.ActivePattern.Media.Source = MediaSource.Video;
         vm.ActivePattern.Media.Loop = false;                    // a VT, not a walk-in loop: it comes out
-        vm.ActivePattern.Media.VideoPath = AudioFakes.TempFile(name);
+        vm.ActivePattern.Media.VideoPath = AudioFakes.TempFile(b, name, file, member);
         Dispatcher.UIThread.RunJobs();
         services.ReconcileInputs();
         var fake = fakes.Sources.Single();

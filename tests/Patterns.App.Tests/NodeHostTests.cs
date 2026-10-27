@@ -72,8 +72,7 @@ public class NodeHostTests
     [AvaloniaFact]
     public void AnArcadeNodeBootsFromTheKernelAloneAnswersItsVerbsAndRefusesTheDesks()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-node-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-node-").Path;
         var wire = FreePort();
         var http = FreePort();
         var audience = FreePort();
@@ -175,7 +174,7 @@ public class NodeHostTests
         finally
         {
             host?.Dispose();
-            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
     }
 

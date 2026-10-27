@@ -66,7 +66,7 @@ public class CrashHardeningTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -119,7 +119,7 @@ public class CrashHardeningTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -196,7 +196,7 @@ public class CrashHardeningTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -267,7 +267,7 @@ public class CrashHardeningTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -304,12 +304,8 @@ public class CrashHardeningTests
         }
     }
 
-    private static string TempDir(string prefix)
-    {
-        var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static string TempDir(string prefix, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TempRun.Folder(prefix, file, member).Path;
 }
 
 /// <summary>

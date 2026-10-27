@@ -45,10 +45,9 @@ public class WireLimitsAppTests
     }));
 
     /// <summary>An arcade node in a fresh folder with its own ports, started: the cheapest host with a wire.</summary>
-    private static (NodeHost Host, string Dir) BootNode()
+    private static (NodeHost Host, string Dir) BootNode([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-wire-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-tests-wire-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = true;
         s.Control.HttpPort = FreePort();
@@ -64,7 +63,7 @@ public class WireLimitsAppTests
     private static void Clean(NodeHost host, string dir)
     {
         host.Dispose();
-        try { Directory.Delete(dir, true); } catch { /* a log still open */ }
+        TempRun.Remove(dir);
     }
 
     /// <summary>One Companion: a socket and a line reader on it.</summary>

@@ -56,14 +56,15 @@ public class TwinLauncherTests
         // The launcher makes the standby's folder before it starts the process, so the folder
         // must be one this test may make: under the temp path, not at the file system's root
         // (a CI runner is not root, and "/show" cannot be created there).
-        var home = Path.Combine(Path.GetTempPath(), "patterns-tests-twin-" + Guid.NewGuid().ToString("N"), "twin-standby");
+        var parent = TempRun.Folder("patterns-tests-twin-").Path;
+        var home = Path.Combine(parent, "twin-standby");
         try
         {
             RunTheLauncher(home);
         }
         finally
         {
-            try { Directory.Delete(Path.GetDirectoryName(home)!, recursive: true); } catch { /* left for the OS */ }
+            TempRun.Remove(parent);
         }
     }
 
@@ -146,7 +147,8 @@ public class TwinLauncherTests
     {
         var now = new DateTime(2026, 9, 12, 20, 0, 0, DateTimeKind.Utc);
         var launcher = new TwinLauncher(() => now);
-        var home = Path.Combine(Path.GetTempPath(), "patterns-tests-twin-" + Guid.NewGuid().ToString("N"), "twin-standby");
+        var parent = TempRun.Folder("patterns-tests-twin-").Path;
+        var home = Path.Combine(parent, "twin-standby");
         var fail = true;
         var spawned = 0;
         launcher.Spawn = (_, _) =>
@@ -179,7 +181,7 @@ public class TwinLauncherTests
         finally
         {
             launcher.Dispose();
-            try { Directory.Delete(Path.GetDirectoryName(home)!, recursive: true); } catch { /* left for the OS */ }
+            TempRun.Remove(parent);
         }
     }
 }

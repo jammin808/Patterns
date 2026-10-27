@@ -148,8 +148,7 @@ public class LowerThirdControlTests
     [Fact]
     public void ADesignSavesAsAFileAndLoadsBack()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-lt-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-lt-").Path;
         try
         {
             var store = new SettingsStore(dir);
@@ -172,7 +171,7 @@ public class LowerThirdControlTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch { /* a temp folder left behind is not a failed test */ }
+            TempRun.Remove(dir);
         }
     }
 }

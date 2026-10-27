@@ -113,8 +113,7 @@ public class MediaMemoryTests
     [Fact]
     public void TheTrimLetsPicturesGoLeastRecentlyDrawnFirstButNeverTheLastDrawn()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-trim-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-trim-").Path;
         var wasBudget = ImageCache.BudgetBytes;
         ImageCache.ClearForTests();
         RenderFence.ResetForTests();                                                                    // the premise: no frame open anywhere, none current on this thread
@@ -147,7 +146,7 @@ public class MediaMemoryTests
         {
             ImageCache.BudgetBytes = wasBudget;
             ImageCache.ClearForTests();
-            try { Directory.Delete(dir, true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
     }
 }

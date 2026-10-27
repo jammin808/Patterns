@@ -60,7 +60,8 @@ public class TokenClearSightingsTests
     [Fact]
     public void TheMarksStandAfterARestartUntilTheTokenChangesAndTheFileHoldsNoTokenNorItsPlainHash()
     {
-        var folder = Path.Combine(Path.GetTempPath(), "patterns-clearseen-" + Guid.NewGuid().ToString("N"));
+        var parent = TempRun.Folder("patterns-clearseen-").Path;
+        var folder = Path.Combine(parent, "settings");                                      // not there yet: the first mark makes it
         try
         {
             var before = new TokenClearSightings(folder);
@@ -90,7 +91,7 @@ public class TokenClearSightingsTests
         }
         finally
         {
-            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+            TempRun.Remove(parent);
         }
     }
 

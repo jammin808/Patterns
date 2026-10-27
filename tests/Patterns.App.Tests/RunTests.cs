@@ -356,7 +356,8 @@ public class RunTests
     [AvaloniaFact]
     public void ARelaunchRestoresTheCallersPlaceDisarmedAndFiresNothing()
     {
-        var first = TestApp.Boot();
+        using var home = TempRun.Folder("patterns-tests-");                                    // the relaunch boots in the folder the first desk left
+        var first = TestApp.Boot(dir: home);
         var dir = first.Dir;
         string cueAId, cueBId;
         RunPlace place;

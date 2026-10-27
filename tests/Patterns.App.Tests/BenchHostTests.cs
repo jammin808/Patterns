@@ -215,7 +215,7 @@ public class BenchHostTests
     [Fact]
     public void TheBenchBootsTheRealDeskHeadlessAndAnswersEachControlLineWithWhatHappened()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-bench-" + Guid.NewGuid().ToString("N"));
+        var dir = TempRun.Folder("patterns-bench-").Path;
         var home = Path.Combine(dir, "home");
         Directory.CreateDirectory(dir);
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));                      // the lane's tokens: 32 upper-case hex
@@ -311,14 +311,14 @@ public class BenchHostTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch (IOException) { /* a log still closing */ }
+            TempRun.Remove(dir);
         }
     }
 
     [Fact]
     public void TheBenchKeepsEverySecretOffEveryOutputAndStopsAtTheEndOfItsInput()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-bench-" + Guid.NewGuid().ToString("N"));
+        var dir = TempRun.Folder("patterns-bench-").Path;
         var home = Path.Combine(dir, "home");
         Directory.CreateDirectory(dir);
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
@@ -383,15 +383,14 @@ public class BenchHostTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch (IOException) { /* a log still closing */ }
+            TempRun.Remove(dir);
         }
     }
 
     [Fact]
     public void TheBenchStopsWithZeroWhenItsTimeIsUpOrItIsToldToTerminate()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-bench-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-bench-").Path;
         var tokenFile = SecretFile(dir, "token", Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) + "\n");
         string[] Doors()
         {
@@ -426,15 +425,14 @@ public class BenchHostTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch (IOException) { /* a log still closing */ }
+            TempRun.Remove(dir);
         }
     }
 
     [Fact]
     public void TheBenchRefusesWhatItDoesNotKnowWithoutRepeatingItAndRunsNoOpenDesk()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-bench-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-bench-").Path;
         try
         {
             var tokenFile = SecretFile(dir, "token", Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) + "\n");
@@ -501,7 +499,7 @@ public class BenchHostTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch (IOException) { /* nothing held */ }
+            TempRun.Remove(dir);
         }
     }
 

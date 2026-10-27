@@ -370,8 +370,7 @@ public class FramePoolTests : IDisposable
     [Fact]
     public void ThePictureCacheIsBoundedInBytesLeastRecentlyDrawnFirst()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-pictures-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-pictures-").Path;
         var wasBudget = ImageCache.BudgetBytes;
         ImageCache.ClearForTests();
         try
@@ -409,7 +408,7 @@ public class FramePoolTests : IDisposable
         {
             ImageCache.BudgetBytes = wasBudget > 0 ? wasBudget : -1;
             ImageCache.ClearForTests();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

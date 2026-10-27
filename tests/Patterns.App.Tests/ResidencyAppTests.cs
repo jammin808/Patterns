@@ -33,7 +33,7 @@ public class ResidencyAppTests
     public void EveryHeldThingHasAReasonAndAnIdlePictureGoesOnItsClock()
     {
         var b = TestApp.Boot();
-        var dir = Directory.CreateTempSubdirectory("residency-app");
+        var dir = new DirectoryInfo(TempRun.Folder("residency-app-").Path);
         try
         {
             var (services, vm, _) = b;
@@ -90,7 +90,7 @@ public class ResidencyAppTests
         {
             b.Dispose();
             ImageCache.ClearForTests();
-            dir.Delete(recursive: true);
+            TempRun.Remove(dir.FullName);
         }
     }
 

@@ -13,9 +13,9 @@ namespace Patterns.App.Tests;
 /// <summary>Pre-programming: planned screens with no hardware, and the GO guard.</summary>
 public class PrepModeTests
 {
-    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot()
+    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm, b.Window);
     }
 
@@ -268,8 +268,7 @@ public class PrepModeTests
     [AvaloniaFact]
     public void PlannedScreensAndModeSurviveASaveAndReload()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-prep-persist-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-prep-persist-");
         var store = new SettingsStore(dir);
         var state = store.Load();
         state.Mode = ShowMode.Prep;

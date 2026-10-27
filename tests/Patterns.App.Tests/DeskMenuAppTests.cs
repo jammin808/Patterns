@@ -51,9 +51,9 @@ public class DeskMenuAppTests
     private static PatternKind? OwnKind(ShowState state, string screenId)
         => state.Independent.FirstOrDefault(a => a.ScreenId == screenId)?.Pattern.Kind;
 
-    private static TestApp.Booted BootLive()
+    private static TestApp.Booted BootLive([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         b.Vm.IsSandboxActive = false;
         b.Vm.State.Transition.Enabled = false;
         b.Vm.State.Switcher.EditSafeByDefault = false;

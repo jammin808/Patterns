@@ -30,7 +30,23 @@ public static class TestApp
         /// <summary>Set when the next test's boot closed this one because its own test forgot to.</summary>
         internal bool LateClosed;
 
-        /// <summary>Closes the window, shuts the services down and reclaims the boot's memory; safe to call twice.</summary>
+        /// <summary>
+        /// Whether the boot made <see cref="Dir"/> and removes it at its close. A test that boots into a folder of its
+        /// own (<see cref="Boot"/>'s <c>dir</c>) — to read it after the desk has closed, or to boot again in it — removes
+        /// that folder itself when it ends.
+        /// </summary>
+        public bool OwnsDir { get; init; } = true;
+
+        private readonly List<string> _owned = new();
+
+        /// <summary>Hands this desk a temporary file its test made for it to play (a stand-in clip under the run's temp path); the desk's close removes it with its folder.</summary>
+        public string Own(string path)
+        {
+            lock (_owned) _owned.Add(path);
+            return path;
+        }
+
+        /// <summary>Closes the window, shuts the services down, reclaims the boot's memory and removes the folder it made; safe to call twice.</summary>
         public void Dispose()
         {
             if (_disposed) return;
@@ -39,6 +55,11 @@ public static class TestApp
             try { Window.Close(); } catch { /* already closed */ }
             Services.Shutdown();
             ReclaimBoot(Booter, LateClosed);
+            if (LateClosed) lock (ClosedLateBy) ClosedLateBy.Add(Booter);
+            if (OwnsDir) TempRun.Remove(Dir);
+            string[] owned;
+            lock (_owned) owned = _owned.ToArray();
+            foreach (var path in owned) TempRun.Remove(path);
         }
     }
 
@@ -55,6 +76,15 @@ public static class TestApp
     /// <summary>Boots still open (every test's), for the lifecycle test's own bookkeeping.</summary>
     public static int OpenCount { get { lock (Open) return Open.Count; } }
 
+    /// <summary>The tests whose desk was closed late, by the next test's boot or by the temp fence, in the order closed.</summary>
+    private static readonly List<string> ClosedLateBy = new();
+
+    /// <summary>
+    /// The tests that forgot to close their desk this run (file.member, once per desk): a late close removes the desk's
+    /// folder as its own close would, so the temp fence counts that folder removed and says these names beside it.
+    /// </summary>
+    public static IReadOnlyList<string> ClosedLate { get { lock (ClosedLateBy) return ClosedLateBy.ToArray(); } }
+
     private static void CloseLeftovers(string booter)
     {
         // The judge is the test file: a class that boots in its constructor and again in a test
@@ -70,6 +100,21 @@ public static class TestApp
     }
 
     private static string FileOf(string booter) => booter.Split('.')[0];
+
+    /// <summary>
+    /// Closes every boot still open, as the next test's boot would: the run's last test has no next boot, so the temp
+    /// fence (<see cref="TempFenceTests"/>) closes its forgotten desk, and removes its folder, before it reads what is left.
+    /// </summary>
+    public static void CloseAll()
+    {
+        Booted[] open;
+        lock (Open) open = Open.ToArray();
+        foreach (var b in open)
+        {
+            b.LateClosed = true;
+            b.Dispose();
+        }
+    }
 
     private static int _boots;
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
@@ -136,7 +181,8 @@ public static class TestApp
     /// <summary>The test that asked for the boot being closed, for the memlog's line (the caller of <see cref="Boot"/>).</summary>
     [ThreadStatic] private static string? t_lastBooter;
 
-    public static Booted Boot(string prefix = "patterns-tests-", Action<string>? prepare = null, Patterns.Core.Model.NodeKind profile = Patterns.Core.Model.NodeKind.Desk,
+    /// <param name="dir">A folder of the test's own to boot in, which the test removes when it ends; by default the boot makes one under the run's temp path and removes it at its close.</param>
+    public static Booted Boot(string prefix = "patterns-tests-", Action<string>? prepare = null, Patterns.Core.Model.NodeKind profile = Patterns.Core.Model.NodeKind.Desk, string? dir = null,
                               [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerMemberName] string callerMember = "")
     {
         var booter = $"{Path.GetFileNameWithoutExtension(callerFile)}.{callerMember}";
@@ -149,7 +195,8 @@ public static class TestApp
         QualityService.MachineGB = 32;                                          // the ladder starts at full: a small container is not a small desk
         Patterns.Rendering.Media.RenderFence.ResetForTests();                        // the sinks of the last test's windows are gone with them
 
-        var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+        var owns = dir is null;
+        dir ??= TempRun.Folder(prefix, callerFile, callerMember).Path;
         Directory.CreateDirectory(dir);
         prepare?.Invoke(dir);
         // The desk is built as the bench host builds it (HeadlessDesk), with the tests' one knob between the two calls.
@@ -159,7 +206,7 @@ public static class TestApp
         // test sets the desk's real budget back.
         vm.PollLanes.BudgetMs = 10_000;
         var window = HeadlessDesk.Show(services, vm);
-        var booted = new Booted(services, vm, window, dir) { Booter = booter };
+        var booted = new Booted(services, vm, window, dir) { Booter = booter, OwnsDir = owns };
         lock (Open) Open.Add(booted);
         return booted;
     }

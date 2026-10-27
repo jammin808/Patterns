@@ -200,7 +200,7 @@ public class TallyTests
         {
             EffectImpulses.Clear();
             b.Dispose();
-            try { File.Delete(seats); } catch { /* a temp file left behind is not a failed test */ }
+            TempRun.Remove(seats);
         }
     }
 }

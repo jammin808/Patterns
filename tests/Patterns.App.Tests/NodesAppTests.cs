@@ -45,10 +45,9 @@ public class NodesAppTests
     }
 
     /// <summary>A node from the kernel alone, in a fresh folder with its own ports: the settings the test wants, built, started.</summary>
-    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState> edit)
+    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState> edit, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"patterns-tests-{NodeKinds.Wire(kind)}-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder($"patterns-tests-{NodeKinds.Wire(kind)}-", file, member).Path;
         Settings(dir, s =>
         {
             s.Control.Enabled = true;
@@ -256,7 +255,7 @@ public class NodesAppTests
         {
             node?.Dispose();
             desk.Dispose();
-            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+            if (dir.Length > 0) { TempRun.Remove(dir); }
         }
     }
 
@@ -355,7 +354,7 @@ public class NodesAppTests
         {
             node?.Dispose();
             desk.Dispose();
-            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+            if (dir.Length > 0) { TempRun.Remove(dir); }
         }
     }
 
@@ -459,7 +458,7 @@ public class NodesAppTests
         {
             node?.Dispose();
             desk.Dispose();
-            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+            if (dir.Length > 0) { TempRun.Remove(dir); }
         }
     }
 
@@ -507,7 +506,7 @@ public class NodesAppTests
         finally
         {
             node.Dispose();
-            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
 
         static int Occurrences(string text, string words)

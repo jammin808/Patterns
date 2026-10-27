@@ -42,8 +42,7 @@ public class GoGateTests
     [Fact]
     public void TheSidecarCarriesTheCallersPlace()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-place-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-place-");
         var store = new RecoveryStore(dir);
         var history = new List<CueExecutionRecord>
         {

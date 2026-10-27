@@ -39,8 +39,7 @@ public class RestartContinuityTests
     [Fact]
     public void ThePlayheadSidecarRoundTripsAndClears()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-playhead-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-playhead-").Path;
         try
         {
             var store = new PlayheadStore(dir);
@@ -62,7 +61,7 @@ public class RestartContinuityTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

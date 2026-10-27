@@ -69,8 +69,7 @@ public class StartupTests
     [AvaloniaFact]
     public void TheSettingsReadBeforeTheDeskAreHandedToItAndTheWayOutRunsOnce()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-preload-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-preload-");
         var store = new SettingsStore(dir);
         var early = store.Load();
         early.Name = "Handed over";
@@ -107,8 +106,7 @@ public class StartupTests
     [AvaloniaFact]
     public void AfterAWatchdogRestartTheShowComesBackWhenTheWindowOpensNotAfterATimer()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-recover-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-recover-");
         new RecoveryStore(dir).Write(live: false, audioPlaying: false);   // what was running at the crash: the desk, nothing on
         var services = new AppServices(new SettingsStore(dir));
         try

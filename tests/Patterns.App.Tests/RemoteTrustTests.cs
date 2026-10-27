@@ -24,9 +24,9 @@ public class RemoteTrustTests
 {
     private const string Token = "K7QM-3XWD-P9RA";
 
-    private static (AppServices Services, MainViewModel Vm) Boot()
+    private static (AppServices Services, MainViewModel Vm) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm);
     }
 

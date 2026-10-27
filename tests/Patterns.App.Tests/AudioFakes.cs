@@ -174,10 +174,15 @@ internal sealed class AudioFakes
     /// <summary>Round 76: the tap a new fake clip carries, when a test wants the audio graph to hear it.</summary>
     public Func<MediaLocator.WantedInput, Patterns.Audio.AudioRing?>? Taps { get; set; }
 
-    public static string TempFile(string name)
+    /// <summary>A four-byte stand-in clip under the run's temp path; its test removes it with <see cref="TempRun.Remove"/>.</summary>
+    public static string TempFile(string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-{name}");
+        var path = TempRun.FilePath(name, file, member);
         File.WriteAllBytes(path, new byte[] { 0, 0, 0, 1 });
         return path;
     }
+
+    /// <summary>A stand-in clip the desk <paramref name="owner"/> plays; the desk's close removes it.</summary>
+    public static string TempFile(TestApp.Booted owner, string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => owner.Own(TempFile(name, file, member));
 }

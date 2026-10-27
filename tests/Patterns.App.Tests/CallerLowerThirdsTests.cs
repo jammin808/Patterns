@@ -67,8 +67,7 @@ public class CallerLowerThirdsTests
     [AvaloniaFact]
     public void OnACallerNodeTheChipsAreTheMirroredDesignsAndAPressGoesThroughTheNodesVerbs()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-caller-lt-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-caller-lt-").Path;
         var s = SettingsStore.Fresh();
         s.Name = "Caller";
         s.Control.Enabled = false;
@@ -101,7 +100,7 @@ public class CallerLowerThirdsTests
         finally
         {
             host?.Dispose();
-            try { Directory.Delete(dir, true); } catch { /* a temp folder left behind is not a failed test */ }
+            TempRun.Remove(dir);
         }
     }
 

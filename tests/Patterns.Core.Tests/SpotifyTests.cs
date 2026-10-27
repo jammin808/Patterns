@@ -674,8 +674,7 @@ public class SpotifyCredentialStoreTests
     [Fact]
     public void TheSignInLivesBesideTheSettingsAndClears()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-spotify-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-spotify-").Path;
         try
         {
             var store = new SpotifyCredentialStore(dir);
@@ -703,7 +702,7 @@ public class SpotifyCredentialStoreTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 }

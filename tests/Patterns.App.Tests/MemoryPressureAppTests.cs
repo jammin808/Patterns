@@ -135,9 +135,9 @@ public class MemoryPressureAppTests
         InputBus.Clear();
         var opened = new List<FakeSource>();
         using var engine = new VideoEngine { SourceFactory = w => { var f = new FakeSource(w); opened.Add(f); return f; } };
+        var clip = TempRun.FilePath("patterns-pressure.mp4");
         try
         {
-            var clip = Path.Combine(Path.GetTempPath(), "patterns-pressure-" + Guid.NewGuid().ToString("N") + ".mp4");
             File.WriteAllBytes(clip, new byte[16]);
             var program = new ShowSnapshot { State = new ShowState(), Version = 1 };
             var preRoll = new[] { new MediaLocator.WantedInput(InputKeys.Video(clip), MediaLocator.WantedKind.VideoFile, clip, false, false, 100) };
@@ -166,11 +166,11 @@ public class MemoryPressureAppTests
             Assert.NotNull(InputBus.For(InputKeys.Capture("Preview cam")));                              // eased: the preview's source opens
             Assert.Equal(0, engine.PressureRefused);
             Assert.Equal("", engine.LimitNote);
-            File.Delete(clip);
         }
         finally
         {
             InputBus.Clear();
+            TempRun.Remove(clip);
         }
     }
 }

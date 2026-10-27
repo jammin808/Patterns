@@ -120,8 +120,7 @@ public class LowerThirdDesignerTests
         Assert.Same(ada, next);
         Assert.False(designer.RemoveEntry(ada2, out _));                          // already gone
 
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-designer-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-designer-").Path;
         try
         {
             var csv = Path.Combine(dir, "people.csv");
@@ -150,7 +149,7 @@ public class LowerThirdDesignerTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 }

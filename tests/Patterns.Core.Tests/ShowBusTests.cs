@@ -126,11 +126,13 @@ public class ShowBusTests
     [Fact]
     public void AnInstallKeepsItsIdAcrossRestarts()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-busid-" + Guid.NewGuid().ToString("N"));
+        var parent = TempRun.Folder("patterns-busid-").Path;
+        var dir = Path.Combine(parent, "settings");                                 // not there yet: the first start makes it
         try
         {
             var first = ShowBusIdentity.LoadOrCreate(dir);
             Assert.True(ShowBusIdentity.IsId(first));
+            Assert.True(File.Exists(Path.Combine(dir, ShowBusIdentity.FileName)));
             Assert.Equal(first, ShowBusIdentity.LoadOrCreate(dir));
             File.WriteAllText(Path.Combine(dir, ShowBusIdentity.FileName), "not an id");
             var fresh = ShowBusIdentity.LoadOrCreate(dir);
@@ -139,7 +141,7 @@ public class ShowBusTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(parent);
         }
     }
 
@@ -1350,7 +1352,8 @@ public class ShowBusTests
     [Fact]
     public void AnIdThatCannotBeKeptIsSaidWithWhatItCosts()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-busid91-" + Guid.NewGuid().ToString("N"));
+        var parent = TempRun.Folder("patterns-busid91-").Path;
+        var dir = Path.Combine(parent, "settings");                                                  // not there yet: made with the id
         try
         {
             var id = ShowBusIdentity.LoadOrCreate(dir, out var made);
@@ -1368,7 +1371,7 @@ public class ShowBusTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(parent);
         }
     }
 }

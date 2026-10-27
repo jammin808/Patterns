@@ -15,9 +15,9 @@ namespace Patterns.App.Tests;
 /// <summary>The Admin tab end to end: metrics → advisor → UI, GPU choice, restart, CSV, support info.</summary>
 public class AdminTests
 {
-    private static (AppServices Services, MainViewModel Vm, MainWindow Window, string Dir) Boot()
+    private static (AppServices Services, MainViewModel Vm, MainWindow Window, string Dir) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm, b.Window, b.Dir);
     }
 
@@ -312,8 +312,7 @@ public class AdminTests
     [AvaloniaFact]
     public void SettingsRoundTripKeepsAdminChoices()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-admin-persist-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-admin-persist-");
         var store = new SettingsStore(dir);
         var state = store.Load();
         state.Admin.Graphics.Preference = GpuPreferenceKind.PowerSaving;

@@ -25,4 +25,15 @@
     <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" PrivateAssets="all" />
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" Link="BannedSymbols.txt" Visible="false" Condition="!$(MSBuildProjectName.EndsWith('.Tests'))" />
   </ItemGroup>
+
+  <!-- Every suite's temporary files are its run's own, and its last test fails on any a test left behind
+       (tests/Shared/TempRun.cs): the helper is compiled into each *.Tests project, and its collection orderer
+       runs that fence after every other test of the suite. -->
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <Compile Include="$(MSBuildThisFileDirectory)tests/Shared/TempRun.cs" Link="TempRun.cs" Visible="false" />
+    <AssemblyAttribute Include="Xunit.TestCollectionOrdererAttribute">
+      <_Parameter1>Patterns.Tests.TempFenceLast</_Parameter1>
+      <_Parameter2>$(MSBuildProjectName)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

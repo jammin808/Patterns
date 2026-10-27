@@ -30,10 +30,9 @@ public class NodeMachineAppTests
         return ((IPEndPoint)probe.LocalEndpoint).Port;
     }
 
-    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState>? edit = null)
+    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState>? edit = null, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"patterns-tests-machine-{NodeKinds.Wire(kind)}-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder($"patterns-tests-machine-{NodeKinds.Wire(kind)}-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = true;
         s.Control.HttpPort = FreePort();
@@ -50,7 +49,7 @@ public class NodeMachineAppTests
     private static void Clean(NodeHost host, string dir)
     {
         host.Dispose();
-        try { Directory.Delete(dir, true); } catch { /* a log still open */ }
+        TempRun.Remove(dir);
     }
 
     [AvaloniaFact]

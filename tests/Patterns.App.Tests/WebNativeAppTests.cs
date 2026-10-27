@@ -53,7 +53,7 @@ public class WebNativeAppTests
     public void AResolvedPagePlaysThroughTheClipEngineUnderItsOwnKeyAndTheBrowserNeverOpens()
     {
         var b = TestApp.Boot();
-        var tool = Path.Combine(Path.GetTempPath(), "patterns-yt-dlp-" + Guid.NewGuid().ToString("N") + ".exe");
+        var tool = TempRun.FilePath("patterns-yt-dlp.exe");
         File.WriteAllText(tool, "stand-in");
         try
         {
@@ -106,7 +106,7 @@ public class WebNativeAppTests
         {
             InputBus.Clear();
             b.Dispose();
-            File.Delete(tool);
+            TempRun.Remove(tool);
         }
     }
 
@@ -141,7 +141,7 @@ public class WebNativeAppTests
             Assert.Contains("yt-dlp is not on this machine", vm.Media.WebNativeText);
 
             // A tool that fails leaves the browser in place with its complaint, and is not asked again at once.
-            var tool = Path.Combine(Path.GetTempPath(), "patterns-yt-dlp-" + Guid.NewGuid().ToString("N") + ".exe");
+            var tool = TempRun.FilePath("patterns-yt-dlp.exe");
             File.WriteAllText(tool, "stand-in");
             try
             {
@@ -166,7 +166,7 @@ public class WebNativeAppTests
             }
             finally
             {
-                File.Delete(tool);
+                TempRun.Remove(tool);
             }
         }
         finally

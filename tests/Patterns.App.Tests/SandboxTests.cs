@@ -14,9 +14,9 @@ namespace Patterns.App.Tests;
 /// <summary>Sandbox look programming: outputs hold program while the preview follows the edits.</summary>
 public class SandboxTests
 {
-    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot()
+    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm, b.Window);
     }
 
@@ -280,7 +280,7 @@ public class SandboxTests
     public void CuesAndClipsFireToAirWhileTheSandboxKeepsBuilding()
     {
         var (services, vm, window) = Boot();
-        var clip = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp4");
+        var clip = TempRun.FilePath("clip.mp4");
         File.WriteAllBytes(clip, new byte[] { 1 });
         try
         {
@@ -311,7 +311,7 @@ public class SandboxTests
         }
         finally
         {
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -563,7 +563,7 @@ public class SandboxTests
     public void AStingerClipLiftsBlackoutEvenWhileSandboxed()
     {
         var (services, vm, window) = Boot();
-        var clip = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp4");
+        var clip = TempRun.FilePath("clip.mp4");
         File.WriteAllBytes(clip, new byte[] { 1 });
         try
         {
@@ -582,7 +582,7 @@ public class SandboxTests
         }
         finally
         {
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -626,8 +626,7 @@ public class SandboxTests
     [AvaloniaFact]
     public void AirContentIsRecordedForRecoveryWhileProgramming()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-airrec-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-airrec-");
         var services = new AppServices(new SettingsStore(dir));
         AppServices.Instance = services;
         var vm = new MainViewModel(services);
@@ -674,8 +673,7 @@ public class SandboxTests
     [AvaloniaFact]
     public void RecoveryPutsTheAirLookOnTheOutputsNotIntoTheSandboxedPreview()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-airrec2-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-airrec2-");
 
         // What the audience was watching when the app died: a LED wall look.
         var onAir = new ShowState();

@@ -33,12 +33,12 @@ public class PrimaryInstanceAppTests
         public void Dispose() => Disposed = true;
     }
 
-    private static TestApp.Booted BootSecond(FakeLease lease)
+    private static TestApp.Booted BootSecond(FakeLease lease, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
         AppServices.LeaseFactory = _ => lease;
         try
         {
-            return TestApp.Boot();
+            return TestApp.Boot(callerFile: file, callerMember: member);
         }
         finally
         {

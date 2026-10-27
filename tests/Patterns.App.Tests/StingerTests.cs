@@ -15,15 +15,15 @@ namespace Patterns.App.Tests;
 /// <summary>Stingers end to end against the live app: override, revert, takeover, remote firing.</summary>
 public class StingerTests
 {
-    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot()
+    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm, b.Window);
     }
 
-    private static string TempClip(string name)
+    private static string TempClip(string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-{name}");
+        var path = TempRun.FilePath(name, file, member);
         File.WriteAllBytes(path, new byte[] { 0, 0, 0, 1 });
         return path;
     }
@@ -88,7 +88,7 @@ public class StingerTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -132,7 +132,7 @@ public class StingerTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -161,7 +161,7 @@ public class StingerTests
         }
         finally
         {
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -205,7 +205,7 @@ public class StingerTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -236,7 +236,7 @@ public class StingerTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -260,7 +260,7 @@ public class StingerTests
         }
         finally
         {
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }
@@ -286,8 +286,8 @@ public class StingerTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clipA);
-            File.Delete(clipB);
+            TempRun.Remove(clipA);
+            TempRun.Remove(clipB);
             window.Close();
             services.Shutdown();
         }
@@ -312,7 +312,7 @@ public class StingerTests
                 }
                 finally
                 {
-                    File.Delete(sound);
+                    TempRun.Remove(sound);
                 }
             }
         }
@@ -354,7 +354,7 @@ public class StingerTests
         }
         finally
         {
-            File.Delete(clip);
+            TempRun.Remove(clip);
             window.Close();
             services.Shutdown();
         }

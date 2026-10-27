@@ -26,7 +26,8 @@ public class TwinHandoverTests
     [Fact]
     public void TheMarkerIsWrittenReadAndHoldsOnlyWhileItsProcessLives()
     {
-        var home = Path.Combine(Path.GetTempPath(), "patterns-handover-" + Guid.NewGuid().ToString("N"));
+        var parent = TempRun.Folder("patterns-handover-").Path;
+        var home = Path.Combine(parent, "home");                                    // made by the marker's write
         try
         {
             Assert.Null(TwinHandover.Read(home));                                   // no folder yet: nothing
@@ -59,7 +60,7 @@ public class TwinHandoverTests
         }
         finally
         {
-            try { Directory.Delete(home, true); } catch { /* best effort */ }
+            TempRun.Remove(parent);
         }
     }
 

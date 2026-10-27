@@ -10,14 +10,9 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public class VogStingerTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "patterns-vog-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TempRun.Folder("patterns-vog-").Path;
 
-    public VogStingerTests() => Directory.CreateDirectory(_dir);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, true); } catch { /* best effort */ }
-    }
+    public void Dispose() => TempRun.Remove(_dir);
 
     // ---- 1. schema 6 and the migration -------------------------------------
 

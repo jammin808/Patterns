@@ -373,8 +373,7 @@ public class ActionLayerTests
     [AvaloniaFact]
     public void AnOlderShowFileIsWrittenBackOnceAtStartupSoItsNewIdsStick()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-boot-migrate-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-boot-migrate-");
         var store = new SettingsStore(dir);
         var old = new ShowState { SchemaVersion = 3 };
         old.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", Json = LookService.Capture(old) });

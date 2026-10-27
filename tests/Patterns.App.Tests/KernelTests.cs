@@ -35,12 +35,8 @@ public class KernelTests
         public int CallerCount => 2;
     }
 
-    private static string TempDir()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-kernel-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static string TempDir([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TempRun.Folder("patterns-kernel-", file, member).Path;
 
     [AvaloniaFact]
     public void TheKernelBuildsAloneWithNothingOnAirAndTakesWhatTheDeskWouldFillIn()
@@ -93,7 +89,7 @@ public class KernelTests
         }
         finally
         {
-            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+            TempRun.Remove(dir);
         }
     }
 

@@ -79,7 +79,7 @@ public class PrivateAddressFenceTests
             s.Pattern.Layer1.Source = LayerSource.Web;
             s.Pattern.Layer1.WebUrl = Window;
         }));
-        var zip = Path.Combine(Path.GetTempPath(), "patterns-fence-bundle-" + Guid.NewGuid().ToString("N") + ".zip");
+        var zip = TempRun.FilePath("patterns-fence-bundle.zip");
         try
         {
             var (services, vm, _) = b;
@@ -231,7 +231,7 @@ public class PrivateAddressFenceTests
         finally
         {
             b.Dispose();
-            if (File.Exists(zip)) File.Delete(zip);
+            TempRun.Remove(zip);
         }
     }
 

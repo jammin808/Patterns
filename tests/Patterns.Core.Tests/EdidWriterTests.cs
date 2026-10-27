@@ -159,11 +159,13 @@ public class EdidWriterTests
     {
         var plan = new EdidPlan(1920, 1080, SignalRate.Of(50, 1), "Stage left LED");
         var bytes = EdidWriter.Build(plan);
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-edid-" + Guid.NewGuid().ToString("N"));
+        var parent = TempRun.Folder("patterns-edid-").Path;
+        var dir = Path.Combine(parent, "export");                                   // not there yet: the export makes it
         try
         {
             var name = EdidWriter.SafeFileName("Stage left LED");
             Assert.Equal("patterns-edid-stage-left-led", name);
+            Assert.False(Directory.Exists(dir));
             var written = EdidWriter.Export(dir, name, plan, bytes);
             Assert.Equal(new[] { "patterns-edid-stage-left-led.bin", "patterns-edid-stage-left-led.hex", "patterns-edid-stage-left-led.txt" }, written.Select(Path.GetFileName));
             Assert.Equal(bytes, File.ReadAllBytes(written[0]));
@@ -173,7 +175,7 @@ public class EdidWriterTests
         }
         finally
         {
-            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            TempRun.Remove(parent);
         }
 
         var read = ControlProtocol.Parse("SCREEN 2 EDID");

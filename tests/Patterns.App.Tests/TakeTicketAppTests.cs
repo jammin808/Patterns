@@ -66,9 +66,9 @@ public class TakeTicketAppTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static StingerItemConfig Whoosh(TestApp.Booted b)
+    private static StingerItemConfig Whoosh(TestApp.Booted b, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var sting = new StingerItemConfig { Kind = StingerKind.Sting, Path = AudioFakes.TempFile("whoosh.mp4"), Name = "Whoosh" };
+        var sting = new StingerItemConfig { Kind = StingerKind.Sting, Path = AudioFakes.TempFile(b, "whoosh.mp4", file, member), Name = "Whoosh" };
         b.Vm.State.Stingers.Items.Add(sting);
         return sting;
     }

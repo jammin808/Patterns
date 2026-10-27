@@ -13,13 +13,12 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public class ShowFilesTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "patterns-showfiles-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TempRun.Folder("patterns-showfiles-").Path;
     private readonly string _media;
     private readonly string _wasMedia = ShowFiles.MediaDirectory;
 
     public ShowFilesTests()
     {
-        Directory.CreateDirectory(_dir);
         _media = Path.Combine(_dir, "media");
         ShowFiles.MediaDirectory = _media;
     }
@@ -27,14 +26,7 @@ public class ShowFilesTests : IDisposable
     public void Dispose()
     {
         ShowFiles.MediaDirectory = _wasMedia;
-        try
-        {
-            Directory.Delete(_dir, recursive: true);
-        }
-        catch
-        {
-            // A temp folder that will not go is the machine's problem, not the test's.
-        }
+        TempRun.Remove(_dir);
     }
 
     private string Elsewhere(string name, int bytes = 32)

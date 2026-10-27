@@ -61,8 +61,8 @@ public class LiveOutputsAudioAppTests
             var (services, vm, _) = b;
             var fakes = AudioFakes.Install(b);
             var state = vm.State;
-            var pgmPath = AudioFakes.TempFile("pgm.mp4");
-            var ownPath = AudioFakes.TempFile("own.mp4");
+            var pgmPath = AudioFakes.TempFile(b, "pgm.mp4");
+            var ownPath = AudioFakes.TempFile(b, "own.mp4");
             state.Pattern.Kind = PatternKind.Media;
             state.Pattern.Media.Source = MediaSource.Video;
             state.Pattern.Media.VideoPath = pgmPath;
@@ -157,7 +157,7 @@ public class LiveOutputsAudioAppTests
             var target = LiveTarget(services);
 
             // The live screen takes its own clip: the page is on no live output — muted over the transition, not cut.
-            var ownPath = AudioFakes.TempFile("own.mp4");
+            var ownPath = AudioFakes.TempFile(b, "own.mp4");
             OwnClip(services, state, target, ownPath);
             Settle(services);
             Assert.True(page.IsMuted);

@@ -168,8 +168,7 @@ public class OutputOwnershipTests
     [Fact]
     public void TheRecordAndTheAskSurviveTheDiskRoundTrip()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-own-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-own-").Path;
         try
         {
             var store = new OutputOwnerStore(dir);
@@ -208,7 +207,7 @@ public class OutputOwnershipTests
         }
         finally
         {
-            try { Directory.Delete(dir, recursive: true); } catch { /* the temp folder can wait */ }
+            TempRun.Remove(dir);
         }
     }
 

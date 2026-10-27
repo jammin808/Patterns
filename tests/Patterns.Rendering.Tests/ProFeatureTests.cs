@@ -120,7 +120,8 @@ public class ProFeatureTests
     [Fact]
     public void TheStoreKeepsEarlierVersionsOfTheShowSpacedAndTwentyDeep()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-backups-" + Guid.NewGuid().ToString("N"));
+        var parent = TempRun.Folder("patterns-backups-").Path;
+        var dir = Path.Combine(parent, "show");                         // not there yet: the first save makes it
         try
         {
             var store = new SettingsStore(dir) { BackupSpacing = TimeSpan.Zero };
@@ -162,7 +163,7 @@ public class ProFeatureTests
         }
         finally
         {
-            try { Directory.Delete(dir, recursive: true); } catch { /* a temp dir */ }
+            TempRun.Remove(parent);
         }
     }
 }

@@ -99,8 +99,8 @@ public class VogDuckTests
         }
         finally
         {
-            File.Delete(whoosh);
-            File.Delete(seats);
+            TempRun.Remove(whoosh);
+            TempRun.Remove(seats);
             b.Dispose();
         }
     }
@@ -155,8 +155,8 @@ public class VogDuckTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
-            File.Delete(seats);
+            TempRun.Remove(clip);
+            TempRun.Remove(seats);
             b.Dispose();
         }
     }
@@ -202,8 +202,8 @@ public class VogDuckTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
-            File.Delete(seats);
+            TempRun.Remove(clip);
+            TempRun.Remove(seats);
             b.Dispose();
         }
     }
@@ -253,9 +253,9 @@ public class VogDuckTests
         finally
         {
             InputBus.Clear();
-            File.Delete(seats);
-            File.Delete(welcome);
-            File.Delete(clip);
+            TempRun.Remove(seats);
+            TempRun.Remove(welcome);
+            TempRun.Remove(clip);
             b.Dispose();
         }
     }
@@ -300,8 +300,8 @@ public class VogDuckTests
         finally
         {
             InputBus.Clear();
-            File.Delete(clip);
-            File.Delete(seats);
+            TempRun.Remove(clip);
+            TempRun.Remove(seats);
             b.Dispose();
         }
     }

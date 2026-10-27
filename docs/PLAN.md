@@ -13582,3 +13582,152 @@ papers read the test job of its push instead — the App suite's count beside th
 fake's end-point lines — and 92.1's carrier log line naming the address that answered, beside the Nodes card and
 STATE's `bus.stagewatch.words`; 92.3's first run is read as the log's line naming where the key is read, beside the
 status strip, the TWIN card and the ADMIN page's tail.
+
+### 110.2 A unit added after the opening: 92.5, the tests leave no temporary folder behind
+
+**Why it was added.** The opening planned four units and the papers (§110.1). This unit was not among them: it is
+inserted before the papers, which become **92.6**, so everything 92.1 to 92.4 left "for 92.5's papers" is 92.6's, and
+§110.1's "92.5" wherever it names the papers reads 92.6. It is added for a measured cause, on this bench:
+- 92.4's validation stopped on ENOSPC: a Core fence test that writes a 24 MB log failed with the machine's disk full,
+  and that run kept its temporary files on a RAM disk to finish (92.4's commit says so);
+- at this unit's start the machine's `/tmp` held, by name, 59,685 `patterns-tests-*` folders, 1,162
+  `patterns-restart-*`, 581 `patterns-handover-*`, 349 `patterns-tests-desk-*`, 332 `patterns-uifault-*`, 180
+  `patterns-recovery-*`, 164 `patterns-takeover-*`, 164 `patterns-crash-*`, 106 `patterns-tests-desk88-*` and a long
+  tail of smaller families, 9.3 GB with Stagewatch's as the workflow read them before this unit;
+- 92.3's review found the largest family's maker: `TestApp.Booted.Dispose` never removed its `Dir`, so one whole App
+  run left 867 folders, 111 MB.
+A suite that fills the disk it runs on fails for a reason not its own, as 92.4's did. The requester: no one in words —
+the bench's own disk asked it, measured; the evidence class: a measurement on this bench (none of the five classes).
+
+**What it does.**
+- *The run's own folder* (`tests/Shared/TempRun.cs`, compiled into every `*.Tests` project by the root
+  `Directory.Build.props`). At the module's first touch the process's temp path — `TMPDIR` on Linux and macOS, `TMP` and
+  `TEMP` on Windows — is pointed at a fresh `patterns-run-<suite>-<id>` under the machine's, so every
+  `Path.GetTempPath()` of the suite, of the code under test and of a child process a test starts (the bench host, the
+  twin's launcher) lands there. The reason is the CI test job: one `dotnet test` runs the suites side by side, as many
+  at once as the machine has processors (run 281 started the Rendering, Core, Devices and App runs within a second, and
+  Audio, Assistant and Audience each as an earlier one ended), so a listing of the machine's temp path at a suite's
+  start and end would read another suite's folders as its own. A folder of the run's own is read by its run
+  alone, and nothing outside it is read or removed: earlier runs' leftovers stay where they are. The process's exit
+  removes the run's folder whatever it holds (`PATTERNS_TEST_KEEP_TEMP=1` keeps it for a look), so a filtered run, a
+  failed one or a discovery-only process leaves nothing either; the fence, not that removal, is what holds each test to
+  its own.
+- *Made and removed through one helper.* `TempRun.Folder(prefix)` makes a folder (a `using` removes it),
+  `TempRun.FilePath(name)` names a file, and both record the test that asked (the caller's file and member, carried
+  through every helper of the suites that makes one for a test: the classes' desk and node boots, `TempDir`, `FreshDir`,
+  `TempCsv`, `RedPng`, `TempSound`, the clips a desk is handed; a class's own folder is recorded by its class).
+  `TempRun.Remove(path)` removes a folder or a file, retrying while a process still holds one — on Windows an open file
+  blocks its folder's removal, and a log or a socket closes a moment after its owner — ten tries 50 ms apart, half a
+  second at most (no measurement sets it); past that it keeps what held it, and the fence tries the path again at the
+  run's end and says it in its output, with the test that made it. It never throws, so a test's own failure is never
+  hidden behind its clean-up's. It replaces every silent `try { Directory.Delete(…) } catch { /* best effort */ }` the
+  suites had.
+- *Every fixture and test that makes something under the temp path removes it when it ends.* `TestApp.Boot` makes the
+  desk's folder through `TempRun` and `Booted.Dispose` removes it after the shutdown and the reclaim — a desk its test
+  forgot is closed, and its folder removed, by the next test's boot as before, and by the fence for the run's last; a
+  test that reads the folder after its desk has closed or boots again in it passes a folder of its own as `Boot`'s
+  `dir`: `RunTests`' relaunch, `ShutdownPhaseTests`' stuck autosave, `QualityAppTests`' profile written at the close,
+  and `LifecycleTests`' change after the close; the second and the fourth wait for the save they released or asked of
+  a closed desk to land before their folder goes. A stand-in clip a desk plays is handed to that desk
+  (`AudioFakes.TempFile(b, …)`, `Booted.Own`) and goes at its close. The suites' own helpers (`TempDir`, `Temp`,
+  `TempClip`, `TempCsv`) make through `TempRun`; the fixtures with a folder for the class (`ShowFilesTests`,
+  `VogStingerTests`, `SettingsStoreTests`, `AppearanceMatrixTests`, the room's `FakeAudienceHost`) remove it in
+  `Dispose`; the tests that made one and never removed it (`ActionLayerCoreTests`, `GoGateTests`,
+  `RecoveryStoreTests`, `ContentTargetTests`, `PlaylistOnAirTests`, `PrepModeTests`, `SandboxTests`' two recovery
+  tests, `StartupTests`, `StingerLifecycleTests`' recovery test, `ActionLayerTests`, `AdminTests`' settings test) hold
+  it in a `using`; `Path.GetTempFileName()` in `InstallTests` and `Directory.CreateTempSubdirectory` in the residency
+  tests go through `TempRun`. A path a test only names and nothing makes (`DeckConversionTests`' profile, the "no such
+  file" paths, the no-tool folder of `WebNativeAppTests`) stays as it was. Where the code under test makes a folder
+  that is missing — the EDID export (`EdidWriter.Export`), the show network id (`ShowBusIdentity.LoadOrCreate`), the
+  sightings of a token seen in clear (`TokenClearSightings`), the settings store's first save — its test hands it a
+  folder not yet made, under one it made through `TempRun` and removes, so that making stays tested as it was before
+  this unit (the twin's handover marker and launcher already did so).
+- *The fence.* Each suite's last test, `TempFenceTests.TheRunLeavesNoTemporaryFolderOrFileOfItsOwnMakingBehind`, in a
+  collection `TempFenceLast` (the suite's collection orderer, named for every `*.Tests` project by the same props) puts
+  after every other, in the runtime's own order otherwise, and which disables parallelization, so in the three suites
+  that run collections in parallel (Devices, Audio, Audience) it runs after all of them. It fails when the orderer did
+  not put it last; it tries once more what a test could not remove because a process held it (gone now: said, not
+  counted); then it lists the run's folder and fails on every entry, each named with what is in it and its story —
+  made by which test and never removed; removed at its test's end and written again after, by something that outlived
+  its test; held past the run's end; or not made through `TempRun` at all. A child .NET process's own diagnostics
+  socket and debugger pipes (`dotnet-diagnostic-*`, `clr-debug-pipe-*`), left when its test killed it, are the
+  runtime's: said, not judged; a named pipe code opens (`CoreFxPipe_*`) is code's, and judged. On the App suite the
+  fence first closes a desk the last test left open, as the next boot would have, and names every test whose desk was
+  closed late, by the next boot or by the fence: said, not judged, since a late close removes the desk's folder as
+  its own close would (the memlog's `late_close` lines name the same tests). Its last line is the reading: "The run's
+  temporary folder …: N made through TempRun, N removed by their tests, 0 fault(s)."
+
+**The proof.** Built (0 warnings, 0 errors) and run on this bench with `TMPDIR` pointed at a fresh folder under the
+tree's `artifacts/` (ignored by `.gitignore` from this unit), all seven suites green, each with its fence one test more
+than before and each fence's line reading 0 faults: Core 1,325 (51 made through `TempRun`, 51 removed by their tests),
+Rendering 673 (49, 49), Devices 9 (0), Audio 14 (0), Assistant 38 (1, 1), Audience 3 (2, 2) and App 915 in 18 m 11 s
+(947, 947; the fence also said, not judged, the diagnostics socket and two debugger pipes a child .NET process left when
+its test ended it, and named the 120 desks closed late by their tests). After each run no `patterns-run-*` folder was
+left in that `TMPDIR`: each went at its process's exit.
+
+At this commit the machine's `/tmp` holds none of the families counted under *Why it was added*: the session that runs
+the four trees' workflow cleared its `patterns-*` and `sw-*` entries on 2026-10-27 between 00:57 and 01:30 UTC, outside
+every suite and this unit. Those counts are the record of the cause; they are no longer this bench's state.
+
+The fence's first whole App run failed, and on two tests, both found by the unit itself. `QualityAppTests` read the
+profile its desk wrote at the close from the desk's folder, after the close had removed it (a `NullReferenceException`
+at the read, the test's own failure); and the fence named `LifecycleTests.AChangeAfterTheDeskClosedArmsNoTimer`'s
+folder, "removed at its test's end and written again after — by something that outlived its test": the test asks a
+closed desk to save, and the persistence lane wrote `patterns.settings.json` back into the folder the close had
+removed. Both now boot in a folder of their own, and the second waits for that save before its folder goes. The
+write itself is the product's: `SaveInBackground` takes a save from a closed desk where `ArmSave` refuses one, which
+92.6's papers name as an OPEN row, not fixed here (tests only). That run's count was 945 made, 942 removed.
+
+Mutation checks, each applied, built, run and restored byte for byte (and the restored files touched and built
+again, since the restore keeps the older time stamp):
+- a test that forgets its folder (`ActionLayerCoreTests`' log test without its `using`): Core's fence fails,
+  "patterns-log-… (folder, 1 file(s), 623 bytes: patterns.showlog.jsonl): made by
+  ActionLayerCoreTests.TheShowLogAppendsAndReadsItsTail, never removed";
+- a folder made with `Path.GetTempPath()` and never removed (`GoGateTests` as it was before this unit):
+  "patterns-place-… (folder, 2 file(s), 976 bytes: …): not made through TempRun — a test or the code under test
+  called Path.GetTempPath() itself, and nothing removed it";
+- the orderer putting the fence first: "the fence's collection ran before "Test collection for
+  Patterns.Core.Tests.EyeReplayTests", so a test after it could leave a folder unread";
+- 92.3's finding put back, `Booted.Dispose` without its removal, on `RunTests` with the fence: the fence fails and
+  names eight desk folders, each "made by RunTests.<test>, never removed" (the ninth test, the relaunch, boots in a
+  folder of its own);
+- the code under test no longer making a missing folder (`EdidWriter.Export`'s, `ShowBusIdentity.LoadOrCreate`'s and
+  `AtomicFile`'s `Directory.CreateDirectory` taken out; the token sightings and the settings store write through
+  `AtomicFile`): the export test fails with `DirectoryNotFoundException`, both show network id tests fail (no file
+  written, the id not kept), and so do the sightings test and the settings store's backups test, beside
+  `AtomicFileTests`, which already handed a folder not yet made. In the unit's first shape these tests were given
+  folders `TempRun.Folder` had made, and the review saw the export test pass with its line taken out.
+
+One whole App run on the final code failed on
+`AudienceFuzzTests.TheControlWiresLinesAndTheTwinsFirstLineAreBoundedToo` (a STATE push read after the line's refusal,
+where the test wants the refusal last), the real-socket test REVIEW records as this machine's in rounds 76 and 88;
+nothing of this unit reaches the wire, it passed three times in its class straight after, and the run counted above is
+the next whole one.
+
+Not exercised: a file still held at its test's end. On Linux an open file does not stop its folder's removal, so the
+retry and its words run only where one does (Windows, below).
+
+**What it did not do.**
+- It removes no earlier run's leftovers: the machine's temp path is read and cleared by its owner, never by a suite.
+- The dotnet CLI's own `MSBuildTemp*` and short random folders in `TMPDIR`, made by `dotnet test` before any suite
+  starts, are the CLI's and outside every suite's process.
+- Files a suite writes outside the temp path stay out of scope: `SharedFrameRing`'s rings (`/dev/shm` on Linux,
+  `LocalApplicationData/Patterns/rings` elsewhere), and a desk built with no store, which writes to
+  `LocalApplicationData/Patterns`.
+- On Linux and macOS the runtime keeps its environment to itself: `Environment.SetEnvironmentVariable` is not seen by
+  native code, so a native library that reads `TMPDIR` itself writes to the machine's temp path, outside the run's
+  folder and unseen by the fence. Child processes are given the new value.
+- The closed desk's save into a removed folder (above) is named, not changed.
+- The desks closed late are named, not mended: most come from the classes whose own `Boot` hands each test a tuple
+  with nothing to close it by (`AdminTests`, `SandboxTests`, `PrepModeTests`, `StingerTests` and others); the next
+  boot closes them, and removes their folders, as before.
+- The product's own temporary folder, the WebView2 probe's (`--verify-runtime` on Windows, not a suite), is unchanged.
+- A held file is not exercised on Windows here; the windows-smoke job runs the six fences of the suites that are not
+  the desk's there, where an open file blocks a removal, and the job's results carry their words. The desk's classes
+  in that job, the lifecycle job and any filtered run leave the App fence out; their folders still go at the exit.
+- No measurement sets the retry's ten tries and 50 ms.
+
+**Readers.** Tests only: no verb, STATE field, menu entry, deck action, Eye plane or assistant fact moves, so the
+desk, the right-click menus and the wire stay in step by gaining nothing; no platform path, so no walk is asked
+(REVIEW round 92, written with 92.6's papers, says "Walk: none asked" for it). The round's reading for this unit is
+each suite's fence line in its test output, beside the suite's count.

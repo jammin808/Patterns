@@ -83,17 +83,14 @@ public class SupervisorPolicyTests
 
 public class RecoveryStoreTests
 {
-    private static string TempDir()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-recovery-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static TempFolder TempDir([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TempRun.Folder("patterns-recovery-", file, member);
 
     [Fact]
     public void WritesReadsAndClears()
     {
-        var store = new RecoveryStore(TempDir());
+        using var dir = TempDir();
+        var store = new RecoveryStore(dir);
         Assert.Null(store.Read());
 
         store.Write(live: true, audioPlaying: false);
@@ -117,7 +114,7 @@ public class RecoveryStoreTests
     [Fact]
     public void GarbageFileReadsAsNull()
     {
-        var dir = TempDir();
+        using var dir = TempDir();
         File.WriteAllText(Path.Combine(dir, "patterns.recovery.json"), "{not json");
         Assert.Null(new RecoveryStore(dir).Read());
     }

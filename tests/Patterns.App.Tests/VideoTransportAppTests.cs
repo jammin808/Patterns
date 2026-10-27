@@ -16,13 +16,13 @@ public class VideoTransportAppTests
 {
     private static string Send(CommandRouter router, string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
 
-    private static FakeSource PutClipOnAir(TestApp.Booted b, AudioFakes fakes, string name, bool loop = false)
+    private static FakeSource PutClipOnAir(TestApp.Booted b, AudioFakes fakes, string name, bool loop = false, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
         var (services, vm, _) = b;
         vm.ActivePattern.Kind = PatternKind.Media;
         vm.ActivePattern.Media.Source = MediaSource.Video;
         vm.ActivePattern.Media.Loop = loop;
-        vm.ActivePattern.Media.VideoPath = AudioFakes.TempFile(name);
+        vm.ActivePattern.Media.VideoPath = AudioFakes.TempFile(b, name, file, member);
         Dispatcher.UIThread.RunJobs();
         services.ReconcileInputs();
         var fake = fakes.Sources.Single();

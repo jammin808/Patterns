@@ -683,7 +683,7 @@ public class SpotifyAppTests
     public void AVideoStingerMayShareACueWithBreakMusic()
     {
         using var r = new Rig(enabled: true, connected: true);
-        var clip = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-doors.mp4");
+        var clip = TempRun.FilePath("doors.mp4");
         File.WriteAllBytes(clip, new byte[] { 0, 0, 0, 1 });
         try
         {
@@ -714,7 +714,7 @@ public class SpotifyAppTests
         }
         finally
         {
-            File.Delete(clip);
+            TempRun.Remove(clip);
         }
     }
 

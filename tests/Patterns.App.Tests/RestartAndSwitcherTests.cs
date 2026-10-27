@@ -20,8 +20,8 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class RestartAndSwitcherTests
 {
-    private static TestApp.Booted Boot(Action<string>? prepare = null)
-        => TestApp.Boot("patterns-restart-", prepare);
+    private static TestApp.Booted Boot(Action<string>? prepare = null, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TestApp.Boot("patterns-restart-", prepare, callerFile: file, callerMember: member);
 
     private static void GoLive(MainViewModel vm)
     {

@@ -67,16 +67,24 @@ public class LifecycleTests
     [AvaloniaFact]
     public void AChangeAfterTheDeskClosedArmsNoTimer()
     {
-        var b = TestApp.Boot();
+        using var home = TempRun.Folder("patterns-tests-");                // the save asked after the close writes into it
+        var b = TestApp.Boot(dir: home);
         var services = b.Services;
         b.Dispose();
-        TestApp.DrainDispatcher();
-        var before = DeskTimers.Running;                                    // another test's leftovers, if any, are not this test's
-        services.State.Countdown.Label = "after the close";                 // a tracked change: the publish, the save debounce, the pages' refreshes, the wire's push
-        services.PublishRuntime();                                          // a runtime flag: the wire's push alone
-        services.SaveInBackground();
-        TestApp.DrainDispatcher();
-        Assert.True(DeskTimers.Running == before, $"timers armed after the close: {string.Join(", ", DeskTimers.RunningOwners)}");
+        try
+        {
+            TestApp.DrainDispatcher();
+            var before = DeskTimers.Running;                                // another test's leftovers, if any, are not this test's
+            services.State.Countdown.Label = "after the close";             // a tracked change: the publish, the save debounce, the pages' refreshes, the wire's push
+            services.PublishRuntime();                                      // a runtime flag: the wire's push alone
+            services.SaveInBackground();
+            TestApp.DrainDispatcher();
+            Assert.True(DeskTimers.Running == before, $"timers armed after the close: {string.Join(", ", DeskTimers.RunningOwners)}");
+        }
+        finally
+        {
+            TestApp.FlushFiles(services);                                   // that save lands before its folder goes
+        }
     }
 
     [AvaloniaFact]

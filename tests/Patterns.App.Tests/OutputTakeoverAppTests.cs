@@ -42,12 +42,8 @@ public class OutputTakeoverAppTests
         }
     }
 
-    private static string TempDir()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-takeover-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static string TempDir([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+        => TempRun.Folder("patterns-takeover-", file, member).Path;
 
     /// <summary>The ownership record is kept on a worker (a slow disk must never cost the desk its second): pump and wait for it.</summary>
     private static bool WaitFor(Func<bool> done, int timeoutMs = 5000)
@@ -82,7 +78,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -101,7 +97,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -133,7 +129,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -166,7 +162,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -199,7 +195,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -225,7 +221,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -253,7 +249,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -463,7 +459,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -496,7 +492,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -527,7 +523,7 @@ public class OutputTakeoverAppTests
         finally
         {
             OutputTakeover.Reset();
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 
@@ -650,8 +646,7 @@ public class OutputTakeoverAppTests
     [AvaloniaFact]
     public void TheTakeoverIsToldOnTheHealthLineAndTakenOnlyOnce()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-takeover-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-takeover-").Path;
         try
         {
             var store = new OutputOwnerStore(dir);
@@ -683,7 +678,7 @@ public class OutputTakeoverAppTests
             HealthMonitor.WatchdogNote = "";
             OutputTakeover.Reset();
             AppServices.Instance = null!;
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 }

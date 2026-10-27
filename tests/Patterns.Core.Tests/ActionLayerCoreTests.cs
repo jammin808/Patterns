@@ -10,8 +10,7 @@ public class ActionLayerCoreTests
     [Fact]
     public void AnUnknownEnumValueFromANewerBuildLoadsWithTheRestOfTheShowIntact()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-enum-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-enum-");
         var state = new ShowState { Name = "Awards 2026" };
         state.Pattern.Kind = PatternKind.ColorBars;
         state.Overlays.Clock.Enabled = true;
@@ -112,8 +111,7 @@ public class ActionLayerCoreTests
     [Fact]
     public void TheShowLogAppendsAndReadsItsTail()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-log-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        using var dir = TempRun.Folder("patterns-log-");
         var log = new ShowLog(dir);
         for (var i = 0; i < 5; i++)
         {

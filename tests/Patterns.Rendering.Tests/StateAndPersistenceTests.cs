@@ -109,14 +109,9 @@ public class ChangeTrackerTests
 
 public class SettingsStoreTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "patterns-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TempRun.Folder("patterns-tests-").Path;
 
-    public SettingsStoreTests() => Directory.CreateDirectory(_dir);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, true); } catch { /* best effort */ }
-    }
+    public void Dispose() => TempRun.Remove(_dir);
 
     [Fact]
     public void RoundTripsFullState()

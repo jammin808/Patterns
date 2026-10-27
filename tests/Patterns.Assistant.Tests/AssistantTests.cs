@@ -54,8 +54,7 @@ public class AssistantTests
     [Fact]
     public void TheKeyStoreRoundTripsMasksClearsAndSurvivesJunk()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-assistant-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-assistant-").Path;
         try
         {
             var store = new AssistantKeyStore(dir);
@@ -83,7 +82,7 @@ public class AssistantTests
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            TempRun.Remove(dir);
         }
     }
 

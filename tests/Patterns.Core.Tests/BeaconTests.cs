@@ -107,8 +107,7 @@ public class BeaconTests
     [Fact]
     public void TheStandDownNoteIsReadOnceAndReachesTheHealthLine()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-beacon-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = TempRun.Folder("patterns-beacon-").Path;
         try
         {
             Assert.Equal("", WatchdogMarker.ReadAndClear(dir));
@@ -132,7 +131,7 @@ public class BeaconTests
         }
         finally
         {
-            try { Directory.Delete(dir, true); } catch { /* a temp folder left behind is not a failed test */ }
+            TempRun.Remove(dir);
         }
     }
 

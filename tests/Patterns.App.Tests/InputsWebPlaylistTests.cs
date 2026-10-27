@@ -46,9 +46,9 @@ public class LaunchArgumentTests
 /// <summary>Playlist reorder, input pick lists and web targeting through the live view model.</summary>
 public class InputsWebViewModelTests
 {
-    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot()
+    private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
-        var b = TestApp.Boot();
+        var b = TestApp.Boot(callerFile: file, callerMember: member);
         return (b.Services, b.Vm, b.Window);
     }
 

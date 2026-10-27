@@ -137,7 +137,7 @@ public class InputCropTests
     [Fact]
     public void AStillIsCroppedMirroredAndTurnedOnTheOutputAndTheDeskGetsItsHandle()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-crop-" + Guid.NewGuid().ToString("N"));
+        var dir = TempRun.Folder("patterns-crop-").Path;
         try
         {
             var path = Quarters(dir);
@@ -210,7 +210,7 @@ public class InputCropTests
         }
         finally
         {
-            try { Directory.Delete(dir, recursive: true); } catch { /* a temp dir */ }
+            TempRun.Remove(dir);
         }
     }
 
