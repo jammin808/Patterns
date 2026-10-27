@@ -10,6 +10,38 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 93 — 2026-10-27 — PeerLink from Patterns' side: the core and its vectors in Core, the Stagewatch link on it, the link's record in every reader, and the STAGEWATCH verbs with trust and accept on the desk alone
+
+`round-93` · PLAN §111 · 2,977 tests at the opening · module 3.19.1 at the opening · evidence: a handed-in critique (the PeerLink profile, now Show Bus 1.3's §13 and §14 as copied here, with patterns-playmap-side's G34, the Eye critique's trust verbs and the plan revised against its critique), beside this tree's own findings at 92.4 (L83, L84, L87) and round 91's L67
+
+- **Opened (93.0).** The plan's round 92 — its PeerLink round, P92.0 to P92.5 — is this round, 93.0 to 93.5, at PLAN
+  §111 (the plan's §110): round 92 here was the repair round §110.1 inserted, so every later round of the plan reads one
+  higher, as that opening's key says. Nothing in `docs/field/`; CI's run 282, on round 92's papers, read as the files:
+  every job green but `release`, skipped with no tag, and windows-smoke ran 92.5's six temporary-folder fences on
+  Windows for the first time, each "0 fault(s)", which meets L92's close. The requester: the maintainer's show-network
+  ask, the plan's third train ("every link honest from its own end"), whose units here are the profile's unilateral
+  rules at level 0 for this desk's one connector, the Stagewatch link.
+  None waits on another tree or an owner's answer. The second train has landed in every tree but for Stagewatch's
+  releases, the maintainer's PC work, which 93.5 reads again. Read against the head: the pairing token keeps
+  `PairingToken.Normal` as the legacy proof's key (13.6.8) and gains 13.5.1's canonical form beside it, a token of
+  another shape refused at entry and one saved before kept and said; the clock's admission and CLOCKS APART by 13.11
+  for the twin and the link alike (L83); the 82 vectors named the core's, and the four legacy refusals that ran
+  nowhere, run against the core; Node in CI's test job. The link (93.2) resets its redial only after 10 s verified,
+  keeps holds across a restart named by the key's kid, never a hash of the key (L67), runs its side calls on a lane of
+  their own (L84), matches pongs and retries owed results on 13.12.9's schedule (L87); the key goes only to a pin a
+  proof or a person confirmed, so 93.2 lands the desk's Trust press, on both desks and in its right-click menus, with
+  that rule. A pin carried from rounds 88 to 92 reads `first` — 13.8.2's stricter reading than the plan's — so after
+  the upgrade every keyed link holds its key and its node routes (context post, approvals, owed results) until one
+  Trust press per Stagewatch. Every keyed link reads amber `legacy` until both ends speak `LINK` (round 96 here), the
+  contract's light, said in words. STATE's `link` goes after `held`, the row's end; the desk's own context gains the
+  link's `link:stagewatch` item and row and the `peers` rows' `heard`, `link` and `verified` (93.3). TRUST and ACCEPT
+  stay on the desk alone, as the plan says: a departure from 13.16.6's "every surface", named, with an OPEN row 93.5
+  adds. The module takes 3.20.0 once, at 93.3. OPEN: L83 (93.1), L84, L87 and L67 (93.2) taken, L92 to close on run 282;
+  L44, L50, L56, L61, L66, L73, L77, L85, L86, L88, L89 and L93 read and kept. The round asks its walks (§22 for the
+  twin's clock words, §26 and §27 for the link); 93.5 writes the notes. STAGEWATCH LINK's journal rows and the Super
+  Check's "Show network links" row, read beside the Nodes card, close the round. The papers (93.5) write what landed,
+  REVIEW round 93, the count at the round's end and round 92's tag row (`4031670`); the round's tag waits for them.
+
 ## Round 92 — 2026-10-26 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, the twin's new key in no line and masked on the ADMIN page's log tail, Show Bus 1.3 copied byte for byte, and the seven suites leave no temporary folder behind
 
 `round-92` · PLAN §110 · REVIEW round 92 · 2,977 tests · module 3.19.1 (unchanged) · evidence: CI's own runs (runs 275 to 280, the test job red on every push since round 89, and run 281 on the round's code, green) and round 91's papers (L64, L65), with web research behind the cause (the .NET 10 `HttpListener`'s source, the runner image's build script, glibc's address order) and, for 92.5, a measurement on this bench (its disk); none of the five classes whole, and no one asked for the round in words

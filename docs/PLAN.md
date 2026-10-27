@@ -14079,3 +14079,297 @@ which of its name's addresses answered (§110.3).
   `bus.stagewatch.words`; 92.3's first run as the log's one line naming where the key is read, beside the status strip
   (no line), the TWIN card (the key) and the ADMIN page's tail (masked); 92.2's census at nought in the three rows at
   every cycle beside the lifecycle job's memlog; and 92.5's fence line beside each suite's count.
+
+## 111. Round 93 — PeerLink from Patterns' side: the core and its vectors in Core, the Stagewatch link on it, the link's record in every reader, and the STAGEWATCH verbs with trust and accept on the desk alone
+
+### 111.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 92 — its PeerLink round, the plan's units P92.0 to P92.5 — under the
+number §110.1's key gives it. Round 92 here was the repair round that opening inserted, so the plan's round 92 is round
+93 here, and its section is §111, not the plan's §110. Its units keep their order and their dependencies under the new
+number:
+
+| The plan's unit | Here | What it is |
+|---|---|---|
+| P92.0 | 93.0 | this opening: PLAN §111's first lines and the changelog's round 93 entry |
+| P92.1 | 93.1 | the PeerLink core in `Patterns.Core`, its vectors, the token's canonical form, the clock's admission |
+| P92.2 | 93.2 | the Stagewatch link on the core |
+| P92.3 | 93.3 | the link's record in every reader |
+| P92.4 | 93.4 | the STAGEWATCH verbs: set and follow the link from the wire, the deck and the menus; trust and accept on the desk alone |
+| P92.5 | 93.5 | the papers (PLAN §111, REVIEW, CHANGELOG, README, REMOTE, COMPANION, OPEN) and round 92's tag row |
+
+The plan's check for this unit greps for `^## 110\. Round 92`; here it is `^## 111\. Round 93`. Every later Patterns
+round of the plan reads one higher, as §110.1's table says: the plan's round 93 (one speaker message, a held playlist
+clip, `VIDEO … ON <key>`) is round 94 here, §112, and so on to the plan's round 99, round 100 here. Another tree's unit
+that waits on one of them waits on the same work under the number here: Stagewatch's VT rows (its SW20.13) wait on the
+plan's round 93's papers, which are round 94's. The designs behind the round name it by their own labels, mapped as the
+plan maps them: the PeerLink profile's "Round 90" core unit is 93.1 and its link unit 93.2 and 93.3;
+patterns-playmap-side's 91.1 (gap G34) is 93.4. The maintainer may still put the numbers back (§110.1); nothing in this
+round depends on them.
+
+**What the files said.** Nothing from the rig: `docs/field/` holds only its README, no report has arrived since round
+79 began keeping them, and the last files read were round 78's (§96.1). The files this opening reads are CI's own — the
+run of round 92's papers push, which §110.10 left to the round after — read on GitHub from each job's log and from the
+test results the windows-smoke job uploads, in the shape §96.1 reads a report.
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 282, `4031670` (92.5 and 92.6), started 2026-10-27 05:31 UTC — windows-smoke (windows-2025-vs2026 20261021.278.1) | Green. The six suites that are not the desk's — Core 1,325, Rendering 673, Devices 9, Audio 14, Assistant 38, Audience 3 — every test passed, each suite's last test its temporary-folder fence, whose line in the uploaded results reads "0 fault(s)": made through `TempRun` and removed by their tests, Core 51 of 51, Rendering 49 of 49, Devices 0, Audio 0, Assistant 1 of 1, Audience 2 of 2, each run's folder `C:\Users\runneradmin\AppData\Local\Temp\patterns-run-<suite>-<id>`. The desk's classes 32 of 32. "WebView2: ok — runtime 155.0.4283.62 — a page opened, its document script spoke and a script answered, in 3347 ms"; RUNTIME OK | 92.5's fences ran on Windows for the first time, where a file a process still holds blocks its folder's removal, and no test left a folder or held a file past its run's end | L92's close ("its six fences green") is met: 93.5 closes the row, naming this run |
+| 282, the same commit — lifecycle, companion-module, rollback-script, portable-exe, release | Green: the hundred cycles, strict, and the footprint per role; the module's tests, `lines.txt` current and its check. `portable-exe`, which waits on the test job, was still running when this opening first read the run and finished green at 05:51 UTC; `release` was skipped, since it needs a tag the push did not carry | the papers moved nothing these jobs read | nothing |
+| 282, the same commit — test (ubuntu-latest) | Green, finished 05:45 UTC: Core 1,325, Rendering 673, Devices 9, Audio 14, Assistant 38, Audience 3, App 915 in 12 m 37 s — 2,977, round 92's count. `getent ahosts localhost` gave `::1` first, then `127.0.0.1`; the step after the suites printed "15 Scripted Stagewatch (an HttpListener on localhost): reached at ::1." Each suite's fence line in its uploaded results reads "0 fault(s)" (App 947 made and 947 removed, naming 120 desks closed late) | the seven fences hold on the runner as on the bench, and 92.1's dial reached every name-bound fake at its second address again | nothing new: L91 (the 120 desks) stands as written |
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains: Show
+Bus as the contract between the four apps, and PeerLink as one proved, bounded, live link between two of them that
+carries it. This round is the plan's third train's first Patterns round — "every link honest from its own end" — and its
+units are the profile's unilateral rules at level 0 for this desk's one connector, the Stagewatch link: what a link can
+do and say on its own, before either end speaks `LINK`. The owner answered every question the round meets with the
+plan's recommended answer: *P-legacy* (labelled amber fallbacks for another app's older version only, each in OPEN,
+removed at 1.4's default flip) and *X-declines* (G34's assistant-proposable link declined: repointing a key-bearing link
+is a person's decision).
+
+Evidence class: **a handed-in critique** — the PeerLink profile, a handed-in design, which is now Show Bus 1.3's §13
+and §14 as 92.4 copied them here byte for byte and as `ShowBusSpecTests` holds them, its vectors the ```peerlink block;
+with patterns-playmap-side's 91.1 (G34, the link set from the wire, the deck and the menus), the Eye critique's fourth
+item (trust and accept on the desk alone) and the plan revised against its critique; gaps G08, G16 and G34. Beside it
+stand this tree's own findings, which the copy's fence named at 92.4 and the ledger holds: L83 (the clock), L84 (the
+side calls in the beat's path), L87 (owed results' schedule) and round 91's L67 (a hold that lives in the process). No
+maintainer's list, rig report or show laptop's files stand behind the round, and no measurement: the numbers it keeps
+are §14's, not this desk's measurements, and the one cost it touches — a beat that waits on its side calls — it removes
+rather than governs (L84).
+
+**The train and the other trees.** None of the round's units waits on another tree's unlanded unit or on an owner's
+answer: 93.1 depends on round 91's 91.5, which landed here as 92.4 (`c06e548`), and each later unit on the one before it
+in this tree. So no unit moves under the plan's rule R3. The rule R1 closes a round's papers only after the train
+before has closed. Read at this opening, the second train's units have all landed:
+- Stagewatch's SW19.1a to SW19.13m are committed — Show Bus 1.3 final at `ec8ad25`, the kit (its PeerLink core,
+  `src/Timer.Core/PeerLink.cs`, SW19.2a `a63e5fc` and SW19.2c `6f5f71c`; the scripted peer), the hello 1.3, its own
+  context, certificates, view passes, the 2.19 papers (SW19.11, `b7d588f`) and the interop lane's track — and its head
+  is `71cc31a`, which carries the third train's SW20.10 (`b256a9f`, the rig's message signals, which the plan's
+  speaker-message unit waits on), SW20.9 (`1dc5ff8`) and SW20.1 (`71cc31a`, the playout model) after them;
+- PlayMap's PM-4 (`8b7f36e5`, the 1.3 copy and its kit) and PM-5 (`616922a4`, the node link) are committed, and
+  Mapper's head is `e306699f`, which carries this train's PM-6 (its PeerLink core and its dialled links' hygiene at
+  level 0), landed while this opening was read;
+- this tree's rounds 90 and 91 and the moved 91.5 (92.4).
+
+What is not done is the release half of Stagewatch's SW18.8 and SW19.11: its `Timer.App.csproj` still reads 2.16.0 at
+`71cc31a`, and its remote carries no tag. A release is `release.ps1` on the maintainer's PC; §108.6 read SW18.8's that
+way, as the PC's work named and not run, and this opening reads SW19.11's the same; 93.5 reads both again before it
+closes. This tree's remote carries the tags `round-15` to `round-88`; rounds 89 to 92 wait for the maintainer's run of
+`tag-rounds.sh`, whose table holds their rows to 91, and 93.5 writes round 92's (`4031670`).
+
+The contract every unit reads is the same in every tree: `docs/SHOWBUS.md` and `tools/showbus/peerlink-peer.mjs` here
+match Stagewatch's at `71cc31a` and PlayMap's copy at `c2343d0f` and again at `e306699f` byte for byte (`cmp`), so the
+vectors 93.1 reads are the ones Stagewatch's core and PlayMap's (PM-6's, `src/PlayMap.Core/Bus/PeerLink.cs`) are held
+to. 93.1's core is this tree's own — written for `Patterns.Core`'s rules, with no package reference — and reads
+Stagewatch's committed core for its words and its order, never its code. The interop lane pins this tree at
+`5a8ad8f` (round 91.6, Stagewatch's `tools/interop/siblings.json`), so no lane row reads this round until Stagewatch's
+chain moves the pin; its rows that read this desk's link (S6.1, S6.1b) are where 93.2's link first meets a real
+Stagewatch's servers.
+
+**What the plan cites that the head does not say, and what each unit takes.** Each citation of the plan was read again
+at this head (`4031670`), as its rule R6 asks; where the head says otherwise, the unit takes the head.
+- *The token's two forms (93.1).* `PairingToken.Normal` (`PairingToken.cs:54-64`, the plan's ":54-63") removes `-`,
+  space, tab, CR and LF and upper-cases each UTF-16 unit by its simple mapping. That is exactly the key 13.6.8 gives the
+  legacy proof — "the token as §7's 1.1 desks compare it, not 13.5.1's canonical form" — so the plan's "canon follows
+  13.5.1" is not read as replacing it: the `AUTH-PROOF` this desk checks on 9697 and `X-Patterns-Token` on the web keep
+  `Normal`, and 93.1 adds 13.5.1's canonical form beside it for `LINK`'s code key. At entry, the Remote page's token box
+  (`WebSection.axaml:39`, the plan's ":38"; a free text box bound to `State.Control.Token`) refuses a token whose
+  canonical form is not `[A-Z0-9]{1,64}`, and one holding a character the canonical form removes and the legacy key
+  keeps (U+00A0, U+FEFF and the rest of 13.5.1's list), in 13.5.1's words — so on every token this desk takes, the two
+  forms name the same letters and digits. NEW TOKEN is the desk's button (`MainViewModel.Admin.cs:546`), not a wire
+  verb, and makes tokens of `PairingToken.Alphabet` in groups of four, always of that shape; the plan's "refused at NEW
+  TOKEN" reads as that. A token saved before round 93 that is not of that shape is kept as it is — the legacy proof and
+  the web header still take it — and the Remote page says 13.5.1's words beside it ("PeerLink pairs a token of letters
+  and digits — this one reaches only an older build"), so no remote is cut off by the upgrade. The deck module's own
+  key for the legacy proof (L89) is the module's and is not this unit's.
+- *The clock (93.1; L83).* `LinkClock.Sample` (`LinkClock.cs:59-73`) refuses only a stamp of 0 or less and clamps a
+  negative round trip to 0 (`:63`); `Apart` takes the offset alone at 2 s or more (`:97`). Its readers are the twin's —
+  each follower's clock on a main (`TwinService.Main.cs:583`), the standby's (`TwinService.Standby.cs:423`, `:469-477`)
+  and the twin's line (`Twin.cs:667-672`) — and the Stagewatch link's (`StagewatchLinkService.cs:67`, sampled at `:1581`
+  from every pong, its offset in STATE's `bus.stagewatch.clock` and the link's words at `:1602`). 93.1 admits a sample
+  by 13.11.2 (a stamp of 0 or less, t4 before t1, t3 before t2, a negative round trip or one past `clock.rtt.max.ms`),
+  publishes 13.11.3's error, age and samples and 13.11.4's quality, says CLOCKS APART by 13.11.5 (the offset less the
+  sample's error past `clock.apart.ms`), and empties the window on a peer's new `inst` and a step of this machine's own
+  clock where its reader knows them (13.11.7). Refusing an unmatched pong is 93.2's, which matches pongs. Both readers
+  take it, so L83 closes for the twin and the link alike.
+- *The vectors (93.1).* `ShowBusSpecTests` places all 109 `peerlink` vectors: 19 held by this desk's code today, 4
+  checked both ways (the three samples 13.11.2 refuses that `LinkClock` takes, and the 2010/16 sample), 4 legacy rows
+  that prove nothing (U+00A0 and U+FEFF in a token, an upper-case nonce, a nonce of 31 hex), counted as a connector's
+  rule and run nowhere in this tree, and 82 named the PeerLink core's (`ShowBusSpecTests.cs:559-564`). 93.1's
+  `PeerLinkVectorsTests` runs those 82 against the core, and the 4 legacy rows too: the core carries 13.6.8's legacy
+  key and its nonce check, as Stagewatch's does (`LegacyKey`, `IsProvableNonce`, `LegacyProof`,
+  `src/Timer.Core/PeerLink.cs:141-166`), and all seven legacy rows run against it, the four refused and the three that
+  prove (which `WireProof`, the desk's 9697, still holds in the spec test). L89 stays the module's: its close is the
+  module's own node tests. The spec test's counts move with it on purpose; the §14 rows `NotThisDesks` names "§13's
+  PeerLink" (`:152-197`) that the core keeps move to the held rows, each said, and the rows of a `LINK` acceptor
+  (`peerlink.unpaired.per.address`, `peerlink.wrong.proofs.per.minute` and the like) stay "not this desk's part yet" —
+  this desk accepts no `LINK` before round 98 (the plan's 97).
+- *CI (93.1).* The test job (`build.yml:14-43`) sets up no Node; only the module's job does (`:86-88`, the plan's
+  ":76-78"). 93.1's `PeerLinkWireTests` (App) spawn `tools/showbus/peerlink-peer.mjs`, so the test job gains
+  `actions/setup-node` at 22, as the module's job has it; windows-smoke's desk classes do not run them.
+- *The link (93.2).* `StagewatchLinkService.cs` is 1,630 lines at this head; the plan's lines are round 89's. The
+  attempt count resets on any clean return of a connection (`:469`); the clock is the static `ShowClock`, read directly
+  (`:217-218`, `:523`, `:738`, `:1104-1125`, `:1570-1580`); the beat (`BeatAsync`, `:1097-1138`) pings, then reads and
+  posts the context and walks the approval queue in its own path, then waits a whole beat (L84), and the drop check runs
+  only on the beat's own turn, where 13.10.3 asks for a timer of its own that never waits behind a side call; every
+  message read refreshes the link's liveness and every pong is sampled, matched to no ping (`:1570-1581`); the ids of
+  approved proposals already run are cleared at a thousand (`:1218`, `:1302`); an owed result is sent again on each
+  two-second turn of the queue, at most a hundred owed (`:1220-1229`; L87); a refused key's hold lives in the process
+  (`Run.Carry`, `:125`; `HeldFor`, `:501`; L67).
+- *First use and the key (93.2 and 93.4).* Today a first TLS contact carries the key before anything is pinned, and the
+  pin is set on the key's acceptance (`:1507`) or on an authenticated context answer (`:1126`), or, on a keyless link,
+  from the fingerprint the hello names (`:755`). 13.8.2 and 13.6.8's legacy bearer say otherwise: at level 0 the key
+  goes only to a certificate pinned by a proof that verified over it or by a person on this desk, typed or confirmed
+  with one press; a `first` pin, made by the connector, carries no key. The plan puts the rule in 93.2 and the person's
+  press (TRUST) in 93.4, and its text keeps a certificate already pinned keyed ("first use sends the key only to a
+  certificate already pinned or confirmed"): on its reading a pin carried from rounds 88 to 92 still takes the key, and
+  only a new keyed link would wait, with no press to give it between the two commits. This round takes 13.8.2's
+  stricter reading of a carried pin: it was made by the desk, neither by a proof nor by a person, and at level 0
+  nothing proved who answered, so it reads `first` (i). So 93.2 lands the rule with the desk's one press in one commit:
+  Trust beside the short fingerprint on the Nodes card of both desks — the main desk's (`MainViewModel.Nodes.cs`) and
+  the node desk's (`NodeViewModel.cs`), through the `NodePages` interface both implement, beside Accept's command
+  there (`NodePages.cs:64-65`) — and its entry in the right-click menus of the Nodes card and the Eye's app card,
+  button and entries through one show action with its journal row. 93.4 adds the refusals on the wire, the deck and
+  the assistant, and ACCEPT's typed hex with its own entries in step. The cost of the stricter reading is named, not
+  hidden: after the upgrade, every keyed Stagewatch link holds its key back until someone presses Trust, and with it
+  its node routes — its own context's post, the approval queue and its collect, the owed results — while the stage
+  keeps following on the public view and the card says why. One press per Stagewatch ends it, and 93.5's upgrade notes
+  (README, REMOTE) say both the cost and the press. The plan's text, a carried pin taken as confirmed, is the
+  alternative, named and not taken: 13.8.2 is the contract's word, and the doctrine fails closed. The maintainer may
+  choose otherwise.
+- *The amber of level 0 (93.3).* 13.16.2 flags every keyed link that is not verified by `LINK` as `legacy`, amber, and a
+  light is the worse of its state's and its flags'. Stagewatch's `/ws` speaks `LINK` from its SW22.1 (the plan's fifth
+  train) and this link from the plan's 95.1, round 96 here; until then a following Stagewatch link with its key taken
+  reads △ amber "legacy" where today it reads green. 93.3 draws the record's light, never one of its own (13.16.4): the
+  amber is the contract's, said in words ("Hall A cannot prove itself yet — compare its fingerprint …"), and only a link
+  the show needs turns red. The cost is named, not hidden: amber during migration, in a problems queue that has no
+  memory yet (L44; the designs' own risk).
+- *STATE (93.3 and 93.4).* The plan appends `link` "after `key`"; round 91.4 appended `held` after `key`
+  (`CommandRouter.cs:797-798`), so `link` goes at the row's end after `held`, and 93.4's `follow` and `pending` after
+  it. `bus.dropped` stays where it is, outside the row.
+- *The readers (93.3).* The Eye draws the linked app with a `Follows` edge (`Eye.cs:798`, `:840-841`); the Nodes card
+  and the context's peers read `AppServices.ShowApps`; the assistant's brief reads `ShowBusView.BriefLines`
+  (`AppServices.cs:1858`; `StagewatchFollow.cs:723`); the Run strip shows no Stagewatch line at all (`RunViewModel`
+  names none); the Super Check has no row for the show network (`SuperCheck.cs`'s REMOTE rows, `:1080-1172`); the link
+  writes log lines (`:736`, `:807`, `:1493-1504`, `:1592-1606`) and no journal row. 93.3 adds the Run strip's line, the
+  Super Check row "Show network links", one journal row and one log line per state change (13.16.7), never per beat.
+  The desk's own context carries nothing of the link: `ShowContextPeer` has `t`, `id`, `name`, `light` and `headline`
+  alone (`ShowContext.cs:51-58`), and `ShowContextBuilder.FromEye` (`:267-283`, called at `AppServices.cs:969`) leaves
+  out the borrowed app node and every edge that reaches it, where 13.16.4 and §6's P2 ask a connector's context for one
+  `link:<name>` item (kind `link`, the record's light and its state's words, the key's scope among them) with its one
+  `links` row, and §6 asks each `peers` row for `heard`, `link` and `verified`. 93.3 adds the item `link:stagewatch`
+  and its row `{"from":"link:stagewatch","to":"@<id>","kind":"follows"}` from the record, and appends the three fields
+  at the end of each `peers` row by §6's rules (at level 0 no `LINK` verified the link, so its `link` is empty). How
+  the Eye reads other nodes' `@` ends stays round 99's (the plan's 98.1).
+- *The verbs (93.4).* The wire's `NODES` answers `STATUS` and `LIST` alone (`ControlProtocol.cs:1319-1325`); the
+  `STAGEWATCH` verbs go beside it. Accept has two entry points, the main desk's (`MainViewModel.Nodes.cs:49`, the
+  plan's ":46") and the node desk's (`NodeViewModel.cs:327`), both bound through `NodePages.AcceptCertificateCommand`
+  (`NodePages.cs:64-65`); each calls `AcceptPendingCertificate` (`StagewatchLinkService.cs:362-374`) directly, with no
+  journal row, and both move to the show action. `StagewatchLinkConfig` (`ShowState.cs:2350`) has no `KeyFor`, and
+  `CertificatePin` (`:2390`) no word for who made a pin; 93.2 (the pin's kind) and 93.4 (`KeyFor`) add them, each at the
+  end of its record.
+- *TRUST and ACCEPT off the desk, read against 13.16.6 (93.2 and 93.4).* The plan puts the two "on the desk and its
+  right-click menus only" and refuses them on the wire, a deck and the assistant, with no module action. The copied
+  contract says more of its operator actions: 13.16.6 lists *Trust certificate* and *Accept certificate* among the
+  connector's actions that "are on every surface, in step: the desk's buttons, right-click menus, wire verbs and
+  Companion", and keeps only the assistant from them ("None is proposed by an assistant: a trust decision is a
+  person's"). The round takes the plan's narrower reading, from the contract's own words for the pin: 13.6.8's
+  "pinned for that id … by a person on this desk — typed, or confirmed with one press (*Trust certificate*, beside the
+  short fingerprint)" and 13.8.2's "a person who confirms it on this desk". A line on the wire or a deck's button is not
+  a person beside the fingerprint this desk shows, and a pinning verb on the wire would let any paired remote — a deck
+  on another machine, a script — choose the certificate the key then goes to. It is a deliberate departure from
+  13.16.6's "every surface" for these two actions alone, and the round's, not the contract's: the other connector
+  actions it lands (*Link again now*, *Lower floor*, *Release held fact*) reach every surface as 13.16.6 says.
+  Stagewatch's own typed trust (its SW20.6, not landed at `71cc31a`) is a High-risk command in its one grammar, kept
+  out of what an assistant may propose, so the two apps will differ in where the two actions are reachable. 93.5 adds
+  an OPEN row naming the departure and what would end it — Show Bus 1.4's text narrowing 13.16.6 for Trust and Accept,
+  or the owner's answer putting them on the wire — and REMOTE's rows for the two refusals say the same.
+- *The module.* 3.19.1 (`package.json:3`); its `stagewatch_*` variables at `state.js:313-320` and the feedback
+  `stagewatch_stuck`. The module takes one minor version this round, 3.20.0, at 93.3 (`stagewatch_link_state`,
+  `stagewatch_link_flags`); 93.4's actions and variables join that version, since no release lies between them.
+- *The scenarios (93.2).* 13.20's list of who passes what asks every connector for S1, S2, S4–S7, S11–S14, S17–S19 and
+  S22, and Patterns' twin for the `clock` rows and S19. The plan takes S5, S6, S11–S14 and S19 at level 0 for this round
+  and leaves those that need `LINK` to round 96. S6's last half — a changed certificate accepted only with 8 hex of it
+  typed — is 93.4's ACCEPT, so 93.2 holds S6's first half (nothing of the connector's sent, the public view only, a
+  probe at most every `peerlink.cert.probe.ms`) and 93.4 the typed half. S14 at level 0 on `ws` reads the link's side
+  calls — its context post and its owed results — since the link sends Stagewatch no command: the five outcomes read by
+  13.12.3's table, an unconfirmed call never said "failed". The first command it sends with a receipt is round 94's
+  speaker message.
+
+**OPEN.md.** Read at the opening, the round:
+- takes L83 as 93.1, for the twin's clock and the link's alike; 93.5 closes it on `PeerLinkVectorsTests` and the spec
+  test's three refused samples and its 2010/16 sample moved to held;
+- takes L84 and L87 as 93.2 — the side calls on a lane of their own, the beat's ping on its own clock; the owed results
+  on 13.12.9's schedule (3 s doubling to 30 s, ±20 %, for 30 minutes) and span — each closed at 93.5 with its §14 rows
+  (`ping.max.ms`; `report.retry.first.ms`, `.max.ms`, `.for.ms`) moved to the held ones;
+- takes L67 whole as 93.2: a refused key's hold kept beside the settings by target and the key's kid (13.5.1, which
+  is not a secret, and 13.19.2's name for a key in any record), never by a hash of the key — today's in-memory
+  `Hash()` (`StagewatchLinkService.cs:417`) is 12 hex of `K` itself, which 13.19.1 keeps out of every line, row and
+  bundle — with its wall-clock end, written before any I/O and read at start, each record dropped at its hold's end and
+  on a change of key, so the store stays bounded by the targets and keys the link holds; and a redial inside a hold
+  made without the key for the public frame, the key presented again when the hold ends (13.15.3);
+- takes L92 as read above: run 282's windows-smoke ran the six fences green; 93.5 closes it naming the run;
+- reads L66 (P-legacy's fallback for a Stagewatch before 2.18) and keeps it: 93.2's legacy bearer is 13.6.8's other
+  half and leaves that fallback as the owner's answer keeps it, to 1.4's flip;
+- reads L50, L56 and L77 and keeps them: 93.2 changes what §26's walk reads (holds across a restart, the beat on its own
+  clock, the legacy amber) and 93.4 what §27's does (Trust and a typed ACCEPT), which 93.5's notes say; a unit that
+  moves the link tests' fake takes L77's close with it, and none is planned to;
+- reads L44 (the problems queue's memory), L61 (a takeover's links), L73, L85, L86, L88, L89 and L93 and keeps them:
+  none is this round's; the level-0 amber above is L44's weight, said in 93.3;
+- adds, through 93.5, the rows the units find, each with what closes it, and one this opening names: TRUST and ACCEPT
+  on the desk alone, a departure from 13.16.6's "every surface" (above), closed by Show Bus 1.4's text narrowing
+  13.16.6 for the two, or by the owner's answer putting them on the wire.
+
+**The units, read against the standing brief.**
+
+| Unit | What stands at the head | What the round does | The readers it reaches | Fence; measurement |
+|---|---|---|---|---|
+| 93.1 | No PeerLink core in this tree; `ShowBusSpecTests` names 82 vectors the core's. `PairingToken.Normal` is 13.6.8's legacy key, and the Remote page takes any text as a token. `LinkClock` takes three samples 13.11.2 refuses and says CLOCKS APART on the offset alone (L83). The test job has no Node | `src/Patterns.Core/Services/PeerLink.cs`, no package reference: 13.5.1's canonical form and `K`, `kid`, the transcript `T`, the proofs, `lid` and `S`; 13.6.8's legacy key and its nonce check; liveness with the self-gap (13.10); the clock's quality (13.11); the redial (13.15.1); 13.12.3's outcome table; the state machine (13.16.1); and the `LinkRecord` (13.16.3), which has no field for a key, code, `K`, `S`, proof or nonce. `PeerLinkVectorsTests` (Core) reads the ```peerlink block from this tree's copy. The token's two forms and the entry check (above). `LinkClock` by 13.11 for its two readers. The test job's Node; `PeerLinkWireTests` (App) spawns the scripted peer and drives the core's honest ends | The Remote page's token box and its words; the twin's clock line and STATE `twin.apart`; the link's words and `bus.stagewatch.clock`. No verb, menu entry or deck action | `PeerLinkVectorsTests` (every vector placed, the four legacy refusals among them, a new one failing until it is); `ShowBusSpecTests`' counts and rows moved; `PairingTokenTests` (both forms, the entry refusals, a carried token kept and said); `LinkClockTests` (13.11.2's refusals, 13.11.5 on 2010/16 both ways); `PeerLinkWireTests`. The Core, Rendering and App suites. No measurement |
+| 93.2 | The link resets its attempts on any return, reads a static clock, runs its side calls in the beat's path, samples every pong, keeps holds in the process, sends owed results each turn, clears its ran ids at a thousand, and sends its key over a first TLS contact (above) | The link on the core: the attempt count reset only after a link verified and up 10 s (`peerlink.stable.ms`); holds persisted beside the settings by target and kid, recorded before any I/O and dropped at their end or on a change of key (L67); the side calls on a lane of their own, the beat and the drop check on their own timer (L84); matched pongs (13.10.2); owed results retried 3 → 30 s ±20 % for 30 minutes, written before they run, and a bounded LRU of the desk ids run (L87); a `TimeProvider` over `ShowClock` as its default; the legacy bearer with the desk's Trust press on both desks' Nodes cards and its entry in the right-click menus of the Nodes card and the Eye's app card, in one commit (above). Scenarios S5, S6 (first half), S11–S14 and S19 at level 0 against the scripted peer | The link's words, through `ShowApps`: STATE `bus.stagewatch.words`, the Nodes card, the Eye, the context's peers, the assistant's facts; the Trust press, its right-click entries in step and its journal row | `PeerLinkWireTests` and the App tests of the link (the reset on a link that drops before 10 s, a hold across a restart, a slow side call that no longer stretches the beat, a forged pong that gives no sample, a result retried on its schedule, no key to a `first` pin until Trust, a hold's record named by kid and gone at its end); `DeskMenuAppTests` (Trust's entry the button's line); S19's canaries in every captured log, journal, STATE, context and error. The Core, Rendering and App suites. No measurement: 10 s, 3 → 30 s and 30 minutes are §14's |
+| 93.3 | `bus.stagewatch` carries state, light, clock, words, stuck, carrier, key and held; no record; no Run strip line; no Super Check row; no journal row for the link | The 13.16.3 record, one object, reaches STATE `bus.stagewatch.link` (at the row's end); the Eye's app node and its `Follows` edge (the record's light, mark and words; the fold into one node per id is round 99's); the Nodes card; the Run strip; the module's `stagewatch_link_state` and `stagewatch_link_flags` (3.20.0, `lines.txt` regenerated); the assistant's facts; the context's `link:stagewatch` item and its `links` row to `@<id>`, with `heard`, `link` and `verified` at the end of each `peers` row; the Super Check row "Show network links"; one journal row and one log line per state change | Every reader 13.16.4 names that this desk has, the context among them, each taking the record and deriving no link fact of its own; the Eye's reading of other nodes' `@` ends is round 99's | App tests per reader against one record (the context's item, row and `peers` fields among them); the module's node tests and `lines.txt`; the Assistant suite. The Core, Rendering, App and Assistant suites and the module's four steps. No measurement |
+| 93.4 | `NODES` alone on the wire; the link set on the Nodes page only (G34); the Accept buttons of both desks outside the show actions; no `KeyFor` | `STAGEWATCH LINK <host[:port]>\|AUTO\|OFF`, `FOLLOW`, `STATUS`, `LINK AGAIN`, `FLOOR LOWER` and `RELEASE` on the wire, the deck, the menus and the module; TRUST (one press beside the short fingerprint) and ACCEPT (at least 8 hex typed, never pre-filled) on the desk and its right-click menus alone — the wire, a deck and the assistant refused with "TRUST and ACCEPT are a person's choice on the desk, beside the fingerprint", and the module has no action for them; `KeyFor` and its bind rules (the key typed on the desk and sent only to the Stagewatch it is bound to, never to a target a line chose); Accept on both desks (`MainViewModel.Nodes.cs`, `NodeViewModel.cs`) through the show action, with its journal row and its right-click entries; menus in step; never proposed by the assistant (X-declines); STATE appends `follow` and `pending` | The wire's replies, the deck, the menus and the desk's buttons in step; STATE; REMOTE's rows (93.5) | `ControlProtocolTests` (Rendering), `DeskMenuAppTests` (each entry's line the button's), App tests of the bind rules and the refusals; the module's tests and `lines.txt`. The Core, Rendering and App suites and the module's four steps. No measurement |
+| 93.5 | — | The papers: PLAN §111; REVIEW round 93 with each unit's mutation checks; CHANGELOG; README (the upgrade's cost — node routes held on every keyed link — and the one Trust press that ends it); REMOTE (the STAGEWATCH verbs and their refusals, TRUST and ACCEPT's departure from 13.16.6, `link`, `follow`, `pending`, the token's canonical form, the upgrade's Trust press); COMPANION (3.20.0); QUALIFICATION's notes; OPEN (the rows closed, and the 13.16.6 departure added); round 92's tag row (`4031670`) | — | All seven suites and the module's four steps |
+
+**What every unit was read against.**
+- *Stability, resilience and durability*: a link that drops before it has held 10 s no longer redials at once; a hold
+  outlasts a restart instead of presenting a refused key again at once; a slow side call no longer delays the beat and
+  its clock sample; an owed result is retried on a schedule with an end, not every turn forever. Nothing on the air
+  moves.
+- *Performance adaptability across system specs*: no render, decode or audio path moves. The side calls' lane is one
+  task beside the beat; the record is one object built per change, not per frame. No measurement this round.
+- *Modularity and abstraction*: the core is pure Core with no package reference (`ModuleRulesTests` holds it), the link
+  its first user and the twin's clock its second; the `TimeProvider` is a seam on the link; every reader takes one
+  record.
+- *Attempts are not facts*: unconfirmed is never "failed" and a side call's outcome is one of 13.12.3's five; a pong is
+  a clock sample only when it answers this desk's ping; CLOCKS APART only past the sample's own error; a pin the desk
+  made is not a pin a person confirmed.
+- *One air*: nothing reads or changes the air.
+- *Every reader*: 93.3 is the round's every-reader unit, the desk's own context among its readers; 93.2's Trust press
+  and its right-click entries land in one commit, and 93.4's verbs reach the wire, the deck, the menus and the desk's
+  buttons in one commit, and the assistant reads them as words it never proposes. TRUST and ACCEPT do not reach the
+  wire, a deck or the module, a departure from 13.16.6 that the round names (above) and 93.5's OPEN row holds.
+- *Fail closed on the wire*: an unknown `STAGEWATCH` word is refused; TRUST and ACCEPT refused off the desk; the key
+  only to a person's pin and to its bound Stagewatch; a held key named on disk by its kid, never by a hash of it; S19's
+  canaries hold the key, the code and every proof out of every line.
+- *AI integration*: the assistant's facts read the record; it never proposes the link's verbs (X-declines, G34) and
+  names them in words.
+- *Companion*: the module takes 3.20.0 — the link's state and flags as variables, the link's actions without TRUST or
+  ACCEPT.
+- *Measured, then governed*: no ladder or governor lands; the side-call lane removes the beat's wait rather than
+  governing it; every number is §14's. No measurement this round.
+- *Platform paths*: 93.1's clock reaches the twin's own line and `twin.apart` — the twin is a path the brief names — and
+  93.2 to 93.4 change what a real Stagewatch on the network sees. So the round asks its walks: §22 for the twin's CLOCKS
+  words on two machines, §26 and §27 for the link (holds across a restart, the beat, the legacy amber, Trust and a typed
+  ACCEPT). 93.5 writes the notes, and the round is `unwalked` until they are filled.
+
+The round adds verbs an output can show: STAGEWATCH LINK's journal rows and the Super Check's "Show network links" row,
+read beside the Nodes card, close it.
+
+**CI and the push.** The round goes to the remote at the maintainer's push. 93.1 adds Node to the test job, so the
+first run with the round's code is the first to run `PeerLinkWireTests` on CI; if the code units are pushed before the
+papers, as round 92's were, 93.5 reads that run on GitHub, and otherwise its papers say the run is the round after's.
+
+The heading above and the changelog's entry name what the round means to land; 93.5 completes both. `ChangelogTests`
+holds the changelog's newest round to the plan's, so round 93's entry opens in this commit. From here until 93.5,
+`tag-rounds.sh` stops at round 92 ("neither in the table nor a tag") unless `round-92` was made at `4031670` first; 93.5
+writes round 92's row, and the round's own tag waits for that commit.
