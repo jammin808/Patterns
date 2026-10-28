@@ -284,6 +284,15 @@ public sealed class StagewatchLinkCoreTests
         trusted.FirstMessage(t, frame: true);
         Assert.Equal(new[] { "bearer" }, trusted.Drain().Select(w => w.Credential).OfType<string>());
 
+        // Another machine whose certificate this desk pinned at first use, kept from before: the same certificate shown
+        // again is compared, and still carries no key until a person's Trust.
+        var first = new PeerLinkMachine(Settings(local: false), new LinkKept(new LinkPin("swdesk01", cert, PinTrust.First), null, null, null), 0, () => 0.5);
+        Assert.NotNull(first.Dial(t));
+        first.Certificate(t, cert);
+        first.FirstMessage(t, frame: true);
+        Assert.DoesNotContain(first.Drain(), w => w.Credential is not null);
+        Assert.Equal(new LinkPin("swdesk01", cert, PinTrust.First), first.Kept.Pin);
+
         // Another machine with no TLS on offer: keyless.
         var plain = new PeerLinkMachine(Settings(local: false), null, 0, () => 0.5);
         Assert.NotNull(plain.Dial(t));

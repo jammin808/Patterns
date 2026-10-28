@@ -755,6 +755,17 @@ public class ShowBusAppTests
     private static int LogLines(string dir, string words)
         => File.ReadAllLines(Path.Combine(dir, "patterns.log")).Count(l => l.Contains(words, StringComparison.Ordinal));
 
+    /// <summary>
+    /// The desk's log lines that carry these words, counted once the first has landed. The link writes its line after the fact it
+    /// says is published, and after a key's hold is kept on disk (Show Bus 1.3 §13.15.3: the hold before any further I/O), so a
+    /// reader that has seen the fact waits for the line rather than reading the file the moment the fact shows.
+    /// </summary>
+    private int Logged(string dir, string words)
+    {
+        PumpUntil(() => LogLines(dir, words) > 0, 15000);
+        return LogLines(dir, words);
+    }
+
     private static JsonElement StagewatchRow(AppServices services)
         => JsonDocument.Parse(services.Router.StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch").Clone();
 
@@ -1224,7 +1235,7 @@ public class ShowBusAppTests
             Assert.Equal("#FFB020", card.Hue);
             Assert.DoesNotContain("KEY REFUSED", card.Line, StringComparison.Ordinal);
             Assert.DoesNotContain(StagewatchKey.NotAcceptedWords, card.Line, StringComparison.Ordinal);
-            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
+            Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
             Assert.Contains($"show network id {id}", services.Nodes.Identity, StringComparison.Ordinal);   // the id a Stagewatch's key speaks for
             PumpUntil(() => link.Sight.Context is not null, 15000);
             services.Eye.Refresh();
@@ -1289,7 +1300,7 @@ public class ShowBusAppTests
             var peers = ShowContext.Parse(services.ContextJson())!.Peers;
             Assert.Contains(peers, p => p.Kind == "main" && p.Light == "amber" && p.Headline == refused);
             Assert.Contains("  this desk's key: " + refused, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
-            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost — " + refused + "; this desk's keyed calls wait 60 s."));
+            Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost — " + refused + "; this desk's keyed calls wait 60 s."));
             Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));                                         // the words are Stagewatch's, never the key
 
             // The operator lets the key speak for this desk on the Stagewatch: a fresh verdict on the open socket takes it,
@@ -1305,7 +1316,7 @@ public class ShowBusAppTests
             Assert.Equal("amber", link.Record.Light);
             services.Nodes.Poll();
             Assert.Equal("#FFB020", Assert.Single(services.Nodes.ShowApps, c => c.Linked).Hue);
-            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
+            Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost takes this desk's key — verified key."));
         }
         finally
         {
@@ -1783,7 +1794,7 @@ public class ShowBusAppTests
             var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
             Assert.Equal((CheckLight.Amber, words), (node.Light, node.Sub));
             Assert.Contains(services.Eye.Graph.Nodes, n => n.Id == node.Id + ":cue:lighting");      // its things still drawn: the context is read
-            Assert.Equal(1, LogLines(b.Dir, $"Stagewatch link: localhost — {words}; the context this desk posts and its proposals wait 60 s."));
+            Assert.Equal(1, Logged(b.Dir, $"Stagewatch link: localhost — {words}; the context this desk posts and its proposals wait 60 s."));
 
             // A pin set starts a new run for the same key at the same address: what was said goes on — the standing and the
             // node routes' hold — and the dial, which that hold never holds, goes at once.
@@ -1946,7 +1957,7 @@ public class ShowBusAppTests
             Assert.InRange(link.KeyHeld.TotalSeconds, 2, 4.05);                                     // its Retry-After
             Assert.Equal("", link.Key.Line);                                                         // a good key over its rate: nothing said of the key
             Assert.Equal("key", StagewatchRow(services).GetProperty("key").GetString());
-            Assert.Equal(1, LogLines(b.Dir, "rate-limits this desk's key — its keyed calls wait 4 s (rate limit: too many requests with this key)"));
+            Assert.Equal(1, Logged(b.Dir, "rate-limits this desk's key — its keyed calls wait 4 s (rate limit: too many requests with this key)"));
             var keyed = stagewatch.KeyedCalls;
             PumpFor(2500);
             Assert.Equal(keyed, stagewatch.KeyedCalls);                                              // held
@@ -1998,7 +2009,7 @@ public class ShowBusAppTests
             Assert.StartsWith("Keynote", node.Sub, StringComparison.Ordinal);                        // the label is no fault: its headline stays
             Assert.Contains("this desk's key: " + StagewatchKey.LegacyWords, node.Words);
             Assert.Contains("  this desk's key: " + StagewatchKey.LegacyWords, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
-            Assert.Equal(1, LogLines(b.Dir, "Stagewatch link: localhost — " + StagewatchKey.LegacyWords + "."));
+            Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost — " + StagewatchKey.LegacyWords + "."));
 
             // Its HTTP answers are the evidence: a keyed call refused (401) refuses the key, held, and what a held key
             // cannot read is not shown as current. A far end that echoes the bearer: the key masked in every reader.
@@ -2010,7 +2021,7 @@ public class ShowBusAppTests
             Assert.DoesNotContain("swk_testkey", services.Router.StateJson(), StringComparison.Ordinal);
             Assert.DoesNotContain("swk_testkey", link.Status, StringComparison.Ordinal);
             Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));
-            Assert.Equal(1, LogLines(b.Dir, "unknown or revoked API key: Bearer •••"));
+            Assert.Equal(1, Logged(b.Dir, "unknown or revoked API key: Bearer •••"));
             Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
             PumpUntil(() => link.Sight.Context is null, 15000);
             var keyed = stagewatch.KeyedCalls;

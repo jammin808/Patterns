@@ -470,6 +470,37 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 93 — the Stagewatch link's record and its verbs on a deck (module 3.20.0)
+
+- **The link's own record** (3.20.0, a minor version: variables, a feedback and actions added).
+  `$(patterns:stagewatch_link_state)` reads STATE's `bus.stagewatch.link.state` — off, finding, connecting, live, stale,
+  down, held or refused — `$(patterns:stagewatch_link_light)` its light (red, amber, green or grey) and
+  `$(patterns:stagewatch_link_flags)` its flags, comma-separated (`legacy` while the Stagewatch cannot prove itself to
+  the desk, `keyless` while the desk reads its public view, `first` for a certificate pinned at first use, and the
+  rest). The feedback *The Stagewatch link's own light, from its record, is …* (`stagewatch_link_light_is`) colours a
+  key from the palette's `link` row, which the desk holds equal to its own (`CompanionPaletteTests`). A desk before
+  round 93 sends no record: the three read empty and the feedback lights for no light, so the deck says nothing of a
+  link the desk did not describe. `stagewatch_light` stays the linked app's light; a link the show needs that is down,
+  held or refused is red on `stagewatch_link_light`.
+- **The link's verbs on keys** (Show Bus 1.3 §13.16.6, the desk's G34): *Stagewatch link* sends `STAGEWATCH LINK
+  AUTO|ON|OFF|AGAIN`, an address (`STAGEWATCH LINK 10.0.0.9:9924`) or a heard Stagewatch by its show network id
+  (`STAGEWATCH LINK id:a1b2c3d4`); *Stagewatch follow* `STAGEWATCH FOLLOW ON|OFF`; *lower floor* `STAGEWATCH FLOOR
+  LOWER` and *release* `STAGEWATCH RELEASE` (the desk follows no fact of a Stagewatch's, so it answers that nothing is
+  held). `$(patterns:stagewatch_follow)` reads on or off and `$(patterns:stagewatch_pending)` the short fingerprint of a
+  changed certificate waiting for ACCEPT. `test/lines.txt` gains the ten lines. Link again now ends every hold of the
+  desk's key without dropping a live link, and is refused with the reason when nothing is held and no redial waits, so a
+  key pressed again and again is never a stream of dials.
+- **What the module does not do.** TRUST, ACCEPT and the Stagewatch key are a person's on the desk, beside the
+  fingerprint: the module has no action for any of them, and the desk refuses their words from a deck (`ERR TRUST and
+  ACCEPT are a person's choice on the desk, beside the fingerprint …`) — a departure from 13.16.6's "every surface" the
+  desk's `docs/OPEN.md` L94 holds. A LINK from a deck never sends the desk's key where the deck chose: a key not yet
+  bound to a Stagewatch is bound to nothing by it, and the link reads the public view until a person binds it on the
+  desk.
+- **After the upgrade.** A desk that pinned a Stagewatch's certificate before round 93 reads that pin `first` until a
+  person presses Trust on the desk; meanwhile `stagewatch_link_flags` names `first` and `keyless`, and every keyed link
+  reads `legacy` and amber until both ends speak `LINK` (round 96).
+- The version moves to 3.20.0 in every file that carries it; the module's legacy proof key is as round 92 read it (L89).
+
 ## Round 92 — no module change (3.19.1); the proof's key read against Show Bus 1.3
 
 - **Nothing the deck reads moved.** Round 92 adds no verb, STATE field or action. The Stagewatch link's new words —

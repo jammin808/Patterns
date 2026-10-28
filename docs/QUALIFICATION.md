@@ -575,11 +575,18 @@ not a footnote. The files go to `docs/field/round-NN/` (`docs/field/README.md`).
     key; read it on the Machine page, TWIN." and no line holds the key; the desk does not open on that line in its
     status strip; the Machine page's TWIN card shows the key. Turn remote administration on (a passcode) and read the
     web remote's ADMIN page's log from the phone: the same line, and no key. Close the desk and delete the folder.
+16. **The twin's clock** (round 93 — Show Bus 1.3 §13.11): with the standby on this machine in step, `TWIN STATUS` (or
+    STATE's `twin`) reads `clock` with `offsetMs`, `roundTripMs`, `samples`, `apart` false and `errMs` at its end —
+    about half the round trip and a millisecond — and the Machine page's twin line names no CLOCKS APART. With a standby
+    on a second machine whose clock is set 3 s off (its time server off for the walk), the main's line says "CLOCKS 3.0
+    s APART — <standby>'s clock is ahead; set both machines to one time server" and `clocks[]` reads `apart` true with
+    its `errMs`; set it 1.5 s off and the words go, since 13.11.5 counts the clocks apart only when the offset less the
+    sample's error is past 2 s. Put the second machine's clock back.
 
 **Pass.** Every step ticked with the readings it asks for; the three lines posted; the four files
 committed. A step that fails is a row of `docs/OPEN.md` with the reading beside it.
 
-| date | machine | build | steps ticked (1–15) | Start-up / Desk tick / Render frame | result | files |
+| date | machine | build | steps ticked (1–16) | Start-up / Desk tick / Render frame | result | files |
 |------|---------|-------|---------------------|-------------------------------------|--------|-------|
 |      |         |       |                     |                                     |        |       |
 
@@ -707,6 +714,28 @@ the key refused at the first address (step (1)'s revoked key), the second is nev
 to an address that is not loopback, a refusal at one address taken to another, or a link that keeps redialling the one
 address that does not answer. The row above stays as it is, unwalked.
 
+**Round 93 (a note to this walk, not a section of its own).** On a build from round 93 the Stagewatch link runs on the
+PeerLink core at level 0 (Show Bus 1.3 §13). Step (1) gains the first start after the upgrade: a Stagewatch whose
+certificate an earlier build pinned reads `first` — the Nodes card, the Eye's card and STATE's `bus.stagewatch.headline`
+say "Stagewatch <name> shows <short fingerprint> — compare it on its own screen; Trust sends it this desk's key. Until
+then its public view is read without the key.", the stage timer follows the public frame, and the context post and the
+approval queue wait; compare the fingerprint on the Stagewatch's own screen and press **Trust** beside it (or the card's
+right-click entry, on the Nodes page or the Eye): one journal row, the key goes from the next dial, and the Super
+Check's SHOW NETWORK row "Show network links" turns from its FIX naming Trust to △ amber `legacy` with "it ends once
+<name> proves itself with PeerLink — nothing to press on this desk"; the Run strip reads "STAGEWATCH △ LIVE (legacy)".
+Every change of the link's state is one journal row (origin Show network, verb `StagewatchLink`) and one log line, a
+flapping link's repeats summed once a minute. Revoke the key on the Stagewatch and restart the desk inside its hold:
+`patterns.linkholds.json` holds the target, the key's kid and the end — never the key — and the restarted desk presents
+no key before that end, reading the public view meanwhile. Step (2) gains the beat: with the Stagewatch's approval queue
+slow, the link's pings keep their 1.5 s and the stage page still holds its time back within six seconds of the pulled
+cable; the record's `attempt` (STATE's `bus.stagewatch.link`) goes back to 0 only once the link has stayed up 10 s. From
+the Companion deck (module 3.20.0): **Stagewatch link** OFF, AUTO and an address, **Stagewatch follow** OFF then ON (the
+link's light amber, then red while it is down and the stage follows it, with no new dial), and **Link again now** while
+a refused key's hold runs (the hold ends, the key goes at the next dial); `$(patterns:stagewatch_link_state)` and
+`$(patterns:stagewatch_link_flags)` read the record. A fail adds: the key sent before Trust, a hold that a restart
+forgets, a link the deck repointed carrying a key it was not bound to, or a journal row per beat. The row above stays as
+it is, unwalked.
+
 ## 27. TLS, the pins, the approval queue and the node relay (round 88)
 
 **Set up.** The show laptop (the desk) with a timer node on a second machine linked to it, Stagewatch 2.16 on a third
@@ -739,6 +768,20 @@ Stagewatch from 2.19 replaces its own over-long certificate the same way (its SW
 CHANGED on the Nodes page and the Eye until ACCEPT, which is the step's own check. A fail adds: a second replacement at
 the next start, or a tablet that still warns after trusting the new certificate. The row above stays as it is,
 unwalked.
+
+**Round 93 (a note to this walk, not a section of its own).** Step (3) reads ACCEPT as round 93's 93.4 made it: with
+CERTIFICATE CHANGED on the Nodes page and the Eye (nothing of this desk's sent, the certificate looked at again at most
+once a minute), the Nodes page's ACCEPT box is empty — never filled for you — and takes at least 8 hex of the
+certificate shown now, compared on the Stagewatch's own screen (spaces dropped, either case). Fewer than 8 hex accept
+nothing and say "Type at least 8 hex of the certificate Stagewatch <name> shows now — compare it on its own screen
+first; nothing is accepted yet."; 8 hex of another certificate accept nothing and say "The waiting certificate begins
+<short fingerprint> — not what was typed; compare it with Stagewatch <name>'s own screen. Nothing is accepted." Each
+press is one journal row with no hex in it. From the deck, or `nc 127.0.0.1 9697` on the desk's own machine with plain
+`AUTH <token>` (another machine proves the token with AUTH-PROOF's HMAC, as the deck does), `STAGEWATCH ACCEPT 8e8bc45b`
+and `STAGEWATCH TRUST` answer `ERR TRUST and ACCEPT are a person's choice on the desk, beside the fingerprint …`, one
+journal row each, nothing pinned. A fail adds: an ACCEPT
+box filled by the desk, a changed certificate taken from the wire or a deck, or the typed hex in the journal or the log.
+The row above stays as it is, unwalked.
 
 ## 28. A page's pass, the twin's secrets, the trust rules and a stuck Stagewatch on two machines (round 89)
 

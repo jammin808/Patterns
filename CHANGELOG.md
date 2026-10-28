@@ -10,10 +10,39 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
-## Round 93 — 2026-10-27 — PeerLink from Patterns' side: the core and its vectors in Core, the Stagewatch link on it, the link's record in every reader, and the STAGEWATCH verbs with trust and accept on the desk alone
+## Round 93 — 2026-10-27 — PeerLink from Patterns' side: the core and its vectors in Core, the Stagewatch link on it at level 0, the link's record in every reader, and the STAGEWATCH verbs on the wire, a deck and the menus, with trust, accept and the key on the desk alone
 
-`round-93` · PLAN §111 · 2,977 tests at the opening · module 3.19.1 at the opening · evidence: a handed-in critique (the PeerLink profile, now Show Bus 1.3's §13 and §14 as copied here, with patterns-playmap-side's G34, the Eye critique's trust verbs and the plan revised against its critique), beside this tree's own findings at 92.4 (L83, L84, L87) and round 91's L67
+`round-93` · PLAN §111 · REVIEW round 93 · 3,225 tests · module 3.20.0 · evidence: a handed-in critique (the PeerLink profile, now Show Bus 1.3's §13 and §14 as copied here, with patterns-playmap-side's G34, the Eye critique's trust verbs and the plan revised against its critique), beside this tree's own findings at 92.4 (L83, L84, L87) and round 91's L67; no measurement
 
+- **The PeerLink core in Core (93.1, L83).** `PeerLink`, `PeerLinkMachine` and `LinkRecord` are Show Bus 1.3 §13 as this
+  desk's own pure Core — the canonical form, the keys and proofs, the legacy key, liveness, the redial, the five
+  outcomes, the state machine and 13.16.3's record, which holds no secret — and every one of the copy's 109 `peerlink`
+  vectors runs against it. The pairing token keeps its legacy key for the deck's proof and the web header and gains
+  13.5.1's canonical form beside it: the Remote page takes a token only when the two agree, commits it when the box is
+  left, and keeps a token an older build saved, said beside it. The clock the twin and the Stagewatch link measure
+  admits a sample by 13.11.2 and says CLOCKS APART only when the offset less the sample's error is past 2 s; STATE's
+  twin clocks gain `errMs`. CI's test job gains Node for the tests that drive the scripted peer.
+- **The Stagewatch link on the core (93.2, L67, L84, L87).** The redial count goes back to 0 only after a link that
+  settled stays up 10 s; a refused key's hold is kept beside the settings (`patterns.linkholds.json`, by target and the
+  key's kid, never the key) and outlasts a restart; the side calls run on a lane of their own and the beat and the drop
+  check on their own timers; a pong is a clock sample only when it answers this desk's ping; an owed result is retried
+  from 3 s doubling to 30 s for half an hour; an unanswered call is unconfirmed, never "failed". A certificate the desk
+  pinned at first use carries no key until a person presses **Trust** beside its fingerprint on the Nodes page (or the
+  card's right-click entry, here and on the Eye) — so after the upgrade each keyed Stagewatch link reads the public view
+  and holds its context, proposals and results until one Trust press.
+- **The link's record in every reader (93.3).** STATE's `bus.stagewatch.link`, the Eye's card and edge, the Nodes card,
+  the Run strip, the context's `link:stagewatch` item and its row, the `peers` rows' `heard`, `link` and `verified`, the
+  assistant's brief, the Super Check's SHOW NETWORK "Show network links" and the deck's `stagewatch_link_state`,
+  `stagewatch_link_light` and `stagewatch_link_flags` (module 3.20.0) all read one record; one journal row and one log
+  line per change of state, repeats summed. Until both ends speak `LINK` (round 96) a keyed link reads amber `legacy`,
+  in words that say what ends it.
+- **The STAGEWATCH verbs (93.4, G34).** `STAGEWATCH [STATUS]`, `LINK <host[:port]>|id:<id>|AUTO|ON|OFF|AGAIN`, `FOLLOW
+  ON|OFF`, `FLOOR LOWER` and `RELEASE` on the wire, a deck, the menus and the Nodes page's boxes, each one show action
+  and one journal row. TRUST, ACCEPT (at least 8 hex typed, never pre-filled) and BIND KEY are a person's presses on the
+  desk alone: the wire and a deck are refused in words, the module has no action for them and the assistant proposes no
+  link verb. The key goes only to the Stagewatch it is bound to, never where a line chose; LINK AGAIN ends every hold of
+  the key without dropping a live link; FOLLOW moves the link's light at once. STATE appends `follow`, `pending` and
+  `keyFor`.
 - **Opened (93.0).** The plan's round 92 — its PeerLink round, P92.0 to P92.5 — is this round, 93.0 to 93.5, at PLAN
   §111 (the plan's §110): round 92 here was the repair round §110.1 inserted, so every later round of the plan reads one
   higher, as that opening's key says. Nothing in `docs/field/`; CI's run 282, on round 92's papers, read as the files:
@@ -41,6 +70,21 @@ is the Bitfocus Companion module, where its version moved.
   twin's clock words, §26 and §27 for the link); 93.5 writes the notes. STAGEWATCH LINK's journal rows and the Super
   Check's "Show network links" row, read beside the Nodes card, close the round. The papers (93.5) write what landed,
   REVIEW round 93, the count at the round's end and round 92's tag row (`4031670`); the round's tag waits for them.
+- **The papers (93.5).** OPEN: L83 closed (93.1), L67, L84 and L87 (93.2), L92 (run 282's windows-smoke); L94 to L98
+  added — TRUST and ACCEPT on the desk alone, a departure from 13.16.6 that Stagewatch's own typed trust shares; the
+  level-0 legacy bearer, P-legacy's fallback for a Stagewatch before `LINK`; a carried pin read `first` and the
+  upgrade's Trust press; owed results in memory and a node route's 403 hold not persisted; 13.11.7's wall-step half;
+  L50, L56, L61, L66, L77 (its assertion half met by 93.2) and L81 (a fourth sighting, mended) read again. 93.2's commit
+  recorded no mutation check, so the papers ran five against its rules. QUALIFICATION §22 gains step 16 (the twin's
+  clock words) and §26 and §27 round-93 notes (the Trust press after the upgrade, a hold across a restart, the amber,
+  the verbs from a deck, a typed ACCEPT). Round 92's row in the tag table. The code units reached the remote before the
+  papers: CI's run 284 on `c5cc9cf` passed every job, the test job running the ten `PeerLinkWireTests` against the
+  scripted peer with Node 22, 3,225 tests and every fence "0 fault(s)". Found at the papers' review and mended: a
+  rate-limit test that read the log before the link's line landed (the line follows the hold's store) — it and six other
+  reads of the link's lines now wait for the line, never a longer timeout — and a bearer test whose name claimed a
+  `first` pin it never met, which gains that leg. Walk: unwalked — §22's step 16, §26's and §27's notes. STAGEWATCH
+  LINK's journal rows and the link's own state rows, read beside the Super Check's "Show network links" and the Nodes
+  card, close the round.
 
 ## Round 92 — 2026-10-26 — a repair round: the Stagewatch link reaches every address its name resolves to, the lifecycle census judges only what its cycles left, the twin's new key in no line and masked on the ADMIN page's log tail, Show Bus 1.3 copied byte for byte, and the seven suites leave no temporary folder behind
 

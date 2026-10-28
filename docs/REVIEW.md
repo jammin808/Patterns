@@ -4237,3 +4237,202 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   new step 15 (a first run in an empty folder: the log's one line, no key on the strip, the key on the TWIN card, the
   ADMIN page's log) is the walk it asks (§110.10). Both rows stay unwalked; 92.2, 92.4 and 92.5 touched no platform
   path.
+
+## Round 93 review — PeerLink from Patterns' side: the core and its vectors, the Stagewatch link on it at level 0, the link's record in every reader, the STAGEWATCH verbs with trust, accept and the key on the desk alone
+
+### 93.0 — the round opened
+
+- The plan's PeerLink round (its P92.0 to P92.5) is round 93 here, §111, under §110.1's key. The requester: the
+  maintainer's show-network ask, the plan's third train ("every link honest from its own end"). Evidence class: a
+  handed-in critique — the PeerLink profile, now Show Bus 1.3's §13 and §14 as copied here — with
+  patterns-playmap-side's 91.1 (G34), the Eye critique's fourth item and the plan revised against its critique, beside
+  this tree's L83, L84, L87 and L67. `docs/field/` holds only its README; CI's run 282 was read as the files (L92's
+  close met).
+- The opening read every citation of the plan again at `4031670` (its rule R6) and took the head where it differs: the
+  pairing token keeps `Normal` as 13.6.8's legacy key, 13.5.1's canonical form beside it; a carried pin reads `first`
+  (13.8.2's stricter reading than the plan's), so the Trust press lands with the rule in 93.2; STATE's `link` after
+  `held`; the desk's own context among 93.3's readers; TRUST and ACCEPT on the desk alone as the plan says, a departure
+  from 13.16.6 named.
+
+### 93.1 — the PeerLink core in Core, its vectors, the token's two forms, the clock's admission
+
+- **Done.** §111.2. `PeerLink.cs`, `PeerLinkMachine.cs`, `LinkRecord.cs` (Core, no package reference);
+  `PairingToken.Canonical` beside `Normal`; the Remote page's token box (13.5.1's entry check, committed on leaving,
+  a carried token kept and said); `LinkClock` by 13.11 and its readers (the twin's line, help and STATE with `errMs`
+  appended, the link's words and `bus.stagewatch.clock`); the bench's token file; Node 22 in CI's test job;
+  `PeerLinkVectorsTests` (all 109 rows), `ShowBusSpecTests` (24 held, 85 the core's), `PairingTokenTests`,
+  `LinkClockTests`, `RemoteTrustTests`, `BenchHostTests`, `PeerLinkWireTests`.
+- **The review's items, fixed:** the token box saved on every keystroke, so "show-2026!" left "show-2026" in use under
+  words saying the token was unchanged, and each prefix closed paired connections (it commits on leaving now, a test
+  types into the page's own box); an unknown verdict class reached the record (read as malformed and counted); answers
+  and receipts were taken before the link was up (discarded and counted until it is); `ReceiptBook` kept an empty book
+  and answered a repeat by rewriting it (dropped, and answered byte for byte with `"repeat":true` appended); S19's check
+  named the proofs among what never crosses the wire (they cross it by design: held to the record and the writes); the
+  ADR-016 summary out of place; the twin's help sentence; round numbers in comments.
+- **Raised for Stagewatch's tree, not changed:** its core copies an unknown verdict class and takes answers before up.
+- **Mutation checks** — three, as the unit's commit records them (each applied, built, run and restored): the answer
+  guard, the class check and the empty-book drop taken out together — the three new Core tests fail and the 120 other
+  vector tests pass; the token box bound per keystroke — `TheTokenBoxTakesWhatIsTypedOnlyWhenItIsLeft` fails and the
+  whole-string test passes; the server proof's label and the apart rule broken — 8 Core tests (the vectors and
+  `LinkClockTests`) and 4 `PeerLinkWireTests` fail.
+- **Departures:** a token with an invisible character gets 13.6.8's "retype it" words; 13.11.7's wall-step half has no
+  reader (L98).
+
+### 93.2 — the Stagewatch link on the core
+
+- **Done.** §111.3. `StagewatchLinkService` on `PeerLinkMachine` with `ShowClockTime`; the redial reset after a settled
+  10 s; `LinkHolds` (`patterns.linkholds.json`, by target and kid, before any I/O); the side calls' lane, the beat and
+  the drop check on their own timers, matched pongs; `OwedReports` on 13.12.9's schedule; the clock emptied on a new
+  `inst` or a lower `seq`; the legacy bearer; first pins carrying no key and the desk's Trust press (both desks' Nodes
+  cards, the right-click menus of the Nodes card and the Eye's card), bound to the fingerprint shown, one journal row.
+  `StagewatchLinkCoreTests` (new), `PeerLinkWireTests.Stagewatch`, `ShowBusAppTests`, `ShowBus12AppTests`,
+  `DeskMenuAppTests`, `NodesAppTests`; `ShowBusSpecTests`' moved rows.
+- **The review's items, all valid and folded in:** the hold and redial count carried across a target flip (medium);
+  Trust bound to the shown fingerprint, compared and taken in one step, Refused on nothing waiting (medium); the
+  scenarios through the link against the scripted peer, with S14's unconfirmed asserted (medium); a restart read from a
+  `seq` that counts lower; the redial reset for keyless connections; the machine's write queue drained; holds merged,
+  not overwritten; a view code's no-public-view persisted; proposal posts read by their outcome and never resent blind;
+  the node desk's Trust path tested; the ping strictly inside its band; a doc comment back above its section; Trust's
+  words leading the headline; no round number in a test comment.
+- **Found in validation, mended:** four tests reading a fact before it landed (the menu's Trust test, the redial test's
+  fake, S5's wait for the peer's upgrade line, the wire peer's deadline test), and a race of the link's own — a frame of
+  a run a press let go could write its offer after the press — closed by one gate for the offer, the press and the run's
+  replacement.
+- **Mutation checks** — the unit's commit records none, so these papers ran five against its rules, each applied to
+  Core, built, run and restored byte for byte (`git diff` empty after each):
+  - the redial count reset as soon as a link is verified, not after it has stayed up 10 s: the machine vector "reset
+    only when stable" (row 81) and `AtLevelZeroTheRedialCountReturnsToZeroOnlyAfterASettledLinkStaysUpTenSeconds` fail;
+  - a pong that answers none of the last pings taken as a clock sample: the vector "unmatched pong" (row 98),
+    `AMatchedPongIsASampleAndOnlyAFreshClockOverTlsSchedules` and
+    `OnlyAPongThatAnswersOneOfTheLastPingsIsASampleAndAnotherInstEmptiesTheClock` fail;
+  - the holds' store never written: four `StagewatchLinkCoreTests` fail, among them
+    `AHoldIsKeptByTargetAndKidBeforeTheCallerGoesOnAndOutlastsARestart` and the LINK AGAIN lift test;
+  - the owed results retried at a flat 3 s: `AnOwedResultIsRetriedFromThreeSecondsDoublingToThirtyForHalfAnHour` fails;
+  - the bearer sent over a `first` pin: the vector "a first pin carries no key" (row 100) failed, and
+    `AtLevelZeroTheBearerGoesToALocalLinkOrAPersonsPinAndNeverToAFirstPin` passed — its first-use leg had no pin when
+    the bearer was decided (the `first` pin is made after), so it never met a `first` pin already kept; the vector did,
+    and was this rule's only fence until 93.5's mend gave the test that leg (below);
+  - each run was the Core suite filtered to `StagewatchLinkCoreTests`, `PeerLinkVectorsTests` and `ShowBusSpecTests`
+    (153 tests) on a build of the Core test project alone; the solution was built again from the restored tree before
+    the closing runs.
+- **Choices, said:** a pin kept before pins said who made them reads `first` (L96); a first pin never takes the place of
+  a person's; a Stagewatch at loopback gets the key as before; owed results in memory and a node route's 403 hold not
+  persisted (L97); no `LINK` on the socket at level 0 (L95); S12 and S14 partly against the C# fakes (§111.3).
+
+### 93.3 — the link's record in every reader
+
+- **Done.** §111.4. STATE's `bus.stagewatch.link`; the Eye's card and `Follows` edge; the Nodes card, the Run strip and
+  a node's glance; the context's `link:stagewatch` item, its row to `@<id>` and `heard`, `link`, `verified` on every
+  `peers` row; the brief; the Super Check's "Show network links" with `LinkRecord.Remedy` and `Ends`; one journal row
+  and one log line per change of state (`LinkChangeLog`, 13.19.4's repeat rule); the module's 3.20.0 variables and
+  feedback. `LinkRecordReadersTests` (Core), the App tests per reader, the module's tests.
+- **The review's items, folded in:** repeats keyed by the state entered (now by the change, from and to, as Stagewatch's
+  `PlayoutLink.Change` and `FoldRepeats` do), the summary said before the next row so the rows keep their order; a typed
+  address that is not one said in every reader without repeating it; a node's STATE carrying its own record; the deck
+  reading nothing from a desk that sends no record; the Super Check's FIX only where a person can act; no `links` row
+  while §2's mark holds the link off an id two machines say.
+- **Mutation checks** (each restored): the fold before a row removed; repeats counted by the state entered (the earlier
+  rule); the evaluator's change call removed; the conflict row published — each fails a test.
+- **Not taken:** the STATE push gate (§111.4; L54). No measurement.
+
+### 93.4 — the STAGEWATCH verbs; TRUST, ACCEPT and the key on the desk alone
+
+- **Done.** §111.5. `StagewatchVerbs` (Core), the show actions (`ShowActions.Nodes.cs`), `KeyFor` and its bind rules,
+  `LinkSettings.KeyHeldBack`, `LinkHolds.Lift`, `PeerLinkMachine.ShowNeedsLink`, the Nodes page's boxes on both desks
+  (`StagewatchBoxes`), the LINK group of the card's menu here and on the Eye, STATE's `follow`, `pending` and `keyFor`,
+  a node's STATUS and STATE; the module's four actions and two variables, `lines.txt`; REMOTE's rows.
+- **The review's items, folded in:** LINK AGAIN replaced the run, dropping a live link and resetting the count (it now
+  ends the holds and the wait on the run's own machine, refused on a live link with nothing held); FOLLOW did not move
+  the light (the show's need told to every machine); a key held back by its binding read as no key at all (keyless,
+  amber, with its kid and words); LINK AGAIN lifted the hold under one target only (`Lift` by kid, every target); the
+  binding cleared whenever the kid changed between reconciles (only a key typed in the box clears it); a node's STATUS
+  and STATE; Release and Lower floor on the menus and the Nodes page; the checkboxes through the show actions; LINK's
+  reply words; ACCEPT's hex rule (a colon is not hex).
+- **Mutation checks** (each restored): without the show's need told, without the held-back kid, or without the lift, a
+  test fails.
+- **Departures:** BIND KEY a third press of the desk's alone; a key saved before round 93 read unbound (§111.5).
+
+### 93.5 — the papers
+
+- §111's heading, a pointer at the end of §111.1, §111.2 to §111.9; this section; the CHANGELOG entry completed; README
+  (the ledger's entry for round 93, the upgrade's Trust press in it and under *Versions and rolling back*, the Show Bus
+  paragraph, the twin's clock line, the count); `docs/REMOTE.md` (the token's two forms, TWIN STATUS's `errMs` and
+  `apart`, the upgrade's Trust press, TRUST and ACCEPT's departure from 13.16.6, the link's record and journal rows,
+  what the desk keeps of §13 now); `docs/COMPANION.md` (round 93, 3.20.0); `docs/QUALIFICATION.md` §22's step 16 and
+  §26's and §27's round-93 notes; `docs/OPEN.md`; the tag table's row 92 (`4031670`).
+- **Read again at the papers:** §111.1 said the two apps would differ in where Trust and Accept are reachable;
+  Stagewatch's SW20.6 (`2ac9cf3`) keeps its typed trust off every door too, and its SW20.11 (`51c2dfb`) binds its
+  Settings' Trust to the row it drew, on its desk, so the departure from 13.16.6 is both connectors' (L94). It said 93.5
+  would read the code units' CI run if they were pushed before the papers; they were (`c5cc9cf`), and run 284 is read
+  below. Its table's 93.2 row said owed results would be written before they run; they live in memory (L97). REMOTE's
+  show network section still listed 13.11 on `LinkClock`, the link's pings and 13.12.9's resends as not kept, and its
+  TWIN STATUS row said nothing of `errMs` or 13.11.5's `apart`; README's twin line said CLOCKS APART "past two seconds"
+  — each now says what the code does. The changelog's entry named only the opening.
+- 93.2's commit recorded no mutation check; these papers ran five (above).
+- **Found at the papers' review, mended here** (PLAN §111.9). `ShowBusAppTests.ARateLimitHoldsKeyedCalls…` failed one
+  whole App run (946 of 947) and two of three alone: it read `patterns.log` the moment the rate limit's hold showed, and
+  the link writes that line after the hold's store (93.2's `Holds.Hold`, 13.15.3's "before any further I/O"). The order
+  is the product's; the test was wrong. Its read and the six other reads of a line the link writes after publishing the
+  standing it reports (the refused key's, the key taken, the node routes held, the legacy fallback and its refusal),
+  five tests in all, now wait for the line to land (`Logged`), never on a longer timeout.
+  `StagewatchLinkCoreTests.AtLevelZeroTheBearerGoesToALocalLinkOrAPersonsPinAndNeverToAFirstPin` gains a leg dialled
+  with a `first` pin already kept, asserting no credential is drained, so its name holds. The review asked for the
+  race's mend in a unit of its own; this step commits once, so it lands here, test files alone, with its proof below.
+- **Mutation checks for the mends** (each applied, built, run and restored, `git diff` of `src/` empty after each):
+  - a 600 ms pause put between the hold's store and the log line: with the five tests' old reads, two fail at once —
+    the rate limit's and the legacy fallback's, never seen failing before; with `Logged`, the 75 tests of
+    `ShowBusAppTests`, `ShowBus12AppTests`, `StagewatchVerbsAppTests`, `PeerLinkWireTests` and `NodesAppTests` pass
+    under the same pause;
+  - the pause taken out: the two pass five runs of five beside twelve busy loops, a load average of 14 to 19 on this
+    four-core bench;
+  - the bearer sent over a `first` pin: the new leg fails, beside vector row 100.
+
+### The review's items, answered
+
+- **L83 — the clock against 13.11 (92.4):** closed by 93.1, for the twin and the link alike.
+- **L84 — the side calls in the beat's path (92.4):** closed by 93.2.
+- **L87 — owed results' schedule (92.4):** closed by 93.2.
+- **L67 — a hold that lives in the process (91.1's review):** closed by 93.2, by target and kid, never a hash of the
+  key.
+- **L92 — 92.5's fences on Windows:** closed on run 282's windows-smoke, read at the opening.
+- **G34 — the link set from the wire, a deck and the menus:** landed as 93.4; an assistant-proposable link stays
+  declined (X-declines).
+- **The Eye critique's fourth item — trust and accept on the desk alone:** landed as 93.2 (Trust) and 93.4 (Accept,
+  and the wire's refusals); the departure from 13.16.6 is L94.
+
+### The ledger's rows, answered
+
+- **Closed:** L83 (93.1); L67, L84, L87 (93.2); L92 (run 282).
+- **Added:** L94 (TRUST and ACCEPT on the desk alone, against 13.16.6); L95 (the level-0 legacy bearer, P-legacy's
+  fallback for a Stagewatch before `LINK`); L96 (a carried pin read `first`, the upgrade's Trust press); L97 (owed
+  results in memory; a node route's 403 hold not persisted); L98 (13.11.7's wall-step half).
+- **Read again:** L50 and L56 (§26's and §27's round-93 notes); L61 (round 93 accepts no `LINK`); L66 (kept: the legacy
+  bearer is 13.6.8's other half); L77 (93.2 met its assertion half — the pinned-TLS test reads `link.Carrier` itself —
+  and its `FreePort` window stands); L81 (a fourth sighting, read and mended at the papers; its three stand).
+- Closed rows: forty-four; open: fifty-four.
+
+### The suites
+
+- At the close, on this bench with `TMPDIR` under the tree's `artifacts/`, after the mends and their checks: Core
+  1,525, Rendering 689, Devices 9, Audio 14, Assistant 38, Audience 3, App 947 (19 m 55 s) — 3,225. The papers' first
+  runs, before the review, were green twice (App 20 m 11 s and 18 m 56 s); the review's whole run read App 946 of 947,
+  the race mended above. Each suite's fence line read "0 fault(s)": made through `TempRun` and removed by their tests,
+  Core 56, Rendering 49, Devices 0, Audio 0, Assistant 1, Audience 2, App 983, the App fence naming 120 desks closed
+  late (L91). The module's 48 node tests (the package test still leaving its `patterns-module-*` folder in the temp
+  path, L93), `lines.txt` current, `npm run check` clean. The papers change no code under `src/`; the two mends are
+  tests.
+- CI: run 284 (id 40593643391) on `c5cc9cf`, the code units 93.1 to 93.4, pushed before these papers: every job green,
+  `release` skipped with no tag. The test job set up Node v22.23.3 and passed Core 1,525, Rendering 689, Devices 9,
+  Audio 14, Assistant 38, Audience 3 and App 947 (15 m 37 s), the ten `PeerLinkWireTests` against the scripted peer
+  among them; "25 Scripted Stagewatch (an HttpListener on localhost): reached at ::1."; each fence line in the uploaded
+  results "0 fault(s)" (Core 56, Rendering 49, Devices 0, Audio 0, Assistant 1, Audience 2, App 983). windows-smoke
+  passed the six suites with the same counts and fences, the desk's classes 33 of 33, WebView2 (runtime 155.0.4283.62,
+  2999 ms) and RUNTIME OK; lifecycle, companion-module, rollback-script and portable-exe passed. Run 283 on `009f405`
+  (the opening) likewise. These papers and the two test mends go out at the maintainer's next push.
+- The rig's reading: STAGEWATCH LINK's journal rows and the link's own state rows (origin Show network, verb
+  `StagewatchLink`) and log lines, read beside the Super Check's "Show network links" and the Nodes card (§111.9).
+- Walk: unwalked — 93.1 changes the twin's clock words and its `apart`, and the twin is a path the brief names:
+  QUALIFICATION §22's new step 16 is the walk it asks. 93.2 to 93.4 change what a real Stagewatch on the network meets —
+  the key held for one Trust press after the upgrade, a hold across a restart, the beat on its own timer, the level-0
+  amber, LINK AGAIN and FOLLOW from a deck, a typed ACCEPT and the wire's refusals — which §26's and §27's round-93
+  notes add to their steps. The three rows stay unwalked.
