@@ -521,7 +521,10 @@
     "next": "01.030 Q&A",
     "pendingSpeaker": "Wrap up",
     "pendingCrew": "",
-    "flash": false
+    "flash": false,
+    "speakerFrom": "stagewatch",
+    "speakerAck": "sent",
+    "speakerAckBy": ""
   },
   "take": {
     "scope": "",

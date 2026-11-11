@@ -114,6 +114,75 @@ public interface IStageHost
 
     /// <summary>Round 87: the Stagewatch the stage timer follows — <see cref="StagewatchSight.None"/> when there is none, or following is off.</summary>
     StagewatchSight FollowedStagewatch => StagewatchSight.None;
+
+    /// <summary>
+    /// What carries a speaker's message to a Stagewatch — the desk's link, whether or not the stage follows it (a message says
+    /// which when it stays here); null where a message is this process's own alone (a node).
+    /// </summary>
+    ISpeakerCarrier? Speaker => null;
+
+    /// <summary>
+    /// A display's ACK on the Stagewatch's message goes to a desk in step, which answers for this process (a node linked to its
+    /// desk); false where an ACK with no carrier has nowhere to go.
+    /// </summary>
+    bool AcksThroughDesk => false;
+
+    /// <summary>
+    /// The stage's messages are this process's to move — their receipts, binds and answers; false on a desk that mirrors
+    /// another's show (a standby), where the other desk moves them and the mirror brings each step.
+    /// </summary>
+    bool OwnsTheStage => true;
+
+    /// <summary>This process's name on the show network: what a display's ACK forwarded to a Stagewatch is signed with.</summary>
+    string DeskName => "";
+
+    /// <summary>One journal row for a step of a speaker message's route — its receipt, its bind, its answer — and, when it needs a look, the desk's notice.</summary>
+    void StageJournal(string origin, string outcome, string words, bool notify)
+    {
+        // a process with no route through a Stagewatch has no step to say
+    }
+
+    /// <summary>
+    /// A speaker message a cue sent through a Stagewatch came to something: its row, found by <paramref name="execution"/>, settles
+    /// on a yes or a no (<paramref name="ok"/>), or — null — keeps waiting with <paramref name="words"/>.
+    /// </summary>
+    void SpeakerReceipt(string execution, bool? ok, string words)
+    {
+        // a process with no cue runner owes no row
+    }
+}
+
+/// <summary>Whether a speaker's message can go through a Stagewatch now: the Stagewatch's name ("" with none linked), and why not, in words.</summary>
+public readonly record struct SpeakerRoute(bool Can, string Name, string Why);
+
+/// <summary>
+/// One of the speaker's calls on a Stagewatch link's side calls (Show Bus 1.3 §13.7.4): its kind, its path, its 13.12.1 id and
+/// the tag its asker knows it by — a message's own id, or the signal an ACK answers.
+/// </summary>
+public sealed record SpeakerCall(string Kind, string Path, string Id, string Tag)
+{
+    public const string Message = "message";
+    public const string Clear = "clear";
+    public const string Ack = "ack";
+
+    /// <summary>
+    /// A clear's condition: the ids of the message calls it follows. It is written only if one of them reached the Stagewatch —
+    /// applied, accepted or unconfirmed — and is otherwise answered not-sent: what is on that stage is then not this desk's.
+    /// Empty: no condition.
+    /// </summary>
+    public IReadOnlyList<string> After { get; init; } = [];
+}
+
+/// <summary>What became of one of the speaker's calls: its receipt by 13.12.3, and the Stagewatch it went to.</summary>
+public sealed record SpeakerAnswer(SpeakerCall Call, StageReceipt Receipt, string Name);
+
+/// <summary>The link a speaker's message rides: read at the verb, asked once per call, answered once (the link's own event).</summary>
+public interface ISpeakerCarrier
+{
+    SpeakerRoute Route { get; }
+
+    /// <summary>Asks one call — <paramref name="after"/>: the message calls a clear follows (<see cref="SpeakerCall.After"/>); null when the link cannot take it now.</summary>
+    SpeakerCall? Ask(string kind, string path, string tag, IReadOnlyList<string>? after = null);
 }
 
 /// <summary>

@@ -706,7 +706,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 $"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
             Notify($"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
             // The step's outcome onto its cue's row: a receipt awaited, or a step that failed after the GO.
-            CueStack?.TailStep(step.ExecutionId, step.Number, step.Of, result, mapped.Kind == ShowActionKind.DeviceSend);
+            CueStack?.TailStep(step.ExecutionId, step.Number, step.Of, result, ShowActions.OwesAReceipt(mapped.Kind));
         };
         CueStack = new CueStackService(Kernel, this);
         // A box's receipt settles the cue that sent the line — that row and no other.
@@ -718,6 +718,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         _liveHook = () => OutputsLive || CueStack?.Armed == true;          // round 87: the watchdog's shorter hang rule while live
         WatchdogBeat.Live = _liveHook;                                      // round 88.1: released at shutdown, or it roots the closed desk
         Kernel.StagewatchChanged += Stage.Bump;                  // round 87: a Stagewatch frame moves the stage pages
+        Kernel.StagewatchChanged += Stage.Follow;                // its frames bind, answer and clear the messages this desk sent through it
+        Kernel.Stagewatch.SpeakerAnswered += Stage.OnSpeakerAnswer;   // each of the speaker's calls answered once, by 13.12.3
         // Round 88 (Show Bus 1.2): this desk's own context goes to a linked Stagewatch; an approved line another app's
         // assistant proposed to this desk runs through the wire's own path — the desk's fences and refusals still apply.
         Kernel.Stagewatch.OwnContext = ContextJson;
@@ -950,9 +952,12 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var refused = Kernel.Stagewatch.PendingFingerprint.Length > 0;
         var whose = Kernel.Stagewatch.PendingPinKey;
         bool Refused(EyeShowApp a) => refused && a.KindWords == "Stagewatch" && (whose.StartsWith("node:", StringComparison.Ordinal) ? a.Id == whose[5..] : a.Linked);
+        var speaker = State.Control.Stagewatch.FollowStage ? Stage?.SpeakerLine ?? "" : "";
         return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink)
             // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
             .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
+            // Where this desk's last speaker message went, on the Stagewatch the stage follows: the Eye's node and the assistant's facts read it.
+            .Select(a => a.Linked && a.KindWords == "Stagewatch" && speaker.Length > 0 ? a with { Speaker = speaker } : a)
             .Concat(ShowBusView.Nodes(Twin.NodeContexts(utcNow), utcNow))                // round 88: the desk's own nodes, each from its own context (L52)
             .ToList();
     }
@@ -972,6 +977,23 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     /// <summary>Round 87: the Stagewatch the stage timer follows, when its link is on and following is on.</summary>
     public StagewatchSight FollowedStagewatch => State.Control.Stagewatch.FollowStage ? Kernel.Stagewatch.Sight : StagewatchSight.None;
+
+    /// <summary>The speaker's message rides the Stagewatch link while the stage follows it; with following off it stays here, and says so of a Stagewatch the link holds.</summary>
+    ISpeakerCarrier? IStageHost.Speaker => Kernel.Stagewatch;
+
+    /// <summary>A standby mirrors the main's stage: the main moves its messages, and the mirror brings each step here.</summary>
+    bool IStageHost.OwnsTheStage => Twin is not { Role: TwinRole.Standby };
+
+    string IStageHost.DeskName => Beacon.MachineName;
+
+    /// <summary>One journal row for a step of a speaker message's route; a refusal, a message not sent or not confirmed is also the desk's notice.</summary>
+    void IStageHost.StageJournal(string origin, string outcome, string words, bool notify)
+    {
+        Journal.Record(origin, nameof(ShowActionKind.StageMessage), "speaker", outcome, words);
+        if (notify) Notify(char.ToUpperInvariant(words[0]) + words[1..] + ".");
+    }
+
+    void IStageHost.SpeakerReceipt(string execution, bool? ok, string words) => CueStack?.OnSpeakerReceipt(execution, ok, words);
 
     /// <summary>
     /// The lower third on air has been edited since it went there: EDIT SAFE holds the copy the
@@ -1973,6 +1995,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             if (Outputs.IsLive) parts.Add(ShowLock.Locked ? "LOCK ON" : "LOCK OFF");
             var link = Kernel.LinkGlance;                                                    // Show Bus 1.3 §13.16.4: the Stagewatch link's record on the Run strip
             if (link.Length > 0) parts.Add(link);
+            var speaker = Stage?.SpeakerGlance ?? "";                                        // a speaker's message Stagewatch refused, did not confirm or never got, still waiting here
+            if (speaker.Length > 0) parts.Add(speaker);
             return string.Join(" · ", parts);
         }
     }

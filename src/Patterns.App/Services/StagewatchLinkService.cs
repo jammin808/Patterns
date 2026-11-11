@@ -75,8 +75,18 @@ namespace Patterns.App.Services;
 /// table, and a result owed an approval desk is written before its proposal runs and posted again on 13.12.9's schedule. All of
 /// it on <see cref="Time"/>, the link's clock seam.
 /// </para>
+/// <para>
+/// The speaker's calls (13.7.2, 13.7.4): a message this desk sends to the speaker through the Stagewatch its stage follows, the
+/// clear of one it posted and a display's ACK forwarded — a kind of side call of their own, one in flight, a newer message
+/// replacing one not yet sent, woken at once and never waiting a beat or behind the context's read. Each carries a 13.12.1 id
+/// in <c>X-Request-Id</c> and ends in one of 13.12.3's five outcomes, said once to <see cref="SpeakerAnswered"/>; none is sent
+/// again (13.12.7). They go only over a connection that carried the key, after its first word, while no hold stands and the
+/// Stagewatch's show is not stuck; what was never written when the link drops is not-sent, and says why. A clear asked behind
+/// a message still on its way is written only if that message reached the Stagewatch, and the queue is one connection's: the
+/// next connection sends none of it late.
+/// </para>
 /// </summary>
-public sealed class StagewatchLinkService : IDisposable
+public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 {
     private readonly Func<StagewatchLinkConfig> _config;
     private readonly Func<DateTime, IReadOnlyList<ShowBusPeer>> _peers;
@@ -205,6 +215,12 @@ public sealed class StagewatchLinkService : IDisposable
         public volatile StagewatchKey Key = StagewatchKey.Unknown;
 
         /// <summary>
+        /// The Stagewatch's words when it refused this key a message to its speaker (a 403: a key that may read but not send);
+        /// "" before one. While it stands a speaker's message stays on this desk; a verdict that takes the key forgets it.
+        /// </summary>
+        public volatile string SpeakerRefused = "";
+
+        /// <summary>
         /// What the run before heard of the same key at the same address — its standing and its holds, whose ends are on the
         /// link's clock both runs keep — so a new run presents a key held there no sooner than that run would have.
         /// </summary>
@@ -216,6 +232,7 @@ public sealed class StagewatchLinkService : IDisposable
                 BusyUntilMs = from.BusyUntilMs;
                 NodeHeldUntilMs = from.NodeHeldUntilMs;
                 Key = from.Key;
+                SpeakerRefused = from.SpeakerRefused;
             }
         }
     }
@@ -1394,7 +1411,9 @@ public sealed class StagewatchLinkService : IDisposable
         // No frame yet. The same Stagewatch keeps this run's show — its context, and a stall said before the drop, which
         // holds until its next frame. Another Stagewatch starts a show of its own, swapped in after the frameless sight so
         // no read pairs a cleared mark with the old Stagewatch's frame.
-        _sight = new StagewatchSight(name, $"{target.Host}:{target.Port}", ShowBusState.Live, null, ShowClock.Seconds, null, "");
+        // The Stagewatch's own speaker message is kept across a redial to the same one: an answer its frames no longer carry stays known.
+        var message = run.Show is { } before && before.Key == target.PinKey ? _sight.Message : StageMessageSeen.None;
+        _sight = new StagewatchSight(name, $"{target.Host}:{target.Port}", ShowBusState.Live, null, ShowClock.Seconds, null, "") { Message = message };
         var show = run.Show;
         if (show is null || show.Key != target.PinKey)
         {
@@ -1414,8 +1433,13 @@ public sealed class StagewatchLinkService : IDisposable
         using var sendGate = new SemaphoreSlim(1, 1);
         var connection = new Connection(run, core, target, tls, sideKey.Length > 0, isPublic, withheld, apiKey, ws, sendGate);
         run.Live = connection;
+        // The speaker's lane is this connection's from the instant it is the run's: a call asked before the lane's task has
+        // started waits for it there, never refused for a lane not yet running. What was asked of the connection before and
+        // never written is not this one's to send.
+        OpenSpeakerLane(connection);
         var beat = Task.Run(() => BeatAsync(connection, ct), CancellationToken.None);
         var lane = Task.Run(() => SideCallsAsync(connection, show, http, baseUri, sideKey, ct), CancellationToken.None);
+        var speaker = Task.Run(() => SpeakerCallsAsync(connection, show, http, baseUri, sideKey, ct), CancellationToken.None);
         var reprobe = heldBack ? Task.Run(() => ReprobeAsync(run, address, target, ws, ct), CancellationToken.None) : Task.CompletedTask;
         try
         {
@@ -1427,6 +1451,7 @@ public sealed class StagewatchLinkService : IDisposable
             await linked.CancelAsync();
             await EndedWithTheLink(reprobe);                                           // it throws nothing but the link's own cancel
             await EndedWithTheLink(lane);
+            await EndedWithTheLink(speaker);
             await EndedWithTheLink(beat);
         }
     }
@@ -1949,6 +1974,272 @@ public sealed class StagewatchLinkService : IDisposable
         }
     }
 
+    // ---- the speaker's calls -------------------------------------------------------------------------------------------
+
+    /// <summary>The speaker's calls not yet written, in order, and the connection whose lane takes them (both under this gate).</summary>
+    private readonly object _speakerGate = new();
+    private readonly List<SpeakerCall> _speakerQueue = new();
+    private Connection? _speakerOpen;
+
+    /// <summary>Completed when a call is asked (under the gate): the lane that found none waits on it, and makes the next once it is spent.</summary>
+    private TaskCompletionSource _speakerAsked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>The most speaker's calls that wait at once; one more is not taken, and its asker says so.</summary>
+    public const int MostSpeakerCalls = 16;
+
+    /// <summary>
+    /// The most one of the speaker's calls takes (§14's <c>link.sidecall.timeout.ms</c>); a test shortens it to see a timeout.
+    /// Read on the link's task: set it before a call is asked.
+    /// </summary>
+    public TimeSpan SpeakerCallWithin { get; set; } = StagewatchFrame.SideCallWithin;
+
+    /// <summary>
+    /// What became of one of the speaker's calls — each call answered exactly once, on the UI thread: its receipt read by 13.12.3,
+    /// or why it was never sent.
+    /// </summary>
+    public event Action<SpeakerAnswer>? SpeakerAnswered;
+
+    /// <summary>
+    /// Whether a speaker's message can go through the Stagewatch now, read at the moment of the verb: the name of the Stagewatch the
+    /// link holds ("" with none — nothing to say of one), and when it cannot, why, in words a reply carries.
+    /// </summary>
+    public SpeakerRoute Route
+    {
+        get
+        {
+            var run = _run;
+            var sight = Sight;
+            if (sight.Name.Length == 0 && sight.Address.Length == 0) return new SpeakerRoute(false, "", "");
+            var name = sight.Name;
+            var c = run.Live;
+            if (c is null || sight.State == ShowBusState.Gone) return new SpeakerRoute(false, name, $"Stagewatch {name} is not answering");
+            if (sight.State == ShowBusState.Stale) return new SpeakerRoute(false, name, $"Stagewatch {name} is quiet");
+            var why = SpeakerRefusal(c, run.Show);
+            return new SpeakerRoute(why.Length == 0, name, why);
+        }
+    }
+
+    /// <summary>
+    /// Why a speaker's call may not be written on this connection now; "" when it may: the connection carried the key, its first
+    /// word is read, no hold stands, the key was not refused a message, and the Stagewatch's show is not stuck.
+    /// </summary>
+    private string SpeakerRefusal(Connection c, HeardShow? show)
+    {
+        var name = c.Target.Name;
+        if (!c.Keyed)
+        {
+            if (c.Secret.Length == 0) return "the link holds no node key";
+            if (c.Withheld) return "the key waits for Trust — compare the fingerprint on the Nodes page and press Trust";
+            if (c.Public) return "this desk's key is held there";
+            return Volatile.Read(ref _bindOffer) is not null ? "the key is bound to another Stagewatch" : $"Stagewatch {name} offers no TLS, so the key stays on this desk";
+        }
+        if (!c.Heard) return $"Stagewatch {name} has not answered this link yet";
+        if (HeldFor(c.Run) is var held && held > TimeSpan.Zero)
+            return c.Run.Key.Refused
+                ? "this desk's key is refused there"
+                : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"its rate limit holds this desk's key {Math.Ceiling(held.TotalSeconds):0} s");
+        if (NodeHeldFor(c.Run) > TimeSpan.Zero) return "the key may read but speaks for no node of this desk's there";
+        if (c.Run.SpeakerRefused.Length > 0) return "the key may read but not send messages";
+        if (show is { Stuck: true }) return $"Stagewatch {name} says its show is stuck";
+        return "";
+    }
+
+    /// <summary>
+    /// One of the speaker's calls asked (UI thread): <paramref name="kind"/> — <see cref="SpeakerCall.Message"/>,
+    /// <see cref="SpeakerCall.Clear"/> or <see cref="SpeakerCall.Ack"/> — on <paramref name="path"/>, <paramref name="tag"/> what
+    /// the asker knows it by. Taken only while the route stands and this run's connection has a lane open; a newer message replaces
+    /// one not yet written, which is answered not-sent. <paramref name="after"/>: the message calls a clear follows — it is
+    /// written only if one of them reached the Stagewatch (<see cref="SpeakerCall.After"/>). Returns the call with its 13.12.1
+    /// id, or null when it was not taken.
+    /// </summary>
+    public SpeakerCall? Ask(string kind, string path, string tag, IReadOnlyList<string>? after = null)
+    {
+        SpeakerCall call;
+        SpeakerCall? superseded = null;
+        string name;
+        lock (_speakerGate)
+        {
+            var c = _run.Live;
+            if (c is null || !ReferenceEquals(c, _speakerOpen) || SpeakerRefusal(c, c.Run.Show).Length > 0) return null;
+            if (_speakerQueue.Count >= MostSpeakerCalls) return null;
+            string id;
+            lock (_core) id = c.Core.Machine.NextId();
+            call = new SpeakerCall(kind, path, id, tag) { After = after ?? [] };
+            name = c.Target.Name;
+            if (kind == SpeakerCall.Message && _speakerQueue.FindIndex(q => q.Kind == SpeakerCall.Message) is var at and >= 0)
+            {
+                superseded = _speakerQueue[at];
+                _speakerQueue.RemoveAt(at);
+            }
+            _speakerQueue.Add(call);
+            _speakerAsked.TrySetResult();
+        }
+        if (superseded is not null) Answer(superseded, new StageReceipt(LinkOutcome.NotSent, 0, StageSpeakerWords.SupersededWhy), name);
+        return call;
+    }
+
+    private void Answer(SpeakerCall call, StageReceipt receipt, string name)
+        => UiThread.Post(() => SpeakerAnswered?.Invoke(new SpeakerAnswer(call, receipt, name)));
+
+    /// <summary>
+    /// The speaker's queue is one connection's: as <paramref name="connection"/> becomes the run's, whatever was asked of the
+    /// one before and never written is answered not-sent — a lane still winding down takes none of this connection's calls,
+    /// and this connection sends none of that one's late.
+    /// </summary>
+    private void OpenSpeakerLane(Connection connection)
+    {
+        List<SpeakerCall> unsent;
+        string before;
+        lock (_speakerGate)
+        {
+            before = _speakerOpen?.Target.Name ?? connection.Target.Name;
+            unsent = _speakerQueue.ToList();
+            _speakerQueue.Clear();
+            _speakerOpen = connection;
+        }
+        foreach (var call in unsent) Answer(call, new StageReceipt(LinkOutcome.NotSent, 0, $"the link to Stagewatch {before} dropped before it was sent"), before);
+    }
+
+    /// <summary>
+    /// The speaker's lane of one connection (opened to askers as the connection becomes the run's): each call in the order asked,
+    /// one in flight, taken the moment it is asked. When the connection ends, what was never written is answered not-sent — it
+    /// did not run — and nothing waits for the next connection: a message is never sent late.
+    /// </summary>
+    private async Task SpeakerCallsAsync(Connection c, HeardShow show, HttpClient http, Uri baseUri, string apiKey, CancellationToken ct)
+    {
+        var name = c.Target.Name;
+        // What each message this lane wrote came to, for a clear that follows one (bounded: forgotten wholesale when full).
+        var ended = new Dictionary<string, LinkOutcome>(StringComparer.Ordinal);
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                SpeakerCall? call = null;
+                Task asked = Task.CompletedTask;
+                lock (_speakerGate)
+                {
+                    // The queue is this lane's only while the connection is the one askers are given.
+                    if (!ReferenceEquals(_speakerOpen, c)) return;
+                    if (_speakerQueue.Count > 0)
+                    {
+                        call = _speakerQueue[0];
+                        _speakerQueue.RemoveAt(0);
+                    }
+                    else
+                    {
+                        if (_speakerAsked.Task.IsCompleted) _speakerAsked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                        asked = _speakerAsked.Task;
+                    }
+                }
+                if (call is null)
+                {
+                    await asked.WaitAsync(ct);
+                    continue;
+                }
+                StageReceipt receipt;
+                if (call.After.Count > 0 && !call.After.Any(id => ended.TryGetValue(id, out var came) && came is LinkOutcome.Applied or LinkOutcome.Accepted or LinkOutcome.Unconfirmed))
+                {
+                    // The clear follows a message that never reached the Stagewatch: what is on its stage is not this desk's to clear.
+                    receipt = new StageReceipt(LinkOutcome.NotSent, 0, StageSpeakerWords.NothingToClearWhy);
+                }
+                else
+                {
+                    try
+                    {
+                        receipt = await SpeakerCallAsync(c, show, http, baseUri, apiKey, call, ct);
+                    }
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
+                    {
+                        // A fault this desk did not expect, after the request may have left: unconfirmed, counted, and the lane goes on.
+                        Interlocked.Increment(ref _sideFaults);
+                        Log.Warn($"Stagewatch link: a speaker's call to {name} failed — counted.", ex);
+                        receipt = new StageReceipt(LinkOutcome.Unconfirmed, 0, "this desk could not read what came of it");
+                    }
+                }
+                if (call.Kind == SpeakerCall.Message)
+                {
+                    if (ended.Count >= MostSpeakerCalls * 4) ended.Clear();
+                    ended[call.Id] = receipt.Outcome;
+                }
+                Answer(call, receipt, name);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // the connection ended: what waits is answered below
+        }
+        finally
+        {
+            List<SpeakerCall> unsent = [];
+            lock (_speakerGate)
+            {
+                // Only its own queue: a newer connection's calls are that connection's lane's to send.
+                if (ReferenceEquals(_speakerOpen, c))
+                {
+                    _speakerOpen = null;
+                    unsent = _speakerQueue.ToList();
+                    _speakerQueue.Clear();
+                }
+            }
+            foreach (var call in unsent) Answer(call, new StageReceipt(LinkOutcome.NotSent, 0, $"the link to Stagewatch {name} dropped before it was sent"), name);
+        }
+    }
+
+    /// <summary>
+    /// One of the speaker's calls: checked against the route once more before it is written (a hold begun, a show gone stuck or the
+    /// link ended since it was asked is not-sent, with why), then posted with its id and read by 13.12.3. A 401 and a 429 go through
+    /// 13.7.3's one door (<see cref="Answered"/>: a relink, the key's hold, the rate limit's wait); a 403 to a message or a clear
+    /// says the key may not send them and holds nothing else; a 403 to an ACK is only that ACK's refusal. No answer after the
+    /// request was written is unconfirmed, never refused; a connection that could not be made is not-sent.
+    /// </summary>
+    private async Task<StageReceipt> SpeakerCallAsync(Connection c, HeardShow show, HttpClient http, Uri baseUri, string apiKey, SpeakerCall call, CancellationToken ct)
+    {
+        var name = c.Target.Name;
+        if (ct.IsCancellationRequested || c.Socket.State != WebSocketState.Open)
+            return new StageReceipt(LinkOutcome.NotSent, 0, $"the link to Stagewatch {name} dropped before it was sent");
+        if (SpeakerRefusal(c, show) is { Length: > 0 } why) return new StageReceipt(LinkOutcome.NotSent, 0, why);
+        var asked = Asked(c.Run);
+        int status;
+        string body;
+        long retryAfter;
+        using var deadline = new CancellationTokenSource(SpeakerCallWithin, Time);
+        using var within = CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);
+        try
+        {
+            using var request = Request(HttpMethod.Post, new Uri(baseUri, call.Path), apiKey);
+            request.Headers.TryAddWithoutValidation("X-Request-Id", call.Id);
+            using var response = await http.SendAsync(request, within.Token);
+            status = (int)response.StatusCode;
+            body = await response.Content.ReadAsStringAsync(within.Token);
+            retryAfter = RetryAfterOf(response);
+        }
+        catch (HttpRequestException ex) when (ex.HttpRequestError is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError or HttpRequestError.SecureConnectionError)
+        {
+            Interlocked.Increment(ref _sideFaults);
+            return new StageReceipt(LinkOutcome.NotSent, 0, $"no connection to Stagewatch {name} could be made");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
+        {
+            Interlocked.Increment(ref _sideFaults);
+            return new StageReceipt(LinkOutcome.Unconfirmed, 0,
+                ct.IsCancellationRequested ? $"the link dropped before Stagewatch {name} answered"
+                : ex is OperationCanceledException ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"no answer in {SpeakerCallWithin.TotalSeconds:0.#} s")
+                : $"the connection closed before Stagewatch {name} answered");
+        }
+        var receipt = StageMessagePath.Receipt(status, body, (int)Math.Min(retryAfter, int.MaxValue), c.Secret);
+        if (status is 401 or 429)
+        {
+            Answered(c, status, body, retryAfter, asked, context: false);
+        }
+        else if (status == 403 && call.Kind != SpeakerCall.Ack && c.Run.SpeakerRefused.Length == 0)
+        {
+            c.Run.SpeakerRefused = receipt.Words;
+            Log.Warn($"Stagewatch link: {name} refused this desk's key a message to its speaker ({receipt.Words}) — the speaker's messages stay on this desk's displays.");
+            UiThread.Post(_changed);
+        }
+        return receipt;
+    }
+
     private static HttpRequestMessage Request(HttpMethod method, Uri url, string apiKey, string? json = null)
     {
         var r = new HttpRequestMessage(method, url);
@@ -2355,6 +2646,7 @@ public sealed class StagewatchLinkService : IDisposable
             if (asked < 0 || step.Hold is StagewatchHoldKind.Refused or StagewatchHoldKind.Node) run.Said++;
             var now = MonoMs();
             if (step.Takes && !c.Public) (run.HeldUntilMs, run.NodeHeldUntilMs) = (0, 0);
+            if (step.Takes && !c.Public && asked < 0) run.SpeakerRefused = "";
             if (step.Hold == StagewatchHoldKind.Node) run.HeldUntilMs = 0;
             var until = now + (long)step.For.TotalMilliseconds;
             if (step.Hold == StagewatchHoldKind.Refused && until > run.HeldUntilMs) run.HeldUntilMs = until;
@@ -2612,7 +2904,7 @@ public sealed class StagewatchLinkService : IDisposable
                     if (frame is not null)
                     {
                         Interlocked.Increment(ref _frames);
-                        _sight = _sight with { Frame = frame, FrameAtSeconds = arrived, State = ShowBusState.Live };
+                        _sight = _sight with { Frame = frame, FrameAtSeconds = arrived, State = ShowBusState.Live, Message = StageMessageSeen.Next(_sight.Message, frame, arrived) };
                         bool apart;
                         lock (_core) apart = c.Core.Machine.Clock.IsApart;
                         var offset = ClockOffset;

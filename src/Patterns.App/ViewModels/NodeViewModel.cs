@@ -912,9 +912,14 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         _ => Time.Colour switch { "red" => RedBrush, "amber" => AmberBrush, _ => GreenBrush },
     };
 
-    public string DisplayMessage => _host.Stage.Pending("speaker")?.Text ?? "";
+    /// <summary>The one speaker message: the Stagewatch's the stage follows, or one on this desk's displays alone — the later.</summary>
+    public string DisplayMessage => _host.Stage.SpeakerShown()?.Text ?? "";
 
     public bool DisplayHasMessage => DisplayMessage.Length > 0;
+
+    public bool DisplayCanAck => _host.Stage.SpeakerShown() is { Ack: true };
+
+    public string DisplayAckWhy => _host.Stage.SpeakerShown() is { Ack: false } shown ? shown.Why : "";
 
     public bool DisplayFlashing => State.Stage.FlashUntilUtc is { } until && until > _host.Kernel.Clock.UtcNow;
 
@@ -939,14 +944,14 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>ACK on the display: the receipt goes to the desk this node follows, or lands here alone.</summary>
     public RelayCommand DisplayAckCommand => _displayAck ??= new RelayCommand(() =>
     {
-        if (_host.Stage.Pending("speaker") is not { } pending) return;
-        Report(Run_(new ShowAction(ShowActionKind.StageAck, "", pending.Id)));
+        if (_host.Stage.SpeakerShown() is not { Ack: true } shown) return;
+        Report(Run_(new ShowAction(ShowActionKind.StageAck, "", shown.Id)));
         PollDisplay();
     });
 
     private void PollDisplay()
     {
-        var now = $"{DisplayTime}|{DisplayLabel}|{DisplayMessage}|{DisplayFlashing}|{DisplaySegment}|{DisplayLinkWords}|{Time.Phase}|{Time.Colour}";
+        var now = $"{DisplayTime}|{DisplayLabel}|{DisplayMessage}|{DisplayCanAck}|{DisplayAckWhy}|{DisplayFlashing}|{DisplaySegment}|{DisplayLinkWords}|{Time.Phase}|{Time.Colour}";
         if (now == _displaySeen) return;
         _displaySeen = now;
         Raise(nameof(DisplayTime));
@@ -954,6 +959,8 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         Raise(nameof(DisplayBrush));
         Raise(nameof(DisplayMessage));
         Raise(nameof(DisplayHasMessage));
+        Raise(nameof(DisplayCanAck));
+        Raise(nameof(DisplayAckWhy));
         Raise(nameof(DisplayFlashing));
         Raise(nameof(DisplaySegment));
         Raise(nameof(DisplayLinkWords));

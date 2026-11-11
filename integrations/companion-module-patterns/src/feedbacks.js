@@ -230,6 +230,14 @@ export function buildFeedbacks(ctx) {
 			const cr = (st.pendingCrew ?? '') !== ''
 			return fb.options.channel === 'speaker' ? sp : fb.options.channel === 'crew' ? cr : sp || cr
 		}),
+		// The speaker's one message — its receipt's word as the desk reads it from its link's receipt and the Stagewatch's
+		// frames; never a word the module works out. Lit for no word against a desk that sends none.
+		stage_speaker_ack_is: bool("The speaker's message — its receipt is …", style('stage', 'pending'), [{ type: 'dropdown', id: 'ack', label: 'Receipt', default: 'sent', choices: [
+			{ id: 'requested', label: 'requested — sent to the Stagewatch, no receipt yet' }, { id: 'accepted', label: 'accepted — taken there, not yet on the screen' },
+			{ id: 'sent', label: 'sent — on the screen, waiting for the ACK' }, { id: 'seen', label: 'seen — acknowledged' }, { id: 'done', label: 'done — acknowledged through the Stagewatch' },
+			{ id: 'refused', label: "refused — the Stagewatch refused it; on the desk's displays only" }, { id: 'unconfirmed', label: "unconfirmed — no answer; it may be on the screen" },
+			{ id: 'not-sent', label: "not-sent — it never left; on the desk's displays only" },
+		] }], (fb) => (s().stage?.speakerAck ?? '') === fb.options.ack),
 		// Round 89: the linked Stagewatch says its show is stuck — the stage shows no time from it until its next frame.
 		stagewatch_stuck: bool('The linked Stagewatch says its show is stuck — the stage shows no time from it', style('stage', 'red'), [], () => s().bus?.stagewatch?.stuck === true),
 		// The Stagewatch link's own light, from its record (Show Bus 1.3 §13.16.4) — red while a link the show needs is down,

@@ -174,6 +174,12 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
 
     /// <summary>§6's <c>heard</c>: its hello's age — <c>live</c>, <c>stale</c> or <c>gone</c> — or "" when no hello names it.</summary>
     public string Heard { get; init; } = "";
+
+    /// <summary>
+    /// Linked, and the stage follows it: where this desk's last speaker message went and what came of it, in one line
+    /// (<see cref="StageSpeakerWords.Line"/>); "" with nothing to say.
+    /// </summary>
+    public string Speaker { get; init; } = "";
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -845,6 +851,7 @@ public sealed class EyeGraph
             if (stuck) words.Add($"the link is live; it {ShowBusView.StuckWords}");
             if (app.Linked && app.Key.Line.Length > 0) words.Add("this desk's key: " + app.Key.Line);
             if (app.Linked && app.Link is { } record) words.Add("the link: " + record.Steady);
+            if (app.Linked && app.Speaker.Length > 0) words.Add(app.Speaker);
             if (app.Conflict.Length > 0) words.Add(app.Conflict + " — " + ShowBusView.ConflictHoldWords);
             if (app.Words.Length > 0) words.Add(app.Words);
             if (ctx is not null)

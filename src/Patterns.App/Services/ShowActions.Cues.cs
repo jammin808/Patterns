@@ -197,6 +197,9 @@ public sealed partial class ShowActions
     /// stopping at the first failure ("failed at action k of n"; earlier actions stand). Blackout
     /// is transport: it is put back afterwards unless the cue says otherwise.
     /// </summary>
+    /// <summary>The kinds whose <c>Requested</c> is settled by a receipt on the cue's row and never by the clock: a device's line, and a speaker's message or clear asked of a Stagewatch.</summary>
+    internal static bool OwesAReceipt(ShowActionKind kind) => kind is ShowActionKind.DeviceSend or ShowActionKind.StageMessage or ShowActionKind.StageClear;
+
     /// <summary>
     /// The cue whose steps are running right now ("01 Mic check"), else "": a step that names its
     /// sender — a message to stage — says the cue, not the hand that pressed GO on it.
@@ -230,7 +233,7 @@ public sealed partial class ShowActions
         var requested = false;
         // This run, named: the device lines it sends carry the id, and their receipts settle its row.
         var executionId = CueExecution.NewId();
-        var devicePending = 0;                // device lines awaiting a receipt
+        var devicePending = 0;                // device lines, and a speaker's message or clear through a Stagewatch, awaiting a receipt
         var settlingOther = false;            // something else asynchronous still settling (a stream, a clip, break music)
         ActionResult? failure = null;
         // The steps that go with the GO, and the ones that wait. A cue with no waits plans to
@@ -279,7 +282,8 @@ public sealed partial class ShowActions
                 if (r.Status == ActionStatus.Requested)
                 {
                     requested = true;
-                    if (mapped.Kind == ShowActionKind.DeviceSend) devicePending++;
+                    // A device's line, and a speaker's message or clear asked of a Stagewatch, each owe the row a receipt.
+                    if (OwesAReceipt(mapped.Kind)) devicePending++;
                     else settlingOther = true;
                 }
                 done++;

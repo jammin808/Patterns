@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Patterns.App\Patterns.App.csproj" />
     <Compile Include="..\Patterns.Core.Tests\EdidSamples.cs" Link="EdidSamples.cs" />
+    <Compile Include="..\Patterns.Core.Tests\StagewatchMessageBytes.cs" Link="StagewatchMessageBytes.cs" />
   </ItemGroup>
 
   <!-- The bench host (tools/Patterns.Bench): built before these tests, never linked into them. BenchHostTests start it

@@ -119,6 +119,7 @@ public sealed partial class MainViewModel
     private void PollNodes()
     {
         _services.Nodes.Poll();
+        _services.Stage.Follow();                                                  // a message a Stagewatch accepted and no frame names reads unconfirmed on the clock (13.12.4)
         LinkBoxes.Look();
         var link = _services.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);

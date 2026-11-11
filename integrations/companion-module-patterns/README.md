@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.20.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.21.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.20.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.21.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
 desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
 paired` otherwise; from round 91 it shows its state only to a paired connection too — it says `NONCE` first and no
@@ -99,6 +99,15 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.21.0** — the speaker's one message (round 94): while the desk's stage follows a Stagewatch and its link can carry it,
+  `STAGE MESSAGE` goes to the speaker through that Stagewatch and the deck reads what came of it. `stage_speaker_from` is
+  where the speaker's message is — `stagewatch`, `desk` (on the desk's displays only) or empty with none;
+  `stage_speaker_ack` is its receipt's word — `requested`, `accepted`, `sent` (on the screen, waiting), `seen` or `done`
+  (answered), or `refused`, `unconfirmed`, `not-sent` (it is on the desk's displays only); `stage_speaker_ack_by` is who
+  answered, as the Stagewatch names them. The `stage_speaker_ack_is` feedback lights a key on any of those words, so a WRAP
+  UP key can go amber while it waits and green once the speaker has seen it. `stage_pending` keeps its meaning — the desk's
+  own message waiting for its ACK — and clears once a message sent through the Stagewatch is answered there. A desk before
+  round 94 sends none of the three: they read empty and the feedback lights for no word.
 - **3.20.0** — the Stagewatch link's own record (round 93, Show Bus 1.3 §13.16): `stagewatch_link_state` reads STATE's
   `bus.stagewatch.link.state` — off, finding, connecting, live, stale, down, held or refused — `stagewatch_link_light` its
   light (red, amber, green or grey) and `stagewatch_link_flags` its flags, comma-separated (`legacy` while the Stagewatch

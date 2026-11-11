@@ -1292,8 +1292,9 @@ public sealed partial class ControlService : IDisposable
                 // a timer node forwards it to the desk it follows, and marks its own copy when alone.
                 var id = body.Trim().Trim('"');
                 var ackOrigin = new ActionOrigin(OriginKind.Http, "stage display", client.Client.RemoteEndPoint?.ToString() ?? "");
-                var acked = id.Length > 0 && (await UiThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.StageAck, "", id), ackOrigin))).Ok;
-                payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
+                var acked = id.Length > 0 ? await UiThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.StageAck, "", id), ackOrigin)) : null;
+                payload = acked is { Ok: true } ? "{\"ok\":true}"
+                    : System.Text.Json.JsonSerializer.Serialize(new { ok = false, msg = acked?.Message is { Length: > 0 } why ? why : "no such message, or seen already" });
             }
             else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?", StringComparison.Ordinal)))
             {

@@ -24,9 +24,17 @@ public sealed record StagewatchFrame
     public string Next { get; init; } = "";
     public string Message { get; init; } = "";
     public long MessageId { get; init; }
+    /// <summary>The message signal's acknowledgement — <c>sent</c>, <c>seen</c> or <c>done</c>; "" for any other word, which no reader shows.</summary>
     public string MessageAck { get; init; } = "";
     /// <summary>False when the Stagewatch says its own show thread is stuck: the time on it is not to be trusted.</summary>
     public bool Live { get; init; } = true;
+    /// <summary>
+    /// Who answered the message's signal, in the Stagewatch's words — a name of at most 40 characters that ends with the
+    /// device's address; "" while unanswered or with no signal. The far end's words: one line, bounded, a key masked.
+    /// </summary>
+    public string MessageAckBy { get; init; } = "";
+    /// <summary>How the message flashes on the Stagewatch's own displays: <c>off</c>, <c>slow</c> or <c>fast</c>; "" when the frame names none.</summary>
+    public string Flash { get; init; } = "";
 
     public bool Counting => State is "running";
     public bool Countdown => Mode is "countdown" or "";
@@ -57,8 +65,10 @@ public sealed record StagewatchFrame
                 Next = Str(r, "next"),
                 Message = Str(r, "message"),
                 MessageId = (long)Num(r, "messageId"),
-                MessageAck = Str(r, "messageAck"),
+                MessageAck = Str(r, "messageAck").ToLowerInvariant() is var ack and ("sent" or "seen" or "done") ? ack : "",
                 Live = !r.TryGetProperty("live", out var live) || live.ValueKind != JsonValueKind.False,
+                MessageAckBy = AckBy(Str(r, "messageAckBy")),
+                Flash = Str(r, "flash").ToLowerInvariant() is var flash and ("off" or "slow" or "fast") ? flash : "",
             };
         }
         catch (JsonException)
@@ -66,6 +76,11 @@ public sealed record StagewatchFrame
             return null;
         }
     }
+
+    /// <summary>The most of a frame's <c>messageAckBy</c> a reader keeps: Stagewatch cuts the name to fit 40 with the address, so twice that is ample.</summary>
+    public const int MaxAckBy = 80;
+
+    private static string AckBy(string said) => Words(said) is var by && by.Length > MaxAckBy ? by[..MaxAckBy] : Words(said);
 
     /// <summary>
     /// A Stagewatch's stuck beat, <c>{"type":"beat","live":false}</c>, in the bytes Stagewatch sends: its show thread has
@@ -505,6 +520,12 @@ public sealed record StagewatchSight(string Name, string Address, ShowBusState S
     public StagewatchKey Key { get; init; } = StagewatchKey.Unknown;
 
     /// <summary>
+    /// The Stagewatch's own speaker message as the frames have told it (<see cref="StageMessageSeen"/>): when it arrived, and an
+    /// answer kept after the frame's three fields go back to nothing. <see cref="StageMessageSeen.None"/> with no message on its stage.
+    /// </summary>
+    public StageMessageSeen Message { get; init; } = StageMessageSeen.None;
+
+    /// <summary>
     /// Show Bus 1.3 §13.16.3: the link's record as the connector published it when the sight was read with it — the one record
     /// every reader that draws the link takes its link facts from (13.16.4); null on a sight read without it (the stage's own
     /// readers, which need none), a sight the desk relayed, or one made by hand.
@@ -816,6 +837,8 @@ public static class ShowBusView
             if (a.Linked && a.KindWords == "Stagewatch") lines.Add("  " + StagewatchVerbs.BriefWords);
             // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
             if (a.Linked && a.Key.Line.Length > 0) lines.Add($"  this desk's key: {a.Key.Line}");
+            // Where this desk's last speaker message went — through this Stagewatch, or on this desk's displays alone — and what came of it.
+            if (a.Linked && a.Speaker.Length > 0) lines.Add("  " + a.Speaker);
             // Show Bus 1.3 §2: two running nodes say its id.
             if (a.Conflict.Length > 0) lines.Add($"  {a.Conflict} — {ConflictHoldWords}");
             if (c is null || a.State == ShowBusState.Gone) continue;

@@ -395,6 +395,47 @@ public sealed class CueStackService : ICueStackEvents
     }
 
     /// <summary>
+    /// A speaker's message one cue sent through a Stagewatch — or the clear it asked of one — came to something: that cue's row,
+    /// found by the execution the call carried, is owed its receipt as a device's line is. A yes (applied, or a frame that
+    /// says so) takes one receipt off the row's count, and the last makes the row Done unless something else still settles —
+    /// with <paramref name="words"/>, when the yes is not the plain one (cleared on this desk before the Stagewatch confirmed
+    /// it), on the row and in the journal; a no (refused, or never sent) is FailedLate with the words, journalled as a
+    /// settlement and never fired again — the stack is not stopped. Neither (<paramref name="ok"/> null: accepted, or
+    /// unconfirmed) settles nothing: the row stays Requested and says those words in place of its count, never Done by the
+    /// clock and never read as failed.
+    /// </summary>
+    public void OnSpeakerReceipt(string execution, bool? ok, string words)
+    {
+        if (execution.Length == 0) return;
+        for (var i = 0; i < History.Count; i++)
+        {
+            var row = History[i];
+            if (row.ExecutionId != execution) continue;
+            if (ok is null)
+            {
+                if (row.Outcome != CueOutcome.Requested || row.Waiting == words) return;
+                History[i] = row with { Waiting = words };
+            }
+            else if (ok == false)
+            {
+                if (row.Outcome is CueOutcome.FailedLate or CueOutcome.Failed or CueOutcome.Refused) return;
+                History[i] = row with { Outcome = CueOutcome.FailedLate, Pending = Math.Max(0, row.Pending - 1), Waiting = "", Detail = $"{row.Detail} — later: {words}" };
+                _kernel.Journal.Record(row.Origin, "CueSettled", row.Label, CueOutcome.FailedLate.ToString(), words);
+            }
+            else
+            {
+                var pending = Math.Max(0, row.Pending - 1);
+                var outcome = row.Outcome == CueOutcome.Requested && pending == 0 && !row.Settling ? CueOutcome.Done : row.Outcome;
+                History[i] = row with { Outcome = outcome, Pending = pending, Waiting = "", Detail = words.Length > 0 ? $"{row.Detail} — later: {words}" : row.Detail };
+                if (outcome != row.Outcome) _kernel.Journal.Record(row.Origin, "CueSettled", row.Label, outcome.ToString(), words.Length > 0 ? words : "the speaker's message is on Stagewatch's screen");
+            }
+            _host.WriteRunPlace();
+            Bump();
+            return;
+        }
+    }
+
+    /// <summary>
     /// A step of a cue's tail ran, later: a device line it sent is one more receipt its row
     /// waits for (the row goes back to Requested from Done), and a step that failed makes the
     /// row FailedLate with the step named — the cue did not finish as written.

@@ -16,7 +16,9 @@
       <Border Grid.Row="2" Background="#141A24" CornerRadius="10" Padding="24,16" Margin="0,12" IsVisible="{Binding DisplayHasMessage}">
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Text="{Binding DisplayMessage}" FontSize="44" FontWeight="SemiBold" Foreground="#FFFFFF" TextWrapping="Wrap" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Content="ACK" FontSize="28" Padding="28,12" Margin="16,0,0,0" Command="{Binding DisplayAckCommand}" />
+          <Button Grid.Column="1" Content="ACK" FontSize="28" Padding="28,12" Margin="16,0,0,0" Command="{Binding DisplayAckCommand}" IsVisible="{Binding DisplayCanAck}" />
+          <!-- A Stagewatch's message this display cannot answer says where it is answered, in the button's place. -->
+          <TextBlock Grid.Column="1" Text="{Binding DisplayAckWhy}" FontSize="14" Foreground="#8892A6" TextWrapping="Wrap" MaxWidth="260" Margin="16,0,0,0" VerticalAlignment="Center" IsVisible="{Binding !DisplayCanAck}" />
         </Grid>
       </Border>
       <StackPanel Grid.Row="3" Spacing="4">

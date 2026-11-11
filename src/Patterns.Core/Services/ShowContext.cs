@@ -257,7 +257,7 @@ public static class ShowContextBuilder
         new ShowContextCommand { Verb = "STATUS", Risk = "low", Words = "read the desk's state" },
         new ShowContextCommand { Verb = "EYE", Risk = "low", Words = "read the God's Eye: every thing, its light and its links" },
         new ShowContextCommand { Verb = "EYE FOCUS <thing>", Risk = "low", Words = "move the operator's Eye to a thing (the desk's view only)" },
-        new ShowContextCommand { Verb = "STAGE MESSAGE <words>", Risk = "review", Words = "words to the speaker's display, with a receipt" },
+        new ShowContextCommand { Verb = "STAGE MESSAGE <words>", Risk = "review", Words = "words to the speaker's display (through a linked Stagewatch while the stage follows it and the link holds a node key), with a receipt" },
         new ShowContextCommand { Verb = "STAGE CREW <words>", Risk = "review", Words = "words to the crew's display, with a receipt" },
         new ShowContextCommand { Verb = "VIDEO END <seconds>", Risk = "high", Words = "jump the clip on air to that long before its end" },
         new ShowContextCommand { Verb = "VIDEO PLAY", Risk = "high", Words = "play the clip on air" },

@@ -31,12 +31,13 @@ public sealed record CueExecution(string Id, int DevicePending, bool Settling)
 /// One row of the caller's history — and of the sidecar, so a relaunch keeps the place. The row
 /// carries its execution: a device's receipt landing later settles this row and no other, so a
 /// box saying no to cue 21 never marks cue 22, and a box saying nothing marks the cue that sent
-/// to it as FailedLate when its timeout runs out.
+/// to it as FailedLate when its timeout runs out. A speaker's message sent through a Stagewatch is
+/// owed the same way: <see cref="Waiting"/> holds the words of a receipt that settles nothing yet.
 /// </summary>
 public sealed record CueExecutionRecord(
     DateTime AtUtc, string CueId, string Number, string Name, CueOutcome Outcome, string Origin,
     int ActionsDone, int ActionsTotal, string Detail,
-    string ExecutionId = "", int Pending = 0, bool Settling = false)
+    string ExecutionId = "", int Pending = 0, bool Settling = false, string Waiting = "")
 {
     public string Label => $"{Number} {Name}";
     public DateTime AtLocal => AtUtc.ToLocalTime();
@@ -46,6 +47,8 @@ public sealed record CueExecutionRecord(
     /// <summary>The outcome as the Run page reads it: "Done", "Awaiting 2 receipts", "Settling", "Failed late".</summary>
     public string OutcomeWords => Outcome switch
     {
+        // A receipt that settles nothing yet says so in its own words: accepted, or unconfirmed — never Done by the clock.
+        CueOutcome.Requested when Pending > 0 && Waiting.Length > 0 => Waiting,
         CueOutcome.Requested when Pending > 0 => $"Awaiting {Pending} receipt{(Pending == 1 ? "" : "s")}",
         CueOutcome.Requested => "Settling",
         CueOutcome.FailedLate => "Failed late",

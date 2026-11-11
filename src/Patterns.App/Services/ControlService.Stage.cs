@@ -37,6 +37,7 @@ public sealed partial class ControlService
   .msg.on { display:flex; align-items:center; gap:3vw; }
   .msg .text { flex:1; font-size:7vh; font-weight:800; line-height:1.1; }
   .msg button { font:inherit; font-weight:800; font-size:4vh; padding:2vh 4vw; border-radius:2vh; border:0; background:var(--green); color:#062; cursor:pointer; }
+  .msg .why { max-width:30vw; font-size:2.4vh; color:var(--mut); }
   .label { font-size:4vh; color:var(--mut); text-align:center; letter-spacing:.2em; font-weight:700; }
   #err { position:fixed; bottom:1vh; right:2vw; color:var(--red); font-size:2vh; }
 </style>
@@ -47,7 +48,7 @@ public sealed partial class ControlService
   <div class="time off" id="time">--:--</div>
   <div class="bar" id="bar"><div id="fill" style="width:0%"></div></div>
   <div class="seg" id="seg"></div>
-  <div class="msg" id="msg"><div class="text" id="msgtext"></div><button id="ack" onclick="ack()">ACK</button></div>
+  <div class="msg" id="msg"><div class="text" id="msgtext"></div><button id="ack" onclick="ack()">ACK</button><div class="why" id="why"></div></div>
   <div id="err"></div>
 <script>
   const view = new URLSearchParams(location.search).get('view') === 'crew' ? 'crew' : 'speaker';
@@ -78,10 +79,14 @@ public sealed partial class ControlService
       if (view === 'crew' && s.offset) parts.push(s.offset);
       el('seg').innerHTML = parts.map(p => '<span>' + p.replace(/</g,'&lt;') + '</span>').join('');
     } else el('seg').innerHTML = '';
-    const pending = view === 'crew' ? state.pendingCrew : state.pendingSpeaker;
-    pendingId = pending ? pending.id : null;
+    // The speaker's display draws the one speaker message: the followed Stagewatch's, or one on this desk's displays alone — the later.
+    const pending = view === 'crew' ? state.pendingCrew : (state.speakerShown !== undefined ? state.speakerShown : state.pendingSpeaker);
+    pendingId = pending && pending.ack !== false ? pending.id : null;
     el('msg').className = 'msg' + (pending ? ' on' : '');
     el('msgtext').textContent = pending ? pending.text : '';
+    el('ack').style.display = pending && pending.ack === false ? 'none' : '';
+    // A message this display cannot answer says where it is answered, in the button's place.
+    el('why').textContent = pending && pending.ack === false && pending.why ? pending.why : '';
     const flashing = (pending && pending.flash) || (state.flashUntilUtc && Date.parse(state.flashUntilUtc) > now);
     document.body.className = flashing ? 'flash' : '';
   }
@@ -99,6 +104,8 @@ public sealed partial class ControlService
     if (!pendingId) return;
     try {
       const r = await fetch('/api/stage/ack', { method: 'POST', body: pendingId, headers: { 'X-Patterns-Token': tok() } });
+      // An ACK the desk could not take or forward says why (a Stagewatch's message is answered there, through the desk's link).
+      if (r.ok) { const a = await r.json().catch(() => ({})); el('err').textContent = a.ok === false && a.msg ? a.msg : ''; return; }
       if (r.status === 403) {
         // The desk asks for its pairing token (Remote page, TRUST): once, kept in this browser — unless its words say a
         // token would not help (an open desk opened by a name that is not its own), which are shown instead.
@@ -222,7 +229,7 @@ public sealed partial class ControlService
     const s = state.segment;
     el('seg').textContent = s.name ? ('NOW ' + (s.number ? s.number + ' ' : '') + s.name + (s.remaining !== null ? ' · ' + (s.overran ? 'over' : fmt(s.remaining) + ' left') : '') + (s.next ? ' · NEXT ' + s.next + (s.nextAt ? ' at ' + s.nextAt : '') : '') + (s.offset ? ' · ' + s.offset : '')) : '';
     el('presets').innerHTML = state.presets.map(p => '<button onclick="cmd(\'STAGE MESSAGE ' + p.replace(/'/g, '') + '\')">' + p.replace(/</g,'&lt;') + '</button>').join('');
-    el('msgs').innerHTML = state.messages.slice().reverse().map(m => '<div><span>' + (m.channel === 'crew' ? 'CREW · ' : '') + m.text.replace(/</g,'&lt;') + '</span><span style="flex:1"></span><span class="' + (m.seen ? 'seen' : 'wait') + '">' + (m.seen ? 'seen ' + new Date(m.ackUtc).toLocaleTimeString() : 'waiting…') + '</span></div>').join('') || '<div><span style="color:var(--mut)">nothing sent yet</span></div>';
+    el('msgs').innerHTML = state.messages.slice().reverse().map(m => '<div><span>' + (m.channel === 'crew' ? 'CREW · ' : '') + m.text.replace(/</g,'&lt;') + '</span><span style="flex:1"></span><span class="' + (m.seen && m.ack !== '' ? 'seen' : 'wait') + '">' + (m.receipt ? m.receipt.replace(/</g,'&lt;') + (m.seen && m.ack !== '' ? ' ' + new Date(m.ackUtc).toLocaleTimeString() : '') : m.seen ? 'seen ' + new Date(m.ackUtc).toLocaleTimeString() : 'waiting…') + '</span></div>').join('') || '<div><span style="color:var(--mut)">nothing sent yet</span></div>';
   }
   async function poll() {
     try {

@@ -406,6 +406,43 @@ test('the feedbacks read the state: looks, screens, cues, nodes, the twin and th
 	assert.equal(askFeedback(b, 'stage_pending', { channel: 'any' }), true)
 })
 
+test("round 94 — the speaker's one message: where it is and its receipt read as variables and light a key; a desk that sends none reads empty", async () => {
+	const b = await boot()
+	const v = b.ctx.variables
+	// The fixture's message went through the Stagewatch the stage follows and is on its speaker's screen, waiting.
+	assert.equal(v.stage_speaker_from, 'stagewatch')
+	assert.equal(v.stage_speaker_ack, 'sent')
+	assert.equal(v.stage_speaker_ack_by, '')
+	assert.equal(v.stage_pending, 'Wrap up')
+	assert.equal(askFeedback(b, 'stage_speaker_ack_is', { ack: 'sent' }), true)
+	assert.equal(askFeedback(b, 'stage_speaker_ack_is', { ack: 'done' }), false)
+	// The speaker answers on the Stagewatch: the desk says done and by whom, and nothing waits for an ACK any more.
+	const answered = JSON.parse(JSON.stringify(b.inst.state))
+	answered.stage = { ...answered.stage, pendingSpeaker: '', speakerAck: 'done', speakerAckBy: 'Ana (10.0.0.30)' }
+	b.socket.receive('STATE ' + JSON.stringify(answered) + '\n')
+	assert.equal(b.ctx.variables.stage_speaker_ack, 'done')
+	assert.equal(b.ctx.variables.stage_speaker_ack_by, 'Ana (10.0.0.30)')
+	assert.equal(b.ctx.variables.stage_pending, '')
+	assert.equal(askFeedback(b, 'stage_speaker_ack_is', { ack: 'done' }), true)
+	assert.equal(askFeedback(b, 'stage_pending', { channel: 'speaker' }), false)
+	// Refused there: it is on the desk's displays only, and the key says so.
+	const refused = JSON.parse(JSON.stringify(b.inst.state))
+	refused.stage = { ...refused.stage, pendingSpeaker: 'Wrap up', speakerFrom: 'desk', speakerAck: 'refused', speakerAckBy: '' }
+	b.socket.receive('STATE ' + JSON.stringify(refused) + '\n')
+	assert.equal(b.ctx.variables.stage_speaker_from, 'desk')
+	assert.equal(askFeedback(b, 'stage_speaker_ack_is', { ack: 'refused' }), true)
+	// A desk before round 94 sends none of the three: empty, and the feedback lights for no word.
+	const older = sampleState()
+	delete older.stage.speakerFrom
+	delete older.stage.speakerAck
+	delete older.stage.speakerAckBy
+	const old = await boot({ state: older })
+	assert.equal(old.ctx.variables.stage_speaker_from, '')
+	assert.equal(old.ctx.variables.stage_speaker_ack, '')
+	assert.equal(old.ctx.variables.stage_speaker_ack_by, '')
+	for (const ack of ['requested', 'accepted', 'sent', 'seen', 'done', 'refused', 'unconfirmed', 'not-sent']) assert.equal(askFeedback(old, 'stage_speaker_ack_is', { ack }), false)
+})
+
 test('a press is one line of the wire, spelt as docs/REMOTE.md has it', async () => {
 	const b = await boot()
 	const cases = [

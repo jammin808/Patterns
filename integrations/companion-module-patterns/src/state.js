@@ -308,6 +308,10 @@ export function variableValues(s) {
 		stage_pending: stage.pendingSpeaker ?? '',
 		stage_pending_crew: stage.pendingCrew ?? '',
 		stage_follows: stage.follows ?? '',
+		// The speaker's one message — through the Stagewatch the stage follows, or on the desk's displays only — and its receipt.
+		stage_speaker_from: stage.speakerFrom ?? '',
+		stage_speaker_ack: stage.speakerAck ?? '',
+		stage_speaker_ack_by: stage.speakerAckBy ?? '',
 		// Round 87: the show network — the other apps heard, and the Stagewatch link.
 		showbus_heard: String(s.bus?.heard ?? 0),
 		stagewatch_state: s.bus?.stagewatch?.state ?? 'off',

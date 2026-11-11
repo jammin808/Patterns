@@ -781,6 +781,9 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>Round 88: a relayed frame landed — the stage pages read again.</summary>
     public void StagewatchRelayed() => Stage.Bump();
 
+    /// <summary>In step with its desk, a display's ACK on the Stagewatch's message is the desk's to forward; alone, this node has nowhere to send it.</summary>
+    bool IStageHost.AcksThroughDesk => Twin is { IsLinkedToDesk: true };
+
     public string? OwnContextJson() => ContextJson();
 
     /// <summary>

@@ -20,12 +20,15 @@ public sealed partial class ShowActions
                 return _s.Stage.Flash();
             case ShowActionKind.StageMessage:
                 // Sent by a cue, the message says the cue; else the hand that sent it — "desk", "companion FOH deck", "caller CALLER-PC".
-                return _s.Stage.Message(a.Target.Length > 0 ? a.Target : "speaker", a.Value, CueInHand.Length > 0 ? $"cue {CueInHand}" : origin.Label);
+                // A message a cue sends through a followed Stagewatch is owed on that cue's row: its receipt settles it, never the clock.
+                return _s.Stage.Message(a.Target.Length > 0 ? a.Target : "speaker", a.Value, CueInHand.Length > 0 ? $"cue {CueInHand}" : origin.Label, execution: ExecutionInHand);
             case ShowActionKind.StageClear:
-                return _s.Stage.Clear();
+                // A clear a cue asks of a followed Stagewatch is owed on that cue's row, as its message is.
+                return _s.Stage.Clear(ExecutionInHand);
             case ShowActionKind.StageAck:
-                // A display's receipt: the stage page's ACK here, or a timer node's forwarded on the link.
-                return _s.Stage.Ack(a.Value.Trim()) is { } seen ? ActionResult.Done(seen) : ActionResult.Refused("no such message, or seen already");
+                // A display's receipt: the stage page's ACK here, or a timer node's forwarded on the link; the Stagewatch's own
+                // message (sw:<id>) is answered there, in this desk's name.
+                return _s.Stage.AckDisplay(a.Value.Trim());
             default:
                 return null;
         }

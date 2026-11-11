@@ -177,6 +177,10 @@ public interface IStageDisplay
     Avalonia.Media.IBrush DisplayBrush { get; }
     string DisplayMessage { get; }
     bool DisplayHasMessage { get; }
+    /// <summary>The message shown may be answered from this display; false for a Stagewatch's message it cannot answer.</summary>
+    bool DisplayCanAck { get; }
+    /// <summary>Where a message this display cannot answer is answered — shown in the ACK's place; "" otherwise.</summary>
+    string DisplayAckWhy { get; }
     bool DisplayFlashing { get; }
     string DisplaySegment { get; }
     string DisplayLinkWords { get; }

@@ -851,6 +851,14 @@ public sealed class StageMessage : Observable
     private DateTime? _ackUtc;
     private string _from = "";
     private bool _flash;
+    private string _via = "";
+    private long _swMessageId;
+    private string _swAck = "";
+    private string _swAckBy = "";
+    private string _swWords = "";
+    private string _swName = "";
+    private string _swRequestId = "";
+    private string _execution = "";
 
     public string Id { get => _id; set => Set(ref _id, value ?? ""); }
     public string Text { get => _text; set => Set(ref _text, value ?? ""); }
@@ -858,14 +866,47 @@ public sealed class StageMessage : Observable
     public string Channel { get => _channel; set => Set(ref _channel, (value ?? "speaker").Trim().ToLowerInvariant() is { Length: > 0 } c ? c : "speaker"); }
     public DateTime SentUtc { get => _sentUtc; set => Set(ref _sentUtc, value); }
     /// <summary>When the display's ACK was pressed; null while unseen.</summary>
-    public DateTime? AckUtc { get => _ackUtc; set => Set(ref _ackUtc, value); }
+    public DateTime? AckUtc { get => _ackUtc; set => Moved(Set(ref _ackUtc, value)); }
     /// <summary>Who sent it — the desk, a caller, a cue.</summary>
     public string From { get => _from; set => Set(ref _from, value ?? ""); }
     /// <summary>Flash the display until it is acknowledged.</summary>
     public bool Flash { get => _flash; set => Set(ref _flash, value); }
+    /// <summary>"" — a message on this desk's displays; "stagewatch" — one sent to the speaker through the Stagewatch the stage follows.</summary>
+    public string Via { get => _via; set => Moved(Set(ref _via, value ?? "")); }
+    /// <summary>The Stagewatch's signal for the message once a receipt or a frame names it; 0 before, or when it names none.</summary>
+    public long SwMessageId { get => _swMessageId; set => Set(ref _swMessageId, value); }
+    /// <summary>
+    /// The step the message's route stands at (<see cref="Patterns.Core.Services.StageSpeakerWords"/>): requested, accepted, sent,
+    /// done, or — its route ended on this desk's displays — refused, unconfirmed, not-sent; cleared once it is off the displays
+    /// unanswered. "" for a message on this desk's displays that nobody cleared.
+    /// </summary>
+    public string SwAck { get => _swAck; set => Moved(Set(ref _swAck, value ?? "")); }
+    /// <summary>Who answered it, in the Stagewatch's words: a name and the device's address.</summary>
+    public string SwAckBy { get => _swAckBy; set => Moved(Set(ref _swAckBy, value ?? "")); }
+    /// <summary>A refusal's words, or why the message was not sent or not confirmed; "" otherwise.</summary>
+    public string SwWords { get => _swWords; set => Moved(Set(ref _swWords, value ?? "")); }
+    /// <summary>The Stagewatch the message was sent to, by name.</summary>
+    public string SwName { get => _swName; set => Moved(Set(ref _swName, value ?? "")); }
+    /// <summary>The request's id on the link (Show Bus 1.3 §13.12.1): its receipt is matched by it.</summary>
+    public string SwRequestId { get => _swRequestId; set => Set(ref _swRequestId, value ?? ""); }
+    /// <summary>The cue execution that sent it, whose row waits for the message's receipt; "" for a message no cue sent.</summary>
+    public string Execution { get => _execution; set => Set(ref _execution, value ?? ""); }
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool Seen => _ackUtc is not null;
+
+    /// <summary>
+    /// The message's receipt as the desk's stage panel says it (<see cref="Patterns.Core.Services.StageSpeakerWords.PanelLine"/>):
+    /// its route's step, or waiting, or seen with the time — "seen" only for a message somebody saw. Raised when a field it
+    /// reads moves.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Receipt => Patterns.Core.Services.StageSpeakerWords.PanelLine(this);
+
+    private void Moved(bool changed)
+    {
+        if (changed) Raise(nameof(Receipt));
+    }
 }
 
 /// <summary>

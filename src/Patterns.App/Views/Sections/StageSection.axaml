@@ -54,7 +54,8 @@
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,1">
             <TextBlock Classes="label" Text="{Binding Channel}" Width="64" />
             <TextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="Wrap" />
-            <TextBlock Grid.Column="2" Classes="label" Text="{Binding AckUtc, StringFormat='seen {0:HH:mm:ss}', TargetNullValue='waiting…'}" />
+            <!-- The receipt in the timer page's words: a message through a Stagewatch says its route's step, and "seen" only when somebody saw it. -->
+            <TextBlock Grid.Column="2" Classes="label" Text="{Binding Receipt}" TextWrapping="Wrap" MaxWidth="320" TextAlignment="Right" />
           </Grid>
         </DataTemplate>
       </ItemsControl.ItemTemplate>

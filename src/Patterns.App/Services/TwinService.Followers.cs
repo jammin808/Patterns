@@ -345,17 +345,24 @@ public sealed partial class TwinService
     private double _relayAt;
 
     /// <summary>Round 88 (closes L51): the Stagewatch the desk follows, as this node sees it through the relay (stale once the relay stops).</summary>
-    public StagewatchSight RelayedStagewatch => _relay is { } r && IsFollowerNode ? r.ToSight(_relayAt, ShowClock.Seconds) : StagewatchSight.None;
+    public StagewatchSight RelayedStagewatch => _relay is { } r && IsFollowerNode && r.ToSight(_relayAt, ShowClock.Seconds) is var sight && sight != StagewatchSight.None
+        ? sight with { Message = _relayMessage } : StagewatchSight.None;
+
+    private StageMessageSeen _relayMessage = StageMessageSeen.None;
 
     /// <summary>A node: the desk's relay landed.</summary>
     private void AdoptStagewatch(string json)
     {
         if (StagewatchRelay.Parse(json) is not { } relay) return;
         var was = _relay;
+        var said = _relayMessage;
         _relay = relay;
         _relayAt = ShowClock.Seconds;
-        // A stuck show moves no seq: the stage repaints when the frame's live word or the stuck mark moves too.
-        if (was is null || was.Frame?.Seq != relay.Frame?.Seq || was.State != relay.State || was.Frame?.Live != relay.Frame?.Live || was.Stuck != relay.Stuck)
+        // The Stagewatch's speaker message as the relayed frames tell it: when it arrived here, and an answer kept after its frame's fields reset.
+        _relayMessage = relay.Empty ? StageMessageSeen.None : StageMessageSeen.Next(said, relay.Frame, ShowClock.Seconds);
+        // A stuck show moves no seq: the stage repaints when the frame's live word or the stuck mark moves too — and when its message does.
+        if (was is null || was.Frame?.Seq != relay.Frame?.Seq || was.State != relay.State || was.Frame?.Live != relay.Frame?.Live || was.Stuck != relay.Stuck
+            || said != _relayMessage)
             _services.StagewatchRelayed();
     }
 
