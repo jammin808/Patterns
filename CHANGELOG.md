@@ -10,6 +10,40 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 94 — 2026-11-11 — one speaker message, through a followed Stagewatch when the link can carry it and on this desk with words when not; a playlist item and a stinger's clip held with their clocks; VIDEO … ON <key> for a layer's or a screen's own clip
+
+`round-94` · PLAN §112 · 3,225 tests at the opening · module 3.20.0 at the opening · evidence: a handed-in critique (patterns-playmap-side's G21 and G48 with the plan's critique, which put L49 back), beside this tree's own rows L48 and L49 from round 86 and Stagewatch's `message.e2e.cjs`, the bytes 94.1's fake is to copy; no measurement
+
+- **Opened (94.0).** The plan's round 93 — P93.0 to P93.4, the third train's second Patterns round — is this round, 94.0
+  to 94.4, at PLAN §112 (the plan's §111), by §110.1's key. Nothing in `docs/field/`, and no push or report in the two
+  weeks since round 93's papers; CI's run 285, on those papers (`b57410d`), read as the files: every job green but
+  `release`, skipped with no tag — the test job's 3,225 with 93.5's two mended tests on a runner for the first time, the
+  ten `PeerLinkWireTests` against the scripted peer, every fence "0 fault(s)" on Linux and on Windows, the desk's
+  classes 33 of 33, WebView2 ok, the hundred lifecycle cycles at nought. The requester: the maintainer's show-network
+  ask, the plan's third train ("every link honest from its own end"). The one unit that waits on another tree, 94.1 on
+  Stagewatch's SW20.10 (`b256a9f`), finds it landed, so none moves. Read against the head: the message's bytes are the
+  contract file's `/api/message/<text>/info/<slow|off>/ack`, not the plan's shorthand; a frame's `messageAck` goes
+  `sent` to `done` and never `seen`, and its fields reset 30 s after, so this desk keeps `done` for the id it sent; the
+  speaker's calls run as a kind of their own on 93.2's side-call rules (13.7.2: one in flight, the latest replacing one
+  not yet sent), never a beat or a context read behind; the id is 13.12.1's from the core and the answer 13.12.3's, so a
+  message ends in one of five outcomes: a timeout is `unconfirmed` — "it may be on the speaker's screen" — never
+  "refused"; a 429 is `refused` with its words; one never written is `not-sent`; and none is sent again. An `accepted`
+  one binds to a new `messageId` only with its text, and a cue's row settles on the outcome, never the 12 s clock. "The
+  link can carry it" means the stage follows, the Stagewatch is not stuck and the node routes are open, which at level 0
+  needs a person's pin, and otherwise the message stays here, `Done`, with the reason in words. For 94.2 the refusals
+  are `ShowActions.Content.cs:499` and `:514`; a held stinger's clip must not trip its own 15 s stall guard, which at
+  the head skips a paused source and trips at the release; STATE `video` gains `pausable` and `stoppable` after `seq`,
+  which Stagewatch's `PlayoutDirector` already reads in place of its role rule. For 94.3 a clip's key is `vid:` and its
+  path, read as the rest of the line; Stagewatch's link sends it only when it can go bare, and only when this desk's
+  context lists the `VIDEO … ON <key>` forms, so the context's new rows take the shape that reader looks for — which
+  Show Bus §6 reads as a secret placeholder, so the forms with a key cannot be proposed across apps until Stagewatch's
+  reader takes another name (an OPEN row to come). A key names a clip the programme holds: one mounted for the preview
+  alone, or pre-rolled, is refused. OPEN: L48 (94.2) and L49 (94.3) taken; L50, L56, L63, L94 to L97 and the rest read
+  and kept. The module takes 3.21.0 once. No platform path is touched, so the plan's "Walk: none asked" stands, with a
+  note to §26 for what only a real Stagewatch shows. STAGE MESSAGE's journal row with the receipt's stage, read beside
+  the stage page, closes the round. The papers (94.4) write what landed, REVIEW round 94, the count at the round's end
+  and round 93's tag row (`b57410d`); the round's tag waits for them.
+
 ## Round 93 — 2026-10-27 — PeerLink from Patterns' side: the core and its vectors in Core, the Stagewatch link on it at level 0, the link's record in every reader, and the STAGEWATCH verbs on the wire, a deck and the menus, with trust, accept and the key on the desk alone
 
 `round-93` · PLAN §111 · REVIEW round 93 · 3,225 tests · module 3.20.0 · evidence: a handed-in critique (the PeerLink profile, now Show Bus 1.3's §13 and §14 as copied here, with patterns-playmap-side's G34, the Eye critique's trust verbs and the plan revised against its critique), beside this tree's own findings at 92.4 (L83, L84, L87) and round 91's L67; no measurement

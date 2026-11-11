@@ -14752,3 +14752,307 @@ link verb; TRUST, ACCEPT and BIND KEY are a person's on the desk whatever the as
   network, verb `StagewatchLink`) and one log line per change; the rig reads them beside the Super Check's SHOW NETWORK
   row "Show network links" and the Nodes card — the card's link face and the row's light and words the record's, the
   row's FIX naming Trust while the key waits for it.
+
+## 112. Round 94 — one speaker message, through a followed Stagewatch when the link can carry it and on this desk with words when not; a playlist item and a stinger's clip held with their clocks; and VIDEO … ON <key> for a layer's or a screen's own clip
+
+### 112.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 93 — its units P93.0 to P93.4, the third train's second Patterns round
+— under the number §110.1's key gives it and §111.1 already wrote: round 94 here, §112, not the plan's §111. The plan is
+the cross-app plan of record, now in Stagewatch's tree (`docs/ecosystem/master-plan.md`, committed there at `6a79185`
+with the owner's answers and the designs); its closing note says the same of the numbers. The units keep their order and
+their dependencies:
+
+| The plan's unit | Here | What it is |
+|---|---|---|
+| P93.0 | 94.0 | this opening: PLAN §112's first lines and the changelog's round 94 entry |
+| P93.1 | 94.1 | one speaker message: through Stagewatch when the link can carry it, on this desk with words when not (G21) |
+| P93.2 | 94.2 | VIDEO PAUSE and STOP hold a playlist item's or a stinger's clip and its clock; `video.pausable`, `video.stoppable` (L48) |
+| P93.3 | 94.3 | `VIDEO … ON <key>` drives a layer's or a screen's own clip (L49) |
+| P93.4 | 94.4 | the papers (PLAN §112, REVIEW, CHANGELOG, README, REMOTE, COMPANION, OPEN) and round 93's tag row |
+
+The plan's check for this unit greps for `^## 111\. Round 93`; here it is `^## 112\. Round 94`, and its "tag row 92" is
+round 93's (`b57410d`). The designs behind the round name it by their own labels: patterns-playmap-side's 91.2 (G21) is
+94.1, its 91.3 (G48) is 94.2, its 91.4 the papers; G48's other half (L49), which that design left out and the plan's
+critique put back, is 94.3. Another tree's unit that waits on this round waits on it under these numbers: Stagewatch's
+VT interop rows (its SW20.13) wait on 94.4. The maintainer may still put the numbers back (§110.1); nothing in the round
+depends on them.
+
+**What the files said.** Nothing from the rig: `docs/field/` holds only its README, no report has arrived since round
+79 began keeping them, and the last files read were round 78's (§96.1). Two weeks passed between round 93's papers
+(2026-10-28) and this opening (2026-11-11) with no push to this tree and no report. The files this opening reads are
+CI's own — the run of round 93's papers push, the first run of 93.5's two mended tests on a runner — read on GitHub
+from each job's log and from the results the test and windows-smoke jobs upload, in the shape §96.1 reads a report.
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 285 (id 40613556431), `b57410d` (93.5), started 2026-10-28 01:11 UTC — test (ubuntu-24.04 20261012.334.1) | Green, finished 01:33 UTC. Node v22.23.3. Core 1,525, Rendering 689, Devices 9, Audio 14, Assistant 38, Audience 3, App 947 in 18 m 55 s — 3,225, round 93's count; the ten `PeerLinkWireTests` passed against the scripted peer. `getent ahosts localhost` gave `::1` first, then `127.0.0.1`; the step after the suites printed "25 Scripted Stagewatch (an HttpListener on localhost): reached at ::1." Each suite's fence line in the uploaded results reads "0 fault(s)": made through `TempRun` and removed by their tests, Core 56, Rendering 49, Devices 0, Audio 0, Assistant 1, Audience 2, App 983 — the App fence naming 120 desks closed late | 93.5's two mends ran on a runner for the first time and held: the rate limit's test waits for the line the link writes after its hold's store, and the first-pin leg of `StagewatchLinkCoreTests` drains no credential. The seven fences hold on the runner as on the bench | nothing new: L91 (the 120 desks) and L81 (three tests seen failing under load on the bench) stand as written — none of L81's three failed this run |
+| 285, the same commit — windows-smoke (windows-2025-vs2026 20261021.278.1) | Green. The six suites that are not the desk's with the test job's counts, each fence line "0 fault(s)" (Core 56 of 56, Rendering 49 of 49, Devices 0, Audio 0, Assistant 1 of 1, Audience 2 of 2, under `C:\Users\runneradmin\AppData\Local\Temp\patterns-run-<suite>-<id>`). The desk's classes 33 of 33 in 1 m 20 s. "WebView2: ok — runtime 155.0.4283.62 — a page opened, its document script spoke and a script answered, in 3069 ms"; RUNTIME OK | the papers and the two test mends moved nothing Windows reads; the fences hold there as in every run since 282 | nothing |
+| 285, the same commit — lifecycle, companion-module, rollback-script, portable-exe, release | Green: the hundred cycles, strict, every row of the memlog `leaked_desks=0 timers=0 seats=0 budgets=0`, and the footprint per role; the module's tests, `lines.txt` current, its check and its package; every roll-back case; both portable bundles with their runtime checks. `release` skipped: the push carried no tag | the papers moved nothing these jobs read | nothing |
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains. This
+is the third train's second Patterns round — "every link honest from its own end" — and its three code units are what
+the train asks of this desk beyond its own connector: a speaker's message that is one message in the room while the
+stage follows a Stagewatch, and a clip's transport another app can trust — `paused` meaning the clip and its clock are
+held, and a clip named by its own key. The owner answered every question the round meets with the plan's recommended
+answer: *P-numbers* (the rounds as the plan numbers them, read through its renumbering note), *X-declines* (G21's
+crew-key ACK policy declined for now: under a Stagewatch that requires crew links a forwarded ACK is refused at its
+door, and this desk shows the refusal) and *P-legacy* (labelled amber fallbacks for another app's older version only).
+
+Evidence class: **a handed-in critique** — patterns-playmap-side (its G21 and G48, decisions 12 to 14 and 17, its wire
+shapes and file lists for 91.2 and 91.3) and the gap map's G48 with the plan's critique, which found L49 unmapped.
+Beside it stand this tree's own ledger rows from round 86, L48 and L49, and one file from another tree that is this
+round's contract for 94.1: Stagewatch's `tests/e2e/message.e2e.cjs` (its SW20.10, `b256a9f`), whose header calls its
+bytes "the bytes Patterns' fake Stagewatch is to copy". No maintainer's list, rig report or show laptop's files stand
+behind the round, and no measurement: the round adds no ladder, governor or fence of a cost, and the numbers it keeps
+are Show Bus 1.3's §14 (`link.sidecall.inflight`, `link.sidecall.timeout.ms`, `request.id.chars`, `receipt.final.ms`).
+
+**The train and the other trees.** The plan's rule R3 moves a unit that waits on another tree's unlanded unit. One unit
+here waits on another tree: 94.1 on Stagewatch's SW20.10, which landed (`b256a9f`: the rig's message signals and
+`message.e2e.cjs`) before round 93 opened. So no unit moves, and 94.4's papers wait on nothing outside the round. Read
+at this opening:
+- Stagewatch's head, local and on its remote, is `98f6463`. Its third train is committed but for two units: SW20.1 to
+  SW20.12 (`71cc31a` to `51c2dfb` — SW20.5, `af5c7d6`, is the link set and `PlayoutDirector`, the reader of this round's
+  `video.pausable`, `video.stoppable` and `ON <key>`; SW20.6 `2ac9cf3`; SW20.12 `355f5c9`). SW20.13, its VT interop
+  rows, waits on 94.4, and SW20.14, its 2.20 papers and release, on SW20.13. It has gone on into the fourth train
+  (SW21.1 `057e918`, SW21.2 `5490c89`) and its working tree holds another chain's unit in progress, which this opening
+  does not read. `Timer.App.csproj` still reads 2.16.0 and its remote carries no tag: SW18.8's and SW19.11's releases
+  remain the maintainer's PC work, as §111.9 read them.
+- Mapper's head, local and on its remote, is `a6c47e62`; the train's PlayMap units are committed (PM-6 `e306699f`, PM-7
+  `93bdaef8`, PM-8 `c58e31ff`).
+- `docs/SHOWBUS.md` and `tools/showbus/peerlink-peer.mjs` here match Stagewatch's and Mapper's copies byte for byte
+  (`cmp`), so §13.7 and §13.12, which 94.1 reads, are the words Stagewatch's own links are held to.
+- The interop lane still pins this tree at `5a8ad8f` (round 91.6, `tools/interop/siblings.json`), so no lane row reads
+  rounds 92 to 94 until Stagewatch's chain moves the pin; SW20.13's S4.1 (the rig's VT link pausing the bench host's
+  clip and reading `video.paused`) is where 94.2 and 94.3 first meet a real Stagewatch link. The bench host's clip
+  (`BenchClip`, L63) pauses and seeks, so the hold is reachable there.
+- R1, as §111.9 read it: the second train has closed in every tree but for those two Stagewatch releases, named as the
+  maintainer's PC work and not run; no unit of this round waits on a release. The reading is these papers', and a
+  maintainer who reads R1 strictly holds 94.4's push and the round's tag until the releases.
+
+This tree's remote carries the tags `round-15` to `round-88`; rounds 89 to 93 wait for the maintainer's run of
+`tag-rounds.sh`, whose table holds their rows to 92, and 94.4 writes round 93's (`b57410d`).
+
+**What the plan cites that the head does not say, and what each unit takes.** Each citation of the plan and of the
+design behind it was read again at this head (`b57410d`), as the plan's rule R6 asks; where the head says otherwise,
+the unit takes the head.
+- *The message's bytes (94.1).* The plan writes the route as `POST /api/message/<text>/<urgency>/off[/ack]`. The bytes
+  are the design's and the contract file's: `/api/message/<text as one percent-encoded segment>/info/<slow|off>/ack`
+  (`message.e2e.cjs:56`) — `info` because this desk's `StageMessage` carries no urgency (`ShowState.cs:845-869`),
+  `slow` when the message flashes and `off` when it does not, and always `/ack`, since a message this desk sends waits
+  for its receipt. `/api/clearmessage` and `/api/ack/<messageId>/seen/<this desk's name>` are as the file has them. 94.1
+  checks a copy of those bytes into this tree's tests, named with the commit it was read at, and its fake Stagewatch
+  answers them.
+- *What the contract file says that the design did not know (94.1).* Read at `98f6463`: a message signal completes on
+  its first answer, so a frame's `messageAck` goes `sent` → `done` and is never `seen` — this desk reads `seen` or
+  `done` as the answer; who answered is `messageAckBy`, a name of at most 40 characters with the device's address kept;
+  the three frame fields go back to `0`, `""`, `""` 30 s after the answer or the cancel, the message maybe still on
+  stage, so this desk keeps `done` for the `messageId` it sent and does not read the reset as "unseen"; an `/ack`
+  message answered `applied` with no `refs.messageId` (a Stagewatch whose licence has no crew cues) has no
+  acknowledgement to follow, and is said so; a slow show's receipt is `accepted` with no refs, bound when a frame first
+  names a new `messageId` whose text is the message's — by a new id alone, a message Stagewatch's own operator sent
+  in the gap would be taken for this desk's, and its `done` shown as the ACK of a message Stagewatch never
+  acknowledged; a second ACK is a 409 while the signal is listed and a 403 once it has left the frame; and under crew
+  links required a forwarded ACK is a 403 with Stagewatch's own words (X-declines), shown as a refusal.
+  `StagewatchFrame` parses `messageId` and `messageAck` today (`StagewatchFollow.cs:26-27`, `:59-60`) and not
+  `messageAckBy`; 94.1 appends it.
+- *The lane (94.1).* The design gave the message a `SpeakerLane` because the beat ran ping, context and approvals one
+  after another (its `StagewatchLinkService.cs:289`, `:328-355`); the plan says "on the side-call lane", which round
+  93.2 built since (`SideCallsAsync`, `StagewatchLinkService.cs:1904`). That lane turns once a beat
+  (`ShowBusLiveness.Beat`, 2 s; `:1943`) and runs one call at a time, each within 4 s, so a message handed to it as it
+  stands could wait a beat and then a context read. 13.7.2 allows what the design asked: "at most
+  `link.sidecall.inflight` per kind at a time" and "a newer post replaces one not yet sent". So 94.1 runs the speaker's
+  calls as a kind of their own on the side calls' rules — one in flight, the latest message replacing one not yet sent
+  (journalled "superseded"), woken at once and never waiting a beat or behind the context read — on the dial's own
+  handler, pin and key (`:1409-1418`), their failures counted on the side calls' item and never moving the link's
+  liveness.
+- *The id and the outcome (94.1).* The design's `X-Request-Id: pt<n>` predates the profile. The id is 13.12.1's,
+  `<prefix><n>-<inst>`, from the core (`PeerLinkMachine.NextId`, `PeerLinkMachine.cs:941`), within
+  `request.id.chars`; the answer is read by 13.12.3's table, as 13.7.4 asks of a side call that carries a command, and
+  the message ends in one of that table's five outcomes. So where the design turned "a 409, 401, 403 or a timeout"
+  alike into "refused — shown on this desk's displays only", the head distinguishes:
+  - `applied`, with `refs.messageId`: on Stagewatch's displays, the message bound to that id;
+  - `accepted`, with no refs: taken and not yet run; bound by a frame's new `messageId` with its text, and
+    `unconfirmed` once `receipt.final.ms` has passed with no bind (13.12.4);
+  - `refused`: a 409 receipt and a 403, in Stagewatch's words; a 401, through 13.7.3's one door (a relink, or the
+    key's hold); and a 429 — "rate limited — again in N s" — after which the lane waits `Retry-After` before its next
+    call and does not send this message again;
+  - `unconfirmed`: a timeout, a 408 or a 5xx after the request was written — "it may be on the speaker's screen" —
+    never "refused" or "failed"; it binds if a frame later names a new `messageId` with its text;
+  - `not-sent`: a message already `Requested` whose request was never written — the link dropped, a hold started or
+    the Stagewatch went stuck first, or a newer message replaced it (the lane's "superseded"). It did not run, and the
+    words say why.
+
+  No outcome sends the message again (13.12.7): that is a person's act, a new message with a new id. A `refused`,
+  `unconfirmed` or `not-sent` message is on this desk's displays with the words that say which — a superseded one
+  gives way there to the message that replaced it — and every outcome is journalled.
+- *A cue's row (94.1).* The design leans on cue steps ("a cue step's message always lands somewhere"). At the head a
+  step's `Requested` makes the cue's row `Requested` (`CueStackService.cs:230`), and `Poll` settles a row that waits for
+  no receipt `Done` once `SettleWindow`, 12 s, has passed (`:19`, `:346-361`), writing no journal row as it does. Left
+  so, a cue's message that Stagewatch refused, never answered or only accepted would read Done on the Run page twelve
+  seconds on, and nothing would say otherwise. So 94.1 owes the message's receipt on the cue's row, as a device's line
+  is owed (`CueExecution.DevicePending`, `CueRun.cs:24`; `OnDeviceReceipt`, `CueStackService.cs:371-395`), and only the
+  receipt settles the row, never the clock:
+  - `applied`, or a frame that binds an `accepted` or `unconfirmed` message, is the yes: the row is `Done`;
+  - `refused` and `not-sent` are the no: the row is `FailedLate` with Stagewatch's words, or why it was not sent, and
+    that Stagewatch's displays do not show it — journalled as a settlement (`CueSettled`) and never fired again. The
+    stack is not stopped; the cue ran, and its row says what did not land where the reply said it was going;
+  - `accepted` and `unconfirmed` settle nothing while no frame binds them: the row stays `Requested` with the
+    outcome's words in place of "Awaiting 1 receipt", never `Done` by the clock and never read as failed.
+
+  A message that stayed on this desk at the verb is `Done` at once with its reason, as the design has it.
+- *When the link can carry it (94.1).* The design's rule was "following, the link live, a key held that is not known
+  to be a read key". Rounds 91 and 93 gave the head more to read, and the rule takes all of it: the stage follows
+  (`FollowStage`, `StageService.Following`), the Stagewatch is not stuck (round 89), and the node routes are open
+  (`NodeRoutesOpen`, `:2287`: the connection carried the key — at level 0 only over a person's pin or to this machine,
+  L95, L96 — a verdict is heard, and no hold of a refused key or of a key that speaks for no node of this desk's
+  stands). Otherwise the message stays here, `Done`, with the reason in the reader's own words: no key; the key waits
+  for Trust; the key is held or refused; the key may read but not send; the Stagewatch is quiet or stuck; the stage
+  does not follow it; the channel is the crew's. A cue step's message therefore always lands somewhere, and nothing
+  tells the operator to turn the follow off.
+- *The stage's own lines (94.1).* `StageService` is 295 lines at this head: `Message` `:107`, `Clear` `:122`, `Ack`
+  `:136`, `Block` `:192-219` (its last field `follows`, so `speakerFrom`, `speakerAck` and `speakerAckBy` go after
+  it), `DeckSignature` `:222-226`, `FollowJson` `:228-242` (its last field `stuck`), `StatusJson` `:244-294` (its last
+  field `pendingCrew`, so `speakerShown` goes after it). The context's row is `ShowContext.cs:260`; its words change
+  and its verb does not, so the row keeps its place (rows are only appended).
+- *The refusals (94.2).* The plan cites `ShowActions.Content.cs:481,486,501`; at this head the transport is
+  `VideoTransport` (`:482-536`), `ownClock` at `:494` and the two refusals at `:499` (PAUSE) and `:514` (STOP). A
+  playlist item's clock is the sequencer's (`PlaylistSequencer.cs:23-26`, `:34`: `_itemStartedUtc`, `_itemDuration`, the
+  scheduled override's start and end), wound by `EndItemIn` and `RestartItem` through `PlaylistService.EndCurrentIn`
+  and `RestartCurrent` (`PlaylistService.cs:165-175`), which read `DateTime.UtcNow` directly — so 94.2's `Hold` and
+  `Release` take the instant as the sequencer's other methods do, and its tests give it. A stinger's clip ends on its
+  decoder's end and is put back by the stall guard when its position has not moved for 15 s while its source says it
+  plays (`StingerService.cs:91`, `:753-763`). A paused decoder says it does not play (`VideoEngine.cs:1265-1272`; the
+  bench's `BenchClip.cs:101-106`), so at the head the guard skips a held clip: a pause of sixteen seconds does not
+  trip it during the hold. It trips at the release — `_positionMovedUtc` is stale by the whole hold, so the first tick
+  after PLAY that finds the position within 0.05 s of the last one read puts the show back — and a source whose
+  `IsPlaying` stayed true under a pause would trip it inside the hold. So 94.2's hold moves the guard's instant on by
+  the held span, whatever the source says of itself, and its fence reads the release, against both kinds of source.
+- *What `pausable` and `stoppable` say, and who reads them (94.2).* STATE's `video` row ends at `seq`
+  (`CommandRouter.cs:231-265`, `seq` at `:263`); the two go after it. The design's values: a playlist item `true`,
+  `true`; a stinger's clip `true`, `false` (STOP stays refused, pointing at `STINGER STOP`, which puts the show back); a
+  live source or a decoder not open `false`, `false`; the programme's own clip and a layer's as today, `true`, `true`
+  when the clip seeks. Stagewatch's reader is already written to them (`PlayoutDirector.Transport`, its `:785-789`): it
+  refuses a pause or a stop where the field says `false`, or where the field is absent and the role is `playlist` or
+  `stinger` — so today's refusal there ends for a desk of this round by the fields alone — and after a pause it watches
+  for `video.paused` true. So 94.2 keeps `paused` true for a held playlist item and a held stinger's clip, as for any
+  other clip.
+- *A schedule entry held past its window (94.2).* The plan: "skipped and journalled"; the design: fired at the release
+  if still inside its window, else journalled "held past its time". They agree — nothing is played late — and 94.2
+  takes the design's two halves with the plan's word for the second.
+- *The key (94.3).* A clip's key is `vid:` and its path (`InputKeys.Video`, `InputKeys.cs:6`), as STATE's `video.key`
+  and `videos[].key` publish it (`CommandRouter.cs:256`, `:271-293`); a path can hold spaces. The wire takes its words
+  raw, so `ON <key>` reads the key as the rest of the line, last on it, and is refused for a key that is not mounted
+  ("no clip with that key is mounted — STATE videos[] lists them") or that the air does not hold (the next bullet).
+  Stagewatch's link writes `VIDEO <END n|RESTART|PLAY|PAUSE|STOP|SEEK n> ON <key>` (`PlayoutLink.Clip`, its `:863-884`),
+  sends a key only when it can go bare — no white space, no quote (`PlayoutWire.Word`) — and otherwise drives the clip
+  on air, and it asks for the form only when this desk's context lists a command whose verb starts `VIDEO `, contains
+  `ON <key>` and names the word among its alternatives (`PlayoutDirector.OffersOnKey`, its `:831-836`). So 94.3 appends
+  the context's rows in that shape, each naming every word it takes, and its parser takes exactly what that link writes:
+  END's seconds and SEEK's point before `ON`, as `VIDEO SEEK 83 ON vid:…`.
+- *Which mounted clips a key may name (94.3).* `videos[]` is every mount with a timeline (`VideoEngine.Clips`,
+  `VideoEngine.cs:536`), and that is more than the air. Under EDIT SAFE it lists a clip only the preview wants
+  (`MergeWithSandbox`, `:426-441`: a mount on the sandbox's bus alone), and it lists the standby's pre-roll, held
+  until it is wanted (`preRoll` true). A transport that took any listed key could drive a clip only the edit holds, or
+  release a held pre-roll, and say Done with nothing changed on the air. So the rule is the air's: a key names a clip
+  the programme holds. A key mounted for the preview alone is refused with the reason (that clip is the preview's — a
+  take puts it on the air), and a pre-rolled clip is refused with its own (it is held for the standby and plays when
+  that goes); neither clip is touched, and STATE lists both as before, `preRoll` saying which the second is. A clip
+  the programme and the preview both want is the programme's, and is driven.
+- *What a §6 reader makes of `ON <key>` (94.3).* Show Bus 1.3 §6 reads a value whose whole name is `key` as a secret
+  placeholder: a line that fills one with anything but `‹secret›` "is never sent or queued" (`docs/SHOWBUS.md:242-244`).
+  Stagewatch's matcher does exactly that (`VerbSyntax.SecretNames`, its `VerbSyntax.cs:56`, `:196`; `Approvals.cs:181`,
+  `:214`), and where several forms take a line equally a secret one decides for all (`:471`), so a second row under
+  another name would not free the line. Two readers in Stagewatch's tree therefore pull apart on one row. Its playout
+  link, which writes the line itself, asks for the literal `ON <key>`; its approval desk refuses `VIDEO PAUSE ON vid:…`
+  proposed to this desk, as a line that fills a secret. The plan names the form `ON <key>` and the link's reader is
+  committed to it (`af5c7d6`), so 94.3 lists the rows in that shape and says what it costs: the link drives the clip
+  it read, by its key, and the forms with a key cannot be proposed across apps through a 1.3 approval desk. The bare
+  forms — the clip on air — stay proposable as today. A clip's key is no secret, and the row tells a §6 reader it is
+  one: an open row, added by 94.3 and written by 94.4, that Stagewatch's chain closes (`OffersOnKey` reading a name §6
+  does not hold, such as `<clip>`), after which this desk renames the value. 94.3's Core test asserts both readings:
+  `OffersOnKey`'s three conditions, and that the `ON <key>` rows are the only rows of this desk's context whose value
+  a §6 reader takes for a secret.
+- *The transport's other callers (94.3).* The wire's grammar is `ControlProtocol.cs:782-824`; `VIDEO`, `VT` and `CLIP`
+  are one case, each word taking no more than its own argument today. `WireWriter` writes the six lines
+  (`WireWriter.cs:147-152`) and the module's `lines.txt` holds seven (`:271-277`); the action carries the key in its
+  target, so the writer, the journal's row and a cue step say `ON <key>` as the wire reads it. With the key, the
+  playlist's and the stinger's rules of 94.2 follow the clip named, not the clip on air: a key that is the playlist's
+  item or the stinger's clip is held by 94.2's rule, and any other is that clip's own source.
+
+**OPEN, read at the opening.** Fifty-four rows open, forty-four closed (§111.9). The round:
+- takes L48 as 94.2 — a pause that holds the sequencer's clock, and a stinger's ending, with the picture, a test per
+  role — and 94.4 closes it;
+- takes L49 as 94.3 — `VIDEO … ON <key>` with the key from `videos[]`, refused for a key that is not mounted, the
+  preview's alone or pre-rolled — and 94.4 closes it;
+- adds, through 94.4, the row 94.3 opens: the `ON <key>` rows read as a secret placeholder by §6, so the forms with a
+  key are not proposable across apps; Stagewatch's chain closes it (`OffersOnKey` taking a name §6 does not hold), and
+  this desk renames the value after;
+- adds and closes, through 94.4, the design's "two speaker messages while following" (G21), which this ledger never
+  held as a row, naming 94.1;
+- reads L50 and L56 (the link has not met a real Stagewatch) and keeps them: 94.1 adds the message route, the
+  forwarded ACK and a crew-link refusal to what §26's walk would read, which 94.4's note says;
+- reads L63 (the bench host's clips are synthetic) and keeps it: the bench's clip pauses and seeks, so SW20.13's rows
+  can read 94.2 there, and a real decoder's hold is the rig's;
+- reads L94 to L97 and keeps them: the message goes only where the key already goes (L95, L96), TRUST and ACCEPT stay
+  on the desk (L94), and a message's receipt, like an owed result, lives in the process — a restart between a message
+  and its ACK leaves it as it was drawn, which 94.1 says and 94.4 adds to L97 if it lands so;
+- reads L44, L54, L61, L66, L70, L71, L77, L81, L85, L86, L88, L89, L91, L93 and L98 and keeps them: none is this
+  round's. L71 (Stagewatch's matcher rates a line by a row's leading literal words) is read for 94.3: its new rows
+  begin `VIDEO` beside the rows already there, every one high, so no line rates lower under either rule;
+- adds, through 94.4, the rows the units find, each with what closes it.
+
+**The units, read against the standing brief.**
+
+| Unit | What stands at the head | What the round does | The readers it reaches | Fence; measurement |
+|---|---|---|---|---|
+| 94.1 | STAGE MESSAGE, CREW and CLEAR change this desk's stage alone (`ShowActions.Stage.cs`, `StageService.Message`); while the stage follows a Stagewatch its own message reaches only `/api/stage`'s `follows.message`, so the room can hold two speaker messages and neither desk knows of the other's. `pendingSpeaker` is this desk's message waiting for its ACK. The link has a side calls' lane and no call that carries a command | While the link can carry it (above), `STAGE MESSAGE` is kept here as a `StageMessage` marked as sent through Stagewatch and posted on the speaker's kind of side call with its 13.12.1 id; the result is `Requested`, and the outcome — `applied` with `refs.messageId`, `accepted`, `refused`, `unconfirmed` or `not-sent`, by 13.12.3 — and then the frame's `messageAck` and `messageAckBy` are shown and journalled, one row per step. A 429 is `refused` with its words, the lane waiting `Retry-After` before its next call; no outcome sends the message again. An `accepted` message is bound when a frame first names a new `messageId` whose text is the message's. A cue's row with the message in it settles on that outcome and never on the 12 s clock: `Done` on `applied` or a bind, `FailedLate` on `refused` or `not-sent`, left `Requested` with the words on `accepted` or `unconfirmed`. Otherwise it stays here, `Done`, with the reason. The pages draw one speaker message, the later of Stagewatch's and this desk's (`speakerShown`); a page's ACK on Stagewatch's message is forwarded as `/api/ack/<id>/seen/<desk>`; STAGE CLEAR posts `clearmessage` only for a message this desk posted, and says so when Stagewatch's own stays. STATE `stage` appends `speakerFrom`, `speakerAck`, `speakerAckBy`; `/api/stage` appends `speakerShown` and, in `follows`, `messageId`, `messageAck`, `messageAckBy` | The wire's reply and the deck's; the desk's stage panel and its right-click entries, whose lines stay the buttons' (`DeskMenuAppTests`); the stage and timer pages; a timer node's page through the twin (repainted when the frame's message moves); STATE and `/api/stage`; the context's STAGE MESSAGE row (its words). The Eye, the Run strip and the assistant's facts read no stage message at this head (`pendingSpeaker` has three readers: the stage service, the pages' server and the node's view model): 94.1 gives the Eye's Stagewatch node, the Run strip's link line (93.3's) and the assistant's facts where the speaker's message went and its outcome, in words, or its commit names each it did not reach and why — the Run page reads a cue's message on the cue's row either way; the assistant proposes STAGE MESSAGE as before, review; the journal; the module (`stage_speaker_from`, `stage_speaker_ack`, the feedback `stage_speaker_ack_is`, `stage_pending` false once the sent message is answered; 3.21.0, once for the round) | Core tests of the pure parts (the path for spaces, `/`, `%`, 500 and 501 characters and flash; the receipt reader over 13.12.3's rows; latest-wins either way); App tests against a fake Stagewatch that answers the contract file's bytes (with a key: requested, the path, key and id seen, the journal's rows, `speakerAck` following the frames to `done`, `sw:<id>`'s ACK forwarded; `accepted` then bound by a new `messageId` with the message's text, and Stagewatch's own message arriving in the gap not bound; no key, a `first` pin, a key a 403 has shown may only read, a stale link, a stuck show, FOLLOW off and the crew's channel each local with its words; a 409 and a first 403 `refused` in Stagewatch's words; a 429 `refused`, the message not sent again and the next call not before `Retry-After`; a timeout `unconfirmed`, not sent again; the link dropped, a hold begun and the show gone stuck before the request is written, each `not-sent` with why, on this desk's displays and journalled; a cue's row per outcome on an injected clock past 12 s — `Done` on `applied` and on a bind, `FailedLate` on `refused` and `not-sent`, still `Requested` on `accepted` and `unconfirmed`; CLEAR both ways; two messages while the first is held — the second sent, the first superseded; a message sent while `/api/context` is delayed 3 s); the canaries of 93.2's S19 over the new calls (the key in no line, row, STATE or page); the module's tests and `lines.txt`. The Core, Rendering and App suites and the module's four steps. No measurement |
+| 94.2 | VIDEO PAUSE and STOP refuse a playlist item and a stinger's clip (`:499`, `:514`): their clocks would run on under a frozen picture (L48). STATE `video` ends at `seq`. Stagewatch refuses the two for those roles in this desk's words | `PlaylistSequencer.Hold` and `Release` (the item's start, and a scheduled override's end, moved on by the held span; `Held`), through `PlaylistService`; a stinger's clip held with its stall guard not counting the hold. PAUSE holds either with its clock; PLAY releases both; STOP on a playlist item puts clip and clock back to the top, held; STOP on a stinger's clip stays refused, pointing at `STINGER STOP`. A schedule entry due during a hold fires at the release inside its window and is otherwise skipped and journalled. STATE `video` appends `pausable` and `stoppable` | The wire's reply ("'opener.mp4' paused at 1:02 — the playlist holds with it; VIDEO PLAY runs both on"); the desk's transport buttons and their right-click entries (enabled by the same two facts); STATE; the playlist's "left" on the desk, the Run strip and the pages (a held item does not count down); the Eye's clip node, where it words a clip's state today; the context (the PAUSE and STOP rows' words unchanged — they hold the clip on air, which is now true of every role but a stinger's STOP); the assistant's facts (held, in words); the module (`video_pausable`, `video_stoppable` where its transport reads them, under 94.1's version); the journal's row for a schedule entry skipped. Stagewatch's link, by the two fields | `PlaylistSequencerTests` (a held item does not advance at its end; the release moves its start by the held span; a schedule entry inside and past its window), on a given instant; `VideoTransportAppTests` per role (playlist: paused, both fields true, the item not advanced past its end while held, then advanced after PLAY; stinger: held past the stall guard's 15 s on an injected clock, then PLAY and a tick with the position not yet moved, and the clip is not put back — run with a source whose `IsPlaying` stays true under a pause and with one whose does not, the mutation check (the fix taken out: the first fails inside the hold, the second at the release) recorded in REVIEW; STOP refused; STATE's old fields unchanged, the new ones last); `StingerLifecycleTests` still green. The Core, Rendering and App suites. No measurement: 15 s is the guard's own number, unchanged |
+| 94.3 | The transport acts on the clip on air alone (L49); `videos[]` publishes every mounted clip's key, and nothing takes one | `VIDEO END <s>\|RESTART\|PLAY\|PAUSE\|STOP\|SEEK <point> ON <key>` on the wire, the key the rest of the line, refused for a key not mounted, a key mounted for the preview alone and a pre-rolled clip, each with its reason; the action carries the key, so the writer, a cue step and the journal say it; the roles' rules follow the clip named. The context appends the forms' rows in the shape Stagewatch's link looks for — which §6 reads as a secret placeholder, so the forms with a key are not proposable across apps (an OPEN row, Stagewatch's chain to close); REMOTE's grammar; the module's action takes a key (empty: the clip on air) and `lines.txt` gains the lines | The wire and its reply; OSC where the transport has an address (the key as its argument, or said as not reached); a cue step; the desk's right-click menu on a layer's and a screen's own clip (the same lines, where the desk has a card for one — else named as not reached); STATE (unchanged: `videos[]` is already the list); the context; the assistant's facts (the form in words — it proposes no transport today; another app's assistant proposes the bare forms only); the module; the journal | `ControlProtocolTests` (Rendering) for every form and its refusals (a missing key, a word after the key's place, `VT` and `CLIP` alike); `VideoTransportAppTests` (a layer's clip paused by its key while the clip on air plays on; a key not mounted refused; a clip only the preview holds under EDIT SAFE and a pre-rolled clip each refused, the clip and the air untouched; a key that is the playlist's item held by 94.2's rule); `WireVocabularyTests` and `CompanionModuleContractTests`; a Core test that the context's rows match the three conditions Stagewatch's reader asks, and that they are the only rows of this desk's context whose value a §6 reader takes for a secret; the module's tests and `lines.txt`. The Core, Rendering and App suites and the module's four steps. No measurement |
+| 94.4 | — | The papers: PLAN §112; REVIEW round 94 with each unit's mutation checks and "Walk: none asked", as the plan has it, beside a round-94 note in QUALIFICATION §26 for the message through a real Stagewatch; CHANGELOG; README (the message's route and its fallback, holding a playlist item, a clip by its key); REMOTE (the message route and its words, `stage.speaker*`, `speakerShown`, `follows.message*`, `video.pausable` and `stoppable`, the `ON <key>` grammar); COMPANION (3.21.0); OPEN (L48 and L49 closed, G21's row added and closed, the `ON <key>` row added, what the units found); round 93's tag row (`b57410d`) | — | All seven suites and the module's four steps |
+
+**What every unit was read against.**
+- *Stability, resilience and durability*: a cue step's message always lands — through Stagewatch or here — and is never
+  refused for want of a link; a speaker's call never delays the beat or the context read, nor waits behind them; a held
+  playlist does not run on under a frozen picture, and a held stinger's clip is not put back by its own guard.
+- *Performance adaptability across system specs*: no render, decode or audio path moves. The speaker's calls are one
+  task per connection, idle until a message; the hold is two instants in the sequencer. No measurement this round.
+- *Modularity and abstraction*: the path, the receipt reader and the latest-wins choice are pure Core; the hold is the
+  sequencer's own; the key rides the action, so every caller of the transport gains it at once.
+- *Attempts are not facts*: a message sent is `Requested`, and its row — the journal's, and a cue's on the Run page —
+  moves only on a receipt or a frame, never on the clock; `accepted` is not `applied`; `unconfirmed` is never "failed"
+  and never Done; `not-sent` did not run and says why; `done` is what the frame said and who by; `paused` is true
+  only when clip and clock are both held; a key that is not mounted is refused, never defaulted to the clip on air.
+- *One air*: the message is air state, not the edit's (`EditAir`), as today; the transport reads the clip the air
+  shows or the one its key names among the clips the programme holds — a clip mounted for the preview alone, and a
+  pre-rolled one, are refused by rule, so it is never the preview's.
+- *Every reader*: the table's third column, per unit; where a reader is not reached the unit's commit and 94.4 say
+  which and why.
+- *Fail closed on the wire*: an unknown word after `VIDEO`, or after the key's place, is refused; a key not mounted is
+  refused; the node key rides only the link's own handler to the Stagewatch it is bound to, in no line, row, STATE or
+  page; a speaker's call is never made over a connection that did not carry the key.
+- *AI integration*: the assistant reads where a message went and that a clip is held, in words; the context's rows
+  say the new forms for Stagewatch's link to read, and another app's assistant proposes the bare forms as today — not
+  the forms with a key, which a 1.3 approval desk refuses as a filled secret until the value's name changes (above);
+  with AI offline nothing changes.
+- *Companion*: the module takes 3.21.0 once — the speaker's variables and feedback at 94.1, the transport's key and
+  lines at 94.3 under the same number.
+- *Right-click menus and the desk in step*: every entry whose line the round touches keeps the button's line
+  (`DeskMenuAppTests`); 94.3's entries are the wire's lines.
+- *Measured, then governed*: nothing is governed. The speaker's calls remove a wait rather than bound one; every number
+  is §14's or already this desk's. No measurement this round.
+- *Platform paths*: none of the brief's named paths is touched — no display topology, hot-plug, audio endpoint,
+  WebView2, process or watchdog, twin protocol, registry or CUT/TAKE. A timer node's page repaints from the twin's
+  relay as it does today; the stinger's guard is the service's own, not the watchdog. So the plan's "Walk: none asked"
+  stands, with §26's note for what only a real Stagewatch shows (L50, L56).
+
+The round adds verbs an output can show: STAGE MESSAGE's journal row with the receipt's stage, read beside the stage
+page, closes it — and beside it VIDEO PAUSE's row for a playlist item, read beside the playlist's "left".
+
+**CI and the push.** The round goes to the remote at the maintainer's push. If the code units are pushed before the
+papers, as round 93's were, 94.4 reads that run on GitHub; otherwise its papers say the run is the round after's.
+
+The heading above and the changelog's entry name what the round means to land; 94.4 completes both. `ChangelogTests`
+holds the changelog's newest round to the plan's, so round 94's entry opens in this commit. From here until 94.4,
+`tag-rounds.sh` stops at round 93 ("neither in the table nor a tag") unless `round-93` was made at `b57410d` first;
+94.4 writes round 93's row, and the round's own tag waits for that commit.
