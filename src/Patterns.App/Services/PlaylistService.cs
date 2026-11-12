@@ -32,6 +32,14 @@ public sealed class PlaylistService : IDisposable
     public void Poll() => Tick();
 
     /// <summary>
+    /// Stops the 250 ms timer: from here the playlist ticks on <see cref="Poll"/> alone. For a host
+    /// that sets <see cref="NowUtc"/> and steps it — the timer fires on the wall's time whenever the
+    /// dispatcher runs, so one of its ticks lands between two steps of the host's clock, at a moment
+    /// the host never wrote. A desk never stops it.
+    /// </summary>
+    public void TickOnPollOnly() => _timer.Stop();
+
+    /// <summary>
     /// Whether the playlist's clips can play: the decoder's own answer, or — set — a host's that
     /// gives the clips itself (a headless test's fakes). Null leaves the decoder's.
     /// </summary>

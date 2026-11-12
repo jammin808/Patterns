@@ -166,6 +166,7 @@ public class VideoTransportAppTests
     {
         var (services, vm, _) = b;
         services.Playlist.NowUtc = clock;
+        services.Playlist.TickOnPollOnly();                       // the clock is the test's: Tick(services) ticks the playlist, the desk's 250 ms timer never does
         services.Playlist.VideoAvailableOverride = () => true;   // headless: no libVLC — the clips are the fakes'
         var opener = AudioFakes.TempFile(b, "opener.mp4", file, member);
         var slide = AudioFakes.TempFile(b, "slide.png", file, member);
@@ -189,6 +190,43 @@ public class VideoTransportAppTests
     {
         services.Playlist.Poll();
         Dispatcher.UIThread.RunJobs();
+    }
+
+    /// <summary>
+    /// The playlist under a test's clock ticks when the test ticks it and at no other time: the desk's own 250 ms timer
+    /// is on the wall's time and fires whenever the dispatcher runs — under a wire line's pump, a RunJobs — so a tick of
+    /// it would land between two steps the test wrote as adjacent ("released, and off the air with no tick between").
+    /// </summary>
+    [AvaloniaFact]
+    public void APlaylistUnderATestsClockTicksOnlyWhenTheTestTicksIt()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, _, _) = b;
+            var fakes = AudioFakes.Install(b);
+            var clock = T0;
+            var (opener, _) = PutPlaylistOnAir(b, fakes, () => clock);
+
+            // The clock steps past the opener's thirty seconds, and the dispatcher runs for more than two of the timer's
+            // periods of wall time: a tick would move the running order on, and none comes.
+            clock = T0.AddSeconds(31);
+            var wall = System.Diagnostics.Stopwatch.StartNew();
+            while (wall.ElapsedMilliseconds < 600)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(10);
+            }
+            Assert.Equal(opener, services.Bus.Current.PlaylistNow?.Path);
+
+            // The test's own tick is the one that moves it.
+            Tick(services);
+            Assert.NotEqual(opener, services.Bus.Current.PlaylistNow?.Path);
+        }
+        finally
+        {
+            b.Dispose();
+        }
     }
 
     [AvaloniaFact]
