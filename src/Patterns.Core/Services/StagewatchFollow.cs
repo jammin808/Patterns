@@ -158,6 +158,41 @@ public sealed record StagewatchFrame
         return $"/ws?node={id}&t=patterns&cid={cid}&page=/patterns";
     }
 
+    /// <summary>
+    /// Round 96: the path and query a desk that proves its key dials a Stagewatch's /ws with (Show Bus 1.3 §13.6.5) —
+    /// <see cref="SocketQuery"/> and <c>&amp;link=&lt;the PeerLink version it offers&gt;</c>, with no Authorization header: the key is
+    /// proved in the link message and never sent. Null for an id LINK cannot name (13.6.1: 6–40 letters, digits, <c>-</c> or
+    /// <c>_</c>); such a desk dials as <see cref="SocketQuery"/> does.
+    /// </summary>
+    public static string? LinkQuery(string? selfId)
+        => PeerLink.IsId(selfId) ? SocketQuery(selfId) + "&link=" + PeerLink.Version.ToString(CultureInfo.InvariantCulture) : null;
+
+    /// <summary>
+    /// 13.6.5: a connector's one link message on a <c>link=</c> socket, <c>{"type":"link","client":{"t","id"},"cnonce","kid","proof"}</c>,
+    /// its <c>client</c> the query's <c>t</c> and <c>node</c>. It carries a proof over the transcript and never a key.
+    /// </summary>
+    public static string LinkMessage(string t, string id, string cnonce, string kid, string proof)
+    {
+        var buffer = new System.Buffers.ArrayBufferWriter<byte>(256);
+        using (var w = new Utf8JsonWriter(buffer))
+        {
+            w.WriteStartObject();
+            w.WriteString("type", "link");
+            w.WriteStartObject("client");
+            w.WriteString("t", t);
+            w.WriteString("id", id);
+            w.WriteEndObject();
+            w.WriteString("cnonce", cnonce);
+            w.WriteString("kid", kid);
+            w.WriteString("proof", proof);
+            w.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    /// <summary>13.7.1: a side call's credential on a verified link, <c>ShowBus lid=&lt;16 hex&gt;, s=&lt;64 hex&gt;</c>.</summary>
+    public static string SessionHeader(string lid, string s) => "ShowBus lid=" + lid + ", s=" + s;
+
     /// <summary>A node id as Show Bus §7.1 takes one: 1–40 letters, digits, <c>-</c> or <c>_</c>.</summary>
     public static bool IsNodeId(string? id)
         => id is { Length: >= 1 and <= 40 } && id.All(c => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '-' or '_');

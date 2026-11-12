@@ -774,6 +774,21 @@ public sealed class PeerLinkMachine
     }
 
     /// <summary>
+    /// The connector ends its connection to dial again at once by the other door 13.6.8 gives it: a <c>ws</c> socket that asked for
+    /// LINK and found an acceptor that does not speak it, whose bearer the connection could not carry — a bearer rides only an
+    /// upgrade. Nothing failed, so the redial count and its wait stay where they are, and a link that was never down is not said
+    /// down by it: it is still connecting. A refusal, a hold or a conflict still stops the next dial as it would any other.
+    /// </summary>
+    public void Redial(LinkNow now)
+    {
+        Advance(now);
+        if (_phase == Phase.Idle) return;
+        var everClosed = _everClosed;
+        Relink(now);
+        _everClosed = everClosed;
+    }
+
+    /// <summary>
     /// The show's need of the link changed (13.1: the operator followed the peer, or stopped following it): from now the light is red
     /// only while the show needs the link (13.16.1–2). Nothing of the connection, the redial count, a hold or a pin moves.
     /// </summary>

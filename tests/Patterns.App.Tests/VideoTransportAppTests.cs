@@ -450,6 +450,72 @@ public class VideoTransportAppTests
         }
     }
 
+    /// <summary>
+    /// The other order (L105): the same part's start and scheduled entry wait under a hold, VIDEO PLAY releases it, and a
+    /// tick comes before the playlist leaves the air. That tick is the playlist's on air: what waited is due, the part
+    /// takes over once — one PlaylistPart row — and its slide runs as a scheduled interruption, with no entry reported
+    /// skipped and no hold said ended (VIDEO PLAY ended it). Off the air after it, nothing more of the playlist's is said.
+    /// </summary>
+    [AvaloniaFact]
+    public void WhatWaitedUnderAHoldRunsWhenATickComesBetweenThePlayAndTheLeaving()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            vm.IsSandboxActive = false;
+            var fakes = AudioFakes.Install(b);
+            var router = new CommandRouter(services);
+            var clock = T0;
+            var minute = T0.AddMinutes(1).ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var (opener, _) = PutPlaylistOnAir(b, fakes, () => clock, (list, slide) =>
+            {
+                list.Sections[0].Items[0].DurationSeconds = 100000;
+                list.Sections[0].Items[1].ScheduledTime = minute;
+                list.Sections[0].Items[1].ScheduledDurationSeconds = 600;
+                var part = new PlaylistSectionConfig { Name = "Break", StartTime = minute };
+                part.Items.Add(new PlaylistItemConfig { Path = slide, DurationSeconds = 30 });
+                list.Sections.Add(part);
+            });
+            var options = vm.ActivePattern.Media.Playlist;
+            // The playlist ticks only where this test ticks it: the one tick between the play and the leaving is this test's.
+            services.Playlist.Dispose();
+
+            clock = T0.AddSeconds(30);
+            Assert.StartsWith("OK", Send(router, "VIDEO PAUSE"));
+            clock = T0.AddSeconds(70);
+            Tick(services);
+            Assert.Equal(0, options.ActiveSection);
+            Assert.Equal(opener, services.Bus.Current.PlaylistNow?.Path);
+
+            // Played on at 80 s, and ticked on air before it leaves: what waited is the playlist's again.
+            clock = T0.AddSeconds(80);
+            Assert.StartsWith("OK", Send(router, "VIDEO PLAY"));
+            Tick(services);
+            Assert.False(services.Playlist.Held);
+            Assert.Equal(1, options.ActiveSection);
+            Assert.Single(services.Journal.Tail(30), e => e.Kind == nameof(ShowActionKind.PlaylistPart));
+            Assert.Equal(-1, services.Bus.Current.PlaylistNow?.Index);                                 // the slide, as a scheduled interruption
+            Assert.DoesNotContain(services.Journal.Tail(30), e => e.Kind == PlaylistService.PlaylistMissedKind);
+            Assert.DoesNotContain(services.Journal.Tail(30), e => e.Kind == PlaylistService.PlaylistHoldKind);
+            var rows = services.Journal.Tail(30).Count;
+
+            // Off the air: nothing of the playlist's is on, and nothing more is said of it.
+            vm.ActivePattern.Kind = PatternKind.Grid;
+            Dispatcher.UIThread.RunJobs();
+            clock = T0.AddSeconds(85);
+            Tick(services);
+            Assert.Null(services.Bus.Current.PlaylistNow);
+            Assert.Equal(rows, services.Journal.Tail(30).Count);
+            Assert.Single(services.Journal.Tail(30), e => e.Kind == nameof(ShowActionKind.PlaylistPart));
+            Assert.DoesNotContain(services.Journal.Tail(30), e => e.Kind is PlaylistService.PlaylistMissedKind or PlaylistService.PlaylistHoldKind);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void APausedClipWhosePlaylistRunsOnIsNeverSaidToHoldIt()
     {

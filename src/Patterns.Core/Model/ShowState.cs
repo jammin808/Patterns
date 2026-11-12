@@ -2418,7 +2418,54 @@ public sealed class StagewatchLinkConfig : Observable
     /// kept for comparison and changes nothing a dial does (Show Bus 1.3 §13.8.2), so pinning one never starts the link again.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public string PinsKey => string.Join(";", Pins.Where(p => p.Trust != Services.PinTrust.First).Select(p => p.Key + "=" + p.Fingerprint + "=" + p.Made));
+    public string PinsKey => string.Join(";", Pins.Where(p => p.Trust == Services.PinTrust.Person).Select(p => p.Key + "=" + p.Fingerprint + "=" + p.Made));
+
+    /// <summary>
+    /// Show Bus 1.3 §13.8.2: the pin a proof made — LINK's acceptor proof verified over this certificate — kept for the next run. A
+    /// person's pin of the same certificate stands as it is. The run that verified dials by its own core's pin, so keeping it here
+    /// starts nothing again (<see cref="PinsKey"/> reads a person's pins alone). False when nothing changed.
+    /// </summary>
+    public bool PinProof(string key, string fingerprint)
+    {
+        if (Pins.Any(p => p.Key == key && p.Fingerprint == fingerprint && p.Trust != Services.PinTrust.First)) return false;
+        SetPin(key, fingerprint, Services.PinTrust.Proof);
+        return true;
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.9.3: what a verified link to a Stagewatch reached, kept by node — <c>node:&lt;id&gt;</c>, and the typed
+    /// address's <c>addr:</c> key when the link was dialled by one — so a later link that offers less is refused, also after a
+    /// restart. Floors come only from a verified link and leave only by a person's FLOOR LOWER. Not secrets; this machine's own.
+    /// </summary>
+    public ShowCollection<StagewatchFloor> Floors { get; init; } = new();
+
+    /// <summary>
+    /// A verified link's floor (UI thread), replacing the one kept for <paramref name="key"/>, with the node id the link verified
+    /// (<paramref name="node"/>, empty when it named none); at most 64 kept.
+    /// </summary>
+    public void SetFloor(string key, bool tls, int level, string proof, string node = "")
+    {
+        if (key.Length == 0) return;
+        var old = Floors.FirstOrDefault(f => f.Key == key);
+        if (old is not null && old.Tls == tls && old.Level == level && old.Proof == proof && old.Node == node) return;
+        if (old is not null) Floors.Remove(old);
+        while (Floors.Count >= 64) Floors.RemoveAt(0);
+        Floors.Add(new StagewatchFloor(key, tls, level, proof, DateTime.UtcNow, node));
+    }
+
+    /// <summary>
+    /// A person's FLOOR LOWER (UI thread): the floors kept for these keys are gone, and with them every floor recorded for one of
+    /// <paramref name="nodes"/> — under its <c>node:</c> key or any address it was verified at — so no address of a lowered Stagewatch
+    /// refuses it again. Returns how many went.
+    /// </summary>
+    public int LowerFloor(IEnumerable<string> keys, IEnumerable<string>? nodes = null)
+    {
+        var set = keys.Where(k => k.Length > 0).ToHashSet(StringComparer.Ordinal);
+        var ids = (nodes ?? []).Where(n => n.Length > 0).ToHashSet(StringComparer.Ordinal);
+        var gone = Floors.Where(f => set.Contains(f.Key) || ids.Contains(f.Node) || (f.Key.StartsWith("node:", StringComparison.Ordinal) && ids.Contains(f.Key[5..]))).ToList();
+        foreach (var f in gone) Floors.Remove(f);
+        return gone.Count;
+    }
 
     /// <summary>
     /// Pin (or re-pin) a node's certificate (UI thread), saying who made the pin: the desk at first use (<c>first</c>, compared
@@ -2492,6 +2539,19 @@ public sealed record CertificatePin(string Key, string Fingerprint, DateTime Pin
         Services.PinTrust.Proof => "proof",
         _ => "first",
     };
+}
+
+/// <summary>
+/// Round 96 (Show Bus 1.3 §13.9.3): what a verified link to a Stagewatch reached — over TLS or not, its PeerLink level and its proof —
+/// by whose it is (<c>node:&lt;id&gt;</c> or <c>addr:&lt;host&gt;:&lt;port&gt;</c>), when it was recorded and the node id the link
+/// verified (empty when it named none), by which a person's FLOOR LOWER finds it at every address. A later link that offers less is
+/// refused until a person lowers it.
+/// </summary>
+public sealed record StagewatchFloor(string Key, bool Tls, int Level, string Proof, DateTime RecordedUtc, string Node = "")
+{
+    /// <summary>The floor as the link's core keeps it.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Services.LinkFloor Floor => new(Tls, Level, Proof);
 }
 
 /// <summary>How a device is reached: an Arduino on a serial port, or a Raspberry Pi, ESP32 or show controller over IP.</summary>

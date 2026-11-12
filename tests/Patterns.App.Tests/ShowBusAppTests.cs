@@ -445,8 +445,13 @@ public class ShowBusAppTests
         public int ContextReads => Volatile.Read(ref _contextReads);
         public int StuckBeats => Volatile.Read(ref _stuckBeats);
 
-        /// <summary>How many times /ws was dialled.</summary>
+        /// <summary>How many times /ws was dialled (a link= socket, asking for LINK, apart).</summary>
         public int Dials => Volatile.Read(ref _dials);
+
+        /// <summary>Round 96: how many link= sockets asked for LINK, which this Stagewatch, older than LINK, does not speak.</summary>
+        public int LinkAsks => Volatile.Read(ref _linkAsks);
+
+        private int _linkAsks;
 
         /// <summary>How many sockets the far end cut (<see cref="DropAfterMs"/>), each counted as it is cut.</summary>
         public int Drops => Volatile.Read(ref _drops);
@@ -560,6 +565,26 @@ public class ShowBusAppTests
                 {
                     _arrivedAt.AddOrUpdate(ctx.Request.LocalEndPoint.Address.ToString(), 1, (_, n) => n + 1);
                     var auth = ctx.Request.Headers["Authorization"] ?? "";
+                    if (ctx.Request.Url!.AbsolutePath == "/ws" && ctx.Request.IsWebSocketRequest && ctx.Request.QueryString["link"] is not null)
+                    {
+                        // Round 96: a Stagewatch older than LINK reads a link= socket as a node link that carries nothing, and its first
+                        // message is no offer. Counted apart from the dials, so each test reads the level-0 link it was written for.
+                        Interlocked.Increment(ref _linkAsks);
+                        var asked = (await ctx.AcceptWebSocketAsync(null)).WebSocket;
+                        var said = First ?? (Legacy ? null : StagewatchBytes.FirstFor(ctx.Request.Url.Query, auth)) ?? FrameNow ?? frame;
+                        try
+                        {
+                            await asked.SendAsync(Encoding.UTF8.GetBytes(said), WebSocketMessageType.Text, true, _cts.Token);
+                            var ignored = new byte[4096];
+                            while (asked.State == WebSocketState.Open && !_cts.IsCancellationRequested)
+                                if ((await asked.ReceiveAsync(ignored, _cts.Token)).MessageType == WebSocketMessageType.Close) break;
+                        }
+                        catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or ObjectDisposedException)
+                        {
+                            // the desk let the socket go, to dial again with its bearer
+                        }
+                        return;
+                    }
                     if (ctx.Request.Url!.AbsolutePath == "/ws" && ctx.Request.IsWebSocketRequest)
                     {
                         // What this connection drops after and which run's frames it hears are fixed as it is counted: a test that
@@ -1100,6 +1125,7 @@ public class ShowBusAppTests
             PumpFor(2000);
             var rows = services.Journal.Tail(60).Where(e => e.Kind == "StagewatchLink").ToList();
             Assert.Equal(new[] { "finding", "connecting", "live" }, rows.Select(e => e.Outcome));
+            Assert.Equal(1, stagewatch.LinkAsks);                                                     // LINK asked once a run; this older Stagewatch answered level 0
             Assert.StartsWith("off → finding: listening for a Stagewatch on the show network", rows[0].Message, StringComparison.Ordinal);
             Assert.StartsWith("finding → connecting: dialling Hall C", rows[1].Message, StringComparison.Ordinal);
             Assert.StartsWith("connecting → live: " + r.Words, rows[2].Message, StringComparison.Ordinal);

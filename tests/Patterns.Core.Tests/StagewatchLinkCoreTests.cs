@@ -462,6 +462,43 @@ public sealed class StagewatchLinkCoreTests
     }
 
     /// <summary>
+    /// 13.8.2 and 13.9.3, kept for the next run and a restart: a proof's pin and the floors a verified link recorded come back from the
+    /// show's own serializer as they went in — the pin as the proof's, the floors with the node id each was recorded for — and a proof's
+    /// pin starts no dial again. A person's pin of the same certificate stands; a person's FLOOR LOWER takes every floor of the node,
+    /// at every address it was verified at, and leaves another node's.
+    /// </summary>
+    [Fact]
+    public void AProofsPinAndTheFloorsComeBackFromTheShowFileAndFloorLowerTakesTheNodeAtEveryAddress()
+    {
+        var fp = "sha256:" + new string('b', 64);
+        var state = new ShowState();
+        var config = state.Control.Stagewatch;
+        Assert.True(config.PinProof("addr:10.0.0.5:9100", fp));
+        Assert.False(config.PinProof("addr:10.0.0.5:9100", fp));                       // nothing changed
+        config.SetFloor("addr:10.0.0.5:9100", tls: true, level: 1, proof: "mutual", node: "sw-main-1");
+        config.SetFloor("node:sw-main-1", tls: true, level: 1, proof: "mutual", node: "sw-main-1");
+        config.SetFloor("addr:192.168.1.5:9100", tls: true, level: 1, proof: "mutual", node: "sw-main-1");
+        config.SetFloor("node:sw-other-2", tls: true, level: 1, proof: "mutual", node: "sw-other-2");
+
+        var back = JsonUtil.Deserialize<ShowState>(JsonUtil.Serialize(state))!.Control.Stagewatch;
+        var pin = Assert.Single(back.Pins);
+        Assert.Equal(("addr:10.0.0.5:9100", fp, PinTrust.Proof), (pin.Key, pin.Fingerprint, pin.Trust));
+        Assert.Equal("", back.PinsKey);                                                // a proof's pin starts nothing again
+        Assert.Equal(4, back.Floors.Count);
+        Assert.All(back.Floors, f => Assert.Equal((true, 1, "mutual"), (f.Floor.Tls, f.Floor.Level, f.Floor.Proof)));
+        Assert.Equal("sw-main-1", back.Floors.Single(f => f.Key == "addr:192.168.1.5:9100").Node);
+
+        // A person's pin is never weakened by a proof's.
+        back.SetPin("addr:10.0.0.5:9100", fp, PinTrust.Person);
+        Assert.False(back.PinProof("addr:10.0.0.5:9100", fp));
+        Assert.Equal(PinTrust.Person, Assert.Single(back.Pins).Trust);
+
+        // Lowered at one address by the node it names: the floor at the other address goes too, another node's stays.
+        Assert.Equal(3, back.LowerFloor(["addr:10.0.0.5:9100"], ["sw-main-1"]));
+        Assert.Equal("node:sw-other-2", Assert.Single(back.Floors).Key);
+    }
+
+    /// <summary>
     /// G34, 13.16.2: a key held back from this Stagewatch by its binding is a key set and held back — the bearer goes nowhere, on a local
     /// link too, the flag is <c>keyless</c>, and the words say where the key is bound; the record names the kid. Where nothing else is
     /// amber (a link that offered LINK), it is the held-back key that makes the light amber: with no key set the same link is green,

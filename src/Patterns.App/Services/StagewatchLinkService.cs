@@ -6,6 +6,7 @@ using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.Json;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -76,6 +77,16 @@ namespace Patterns.App.Services;
 /// it on <see cref="Time"/>, the link's clock seam.
 /// </para>
 /// <para>
+/// Round 96 — Show Bus 1.3 §13.6 at level 1, Stagewatch 2.22's acceptor: a run that holds a key the binding lets go dials
+/// <c>/ws?…&amp;link=1</c> with no Authorization header (<see cref="StagewatchFrame.LinkQuery"/>) — over TLS to whatever certificate it
+/// shows, or plain to loopback — and proves the key once, to the id meant and over the certificate shown; the key never leaves this
+/// desk. Nothing of the socket is taken, and no side call or ping made, before the acceptor's proof verifies with K over T; then the
+/// certificate is pinned by that proof (13.8.2), the floor {tls, level, proof} kept by name and id with the settings (13.9.3), and the
+/// side calls carry the link's S, only to that pin or loopback (13.7.1). A later link that offers less is refused red until a person's
+/// FLOOR LOWER. A Stagewatch older than LINK answers with no offer: with no floor, it is dialled from then on, for the rest of the run,
+/// as level 0 below — the bearer on a fresh upgrade where 13.6.8 lets it go — the labelled amber fallback P-legacy keeps.
+/// </para>
+/// <para>
 /// The speaker's calls (13.7.2, 13.7.4): a message this desk sends to the speaker through the Stagewatch its stage follows, the
 /// clear of one it posted and a display's ACK forwarded — a kind of side call of their own, one in flight, a newer message
 /// replacing one not yet sent, woken at once and never waiting a beat or behind the context's read. Each carries a 13.12.1 id
@@ -138,6 +149,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
         /// <summary>The counter (§4 <c>seq</c>) of the last frame held under this name; 0 before one (the receive loop's alone).</summary>
         public long LastSeq;
+
+        /// <summary>
+        /// Round 96 (13.6.8, P-legacy): a LINK socket to this name found a Stagewatch that does not speak LINK, and no floor refused it.
+        /// From then this core dials it as one — the bearer only to a certificate a person or a proof pinned, or to loopback — so an
+        /// older Stagewatch costs one LINK dial a run, not one a connection; one upgraded to LINK during the run is followed at level 0,
+        /// said amber as <c>legacy</c>, until the next run, which asks for LINK again. A floor's refusal sets nothing: the dial after a
+        /// person's FLOOR LOWER asks for LINK first.
+        /// </summary>
+        public volatile bool Level0;
     }
 
     /// <summary>
@@ -172,6 +192,12 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
         /// <summary>Every name this run has dialled its Stagewatch by (under the core gate): a refusal's hold kept for one is lifted for each when a word takes the key.</summary>
         public readonly HashSet<string> Targets = new(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Show Bus 1.3 §13.9.3: the floors this desk keeps, by <c>node:</c> and <c>addr:</c> key (under the core gate) — the settings'
+        /// at the run's start, and each one a link of this run verified, so a core made later in the run starts from it.
+        /// </summary>
+        public readonly Dictionary<string, KeptFloor> Floors = new(StringComparer.Ordinal);
 
         /// <summary>The connection up now, for the evaluator; null between connections.</summary>
         public volatile Connection? Live;
@@ -248,16 +274,48 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// <see cref="Secret"/> is this desk's key, masked in any words the far end sends back.
     /// </summary>
     private sealed class Connection(Run run, LinkCore core, Target target, bool tls, bool keyed, bool isPublic, bool withheld, string secret,
-        ClientWebSocket socket, SemaphoreSlim sendGate)
+        ClientWebSocket socket, SemaphoreSlim sendGate, bool link, CertGate certs)
     {
+        private volatile bool _keyed = keyed;
+        private volatile bool _withheld = withheld;
+
         public Run Run { get; } = run;
         public LinkCore Core { get; } = core;
         public Target Target { get; } = target;
         public bool Tls { get; } = tls;
-        public bool Keyed { get; } = keyed;
+
+        /// <summary>
+        /// The key speaks on this connection: it rode the upgrade as a bearer (level 0), or LINK verified both proofs (13.6.3) — set by
+        /// the receive loop at the verdict, and unset by a refusal on a live link, which ends its S.
+        /// </summary>
+        public bool Keyed { get => _keyed; set => _keyed = value; }
+
         public bool Public { get; } = isPublic;
-        public bool Withheld { get; } = withheld;
+
+        /// <summary>Over TLS to a certificate no person pinned, the key held back for Trust (13.6.8): at the dial, or once a LINK socket found level 0.</summary>
+        public bool Withheld { get => _withheld; set => _withheld = value; }
+
         public string Secret { get; } = secret;
+
+        /// <summary>
+        /// Round 96: dialled with <c>link=</c> and no Authorization (13.6.5): its first message is LINK's offer, the key is proved and
+        /// never sent, and nothing of it is taken, nor any side call made, before the acceptor's proof verifies (<see cref="Heard"/>).
+        /// </summary>
+        public bool Link { get; } = link;
+
+        /// <summary>The certificate the connection's every socket must show once a proof pinned it (13.7.1: S goes only to that pin).</summary>
+        public CertGate Certs { get; } = certs;
+
+        /// <summary>The key was put to the Stagewatch on this connection — a bearer, or a proof — so its refusal is the key's, kept for a restart.</summary>
+        public volatile bool Proved;
+
+        /// <summary>This LINK's transcript and K (the receive loop's alone): what the acceptor's proof and the session credential are checked and made from.</summary>
+        public string? Transcript;
+
+        public byte[]? K;
+
+        /// <summary>13.7.1's S on a verified link with its lid; null before the verdict, and from a refusal or the link's end on.</summary>
+        public volatile LinkSession? Session;
         public ClientWebSocket Socket { get; } = socket;
         public SemaphoreSlim SendGate { get; } = sendGate;
         public volatile bool Heard;
@@ -270,6 +328,28 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
         /// <summary>Why the core ended this connection ("" when it did not): a side call's 401 asking for a relink.</summary>
         public volatile string Ending = "";
+    }
+
+    /// <summary>13.9.3: a floor this run keeps, with the node id the link that recorded it verified (empty when it named none).</summary>
+    private sealed record KeptFloor(LinkFloor Floor, string Node);
+
+    /// <summary>13.7.1: a verified link's lid and its session credential S — a secret: it rides only a side call's Authorization header.</summary>
+    private sealed record LinkSession(string Lid, string S)
+    {
+        public override string ToString() => "LinkSession { Lid = " + Lid + " }";
+    }
+
+    /// <summary>
+    /// The certificate every socket of one connection must show once LINK verified over it (13.7.1, 13.8.2): the upgrade's own TLS
+    /// checked the dial, and from the proof on a side call's socket shown any other gets nothing — no S goes to it.
+    /// </summary>
+    private sealed class CertGate
+    {
+        private volatile string _pinned = "";
+
+        public void Pin(string fingerprint) => _pinned = fingerprint;
+
+        public bool Admits(string presented) => _pinned.Length == 0 || string.Equals(_pinned, presented, StringComparison.Ordinal);
     }
 
     private volatile Run _run = new();
@@ -825,11 +905,22 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// </summary>
     public (bool Done, string Words) LowerFloor()
     {
+        string[] keys;
+        string[] nodes;
         lock (_core)
         {
-            if (_run.Core is not { } core || core.Machine.Record(Now()).Floor is null) return (false, StagewatchVerbs.NoFloorWords + " — nothing to lower.");
+            var run = _run;
+            if (run.Core is not { } core || core.Machine.Record(Now()).Floor is null) return (false, StagewatchVerbs.NoFloorWords + " — nothing to lower.");
             core.Machine.LowerFloor();
+            // The Stagewatch's floor goes at every address a link verified it at, by the node id each floor was recorded for.
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (core.Machine.NodeId is { Length: > 0 } id) ids.Add(id);
+            if (run.Floors.TryGetValue(core.Target, out var byName) && byName.Node.Length > 0) ids.Add(byName.Node);
+            nodes = [.. ids];
+            keys = [core.Target, .. nodes.Select(n => "node:" + n)];
+            foreach (var key in run.Floors.Where(f => keys.Contains(f.Key) || ids.Contains(f.Value.Node)).Select(f => f.Key).ToList()) run.Floors.Remove(key);
         }
+        _config().LowerFloor(keys, nodes);                                                  // and the kept floors with it, for the next run and a restart
         SayChange();
         Log.Info("Stagewatch link: the floor recorded for the Stagewatch lowered by the operator.");
         return (true, "The Stagewatch link's floor is lowered — it takes a lesser link from now, said amber.");
@@ -869,6 +960,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         _cts = null;
         var previous = _run;
         var run = new Run { Kid = kid.Length > 0 ? kid : null, ShowNeeds = c.FollowStage, KeyFor = c.KeyFor };
+        foreach (var f in c.Floors) run.Floors[f.Key] = new KeptFloor(f.Floor, f.Node ?? "");
         if (carry) run.Carry(previous);                                                     // its holds and standing go on
         var typed = StageFollow.ParseAddress(c.Host) is { } t ? $"{t.Host}:{t.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null;
         run.NotAnAddress = key.Length > 0 && typed is null && c.Host.Length > 0 && StageFollow.ParseId(c.Host) is null;   // as the run resolves it: any typed text it cannot read
@@ -986,11 +1078,19 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             if (_nodeId.Length > 0) last = _nodeId;
             var core = CoreFor(run, target, pins);
             long? dueIn;
-            lock (_core) dueIn = core.Machine.DialIn(Now());
+            var refusal = "";
+            lock (_core)
+            {
+                var now = Now();
+                dueIn = core.Machine.DialIn(now);
+                if (dueIn is null) refusal = core.Machine.Refusal(now);
+            }
             if (dueIn is null)
             {
-                // CERTIFICATE CHANGED: nothing of this desk's goes to it until a person accepts the new one (13.8.3).
-                await ProbeChangedAsync(core, target, ct);
+                // CERTIFICATE CHANGED: nothing of this desk's goes to it until a person accepts the new one (13.8.3). Any other
+                // refusal (a floor, 13.9.3) waits for its own press, and nothing is looked at meanwhile.
+                if (refusal == "certificate") await ProbeChangedAsync(core, target, ct);
+                else await Delay(PeerLink.CheckEvery, ct);
                 continue;
             }
             if (dueIn > 0)
@@ -1000,14 +1100,23 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 continue;
             }
             bool isPublic;
+            var floored = false;
             lock (_core)
             {
                 var now = Now();
                 isPublic = core.Machine.Dial(now) is null;
+                // 13.9.3: a Stagewatch with a floor is read only over a link that reaches it, so inside a held key's hold nothing is dialled
+                // for its public view — a socket that proves nothing would offer less than the floor.
+                floored = isPublic && core.Machine.Kept.Floor is not null;
                 // Inside a refused key's hold the dial reads the public view, the key proved again on a fresh socket at its end.
-                if (isPublic && core.Machine.DialPublic(now) is null) continue;
+                if (isPublic && !floored && core.Machine.DialPublic(now) is null) continue;
                 // 13.11.7: the clock measures one Stagewatch process; another inst in its hello empties the window.
-                core.Machine.PeerInst(now, target.Inst);
+                if (!floored) core.Machine.PeerInst(now, target.Inst);
+            }
+            if (floored)
+            {
+                await Delay(PeerLink.CheckEvery, ct);
+                continue;
             }
             SayChange();
             try
@@ -1083,7 +1192,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 ShowNeeds = run.ShowNeeds,
                 Uses = "post",
             };
-            var machine = new PeerLinkMachine(settings, new LinkKept(pin, null, hold?.UntilWallMs, hold?.Word, HeldPublic: hold?.Public ?? true), now, Jitter);
+            // 13.9.3: the floor a verified link recorded for this name, or for the id it names.
+            var floor = run.Floors.TryGetValue(target.PinKey, out var f) ? f.Floor : nodeId is not null && run.Floors.TryGetValue("node:" + nodeId, out var byId) ? byId.Floor : null;
+            var machine = new PeerLinkMachine(settings, new LinkKept(pin, floor, hold?.UntilWallMs, hold?.Word, HeldPublic: hold?.Public ?? true), now, Jitter);
             if (hold is { BusyUntilWallMs: var busyWall } && busyWall > now.Wall) machine.KeyRefused(now, "busy", busyWall - now.Wall);
             var before = run.Core;
             if (before is not null) machine.Continue(now, before.Machine);
@@ -1286,11 +1397,23 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         var saved = pins.TryGetValue(target.PinKey, out var held) && TlsFingerprint.IsValid(held.Fingerprint) ? held : null;
         var pin = saved is { Trust: not PinTrust.First } ? saved.Fingerprint : "";            // a person's (or a proof's) pin: TLS or nothing, and the key over it
         var first = saved is { Trust: PinTrust.First } ? saved.Fingerprint : "";              // the desk's pin at first use: compared, never trusted
+        LinkPin? corePin;
+        lock (_core) corePin = core.Machine.Pin;
+        // 13.8.2: a pin a proof made on this run is the core's before the settings keep it: it binds this dial as any pin does.
+        if (pin.Length == 0 && corePin is { Trust: not PinTrust.First } made)
+        {
+            pin = TlsFingerprint.Prefix + made.Fingerprint;
+            first = "";
+        }
         var pinned = pin.Length > 0;
         // G34: the key goes only to the Stagewatch it is bound to; to any other the link reads the public view, and the desk offers to
         // bind it to this one (BIND KEY), a person's press.
         var bound = StagewatchKeyFor.Goes(run.KeyFor, target.PinKey, target.TypedKey);
         var key = isPublic || !bound ? "" : apiKey;
+        // Round 96 (13.6.5): the key is proved with LINK, never sent, to any Stagewatch that may hear it — over TLS to whatever
+        // certificate it shows, the proof bound to that one, or plain to loopback — unless this run found it older than LINK.
+        var linkQuery = key.Length > 0 && !core.Level0 ? StagewatchFrame.LinkQuery(SelfId) : null;
+        var certs = new CertGate();
         Volatile.Write(ref _bindOffer, apiKey.Length > 0 && !bound ? new BindOffer(target.PinKey, target.Name, run.KeyFor) : null);
         _note = pinned ? HelloNote(target, pin) : "";                                       // a hello that contradicts the pin is a note, never a refusal
         var addresses = await DialAddressesAsync(target, ct);
@@ -1308,17 +1431,23 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 var within = pinned || _slowTls == target.PinKey ? UpgradeWithin : TlsAnswerWithin;
                 var probe = new DialProbe(tls: true, within);
                 probes.Add(probe);
-                // The key rides the upgrade only to a certificate a person pinned — the check refuses any other — or to loopback.
-                var tlsKey = key.Length > 0 && (pinned || local) ? key : "";
+                // The key rides the upgrade only to a certificate a person or a proof pinned — the check refuses any other — or to
+                // loopback; a LINK dial carries none, and proves it once the offer names the certificate this socket was shown.
+                var tlsKey = linkQuery is null && key.Length > 0 && (pinned || local) ? key : "";
                 RemoteCertificateValidationCallback validate = (_, cert, _, _) =>
                 {
                     probe.Certificate();
-                    return CheckCertificate(core, target, pin, first, cert, ref presented);
+                    // Once LINK verified over a certificate, a side call's socket shown another gets nothing (13.7.1). The gate reads
+                    // this handshake's own fingerprint: the shared one is every socket's of the dial, kept for the words and the probe.
+                    var seen = "";
+                    var accepted = CheckCertificate(core, target, pin, first, cert, ref seen);
+                    presented = seen;
+                    return accepted && certs.Admits(seen);
                 };
                 try
                 {
-                    var (handler, invoker, socket) = await DialAsync(at, probe, validate, target, tls: true, tlsKey, SelfId, ct);
-                    return new Dialled(at, handler, invoker, socket, Tls: true, Keyed: tlsKey.Length > 0, Local: local);
+                    var (handler, invoker, socket) = await DialAsync(at, probe, validate, target, tls: true, tlsKey, linkQuery ?? StagewatchFrame.SocketQuery(SelfId), ct);
+                    return new Dialled(at, handler, invoker, socket, Tls: true, Keyed: tlsKey.Length > 0, Local: local, Link: linkQuery is not null);
                 }
                 catch (Exception ex) when (AnsweredWithoutTls(ex, probe))
                 {
@@ -1332,12 +1461,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                     }
                 }
             }
-            // Plain: the key goes only to loopback. Anywhere else, the Stagewatch is read without the key.
-            var keyed = key.Length > 0 && local;
+            // Plain: the key goes, or is proved, only to loopback. Anywhere else, the Stagewatch is read without the key (a Stagewatch
+            // takes a plain LINK socket only from its own machine).
+            var plainLink = linkQuery is not null && local;
+            var keyed = key.Length > 0 && local && !plainLink;
             var plain = new DialProbe(tls: false, TlsAnswerWithin);
             probes.Add(plain);
-            var (plainHandler, plainInvoker, plainSocket) = await DialAsync(at, plain, null, target, tls: false, keyed ? key : "", SelfId, ct);
-            return new Dialled(at, plainHandler, plainInvoker, plainSocket, Tls: false, Keyed: keyed, Local: local);
+            var (plainHandler, plainInvoker, plainSocket) = await DialAsync(at, plain, null, target, tls: false, keyed ? key : "",
+                plainLink ? linkQuery! : StagewatchFrame.SocketQuery(SelfId), ct);
+            return new Dialled(at, plainHandler, plainInvoker, plainSocket, Tls: false, Keyed: keyed, Local: local, Link: plainLink);
         }
 
         Dialled? dialled = null;
@@ -1372,6 +1504,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         var address = dialled.At;
         var tls = dialled.Tls;
         var keyed = dialled.Keyed;
+        var link = dialled.Link;
         var ws = dialled.Socket;
         var handler = dialled.Handler;
         using var ownedHandler = handler;
@@ -1382,8 +1515,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         ct.ThrowIfCancellationRequested();
         // No TLS on offer: a local link goes on plain, another machine's is read without the key (13.3.2, 13.3.4).
         if (!tls) lock (_core) core.Machine.NoTls(Now());
-        var heldBack = key.Length > 0 && !tls && !keyed;                                    // off this machine, and it offers no TLS
-        var withheld = key.Length > 0 && tls && !keyed;                                     // over TLS to a certificate no person pinned (13.6.8)
+        var heldBack = key.Length > 0 && !tls && !keyed && !link;                           // off this machine, and it offers no TLS
+        var withheld = key.Length > 0 && tls && !keyed && !link;                            // over TLS to a certificate no person pinned (13.6.8)
         _carrier = tls ? "tls" : heldBack || (isPublic && !dialled.Local) ? "keyless" : "plain";
         if (heldBack)
         {
@@ -1391,16 +1524,16 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 ? $"{target.Name} answered without TLS though its hello names a certificate — the key stays on this desk"
                 : $"{target.Name} offers no TLS — the key stays on this desk";
         }
-        if (keyed)
+        if (keyed || link)
         {
-            lock (_trustGate) _trust = null;                                                // the key goes: nothing waits for Trust
+            lock (_trustGate) _trust = null;                                                // the key goes, or is proved: nothing waits for Trust
         }
         // The address a name led to: the log's line names it, and the link's words do while the connection is up whenever an
         // address before it did not answer — a name with an address that is dead costs every dial its wait.
         _reached = missed.Count > 0 ? $"reached at {address} after {string.Join(", ", missed)}" : "";
         var reached = IPAddress.TryParse(target.Host, out _) ? "" : $" (reached at {address})";
-        var how = tls ? withheld ? "TLS, its key held back until its certificate is trusted" : "TLS"
-            : heldBack ? "plain ws, read without its key" : "plain ws";
+        var how = tls ? withheld ? "TLS, its key held back until its certificate is trusted" : link ? "TLS, this desk's key proved with LINK, never sent" : "TLS"
+            : heldBack ? "plain ws, read without its key" : link ? "plain ws on this machine, this desk's key proved with LINK, never sent" : "plain ws";
         if (isPublic) how += ", read without this desk's key while it is held";
         var said = target.PinKey + "|" + how + "|" + _note + "|" + reached;
         if (said != _carrierSaid)
@@ -1427,13 +1560,14 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         if (!tls) _tlsWords = "";
         UiThread.Post(_changed);
 
-        // The side calls ride the dial's own handler: the same address, the same pin, the key only where the socket's carried it.
-        var sideKey = keyed ? apiKey : "";
+        // The side calls ride the dial's own handler: the same address, the same pin, the key only where the socket's carried it —
+        // or, on a LINK socket, its S once the acceptor's proof verified (13.7.1), and nothing before.
+        var sideKey = keyed || link ? apiKey : "";
         // Every answer is read whole before it is parsed, an error's body too: bounded here, well above a context's 64 KiB.
         using var http = new HttpClient(handler, disposeHandler: false) { Timeout = StagewatchFrame.SideCallWithin, MaxResponseContentBufferSize = SideAnswerMost };
         var baseUri = Address(target, tls, socket: false);
         using var sendGate = new SemaphoreSlim(1, 1);
-        var connection = new Connection(run, core, target, tls, sideKey.Length > 0, isPublic, withheld, apiKey, ws, sendGate);
+        var connection = new Connection(run, core, target, tls, keyed, isPublic, withheld, apiKey, ws, sendGate, link, certs) { Proved = keyed };
         run.Live = connection;
         // The speaker's lane is this connection's from the instant it is the run's: a call asked before the lane's task has
         // started waits for it there, never refused for a lane not yet running. What was asked of the connection before and
@@ -1654,7 +1788,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     }
 
     /// <summary>A dial whose far end answered: the address it reached, its handler, the invoker the upgrade ran on, the WebSocket, its carrier, and whether the address is loopback.</summary>
-    private sealed record Dialled(IPAddress At, SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket, bool Tls, bool Keyed, bool Local);
+    private sealed record Dialled(IPAddress At, SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket, bool Tls, bool Keyed, bool Local, bool Link);
 
     /// <summary>
     /// The WebSocket and the side calls of one dial: every socket goes to <paramref name="address"/>, straight (no proxy —
@@ -1689,13 +1823,13 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     }
 
     /// <summary>One dial: its handler (every socket to <paramref name="address"/>), the invoker the upgrade runs on, and the WebSocket — all let go when it fails.</summary>
-    private static async Task<(SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket)> DialAsync(IPAddress address, DialProbe probe, RemoteCertificateValidationCallback? validate, Target target, bool tls, string key, string selfId, CancellationToken ct)
+    private static async Task<(SocketsHttpHandler Handler, HttpMessageInvoker Invoker, ClientWebSocket Socket)> DialAsync(IPAddress address, DialProbe probe, RemoteCertificateValidationCallback? validate, Target target, bool tls, string key, string query, CancellationToken ct)
     {
         var handler = Handler(address, probe, validate);
         var invoker = new HttpMessageInvoker(handler, disposeHandler: false);
         try
         {
-            var ws = await UpgradeAsync(invoker, probe, target, tls, key, selfId, ct);
+            var ws = await UpgradeAsync(invoker, probe, target, tls, key, query, ct);
             return (handler, invoker, ws);
         }
         catch
@@ -1709,9 +1843,10 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// <summary>
     /// The upgrade to /ws through <paramref name="invoker"/>, the key in its header when one is given, on the budget
     /// <paramref name="probe"/> keeps. Round 91: as a node link naming this desk's show network id
-    /// (<see cref="StagewatchFrame.SocketQuery"/>), so a Stagewatch 2.18 hears who it is and says first what it made of the key.
+    /// (<see cref="StagewatchFrame.SocketQuery"/>), so a Stagewatch 2.18 hears who it is and says first what it made of the key;
+    /// round 96: with <c>link=</c> and no header (<see cref="StagewatchFrame.LinkQuery"/>) when the key is proved instead.
     /// </summary>
-    private static async Task<ClientWebSocket> UpgradeAsync(HttpMessageInvoker invoker, DialProbe probe, Target target, bool tls, string key, string selfId, CancellationToken ct)
+    private static async Task<ClientWebSocket> UpgradeAsync(HttpMessageInvoker invoker, DialProbe probe, Target target, bool tls, string key, string query, CancellationToken ct)
     {
         var ws = new ClientWebSocket();
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -1721,7 +1856,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             if (key.Length > 0) ws.Options.SetRequestHeader("Authorization", "Bearer " + key);
             budget.CancelAfter(UpgradeWithin);
             probe.Arm(budget);
-            await ws.ConnectAsync(new Uri(Address(target, tls, socket: true), StagewatchFrame.SocketQuery(selfId)), invoker, budget.Token);
+            await ws.ConnectAsync(new Uri(Address(target, tls, socket: true), query), invoker, budget.Token);
             return ws;
         }
         catch
@@ -1829,6 +1964,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// </summary>
     private async Task PingAsync(Connection c, CancellationToken ct)
     {
+        // 13.6.5: a LINK socket's one message before its verdict is the link message; it is pinged from the verdict on.
+        if (c.Link && !c.Heard) return;
         long t1;
         lock (_core)
         {
@@ -1938,7 +2075,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             try
             {
                 var now = MonoMs();
-                if (lastContext == long.MinValue || now - lastContext >= (long)StagewatchFrame.ContextEvery.TotalMilliseconds)
+                // 13.6.3: a LINK socket takes nothing — a context included — before its verdict is read.
+                var open = !c.Link || c.Heard;
+                if (open && (lastContext == long.MinValue || now - lastContext >= (long)StagewatchFrame.ContextEvery.TotalMilliseconds))
                 {
                     if (!c.Keyed || KeyedCallsOpen(c))
                     {
@@ -2028,9 +2167,11 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     private string SpeakerRefusal(Connection c, HeardShow? show)
     {
         var name = c.Target.Name;
+        if (c.Link && !c.Heard) return $"Stagewatch {name} has not answered this link yet";
         if (!c.Keyed)
         {
             if (c.Secret.Length == 0) return "the link holds no node key";
+            if (c.Link && !c.Withheld) return c.Run.Key.Refused ? "this desk's key is refused there" : "this link did not prove this desk's key";
             if (c.Withheld) return "the key waits for Trust — compare the fingerprint on the Nodes page and press Trust";
             if (c.Public) return "this desk's key is held there";
             return Volatile.Read(ref _bindOffer) is not null ? "the key is bound to another Stagewatch" : $"Stagewatch {name} offers no TLS, so the key stays on this desk";
@@ -2209,7 +2350,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         using var within = CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);
         try
         {
-            using var request = Request(HttpMethod.Post, new Uri(baseUri, call.Path), apiKey);
+            using var request = Request(c, HttpMethod.Post, new Uri(baseUri, call.Path), apiKey);
             request.Headers.TryAddWithoutValidation("X-Request-Id", call.Id);
             using var response = await http.SendAsync(request, within.Token);
             status = (int)response.StatusCode;
@@ -2250,10 +2391,18 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// never sent again (Show Bus 1.3 §13.12.7), and with no second connect a refused connect is only ever the first, so a
     /// not-sent outcome means nothing left (13.12.3).
     /// </summary>
-    private static HttpRequestMessage Request(HttpMethod method, Uri url, string apiKey, string? json = null)
+    /// <summary>
+    /// One side call's request, with the credential its connection may carry: on a LINK socket the S of its verified link and never
+    /// the key (13.7.1) — none before the verdict or after a refusal; on a level-0 socket that carried the key, the key as a bearer.
+    /// </summary>
+    private static HttpRequestMessage Request(Connection c, HttpMethod method, Uri url, string apiKey, string? json = null)
     {
         var r = new HttpRequestMessage(method, url);
-        if (apiKey.Length > 0) r.Headers.TryAddWithoutValidation("Authorization", "Bearer " + apiKey);
+        if (c.Link)
+        {
+            if (c.Session is { } session) r.Headers.TryAddWithoutValidation("Authorization", StagewatchFrame.SessionHeader(session.Lid, session.S));
+        }
+        else if (apiKey.Length > 0) r.Headers.TryAddWithoutValidation("Authorization", "Bearer " + apiKey);
         if (json is not null) r.Content = new StringContent(json, Encoding.UTF8, "application/json");
         else if (method == HttpMethod.Post) r.Content = new ByteArrayContent([]);
         return r;
@@ -2271,7 +2420,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         try
         {
             var asked = Asked(c.Run);
-            using var request = Request(HttpMethod.Get, url, apiKey);
+            using var request = Request(c, HttpMethod.Get, url, apiKey);
             using var response = await http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
             {
@@ -2317,7 +2466,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         try
         {
             var asked = Asked(c.Run);
-            using var request = Request(HttpMethod.Post, url, apiKey, json);
+            using var request = Request(c, HttpMethod.Post, url, apiKey, json);
             using var response = await http.SendAsync(request, ct);
             var said = Answered(c, (int)response.StatusCode, await response.Content.ReadAsStringAsync(ct), RetryAfterOf(response), asked, context: true);
             if (response.IsSuccessStatusCode) BindAtFirstAnswer(c, apiKey);
@@ -2374,7 +2523,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 long retryAfter = 0;
                 try
                 {
-                    using var post = Request(HttpMethod.Post, new Uri(baseUri, "/api/proposals"), apiKey, DeskProposals.Request(SelfId, SelfName, SelfId, e.Line, e.Reason, e.Risk));
+                    using var post = Request(c, HttpMethod.Post, new Uri(baseUri, "/api/proposals"), apiKey, DeskProposals.Request(SelfId, SelfName, SelfId, e.Line, e.Reason, e.Risk));
                     using var res = await http.SendAsync(post, ct);
                     status = (int)res.StatusCode;
                     body = await res.Content.ReadAsStringAsync(ct);
@@ -2421,7 +2570,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
             var askedMine = Asked(c.Run);
             var readAt = MonoMs();
-            using (var mine = Request(HttpMethod.Get, new Uri(baseUri, "/api/proposals?from=" + Uri.EscapeDataString(SelfId)), apiKey))
+            using (var mine = Request(c, HttpMethod.Get, new Uri(baseUri, "/api/proposals?from=" + Uri.EscapeDataString(SelfId)), apiKey))
             using (var res = await http.SendAsync(mine, ct))
             {
                 if (res.IsSuccessStatusCode)
@@ -2447,7 +2596,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
             if (!NodeRoutesOpen(c)) return;
             var askedCollect = Asked(c.Run);
-            using var approved = Request(HttpMethod.Get, new Uri(baseUri, "/api/proposals?target=" + Uri.EscapeDataString(SelfId) + "&state=approved"), apiKey);
+            using var approved = Request(c, HttpMethod.Get, new Uri(baseUri, "/api/proposals?target=" + Uri.EscapeDataString(SelfId) + "&state=approved"), apiKey);
             using var list = await http.SendAsync(approved, ct);
             if (!list.IsSuccessStatusCode)
             {
@@ -2504,7 +2653,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         long retryAfter = 0;
         try
         {
-            using var result = Request(HttpMethod.Post, new Uri(baseUri, $"/api/proposals/{Uri.EscapeDataString(id)}/result"), apiKey, body);
+            using var result = Request(c, HttpMethod.Post, new Uri(baseUri, $"/api/proposals/{Uri.EscapeDataString(id)}/result"), apiKey, body);
             using var answer = await http.SendAsync(result, ct);
             status = (int)answer.StatusCode;
             answerBody = await answer.Content.ReadAsStringAsync(ct);
@@ -2623,7 +2772,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             // a body that is no JSON object says nothing more than its status
         }
         var words = error.Length > 0 ? error : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"HTTP {status}");
-        if (status == 401 && relink)
+        // A relink ends S (13.7.3); a socket LINK ran on that carries none — refused, or a public viewer — has no S for it to end. A
+        // link= socket that found level 0 is read as any level-0 socket is.
+        if (status == 401 && relink && (c.Transcript is null || c.Session is not null))
         {
             c.Ending = $"{c.Target.Name} asked for a new link — {words}; dialling again.";
             lock (_core) c.Core.Machine.SideCall(Now(), new LinkReading(LinkOutcome.Refused, words, Relink: true));
@@ -2686,9 +2837,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             {
                 var now = Now();
                 wall = now.Wall;
-                c.Core.Machine.KeyRefused(now, word, holdMs, publicView);
+                // A LINK verdict's hold is the core's already, in its own class's word (13.6.4), and the store keeps that word, so a
+                // restart reads what this run read; an answer's is told here.
+                if (asked < 0 && c.Transcript is not null)
+                {
+                    if (word == "key" && c.Core.Machine.Refusal(now) is { Length: > 0 } held) word = held;
+                }
+                else c.Core.Machine.KeyRefused(now, word, holdMs, publicView);
             }
-            if (c.Keyed && run.Kid is { } kid) Holds.Hold(c.Core.Target, kid, wall + holdMs, word, wall, publicView);
+            if ((c.Keyed || c.Proved) && run.Kid is { } kid) Holds.Hold(c.Core.Target, kid, wall + holdMs, word, wall, publicView);
         }
         else if (step.Takes && c.Keyed)
         {
@@ -2732,7 +2889,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     private void Verdict(Connection c, string text)
     {
         if (StagewatchFrame.Auth(text, c.Secret) is not { } auth) return;
-        if (StagewatchKey.OfVerdict(auth, SelfId, c.Keyed, RefusedHoldAtLeast) is not { } step) return;
+        if (StagewatchKey.OfVerdict(auth, SelfId, c.Keyed || c.Proved, RefusedHoldAtLeast) is not { } step) return;
         Apply(c, step, -1, publicView: !auth.View);
         if (!auth.View) return;
         var why = step.Words.Length > 0 ? step.Words : auth.Error.Length > 0 ? auth.Error : "its viewing code";
@@ -2858,12 +3015,24 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             var stateFrame = frame is not null || type == "state";
             var stuckBeat = type == "beat" && StagewatchFrame.IsStuckBeat(text);
             var pong = type == "pong" ? StagewatchFrame.Pong(text) : null;
+            // A LINK socket's offer, its verdict and a verdict on a live link are LINK's (13.6.3, 13.6.5); nothing else is taken before
+            // the verdict. A link= socket that found level 0 takes its verdicts as any level-0 socket does.
+            if (c.Link && (!c.Heard || (type is "auth" or "link" && c.Transcript is not null)))
+            {
+                var step = await LinkAsync(c, type, text, ct);
+                if (step == LinkStep.Ended)
+                {
+                    c.Socket.Abort();
+                    return;
+                }
+                if (step == LinkStep.Consumed) continue;
+            }
             var restartedAt = 0L;
             lock (_core)
             {
                 var now = Now();
                 var m = c.Core.Machine;
-                if (!c.Heard) m.FirstMessage(now, frame: false);                         // 13.6.8: its first message is no link — level 0
+                if (!c.Heard && !c.Link) m.FirstMessage(now, frame: false);              // 13.6.8: its first message is no link — level 0
                 if (stateFrame)
                 {
                     m.Frame(now);
@@ -2895,7 +3064,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             switch (type)
             {
                 case "auth":
-                    Verdict(c, text);                                                       // its hold recorded before the lane may send anything keyed
+                    if (c.Transcript is not null) LinkVerdict(c, text);                                       // its hold recorded before the lane may send anything keyed
+                    else Verdict(c, text);
                     break;
                 case "beat":
                     // A plain beat says the link is alive and nothing of the show; the stuck beat says the show is stuck.
@@ -2945,6 +3115,247 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             }
             if (!c.Heard || type == "auth") SayChange();                                   // a first word or a verdict moves the record
             c.Heard = true;                                                                 // after the first word is applied: no keyed call before it
+        }
+    }
+
+    /// <summary>What LINK made of one message on a <c>link=</c> socket: kept by LINK alone, taken as any message, or the end of the connection.</summary>
+    private enum LinkStep
+    {
+        Consumed,
+        Taken,
+        Ended,
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.6 on a <c>link=</c> socket, as Stagewatch's acceptor speaks it (2.22): its first message, the offer, is
+    /// proved once — only to the id meant and over the certificate this socket was shown, as the core decides — by one link message
+    /// that carries a proof and never the key. The verdict is taken only when the acceptor's proof verifies with K over T (13.6.3);
+    /// then the certificate is pinned by that proof (13.8.2), the floor recorded (13.9.3) and S made (13.7.1). A verdict that does not
+    /// verify ends the connection as a failed dial, nothing of it taken, pinned or floored. A first message that is not the offer is
+    /// an acceptor older than LINK (13.6.8): a floor refuses it; otherwise its bearer, where 13.6.8 lets one go, rides a fresh
+    /// upgrade at once, and where none may go the socket reads the public view, the key held back for Trust. On a live link a
+    /// refusal (a revoked key, a binding moved) ends S at once and leaves a public viewer. Anything else before the verdict is
+    /// discarded and counted.
+    /// </summary>
+    private async Task<LinkStep> LinkAsync(Connection c, string type, string text, CancellationToken ct)
+    {
+        var name = c.Target.Name;
+        var m = c.Core.Machine;
+        string? message = null;
+        var step = LinkStep.Consumed;
+        var ended = "";
+        LinkPin? proofPin = null;
+        LinkFloor? floor = null;
+        string? boundId = null;
+        lock (_core)
+        {
+            var now = Now();
+            if (c.Transcript is not null && type == "link")
+            {
+                // A second offer on a connection that has proved once is malformed (13.6.5): the core ends it, nothing more proved.
+                m.LinkOffered(now, ObjectOf(text) is { } again ? PeerLink.ReadOfferMessage(again) : null);
+                if (!m.KeepsConnection(now))
+                {
+                    step = LinkStep.Ended;
+                    ended = $"{name} — {m.Record(now).Words}.";
+                }
+            }
+            else if (c.Heard)
+            {
+                // A verdict on a live link (13.5.5, 13.6.5): a refusal ends S at once; a second ok is no verdict the link takes.
+                var verdict = ObjectOf(text);
+                if (verdict is { } v) m.Verdict(now, v, p => c.K is { } k && c.Transcript is { } t && PeerLink.Verify(PeerLink.ServerProof(k, t), p));
+                else m.Malformed(now);
+                if (verdict is not { } said || !said.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
+                {
+                    c.Session = null;
+                    c.Keyed = false;
+                }
+                step = m.KeepsConnection(now) ? LinkStep.Taken : LinkStep.Ended;
+                if (step == LinkStep.Ended) ended = $"{name} sent this link a second verdict — no link takes two; dialling again.";
+            }
+            else if (c.Transcript is null && type == "link")
+            {
+                var offer = ObjectOf(text) is { } o ? PeerLink.ReadOfferMessage(o) : null;
+                m.LinkOffered(now, offer);
+                if (offer is not null && m.Drain().Any(w => w is { Verb: "link", Credential: "proof" }))
+                {
+                    var k = PeerLink.KeyKey(c.Secret);
+                    var kid = PeerLink.Kid(k);
+                    var cnonce = RandomNumberGenerator.GetHexString(PeerLink.NonceBytes * 2, lowercase: true);
+                    var t = PeerLink.Transcript("ws", PeerLink.Version, offer.Speaks, offer.T + ":" + offer.Id, "patterns:" + SelfId, kid, offer.SNonce, cnonce, offer.Bind);
+                    if (t is not null)
+                    {
+                        c.Transcript = t;
+                        c.K = k;
+                        c.Proved = true;
+                        message = StagewatchFrame.LinkMessage("patterns", SelfId, cnonce, kid, PeerLink.ClientProof(k, t));
+                    }
+                }
+                if (message is null || !m.KeepsConnection(now))
+                {
+                    step = LinkStep.Ended;
+                    ended = $"{name} — {m.Record(now).Words}; nothing of this desk's key sent.";
+                }
+            }
+            else if (c.Transcript is null)
+            {
+                // 13.6.8: no offer — an older Stagewatch. Floors first; then the bearer only where it may go, on an upgrade of its own.
+                m.FirstMessage(now, frame: false);
+                var bearer = m.Drain().Any(w => w.Credential == "bearer");
+                if (!m.KeepsConnection(now))
+                {
+                    // Refused (a floor): the next dial asks for LINK again, so a person's FLOOR LOWER or the Stagewatch's own upgrade
+                    // is met by LINK first.
+                    step = LinkStep.Ended;
+                    ended = $"{name} — {m.Record(now).Words}.";
+                }
+                else if (bearer)
+                {
+                    c.Core.Level0 = true;
+                    m.Redial(now);
+                    step = LinkStep.Ended;
+                    ended = $"{name} does not speak LINK (an older Stagewatch) — dialling again with this desk's key on the {(c.Tls ? "certificate pinned for it" : "loopback address")}.";
+                }
+                else
+                {
+                    c.Core.Level0 = true;
+                    c.Withheld = c.Tls;
+                    step = LinkStep.Taken;
+                }
+            }
+            else if (type == "auth")
+            {
+                var verdict = ObjectOf(text);
+                var ok = verdict is { } v && v.TryGetProperty("ok", out var o) && o.ValueKind == JsonValueKind.True;
+                if (verdict is { } said) m.Verdict(now, said, p => c.K is { } k && PeerLink.Verify(PeerLink.ServerProof(k, c.Transcript), p));
+                else m.Malformed(now);
+                if (!m.KeepsConnection(now))
+                {
+                    step = LinkStep.Ended;
+                    ended = ok
+                        ? $"{name} — {PeerLink.ProofWords}; nothing of its verdict taken, dialling again."
+                        : $"{name} — {m.Record(now).Words}.";
+                }
+                else if (ok && c.K is { } k)
+                {
+                    c.Session = new LinkSession(PeerLink.Lid(c.Transcript), PeerLink.Session(k, c.Transcript));
+                    c.Keyed = true;
+                    proofPin = m.Pin is { Trust: PinTrust.Proof } p ? p : null;
+                    floor = m.Kept.Floor;
+                    boundId = m.NodeId;
+                    if (floor is not null)
+                    {
+                        c.Run.Floors[c.Target.PinKey] = new KeptFloor(floor, boundId ?? "");
+                        if (boundId is not null) c.Run.Floors["node:" + boundId] = new KeptFloor(floor, boundId);
+                    }
+                    step = LinkStep.Taken;
+                }
+                else step = LinkStep.Taken;
+            }
+            else
+            {
+                m.Heard(now);                                                               // before the verdict: discarded and counted (13.6.3)
+            }
+        }
+        if (message is not null) await SendLinkAsync(c, message, ct);
+        if (step == LinkStep.Ended) Volatile.Write(ref c.Run.Redial, ended);
+        if (c.Session is not null && step == LinkStep.Taken && !c.Heard) TakeProof(c, proofPin, floor, boundId);
+        SayChange();
+        return step;
+    }
+
+    /// <summary>
+    /// A link LINK verified (13.6.3): the certificate pinned by its proof (13.8.2) and only then, every later socket of the connection
+    /// held to it (13.7.1); the floor kept with the settings by name and id (13.9.3), for the next run and a restart. One log line.
+    /// </summary>
+    private void TakeProof(Connection c, LinkPin? pin, LinkFloor? floor, string? nodeId)
+    {
+        var target = c.Target;
+        var fp = pin is not null && c.Tls ? TlsFingerprint.Prefix + pin.Fingerprint : "";
+        if (fp.Length > 0)
+        {
+            c.Certs.Pin(fp);
+            c.Core.FirstSaved = "";
+            _tlsWords = $"Stagewatch {target.Name}'s certificate {TlsFingerprint.Short(fp)} is pinned by its proof";
+        }
+        var keys = new List<string> { target.PinKey };
+        if (nodeId is not null && "node:" + nodeId != target.PinKey) keys.Add("node:" + nodeId);
+        UiThread.Post(() =>
+        {
+            var cfg = _config();
+            if (fp.Length > 0) cfg.PinProof(target.PinKey, fp);
+            if (floor is not null) foreach (var key in keys) cfg.SetFloor(key, floor.Tls, floor.Level, floor.Proof, nodeId ?? "");
+        });
+        Log.Info($"Stagewatch link: {target.Name} proved itself with LINK — PeerLink 1, " + (c.Tls ? $"over TLS, its certificate {TlsFingerprint.Short(fp)} pinned by the proof" : "on this machine")
+            + "; this desk's key proved, never sent, and its side calls carry the link's session.");
+    }
+
+    /// <summary>
+    /// What a LINK verdict says of this desk's key on every reader (13.6.4): one that verified takes it, as a node link's verdict does;
+    /// a refused, bound, locked-out or out-of-scope key is held and kept for a restart; a rate limit waits its retry; an open
+    /// acceptor, or a message it could not take, says nothing of the key. The core decided the link already.
+    /// </summary>
+    private void LinkVerdict(Connection c, string text)
+    {
+        if (StagewatchFrame.Auth(text, c.Secret) is not { } auth) return;
+        if (auth.Ok)
+        {
+            if (c.Session is not null) Verdict(c, text);
+            return;
+        }
+        var cls = ObjectOf(text) is { } v ? PeerLink.Text(v, "class") ?? "refused" : "refused";
+        switch (cls)
+        {
+            case "refused" or "binding" or "locked" or "scope":
+                Verdict(c, text);
+                break;
+            case "busy":
+                Apply(c, new StagewatchKeyStep(null, StagewatchHoldKind.Busy, TimeSpan.FromSeconds(Math.Max(1, auth.Retry)), false, false, ""), -1);
+                break;
+            default:
+                // The peer's class word is not logged: the core reduced any word outside 13.6.4's closed set to malformed.
+                string said;
+                lock (_core) said = c.Core.Machine.Refusal(Now());
+                Log.Info($"Stagewatch link: {c.Target.Name} answered this desk's LINK {(said.Length > 0 ? said : "malformed")} — {(auth.Error.Length > 0 ? auth.Error : "no words")}; its public view is read.");
+                break;
+        }
+    }
+
+    /// <summary>The link message, through the connection's one writer, within <c>link.write.deadline.max.ms</c>.</summary>
+    private async Task SendLinkAsync(Connection c, string message, CancellationToken ct)
+    {
+        var bytes = Encoding.UTF8.GetBytes(message);
+        await c.SendGate.WaitAsync(ct);
+        try
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(PeerLink.WriteDeadline);
+            await c.Socket.SendAsync(bytes, WebSocketMessageType.Text, true, deadline.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            Volatile.Write(ref c.Run.Redial, string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{c.Target.Name} took no link message in {PeerLink.WriteDeadline.TotalSeconds:0} s — the connection is cut and dialled again."));
+            c.Socket.Abort();
+        }
+        finally
+        {
+            c.SendGate.Release();
+        }
+    }
+
+    /// <summary>One message as a JSON object, cloned so it outlives its document; null for anything else.</summary>
+    private static JsonElement? ObjectOf(string text)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            return doc.RootElement.ValueKind == JsonValueKind.Object ? doc.RootElement.Clone() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 
