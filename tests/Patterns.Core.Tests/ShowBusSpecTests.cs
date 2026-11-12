@@ -466,6 +466,40 @@ public sealed class ShowBusSpecTests
         static byte[] Bytes(string id) => Encoding.UTF8.GetBytes($"{{\"t\":\"main\",\"v\":1,\"proto\":3,\"id\":\"{id}\",\"name\":\"Hall\",\"host\":\"FOH\",\"ports\":{{\"http\":9924}},\"caps\":[\"timer\"]}}");
     }
 
+    /// <summary>
+    /// §6's kind table, read from the copy: every word's plane and column is the one the Eye places another app's thing of that
+    /// kind by (<see cref="EyeLayout.KindPlane"/>, <see cref="EyeLayout.KindColumn"/>), and a word the table does not name takes its
+    /// last row — so a contract that moves a word, or adds one, fails here until the Eye's copy follows.
+    /// </summary>
+    [Fact]
+    public void TheEyePlacesEveryKindAsTheKindTableSays()
+    {
+        var lines = Contract().Body.Split('\n');
+        var head = Array.IndexOf(lines, "| kind | plane | column |");
+        Assert.True(head > 0, "§6's kind table is not in the copy");
+        var rows = lines.Skip(head + 2).TakeWhile(l => l.StartsWith('|')).ToList();
+        Assert.Equal("| anything else | control | 1 |", rows[^1]);
+        var words = 0;
+        foreach (var row in rows)
+        {
+            var cells = row.Trim('|').Split('|').Select(c => c.Trim()).ToArray();
+            Assert.Equal(3, cells.Length);
+            var plane = Enum.Parse<EyePlane>(cells[1], ignoreCase: true);
+            var column = int.Parse(cells[2].Split(' ')[0], NumberStyles.None, CultureInfo.InvariantCulture);
+            var kinds = cells[0] == "anything else"
+                ? new[] { "odd", "build", "role", "" }
+                : System.Text.RegularExpressions.Regex.Matches(cells[0], "`([a-z]+)`").Select(m => m.Groups[1].Value).ToArray();
+            Assert.NotEmpty(kinds);
+            foreach (var kind in kinds)
+            {
+                Assert.Equal((plane, column), (EyeLayout.KindPlane(kind), EyeLayout.KindColumn(kind)));
+                Assert.Equal((plane, column), (EyeLayout.KindPlane(kind.ToUpperInvariant()), EyeLayout.KindColumn(" " + kind + " ")));
+                words++;
+            }
+        }
+        Assert.Equal(59, words);                                                                  // 55 words the table names, four it does not
+    }
+
     // ---- the vectors -------------------------------------------------------------------------------------------------
 
     /// <summary>

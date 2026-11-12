@@ -10,6 +10,11 @@ public enum EyePlane
     Video,
     Audio,
     Room,
+    /// <summary>
+    /// The band the other apps are drawn on, above CONTROL — a layout band only (<see cref="EyeNode.Band"/>): no thing's
+    /// <see cref="EyeNode.Plane"/> is NETWORK, so a lens never reads it.
+    /// </summary>
+    Network,
 }
 
 /// <summary>What a node of the Eye is.</summary>
@@ -180,6 +185,12 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     /// (<see cref="StageSpeakerWords.Line"/>); "" with nothing to say.
     /// </summary>
     public string Speaker { get; init; } = "";
+
+    /// <summary>
+    /// The show needs this app (profile 13.1 for this desk: the Stagewatch the stage follows, or one of this desk's own
+    /// nodes): its card is counted by the rail, the worst, the problems queue's head and the headline.
+    /// </summary>
+    public bool Needed { get; init; }
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -296,6 +307,24 @@ public sealed record EyeNode(string Id, EyeKind Kind, EyePlane Plane, int Tier, 
     public string MenuSubject { get; init; } = "";
 
     public bool IsProblem => Light is CheckLight.Red or CheckLight.Amber;
+
+    private readonly EyePlane? _band;
+
+    /// <summary>
+    /// The band the layout draws it in — <see cref="EyePlane.Network"/> for another app's card and things, which sit in
+    /// that app's cluster; its <see cref="Plane"/> otherwise. A lens reads <see cref="Plane"/>, never the band.
+    /// </summary>
+    public EyePlane Band { get => _band ?? Plane; init => _band = value; }
+
+    /// <summary>The app whose cluster holds it — its id on the show network, its card <c>app:&lt;App&gt;</c>; "" for this desk's own things.</summary>
+    public string App { get; init; } = "";
+
+    /// <summary>
+    /// The rail, the worst, the head of the problems queue and the headline count it — this desk's own things and a
+    /// needed app's card. Another app's things, and the card of an app the show does not need, are that app's to say: they
+    /// stay in the picture and in the queue, after every counted problem.
+    /// </summary>
+    public bool Counted { get; init; } = true;
 }
 
 /// <summary>One link of the Eye, with its own light and its own words.</summary>
@@ -303,6 +332,12 @@ public sealed record EyeEdge(string From, string To, EyeEdgeKind Kind, CheckLigh
 {
     /// <summary>"feeds", "drives", "carries"… — the word between the two things.</summary>
     public string Verb => Kind.ToString().ToLowerInvariant();
+
+    /// <summary>
+    /// A link this desk holds to another app (its card follows the desk) — the rail, the worst and the headline count
+    /// its light, the record's own, whether or not the show needs the app's card.
+    /// </summary>
+    public bool Counted { get; init; }
 }
 
 /// <summary>
@@ -315,10 +350,15 @@ public sealed class EyeGraph
 {
     public const string DeskId = "desk";
 
+    /// <summary>The one grey card that stands for the apps past <see cref="EyeLayout.MaxApps"/>.</summary>
+    public const string MoreId = "apps:more";
+
     private readonly Dictionary<string, EyeNode> _byId;
     private readonly Dictionary<string, List<string>> _adjacent;
     private readonly Dictionary<string, List<EyeEdge>> _edgesOf;
     private readonly List<string> _problems;
+    private readonly Dictionary<string, HashSet<EyePlane>> _clusterPlanes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CheckLight> _counted = new(StringComparer.Ordinal);
 
     private EyeGraph(List<EyeNode> nodes, List<EyeEdge> edges)
     {
@@ -335,40 +375,81 @@ public sealed class EyeGraph
             _edgesOf[e.From].Add(e);
             _edgesOf[e.To].Add(e);
         }
+        // What the rail counts — this desk's own things, its links to other apps and the cards of the apps the show needs — as
+        // things: a link and its app's card are one counted thing, lit by the worse of the two, so the four counts sum to Things
+        // and each counted problem is queued by the light it is counted with.
+        var counted = _counted;
         foreach (var n in nodes)
         {
-            switch (n.Light)
+            if (n.Kind == EyeKind.ShowAppItem && n.App.Length > 0)
             {
-                case CheckLight.Red: Red++; break;
-                case CheckLight.Amber: Amber++; break;
-                case CheckLight.Green: Green++; break;
-                default: Grey++; break;
+                var card = "app:" + n.App;
+                if (!_clusterPlanes.TryGetValue(card, out var planes)) _clusterPlanes[card] = planes = new HashSet<EyePlane>();
+                planes.Add(n.Plane);
             }
+            if (n.Counted) counted[n.Id] = n.Light;
         }
-        _problems = nodes.Where(n => n.Light == CheckLight.Red).OrderBy(ProblemOrder).ThenBy(n => n.Tier).ThenBy(n => n.Label, StringComparer.OrdinalIgnoreCase)
-            .Concat(nodes.Where(n => n.Light == CheckLight.Amber).OrderBy(ProblemOrder).ThenBy(n => n.Tier).ThenBy(n => n.Label, StringComparer.OrdinalIgnoreCase))
-            .Select(n => n.Id).ToList();
-        Worst = _problems.Count > 0 ? _byId[_problems[0]] : null;
+        foreach (var e in edges)
+        {
+            if (!e.Counted || !_byId.ContainsKey(e.From) || !_byId.ContainsKey(e.To)) continue;
+            var app = e.From == DeskId ? e.To : e.From;
+            counted[app] = counted.TryGetValue(app, out var was) ? ShowContext.Worst(new[] { was, e.Light }) : e.Light;
+        }
+        Things = counted.Count;
+        Red = counted.Values.Count(l => l == CheckLight.Red);
+        Amber = counted.Values.Count(l => l == CheckLight.Amber);
+        Green = counted.Values.Count(l => l == CheckLight.Green);
+        Grey = Things - Red - Amber - Green;
+        List<string> Queue(IEnumerable<(EyeNode Node, CheckLight Light)> things) => things.Where(t => t.Light == CheckLight.Red).OrderBy(t => ProblemOrder(t.Node)).ThenBy(t => t.Node.Tier).ThenBy(t => t.Node.Label, StringComparer.OrdinalIgnoreCase)
+            .Concat(things.Where(t => t.Light == CheckLight.Amber).OrderBy(t => ProblemOrder(t.Node)).ThenBy(t => t.Node.Tier).ThenBy(t => t.Node.Label, StringComparer.OrdinalIgnoreCase))
+            .Select(t => t.Node.Id).ToList();
+        var own = Queue(nodes.Where(n => counted.ContainsKey(n.Id)).Select(n => (n, counted[n.Id])).ToList());
+        var owned = new HashSet<string>(own, StringComparer.Ordinal);
+        _problems = own.Concat(Queue(nodes.Where(n => !owned.Contains(n.Id)).Select(n => (n, n.Light)).ToList())).ToList();
+        CountedProblems = own.Count;
+        Worst = own.Count > 0 ? _byId[own[0]] : null;
         Headline = Words();
     }
 
     public IReadOnlyList<EyeNode> Nodes { get; }
     public IReadOnlyList<EyeEdge> Edges { get; }
+    /// <summary>The counted things by light — this desk's own things, and each app its link or the show's need counts, once — summing to <see cref="Things"/>.</summary>
     public int Red { get; }
     public int Amber { get; }
     public int Green { get; }
     public int Grey { get; }
 
-    /// <summary>The reds, then the ambers, in the picture's order — what NEXT and PREV walk.</summary>
+    /// <summary>
+    /// The things the headline, the rail, STATE and EYE count: this desk's own (<see cref="EyeNode.Counted"/>), and each other app
+    /// whose card the show needs or whose link this desk holds — that card and its link one thing, lit by the worse of the two.
+    /// </summary>
+    public int Things { get; }
+
+    /// <summary>The head of <see cref="Problems"/> the rail counts — the counted reds and ambers; another app's own come after them.</summary>
+    public int CountedProblems { get; }
+
+    /// <summary>The apps heard past <see cref="EyeLayout.MaxApps"/>, drawn as the one card <see cref="MoreId"/>.</summary>
+    public int MoreApps { get; private set; }
+
+    /// <summary>The things each drawn app's context names (by card id, its items' distinct ids) — what the layout counts as left out.</summary>
+    internal Dictionary<string, int> Named { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>How many things an app's card names in its context (0 for a card with none, or a thing that is no card).</summary>
+    public int NamedBy(string cardId) => Named.TryGetValue(cardId, out var n) ? n : 0;
+
+    /// <summary>
+    /// The counted reds, then the counted ambers, in the picture's order; then another app's own reds and ambers — what NEXT and
+    /// PREV walk.
+    /// </summary>
     public IReadOnlyList<string> Problems => _problems;
 
     /// <summary>Position of a node in the problems queue (0-based), or −1 when it is not red or amber.</summary>
     public int ProblemIndex(string id) => _problems.IndexOf(id);
 
-    /// <summary>The first problem, or null when the picture is all green and grey.</summary>
+    /// <summary>The first counted problem, or null when what the rail counts is all green and grey.</summary>
     public EyeNode? Worst { get; }
 
-    /// <summary>The worst light in the picture: the rail's colour.</summary>
+    /// <summary>The worst counted light: the rail's colour.</summary>
     public CheckLight WorstLight => Red > 0 ? CheckLight.Red : Amber > 0 ? CheckLight.Amber : Green > 0 ? CheckLight.Green : CheckLight.Grey;
 
     /// <summary>One line that is true for the whole picture: "14 things · 1 red · 2 amber — Projector 1: carries 1080p60 against a 50 contract".</summary>
@@ -382,8 +463,9 @@ public sealed class EyeGraph
     /// </summary>
     public EyeGraph Relit(Func<EyeNode, EyeNode> relight, Func<EyeEdge, EyeEdge>? relink = null)
     {
-        var graph = new EyeGraph(Nodes.Select(relight).ToList(), (relink is null ? Edges : Edges.Select(relink)).ToList());
+        var graph = new EyeGraph(Nodes.Select(relight).ToList(), (relink is null ? Edges : Edges.Select(relink)).ToList()) { MoreApps = MoreApps };
         foreach (var (id, number) in ScreenNumbers) graph.ScreenNumbers[id] = number;
+        foreach (var (id, named) in Named) graph.Named[id] = named;
         return graph;
     }
 
@@ -442,17 +524,23 @@ public sealed class EyeGraph
     public static double EmphasisOf(string id, IReadOnlyDictionary<string, int>? hops)
         => hops is null ? 1.0 : hops.TryGetValue(id, out var h) ? Emphasis(h) : 0.25;
 
-    /// <summary>Whether a thing is on a lens: everything; a band and the desk; the problems and what they touch.</summary>
+    /// <summary>
+    /// Whether a thing is on a lens: everything; a band and the desk; the problems and what they touch. Another app's
+    /// card is on a band's lens too when any of its things is — a lens reads each thing's plane, never the band it is drawn in.
+    /// </summary>
     public bool Visible(EyeNode n, EyeLens lens) => lens switch
     {
         EyeLens.All => true,
         EyeLens.Problems => n.IsProblem || n.Kind == EyeKind.Desk || Neighbours(n.Id).Any(id => _byId.TryGetValue(id, out var o) && o.IsProblem),
-        EyeLens.Video => n.Plane == EyePlane.Video || n.Kind == EyeKind.Desk,
-        EyeLens.Control => n.Plane == EyePlane.Control || n.Kind == EyeKind.Desk,
-        EyeLens.Audio => n.Plane == EyePlane.Audio || n.Kind == EyeKind.Desk,
-        EyeLens.Room => n.Plane == EyePlane.Room || n.Kind == EyeKind.Desk,
+        EyeLens.Video => OnPlane(n, EyePlane.Video),
+        EyeLens.Control => OnPlane(n, EyePlane.Control),
+        EyeLens.Audio => OnPlane(n, EyePlane.Audio),
+        EyeLens.Room => OnPlane(n, EyePlane.Room),
         _ => true,
     };
+
+    private bool OnPlane(EyeNode n, EyePlane plane)
+        => n.Plane == plane || n.Kind == EyeKind.Desk || (n.Kind == EyeKind.ShowApp && _clusterPlanes.TryGetValue(n.Id, out var planes) && planes.Contains(plane));
 
     /// <summary>A lens by its word ("video", "problems"); null for a word that is none.</summary>
     public static EyeLens? ParseLens(string word) => word.Trim().ToLowerInvariant() switch
@@ -511,11 +599,19 @@ public sealed class EyeGraph
         return Problems[(i - 1 + Problems.Count) % Problems.Count];
     }
 
-    /// <summary>The graph in words, one line per thing and per link — what the assistant reads.</summary>
+    /// <summary>
+    /// The graph in words, one line per thing and per link — what the assistant reads. Each thing says where it is drawn and the
+    /// lens it is on (<see cref="EyeLayout.Where"/>); a thing the headline does not count says so — it is another app's to say —
+    /// and an app's card the headline counts by this desk's link alone says the light it is counted with.
+    /// </summary>
     public IReadOnlyList<string> Lines()
     {
         var lines = new List<string>(Nodes.Count + Edges.Count + 1) { Headline };
-        foreach (var n in Nodes) lines.Add($"{n.Plane.ToString().ToUpperInvariant()} · {n.Kind}: {n.Label} — {Light(n.Light)}{(n.Sub.Length > 0 ? " · " + n.Sub : "")}");
+        foreach (var n in Nodes)
+        {
+            var mark = n.Counted ? "" : _counted.TryGetValue(n.Id, out var link) ? $" (counted by this desk's link: {Light(link)})" : " (another app's, not counted)";
+            lines.Add($"{EyeLayout.Where(n)} · {n.Kind}: {n.Label}{mark} — {Light(n.Light)}{(n.Sub.Length > 0 ? " · " + n.Sub : "")}");
+        }
         foreach (var e in Edges)
         {
             var from = Find(e.From)?.Label ?? e.From;
@@ -543,8 +639,8 @@ public sealed class EyeGraph
 
     private string Words()
     {
-        var n = Nodes.Count;
-        if (n == 0) return "Nothing to see yet — the desk has not read its rig.";
+        if (Nodes.Count == 0) return "Nothing to see yet — the desk has not read its rig.";
+        var n = Things;
         var things = n == 1 ? "1 thing" : $"{n} things";
         if (Worst is null)
         {
@@ -570,7 +666,7 @@ public sealed class EyeGraph
             if (!ids.Add(node.Id)) return;                                   // one thing once, whatever the facts repeated
             nodes.Add(node);
         }
-        void Link(string from, string to, EyeEdgeKind kind, CheckLight light, string words = "") => edges.Add(new EyeEdge(from, to, kind, light, words));
+        void Link(string from, string to, EyeEdgeKind kind, CheckLight light, string words = "", bool counted = false) => edges.Add(new EyeEdge(from, to, kind, light, words) { Counted = counted });
 
         // The desk: the hub of every band.
         var deskWords = new List<string>();
@@ -821,10 +917,16 @@ public sealed class EyeGraph
 
         // Round 87: the other show apps, and the things a linked one's context names. Heard and not linked is grey (as a
         // node heard on the beacon); stale amber; gone red; linked with a context, the context's own light and headline.
-        foreach (var app in f.ShowApps.OrderBy(a => a.KindWords, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase))
+        // Each on the NETWORK band in a cluster of its own, at most EyeLayout.MaxApps of them — the needed first, then
+        // the linked — and one grey card for the rest; the card counted when the show needs the app, its link edge always.
+        var heard = f.ShowApps.OrderBy(a => a.KindWords, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(a => !ids.Contains("app:" + a.Id)).DistinctBy(a => a.Id, StringComparer.Ordinal).ToList();
+        var drawn = heard.OrderByDescending(a => a.Needed).ThenByDescending(a => a.Linked).Take(EyeLayout.MaxApps).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        var named = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var app in heard)
         {
             var id = "app:" + app.Id;
-            if (ids.Contains(id)) continue;
+            if (!drawn.Contains(app.Id)) continue;
             var ctx = app.Context;
             // Round 89: a stuck show (profile 13.10.5, 13.16.1): the card the worse of its own light and amber, never red
             // for the stall alone; the link live and amber; its counting things red with no time (the context says so).
@@ -859,28 +961,45 @@ public sealed class EyeGraph
                 foreach (var r in ctx.Recent.TakeLast(3)) words.Add(r.Text);
                 foreach (var peer in ctx.Peers.Take(6)) words.Add($"hears {ShowBusPeers.KindWords(peer.Kind)} {peer.Name} — {peer.Light}{(peer.Headline.Length > 0 ? ": " + peer.Headline : "")}");
             }
-            Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light) { Words = words, Route = new MenuRoute("Nodes") });
+            Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light)
+            {
+                Words = words,
+                Route = new MenuRoute("Nodes"),
+                Band = EyePlane.Network,
+                App = app.Id,
+                Counted = app.Needed,
+            });
             // Show Bus 1.3 §13.16.4: the link's edge is its record — its light, its mark beside its words — and nothing this Eye derives.
-            if (app.Linked && app.Link is { } link) Link(id, DeskId, EyeEdgeKind.Follows, link.LightValue, $"{link.Mark} {link.SteadyWords}");
-            else if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck");
-            else if (app.Linked && keyAmber) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, app.Key.Fault ? "linked · this desk's key " + (app.Key.Refused ? "refused" : "not accepted") : "linked · an older Stagewatch");
-            else if (app.Linked && conflict) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · " + ShowBusView.ConflictEdgeWords);
-            else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, app.State == ShowBusState.Live ? "linked" : state);
+            if (app.Linked && app.Link is { } link) Link(id, DeskId, EyeEdgeKind.Follows, link.LightValue, $"{link.Mark} {link.SteadyWords}", counted: true);
+            else if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck", counted: true);
+            else if (app.Linked && keyAmber) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, app.Key.Fault ? "linked · this desk's key " + (app.Key.Refused ? "refused" : "not accepted") : "linked · an older Stagewatch", counted: true);
+            else if (app.Linked && conflict) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · " + ShowBusView.ConflictEdgeWords, counted: true);
+            // A link with no record of its own is lit by its own state — live green, quiet amber, gone red only when the
+            // show needs it (13.16.1) — never by the app's context, which is the app's to say on its card.
+            else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, app.State switch { ShowBusState.Live => CheckLight.Green, ShowBusState.Stale => CheckLight.Amber, _ => app.Needed ? CheckLight.Red : CheckLight.Amber },
+                app.State == ShowBusState.Live ? "linked" : state, counted: true);
             else if (conflict) Link(id, DeskId, EyeEdgeKind.Hears, CheckLight.Amber, "heard · " + ShowBusView.ConflictEdgeWords);
             else Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state);
             if (ctx is null || app.State == ShowBusState.Gone) continue;
-            // Its own things, one tier out — at most a dozen, the reds and ambers first, so a busy app does not drown the picture.
-            var items = ctx.Items.OrderByDescending(i => ShowContext.LightOf(i.Light) == CheckLight.Red).ThenByDescending(i => ShowContext.LightOf(i.Light) == CheckLight.Amber).Take(12).ToList();
+            named[id] = ctx.Items.Select(i => i.Id).Distinct(StringComparer.Ordinal).Count();
+            // Its own things — at most a dozen, the reds and ambers first, so a busy app does not drown the picture — in the
+            // context's order; each on its kind's plane for the lenses and in its kind's column of the cluster (§5.3's table).
+            var items = ctx.Items.Select((item, at) => (Item: item, At: at))
+                .OrderByDescending(x => ShowContext.LightOf(x.Item.Light) == CheckLight.Red).ThenByDescending(x => ShowContext.LightOf(x.Item.Light) == CheckLight.Amber)
+                .Take(EyeLayout.ClusterThings).OrderBy(x => x.At).Select(x => x.Item).ToList();
             var itemIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in items)
             {
                 var itemId = $"{id}:{item.Id}";
                 if (!itemIds.Add(item.Id) || ids.Contains(itemId)) continue;
                 var itemLight = ShowContext.LightOf(item.Light);
-                Add(new EyeNode(itemId, EyeKind.ShowAppItem, EyePlane.Control, 3, item.Label.Length > 0 ? item.Label : item.Id, item.State, itemLight)
+                Add(new EyeNode(itemId, EyeKind.ShowAppItem, EyeLayout.KindPlane(item.Kind), EyeLayout.KindColumn(item.Kind), item.Label.Length > 0 ? item.Label : item.Id, item.State, itemLight)
                 {
                     Words = new[] { $"{app.KindWords} {app.Name}: {item.Kind}", item.State }.Where(w => w.Length > 0).ToList(),
                     Route = new MenuRoute("Nodes"),
+                    Band = EyePlane.Network,
+                    App = app.Id,
+                    Counted = false,
                 });
             }
             var linked = new HashSet<string>(StringComparer.Ordinal);
@@ -892,6 +1011,17 @@ public sealed class EyeGraph
                 linked.Add(l.To);
             }
             foreach (var item in itemIds.Where(i => !linked.Contains(i))) Link(id, $"{id}:{item}", EyeEdgeKind.Serves, CheckLight.Grey);
+        }
+        var more = heard.Count - drawn.Count;
+        if (more > 0)
+        {
+            Add(new EyeNode(MoreId, EyeKind.ShowApp, EyePlane.Control, 2, $"+{more} more app{(more == 1 ? "" : "s")} heard", $"the Eye draws {EyeLayout.MaxApps} apps — the Nodes page lists every one", CheckLight.Grey)
+            {
+                Words = new[] { $"{more} more app{(more == 1 ? " is" : "s are")} heard on the show network than the Eye draws", "the needed and the linked are drawn first" },
+                Route = new MenuRoute("Nodes"),
+                Band = EyePlane.Network,
+                Counted = false,
+            });
         }
 
         // Sound: sources, outputs, the routes between them.
@@ -930,8 +1060,9 @@ public sealed class EyeGraph
             Link(DeskId, "stream", EyeEdgeKind.Sends, stream.Light, stream.Status);
         }
 
-        var graph = new EyeGraph(nodes, edges);
+        var graph = new EyeGraph(nodes, edges) { MoreApps = Math.Max(0, more) };
         foreach (var (id, number) in numbers) graph.ScreenNumbers[id] = number;
+        foreach (var (id, count) in named) graph.Named[id] = count;
         return graph;
     }
 

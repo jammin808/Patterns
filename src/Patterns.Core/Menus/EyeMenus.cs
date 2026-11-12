@@ -17,7 +17,8 @@ public static class EyeMenus
     /// <summary>How the Eye labels a Stagewatch's card: its kind's words, then its name.</summary>
     private const string StagewatchLabel = "Stagewatch ";
 
-    public static DeskMenu For(DeskFacts d, EyeGraph g, EyeNode n)
+    /// <summary>The menu for one thing; <paramref name="placement"/> — the picture as it is drawn — adds an app card's cluster entry.</summary>
+    public static DeskMenu For(DeskFacts d, EyeGraph g, EyeNode n, EyePlacement? placement = null)
     {
         var tone = n.Light switch
         {
@@ -40,6 +41,17 @@ public static class EyeMenus
                 Action = new ShowAction(ShowActionKind.EyeReset),
             },
         };
+        // Another app's card opens or folds its cluster on the NETWORK band — the desk's view, the side card's button, no wire word.
+        if (placement is not null && n.Kind == EyeKind.ShowApp && g.NamedBy(n.Id) > 0)
+        {
+            var open = placement.IsExpanded(n.Id);
+            eye.Add(new MenuEntry("eye.cluster", open ? "Fold its cluster" : "Open its cluster", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = open ? "Its card alone in the NETWORK band's strip; its cell stays a gap and no other cluster moves" : $"Its things drawn round its card — {g.NamedBy(n.Id)} named",
+                Edit = open ? EyeMenuEdits.Fold : EyeMenuEdits.Open,
+                IsOn = open,
+            });
+        }
         if (g.Problems.Count > 0)
         {
             eye.Add(new MenuEntry("eye.next", "Next problem", MenuScope.Live, MenuTone.Warn)
@@ -135,4 +147,11 @@ public static class EyeMenus
         CheckLight.Amber => MenuTone.Preview,
         _ => MenuTone.Tile,
     };
+}
+
+/// <summary>The Eye menu's desk edits — the NETWORK band's view, which no wire word moves.</summary>
+public static class EyeMenuEdits
+{
+    public const string Open = "eye.cluster.open";
+    public const string Fold = "eye.cluster.fold";
 }

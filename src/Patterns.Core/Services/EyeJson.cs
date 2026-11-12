@@ -1,6 +1,11 @@
 namespace Patterns.Core.Services;
 
-/// <summary>The Eye on the wire (round 66): EYE / EYE STATUS answers the picture as one JSON object — the headline, the counts, the problems, the focus and the lens, every thing with its place and its words, every link with its light.</summary>
+/// <summary>
+/// The Eye on the wire (round 66): EYE / EYE STATUS answers the picture as one JSON object — the headline, the counts, the problems,
+/// the focus and the lens, every thing with its place and its words, every link with its light. Each thing's band, then at
+/// the end the open clusters, what the NETWORK band leaves out and, when the fit view shows marks only, the band's words for it. A
+/// thing in a folded cluster has no place (0 × 0).
+/// </summary>
 public static class EyeJson
 {
     public static string Write(EyeGraph g, EyePlacement p, string? focusId, EyeLens lens) => Write(g, p, focusId, lens, null);
@@ -14,7 +19,7 @@ public static class EyeJson
             worst = g.Worst?.Id ?? "",
             worstLight = EyeGraph.Light(g.WorstLight),
             worstWords = g.Worst is { } w ? $"{w.Label}: {w.Sub}" : "",
-            counts = new { green = g.Green, amber = g.Amber, red = g.Red, grey = g.Grey, things = g.Nodes.Count, links = g.Edges.Count },
+            counts = new { green = g.Green, amber = g.Amber, red = g.Red, grey = g.Grey, things = g.Things, links = g.Edges.Count },
             focus = focusId ?? "",
             lens = lens.ToString().ToLowerInvariant(),
             problems = g.Problems,
@@ -38,12 +43,17 @@ public static class EyeJson
                     page = n.Route?.Page ?? "",
                     item = n.Route?.Item ?? "",
                     wire = "EYE FOCUS " + n.Id,
+                    band = n.Band.ToString().ToLowerInvariant(),                               // where it is drawn; plane is its lens
                 };
             }).ToArray(),
             edges = g.Edges.Select(e => new { from = e.From, to = e.To, kind = e.Verb, light = EyeGraph.Light(e.Light), words = e.Words }).ToArray(),
             replay = moment is not null,
             replayAt = moment is null ? "" : ReplayTime.Stamp(moment.AtUtc),
             moment = moment is null ? "" : EyeReplay.Words(moment),
+            expanded = p.Expanded,                                                            // the open clusters, the view's own state
+            left = new { apps = p.LeftApps, items = p.LeftItems },
+            fit = p.MarksOnly ? p.Note : "",
+            problemsCounted = g.CountedProblems,                                              // the head of problems the rail counts; another app's after
         };
         return JsonUtil.SerializeCompact(payload);
     }

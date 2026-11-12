@@ -131,7 +131,7 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 break;
             }
         }
-        return new DeskMenuVm(EyeMenus.For(facts, _services.Eye.Graph, node), e => RunMenuEntry(e, node));
+        return new DeskMenuVm(EyeMenus.For(facts, _services.Eye.Graph, node, _services.Eye.Placement), e => RunMenuEntry(e, node));
     }
 
     private DeskMenuVm ScreenMenu(ScreenPlacement placement, DeskFacts facts)
@@ -206,6 +206,10 @@ public sealed partial class MainViewModel : IDeskMenuHost
                     case "tile.collapse" when subject is SwitcherTile tile:
                         tile.IsCollapsed = !tile.IsCollapsed;
                         words = StatusMessage;
+                        break;
+                    case EyeMenuEdits.Open or EyeMenuEdits.Fold when subject is EyeNode card:     // the NETWORK band's view, the side card's same press
+                        words = _services.Eye.Cluster(card.Id, entry.Edit == EyeMenuEdits.Open).Message;
+                        RaiseEye();
                         break;
                     case "preview.open":
                         IsSandboxActive = true;

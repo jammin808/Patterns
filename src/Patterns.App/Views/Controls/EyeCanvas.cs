@@ -95,6 +95,7 @@ public sealed class EyeCanvas : Control
         if (_eye is not null)
         {
             _eye.Changed += OnEyeChanged;
+            if (Bounds.Width > 0 && Bounds.Height > 0) _eye.SetCanvas(Bounds.Width, Bounds.Height);
             _fitted = false;
             InvalidateVisual();
         }
@@ -135,6 +136,7 @@ public sealed class EyeCanvas : Control
     {
         base.OnSizeChanged(e);
         if (_eye is null || e.NewSize.Width <= 0 || e.NewSize.Height <= 0) return;
+        _eye.SetCanvas(e.NewSize.Width, e.NewSize.Height);                                   // the NETWORK band opens what this canvas reads
         if (_eye.FocusId is null) _camera.FitTo(_eye.Placement.Bounds, e.NewSize.Width, e.NewSize.Height, animate: false);
         _fitted = true;
         InvalidateVisual();
@@ -174,10 +176,16 @@ public sealed class EyeCanvas : Control
             var r = ToRect(_camera.WorldToView(band.Rect));
             if (!r.Intersects(view)) continue;
             ctx.FillRectangle(BandFill, r, 14);
-            if (scale >= 0.25)
+            if (scale >= 0.25 || band.Note.Length > 0)
             {
-                var label = Text(band.Label, Math.Clamp(11 * scale, 8, 16), true, BandInk);
+                var size = Math.Clamp(11 * scale, 8, 16);
+                var label = Text(band.Label, size, true, BandInk);
                 ctx.DrawText(label, new Point(r.X + 12 * scale, r.Y + 6 * scale));
+                if (band.Note.Length > 0)                                                  // what the NETWORK band leaves out, and a fit view of marks only
+                {
+                    var note = Text(band.Note, size, false, Dim, Math.Max(10, r.Width - label.Width - 36 * scale));
+                    ctx.DrawText(note, new Point(r.X + 12 * scale + label.Width + 10, r.Y + 6 * scale));
+                }
             }
         }
 
@@ -204,7 +212,9 @@ public sealed class EyeCanvas : Control
         foreach (var n in g.Nodes)
         {
             if (!g.Visible(n, lens)) continue;
-            var r = ToRect(_camera.WorldToView(p.Of(n.Id)));
+            var world = p.Of(n.Id);
+            if (world.IsEmpty) continue;                                                   // a thing of a folded cluster has no place
+            var r = ToRect(_camera.WorldToView(world));
             if (!r.Intersects(view)) continue;
             var alpha = Emphasis(n.Id, hops);
             var hue = EyeService.Hue(n.Light);
@@ -214,9 +224,15 @@ public sealed class EyeCanvas : Control
             else if (n.Id == _hover) ctx.DrawRectangle(null, Hovered, new RoundedRect(r.Inflate(1), radius + 1));
             var dotR = Math.Max(2, 5 * scale);
             ctx.DrawEllipse(Brush(hue, (int)Math.Round(alpha * 255)), null, new Point(r.X + 14 * scale, r.Y + r.Height / 2), dotR, dotR);
-            if (scale < 0.35) continue;
+            if (scale < EyeLayout.LabelScale) continue;
             var textX = r.X + 26 * scale;
             var maxW = Math.Max(10, r.Width - 34 * scale);
+            if (n.Kind == EyeKind.ShowApp && p.Hidden.TryGetValue(n.Id, out var hidden))   // what its cluster does not draw, at its card's corner
+            {
+                var badge = Text($"+{hidden}", Math.Clamp(10 * scale, 7, 18), true, Brush("#9AA3B2", (int)Math.Round(alpha * 255)));
+                ctx.DrawText(badge, new Point(r.Right - badge.Width - 8 * scale, r.Y + 5 * scale));
+                maxW = Math.Max(10, maxW - badge.Width - 6 * scale);
+            }
             var labelSize = Math.Clamp(13 * scale, 7, 26);
             var label = Text(n.Label, labelSize, true, Brush("#E6EAF2", (int)Math.Round(alpha * 255)), maxW);
             var subShown = scale >= 0.6 && n.Sub.Length > 0;

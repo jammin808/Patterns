@@ -17,6 +17,17 @@ public sealed class EyeService
     private readonly AppServices _s;
     private string _hash = "";
 
+    /// <summary>Tests only: the other show apps the Eye draws, in place of what the desk hears and links.</summary>
+    public Func<IReadOnlyList<EyeShowApp>>? AppsOverride { get; set; }
+
+    // The NETWORK band's view — the operator's opened and folded clusters, each app's sticky slot, the page's canvas.
+    private readonly List<string> _opened = new();
+    private readonly HashSet<string> _folded = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _slots = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _cells = new(StringComparer.Ordinal);
+    private double _canvasW = EyeLayout.ReferenceCanvasW;
+    private double _canvasH = EyeLayout.ReferenceCanvasH;
+
     public EyeService(AppServices services) => _s = services;
 
     public EyeGraph Graph { get; private set; } = EyeGraph.Empty;
@@ -67,7 +78,7 @@ public sealed class EyeService
         if (hash == _hash) return false;
         _hash = hash;
         Graph = EyeGraph.Build(facts);
-        Placement = EyeLayout.Place(Graph);
+        Placement = Place();
         if (FocusId is not null && Graph.Find(FocusId) is null) FocusId = null;           // the focused thing left the picture
         if (_record is not null && Moment is { } moment) _replayed = EyeReplay.Apply(Graph, moment);   // round 84: the structure of now, the lights of then
         Moved();
@@ -88,7 +99,18 @@ public sealed class EyeService
         FocusId = id;
         Moved();
         var n = Shown.Find(id)!;
-        return ActionResult.Done($"Eye on {n.Label} — {n.Sub}.");
+        return ActionResult.Done($"Eye on {n.Label} — {n.Sub}.{FoldedWords(n)}");
+    }
+
+    /// <summary>
+    /// A thing of a folded cluster has no place on the picture: the focus fits its app's card and the reply says where it is, so a
+    /// Done never stands for a thing nobody can see. A focus never opens a cluster.
+    /// </summary>
+    private string FoldedWords(EyeNode n)
+    {
+        if (n.App.Length == 0 || !Placement.Of(n.Id).IsEmpty) return "";
+        var card = Shown.Find("app:" + n.App);
+        return card is null ? "" : $" {n.Label} is folded in {card.Label}'s card — open its cluster to see it.";
     }
 
     public ActionResult Next()
@@ -99,7 +121,7 @@ public sealed class EyeService
         FocusId = id;
         Moved();
         var n = Shown.Find(id)!;
-        return ActionResult.Done($"Problem {Shown.ProblemIndex(id) + 1} of {Shown.Problems.Count}: {n.Label} — {n.Sub}.");
+        return ActionResult.Done($"Problem {Shown.ProblemIndex(id) + 1} of {Shown.Problems.Count}: {n.Label} — {n.Sub}.{FoldedWords(n)}");
     }
 
     public ActionResult Prev()
@@ -110,7 +132,7 @@ public sealed class EyeService
         FocusId = id;
         Moved();
         var n = Shown.Find(id)!;
-        return ActionResult.Done($"Problem {Shown.ProblemIndex(id) + 1} of {Shown.Problems.Count}: {n.Label} — {n.Sub}.");
+        return ActionResult.Done($"Problem {Shown.ProblemIndex(id) + 1} of {Shown.Problems.Count}: {n.Label} — {n.Sub}.{FoldedWords(n)}");
     }
 
     public ActionResult SetLens(string word)
@@ -128,6 +150,88 @@ public sealed class EyeService
         Lens = EyeLens.All;
         Moved();
         return ActionResult.Done("The whole picture.");
+    }
+
+    /// <summary>The canvas the Eye page draws on (its own size, the side card beside it) — the NETWORK band opens as many clusters as it reads.</summary>
+    public double CanvasW => _canvasW;
+
+    public double CanvasH => _canvasH;
+
+    /// <summary>
+    /// The page's canvas changed size — the clusters the fit view can read are counted again; the revision moves only
+    /// when the open set or the marks-only words moved, and nothing else is rebuilt.
+    /// </summary>
+    public void SetCanvas(double width, double height)
+    {
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width < 1 || height < 1) return;
+        if (Math.Abs(width - _canvasW) < 0.5 && Math.Abs(height - _canvasH) < 0.5) return;
+        _canvasW = width;
+        _canvasH = height;
+        var was = Placement;
+        Placement = Place();
+        if (!was.Expanded.SequenceEqual(Placement.Expanded, StringComparer.Ordinal) || was.Note != Placement.Note) Moved();
+    }
+
+    /// <summary>
+    /// An app's cluster opened or folded on the NETWORK band — the desk's view, kept until the operator changes it; never
+    /// moved by a focus, a light or the wire. Words name a card (or one of its things); a change that would change nothing is
+    /// refused with the reason, and only the layout is rebuilt.
+    /// </summary>
+    public ActionResult Cluster(string words, bool open)
+    {
+        EnsureRead();
+        var id = Shown.Resolve(words);
+        var n = id is null ? null : Shown.Find(id);
+        if (n is null) return ActionResult.Refused($"The Eye has nothing called '{words.Trim()}'.");
+        var card = n.Kind == EyeKind.ShowAppItem && n.App.Length > 0 ? "app:" + n.App : n.Id;
+        var cardNode = Shown.Find(card);
+        if (cardNode is null || cardNode.Kind != EyeKind.ShowApp || cardNode.Id == EyeGraph.MoreId)
+            return ActionResult.Refused($"'{n.Label}' is no other app's card — only an app on the NETWORK band opens or folds.");
+        if (Graph.NamedBy(card) == 0) return ActionResult.Refused($"{cardNode.Label} names no things to draw — its card is all there is.");
+        // Refused only when the operator's own set already holds the choice; a cluster the canvas opened or folded by itself is
+        // kept that way from now on, whatever size the canvas takes.
+        if (open && _opened.Contains(card)) return ActionResult.Refused($"{cardNode.Label}'s cluster is already open, kept open.");
+        if (!open && _folded.Contains(card)) return ActionResult.Refused($"{cardNode.Label}'s cluster is already folded, kept folded.");
+        if (open && _opened.Count >= EyeLayout.MaxExpanded)
+            return ActionResult.Refused($"{EyeLayout.MaxExpanded} clusters are open by hand — fold one first.");
+        var was = Placement.IsExpanded(card);
+        _opened.Remove(card);
+        _folded.Remove(card);
+        if (open) _opened.Add(card);
+        else _folded.Add(card);
+        Placement = Place();
+        Moved();
+        if (!open) return ActionResult.Done(was ? $"{cardNode.Label}: its cluster is folded to its card." : $"{cardNode.Label}: its cluster was folded for the canvas — now kept folded.");
+        if (was) return ActionResult.Done($"{cardNode.Label}: its cluster was open for the canvas — now kept open.");
+        var named = Graph.NamedBy(card);
+        var drawn = named - (Placement.Hidden.TryGetValue(card, out var hidden) ? hidden : 0);
+        return ActionResult.Done($"{cardNode.Label}: its cluster is open — {drawn} of {named} things drawn" + (Placement.MarksOnly ? " · the fit view shows marks only at this size; zoom or focus to read." : "."));
+    }
+
+    /// <summary>
+    /// The picture placed for the view of now: every app keeps the slot it took when first drawn (the lowest free one), a slot
+    /// freed when its app leaves the picture, and every open cluster the cell it took when it opened; an opened or folded choice
+    /// for an app no longer drawn is forgotten with it.
+    /// </summary>
+    private EyePlacement Place()
+    {
+        var slots = EyeLayout.Slots(Graph, _slots);
+        _slots.Clear();
+        foreach (var (card, slot) in slots) _slots[card] = slot;
+        _opened.RemoveAll(o => !slots.ContainsKey(o));
+        _folded.RemoveWhere(f => !slots.ContainsKey(f));
+        var placement = EyeLayout.Place(Graph, new EyeNetworkView
+        {
+            Opened = _opened.ToList(),
+            Folded = _folded.ToList(),
+            Slots = new Dictionary<string, int>(_slots, StringComparer.Ordinal),
+            Cells = new Dictionary<string, int>(_cells, StringComparer.Ordinal),
+            CanvasW = _canvasW,
+            CanvasH = _canvasH,
+        });
+        _cells.Clear();
+        foreach (var (card, cell) in placement.Cells) _cells[card] = cell;
+        return placement;
     }
 
     /// <summary>EYE / EYE STATUS: the picture as JSON.</summary>
@@ -148,12 +252,15 @@ public sealed class EyeService
         amber = Graph.Amber,
         green = Graph.Green,
         grey = Graph.Grey,
-        things = Graph.Nodes.Count,
+        things = Graph.Things,
         problems = Graph.Problems.Count,
         focus = FocusId ?? "",
         lens = Lens.ToString().ToLowerInvariant(),
         replay = Replaying,                                                                 // round 84: the page shows the record, not now
         replayAt = Replaying ? ReplayTime.Stamp(ReplayAtUtc) : "",
+        expanded = Placement.Expanded,                                                      // the NETWORK band's open clusters, the view's own
+        left = new { apps = Placement.LeftApps, items = Placement.LeftItems },
+        problemsCounted = Graph.CountedProblems,                                           // the head of problems the rail counts; another app's after
     };
 
     /// <summary>The picture in words for the assistant's brief — the picture of now, with one line first while the page replays the record, so the assistant never mistakes then for now.</summary>
@@ -164,10 +271,14 @@ public sealed class EyeService
         {
             var lines = new List<string>(Graph.Nodes.Count + Graph.Edges.Count + 2) { $"The Eye page is replaying the record at {ReplayTime.Stamp(ReplayAtUtc)} — {EyeReplay.Words(m)}. The lines below are the picture of now." };
             lines.AddRange(Graph.Lines());
+            if (Placement.Note.Length > 0) lines.Add(BandLine());
             return lines;
         }
-        return Graph.Lines();
+        return Placement.Note.Length > 0 ? Graph.Lines().Append(BandLine()).ToList() : Graph.Lines();
     }
+
+    /// <summary>What the picture leaves out and whether its fit view reads — the NETWORK band's words, or the marks-only words alone.</summary>
+    private string BandLine() => $"The Eye's picture: {Placement.Note}.";
 
     // ---- the replay (round 84; the record read off the desk's thread, round 85) ----------------
 
@@ -597,7 +708,7 @@ public sealed class EyeService
             AudioRoutes = audioRoutes,
             Stack = stack,
             Assistant = new EyeAssistant(hasKey, hasKey ? "ready" : ""),
-            ShowApps = _s.ShowApps(DateTime.UtcNow),                                                     // round 87: the other show apps, and a linked Stagewatch's things
+            ShowApps = AppsOverride?.Invoke() ?? _s.ShowApps(DateTime.UtcNow),                                                     // round 87: the other show apps, and a linked Stagewatch's things
         };
     }
 

@@ -761,6 +761,7 @@ public static class ShowBusView
                 ShowBusLiveness.StateOf(TimeSpan.FromSeconds(Math.Max(5, (utcNow - n.AtUtc).TotalSeconds) - 5)), true, n.Context.Headline)
             {
                 Context = n.Context with { At = 0 },
+                Needed = true,                                                                      // this desk's own node
             })
             .ToList();
 

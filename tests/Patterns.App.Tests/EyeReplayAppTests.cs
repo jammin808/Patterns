@@ -89,9 +89,10 @@ public class EyeReplayAppTests
             Assert.Contains("→", vm.EyeReplaySpan, StringComparison.Ordinal);
             Assert.Equal(services.Eye.Record.Position(t0.AddSeconds(30)), vm.EyeReplayPosition, 6);
 
-            // STATE's eye row carries replay and replayAt at the end of the row.
+            // STATE's eye row carries replay and replayAt where round 84 appended them, the NETWORK band's fields after them.
             var row = JsonUtil.SerializeCompact(services.Eye.Row());
-            Assert.EndsWith($",\"replay\":true,\"replayAt\":\"{at30}\"}}", row);
+            Assert.Contains($",\"replay\":true,\"replayAt\":\"{at30}\",\"expanded\":[", row, StringComparison.Ordinal);
+            Assert.Matches("\"left\":\\{\"apps\":\\d+,\"items\":\\d+\\},\"problemsCounted\":\\d+\\}$", row);
 
             // EYE is the picture of now; EYE AT answers the record at an instant without moving the page.
             using (var live = JsonDocument.Parse(Send(router, "EYE")[3..]))
@@ -172,7 +173,7 @@ public class EyeReplayAppTests
             Assert.Equal("REPLAY", vm.EyeReplayButton);
             Assert.Equal("", vm.EyeReplayWords);
             Assert.Equal("OK The picture of now — the replay was not open.", Send(router, "EYE REPLAY OFF"));
-            Assert.EndsWith(",\"replay\":false,\"replayAt\":\"\"}", JsonUtil.SerializeCompact(services.Eye.Row()));
+            Assert.Contains(",\"replay\":false,\"replayAt\":\"\",\"expanded\":[", JsonUtil.SerializeCompact(services.Eye.Row()), StringComparison.Ordinal);
             Assert.DoesNotContain("replaying", services.Eye.BriefLines()[0], StringComparison.Ordinal);
         }
         finally

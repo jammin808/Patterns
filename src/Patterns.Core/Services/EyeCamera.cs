@@ -50,12 +50,22 @@ public sealed class EyeCamera
     public void FitTo(EyeRect world, double viewW, double viewH, double pad = 40, double maxScale = MaxScale, bool animate = true)
     {
         if (world.IsEmpty || viewW <= 0 || viewH <= 0) return;
-        var sx = Math.Max(1, viewW - 2 * pad) / world.W;
-        var sy = Math.Max(1, viewH - 2 * pad) / world.H;
-        var scale = Math.Clamp(Math.Min(sx, sy), MinScale, Math.Min(maxScale, MaxScale));
+        var scale = FitScale(world, viewW, viewH, pad, maxScale);
         var x = viewW / 2 - world.CenterX * scale;
         var y = viewH / 2 - world.CenterY * scale;
         SetTarget(scale, x, y, animate);
+    }
+
+    /// <summary>
+    /// The scale <see cref="FitTo"/> takes for a world rectangle on a view — computed, never rendered, so the layout reads the fit
+    /// view's scale before anything is drawn; 0 for nothing to fit.
+    /// </summary>
+    public static double FitScale(EyeRect world, double viewW, double viewH, double pad = 40, double maxScale = MaxScale)
+    {
+        if (world.IsEmpty || viewW <= 0 || viewH <= 0) return 0;
+        var sx = Math.Max(1, viewW - 2 * pad) / world.W;
+        var sy = Math.Max(1, viewH - 2 * pad) / world.H;
+        return Math.Clamp(Math.Min(sx, sy), MinScale, Math.Min(maxScale, MaxScale));
     }
 
     /// <summary>A focus: the thing and its neighbours fitted, never closer than 1.6× — a node alone is not a poster.</summary>

@@ -277,7 +277,15 @@ public class ShowBusTests
         Assert.Equal("patterns", c.Node.Kind);
         Assert.Equal("ab12cd34", c.Node.Id);
         Assert.Equal(ClockPing.Ms(Now), c.At);
+        // The headline counts this desk's own things, its link and the needed apps' cards — Stagewatch's amber Lighting is
+        // Stagewatch's to say (its card and the context's peers carry it), so the desk, the projector, the lights and the live link to
+        // Hall A are the four things and the lights the worst; a borrowed amber thing counted into this desk's line would say
+        // Stagewatch's fault as the desk's.
         Assert.Equal(graph.Headline, c.Headline);
+        Assert.Equal("4 things · 1 red — Lights: closed", c.Headline);
+        Assert.DoesNotContain("amber", c.Headline, StringComparison.Ordinal);
+        Assert.Equal("device:d2", graph.Worst!.Id);
+        Assert.Equal(new[] { "device:d2", "app:a1b2c3d4:cue:lighting", "app:a1b2c3d4" }, graph.Problems);   // the borrowed ambers queue after the desk's own red
         Assert.Equal("red", c.Light);                                                            // the lights' closed device is the desk's own worst
         Assert.Contains(c.Items, i => i.Id == "desk");
         Assert.Contains(c.Items, i => i.Label == "Lights" && i.Light == "red");

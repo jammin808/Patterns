@@ -42,6 +42,8 @@ public sealed partial class MainViewModel
             if (g.Problems.Count == 0) return "Nothing red or amber.";
             var at = _services.Eye.FocusId is { } f ? g.ProblemIndex(f) : -1;
             var counts = string.Join(" · ", new[] { g.Red > 0 ? $"{g.Red} red" : "", g.Amber > 0 ? $"{g.Amber} amber" : "" }.Where(w => w.Length > 0));
+            var theirs = g.Problems.Count - g.CountedProblems;
+            if (counts.Length == 0) counts = $"{theirs} of other apps' own, not counted";      // only borrowed problems: said as theirs, never blank
             return at >= 0 ? $"Problem {at + 1} of {g.Problems.Count} · {counts}" : counts;
         }
     }
@@ -69,7 +71,7 @@ public sealed partial class MainViewModel
 
     public string EyeSelectedSub => EyeSelected?.Sub ?? "";
 
-    public string EyeSelectedKind => EyeSelected is { } n ? $"{KindWord(n.Kind)} · {EyeLayout.BandLabel(n.Plane)} · {EyeGraph.Light(n.Light)}" : "";
+    public string EyeSelectedKind => EyeSelected is { } n ? $"{KindWord(n.Kind)} · {EyeLayout.Where(n)} · {EyeGraph.Light(n.Light)}" : "";
 
     public string EyeSelectedWords => EyeSelected is { } n ? string.Join("\n", n.Words) : "";
 
@@ -78,6 +80,21 @@ public sealed partial class MainViewModel
     public bool EyeCanOpen => EyeSelected?.Route is not null;
 
     public string EyeOpenWords => EyeSelected?.Route is { } r ? $"OPEN {r.Page.ToUpperInvariant()}" : "OPEN";
+
+    /// <summary>The selected thing is another app's card with things to draw — its cluster opens or folds from the side card.</summary>
+    public bool EyeCanCluster => EyeSelected is { Kind: EyeKind.ShowApp } n && _services.Eye.Graph.NamedBy(n.Id) > 0;
+
+    public string EyeClusterWords => EyeSelected is { } n && _services.Eye.Placement.IsExpanded(n.Id) ? "FOLD CLUSTER" : "OPEN CLUSTER";
+
+    private RelayCommand? _eyeCluster;
+
+    /// <summary>OPEN / FOLD CLUSTER: the selected app's cluster on the NETWORK band — the desk's view, the menu's same edit.</summary>
+    public RelayCommand EyeClusterCommand => _eyeCluster ??= new RelayCommand(() =>
+    {
+        if (EyeSelected is not { } n) return;
+        StatusMessage = _services.Eye.Cluster(n.Id, !_services.Eye.Placement.IsExpanded(n.Id)).Message;
+        RaiseEye();
+    });
 
     public IReadOnlyList<EyeContactRow> EyeContacts
     {
@@ -162,7 +179,7 @@ public sealed partial class MainViewModel
     public RelayCommand EyeAskCommand => _eyeAsk ??= new RelayCommand(() =>
     {
         if (EyeSelected is not { } n) return;
-        var menu = EyeMenus.For(MenuFacts(), _services.Eye.Shown, n);
+        var menu = EyeMenus.For(MenuFacts(), _services.Eye.Shown, n, _services.Eye.Placement);
         var ask = menu.Flatten().FirstOrDefault(e => e.Id == (n.IsProblem ? "eye.why" : "eye.ask")) ?? menu.Flatten().First(e => e.Scope == MenuScope.Ask);
         StatusMessage = AskAssistant(ask.Question) ?? StatusMessage;
     });
@@ -265,6 +282,8 @@ public sealed partial class MainViewModel
         Raise(nameof(EyeCanOpen));
         Raise(nameof(EyeOpenWords));
         Raise(nameof(EyeContacts));
+        Raise(nameof(EyeCanCluster));
+        Raise(nameof(EyeClusterWords));
     }
 
     private static string KindWord(EyeKind kind) => kind switch

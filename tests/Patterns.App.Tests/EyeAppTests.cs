@@ -256,4 +256,133 @@ public class EyeAppTests
             b.Dispose();
         }
     }
+    /// <summary>
+    /// The NETWORK band on the desk — another app a cluster of its own, opened and folded from the side card and its card's
+    /// right-click menu alike (the same edit, no wire word); the open set and what is left out on STATE and EYE; the page's canvas
+    /// counting the clusters it reads; the rail counting this desk's own, never another app's things.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheNetworkBandOpensAndFoldsFromTheSideCardAndTheMenuAndEveryReaderSaysSo()
+    {
+        var b = TestApp.Boot();
+        var (services, vm, _) = b;
+        try
+        {
+            var context = new ShowContext
+            {
+                Node = new ShowContextNode { Kind = "playmap", Id = "0a1b2c3d", Name = "Stage left" },
+                Light = "red",
+                Headline = "Out 7 not open",
+                Items = Enumerable.Range(1, 14).Select(i => new ShowContextItem { Id = $"out{i}", Kind = "output", Label = $"Out {i}", Light = i == 7 ? "red" : "green", State = i == 7 ? "not open" : "60 fps" }).ToList(),
+            };
+            services.Eye.AppsOverride = () => new[]
+            {
+                new EyeShowApp("0a1b2c3d", "PlayMap", "Stage left", ShowBusState.Live, false, "") { Context = context },
+                new EyeShowApp("77aa77aa", "AGMessage", "Messenger", ShowBusState.Live, false, ""),
+            };
+            Assert.True(services.Eye.Refresh());
+            var g = services.Eye.Graph;
+            const string Card = "app:0a1b2c3d";
+            Assert.Equal(EyePlane.Network, g.Find(Card)!.Band);
+            Assert.True(services.Eye.Placement.IsExpanded(Card));                                  // the reference canvas reads it
+            Assert.Equal(2, services.Eye.Placement.LeftItems);                                     // fourteen named, twelve drawn
+            Assert.DoesNotContain("Out 7", g.Headline, StringComparison.Ordinal);                   // PlayMap's red is PlayMap's to say
+            Assert.Contains("app:0a1b2c3d:out7", g.Problems);
+            Assert.NotEqual(Card, g.Worst?.Id);
+            Assert.NotEqual("app:0a1b2c3d:out7", g.Worst?.Id);
+
+            var router = new CommandRouter(services);
+            using (var eye = Payload(Send(router, "EYE")))
+            {
+                var root = eye.RootElement;
+                Assert.Equal(Card, root.GetProperty("expanded").EnumerateArray().Single().GetString());
+                Assert.Equal(2, root.GetProperty("left").GetProperty("items").GetInt32());
+                Assert.Equal("network", root.GetProperty("nodes").EnumerateArray().Single(n => n.GetProperty("id").GetString() == Card).GetProperty("band").GetString());
+                Assert.Equal(g.Things, root.GetProperty("counts").GetProperty("things").GetInt32());   // the headline's count, not every node drawn
+                Assert.Equal(g.CountedProblems, root.GetProperty("problemsCounted").GetInt32());
+                Assert.Equal(g.CountedProblems + 2, root.GetProperty("problems").GetArrayLength());     // PlayMap's red card and Out 7 after the desk's own
+            }
+
+            // Opened by the canvas, the operator keeps it open: the choice is recorded, and a second ask changes nothing and says so.
+            var kept = services.Eye.Cluster(Card, open: true);
+            Assert.True(kept.Ok);
+            Assert.Contains("now kept open", kept.Message, StringComparison.Ordinal);
+            var twice = services.Eye.Cluster(Card, open: true);
+            Assert.False(twice.Ok);
+            Assert.Contains("already open, kept open", twice.Message, StringComparison.Ordinal);
+
+            // The side card folds it: the layout alone moves, the picture is not rebuilt.
+            var rev = services.Eye.Rev;
+            var graph = services.Eye.Graph;
+            vm.EyeSelectCommand.Execute(Card);
+            Assert.True(vm.EyeCanCluster);
+            Assert.Equal("FOLD CLUSTER", vm.EyeClusterWords);
+            Assert.Contains("NETWORK", vm.EyeSelectedKind, StringComparison.Ordinal);
+            vm.EyeClusterCommand.Execute(null);
+            Assert.Contains("folded to its card", vm.StatusMessage, StringComparison.Ordinal);
+            Assert.False(services.Eye.Placement.IsExpanded(Card));
+            Assert.Same(graph, services.Eye.Graph);
+            Assert.True(services.Eye.Rev > rev);
+            Assert.Equal(14, services.Eye.Placement.Hidden[Card]);
+            Assert.True(services.Eye.Placement.Of("app:0a1b2c3d:out1").IsEmpty);
+            Assert.Equal("OPEN CLUSTER", vm.EyeClusterWords);
+            // Folded, it stays folded: the facts read again, a focus on one of its things, a wider canvas — none opens it.
+            services.Eye.Refresh();
+            var focus = services.Eye.Focus("app:0a1b2c3d:out7");
+            Assert.True(focus.Ok);
+            Assert.EndsWith("Out 7 is folded in PlayMap Stage left's card — open its cluster to see it.", focus.Message, StringComparison.Ordinal);
+            Assert.Equal(services.Eye.Placement.Of(Card), services.Eye.Placement.Around("app:0a1b2c3d:out7", services.Eye.Shown));   // the focus fits its card
+            Assert.False(services.Eye.Placement.IsExpanded(Card));
+            services.Eye.SetCanvas(3000, 2000);
+            Assert.False(services.Eye.Placement.IsExpanded(Card));
+            using (var state = Payload(Send(router, "STATUS")))
+            {
+                var row = state.RootElement.GetProperty("eye");
+                Assert.Empty(row.GetProperty("expanded").EnumerateArray());
+                Assert.Equal(14, row.GetProperty("left").GetProperty("items").GetInt32());
+                Assert.Equal(new[] { "left", "problemsCounted" }, row.EnumerateObject().Select(o => o.Name).TakeLast(2));   // appended at the end of the row
+                Assert.Equal(services.Eye.Graph.Things, row.GetProperty("things").GetInt32());
+                Assert.Equal(services.Eye.Graph.CountedProblems, row.GetProperty("problemsCounted").GetInt32());
+            }
+            // A second fold changes nothing and says so.
+            var again = services.Eye.Cluster(Card, open: false);
+            Assert.False(again.Ok);
+            Assert.Contains("already folded", again.Message, StringComparison.Ordinal);
+
+            // The card's right-click menu is the side card's press: the same edit, no wire word.
+            var menu = vm.MenuFor("eye", g.Find(Card)!);
+            Assert.NotNull(menu);
+            var entry = menu!.Find("eye.cluster");
+            Assert.NotNull(entry);
+            Assert.Equal("Open its cluster", entry!.Entry.Text);
+            Assert.Equal("", entry.Entry.Wire);
+            entry.ChooseCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Eye.Placement.IsExpanded(Card));
+            Assert.Equal("FOLD CLUSTER", vm.EyeClusterWords);
+            // The assistant reads the same picture: PlayMap's things marked as another app's, and what the band leaves out.
+            var brief = services.Eye.BriefLines();
+            Assert.Contains(brief, l => l.StartsWith("NETWORK · VIDEO · ShowAppItem: Out 7 (another app's, not counted) — red", StringComparison.Ordinal));
+            Assert.Contains(brief, l => l.StartsWith("The Eye's picture: 1 of 2 apps open · 2 things not drawn", StringComparison.Ordinal));
+
+            // An app with nothing to draw, and this desk's own things, have no cluster: refused with the reason, no entry, no button.
+            Assert.Contains("names no things", services.Eye.Cluster("app:77aa77aa", open: true).Message, StringComparison.Ordinal);
+            Assert.Contains("no other app's card", services.Eye.Cluster(EyeGraph.DeskId, open: true).Message, StringComparison.Ordinal);
+            Assert.Null(vm.MenuFor("eye", g.Find("app:77aa77aa")!)!.Find("eye.cluster"));
+            vm.EyeSelectCommand.Execute(EyeGraph.DeskId);
+            Assert.False(vm.EyeCanCluster);
+
+            // The page's canvas: a canvas too small to read the band opens nothing it was not asked to and says marks only.
+            services.Eye.SetCanvas(400, 260);
+            Assert.Equal((400.0, 260.0), (services.Eye.CanvasW, services.Eye.CanvasH));
+            Assert.True(services.Eye.Placement.IsExpanded(Card));                                  // opened by hand: it stays open
+            Assert.True(services.Eye.Placement.MarksOnly);
+            Assert.Contains("marks only", services.Eye.Placement.Note, StringComparison.Ordinal);
+        }
+        finally
+        {
+            services.Eye.AppsOverride = null;
+            b.Dispose();
+        }
+    }
 }

@@ -952,12 +952,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var refused = Kernel.Stagewatch.PendingFingerprint.Length > 0;
         var whose = Kernel.Stagewatch.PendingPinKey;
         bool Refused(EyeShowApp a) => refused && a.KindWords == "Stagewatch" && (whose.StartsWith("node:", StringComparison.Ordinal) ? a.Id == whose[5..] : a.Linked);
-        var speaker = State.Control.Stagewatch.FollowStage ? Stage?.SpeakerLine ?? "" : "";
+        var follows = State.Control.Stagewatch.FollowStage;
+        var speaker = follows ? Stage?.SpeakerLine ?? "" : "";
         return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink)
             // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
             .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
             // Where this desk's last speaker message went, on the Stagewatch the stage follows: the Eye's node and the assistant's facts read it.
             .Select(a => a.Linked && a.KindWords == "Stagewatch" && speaker.Length > 0 ? a with { Speaker = speaker } : a)
+            // (profile 13.1): the Stagewatch the stage follows is one the show needs — the Eye counts its card on the rail.
+            .Select(a => a.Linked && a.KindWords == "Stagewatch" && follows ? a with { Needed = true } : a)
             .Concat(ShowBusView.Nodes(Twin.NodeContexts(utcNow), utcNow))                // round 88: the desk's own nodes, each from its own context (L52)
             .ToList();
     }
