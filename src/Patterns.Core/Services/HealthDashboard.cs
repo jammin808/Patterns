@@ -248,6 +248,11 @@ public static class HealthDashboard
         {
             return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Red, "MAIN SILENT", f.BeaconWatch);
         }
+        // A granted window on air a takeover would show black is amber, never above a red: a silent main machine outranks it.
+        if (f.TwinRole != TwinRole.Off && f.TwinWindowsCheck.Lacking)
+        {
+            return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Amber, f.TwinWindowsCheck.Value, "FIX: " + f.TwinWindowsCheck.Words);
+        }
         if (!f.WatchdogEnabled) return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Amber, "off", "a crash would end the show — STABILITY below");
         if (f.WatchdogRestarts > 0)
         {

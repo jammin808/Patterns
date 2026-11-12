@@ -108,6 +108,28 @@ Each names the failure, what the room should see, and the lines that should be i
     receipt says delivered, MAIN says `no box said yes — delivered is not switched` and stops with
     STANDBY up; at Accepted the same press releases it. A takeover by itself on that cue is
     refused before the cue fires, with the reason on the line.
+23. **Take over with a granted Stagewatch window and a kept page on air** (round 96; a Stagewatch
+    2.22 or later on the network, linked by key to both desks). Before the show: the window
+    (`lobby`) is granted to MAIN only and is on the programme or a screen's own picture, and a
+    kept page (`kept://…`) is on another screen; SEND SECRETS off on a standby on another machine.
+    Expected before the failure: MAIN's Super Check row *Twin windows* is amber and says
+    `Stagewatch lobby is on air (…) and granted to this desk, not to its standby … — a takeover
+    shows black there: Stagewatch → window grant lobby <STANDBY's Show Bus id>`; STANDBY's own row
+    says `Stagewatch lobby is on air at <MAIN> (…) and not granted to this desk — a takeover shows
+    black there: Stagewatch → window grant lobby <its own id>`, followed by `NODES ASK WINDOW lobby`
+    (asked from STANDBY itself while its Stagewatch link is up); the twin rows say STANDBY is
+    without the kept page, and STATE's `twin.windows` carries the same words on each desk. Kill
+    MAIN's process: the wall shows `lobby` black on STANDBY (never a placeholder card, never
+    Stagewatch's "address replaced" notice, never another window) and the kept page black until it
+    is pasted on STANDBY; STANDBY's row now says it as it is — `Stagewatch lobby is on air here (…)
+    and black — no grant of this desk's own opens it: …` — and its health line names both. Then
+    grant `lobby` to STANDBY on Stagewatch (`window grant lobby <id>`, or STANDBY's `NODES ASK
+    WINDOW lobby` approved there), take back, and repeat the kill: MAIN's row is green (`1 on air ·
+    held by …`) before the failure, and after the takeover the window comes up on STANDBY from its
+    own grant, at its own address, ready-gated as any granted page — STANDBY's row amber `lobby not
+    ready here` with the browser's reason until its page is ready, then green `1 on air · open
+    here`. Neither machine's log, journal, STATE, twin line (`WINDOWS` carries ids only) or a
+    support bundle carries either window address or the page's pass.
 
 ## What decides
 

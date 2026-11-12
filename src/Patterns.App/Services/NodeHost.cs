@@ -719,6 +719,9 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
 
     IActionLayer ITwinHost.Actions => Actions;
 
+    // A follower has no air of its own: the show it mirrors is all it shows.
+    ShowState ITwinHost.AirState => Kernel.State;
+
     // A node sends to no box: a wall switch fired here has nothing to wait for.
     long ITwinHost.DeviceMark() => 0;
 

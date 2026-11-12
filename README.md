@@ -504,7 +504,7 @@ fault containment, and settings that can never brick startup.
   standby is on the same machine (round 89: off by default, refused to another machine whatever
   the setting, since the link is plain); the standby keeps its own where the wire is blank, and
   both desks say what it is without. `docs/DRILL.md` is the redundancy's
-  release gate: twenty-two scenarios in a real room, filmed. `docs/PLAN.md` §62.
+  release gate: twenty-three scenarios in a real room, filmed. `docs/PLAN.md` §62.
 - **The hand-back answered, and a fence that answers** — HANDBACK names itself and the standby
   answers RELEASED by that name once its outputs are closed; the main counts it released on the
   answer, its marker gone or its process gone, never on the line having been written, and a

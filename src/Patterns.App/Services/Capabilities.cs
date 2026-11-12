@@ -17,6 +17,9 @@ public interface ITwinHost
 {
     IActionLayer Actions { get; }
     string AirLabel { get; }
+
+    /// <summary>What the audience sees: the programme (the frozen clone while EDIT SAFE is open), never the edited preview — the granted windows a takeover must open are read from it.</summary>
+    ShowState AirState { get; }
     CueStackService CueStack { get; }
     bool OutputsLive { get; }
     string OutputsHeldBy { get; set; }
@@ -52,6 +55,12 @@ public interface ITwinHost
 
     /// <summary>The receipts of every line sent since the mark, once each has landed or timed out.</summary>
     Task<IReadOnlyList<DeviceReceipt>> DeviceConfirmSince(long mark);
+
+    /// <summary>
+    /// Whether a window Stagewatch granted this desk is ready on air here — its page as this desk's browser reads it (Show Bus 1.3 §12.9),
+    /// never the show's word. A node opens no window of its own.
+    /// </summary>
+    WindowReadiness WindowReadiness(StagewatchGrant grant) => new(false, "a node opens no Stagewatch window of its own");
 
     /// <summary>Round 88: the Stagewatch this process's stage follows — a desk relays it to its followers.</summary>
     StagewatchSight FollowedStagewatch => StagewatchSight.None;

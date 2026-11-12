@@ -2074,6 +2074,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     long ITwinHost.DeviceMark() => Devices.Mark();
 
+    WindowReadiness ITwinHost.WindowReadiness(StagewatchGrant grant) => StagewatchWindows.Readiness(grant);
+
     int ITwinHost.DeviceSentSince(long mark) => Devices.SentSince(mark);
 
     Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Devices.ConfirmSince(mark);

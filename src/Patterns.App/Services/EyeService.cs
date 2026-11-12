@@ -647,7 +647,7 @@ public sealed class EyeService
                     TwinPhase.MainSilent or TwinPhase.Refused => CheckLight.Red,
                     _ => CheckLight.Grey,
                 };
-            if (light == CheckLight.Green && _s.Twin.WithoutWords.Length > 0) light = CheckLight.Amber;   // round 89: a standby without the show's secrets; the words name what
+            if (light == CheckLight.Green && (_s.Twin.WithoutWords.Length > 0 || _s.Twin.WindowsReport.Lacking)) light = CheckLight.Amber;   // round 89: a standby without the show's secrets; or a granted window on air a takeover shows black; the words name what
             twin = new EyeTwin(isMain ? "main" : "standby", phase.ToString(), other, _s.Twin.GlanceWords, light);
         }
 

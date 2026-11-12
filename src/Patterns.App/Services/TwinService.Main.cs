@@ -450,6 +450,16 @@ public sealed partial class TwinService
                     // Round 89: what the standby says it is without — counts only; the main's line, STATE and the Super Check say it too.
                     if (TwinSecretsLack.Parse(msg.Payload) is { } lack) standby.Lack = lack;
                 }
+                else if (msg.Word == TwinWord.Windows)
+                {
+                    // Show Bus 1.3 §12 on the twin: the windows a Stagewatch granted the standby itself — ids only. A word that does not
+                    // read is a standby that has not said, never one that holds everything: the Super Check names what is on air here.
+                    // Said once while its words stay unreadable, again only after one read: a standby repeating a bad word writes one line.
+                    var windows = TwinWindowsHeld.Parse(msg.Payload);
+                    if (windows is null && !standby.WindowsUnread) Log.Warn($"Twin: {standby.Name}'s WINDOWS word could not be read; it is taken as not said until one reads.");
+                    standby.WindowsUnread = windows is null;
+                    standby.Windows = windows;
+                }
                 else if (standby.HoldsShow && msg.Word == TwinWord.Kept)
                 {
                     // Round 89: the passes of the pages the show the standby has names, sent after that show — a page pasted
@@ -562,6 +572,17 @@ public sealed partial class TwinService
         public bool? Rides { get; set; }
 
         private TwinSecretsLack? _lack;
+        private TwinWindowsHeld? _windows;
+
+        /// <summary>Whether its last WINDOWS word could not be read — set and read on its read loop alone, so the log says it once per run of bad words.</summary>
+        public bool WindowsUnread { get; set; }
+
+        /// <summary>The windows a Stagewatch granted it itself, as its WINDOWS word last said (set on its read loop, read on the UI thread); null before it said.</summary>
+        public TwinWindowsHeld? Windows
+        {
+            get => Volatile.Read(ref _windows);
+            set => Volatile.Write(ref _windows, value);
+        }
 
         /// <summary>Round 89: what it last said it is without (its LACKS word) — set on its read loop, read on the UI thread; null before it said.</summary>
         public TwinSecretsLack? Lack

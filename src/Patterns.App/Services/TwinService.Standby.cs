@@ -168,6 +168,7 @@ public sealed partial class TwinService
                 _lastHeardUtc = now;
                 _note = "";
                 _welcomedThisLink = true;
+                SendWindows();                                                    // the main reads which windows this desk holds from the welcome on, not a beat later
                 if (_phase == TwinPhase.TookOver) SendWhatIHave();
                 // A caller's own cues, planned before the desk's show lands over them: kept, and
                 // offered once the show is here — the desk decides.
@@ -418,6 +419,7 @@ public sealed partial class TwinService
         _mainProved = false;
         _welcomedThisLink = false;                                                // the next link is told what is missing again
         _lackSent = "";
+        _windowsSent = "";                                                        // and which windows it holds
         try { client?.Dispose(); } catch { /* already down */ }
         // The next link measures the clocks afresh; the room clock keeps the last frame it knew — a jump would be worse than a stale offset.
         _linkClock = new LinkClock();

@@ -201,6 +201,11 @@ public sealed class CheckFacts
     public string TwinWithout { get; init; } = "";
     /// <summary>Round 89: the twin's port was wanted and is closed — a bind that is not an address, a port another program holds.</summary>
     public bool TwinPortClosed { get; init; }
+    /// <summary>
+    /// Show Bus 1.3 §12 on the twin: the granted windows a takeover would open — on a main, read against each standby's
+    /// WINDOWS word; on a standby, against its own grants. <see cref="TwinWindowsReport.None"/> when there is nothing to say.
+    /// </summary>
+    public TwinWindowsReport TwinWindowsCheck { get; init; } = TwinWindowsReport.None;
 
     /// <summary>The show lock as it stands; null when the app did not report it (no row).</summary>
     public LockReport? ShowLock { get; init; }
@@ -654,6 +659,11 @@ public static class SuperCheck
         if (f.TwinRole != TwinRole.Off)
         {
             rows.Add(new CheckRow(s, "Twin", TwinLight(f.TwinPhase, f.TwinWithout, f.TwinPortClosed), TwinValue(f.TwinRole, f.TwinPhase, f.TwinWithout, f.TwinPortClosed), f.TwinWords));
+            // A granted window on air belongs to the node it was granted to — a standby without its own grant shows black
+            // there after a takeover; the row names each window and the grant Stagewatch is asked for, before the show.
+            var windows = f.TwinWindowsCheck;
+            if (windows.Value.Length > 0)
+                rows.Add(new CheckRow(s, TwinWindows.Item, windows.Lacking ? CheckLight.Amber : CheckLight.Green, windows.Value, windows.Lacking ? "FIX: " + windows.Words : windows.Words));
         }
         if (f.ShowLock is { } held) rows.Add(new CheckRow(s, "Show lock", held.Light(f.OutputsLive), held.Value, held.Summary));
         PrivatePages(f, rows, s);

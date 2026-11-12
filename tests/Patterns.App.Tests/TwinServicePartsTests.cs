@@ -11,7 +11,7 @@ public class TwinServicePartsTests
 {
     private const int PageLines = 900;
 
-    private static readonly string[] Parts = { "TwinService.cs", "TwinService.Main.cs", "TwinService.Handover.cs", "TwinService.Standby.cs", "TwinService.Followers.cs" };
+    private static readonly string[] Parts = { "TwinService.cs", "TwinService.Main.cs", "TwinService.Handover.cs", "TwinService.Standby.cs", "TwinService.Followers.cs", "TwinService.Windows.cs" };
 
     private static string? RepoRoot()
     {

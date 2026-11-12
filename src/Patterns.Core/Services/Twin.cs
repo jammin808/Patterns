@@ -69,6 +69,14 @@ public enum TwinWord
     /// its mirrored show uses (<see cref="TwinSecretsLack"/> JSON — counts only), so the main's line says it too.
     /// </summary>
     Lacks,
+    /// <summary>
+    /// Show Bus 1.3 §12 on the twin: standby → main, once on each link after the welcome and whenever it changes: the windows a
+    /// Stagewatch granted this standby itself whose address reached it (<see cref="TwinWindowsHeld"/> JSON — its node id and the
+    /// held forms, never a path). A grant belongs to a node, and the plain twin link carries no grant's address either way; the
+    /// main reads this word against the granted windows its air shows, so its Super Check names each one a takeover would show
+    /// black. An older main ignores the word, as it ignores any word it does not know.
+    /// </summary>
+    Windows,
 }
 
 /// <summary>
@@ -107,6 +115,7 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "KEPT" => TwinWord.Kept,
             "SECRETS" => TwinWord.Secrets,
             "LACKS" => TwinWord.Lacks,
+            "WINDOWS" => TwinWord.Windows,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";

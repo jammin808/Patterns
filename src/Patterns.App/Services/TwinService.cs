@@ -276,11 +276,13 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     var silent = standbys.Where(s => TwinWatch.IsSilent(s.Beat, now)).Select(s => s.Name).ToList();
                     var apart = ClockApartWords.Length > 0 ? " · CLOCKS APART" : "";
                     var without = string.Concat(StandbysWithout().Select(w => $" · {w.Name} {w.Lack.Glance}"));   // round 89: a standby without the show's secrets
+                    if (WindowsReport.Lacking) without += " · " + WindowsGlance;                                      // a granted window on air a takeover shows black
                     return (silent.Count > 0 ? $"TWIN main · {string.Join(", ", silent)} SILENT" : $"TWIN main · {standbys.Count} standby in step") + without + apart;
                 }
                 case TwinRole.Standby when !IsFollowerNode:                    // a follower links as a standby does, and its words below are its own
                 {
                     var without = _lack.Any ? " · " + _lack.Glance : "";       // round 89: what this standby is without of the show's secrets
+                    if (WindowsReport.Lacking) without += " · " + WindowsGlance;   // a granted window on air it holds no grant of
                     return _phase switch
                     {
                         TwinPhase.TookOver => "TWIN standby · TOOK OVER" + without,
@@ -336,7 +338,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                         clocks = _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset, s.Clock.Error)).ToList();
                     }
                     return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote, clocks, _listenAt,
-                        StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why)).ToList());
+                        StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why)).Concat(WindowsSentence()).ToList());
                 case TwinRole.Off when _hosting:
                 {
                     List<string> callers;
@@ -384,12 +386,12 @@ public sealed partial class TwinService : IDisposable, ILinkReport
 
     /// <summary>Round 89: this standby's own words for what it is without of the show's secrets, and why; "" with nothing missing or on a follower.</summary>
     private string StandbyWithoutWords()
-        => IsFollowerNode || !_lack.Any ? "" : TwinSecrets.OnStandby(_lack, _secretsOffer?.Why ?? TwinSecrets.Off, _mainName);
+        => IsFollowerNode ? "" : WithWindows(_lack.Any ? TwinSecrets.OnStandby(_lack, _secretsOffer?.Why ?? TwinSecrets.Off, _mainName) : "");   // and a granted window on air it holds no grant of
 
     /// <summary>Round 89: the twin's words on the show's secrets while the link is in step — a standby's own, or a main's for each standby without them.</summary>
     private string WithoutSentences() => _role switch
     {
-        TwinRole.Main => string.Join(" ", StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why))),
+        TwinRole.Main => string.Join(" ", StandbysWithout().Select(w => TwinSecrets.OnMain(w.Name, w.Lack, w.Why)).Concat(WindowsSentence())),
         TwinRole.Standby => StandbyWithoutWords(),
         _ => "",
     };
@@ -457,6 +459,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             apart = ClockApartWords.Length > 0,
             secrets = SecretsWord,                                         // round 89: whether the show's secrets ride the link — appended at the end
             without = WithoutWords,
+            windows = WindowsWords,                                        // the granted windows on air a takeover would show black — appended at the end
         };
     }
 
@@ -501,6 +504,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
             },
             secrets = SecretsWord,                                         // round 89: whether the show's secrets ride the link, and what a standby is without
             without = WithoutWords,
+            windows = WindowsWords,                                        // the granted windows on air a takeover would show black — appended at the end
         });
     }
 
@@ -851,6 +855,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
                     if (_stream is not null)
                     {
                         SendLack();
+                        SendWindows();                                                            // the windows Stagewatch granted this desk itself, on change
                         SendMyContext();                                                          // round 88: a node's own context to its desk, every five seconds
                         var seq = Interlocked.Increment(ref _beat);
                         _ = Task.Run(() => TryWriteToMain(TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, Clock().Ticks, Interlocked.Read(ref _lastMainSentTicks), Interlocked.Read(ref _lastMainReceivedTicks)).Format())), CancellationToken.None);
