@@ -345,7 +345,7 @@ public sealed class RunViewModel : Observable
         var r = _s.VideoOnAir();
         var chip = r is null ? "" : VideoClock.Chip(r);
         var outNow = r is not null && r.InLast(VideoClock.OutWarningSeconds);
-        var tip = r is null ? "" : $"{VideoClock.Describe(r)} — the panel's ⏭ LAST 10 s and ⟲ RESTART move it; VIDEO END / VIDEO RESTART on the wire";
+        var tip = r is null ? "" : $"{VideoClock.Words(r)} — the panel's ⏭ LAST 10 s and ⟲ RESTART move it; VIDEO END / VIDEO RESTART on the wire";
         if (chip != _videoChip)
         {
             var had = HasVideo;

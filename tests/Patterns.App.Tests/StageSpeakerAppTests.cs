@@ -511,6 +511,15 @@ public class StageSpeakerAppTests
 
     private static StageMessage Last(TestApp.Booted b) => b.Services.AirState.Stage.Messages.Last();
 
+    /// <summary>
+    /// The last message is on the Stagewatch's stage as this desk reads it: its receipt came and a frame names its signal.
+    /// The two travel apart — the answer on the call, the frame on the socket — and a clear asks the Stagewatch only of a
+    /// message its frame names, so a test that clears next waits for both.
+    /// </summary>
+    private static void OnTheirStage(TestApp.Booted b)
+        => PumpUntil(() => Last(b) is { SwAck: "sent", SwMessageId: > 0 } m && b.Services.FollowedStagewatch.Message.Id == m.SwMessageId,
+            20000, () => $"{Last(b).SwAck} #{Last(b).SwMessageId}, the frame names #{b.Services.FollowedStagewatch.Message.Id}");
+
     // ---- with a node key -----------------------------------------------------------------------------------------------
 
     [AvaloniaFact]
@@ -1337,7 +1346,7 @@ public class StageSpeakerAppTests
             // A cue's STAGE CLEAR of this desk's message on the Stagewatch's stage: Requested, one receipt awaited, never Done
             // by the clock — Done on the clear's receipt.
             Sent(b, "On their stage");
-            PumpUntil(() => Last(b).SwAck == "sent");
+            OnTheirStage(b);
             sw.HoldNext();
             clock = clock.AddSeconds(5);
             var fired = GoClear(b, "02");
@@ -1353,7 +1362,7 @@ public class StageSpeakerAppTests
 
             // Refused: FailedLate, with the Stagewatch's words — the message may still be on its screen.
             Sent(b, "On their stage again");
-            PumpUntil(() => Last(b).SwAck == "sent");
+            OnTheirStage(b);
             (sw.SpeakerStatus, sw.SpeakerWords) = (409, "The stage is locked by the showcaller.");
             clock = clock.AddSeconds(5);
             Assert.Equal(ActionStatus.Requested, GoClear(b, "03").Status);

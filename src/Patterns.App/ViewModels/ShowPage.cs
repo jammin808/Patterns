@@ -130,6 +130,8 @@ public sealed class ShowPage : Observable
     private double _videoClockFraction;
     private bool _videoClockOut;
     private bool _hasVideoClock;
+    private bool _videoPausable;
+    private bool _videoStoppable;
 
     /// <summary>"VT", "AUDIO", "STINGER CLIP", "PLAYLIST" — what kind of clip the clock reads.</summary>
     public string VideoClockTag { get => _videoClockTag; private set => Set(ref _videoClockTag, value); }
@@ -152,6 +154,12 @@ public sealed class ShowPage : Observable
     /// <summary>A clip is on air: the panel shows the clock.</summary>
     public bool HasVideoClock { get => _hasVideoClock; private set => Set(ref _hasVideoClock, value); }
 
+    /// <summary>⏯ holds and releases the clip on air (STATE video.pausable): any clip that seeks, with the clock it runs on.</summary>
+    public bool VideoPausable { get => _videoPausable; private set => Set(ref _videoPausable, value); }
+
+    /// <summary>⏹ puts the clip on air back to its top, held (STATE video.stoppable): not a stinger's clip, whose stop is STINGER STOP.</summary>
+    public bool VideoStoppable { get => _videoStoppable; private set => Set(ref _videoStoppable, value); }
+
     /// <summary>The one line: "VT sponsor.mp4 · 1:02 / 3:30 · 2:28 left".</summary>
     public string VideoClockText => HasVideoClock ? $"{VideoClockTag} {VideoClockName} · {VideoClockTimes}" : "";
 
@@ -168,6 +176,8 @@ public sealed class ShowPage : Observable
             VideoClockCall = "";
             VideoClockFraction = 0;
             VideoClockOut = false;
+            VideoPausable = false;
+            VideoStoppable = false;
             return;
         }
         VideoClockTag = VideoClock.Tag(r);
@@ -176,6 +186,8 @@ public sealed class ShowPage : Observable
         VideoClockCall = VideoClock.Call(r);
         VideoClockFraction = r.Fraction;
         VideoClockOut = r.InLast(VideoClock.OutWarningSeconds);
+        VideoPausable = r.Pausable;
+        VideoStoppable = r.Stoppable;
         HasVideoClock = true;
     }
 

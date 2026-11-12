@@ -48,6 +48,7 @@ public static class DeskMenuFacts
             HasMidiSurface = s.MidiLearn.HasSurface,
             MidiSurfaceOpen = s.MidiLearn.SurfaceOpen,
             MidiLearning = s.MidiLearn.Wire,
+            Clip = s.VideoOnAir(),
         };
     }
 

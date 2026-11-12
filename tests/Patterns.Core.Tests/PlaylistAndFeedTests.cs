@@ -168,6 +168,270 @@ public class PlaylistSequencerTests
         Assert.Equal("b.png", seq.Current!.Path);
     }
 
+    // ---- the hold: a playlist item paused with its clip (VIDEO PAUSE / STOP on a playlist video) ----
+
+    [Fact]
+    public void AHeldItemDoesNotAdvanceAtItsEndAndTheReleaseMovesItsStartByTheHeldSpan()
+    {
+        var o = Options("v.mp4", "b.png");
+        o.Items[0].DurationSeconds = 30;
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        Assert.Equal("v.mp4", seq.Current!.Path);
+        Assert.False(seq.Held);
+
+        // Held ten seconds in: a second hold changes nothing, and its end time passes with nothing moved.
+        Assert.True(seq.Hold(Utc0.AddSeconds(10)));
+        Assert.True(seq.Held);
+        Assert.False(seq.Hold(Utc0.AddSeconds(12)));
+        Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(31), false, 0));
+        Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(300), videoEnded: true, 0));   // not even an end the decoder claims
+        Assert.Equal("v.mp4", seq.Current!.Path);
+        Assert.Equal(Utc0, seq.ItemStartedUtc);                                          // the start stands while held…
+        Assert.Equal(10, seq.ItemElapsedSeconds(Utc0.AddSeconds(300)), 3);               // …and the item's own clock reads where it was held
+
+        // Released 290 s later: the start moved on by exactly the held span, so twenty seconds are left, as they were.
+        Assert.True(seq.Release(Utc0.AddSeconds(300)));
+        Assert.False(seq.Held);
+        Assert.False(seq.Release(Utc0.AddSeconds(301)));
+        Assert.Equal(Utc0.AddSeconds(290), seq.ItemStartedUtc);
+        Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(319), false, 0));
+        Assert.True(seq.Tick(o, Local0, Utc0.AddSeconds(320.1), false, 0));
+        Assert.Equal("b.png", seq.Current!.Path);
+    }
+
+    [Fact]
+    public void NothingIsHeldWithNoItemOnAndAClockSetUnderAHoldCountsFromThere()
+    {
+        var seq = new PlaylistSequencer();
+        Assert.False(seq.Hold(Utc0));                       // no item on: nothing to hold
+        Assert.False(seq.Release(Utc0));
+
+        var o = Options("v.mp4", "b.png");
+        o.Items[0].DurationSeconds = 30;
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+
+        // STOP on a playlist item: its clock restarted under the hold, at the top — the release adds only what follows.
+        Assert.True(seq.Hold(Utc0.AddSeconds(10)));
+        Assert.True(seq.RestartItem(Utc0.AddSeconds(40)));
+        Assert.Equal(Utc0.AddSeconds(40), seq.HeldSinceUtc);
+        Assert.Equal(0, seq.ItemElapsedSeconds(Utc0.AddSeconds(100)), 3);
+        Assert.True(seq.Release(Utc0.AddSeconds(100)));
+        Assert.Equal(Utc0.AddSeconds(100), seq.ItemStartedUtc);
+        Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(129), false, 0));
+        Assert.True(seq.Tick(o, Local0, Utc0.AddSeconds(130.1), false, 0));
+
+        // A seek under a hold (VIDEO SEEK while paused): five seconds left as of the seek, and still five at the release.
+        seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        seq.Tick(o, Local0, Utc0.AddSeconds(1), false, 0);  // the item's length is known to the sequencer from a tick
+        Assert.True(seq.Hold(Utc0.AddSeconds(10)));
+        Assert.True(seq.EndItemIn(5, Utc0.AddSeconds(50)));
+        Assert.True(seq.Release(Utc0.AddSeconds(200)));
+        Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(204), false, 0));
+        Assert.True(seq.Tick(o, Local0, Utc0.AddSeconds(205.1), false, 0));
+    }
+
+    [Fact]
+    public void AnItemThatReplacesAHeldOneRuns()
+    {
+        var o = Options("v.mp4", "b.png");
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        Assert.True(seq.Hold(Utc0.AddSeconds(5)));
+
+        // A rebuild that keeps the held item keeps the hold; one that drops it drops the hold with it.
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, new[] { "c.png" }, true), Utc0.AddSeconds(6));
+        Assert.True(seq.Held);
+        var other = Options("x.png", "y.png");
+        seq.SetOrder(PlaylistSequencer.BuildOrder(other, other.Items, Array.Empty<string>(), true), Utc0.AddSeconds(7));
+        Assert.Equal("x.png", seq.Current!.Path);
+        Assert.False(seq.Held);
+    }
+
+    [Fact]
+    public void AScheduledEntryDueDuringAHoldFiresAtTheReleaseInsideItsWindowAndIsMissedPastIt()
+    {
+        var o = Options("v.mp4", "b.png", "promo.png", "late.png");
+        o.ImageDwellSeconds = 100000;
+        o.Items[0].DurationSeconds = 100000;
+        o.Items[2].ScheduledTime = "12:30";
+        o.Items[2].ScheduledDurationSeconds = 300;          // its window: five minutes from 12:30
+        o.Items[3].ScheduledTime = "12:31";
+        o.Items[3].ScheduledDurationSeconds = 20;           // its window: its own minute, never less
+        Assert.Equal(300, PlaylistSequencer.ScheduleWindowSeconds(o.Items[2]));
+        Assert.Equal(PlaylistSequencer.ScheduleMinuteSeconds, PlaylistSequencer.ScheduleWindowSeconds(o.Items[3]));
+
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        var day = new DateTime(2026, 8, 30);
+        DateTime At(int h, int m, int s) => day.AddHours(h).AddMinutes(m).AddSeconds(s);
+        DateTime UtcAt(int h, int m, int s) => Utc0.Add(At(h, m, s) - Local0);
+
+        // Held from 12:29: both minutes pass under the hold and neither entry takes the picture.
+        Assert.True(seq.Hold(UtcAt(12, 29, 0)));
+        Assert.False(seq.Tick(o, At(12, 30, 10), UtcAt(12, 30, 10), false, 0));
+        Assert.False(seq.Tick(o, At(12, 31, 10), UtcAt(12, 31, 10), false, 0));
+        Assert.Equal("v.mp4", seq.Current!.Path);
+        Assert.Empty(seq.TakeMissed());                     // nothing is missed while the hold may still end in time
+
+        // Released at 12:33: the promo is inside its five minutes and fires, whole; the 12:31 entry is past its minute — missed, not played late.
+        Assert.True(seq.Release(UtcAt(12, 33, 0)));
+        Assert.True(seq.Tick(o, At(12, 33, 0), UtcAt(12, 33, 0), false, 0));
+        Assert.Equal("promo.png", seq.Current!.Path);
+        Assert.Equal(300, seq.ItemDurationSeconds, 3);
+        Assert.False(seq.Tick(o, At(12, 33, 1), UtcAt(12, 33, 1), false, 0));
+        var missed = Assert.Single(seq.TakeMissed());
+        Assert.Equal("late.png", missed.Path);
+        Assert.Equal("12:31", missed.ScheduledTime);
+        Assert.Equal(At(12, 31, 0), missed.DueLocal);
+        Assert.Equal(At(12, 33, 1), missed.ReleasedLocal);
+        Assert.Empty(seq.TakeMissed());                     // said once
+        Assert.Equal("promo.png", seq.Current!.Path);       // and it never took the picture
+
+        // Neither fires again that day; both fire the next day at their minutes.
+        Assert.True(seq.Tick(o, At(12, 38, 5), UtcAt(12, 38, 5), false, 0));
+        Assert.Equal("v.mp4", seq.Current!.Path);
+        Assert.False(seq.Tick(o, At(12, 38, 6), UtcAt(12, 38, 6), false, 0));
+        Assert.True(seq.Tick(o, At(12, 30, 0).AddDays(1), UtcAt(12, 30, 0).AddDays(1), false, 0));
+        Assert.Equal("promo.png", seq.Current!.Path);
+        Assert.True(seq.Tick(o, At(12, 31, 0).AddDays(1), UtcAt(12, 31, 0).AddDays(1), false, 0));
+        Assert.Equal("late.png", seq.Current!.Path);
+    }
+
+    [Fact]
+    public void AHoldReleasedInsideTheEntrysOwnMinuteFiresItAsEver()
+    {
+        var o = Options("v.mp4", "promo.png");
+        o.Items[0].DurationSeconds = 100000;
+        o.Items[1].ScheduledTime = "12:30";
+        o.Items[1].ScheduledDurationSeconds = 10;
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        var at = new DateTime(2026, 8, 30, 12, 30, 0);
+
+        Assert.True(seq.Hold(Utc0.AddMinutes(29)));
+        Assert.False(seq.Tick(o, at.AddSeconds(5), Utc0.AddMinutes(30).AddSeconds(5), false, 0));
+        Assert.True(seq.Release(Utc0.AddMinutes(30).AddSeconds(20)));
+        Assert.True(seq.Tick(o, at.AddSeconds(20), Utc0.AddMinutes(30).AddSeconds(20), false, 0));
+        Assert.Equal("promo.png", seq.Current!.Path);
+        Assert.Empty(seq.TakeMissed());
+    }
+
+    [Fact]
+    public void AHeldScheduledInterruptionKeepsWhatWasLeftOfIt()
+    {
+        var o = Options("a.png", "promo.mp4");
+        o.ImageDwellSeconds = 100000;
+        o.Items[1].ScheduledTime = "12:30";
+        o.Items[1].ScheduledDurationSeconds = 60;
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        var at = new DateTime(2026, 8, 30, 12, 30, 0);
+        var fired = Utc0.AddMinutes(30);
+        Assert.True(seq.Tick(o, at, fired, false, 0));
+        Assert.Equal("promo.mp4", seq.Current!.Path);
+
+        // Held twenty seconds in for ten minutes: its end passes with the interruption still on; forty seconds are left at the release.
+        Assert.True(seq.Hold(fired.AddSeconds(20)));
+        Assert.False(seq.Tick(o, at.AddMinutes(5), fired.AddMinutes(5), false, 0));
+        Assert.Equal("promo.mp4", seq.Current!.Path);
+        Assert.True(seq.Release(fired.AddSeconds(620)));
+        Assert.Equal(60, seq.ItemDurationSeconds, 3);
+        Assert.False(seq.Tick(o, at.AddSeconds(659), fired.AddSeconds(659), false, 0));
+        Assert.True(seq.Tick(o, at.AddSeconds(661), fired.AddSeconds(661), false, 0));
+        Assert.Equal("a.png", seq.Current!.Path);
+    }
+
+    [Fact]
+    public void ASectionWhoseStartComesDuringAHoldTakesOverAtTheRelease()
+    {
+        var o = new PlaylistOptions();
+        o.Sections.Add(new PlaylistSectionConfig { Name = "Walk-in" });
+        o.Sections.Add(new PlaylistSectionConfig { Name = "Break", StartTime = "12:15" });
+        o.Sections[0].Items.Add(new PlaylistItemConfig { Path = "v.mp4" });
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Sections[0].Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+
+        Assert.True(seq.Hold(Utc0.AddMinutes(14)));
+        Assert.Null(seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 15, 10)));   // its minute, under the hold: the held picture stays
+        Assert.Null(seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 20, 0)));
+        Assert.True(seq.Release(Utc0.AddMinutes(25)));
+        Assert.Equal(1, seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 25, 0))); // a part is a state from its start on: late, not never
+        Assert.Null(seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 25, 1)));    // once
+    }
+
+    [Fact]
+    public void WhatWaitedUnderAHoldIsForgottenWhenItsPlaylistLeavesTheAir()
+    {
+        var o = new PlaylistOptions();
+        o.Sections.Add(new PlaylistSectionConfig { Name = "Walk-in" });
+        o.Sections.Add(new PlaylistSectionConfig { Name = "Break", StartTime = "12:15" });
+        o.Sections[0].Items.Add(new PlaylistItemConfig { Path = "v.mp4", DurationSeconds = 100000 });
+        o.Sections[0].Items.Add(new PlaylistItemConfig { Path = "promo.png", ScheduledTime = "12:16", ScheduledDurationSeconds = 300 });
+        o.Sections[0].Items.Add(new PlaylistItemConfig { Path = "late.png", ScheduledTime = "12:17", ScheduledDurationSeconds = 20 });
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Sections[0].Items.Take(1).ToList(), Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+        var day = new DateTime(2026, 8, 30);
+        DateTime At(int h, int m, int s) => day.AddHours(h).AddMinutes(m).AddSeconds(s);
+        DateTime UtcAt(int h, int m, int s) => Utc0.Add(At(h, m, s) - Local0);
+
+        // Held from 12:14: a section's start and two entries' minutes come under the hold.
+        Assert.True(seq.Hold(UtcAt(12, 14, 0)));
+        Assert.Null(seq.SectionDue(o, At(12, 15, 10)));
+        Assert.False(seq.Tick(o, At(12, 16, 10), UtcAt(12, 16, 10), false, 0));
+        Assert.False(seq.Tick(o, At(12, 17, 10), UtcAt(12, 17, 10), false, 0));
+
+        // The playlist leaves the air at 12:18 and its hold ends there: what waited was its own.
+        Assert.True(seq.Release(UtcAt(12, 18, 0)));
+        seq.ForgetWaiting();
+
+        // The next playlist on air, a minute or a day later: no stale part takes over, the entry still inside its
+        // window does not fire late, and the one past it is not reported with a release time that was never its own.
+        foreach (var later in new[] { At(12, 19, 0), At(12, 19, 0).AddDays(1) })
+        {
+            Assert.Null(seq.SectionDue(o, later));
+            seq.Tick(o, later, Utc0.Add(later - Local0), false, 0);
+            Assert.Equal("v.mp4", seq.Current!.Path);   // the cycle's own item, never an entry fired late
+            Assert.Equal(0, seq.CurrentIndex);
+            Assert.Empty(seq.TakeMissed());
+        }
+
+        // Nothing is spent for good: the next day each still comes at its own minute.
+        Assert.Equal(1, seq.SectionDue(o, At(12, 15, 0).AddDays(2)));
+        Assert.True(seq.Tick(o, At(12, 16, 0).AddDays(2), UtcAt(12, 16, 0).AddDays(2), false, 0));
+        Assert.Equal("promo.png", seq.Current!.Path);
+    }
+
+    [Fact]
+    public void ASectionForgottenInsideItsOwnMinuteMayStillTakeOverInIt()
+    {
+        var o = new PlaylistOptions();
+        o.Sections.Add(new PlaylistSectionConfig { Name = "Walk-in" });
+        o.Sections.Add(new PlaylistSectionConfig { Name = "Break", StartTime = "12:15" });
+        o.Sections[0].Items.Add(new PlaylistItemConfig { Path = "v.mp4" });
+        var seq = new PlaylistSequencer();
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Sections[0].Items, Array.Empty<string>(), true), Utc0);
+        seq.Tick(o, Local0, Utc0, false, 0);
+
+        // Off the air and back on inside the section's minute: the same as a playlist that came on air in that minute.
+        Assert.True(seq.Hold(Utc0.AddMinutes(14)));
+        Assert.Null(seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 15, 10)));
+        Assert.True(seq.Release(Utc0.AddMinutes(15).AddSeconds(20)));
+        seq.ForgetWaiting();
+        Assert.Equal(1, seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 15, 40)));
+        Assert.Null(seq.SectionDue(o, new DateTime(2026, 8, 30, 12, 15, 50)));
+    }
+
     [Theory]
     [InlineData("show.mp4", true)]
     [InlineData("SHOW.MOV", true)]

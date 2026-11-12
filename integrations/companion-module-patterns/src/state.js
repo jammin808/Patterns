@@ -181,6 +181,10 @@ export function variableValues(s) {
 		video_text: s.video?.text ?? '',
 		video_chip: s.video?.chip ?? '',
 		video_call: s.video?.call ?? '',
+		// What VIDEO PAUSE and VIDEO STOP do to the clip on air, as the desk says it: yes or no, 'no' with no clip, and
+		// empty for a clip whose desk does not say.
+		video_pausable: !s.video ? 'no' : s.video.pausable === true ? 'yes' : s.video.pausable === false ? 'no' : '',
+		video_stoppable: !s.video ? 'no' : s.video.stoppable === true ? 'yes' : s.video.stoppable === false ? 'no' : '',
 		audio_track: s.audio?.track ?? '',
 		audio_next: s.audio?.next ?? '',
 		audio_n: s.audio?.count ? String(s.audio.n || 0) : '',

@@ -174,6 +174,14 @@ public sealed class CommandRouter : IRouter
             case ShowActionKind.PresetSave:
             case ShowActionKind.LowerThirdNew:
             case ShowActionKind.EyeReplay:                                                       // round 84: the moment's words — a controller shows where the replay stands
+            // The clip's transport answers with what the clip did — and what held or ran on with it: "'opener.mp4' paused at
+            // 1:02 — the playlist holds with it; VIDEO PLAY runs both on" tells another app the pause was the playlist's too.
+            case ShowActionKind.VideoToEnd:
+            case ShowActionKind.VideoRestart:
+            case ShowActionKind.VideoPlay:
+            case ShowActionKind.VideoPause:
+            case ShowActionKind.VideoStop:
+            case ShowActionKind.VideoSeek:
                 return result.Ok ? ControlProtocol.Ok(result.Message.Length > 0 ? result.Message : null) : ControlProtocol.Err(result.Message);
             default:
                 return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);
@@ -261,6 +269,11 @@ public sealed class CommandRouter : IRouter
             rate = Math.Round(r.Rate, 3),                                  // what is left in wall time is remainingMs / rate
             seekable = r.CanSeek,
             seq,                                                           // moves on every discontinuity: a new clip, a pause, a seek, the end
+            // What VIDEO PAUSE and VIDEO STOP do to this clip, for another app to read before it asks: a playlist item
+            // true and true (the playlist holds with it), a stinger's clip true and false (STINGER STOP is its stop),
+            // a live source or a decoder not open false and false.
+            pausable = r.Pausable,
+            stoppable = r.Stoppable,
         };
     }
 

@@ -443,6 +443,38 @@ test("round 94 — the speaker's one message: where it is and its receipt read a
 	for (const ack of ['requested', 'accepted', 'sent', 'seen', 'done', 'refused', 'unconfirmed', 'not-sent']) assert.equal(askFeedback(old, 'stage_speaker_ack_is', { ack }), false)
 })
 
+test("round 94 — what the transport can do to the clip on air: pausable and stoppable read as variables and light a key by the clip's role; no clip and an older desk say so", async () => {
+	// The fixture has no clip on air: nothing to pause, nothing to stop.
+	const none = await boot()
+	assert.equal(none.ctx.variables.video_pausable, 'no')
+	assert.equal(none.ctx.variables.video_stoppable, 'no')
+	assert.equal(askFeedback(none, 'video_can', { mode: 'PAUSE' }), false)
+	const clip = { file: 'opener.mp4', role: 'playlist', tag: 'PLAYLIST', position: 62, length: 210, remaining: 148, positionText: '1:02', lengthText: '3:30', remainingText: '2:28', text: 'PLAYLIST opener.mp4 · 1:02 / 3:30 · 2:28 left', chip: 'VT 2:28', playing: true, ended: false, loops: false, out: false, call: '', key: 'vid:opener.mp4', positionMs: 62000, lengthMs: 210000, remainingMs: 148000, paused: false, rate: 1, seekable: true, seq: 3 }
+	// A playlist item: both, since the playlist holds with it.
+	const playlist = sampleState()
+	playlist.video = { ...clip, pausable: true, stoppable: true }
+	const b = await boot({ state: playlist })
+	assert.equal(b.ctx.variables.video_pausable, 'yes')
+	assert.equal(b.ctx.variables.video_stoppable, 'yes')
+	assert.equal(askFeedback(b, 'video_can', { mode: 'PAUSE' }), true)
+	assert.equal(askFeedback(b, 'video_can', { mode: 'STOP' }), true)
+	// A stinger's clip: paused with its stinger, never stopped here — STINGER STOP is its stop.
+	const stinger = JSON.parse(JSON.stringify(playlist))
+	stinger.video = { ...clip, role: 'stinger', tag: 'STINGER CLIP', pausable: true, stoppable: false }
+	b.socket.receive('STATE ' + JSON.stringify(stinger) + '\n')
+	assert.equal(b.ctx.variables.video_pausable, 'yes')
+	assert.equal(b.ctx.variables.video_stoppable, 'no')
+	assert.equal(askFeedback(b, 'video_can', { mode: 'PAUSE' }), true)
+	assert.equal(askFeedback(b, 'video_can', { mode: 'STOP' }), false)
+	// A desk before round 94 says neither: empty, not a guess, and the key stays dark.
+	const older = sampleState()
+	older.video = { ...clip }
+	const old = await boot({ state: older })
+	assert.equal(old.ctx.variables.video_pausable, '')
+	assert.equal(old.ctx.variables.video_stoppable, '')
+	assert.equal(askFeedback(old, 'video_can', { mode: 'PAUSE' }), false)
+})
+
 test('a press is one line of the wire, spelt as docs/REMOTE.md has it', async () => {
 	const b = await boot()
 	const cases = [

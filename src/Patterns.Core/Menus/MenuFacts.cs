@@ -81,6 +81,12 @@ public sealed record DeskFacts
     /// <summary>G34: the Stagewatch link as the menus read it — on, which Stagewatch it dials, the stage's follow, what waits for a person.</summary>
     public MenuStagewatch Stagewatch { get; init; } = MenuStagewatch.Off;
 
+    /// <summary>
+    /// The clip on air as the transport reads it — null with none, and on a node. THE CLIP's entries
+    /// are disabled by the rule the wire refuses with (<see cref="VideoClock.WhyNot"/>), in its words.
+    /// </summary>
+    public VideoReading? Clip { get; init; }
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;

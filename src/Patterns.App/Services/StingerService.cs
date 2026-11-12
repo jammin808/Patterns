@@ -82,6 +82,8 @@ public sealed class StingerService : IDisposable
     private bool _mountWasEndedAtFire;                             // …and it had ended: its "ended" is the old ending until it rolls
     private double _lastPosition = -1;                             // the stuck-clip watch: where the clip was last seen moving
     private DateTime _positionMovedUtc;
+    private DateTime? _clipHeldSinceUtc;                           // an operator's hold on the clip (VIDEO PAUSE): the guards' clocks stand still from here
+    private string? _statusBeforeHold;                             // the status line the hold's words replaced, put back at the release
     private DateTime _lastFaultLoggedUtc = DateTime.MinValue;
 
     /// <summary>A leftover decoder told to play again gets this long to roll before the clip counts as unplayable.</summary>
@@ -112,6 +114,49 @@ public sealed class StingerService : IDisposable
 
     /// <summary>A stinger landed and is holding the screens until the operator takes them.</summary>
     public bool Holding => _holding;
+
+    /// <summary>The input key of the clip on the screens, or null with none: the one clip whose reading is a stinger's.</summary>
+    public string? ClipKey => ClipActive ? InputKeys.Video(_clipPath) : null;
+
+    /// <summary>The clip on the screens is held by an operator's VIDEO PAUSE: it does not end, and its guards do not count the hold.</summary>
+    public bool ClipHeld => ClipActive && _clipHeldSinceUtc is not null;
+
+    /// <summary>What the status line reads while the clip is held: the two ways on, and no name (the cue rows scan the line).</summary>
+    public const string ClipHeldStatus = "Clip held on screens — VIDEO PLAY runs it on; STINGER STOP puts the show back.";
+
+    /// <summary>
+    /// Holds or releases the stinger's clock with its clip (VIDEO PAUSE / VIDEO PLAY on a stinger's
+    /// clip). While held, the guards that put the show back for a clip that will not roll or has
+    /// stopped moving do not run — a held clip is still by an operator's hand, whatever its decoder
+    /// says of itself — and at the release their instants move on by the held span, so the first
+    /// tick after PLAY, with the position not yet moved, does not read the hold as a stall. The
+    /// status line says the clip is held, and how it goes on, for as long as it is. A hold answers
+    /// true when the clip is held after it; a release, true when it released a hold. False with no
+    /// clip on the screens.
+    /// </summary>
+    public bool HoldClip(bool hold, DateTime? nowUtc = null)
+    {
+        if (!ClipActive) return false;
+        var now = nowUtc ?? NowUtc();
+        if (hold)
+        {
+            if (_clipHeldSinceUtc is not null) return true;
+            _clipHeldSinceUtc = now;
+            _statusBeforeHold = _status;
+            _status = ClipHeldStatus;
+            NotifyChanged();
+            return true;
+        }
+        if (_clipHeldSinceUtc is not { } since) return false;
+        var span = now > since ? now - since : TimeSpan.Zero;
+        _positionMovedUtc += span;
+        _firedUtc += span;
+        _clipHeldSinceUtc = null;
+        if (_statusBeforeHold is { } before && _status == ClipHeldStatus) _status = before;
+        _statusBeforeHold = null;
+        NotifyChanged();
+        return true;
+    }
 
     /// <summary>
     /// Round 75: the picture the running clip covers on a target — what a LOCK pressed during the clip pins in
@@ -451,6 +496,8 @@ public sealed class StingerService : IDisposable
         _mountWasEndedAtFire = before is { IsEnded: true };
         _lastPosition = -1;
         _positionMovedUtc = now;
+        _clipHeldSinceUtc = null; // a hold is one firing's: this clip starts running
+        _statusBeforeHold = null;
 
         // Blackout is transport, never sandboxed: PublishBoth copies the live flag onto the
         // frozen program, so lifting it has to happen on the live state or it is overwritten.
@@ -512,6 +559,12 @@ public sealed class StingerService : IDisposable
         _overrideKey = ContentKey(_services.AirState);
         _clipPath = item.Path;
         _firedUtc = now;
+        // A decoder an earlier hold left paused would sit on its first frame with a session that
+        // never ends: this firing plays it.
+        if (before is { IsPaused: true } && !before.SetPaused(false))
+        {
+            Log.Warn($"The decoder already open for '{name}' was left paused and could not be told to play on.");
+        }
         if (before is not null && !_services.Video.RestartIfMounted(clipKey))
         {
             Log.Warn($"The decoder already open for '{name}' could not be told to play from the top.");
@@ -735,6 +788,10 @@ public sealed class StingerService : IDisposable
                 return;
             }
             if (video is { IsPlaying: true }) _mountWasEndedAtFire = false; // it rolled: any ending from here is this one
+
+            // Held by an operator: the clip is still by their hand, not stuck. Neither guard below
+            // counts the hold, whether the decoder says it plays under a pause or not.
+            if (_clipHeldSinceUtc is not null) return;
 
             // No decode after a while (libVLC missing, unreadable file): put the show back. A
             // stuck stinger never runs its after-policy — the clip never played, so moving the

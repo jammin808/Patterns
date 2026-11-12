@@ -108,6 +108,11 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
   UP key can go amber while it waits and green once the speaker has seen it. `stage_pending` keeps its meaning — the desk's
   own message waiting for its ACK — and clears once a message sent through the Stagewatch is answered there. A desk before
   round 94 sends none of the three: they read empty and the feedback lights for no word.
+  The clip's transport, the same round: `VIDEO PAUSE` now holds a playlist item with its playlist's clock and a
+  stinger's clip with its stinger's ending, and `VIDEO STOP` puts a playlist item and its clock back to the top, held —
+  a stinger's clip is still stopped by `STINGER STOP` alone. `video_pausable` and `video_stoppable` read what the desk
+  says of the clip on air (`yes` or `no`; `no` with no clip; empty for a clip whose desk does not say), and the
+  `video_can` feedback lights a PAUSE or a STOP key by them.
 - **3.20.0** — the Stagewatch link's own record (round 93, Show Bus 1.3 §13.16): `stagewatch_link_state` reads STATE's
   `bus.stagewatch.link.state` — off, finding, connecting, live, stale, down, held or refused — `stagewatch_link_light` its
   light (red, amber, green or grey) and `stagewatch_link_flags` its flags, comma-separated (`legacy` while the Stagewatch

@@ -1867,6 +1867,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             MediaFiles = state.MediaLibrary.Count,
             MediaNames = state.MediaLibrary.Where(m => m.Name.Trim().Length > 0).Select(m => m.Name.Trim()).ToList(),
             AudioNow = audioNow,
+            ClipNow = VideoClock.FactWords(s.VideoOnAir()),
             VogOnAir = s.Stingers.VogOnAir,
             StingOnAir = s.Stingers.StingOnAir,
             LowerThirdOnAir = lowerThird,
@@ -2332,7 +2333,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public string DeckSignature() => $"{Nodes.Rev}|{Twin.Phase}|{Twin.Holder}|{Stage.DeckSignature()}|{Control.Decks.Count}";
 
     public VideoReading? VideoOnAir()
-        => VideoClock.Read(Bus.Current, InputBus.For, Stingers is { ClipActive: true });
+    {
+        // A stinger's role is its own clip's alone, and "holds with it" is what is held, not what the role could hold.
+        var r = VideoClock.Read(Bus.Current, InputBus.For, Stingers?.ClipKey);
+        return r?.Role switch
+        {
+            VideoRole.Playlist when Playlist is { Held: true } => r with { ClockHeld = true },
+            VideoRole.Stinger when Stingers is { ClipHeld: true } => r with { ClockHeld = true },
+            _ => r,
+        };
+    }
 
     private readonly VideoSequence _videoSeq = new();
 

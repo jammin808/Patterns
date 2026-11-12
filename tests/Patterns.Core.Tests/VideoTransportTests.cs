@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Patterns.Core.Menus;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
@@ -88,6 +89,84 @@ public class VideoTransportTests
     }
 
     [Fact]
+    public void WhatPauseAndStopDoToAClipIsOneRuleByItsRole()
+    {
+        VideoReading Clip(VideoRole role, bool seeks = true) => new("vid:a", "/clips/a.mp4", role, 62, 210, true, false, false, seeks);
+
+        // A playlist item and the programme's or a layer's clip: paused and stopped. A stinger's clip: paused, never stopped here.
+        foreach (var role in new[] { VideoRole.Program, VideoRole.Layer, VideoRole.Playlist })
+        {
+            Assert.True(Clip(role).Pausable, role.ToString());
+            Assert.True(Clip(role).Stoppable, role.ToString());
+            Assert.Equal("", VideoClock.WhyNot(ShowActionKind.VideoPause, Clip(role)));
+            Assert.Equal("", VideoClock.WhyNot(ShowActionKind.VideoStop, Clip(role)));
+        }
+        Assert.True(Clip(VideoRole.Stinger).Pausable);
+        Assert.False(Clip(VideoRole.Stinger).Stoppable);
+        Assert.Equal("", VideoClock.WhyNot(ShowActionKind.VideoPause, Clip(VideoRole.Stinger)));
+        Assert.Equal("'a.mp4' is a stinger's clip — STINGER STOP puts the show back.", VideoClock.WhyNot(ShowActionKind.VideoStop, Clip(VideoRole.Stinger)));
+
+        // A live source or a decoder that is not open: neither, whatever its role.
+        foreach (var role in Enum.GetValues<VideoRole>())
+        {
+            Assert.False(Clip(role, seeks: false).Pausable);
+            Assert.False(Clip(role, seeks: false).Stoppable);
+            Assert.Contains("cannot be moved", VideoClock.WhyNot(ShowActionKind.VideoPause, Clip(role, seeks: false)));
+        }
+
+        // The refusals that would change nothing, in the wire's words — and nothing on air at all.
+        var paused = Clip(VideoRole.Playlist) with { Paused = true };
+        Assert.Contains("already paused at 1:02", VideoClock.WhyNot(ShowActionKind.VideoPause, paused));
+        Assert.Equal("", VideoClock.WhyNot(ShowActionKind.VideoPlay, paused));
+        Assert.Contains("already playing", VideoClock.WhyNot(ShowActionKind.VideoPlay, Clip(VideoRole.Playlist)));
+        Assert.Contains("already stopped", VideoClock.WhyNot(ShowActionKind.VideoStop, paused with { PositionSeconds = 0 }));
+        Assert.Contains("VIDEO RESTART", VideoClock.WhyNot(ShowActionKind.VideoPause, Clip(VideoRole.Program) with { Ended = true }));
+        Assert.Equal("", VideoClock.WhyNot(ShowActionKind.VideoPause, Clip(VideoRole.Program) with { Ended = true, Loops = true }));
+        Assert.Equal(VideoClock.NoClipWords, VideoClock.WhyNot(ShowActionKind.VideoStop, null));
+        Assert.Equal("", VideoClock.WhyNot(ShowActionKind.VideoRestart, paused));
+
+        // A held clip in words: what holds with it, and what runs it on — by role, without the file's name, for the assistant.
+        // "Holds with it" is the fact the desk hands in (ClockHeld), never the role alone.
+        var held = paused with { ClockHeld = true };
+        Assert.Equal("the playlist", VideoClock.HeldWith(paused));
+        Assert.Equal("the stinger", VideoClock.HeldWith(Clip(VideoRole.Stinger)));
+        Assert.Equal("", VideoClock.HeldWith(Clip(VideoRole.Program)));
+        Assert.Equal("PLAYLIST a.mp4 · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist holds with it; VIDEO PLAY runs both on", VideoClock.Words(held));
+        Assert.Equal("VT a.mp4 · 1:02 / 3:30 · 2:28 left", VideoClock.Words(Clip(VideoRole.Program)));
+        Assert.Equal("a playlist item · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist holds with it; VIDEO PLAY runs both on", VideoClock.FactWords(held));
+        Assert.Equal("a stinger's clip · 1:02 / 3:30 · 2:28 left · paused — held, and the stinger holds with it; VIDEO PLAY runs both on", VideoClock.FactWords(Clip(VideoRole.Stinger) with { Paused = true, ClockHeld = true }));
+        Assert.Equal("the programme's clip · 1:02 / 3:30 · 2:28 left · paused — held; VIDEO PLAY runs it on", VideoClock.FactWords(Clip(VideoRole.Program) with { Paused = true }));
+        Assert.DoesNotContain("a.mp4", VideoClock.FactWords(held));
+        Assert.Equal("", VideoClock.FactWords(null));
+
+        // A paused clip whose playlist or stinger is not held — a hold that ended on its own under a decoder still
+        // paused — is never said to hold it: the words say it runs on, and that PLAY runs the clip alone.
+        Assert.Equal("PLAYLIST a.mp4 · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist runs on without it; VIDEO PLAY runs it on", VideoClock.Words(paused));
+        Assert.Equal("a playlist item · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist runs on without it; VIDEO PLAY runs it on", VideoClock.FactWords(paused));
+        Assert.Equal("a stinger's clip · 1:02 / 3:30 · 2:28 left · paused — held, and the stinger runs on without it; VIDEO PLAY runs it on", VideoClock.FactWords(Clip(VideoRole.Stinger) with { Paused = true }));
+        Assert.Equal("the programme's clip · 1:02 / 3:30 · 2:28 left · paused — held; VIDEO PLAY runs it on", VideoClock.FactWords(Clip(VideoRole.Program) with { Paused = true, ClockHeld = true }));
+    }
+
+    [Fact]
+    public void TheClipsMenuEntriesAreOffByTheRuleTheWireRefusesWith()
+    {
+        var stinger = new VideoReading("vid:s", "/clips/sting.mov", VideoRole.Stinger, 3, 12, true, false, false, true);
+        MenuEntry Entry(VideoReading? clip, string id)
+            => DeskMenus.Page(new DeskFacts { Clip = clip }, new PageFacts("Media")).Groups.SelectMany(g => g.Entries).Single(e => e.Id == id);
+
+        Assert.Equal("", Entry(stinger, "video.pause").Because);
+        Assert.Equal("'sting.mov' is a stinger's clip — STINGER STOP puts the show back.", Entry(stinger, "video.stop").Because);
+        Assert.Contains("already playing", Entry(stinger, "video.play").Because);
+        Assert.Equal("", Entry(stinger, "video.restart").Because);
+        Assert.Equal("", Entry(stinger with { Role = VideoRole.Playlist }, "video.stop").Because);
+        foreach (var id in new[] { "video.restart", "video.end", "video.pause", "video.play", "video.stop" })
+        {
+            Assert.Equal(VideoClock.NoClipWords, Entry(null, id).Because);
+        }
+        Assert.Equal("VIDEO STOP", Entry(stinger, "video.stop").Wire);   // the line is the button's, enabled or not
+    }
+
+    [Fact]
     public void APausedClipSaysSoAndKeepsItsOutWordToItself()
     {
         var playing = new VideoReading("video:a", @"C:\clips\a.mp4", VideoRole.Program, 203, 210, true, false, false, true);
@@ -132,6 +211,15 @@ public class VideoTransportTests
         Assert.Contains(msgs, m => m.Address == "/patterns/state/video/seq" && Equals(m.Args[0], 7));
         var none = OscFeedback.FromState("{\"video\":null}");
         Assert.Contains(none, m => m.Address == "/patterns/state/video/paused" && Equals(m.Args[0], 0));
+
+        // What the transport can do to the clip, after seq: a stinger's clip pauses and is not stopped here; nothing on air, neither.
+        var stinger = OscFeedback.FromState("{\"video\":{\"file\":\"s.mov\",\"paused\":false,\"seq\":2,\"pausable\":true,\"stoppable\":false}}");
+        Assert.Contains(stinger, m => m.Address == "/patterns/state/video/pausable" && Equals(m.Args[0], 1));
+        Assert.Contains(stinger, m => m.Address == "/patterns/state/video/stoppable" && Equals(m.Args[0], 0));
+        Assert.Contains(none, m => m.Address == "/patterns/state/video/pausable" && Equals(m.Args[0], 0));
+        Assert.Contains(none, m => m.Address == "/patterns/state/video/stoppable" && Equals(m.Args[0], 0));
+        var addresses = stinger.Select(m => m.Address).ToList();
+        Assert.Equal(addresses.IndexOf("/patterns/state/video/seq") + 1, addresses.IndexOf("/patterns/state/video/pausable"));
     }
 
     [Theory]

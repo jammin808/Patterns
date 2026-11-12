@@ -183,6 +183,7 @@ public class AssistantTests
             LowerThirdOnAir = "Speaker",
             NdiSendsRunning = 1,
             StreamStatus = "LIVE",
+            ClipNow = "a playlist item · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist holds with it; VIDEO PLAY runs both on",
         };
 
         var brief = ShowBrief.Summarise(preview, facts);
@@ -194,6 +195,7 @@ public class AssistantTests
         Assert.Contains("In the preview (where a proposal lands): look 'Keynote' — pattern Particles; overlays clock (24 h, seconds, date)", brief);
         Assert.Contains("Cue stack (the caller's stack, 1 cue; armed; on standby: 01.020 Keynote; last run: 01.010 Doors):", brief);
         Assert.Contains("Sound now: audio playlist playing 'Walk-in music'; VOG on air 'Doors closing'.", brief);
+        Assert.Contains("Clip on air: a playlist item · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist holds with it; VIDEO PLAY runs both on.", brief);
         Assert.Contains("Lower third on air: 'Speaker'.", brief);
         Assert.Contains("Inputs mounted (live sources the engine has open): Camera 1 (capture input), a web page.", brief);
         Assert.Contains("Media library: 12 files — named: Sponsor reel, Walk-in loop (the operator picks files by hand).", brief);
@@ -207,6 +209,7 @@ public class AssistantTests
         Assert.Contains("Canvases (screens joined into one picture): none — every screen is its own target.", off);
         Assert.Contains("Cue stack (the caller's stack, 1 cue; not armed):", off);
         Assert.Contains("Sound now: nothing playing.", off);
+        Assert.DoesNotContain("Clip on air:", off);                                     // no clip, no line
         Assert.Contains("Lower third on air: none.", off);
         Assert.Contains("Inputs mounted (live sources the engine has open): none.", off);
         Assert.Contains("Media library: 0 files (the operator picks files by hand).", off);

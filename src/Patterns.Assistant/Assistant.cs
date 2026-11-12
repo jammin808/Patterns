@@ -430,6 +430,12 @@ public sealed class ShowFacts
 
     /// <summary>"playing 'Walk-in music'", "stopped", or empty for no playlist.</summary>
     public string AudioNow { get; init; } = "";
+
+    /// <summary>
+    /// The clip on air by its role and its clock, never its file's name — "a playlist item · 1:02 / 3:30 · 2:28 left ·
+    /// paused — held, and the playlist holds with it; VIDEO PLAY runs both on" — or empty with none.
+    /// </summary>
+    public string ClipNow { get; init; } = "";
     public string VogOnAir { get; init; } = "";
     public string StingOnAir { get; init; } = "";
     public string LowerThirdOnAir { get; init; } = "";
@@ -670,6 +676,7 @@ public static class ShowBrief
             if (facts.VogOnAir.Length > 0) now.Add($"VOG on air '{facts.VogOnAir}'");
             if (facts.StingOnAir.Length > 0) now.Add($"stinger on air '{facts.StingOnAir}'");
             sb.Append("Sound now: ").Append(now.Count == 0 ? "nothing playing" : string.Join("; ", now)).AppendLine(".");
+            if (facts.ClipNow.Length > 0) sb.Append("Clip on air: ").Append(facts.ClipNow).AppendLine(".");
             sb.Append("Lower third on air: ").Append(facts.LowerThirdOnAir.Length > 0 ? $"'{facts.LowerThirdOnAir}'" : "none").AppendLine(".");
             sb.Append("Inputs mounted (live sources the engine has open): ").Append(facts.InputsMounted.Count == 0 ? "none" : string.Join(", ", facts.InputsMounted)).AppendLine(".");
             sb.Append("Media library: ").Append(facts.MediaFiles).Append(facts.MediaFiles == 1 ? " file" : " files");

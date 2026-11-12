@@ -51,6 +51,26 @@ public sealed record VideoReading(
 
     /// <summary>An audio-only file plays through the same decoder: the clock reads AUDIO for it, VT for a picture.</summary>
     public bool IsAudioOnly => PlaylistSequencer.IsAudioPath(File);
+
+    /// <summary>
+    /// The clock this clip runs on beside its own is held with it: the playlist's for its item, the
+    /// stinger's ending for its clip. The desk says it of the reading it hands out; false for a clip
+    /// on no clock but its own, and for a paused clip whose playlist or stinger runs on.
+    /// </summary>
+    public bool ClockHeld { get; init; }
+
+    /// <summary>
+    /// VIDEO PAUSE and VIDEO PLAY hold and release this clip, with the clock it runs on — the
+    /// programme's own, a layer's, a playlist item's with the playlist's clock, a stinger's with the
+    /// stinger's ending. False for a live source or a decoder that is not open yet.
+    /// </summary>
+    public bool Pausable => CanSeek;
+
+    /// <summary>
+    /// VIDEO STOP puts this clip back to its top and holds it there. False for a stinger's clip —
+    /// STINGER STOP is its stop, and puts the show back — and wherever the clip is not pausable.
+    /// </summary>
+    public bool Stoppable => CanSeek && Role != VideoRole.Stinger;
 }
 
 /// <summary>
@@ -71,9 +91,12 @@ public static class VideoClock
     /// The clip on air, if any: the first file the program references in priority order (the
     /// program's own media, then its layers, then each screen of its own), read through
     /// <paramref name="resolve"/> — the input bus, or a fake in tests. Null when nothing on air
-    /// is a file, or its decoder is not open yet.
+    /// is a file, or its decoder is not open yet. <paramref name="stingerClipKey"/> is the input key
+    /// of the clip a stinger has on the screens, or null with none: the reading is a stinger's only
+    /// when it is that clip — under a sting that covers some screens alone the programme's own clip
+    /// is read first, and keeps its own role.
     /// </summary>
-    public static VideoReading? Read(ShowSnapshot snap, Func<string, IPlayheadSource?> resolve, bool stingerClip = false)
+    public static VideoReading? Read(ShowSnapshot snap, Func<string, IPlayheadSource?> resolve, string? stingerClipKey = null)
     {
         var wanted = MediaLocator.FindWantedInputs(snap).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.VideoFile);
         if (wanted is null) return null;
@@ -82,13 +105,85 @@ public static class VideoClock
 
         var state = snap.State;
         var role = VideoRole.Layer;
-        if (stingerClip) role = VideoRole.Stinger;
+        if (!string.IsNullOrEmpty(stingerClipKey) && wanted.Key == stingerClipKey) role = VideoRole.Stinger;
         else if (state.Pattern.Kind == PatternKind.Media && state.Pattern.Media.Source == MediaSource.Video &&
                  wanted.Key == InputKeys.Video(state.Pattern.Media.VideoPath)) role = VideoRole.Program;
         else if (snap.PlaylistNow is { IsVideo: true } now && wanted.Key == InputKeys.Video(now.Path)) role = VideoRole.Playlist;
 
         return new VideoReading(wanted.Key, wanted.Target, role, source.PositionSeconds, source.DurationSeconds,
             source.IsPlaying, source.IsEnded, wanted.Loop, source.CanSeek, source.Rate, source.IsPaused);
+    }
+
+    /// <summary>What every transport verb answers with nothing to act on.</summary>
+    public const string NoClipWords = "No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.";
+
+    /// <summary>
+    /// Why VIDEO PLAY, PAUSE or STOP would change nothing on this clip now, in the words the wire
+    /// answers and a menu shows; "" when the verb would act. One rule for the executor, the
+    /// right-click entries and the desk's keys, so none offers what another refuses.
+    /// </summary>
+    public static string WhyNot(ShowActionKind verb, VideoReading? r)
+    {
+        if (r is null) return NoClipWords;
+        if (!r.CanSeek) return $"'{r.Name}' cannot be moved — a live source, or its decoder is not open yet.";
+        var ended = r.Ended && !r.Loops;
+        switch (verb)
+        {
+            case ShowActionKind.VideoPause:
+                if (ended) return $"'{r.Name}' has ended — VIDEO RESTART plays it from the top.";
+                return r.Paused ? $"'{r.Name}' is already paused at {Format(r.PositionSeconds)}." : "";
+            case ShowActionKind.VideoPlay:
+                if (ended) return $"'{r.Name}' has ended — VIDEO RESTART plays it from the top.";
+                return r.Paused ? "" : $"'{r.Name}' is already playing.";
+            case ShowActionKind.VideoStop:
+                if (r.Role == VideoRole.Stinger) return $"'{r.Name}' is a stinger's clip — STINGER STOP puts the show back.";
+                return r.Paused && r.PositionSeconds < 0.05 ? $"'{r.Name}' is already stopped at its top." : "";
+            default:
+                return "";
+        }
+    }
+
+    /// <summary>What holds with a paused clip beside its picture: "the playlist", "the stinger", or "" for a clip on no clock but its own.</summary>
+    public static string HeldWith(VideoReading r) => r.Role switch
+    {
+        VideoRole.Playlist => "the playlist",
+        VideoRole.Stinger => "the stinger",
+        _ => "",
+    };
+
+    /// <summary>
+    /// The clip on air in one line for a reader that wants words — the Run strip's tip: the clock's
+    /// line, and for a paused clip what holds with it (<see cref="VideoReading.ClockHeld"/>, the
+    /// fact, never the role alone) and what runs it on.
+    /// </summary>
+    public static string Words(VideoReading? r) => r is null ? "" : Describe(r) + HeldWords(r);
+
+    /// <summary>
+    /// The same for the assistant's facts, by the clip's role and never its file's name: "a playlist
+    /// item · 1:02 / 3:30 · 2:28 left · paused — held, and the playlist holds with it; VIDEO PLAY
+    /// runs both on".
+    /// </summary>
+    public static string FactWords(VideoReading? r)
+    {
+        if (r is null) return "";
+        var what = r.Role switch
+        {
+            VideoRole.Playlist => "a playlist item",
+            VideoRole.Stinger => "a stinger's clip",
+            VideoRole.Layer => "a layer's or a screen's own clip",
+            _ => r.IsAudioOnly ? "the programme's audio file" : "the programme's clip",
+        };
+        return $"{what} · {Times(r)}{HeldWords(r)}";
+    }
+
+    private static string HeldWords(VideoReading r)
+    {
+        if (!r.Paused) return "";
+        var with = HeldWith(r);
+        if (with.Length == 0) return " — held; VIDEO PLAY runs it on";
+        return r.ClockHeld
+            ? $" — held, and {with} holds with it; VIDEO PLAY runs both on"
+            : $" — held, and {with} runs on without it; VIDEO PLAY runs it on";
     }
 
     /// <summary>"0:07", "3:30", "1:02:15" — what a caller reads from a metre; never a millisecond.</summary>

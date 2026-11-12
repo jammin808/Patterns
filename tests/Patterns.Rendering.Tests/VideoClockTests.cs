@@ -92,10 +92,15 @@ public class VideoClockTests
         Assert.Equal("VT 2:28", VideoClock.Chip(reading));
         Assert.Equal("", VideoClock.Call(reading));
 
-        // A stinger's clip owns the screens: the app says so, the clock names it.
-        var sting = VideoClock.Read(ProgramClip("C:/show/sponsor.mp4"), Resolve, stingerClip: true)!;
+        // A stinger's clip owns the screens: the app names the clip, the clock names it a stinger's.
+        var sting = VideoClock.Read(ProgramClip("C:/show/sponsor.mp4"), Resolve, InputKeys.Video("C:/show/sponsor.mp4"))!;
         Assert.Equal(VideoRole.Stinger, sting.Role);
         Assert.Equal("STINGER CLIP", VideoClock.Tag(sting));
+
+        // A stinger whose clip is another file — a sting over some screens alone — leaves the programme's clip its own role.
+        var beside = VideoClock.Read(ProgramClip("C:/show/sponsor.mp4"), Resolve, InputKeys.Video("C:/show/whoosh.mp4"))!;
+        Assert.Equal(VideoRole.Program, beside.Role);
+        Assert.Equal(VideoRole.Program, VideoClock.Read(ProgramClip("C:/show/sponsor.mp4"), Resolve, "")!.Role);
 
         // The program is a picture of its own: the layer's clip is the one on air, and reads as such.
         var grid = ProgramClip("", layerPath: "C:/show/broll.mp4");
@@ -112,6 +117,28 @@ public class VideoClockTests
         var item = VideoClock.Read(snap, Resolve)!;
         Assert.Equal(VideoRole.Playlist, item.Role);
         Assert.Equal("PLAYLIST", VideoClock.Tag(item));
+
+        // The same playlist with a sting on one screen as that screen's own picture: the clip read is the programme's
+        // item, and it is the playlist's still — PAUSE holds the playlist, never the stinger beside it.
+        list.Output.Placements.Add(new ScreenPlacement { ScreenId = "a", Enabled = true });
+        var own = ContentTargets.EnsureAssignment(list, "a").Pattern;
+        own.Kind = PatternKind.Media;
+        own.Media.Source = MediaSource.Video;
+        own.Media.VideoPath = "C:/show/broll.mp4";
+        ContentTargets.SetOwnPattern(list, "a", true);
+        var covered = new ShowSnapshot { State = list, Version = 3, PlaylistNow = snap.PlaylistNow };
+        Assert.Equal(2, MediaLocator.FindWantedInputs(covered).Count(w => w.Kind == MediaLocator.WantedKind.VideoFile));
+        var under = VideoClock.Read(covered, Resolve, InputKeys.Video("C:/show/broll.mp4"))!;
+        Assert.Equal("sponsor.mp4", under.Name);
+        Assert.Equal(VideoRole.Playlist, under.Role);
+        Assert.True(under.Stoppable);
+
+        // With the programme on no file, the clip read is the sting's own, and a stinger's.
+        list.Pattern.Kind = PatternKind.Grid;
+        var alone = VideoClock.Read(new ShowSnapshot { State = list, Version = 4 }, Resolve, InputKeys.Video("C:/show/broll.mp4"))!;
+        Assert.Equal("broll.mp4", alone.Name);
+        Assert.Equal(VideoRole.Stinger, alone.Role);
+        Assert.False(alone.Stoppable);
 
         // Nothing on air is a file, or its decoder is not open: no clock.
         Assert.Null(VideoClock.Read(ProgramClip(""), Resolve));

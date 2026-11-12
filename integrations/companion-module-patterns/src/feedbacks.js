@@ -151,6 +151,13 @@ export function buildFeedbacks(ctx) {
 			if (!v) return false
 			return fb.options.out ? v.out === true : true
 		}),
+		// What the transport can do to the clip on air, as the desk says it (STATE video.pausable / video.stoppable) —
+		// a PAUSE key lit for a playlist item and a stinger's clip too, a STOP key dark for a stinger's clip.
+		video_can: bool('The clip on air can be paused — or stopped (back to its top, held)', style('presenter', 'on'), [{ type: 'dropdown', id: 'mode', label: 'Transport', default: 'PAUSE', choices: [{ id: 'PAUSE', label: 'Pause and play on' }, { id: 'STOP', label: 'Stop: back to its top, held' }] }], (fb) => {
+			const v = s().video
+			if (!v) return false
+			return (fb.options.mode === 'STOP' ? v.stoppable : v.pausable) === true
+		}),
 		music_playing: bool('Break music is playing', style('music', 'playing'), [], () => s().music?.playing === true),
 		// The overlays: the clock (on, its hours, seconds, date), the message (on, scrolling), the countdown (running / over), the logo, the PiP, the kind of picture.
 		clock_on: bool('The clock overlay is on air', style('overlay', 'on'), [], () => !!s().overlays?.clock?.on),

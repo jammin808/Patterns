@@ -23,6 +23,19 @@ public sealed class PlaylistService : IDisposable
     private DateTime? _unmountedSince; // when the current video item was first found unmounted
     private string _orderKey = "";
     private DateTime _lastScanUtc = DateTime.MinValue;
+    private IVideoFrameSource? _heldSource;   // the decoder a hold was taken with: the hold is that clip's and ends when it is gone
+
+    /// <summary>The playlist's clock: the wall's, or a test's. The local time of day the schedules read is this instant's.</summary>
+    public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
+
+    /// <summary>The 250 ms tick, driven directly — a test's clock does not wait on the timer.</summary>
+    public void Poll() => Tick();
+
+    /// <summary>
+    /// Whether the playlist's clips can play: the decoder's own answer, or — set — a host's that
+    /// gives the clips itself (a headless test's fakes). Null leaves the decoder's.
+    /// </summary>
+    public Func<bool>? VideoAvailableOverride { get; set; }
 
     public PlaylistService(AppServices services)
     {
@@ -42,6 +55,11 @@ public sealed class PlaylistService : IDisposable
             var options = MediaLocator.FindActivePlaylist(_services.AirState)?.Playlist;
             if (options is null)
             {
+                // A playlist that left the air took its held clip with it: it does not come back held.
+                // What waited under a hold was its own, whether the hold ends here or VIDEO PLAY ended
+                // it a moment before this tick — the next playlist on air starts clean.
+                if (_sequencer.Held) EndHold(NowUtc(), "the playlist left the air", onAir: false);
+                _sequencer.ForgetWaiting();
                 if (_services.Bus.PlaylistNow is not null)
                 {
                     _services.Bus.PlaylistNow = null;
@@ -50,8 +68,8 @@ public sealed class PlaylistService : IDisposable
                 return;
             }
 
-            var utcNow = DateTime.UtcNow;
-            var localNow = DateTime.Now;
+            var utcNow = NowUtc();
+            var localNow = utcNow.ToLocalTime();
 
             // A section with a start time takes over daily at its minute — unless the caller's
             // stack is armed, when only GO moves the picture.
@@ -76,12 +94,15 @@ public sealed class PlaylistService : IDisposable
                 _folderFiles = ScanFolders(section.Folders);
             }
 
-            var videoAvailable = !options.IncludeVideos || _services.Video.EnsureAvailable();
+            var videoAvailable = !options.IncludeVideos || (VideoAvailableOverride is { } clips ? clips() : _services.Video.EnsureAvailable());
             var orderKey = $"{folderKey}#{string.Join('|', section.Items.Select(i => i.Path))}#{options.Shuffle}#{options.ShuffleSeed}#{options.IncludeImages}#{options.IncludeVideos}#{videoAvailable}#{_folderFiles.Count}";
             if (orderKey != _orderKey)
             {
                 _orderKey = orderKey;
+                var wasHeld = _sequencer.Held;
                 _sequencer.SetOrder(PlaylistSequencer.BuildOrder(options, section.Items, _folderFiles, videoAvailable), utcNow);
+                // A held item the new order no longer has took its hold with it: said like every hold that ends on its own.
+                if (wasHeld && !_sequencer.Held) SayHoldEnded("its item left the playlist");
             }
 
             var currentItem = _sequencer.Current;
@@ -109,7 +130,15 @@ public sealed class PlaylistService : IDisposable
             var videoEnded = currentIsVideo && (video is { IsEnded: true } || stalled);
             var videoLength = currentIsVideo && video is not null ? video.DurationSeconds : 0;
 
+            // The hold is the held clip's: a decoder that is gone, replaced or at its end is not
+            // held, and a playlist parked under a picture that moved on would never move again.
+            if (_sequencer.Held && (video is null || !ReferenceEquals(video, _heldSource) || video.IsEnded))
+            {
+                EndHold(utcNow, video is null ? "its clip is no longer open" : video.IsEnded ? "its clip reached its end" : "its clip was opened again", onAir: true);
+            }
+
             _sequencer.Tick(options, localNow, utcNow, videoEnded, videoLength);
+            foreach (var missed in _sequencer.TakeMissed()) ReportMissed(missed);
 
             var current = _sequencer.Current;
             var now = current is null
@@ -164,14 +193,78 @@ public sealed class PlaylistService : IDisposable
     /// </summary>
     public void EndCurrentIn(double seconds)
     {
-        if (_sequencer.EndItemIn(seconds, DateTime.UtcNow)) Republish();
+        if (_sequencer.EndItemIn(seconds, NowUtc())) Republish();
     }
 
     /// <summary>The item on screen starts its clock again (VIDEO RESTART on a playlist video).</summary>
     public void RestartCurrent()
     {
-        if (_sequencer.RestartItem(DateTime.UtcNow)) Republish();
+        if (_sequencer.RestartItem(NowUtc())) Republish();
     }
+
+    /// <summary>The item on screen is held with its clip: nothing advances and no scheduled entry fires until the release.</summary>
+    public bool Held => _sequencer.Held;
+
+    /// <summary>
+    /// Holds the item on screen with its clip (VIDEO PAUSE / VIDEO STOP on a playlist video): its
+    /// clock stands still from now. False with no video item on screen whose decoder is open.
+    /// </summary>
+    public bool HoldCurrent()
+    {
+        var current = _sequencer.Current;
+        var source = current is { IsVideo: true } ? InputBus.For(InputKeys.Video(current.Path)) : null;
+        if (source is null) return false;
+        if (!_sequencer.Held && !_sequencer.Hold(NowUtc())) return false;
+        _heldSource = source;
+        return true;
+    }
+
+    /// <summary>Releases the hold (VIDEO PLAY): the item's clock runs on from where it stood. False when nothing was held.</summary>
+    public bool ReleaseCurrent()
+    {
+        if (!_sequencer.Release(NowUtc())) return false;
+        _heldSource = null;
+        Republish();
+        return true;
+    }
+
+    /// <summary>
+    /// A hold that ended without VIDEO PLAY — the held clip is gone — said once, in the log and the
+    /// journal. With the playlist still on air its item's moved clock is published; off the air
+    /// nothing of it is published — the air holds no playlist to publish an item of.
+    /// </summary>
+    private void EndHold(DateTime utcNow, string why, bool onAir)
+    {
+        if (!_sequencer.Release(utcNow)) return;
+        SayHoldEnded(why, onAir);
+        if (onAir) Republish();
+    }
+
+    /// <summary>One journal row and one log line for a hold that ended on its own; the decoder it was taken with is let go.</summary>
+    private void SayHoldEnded(string why, bool onAir = true)
+    {
+        _heldSource = null;
+        var words = $"The playlist's hold ended — {why}; {(onAir ? "the playlist runs on" : "it does not come back held")}.";
+        Log.Info(words);
+        _services.Journal.Record(ActionOrigin.Playlist.Label, PlaylistHoldKind, "", HoldEndedStatus, words);
+    }
+
+    /// <summary>One journal row and one log line for a scheduled entry a hold kept back past its window: it did not play, and is not played late.</summary>
+    private void ReportMissed(PlaylistMissed missed)
+    {
+        var name = Path.GetFileName(missed.Path);
+        var words = $"Scheduled '{name}' ({missed.ScheduledTime}) was skipped — the playlist was held past its time, until {missed.ReleasedLocal.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)}; it is not played late.";
+        Log.Warn(words);
+        _services.Journal.Record(ActionOrigin.Playlist.Label, PlaylistMissedKind, name, SkippedStatus, words);
+    }
+
+    /// <summary>The journal's kind and status for a scheduled entry a hold kept back past its window.</summary>
+    public const string PlaylistMissedKind = "PlaylistSchedule";
+    public const string SkippedStatus = "Skipped";
+
+    /// <summary>The journal's kind and status for a hold that ended because its clip was gone, not by VIDEO PLAY.</summary>
+    public const string PlaylistHoldKind = "PlaylistHold";
+    public const string HoldEndedStatus = "Ended";
 
     /// <summary>The item as it is now onto the bus — its start moved, so every "left" reads the new clock.</summary>
     private void Republish()
@@ -192,13 +285,16 @@ public sealed class PlaylistService : IDisposable
             if (now is null) return "Playlist idle.";
             var name = Path.GetFileName(now.Path);
             var pos = now.Index >= 0 ? $"{now.Index + 1}/{now.Count}" : "scheduled";
-            var held = (DateTime.UtcNow - now.StartedUtc).TotalSeconds;
-            var dur = now.DurationSeconds > 0 ? $" · {Math.Max(0, now.DurationSeconds - held):0}s left" : "";
+            // The item's own clock: a held item does not count down.
+            var ran = ((_sequencer.HeldSinceUtc ?? NowUtc()) - now.StartedUtc).TotalSeconds;
+            var dur = now.DurationSeconds > 0 ? $" · {Math.Max(0, now.DurationSeconds - ran):0}s left" : "";
             var options = MediaLocator.FindActivePlaylist(_services.AirState)?.Playlist;
             var part = options is not null && options.Sections.Count > 1
                 ? $"[{PlaylistSequencer.ActiveSectionOf(options).Name}] "
                 : "";
-            return $"{part}Playing {pos}: {name}{dur}";
+            return _sequencer.Held
+                ? $"{part}Held {pos}: {name}{dur} — VIDEO PLAY runs it on"
+                : $"{part}Playing {pos}: {name}{dur}";
         }
     }
 

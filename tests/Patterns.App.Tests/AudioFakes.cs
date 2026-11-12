@@ -56,7 +56,13 @@ internal sealed class FakeSource : IMountedSource
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint) => false;
     public SKSizeI? FrameSize => null;
-    public bool IsPlaying => !Disposed && !Ended;
+    /// <summary>
+    /// What the source says of itself under an operator's pause: true, it still "plays" (a decoder that reports its
+    /// session, not its motion); false, it does not, as libVLC's player and the bench's clip answer.
+    /// </summary>
+    public bool PlaysUnderPause = true;
+
+    public bool IsPlaying => !Disposed && !Ended && (PlaysUnderPause || !Paused);
     public bool IsEnded => Ended;
     public double DurationSeconds => Length;
     public string StatusText => "fake";

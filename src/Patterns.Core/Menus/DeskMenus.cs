@@ -1360,11 +1360,11 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
                 {
                     groups.Add(new MenuGroup("THE CLIP", MenuTone.Live, new[]
                     {
-                        new MenuEntry("video.restart", "Clip from the top", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air restarts", Wire = "VIDEO RESTART", Action = new ShowAction(ShowActionKind.VideoRestart) },
-                        new MenuEntry("video.end", "Clip to its end", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air jumps to its last seconds", Wire = "VIDEO END", Action = new ShowAction(ShowActionKind.VideoToEnd) },
-                        new MenuEntry("video.pause", "Pause the clip", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air holds where it is, silent, until Play", Wire = "VIDEO PAUSE", Action = new ShowAction(ShowActionKind.VideoPause) },
-                        new MenuEntry("video.play", "Play the clip on", MenuScope.Live, MenuTone.Live) { Detail = "A paused or stopped clip plays on from where it is held", Wire = "VIDEO PLAY", Action = new ShowAction(ShowActionKind.VideoPlay) },
-                        new MenuEntry("video.stop", "Stop the clip", MenuScope.Live, MenuTone.Live) { Detail = "Back to its top and held there until Play — the outputs stay on", Wire = "VIDEO STOP", Action = new ShowAction(ShowActionKind.VideoStop) },
+                        new MenuEntry("video.restart", "Clip from the top", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air restarts", Wire = "VIDEO RESTART", Action = new ShowAction(ShowActionKind.VideoRestart), Because = VideoClock.WhyNot(ShowActionKind.VideoRestart, d.Clip) },
+                        new MenuEntry("video.end", "Clip to its end", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air jumps to its last seconds", Wire = "VIDEO END", Action = new ShowAction(ShowActionKind.VideoToEnd), Because = VideoClock.WhyNot(ShowActionKind.VideoToEnd, d.Clip) },
+                        new MenuEntry("video.pause", "Pause the clip", MenuScope.Live, MenuTone.Live) { Detail = "The clip on air holds where it is, silent, until Play — a playlist's clock and a stinger's ending hold with it", Wire = "VIDEO PAUSE", Action = new ShowAction(ShowActionKind.VideoPause), Because = VideoClock.WhyNot(ShowActionKind.VideoPause, d.Clip) },
+                        new MenuEntry("video.play", "Play the clip on", MenuScope.Live, MenuTone.Live) { Detail = "A paused or stopped clip plays on from where it is held, and what held with it runs on", Wire = "VIDEO PLAY", Action = new ShowAction(ShowActionKind.VideoPlay), Because = VideoClock.WhyNot(ShowActionKind.VideoPlay, d.Clip) },
+                        new MenuEntry("video.stop", "Stop the clip", MenuScope.Live, MenuTone.Live) { Detail = "Back to its top and held there until Play — the outputs stay on (a stinger's clip is put back by STINGER STOP)", Wire = "VIDEO STOP", Action = new ShowAction(ShowActionKind.VideoStop), Because = VideoClock.WhyNot(ShowActionKind.VideoStop, d.Clip) },
                     }) { Note = LiveNote });
                 }
                 break;

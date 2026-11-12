@@ -167,6 +167,8 @@ export function variableDefinitions() {
 		video_text: 'The caller\'s VT clock as the desk reads it',
 		video_chip: 'The caller\'s VT clock chip ("VT 2:28")',
 		video_call: 'The caller\'s word in the clip\'s last ten seconds ("OUT IN 7")',
+		video_pausable: 'The clip on air can be paused and played on (VIDEO PAUSE / PLAY) — yes or no; a playlist item holds its playlist with it, a stinger\'s clip its stinger (round 94)',
+		video_stoppable: 'The clip on air can be stopped — back to its top, held (VIDEO STOP) — yes or no; no for a stinger\'s clip, whose stop is STINGER STOP (round 94)',
 		install: 'The install schedule (ON/off)',
 		install_programme: 'The install — the programme on',
 		install_over: 'The install — the announcement or advert on',

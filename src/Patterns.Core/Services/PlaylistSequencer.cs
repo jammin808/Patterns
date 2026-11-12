@@ -6,6 +6,12 @@ namespace Patterns.Core.Services;
 public sealed record PlaylistEntry(string Path, bool IsVideo, double DurationSeconds, string ScheduledTime, double ScheduledDurationSeconds);
 
 /// <summary>
+/// A scheduled entry a hold kept back past its window: it did not play, and will not play late.
+/// <paramref name="DueLocal"/> is the minute it was due, <paramref name="ReleasedLocal"/> when the hold ended.
+/// </summary>
+public sealed record PlaylistMissed(string Path, string ScheduledTime, DateTime DueLocal, DateTime ReleasedLocal);
+
+/// <summary>
 /// Pure playlist ordering and advance logic — the app service feeds it wall time, resolved
 /// file lists and "video ended" signals; it decides what plays. Deterministic for a given
 /// options/seed, so it is fully unit tested.
@@ -25,6 +31,81 @@ public sealed class PlaylistSequencer
     private PlaylistEntry? _scheduledOverride;
     private DateTime _overrideEndsUtc;
     private readonly Dictionary<string, DateTime> _scheduleFired = new();
+    private DateTime? _heldSinceUtc;                                  // the item's clock stands still from here until Release
+    private readonly Dictionary<string, DateTime> _heldDue = new();   // scheduled entries whose minute came during a hold, by path: the minute each was due
+    private readonly List<PlaylistMissed> _missed = new();
+    private int? _heldSection;                                        // a section whose start time came during a hold: it takes over at the release
+
+    /// <summary>The least a scheduled entry's window is: its own minute, in which it fires whenever the playlist first looks.</summary>
+    public const double ScheduleMinuteSeconds = 60;
+
+    /// <summary>
+    /// How long after its minute began a scheduled entry kept back by a hold may still fire: the time
+    /// it would have been on screen, and never less than its own minute. Past it the entry is missed,
+    /// not played late.
+    /// </summary>
+    public static double ScheduleWindowSeconds(PlaylistItemConfig item) => Math.Max(ScheduleMinuteSeconds, item.ScheduledDurationSeconds);
+
+    /// <summary>The item on screen is held: its clock stands still, nothing advances and no scheduled entry fires until <see cref="Release"/>.</summary>
+    public bool Held => _heldSinceUtc is not null;
+
+    /// <summary>When the hold began — or was last re-based by a clock moved under it; null when not held.</summary>
+    public DateTime? HeldSinceUtc => _heldSinceUtc;
+
+    /// <summary>How long the item on screen has run on its own clock: wall time since its start, less every hold.</summary>
+    public double ItemElapsedSeconds(DateTime utcNow) => Math.Max(0, ((_heldSinceUtc ?? utcNow) - ItemStartedUtc).TotalSeconds);
+
+    /// <summary>
+    /// Holds the item on screen — a playlist item, or a scheduled interruption — with its picture:
+    /// from <paramref name="utcNow"/> its clock stands still. False with no item on, or one already held.
+    /// </summary>
+    public bool Hold(DateTime utcNow)
+    {
+        if (Current is null || Held) return false;
+        _heldSinceUtc = utcNow;
+        return true;
+    }
+
+    /// <summary>
+    /// Ends the hold: the item's start — and a scheduled interruption's start and end — move on by
+    /// the held span, so what was left when it was held is left now. False when nothing was held.
+    /// </summary>
+    public bool Release(DateTime utcNow)
+    {
+        if (_heldSinceUtc is not { } since) return false;
+        var span = utcNow > since ? utcNow - since : TimeSpan.Zero;
+        _itemStartedUtc += span;
+        if (_scheduledOverride is not null)
+        {
+            _overrideStartUtc += span;
+            _overrideEndsUtc += span;
+        }
+        _heldSinceUtc = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Forgets what waited under a hold — the section and the scheduled entries whose minutes came
+    /// during it. For a hold that ended with its playlist off the air: what waited was that
+    /// playlist's that day, and the next one on air, minutes or days later, neither jumps to its
+    /// part nor fires or reports its entries. A section still inside its minute may take over again,
+    /// as it would for a playlist that came on air in that minute.
+    /// </summary>
+    public void ForgetWaiting()
+    {
+        if (_heldSection is { } section) _sectionStartFired.Remove(section);
+        _heldSection = null;
+        _heldDue.Clear();
+    }
+
+    /// <summary>The scheduled entries holds kept back past their windows since the last call, oldest first; the list is emptied.</summary>
+    public IReadOnlyList<PlaylistMissed> TakeMissed()
+    {
+        if (_missed.Count == 0) return Array.Empty<PlaylistMissed>();
+        var missed = _missed.ToList();
+        _missed.Clear();
+        return missed;
+    }
 
     public PlaylistEntry? Current => _scheduledOverride ?? (_index >= 0 && _index < _order.Count ? _order[_index] : null);
     public int CurrentIndex => _scheduledOverride is not null ? -1 : _index;
@@ -44,11 +125,19 @@ public sealed class PlaylistSequencer
         if (_scheduledOverride is not null)
         {
             _overrideEndsUtc = utcNow.AddSeconds(seconds);
+            RebaseHold(utcNow);
             return true;
         }
         if (_index < 0 || _index >= _order.Count) return false;
         if (_itemDuration > 0) _itemStartedUtc = utcNow.AddSeconds(-Math.Max(0, _itemDuration - seconds));
+        RebaseHold(utcNow);
         return true;
+    }
+
+    /// <summary>A clock set under a hold is set as of now: the hold counts from here, so the release adds only what follows.</summary>
+    private void RebaseHold(DateTime utcNow)
+    {
+        if (Held) _heldSinceUtc = utcNow;
     }
 
     /// <summary>The item on screen starts its clock again — with the clip put back to its top. False with no item on.</summary>
@@ -59,10 +148,12 @@ public sealed class PlaylistSequencer
             var length = (_overrideEndsUtc - _overrideStartUtc).TotalSeconds;
             _overrideStartUtc = utcNow;
             _overrideEndsUtc = utcNow.AddSeconds(Math.Max(1, length));
+            RebaseHold(utcNow);
             return true;
         }
         if (_index < 0 || _index >= _order.Count) return false;
         _itemStartedUtc = utcNow;
+        RebaseHold(utcNow);
         return true;
     }
 
@@ -119,9 +210,15 @@ public sealed class PlaylistSequencer
 
     private readonly Dictionary<int, DateTime> _sectionStartFired = new();
 
-    /// <summary>Section due to take over at this minute (once per day each), or null.</summary>
+    /// <summary>
+    /// Section due to take over at this minute (once per day each), or null. A section whose minute
+    /// comes during a hold does not move the held picture: it waits, and is returned by the first
+    /// call after the release — a part of the show is a state from its start time on, not an
+    /// interruption with a window, so it takes over late rather than never.
+    /// </summary>
     public int? SectionDue(PlaylistOptions options, DateTime localNow)
     {
+        int? due = null;
         for (var i = 0; i < options.Sections.Count; i++)
         {
             var section = options.Sections[i];
@@ -130,9 +227,17 @@ public sealed class PlaylistSequencer
             if (localNow.Hour != tod.Hours || localNow.Minute != tod.Minutes) continue;
             if (_sectionStartFired.TryGetValue(i, out var fired) && fired.Date == localNow.Date) continue;
             _sectionStartFired[i] = localNow;
-            return i;
+            due = i;
+            break;
         }
-        return null;
+        if (Held)
+        {
+            if (due is not null) _heldSection = due;
+            return null;
+        }
+        var waited = _heldSection;
+        _heldSection = null;
+        return due ?? (waited is { } w && w < options.Sections.Count ? w : null);
     }
 
     /// <summary>
@@ -192,6 +297,7 @@ public sealed class PlaylistSequencer
         {
             _index = _order.Count > 0 ? 0 : -1;
             StartItem(utcNow);
+            _heldSinceUtc = null; // the hold was the item's that is gone: the one that replaced it runs
         }
     }
 
@@ -210,21 +316,40 @@ public sealed class PlaylistSequencer
     {
         var changed = false;
 
-        // Scheduled interruptions fire once per day at their minute — from any section.
+        // Scheduled interruptions fire once per day at their minute — from any section. One whose
+        // minute comes during a hold waits for the release: it fires then if its window is still
+        // open, and is otherwise missed — reported, never played late.
         foreach (var item in AllItems(options))
         {
             if (string.IsNullOrWhiteSpace(item.ScheduledTime) || string.IsNullOrWhiteSpace(item.Path)) continue;
             if (!CountdownService.TryParseTime(item.ScheduledTime, out var tod)) continue;
-            if (localNow.Hour != tod.Hours || localNow.Minute != tod.Minutes) continue;
             if (_scheduleFired.TryGetValue(item.Path, out var fired) && fired.Date == localNow.Date) continue;
+            var inMinute = localNow.Hour == tod.Hours && localNow.Minute == tod.Minutes;
+            if (Held)
+            {
+                if (inMinute) _heldDue[item.Path] = localNow.Date + new TimeSpan(tod.Hours, tod.Minutes, 0);
+                continue;
+            }
+            var waited = _heldDue.Remove(item.Path, out var dueLocal);
+            if (!inMinute && !waited) continue;
+            if (!inMinute && (localNow - dueLocal).TotalSeconds >= ScheduleWindowSeconds(item))
+            {
+                _scheduleFired[item.Path] = dueLocal; // done for the day it was due
+                _missed.Add(new PlaylistMissed(item.Path, item.ScheduledTime, dueLocal, localNow));
+                continue;
+            }
 
-            _scheduleFired[item.Path] = localNow;
+            _scheduleFired[item.Path] = inMinute ? localNow : dueLocal;
             _scheduledOverride = new PlaylistEntry(item.Path, IsDecodedPath(item.Path), item.DurationSeconds,
                 item.ScheduledTime, item.ScheduledDurationSeconds);
             _overrideStartUtc = utcNow;
             _overrideEndsUtc = utcNow.AddSeconds(Math.Max(1, item.ScheduledDurationSeconds));
             return true;
         }
+
+        // A held item stands still: it does not end, its interruption does not end, the order does not move.
+        if (Held) return false;
+        _heldDue.Clear(); // what is left waited for an entry the playlist no longer has
 
         if (_scheduledOverride is not null)
         {

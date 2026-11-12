@@ -445,7 +445,7 @@ public sealed partial class ShowActions
         var reading = _s.VideoOnAir();
         if (reading is null)
         {
-            return ActionResult.Refused("No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.");
+            return ActionResult.Refused(VideoClock.NoClipWords);
         }
         var source = Patterns.Rendering.Media.InputBus.For(reading.Key);
         if (source is null || !source.CanSeek)
@@ -456,7 +456,7 @@ public sealed partial class ShowActions
         {
             if (!source.Seek(0)) return ActionResult.Failed($"'{reading.Name}' would not restart.");
             if (reading.Role == VideoRole.Playlist) _s.Playlist.RestartCurrent();
-            return ActionResult.Done($"'{reading.Name}' from the top.");
+            return ActionResult.Done($"'{reading.Name}' from the top{(reading.Paused ? " — still paused" : "")}.");
         }
         if (!VideoClock.TryParseBeforeEnd(a.Value, out var before))
         {
@@ -469,52 +469,74 @@ public sealed partial class ShowActions
         var target = Math.Max(0, reading.LengthSeconds - before);
         if (!source.Seek(target)) return ActionResult.Failed($"'{reading.Name}' would not move.");
         if (reading.Role == VideoRole.Playlist) _s.Playlist.EndCurrentIn(Math.Min(before, reading.LengthSeconds));
-        return ActionResult.Done($"'{reading.Name}' to its last {before:0.#} s — {VideoClock.Format(target)} of {VideoClock.Format(reading.LengthSeconds)}.");
+        return ActionResult.Done($"'{reading.Name}' to its last {before:0.#} s — {VideoClock.Format(target)} of {VideoClock.Format(reading.LengthSeconds)}{(reading.Paused ? " — still paused" : "")}.");
     }
 
     /// <summary>
-    /// Round 86: the clip on air's transport — PLAY, PAUSE, STOP (back to the top, held) and SEEK —
-    /// from the panel, a cue, the wire, OSC or another app (Stagewatch's VT countdown). A playlist item
-    /// and a stinger run on clocks of their own: a pause would leave them running under a frozen
-    /// picture, so PAUSE and STOP refuse them with the reason; SEEK moves a playlist item's clock
-    /// with the picture, as VIDEO END does. A take that would change nothing is refused.
+    /// The clip on air's transport — PLAY, PAUSE, STOP (back to the top, held) and SEEK — from the
+    /// panel, a cue, the wire, OSC or another app (Stagewatch's VT countdown). A clip is paused
+    /// only with the clock it runs on: a playlist item holds the playlist's clock with its picture,
+    /// a stinger's clip holds the stinger's ending, and PLAY releases both. STOP puts a playlist
+    /// item and its clock back to the top, held; a stinger's clip is not stopped here — STINGER STOP
+    /// is its stop, and puts the show back. SEEK moves a playlist item's clock with the picture, as
+    /// VIDEO END does. A take that would change nothing is refused, by the rule the menus read
+    /// (<see cref="VideoClock.WhyNot"/>).
     /// </summary>
     private ActionResult VideoTransport(ShowAction a)
     {
         var reading = _s.VideoOnAir();
-        if (reading is null)
-        {
-            return ActionResult.Refused("No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.");
-        }
+        if (reading is null) return ActionResult.Refused(VideoClock.NoClipWords);
         var source = Patterns.Rendering.Media.InputBus.For(reading.Key);
         if (source is null || !source.CanSeek)
         {
             return ActionResult.Failed($"'{reading.Name}' cannot be moved — a live source, or its decoder is not open yet.");
         }
-        var ownClock = reading.Role is VideoRole.Playlist or VideoRole.Stinger;
+        if (a.Kind is ShowActionKind.VideoPause or ShowActionKind.VideoPlay or ShowActionKind.VideoStop
+            && VideoClock.WhyNot(a.Kind, reading) is { Length: > 0 } why)
+        {
+            return ActionResult.Refused(why);
+        }
+        var with = VideoClock.HeldWith(reading);
         switch (a.Kind)
         {
             case ShowActionKind.VideoPause:
             {
-                if (ownClock) return ActionResult.Refused($"'{reading.Name}' is a {(reading.Role == VideoRole.Playlist ? "playlist item" : "stinger's clip")} — its own clock keeps running, so it is not paused (VIDEO END or SEEK move it).");
-                if (reading.Ended && !reading.Loops) return ActionResult.Refused($"'{reading.Name}' has ended — VIDEO RESTART plays it from the top.");
-                if (reading.Paused) return ActionResult.Refused($"'{reading.Name}' is already paused at {VideoClock.Format(reading.PositionSeconds)}.");
                 if (!source.SetPaused(true)) return ActionResult.Failed($"'{reading.Name}' would not pause.");
-                return ActionResult.Done($"'{reading.Name}' paused at {VideoClock.Format(reading.PositionSeconds)}.");
+                if (!HoldClockOf(reading))
+                {
+                    // Paused means clip and clock both: a clock that would run on under the frozen picture is not a pause.
+                    source.SetPaused(false);
+                    return ActionResult.Failed($"'{reading.Name}' was not paused — {with} would not hold with it.");
+                }
+                var at = VideoClock.Format(reading.PositionSeconds);
+                return ActionResult.Done(with.Length > 0
+                    ? $"'{reading.Name}' paused at {at} — {with} holds with it; VIDEO PLAY runs both on."
+                    : $"'{reading.Name}' paused at {at}.");
             }
             case ShowActionKind.VideoPlay:
             {
-                if (reading.Ended && !reading.Loops) return ActionResult.Refused($"'{reading.Name}' has ended — VIDEO RESTART plays it from the top.");
-                if (!reading.Paused) return ActionResult.Refused($"'{reading.Name}' is already playing.");
                 if (!source.SetPaused(false)) return ActionResult.Failed($"'{reading.Name}' would not play on.");
-                return ActionResult.Done($"'{reading.Name}' plays on from {VideoClock.Format(reading.PositionSeconds)}.");
+                // "Runs on with it" is said of a clock this PLAY released, never of the role alone.
+                var released = ReleaseClockOf(reading);
+                var from = VideoClock.Format(reading.PositionSeconds);
+                return ActionResult.Done(released
+                    ? $"'{reading.Name}' plays on from {from} — {with} runs on with it."
+                    : $"'{reading.Name}' plays on from {from}.");
             }
             case ShowActionKind.VideoStop:
             {
-                if (ownClock) return ActionResult.Refused($"'{reading.Name}' is a {(reading.Role == VideoRole.Playlist ? "playlist item" : "stinger's clip")} — its own clock keeps running, so it is not stopped (VIDEO RESTART puts it back to the top).");
-                if (reading.Paused && reading.PositionSeconds < 0.05) return ActionResult.Refused($"'{reading.Name}' is already stopped at its top.");
                 if (!source.Seek(0)) return ActionResult.Failed($"'{reading.Name}' would not go back to its top.");
                 if (!source.SetPaused(true)) return ActionResult.Failed($"'{reading.Name}' went back to its top but would not hold there.");
+                if (reading.Role == VideoRole.Playlist)
+                {
+                    _s.Playlist.RestartCurrent();
+                    if (!_s.Playlist.HoldCurrent())
+                    {
+                        source.SetPaused(false);
+                        return ActionResult.Failed($"'{reading.Name}' went back to its top but was not stopped — the playlist would not hold with it.");
+                    }
+                    return ActionResult.Done($"'{reading.Name}' stopped — back to its top, held, and the playlist holds with it. VIDEO PLAY runs both on.");
+                }
                 return ActionResult.Done($"'{reading.Name}' stopped — back to its top, held. VIDEO PLAY runs it.");
             }
             default:
@@ -534,6 +556,22 @@ public sealed partial class ShowActions
             }
         }
     }
+
+    /// <summary>The clock a clip runs on stands still with it: the playlist's for its item, the stinger's for its clip; a clip on no clock but its own holds nothing more. False when that clock would not hold.</summary>
+    private bool HoldClockOf(VideoReading reading) => reading.Role switch
+    {
+        VideoRole.Playlist => _s.Playlist.HoldCurrent(),
+        VideoRole.Stinger => _s.Stingers.HoldClip(true),
+        _ => true,
+    };
+
+    /// <summary>The clock a held clip runs on runs on with it. True when a held clock was released; false for a clip on no clock but its own, or one whose clock was not held.</summary>
+    private bool ReleaseClockOf(VideoReading reading) => reading.Role switch
+    {
+        VideoRole.Playlist => _s.Playlist.ReleaseCurrent(),
+        VideoRole.Stinger => _s.Stingers.HoldClip(false),
+        _ => false,
+    };
 
     /// <summary>Round 77: " The picture is mirrored, turned 90°." for a media picture with adjustments; "" otherwise — a recall's and a take's words carry it, so a saved mirror never surprises the wall.</summary>
     internal static string AdjustmentNote(PatternConfig? picture)
