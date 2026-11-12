@@ -15415,3 +15415,232 @@ reads a link's record and never makes one. A walk (QUALIFICATION §22) is not as
 endpoint, WebView2, process, twin, registry or CUT/TAKE path moves. The closing sentence's rig verb is one the Eye can
 show — the NETWORK band's cluster for a followed Stagewatch, read beside the Nodes page's card for the same app — and 95.3
 names whether it was read.
+
+**The units as they landed (read at the papers).** The opening's table named the papers 95.3. The round inserted a unit
+before them: 95.3 is a mends unit, and the papers are 95.4 — the plan's P94.3 under this tree's next number, as the
+renumbering note numbers every unit the plan did not foresee, the way round 94 inserted 94.4. Why: the opening had left
+the Core allocation fence CI showed red on 94.4's push (1,304 bytes over 3,000 calls of `WindowAddresses.LooksPrivate`
+and `Held`) as a row for these papers, with no cause; "measured, then governed" asked for a cause before anything moved,
+and a fence that fails on a runner for no fault of the product is one a later round learns to re-run, which is how a
+real allocation would get through. 95.3 found the cause (the collector's, not the product's; §113.4) and fenced the
+three allocation fences against it without loosening any. In the same unit the bench gained a trust line, so the
+interop lane can press the Nodes page's TRUST through the desk's own path rather than imitating it, and the whole
+validate's sighting of a playlist test that ticked on the desk's own timer was mended in the test. Every unit of 95.1
+to 95.3 is committed (`04e29e6`, `9bc8b1b`, `53bbbbc`), so none moved under R3, and nothing in these papers waits on
+another tree. The tag row the opening gave 95.3 is these papers' (`fa5d76b`, round 94's last commit). Sections 113.2
+to 113.9 are written by 95.4.
+
+### 113.2 The NETWORK band: every other app a cluster, bounded by the canvas (95.1 — EYE.1, F1; G24 in part)
+
+**What landed** (`04e29e6`), read against the measured cause (§113.1): forty-eight things of three other apps and three
+timer nodes stacked in one CONTROL column 3,304 units tall, no label at the fit view under 1,237 px.
+- **A band of its own.** `EyePlane.Network` is a layout band above CONTROL (`EyeNode.Band`); no thing's `Plane` is
+  NETWORK, so a lens never reads it. Each other app is a **cluster**: its card, then up to twelve of the things its
+  context names (reds and ambers first), three to a row, in Show Bus §6's kind table's column order and then the
+  context's; `ShowBusSpecTests` holds the Eye's `KindPlane` and `KindColumn` to every word of the copy's table,
+  "anything else" included. The clusters stand ⌈√(cells in use)⌉ to a row; folded cards go in a strip of twelve to a
+  row beneath them; past 128 apps one grey card says "+N more apps heard", the needed and the linked drawn first.
+- **Lens and layout apart.** A thing keeps its kind's plane for the lenses — a PlayMap projector is on the VIDEO lens
+  inside PlayMap's cluster — and an app's card is on a lens while any of its things is. NETWORK is not a lens: no wire
+  word names it (95.4 makes `EYE LENS network`'s refusal say so, below).
+- **Sticky.** Each app keeps the slot it took when first drawn (the lowest free) and each open cluster its cell; a fold
+  or a departure leaves a gap. One cluster that opens, folds or leaves moves no other cluster or card; the clusters move
+  together only when the grid's columns change, the strip only when the grid gains or loses a row.
+- **The expansion set is the view's.** `EyeNetworkView` holds the opened, the folded, the slots, the cells and the
+  canvas. No light and no focus moves it. The clusters the operator did not choose stay open — needed, then linked,
+  then by slot — while the fit scale on the page's own canvas stays at 0.35 or more (the label scale); the default
+  canvas is 1,920 less the 300-px side card by 1,080. At the bound the fit view shows marks only and every picture says
+  so, one with no other app included. OPEN CLUSTER / FOLD CLUSTER on the side card and "Open its cluster" / "Fold its
+  cluster" on the card's right-click are one desk edit with no wire word (`EyeService.Cluster`); asked of a cluster the
+  canvas placed by itself it records the choice, and it refuses only a choice the operator's set already holds or a
+  seventeenth open cluster (`MaxExpanded` 16). A focus on a thing of a folded cluster fits its card, never the world's
+  corner, and FOCUS, NEXT and PREV say where the thing is folded; a focus never opens a cluster.
+- **What the rail counts** (L76). The rail, `eye.worst`, the headline and the context's headline count this desk's own
+  things, its links and the cards of the apps the show needs (the Stagewatch the stage follows and this desk's own
+  nodes); a link and its app's card count as one thing, lit by the worse of the two, so red + amber + green + grey =
+  `Things`, and STATE `eye.things` and EYE `counts.things` report that number. Another app's own reds and ambers, and
+  the card of an app heard and never linked, are drawn and queued after the counted ones and lead nothing:
+  `problemsCounted` (appended at the end of STATE `eye` and of `EYE`) is the counted head of `problems`.
+- **Readers.** The assistant's lines say where each thing is drawn ("NETWORK · VIDEO"), mark another app's things as not
+  counted and give a linked card its counted light; the brief says the band's words. The canvas reports its size,
+  skips a thing with no place, draws the band's words and a "+N" badge on a card; the side card says "NETWORK · VIDEO"
+  and, when only borrowed problems remain, "N of other apps' own, not counted".
+
+**The tests.** `EyeLayoutTests` (the measured cause computed and asserted, the reference room fitting the reference
+canvas at 0.35 or more with all six clusters open and the camera's own fit, five smaller canvases down to marks only,
+the open set beside lights and focus, a fold or a departure moving nothing else in the reference room and a thirty-app
+strip, the folded focus, marks only with no band, the rail's counts summing to `Things`, the 128-app bound);
+`SyntheticNetworkTests` (round 84's fixed-seed xorshift over 0 to 160 apps: no overlap, things inside their bands,
+stable ids and slots, `left` exact); `ShowBusSpecTests` (the kind table); `ShowBusTests`' context test rewritten, not
+skipped (a borrowed amber is Stagewatch's to say; the headline now "4 things · 1 red — Lights: closed"); `EyeAppTests`
+(the side card, the menu's fold, open and kept-open, the STATE and EYE fields and counts, the folded focus's reply, the
+brief's lines, the refusals, the canvas's marks-only words).
+
+### 113.3 The Eye's cost and marks: revisions not contexts, the walk kept, parallel links, shapes at every scale (95.2 — F5, F6, F7)
+
+**What landed** (`9bc8b1b`).
+- **The hash reads revisions.** `EyeFacts.Key()` is the facts' steady projection. Each other app's context is read by
+  its revision (`EyeShowApp.ContextRev`), never serialised: `KeptContext` reckons it once per arrival, on the thread
+  that received it, moving only when the text with `at` 0 moves (a SHA-256 of that text is kept, not the text), from
+  one process-wide count so no two sources share a revision. Both receivers keep one — the Stagewatch link's side-call
+  lane and the twin's node contexts (the desk's thread, every 5 s); a context handed in without a revision is read
+  whole, so the picture is never stale for want of one. A link is read by `LinkRecord.Face` (state, light, level, show,
+  the steady words), never by `heardMs`, `nextMs`, `since`, the attempt, the clock's age, offset or error or the counts;
+  a connecting record's steady words drop "(attempt N)", so a redial rebuilds nothing.
+- **The walk and the frame.** `EyeService.FocusHops` walks the focus's neighbourhood once per (revision, focus)
+  (`HopsWalks` counts it); a link whose segment misses the view is not drawn (`EyeGeometry.Meets`, an exact clip); each
+  link's lane among its pair's links is reckoned once per picture (`EyeGraph.Lane`).
+- **Parallel links.** `EyeGraph.EdgesBetween` lists every link between two things; `Neighbours` lists each thing once.
+  The side card has one row per link and the right-click menu one LINKED TO entry per link, in the same order — the
+  first keeps `eye.contact:<id>`, the next `#2`, `#3` — each saying its mark once, first. The canvas draws them side by
+  side, each with its midpoint mark.
+- **Marks.** `EyeMark`/`EyeMarks`: ✓ disc, △ triangle, ✕ cross, ■ square, ○ ring, i dot over bar, derived from the light;
+  `EyeNode.Info` turns a grey into i (a Companion heard now, the "+N more apps" card), so nothing is stored; a Companion
+  gone quiet is a gap, ○; the replay's relighting clears `Info`. ■ is in the set and drawn, and no light of the Eye
+  derives it yet. The canvas draws every mark as geometry at every scale. EYE carries `mark` at the end of each node
+  and edge row and `worstMark` at the end of the root; STATE `eye` `worstMark` at its end; the rail's EYE foot draws the
+  worst mark where it drew a colour-only dot; the side card and its rows; the Nodes page's cards, whose light is now the
+  Eye card's (`ShowBusView.CardLight`): a linked app whose own context or link says red is dark red with ✕, amber with
+  △, where before its card kept its kind's colour while its mark said otherwise.
+- **The measurement's column.** Each rebuild (`EyeGraph.Build` with the placement) is timed on the desk's thread and
+  kept, the newest 256 (`EyeCost`); `patterns.metrics.csv` gains `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes` at the end
+  of its row — the last minute's slowest rebuild, how many ran, the newest picture's size — and `MetricsCsv.Parse` reads
+  them back. Nothing governs them.
+
+**The tests.** `EyeCostTests` (a record whose `heardMs` alone moves leaves the key, with a connecting leg that fails on
+the head before it; a redial's attempt out of the steady words; a context read by its revision and an unrevised one
+still moving the picture; a kept revision moving with what it says and never with its moment; two links, two edges,
+one neighbour, two menu entries; parallel segments apart and a view that culls only what it misses; six marks with i
+only for an information grey; a replay leaving no mark of now; the Nodes card's mark; the cost kept bounded and read
+over the minute; the metrics file's three columns at the end of its row and read back); `EyeCostAppTests` (a tick that
+moves nothing rebuilds nothing and a rebuild reaches the metrics; one walk per revision and focus, culling and every
+mark drawn; two rows and two entries with their marks, in the same order).
+
+### 113.4 The allocation fences read only their own thread; the bench presses the desk's Trust (95.3, inserted — L104)
+
+**What landed** (`53bbbbc`).
+- **The cause.** `GC.GetAllocatedBytesForCurrentThread` counts what the thread's allocation context was handed, less its
+  unused tail. At the end of a background collection's mark the .NET 10 collector runs
+  `repair_allocation_contexts(FALSE)`, whose `void_allocation` clears every thread's context without subtracting that
+  tail (`fix_allocation_context` with `for_gc_p` does). So the count of a thread that allocates nothing jumps by up to one
+  context, about 8 KB, when another thread's allocations bring on a background collection whose mark ends inside the
+  window. CI's 1,304 bytes on `WindowAddressesTests` fit this cause; that run was not reproduced as such. The product was
+  clean: `LooksPrivate` and `Held` allocate nothing.
+- **The fence.** `tests/Shared/ThreadBytes.cs`, compiled into every suite beside `TempRun`: `Start()` retires the
+  thread's context through a collection of its own (which counts the tail back, or waits a background mark out) and then
+  reads the count, so until the thread next allocates no other thread's collection can move the window; the exact-zero
+  fences (`WindowAddressesTests`, `FrameSmootherTests`) stay exactly 0. `Allocating(action)` reads a window over code
+  that does allocate inside a no-GC region, opened again up to five times when another thread's allocations end the
+  region, then failing with the reason; `WarpGeometryPipelineTests.BytesPerFrame` uses it (one voided context over its
+  20 frames is about 400 B a frame against its 512 B bound). `ThreadBytesTests` asserts first that concurrent collection
+  is on, bounds every wait at 30 s, and proves the void on at least 6 of at most 24 background collections on a
+  2M-object heap while no fenced window moves; a window over `new byte[1000]` reads 1,024 to the byte and an allocating
+  window over twenty of them 20,480. Mutant (`GC.Collect(0)` taken out of `Start`): 3 of 3 runs red, fenced windows up to
+  8,152 bytes beside the raw windows that proved the void.
+- **The bench's trust line.** `tools/Patterns.Bench` answers `trust <hex>` — at least 8 hex, either case, beginning the
+  fingerprint the Nodes card draws beside TRUST at that moment — through `MainViewModel.TrustCertificate()`, now the one
+  path of the TRUST button, the card's right-click entry and the bench: journalled from the desk, its words on the status
+  line, the card drawn again; each refusal (the shape, no link, no certificate drawn, a hex that does not begin the drawn
+  fingerprint) says why and changes nothing; the answer names the certificate by its public short fingerprint only. The
+  wire's STAGEWATCH TRUST is still refused as desk-only, and no deck, MIDI, assistant or module path can press it.
+  `BenchHostTests` runs it end to end against a TLS fake Stagewatch on the machine's non-loopback IPv4 (failing with
+  words if there is none): no Authorization before Trust, the wire's TRUST refused, 7 hex refused and 8 upper-case taken,
+  the key over TLS only after, the spent offer refused again, one Done row from the desk, no key or token on stdout or
+  stderr.
+- **A playlist test's own timer.** The whole validate showed `VideoTransportAppTests`'
+  `WhatWaitedUnderAHoldIsNotThePlaylistsThatComesBackOnAir(playedFirst: true)` failing about one run in three, and CI's run
+  on 95.0 read it red (expected 0, actual 1): the playlist's own 250 ms desk timer fired inside the pump VIDEO PLAY waits
+  on and ticked the playlist on air between the play and the leaving, the tick the case rules out. The test now stops
+  that timer; the case 6 of 6 green, the class 5 of 5. The other order — a tick on air between the release and the
+  leaving, which a real desk's timer can give — has no case of its own (L105).
+
+### 113.5 Every reader, and the lens words (95.4)
+
+- **The desk**: the band, the clusters, the strip, the marks, OPEN / FOLD CLUSTER on the side card, the rail's foot with
+  its mark (95.1, 95.2). **The right-click menus**: the card's "Open its cluster" / "Fold its cluster", the same edit as
+  the side card's button; one LINKED TO entry per link (95.1, 95.2; `DeskMenuTests`).
+- **STATE** `eye`: `things` the counted number; `expanded`, `left{apps,items}`, `problemsCounted` and `worstMark` at the
+  end of the row. **The wire's EYE**: `band` and `mark` at the end of each node row, `mark` at the end of each edge row,
+  `counts.things` the counted number; `expanded`, `left`, `fit`, `problemsCounted` and `worstMark` at the end of the root.
+  `docs/REMOTE.md` says each (95.4). No wire verb opens or folds a cluster; `EYE LENS network` is refused, and 95.4 makes
+  the refusal say that the NETWORK band is not a lens and where its things are (`EyeService.SetLens`; `EyeAppTests`).
+- **The Eye's God's Eye view, the assistant** — the lines and the brief (95.1); the picture-in-words carries no mark
+  (the light word is there; L106).
+- **Help** (95.4): the `gods-eye` topic's steps (the rail's mark and what it counts, the NETWORK band, the lens as a
+  plane's things wherever they are drawn, NETWORK not a lens) and its body (the band, the clusters, the counting, the
+  marks, the lens chips, the hash by revisions, the walk kept, the culled links, the metrics columns). `docs/EYE.md` §7
+  (95.4) is the method's record of the band and the cost.
+- **Not reached, said: the deck.** The Companion module did not move this round: its `eye_problems` variable and the
+  NEXT PROBLEM feedback read STATE's `eye.problems`, a count that still takes in another app's own problems beside the counted ones; it
+  reads neither `problemsCounted` nor `worstMark`, and the deck's Eye feedback is colour only (L106).
+
+### 113.6 With AI offline
+
+Nothing in the round needs a key or the internet. The band, the counts, the marks and the cost are this desk's own
+reading of facts it already holds; the assistant reads the same picture in words and is as capable without a key as the
+Eye page is (ASK types the question in on the Assistant page).
+
+### 113.7 The proof
+
+- **CI.** The code units reached the remote one by one. Run 43155484878 on `67bb2be` (95.0): the test job red — App 991
+  of 992, `VideoTransportAppTests.WhatWaitedUnderAHoldIsNotThePlaylistsThatComesBackOnAir(playedFirst: True)`, expected 0,
+  actual 1, mended by 95.3 in the test (§113.4); Core 1,558, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3;
+  lifecycle, windows-smoke, rollback-script and companion-module green; portable-exe and release skipped. Run 43165589425
+  on `04e29e6` (95.1): every job green, release skipped — Core 1,593, Rendering 724, Devices 9, Audio 14, Assistant 39,
+  Audience 3, App 993 (17 m 59 s). Run 43175648291 on `9bc8b1b` (95.2): every job green, release skipped — Core 1,604,
+  Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 996 (16 m 51 s). Run 43154961373 on `fa5d76b`
+  (round 94's papers), which the opening left unread: every job green. Run 43190219199 on `53bbbbc` (95.3), read at
+  these papers once it ended: every job green, release skipped — Core 1,607, Rendering 724, Devices 9, Audio 14,
+  Assistant 39, Audience 3, App 997, the playlist case among them (the test job 22 m 29 s). No run since 94.4's has read
+  the allocation fence red.
+- **Core:** `EyeLayoutTests`, `SyntheticNetworkTests`, `EyeCostTests`, `ThreadBytesTests`, `ShowBusSpecTests`,
+  `ShowBusTests`, `DeskMenuTests`, `WindowAddressesTests`, `FrameSmootherTests`, `EyeHelpTests`, `HelpTests`,
+  `ChangelogTests`.
+- **Rendering:** `GlanceTests`, `LiveInputTests` (the metrics row's three appended columns).
+- **App:** `EyeAppTests`, `EyeCostAppTests`, `EyeReplayAppTests`, `BenchHostTests`, `VideoTransportAppTests`,
+  `WarpGeometryPipelineTests`.
+- **The module:** not moved; its node tests, `lines.txt` and `npm run check` run as the papers' validate.
+- **Mutation checks:** one for 95.3 (above); 95.1 and 95.2 record none, so these papers ran two (REVIEW round 95).
+- **Measured:** the layout's geometry at the opening, worked from the constants, and held by `EyeLayoutTests`. No timing:
+  the rebuild's cost is now a column of the metrics file (`eyeBuildWorstMs`, `eyeBuilds`, `eyeNodes`), the first
+  measurement a later round can govern from; no rig has written a row of it yet.
+- **At the close:** all seven suites green on the tree as committed — Core 1,607, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 997, 3,393 in all — and the module's four steps (see REVIEW round 95's suites).
+
+### 113.8 What the round did not do
+
+- **No walk.** No platform path the brief names is touched: no display topology, hot-plug, audio endpoint, WebView2,
+  process or watchdog, registry or CUT/TAKE. The twin's node contexts are kept with a revision where they are received;
+  its protocol, its listener and its words do not move. "Walk: none asked".
+- **No wire word for the band**: no `EYE LENS NETWORK`, no `EYE CLUSTER`, none of the design's other STATE fields
+  (`apps`, `linksRed`, `network`), no `CONTEXT POST`; "needed" is the Stagewatch the stage follows and this desk's own
+  nodes alone.
+- **No cross-app links yet**: a context's edges stay inside one app; the window chain (G24's "Patterns screen N shows
+  Stagewatch window lobby") waits on a window lease neither tree has (G10). The replay does not relight link edges from
+  the journal's link rows, and NDI chains across apps are not drawn (L107).
+- **The deck and the assistant's marks** (L106).
+- **The playlist release's other order** has no case (L105).
+- **No governor**: the rebuild is measured, not bounded.
+
+### 113.9 The ledger and the papers (95.4)
+
+- **OPEN.** Closed: L76 by 95.1 (the counted projection); L104, added and closed: the allocation fence's sighting on
+  94.4's run, its cause found and fenced by 95.3. Added: L105 (the held playlist's release fenced in one order), L106
+  (the readers the marks and the counted problems have not reached: the deck's variables and feedback, the assistant's
+  words), L107 (what the band draws from what other apps publish: no cross-app or window links, the replay's grey link
+  edges, NDI chains across apps). Read and kept: L44 (the problems queue's memory; the design's §13 names it not done),
+  L74, L85. Fifty-eight open, forty-nine closed.
+- **The walk.** None asked (§113.8).
+- **The other trees, read at the papers.** Stagewatch's head is `536e59b` (its SW22.4, the fifth train's grants
+  reaching only the app's own key-verified link, on SW22.3's grants in Core);
+  Mapper's is `783319e1`. The contract's body hashes alike in the three trees (`9ca83889…`, the Body line), and
+  `tools/showbus/peerlink-peer.mjs` matches both copies byte for byte; Stagewatch's own header has moved with its `/ws`
+  acceptor (SW22.1a, SW22.1b), which a copy's header does not follow. The interop lane still pins this tree at `5a8ad8f`.
+- **The papers:** §113.1's closing paragraph and §113.2 to §113.9; REVIEW round 95; CHANGELOG (95.1 to 95.3 and these
+  papers, the count, module 3.21.0 unmoved); README (the ledger's round 95 entry, the God's Eye paragraph, the count);
+  `docs/REMOTE.md` (EYE's and STATE `eye`'s appended fields, the counted `things`, the band and the expansion, the lens
+  words); Help (`gods-eye`'s steps and body) and `EyeService`'s lens refusal; `docs/EYE.md` §3's planes and lenses and
+  §7; `docs/OPEN.md`; the tag table's row 94 (`fa5d76b`). `docs/COMPANION.md` does not move: the module did not.
+- **The rig's reading.** The round adds no verb an output can show: OPEN and FOLD CLUSTER move the operator's view and
+  nothing on a screen, a wall or a receiver, so no journal row, log line or Super Check row is read beside an output for
+  it. The row it names is the metrics file's: `patterns.metrics.csv`'s `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes`,
+  read beside the Eye page with the show's apps linked — the rebuild's first measurement on a rig.

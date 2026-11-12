@@ -12,12 +12,37 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 95 — 2026-11-12 — the Eye draws every other app as a cluster on a NETWORK band of its own, bounded by the canvas, with its labels readable at the fit view
 
-`round-95` · PLAN §113 · REVIEW round 95 · 3,339 tests · module 3.21.0 · evidence: a handed-in critique (the Eye design and its critique, the plan's issues 5, 6, 7, 9, 10, 11 and 14), no field files and no rig report; the one measurement is the layout's — the fit scale at 48 things, 3,304 world units in one column, 0.303 on a 1,080-px canvas and no label under 1,237 px — worked from the constants, not timed
+`round-95` · PLAN §113 · REVIEW round 95 · 3,393 tests · module 3.21.0 (unmoved) · evidence: a handed-in critique (the Eye design and its critique, the plan's issues 5, 6, 7, 9, 10, 11, 14 and 20), no field files and no rig report; the one measurement is the layout's — the fit scale at 48 things, 3,304 world units in one column, 0.303 on a 1,080-px canvas and no label under 1,237 px — worked from the constants, not timed; the rebuild's cost becomes a column of `patterns.metrics.csv`, measured from now and governed by nothing
 
 - **The round opens (95.0).** PLAN §113.1 names the round's number (the plan's round 94), reads round 94's CI runs (one
   allocation fence in Core failed once on a runner, 1,304 bytes, for **L104**; nothing from the rig), names the OPEN rows
-  it touches (L76; L44 kept), the requester and the evidence class, and the layout's measurement. The count and the
-  module are round 94's until the units land.
+  it touches (L76; L44 kept), the requester and the evidence class, and the layout's measurement.
+- **The NETWORK band (95.1).** Every other app — a Stagewatch, a PlayMap, an AGMessage, this desk's timer nodes — is a
+  cluster on a band of its own above CONTROL: its card and up to a dozen of its things, reds and ambers first, three to a
+  row by Show Bus §6's kind table; clusters in a square grid, folded cards in a strip, one grey card past 128 apps. Slots
+  and cells are sticky, so one cluster opening, folding or leaving moves no other. The clusters nobody chose stay open
+  while the fit view reads its labels at 0.35 or more on the page's canvas; past that the band says what it folded and,
+  at the bound, marks only. OPEN / FOLD CLUSTER on the side card and the card's right-click keep the operator's choice; no
+  light and no focus moves it. A lens keeps a plane's things wherever they are drawn. The rail, `eye.worst`, the headline
+  and the context's headline count this desk's own things, its links and the apps it needs — another app's own reds are
+  drawn and queued after, never counted (**L76** closed); STATE `eye` and `EYE` append `expanded`, `left` and
+  `problemsCounted`, `EYE` its nodes' `band` and `fit`, and `things` is the counted number.
+- **The Eye's cost and marks (95.2).** The once-a-second hash reads each other app's context by the revision it was kept
+  with on arrival and each link by its steady face, never serialising a context; the focus's walk is kept per picture,
+  links off the screen are not drawn, two links between one pair are two rows, two menu entries and two lines; every
+  light carries one of six shapes (✓ △ ✕ ■ ○ i) on the canvas at every scale, the rail's foot, the side card and the
+  Nodes page's cards, whose colour now follows their context's and link's light; `mark` and `worstMark` end their rows in
+  `EYE` and STATE. Each rebuild is timed and `patterns.metrics.csv` gains `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes`.
+- **The allocation fences' cause, and the bench's trust line (95.3, inserted).** The 1,304 bytes were the collector's: a
+  background collection's mark voids every thread's allocation context with its unused tail counted, so a thread that
+  allocates nothing can read up to 8 KB. `ThreadBytes` in every suite retires the thread's context before a window and
+  reads an allocating one inside a no-GC region; the exact-zero fences stay exactly 0 (**L104** added and closed). The
+  bench answers `trust <hex>` through the desk's own TRUST, the one path of the button, the card's menu and the bench;
+  the wire's TRUST stays desk-only. A playlist test that ticked on the desk's own timer, red on 95.0's CI run, stops it.
+- **The papers (95.4).** PLAN §113, REVIEW round 95, README, `docs/REMOTE.md` (EYE's and STATE `eye`'s fields, the band
+  and the expansion, the lens), the lens words in Help and `EYE LENS network`'s refusal ("the NETWORK band is not a lens"),
+  `docs/EYE.md` §7, OPEN (L76 and L104 closed; L105 to L107 added) and round 94's tag row. No verb an output can show; the
+  row named for the rig is the metrics file's three Eye columns. Walk: none asked.
 
 ## Round 94 — 2026-11-11 — one speaker message, through a followed Stagewatch when the link can carry it and on this desk with words when not; a playlist item and a stinger's clip held with their clocks; VIDEO … ON <key> for a layer's or a screen's own clip
 

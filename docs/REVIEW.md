@@ -4569,3 +4569,125 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   playlist's "Held … left" (§112.10).
 - Walk: none asked — no platform path the brief names is touched. What only a real Stagewatch shows is §26's round-94
   note, beside L50 and L56; the row stays unwalked.
+
+## Round 95 review — the Eye's NETWORK band, its cost and marks, the allocation fences' cause, and the bench's trust line
+
+### 95.0 — the round opened
+
+- The plan's round 94 (its P94.0 to P94.3) is round 95 here, §113, under §110.1's key. The requester: the maintainer's
+  show-network ask, the plan's fourth train (the Eye "knows about all connected apps, nodes and devices"). Evidence class:
+  a handed-in critique — the Eye design (Stagewatch's `docs/ecosystem/eye.md`, its F1 to F10 and §8's geometry) and its
+  critique (issues 5, 6, 9 and 14 for 95.1; 7, 10 and 11 for 95.2; 20 for the papers). `docs/field/` holds only its
+  README; round 94's CI runs were read as the files, one Core allocation fence red once on 94.4's run.
+- The one measurement, worked from the constants and not timed: one CONTROL column of 48 things, 3,304 units, a fit
+  scale of 0.303 on a 1,080-px canvas, no label under 1,237 px.
+
+### 95.1 — the NETWORK band (EYE.1, F1)
+
+- **Done.** PLAN §113.2. `EyeNode.Band`, `App`, `Counted`; the band above CONTROL with per-app clusters, the strip and
+  the 128-app card; slots and cells sticky; the expansion set the view's own (`EyeNetworkView`), filled by need, link and
+  slot while the fit scale holds at 0.35, marks only past it and said; a folded focus fitting its card; the counted
+  projection (the rail, `eye.worst`, the headline, the context's headline and `problemsCounted`); the side card's and the
+  card menu's OPEN / FOLD; the assistant's "NETWORK · VIDEO".
+- **Tests:** `EyeLayoutTests`, `SyntheticNetworkTests`, `ShowBusSpecTests`' kind table, `ShowBusTests`' context test
+  rewritten (not skipped), `EyeAppTests`, `DeskMenuTests`.
+- **Mutation checks:** the unit's commit records none, so these papers ran one (below).
+- **Left by the unit, answered here:** no wire verb opens or folds a cluster (§113.1 adds none — said in REMOTE); the
+  deck's NEXT PROBLEM feedback still reads `eye.problems` and `problemsCounted` waits for the module (L106); "needed" is
+  the followed Stagewatch and this desk's nodes alone; the design's other STATE fields and `EYE LENS NETWORK` are not
+  added (§113.8).
+
+### 95.2 — the Eye's cost and marks (F5, F6, F7)
+
+- **Done.** PLAN §113.3. The hash by revisions (`KeptContext`, `EyeShowApp.ContextRev`, `LinkRecord.Face`, a connecting
+  record's steady words without its attempt); the focus's walk kept per revision and focus; links that miss the view
+  culled; parallel links as rows, entries (`#2`, `#3`) and lanes; six marks derived from the light in EYE, STATE, the
+  rail's foot, the side card and the Nodes page's cards, whose colour now follows their context's and link's light; the
+  rebuild's cost in `patterns.metrics.csv`.
+- **The review's items, folded in at the unit:** tests that would have passed on the head before it (a connecting leg
+  that fails there; the Nodes card's red, amber, green and level-0 cases; the menu's order held to the rows'); card
+  colour against mark (one light); pair counts per frame (lanes kept per picture); the rail foot's colour-only dot (the
+  mark now); `KeptContext` keeping a digest, not the text; a quiet Companion's i (now ○); a dead self-loop guard made live;
+  a doubled glyph said once.
+- **Mutation checks:** the unit's commit records none, so these papers ran one (below).
+- **Left by the unit, answered here:** the module reads no `worstMark` (no `eye_worst_mark`; the deck's Eye feedback is
+  colour only) and the assistant's picture-in-words carries no mark (L106); the once-a-second gather and key step is not
+  measured, only the rebuild (D9 asks for the rebuild); ■ is in the set and no light derives it yet; the papers name the
+  `mark`/`worstMark` fields, the three metrics columns, the attempt out of the steady words, the `#2`/`#3` ids and the
+  Nodes card's colour (REMOTE, README, Help, EYE.md).
+
+### 95.3 — the allocation fences read only their own thread; the bench presses the desk's Trust (inserted)
+
+- **Why a unit.** §113.1 left the Core allocation fence's red on 94.4's run to these papers as a row; a fence that fails
+  on a runner for want of a cause is one that is re-run until green, so the cause came first, before the papers, and the
+  papers became 95.4. The interop lane's trust line rode in the same unit.
+- **Done.** PLAN §113.4. The cause (a background collection's `void_allocation` at the end of its mark adds the voided
+  tail of every thread's allocation context to that thread's count); `tests/Shared/ThreadBytes.cs` (`Start`, `Allocating`)
+  in every suite; the exact-zero fences unchanged at 0 and `BytesPerFrame` at its 512 B; `ThreadBytesTests`; the bench's
+  `trust <hex>` through `MainViewModel.TrustCertificate()`, the desk's one path; `BenchHostTests` end to end over TLS; the
+  playlist test's own timer stopped in the test.
+- **Mutation check** — one, as the unit's commit records it: `GC.Collect(0)` taken out of `Start`, 3 of 3 runs red with
+  fenced windows up to 8,152 bytes beside raw windows that proved the void.
+- **The review's items, folded in at the unit:** unbounded waits bounded; the windows' order (the witness's raw window
+  before the fenced one); `WarpGeometryPipelineTests` through `Allocating`; the layout comment; the bench pressing the
+  desk's own path rather than its own copy of it.
+- **Left by the unit, answered here:** the §113.1 table's renumbering (§113.1's closing paragraph) and L104 with its
+  cause (added and closed).
+
+### 95.4 — the papers
+
+- §113.1's closing paragraph and §113.2 to §113.9; this section; the CHANGELOG entry completed; README (the ledger's
+  round 95 entry, the God's Eye paragraph, the count); `docs/REMOTE.md` (EYE's and STATE `eye`'s appended fields,
+  `things` counted, the NETWORK band and the expansion state, the lens row's words); the lens words in
+  Help (`gods-eye`'s steps, keywords and body) and in `EyeService.SetLens`'s refusal, which now says the NETWORK band is
+  not a lens and where its things are, held by a new leg of `EyeAppTests`; `docs/EYE.md` (§3's planes and lenses, §7);
+  `docs/OPEN.md`; the tag table's row 94 (`fa5d76b`).
+- **Read again at the papers:** the opening's table named the papers 95.3 — the round inserted the mends and the papers
+  are 95.4, said in §113.1. REMOTE's EYE row and STATE `eye` row listed none of 95.1's or 95.2's fields and still read
+  `counts.things` as every node drawn; the lens row and Help said a lens shows "one band alone", which the NETWORK band
+  made untrue (a lens keeps a plane's things wherever they are drawn); the Help body's bands were "CONTROL above" and its
+  rail foot "wears the worst light" with no mark; EYE.md's §3 had four bands. Each now says what the code does.
+- **Mutation checks run by these papers** — two, one for each code unit that recorded none, each applied to one file
+  of `src/Patterns.Core`, the Core suite built and run filtered, and the file restored byte for byte (its SHA-256 the
+  one taken before the edit), then the Core suite built again and run whole on the restored source, 1,607 of 1,607
+  green:
+  - 95.1's counted projection: in `Eye.cs` the other app's card made `Counted = true` where it is `Counted = app.Needed`
+    (every heard app's card counted as this desk's). The Core suite filtered to `Eye` and `ShowBus`: 3 of 157 red —
+    `EyeLayoutTests.TheRailCountsThisDesksOwnItsLinksAndTheNeededCardsAndQueuesTheBorrowedAfter` (expected 2 counted
+    problems, read 3), `EyeLayoutTests.PastTheBoundOneGreyCardSaysHowManyMoreAndTheNeededAreDrawnFirst` and
+    `ShowBusTests.TheContextIsTheEyesPictureInTheSharedShapeWithoutAnotherAppsThings` (the headline no longer
+    "4 things · 1 red — Lights: closed").
+  - 95.2's revision by what a context says: in `KeptContext.Next` the digest compare dropped, so a context kept once
+    keeps its revision whatever it says next. The Core suite filtered to `Eye`, `ShowBus` and `Stagewatch`: 1 of 225
+    red — `EyeCostTests.AKeptContextsRevisionMovesWhenWhatItSaysMovesAndNeverForItsMoment`.
+- Every unit of 95.1 to 95.3 is committed; none moved under R3.
+
+### The review's items, answered
+
+- **F1 (one CONTROL column for every other app):** 95.1, the NETWORK band, with the fit scale asserted from the layout and
+  the camera, no rendering.
+- **F5 (every context serialised for the hash each second), F6 (the walk per frame), F7 (parallel links folded into
+  one):** 95.2.
+- **Issue 20 (the readers of the new fields):** REMOTE, Help, EYE.md and README by 95.4; the module and the assistant's
+  marks named as not reached (L106).
+- **G24 (the Eye's network):** in part — the band draws each app's own things; the cross-app window chain waits on a
+  lease neither tree has (G10; L107).
+
+### The ledger's rows, answered
+
+- **Closed:** L76 (95.1); L104 (added and closed: 95.3).
+- **Added:** L105 (the held playlist's release fenced in one order), L106 (the deck and the assistant have not taken
+  the marks or the counted problems), L107 (what the band draws from what other apps publish).
+- **Read and kept:** L44, L74, L85.
+- Closed rows: forty-nine; open: fifty-eight.
+
+### The suites
+
+- Whole validate on the tree as committed: Core 1,607, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 997 (3,393 in all), each green with no skip; the module's npm ci, npm test, the lines.txt diff and npm run check green.
+- CI: the runs on `67bb2be` (red, the playlist test 95.3 mended), `04e29e6`, `9bc8b1b` and `53bbbbc` (95.3, the
+  mends' own run, read once it ended: App 997 of 997 with the playlist case) (green, release skipped) and `fa5d76b`
+  (round 94's papers, green) are read in PLAN §113.7. These papers go out at the maintainer's next push.
+- The rig's reading: no verb an output can show — OPEN and FOLD CLUSTER move the operator's view alone; the row named is
+  `patterns.metrics.csv`'s `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes`, read beside the Eye page with the show's apps
+  linked, the rebuild's first measurement on a rig (§113.9).
+- Walk: none asked — no platform path the brief names is touched; the twin's protocol does not move.

@@ -176,7 +176,8 @@ public sealed class EyeService
     public ActionResult SetLens(string word)
     {
         var lens = EyeGraph.ParseLens(word);
-        if (lens is null) return ActionResult.Refused($"No lens called '{word.Trim()}' — all, video, control, audio, room or problems.");
+        // A lens reads each thing's plane, never the band it is drawn in: NETWORK is a band, so the refusal says where its things are.
+        if (lens is null) return ActionResult.Refused($"No lens called '{word.Trim()}' — all, video, control, audio, room or problems; the NETWORK band is not a lens, its things are on their own planes' lenses.");
         Lens = lens.Value;
         Moved();
         return ActionResult.Done($"Eye lens: {Lens.ToString().ToLowerInvariant()}.");

@@ -81,7 +81,9 @@ the stream). Within a band the tiers are columns, left to right, in the directio
 travels. The layout is a deterministic grid — every (band, tier) cell stacks its nodes in a
 stable order — so the same show always draws the same picture and a node keeps its place while
 its neighbours change. A force layout was considered and rejected: it is prettier on a random
-graph and worse on a show, where the operator wants the projector where it was a minute ago.
+graph and worse on a show, where the operator wants the projector where it was a minute ago. Since round 95 a fifth band,
+NETWORK, sits above CONTROL and holds every other app as a cluster of its own (§7); it is a band of
+the layout, not a plane: each of its things keeps its kind's plane for the lenses.
 
 **Lights and the evidence rule.** A node's light is the worst thing known about it, never a
 guess: a screen with a MISMATCH is red; on the test route, amber; MATCH, green; with a contract
@@ -106,15 +108,18 @@ sub-stepped when a frame is long, so a focus glides and never overshoots and a m
 gets the same motion as one at 144. The canvas runs its timer only while the spring is unsettled
 or an emphasis is moving; a still picture costs nothing.
 
-**Lenses.** ALL, VIDEO, CONTROL, AUDIO, ROOM, PROBLEMS. A plane lens shows that band and the
-desk (the hub is on every lens); PROBLEMS shows every red and amber node with its neighbours
+**Lenses.** ALL, VIDEO, CONTROL, AUDIO, ROOM, PROBLEMS. A plane lens shows that plane's things,
+wherever they are drawn, and the desk (the hub is on every lens) — since round 95 another app's
+outputs and windows are on VIDEO inside its NETWORK cluster, and its card while any of its things is; PROBLEMS shows every red and amber node with its neighbours
 and nothing else — the operator's "what is wrong" view.
 
 **The headline and the problems queue.** `EyeGraph.Headline` is one line computed from the
 lights: the count of things, the reds and ambers, and the worst thing named with its state
 words. `Problems` is the reds then the ambers in the picture's order; NEXT and PREV walk it, on
 the page, on a key (`EYE NEXT`) and from the assistant. The headline is what the rail's EYE item
-wears (its colour is the worst light), what STATE carries, what the module's variable reads.
+wears (its colour is the worst light), what STATE carries, what the module's variable reads. Since
+round 95 the headline, the rail and the counts are this desk's own things, its links and the apps it
+needs; another app's own problems are queued after them and counted by none (§7).
 
 **Menus stay one.** A right-click on a node opens the menu the desk already has for it — a
 screen's is the wall tile's menu, built from the same facts, so the Eye never has a stale
@@ -180,3 +185,40 @@ where it differs.
   are now — no trail. The Eye is the desk's: a node has none. The assistant reads the picture and
   answers from it; it does not act on it — every fix is a desk verb. PLAN §84.6 has the reasons and
   the next steps.
+
+## 7. The NETWORK band and the picture's cost (round 95)
+
+The method above drew another app as one card with its things stacked in CONTROL's last column. With three apps of a
+dozen things each and three timer nodes, that column was 3,304 units tall and the fit view, on a 1,080-px canvas, a
+column of dots: no label shows below scale 0.35, and the column alone needs 1,237 px. Round 95 answers it with
+geometry, then measures what the picture costs. `docs/PLAN.md` §113 is the design and the proof.
+
+- **A band, not a plane.** NETWORK sits above CONTROL. Each other app is a cluster — its card, then up to twelve of the
+  things its context names, reds and ambers first, three to a row in the column order Show Bus §6's kind table gives a
+  kind, then the context's order. The clusters stand ⌈√n⌉ to a row; a folded app is its card alone in a strip beneath;
+  past 128 apps one grey card says how many more were heard. Layout and lens are apart: a thing is drawn in its app's
+  cluster and keeps its kind's plane, so the VIDEO lens shows PlayMap's projectors where PlayMap's cluster is.
+- **Stable by construction.** An app keeps the slot it took when first drawn, an open cluster the cell it took; a fold
+  or a departure leaves a gap. The same history of facts draws the same picture, and one cluster that opens, folds or
+  leaves moves no other — the method's "the projector where it was a minute ago", kept for a room of apps.
+- **Bounded by what a person reads.** The clusters nobody chose stay open — the needed (the Stagewatch the stage
+  follows, this desk's nodes), then the linked, then by slot — for as long as the fit view on the page's own canvas
+  keeps its scale at 0.35 or more; the band says what it folded and what it left out, and when even the operator's own
+  choice cannot be read at the fit view, the picture says *marks only*. OPEN and FOLD CLUSTER are the operator's and
+  kept; no light and no focus moves them. A focus on a folded thing fits its card.
+- **Whose light it is.** The headline, the rail, `eye.worst` and the counts are this desk's: its own things, its links
+  and the cards of the apps the show needs, a link and its card one thing by the worse light. Another app's red is that
+  app's to say: drawn, listed and stepped through after this desk's problems, never this desk's alarm.
+- **Never colour alone.** Every light carries a shape — ✓ green, △ amber, ✕ red, ○ grey, i a grey that is information,
+  ■ armed (in the set; no light derives it yet) — drawn as geometry at every scale, on the rail's foot, the side card,
+  its rows and the Nodes page's cards, whose colour is now the Eye card's light.
+- **Parallel links.** Two links between one pair are two lines side by side, each with its mark, two rows on the card
+  and two entries in the menu.
+- **The cost, measured.** §4's hash once serialised every other app's context each second; now each context is read
+  by the revision its receiver kept when it arrived, and each link by its steady face, so a heartbeat moves nothing. The
+  focus's walk is taken once per picture, and a link off the screen is not drawn. Each rebuild is timed where it runs,
+  and `patterns.metrics.csv` gains `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes` — measured, not governed: a limit waits
+  for the rows a rig writes.
+- **Not yet.** No line crosses from one app to another (the window chain waits on a window lease), the replay leaves
+  link edges grey, NDI chains across apps are not drawn, and no wire word opens a cluster or names a NETWORK lens
+  (`docs/OPEN.md` L107); the deck and the assistant have not taken the marks (L106).
