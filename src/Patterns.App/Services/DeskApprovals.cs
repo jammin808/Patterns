@@ -31,6 +31,12 @@ public sealed class DeskApprovals
         /// settles it.
         /// </summary>
         public long UnconfirmedAt { get; set; } = long.MinValue;
+
+        /// <summary>
+        /// Show Bus 1.3 §12.4: a line for the Stagewatch's own desk (a window asked for this desk), posted to its desk rather than to
+        /// this one; it never comes back here to apply — the Stagewatch runs it once a person approves it there.
+        /// </summary>
+        public bool ToDesk { get; init; }
     }
 
     private readonly ConcurrentDictionary<string, Entry> _byLocal = new(StringComparer.Ordinal);
@@ -55,6 +61,26 @@ public sealed class DeskApprovals
         return (e, DeskProposals.ApplyRefusal(p, local, selfId, e is not null, e?.DeskId ?? "", e?.Ran ?? false));
     }
 
+    /// <summary>
+    /// An ask for this very line is still open on the Stagewatch's desk (being sent, or pending there): a press again asks nothing
+    /// new — one ask per window waits for its person.
+    /// </summary>
+    public bool AskOpen(string line)
+        => _byLocal.Values.Any(e => e.ToDesk && string.Equals(e.Line, line, StringComparison.Ordinal) && e.State is "" or "sending" or "pending");
+
+    /// <summary>A line for the Stagewatch's own desk (<see cref="Entry.ToDesk"/>): a window asked for this desk. Returns its local id.</summary>
+    public string AddAsk(string line, string reason, Action<string> said)
+    {
+        var localId = "w" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(4)).ToLowerInvariant();
+        _byLocal[localId] = new Entry
+        {
+            LocalId = localId, Line = line, Reason = reason, Risk = "high", ToDesk = true, Said = said, State = "sending",
+            Apply = static () => (false, "a window grant is the Stagewatch's to run, once a person there approves it"),
+        };
+        Trim();
+        return localId;
+    }
+
     /// <summary>A proposal for the desk; returns its local id.</summary>
     public string Add(string kindLabel, string title, string reason, string risk, Func<(bool, string)> apply, Action<string> said)
     {
@@ -63,7 +89,13 @@ public sealed class DeskApprovals
         {
             LocalId = localId, Line = DeskProposals.Line(localId, kindLabel, title), Reason = reason, Risk = risk, Apply = apply, Said = said, State = "sending",
         };
-        if (_byLocal.Count > 200) foreach (var old in _byLocal.Values.Where(e => e.Ran || e.State is "rejected" or "undelivered").Take(_byLocal.Count - 200).ToList()) _byLocal.TryRemove(old.LocalId, out _);
+        Trim();
         return localId;
+    }
+
+    /// <summary>At most 200 entries are held: past that, the settled ones (ran, rejected, undelivered) go first.</summary>
+    private void Trim()
+    {
+        if (_byLocal.Count > 200) foreach (var old in _byLocal.Values.Where(e => e.Ran || e.State is "rejected" or "undelivered").Take(_byLocal.Count - 200).ToList()) _byLocal.TryRemove(old.LocalId, out _);
     }
 }

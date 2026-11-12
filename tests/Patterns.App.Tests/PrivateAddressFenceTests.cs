@@ -6,6 +6,7 @@ using System.Text.Json;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.App.Services;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -32,10 +33,15 @@ public class PrivateAddressFenceTests
     private const string PinValue = "pz4321qk";
     private const string Pin = "https://x/feed?pin=" + PinValue;
 
+    /// <summary>Round 96: a window a Stagewatch granted this desk — its address rides the settings' masked Secret alone.</summary>
+    private const string GrantToken = "zyxwvutsrqpnmkjihgfedcba98";
+    private const string GrantSw = "swdesk01";
+
     private static void CarriesNoPass(string? text, string where)
     {
         var t = text ?? "";
         Assert.False(t.Contains(Token, StringComparison.Ordinal), $"{where} carries the window's token:\n{t}");
+        Assert.False(t.Contains(GrantToken, StringComparison.Ordinal), $"{where} carries the granted window's token:\n{t}");
         Assert.False(t.Contains(PinValue, StringComparison.Ordinal), $"{where} carries the PIN:\n{t}");
     }
 
@@ -166,6 +172,33 @@ public class PrivateAddressFenceTests
             Assert.Equal("2 kept on this machine", row.Value);
             CarriesNoPass(File.ReadAllText(services.Metrics.LastReportPath), "the Super Check's report");
 
+            // Round 96 (Show Bus 1.3 §12): a window Stagewatch granted this desk, on air on the pattern's second layer, its input
+            // labelled. The show holds its held form; the page is sent that; every reader below names the window, never its address.
+            var grant = new StagewatchGrant(GrantSw, "lobby", "Lobby", StagewatchGrants.HowPage, "http://127.0.0.1:9924", "/w/" + GrantToken, Link: StagewatchGrants.LinkLocal);
+            services.State.Control.Stagewatch.SetGrants(new[] { grant });
+            services.WebPasses.SetGrants(new[] { grant });
+            services.State.Pattern.Layer2.Enabled = true;
+            services.State.Pattern.Layer2.Source = LayerSource.Web;
+            services.State.Pattern.Layer2.WebUrl = grant.Held;
+            var label = new InputLabelConfig { Key = InputKeys.Web(grant.Held), Label = "Lobby" };
+            services.State.InputLabels.Add(label);
+            Dispatcher.UIThread.RunJobs();
+            services.ReconcileInputs();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(made, p => p.Navigations.Contains(grant.Held) || p.CurrentUrl == grant.Held);   // the page is sent the held form; it resolves it itself
+            Assert.Equal(grant.Url, services.WebPasses.Resolve(grant.Held).Url);
+            Assert.Equal(new[] { "PGM" }, StagewatchGrants.Places(services.AirState, grant.Held));
+            CarriesNoPass(router.StateJson(), "STATE with a granted window on air");
+            CarriesNoPass(router.ContextJson(), "CONTEXT with a granted window on air");
+            services.Eye.Refresh();
+            CarriesNoPass(Send(router, "EYE"), "EYE with a granted window on air");
+            CarriesNoPass(services.StagewatchWindows.Words(), "the readers' words");
+            CarriesNoPass(JsonUtil.Serialize(services.State.InputLabels), "InputLabels");
+            Log.Warn($"Web page navigate failed: {grant.Url}");                                     // a writer that forgot: said in public
+            services.Metrics.RunSuperCheck();
+            CarriesNoPass(File.ReadAllText(services.Metrics.LastReportPath), "the Super Check's report with a granted window");
+            services.State.InputLabels.Remove(label);                                               // the rows below count the show's own pages
+
             // The files the desk writes beside the settings: none carries a pass but the book, which holds both. The show
             // file's .bak is the version before the last write — the file as the older build left it, until the next save
             // rotates it out — and, like backups/, an older copy that stays on this machine: never in a bundle.
@@ -186,6 +219,8 @@ public class PrivateAddressFenceTests
                     continue;
                 }
                 if (name == previous) continue;
+                // The machine's own settings hold a granted window's address under its Secret alone (masked by that name in a bundle).
+                if (name == "patterns.settings.json") text = System.Text.RegularExpressions.Regex.Replace(text, "\"Secret\"\\s*:\\s*\"/w/" + GrantToken + "\"", "", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(5));
                 CarriesNoPass(text, name);
             }
             Assert.Contains("patterns.settings.json", named);

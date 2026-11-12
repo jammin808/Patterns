@@ -33,6 +33,8 @@ public class DeskMenuTests
         People = new[] { new MenuPerson("P1", "Jane Doe", "CEO — Acme"), new MenuPerson("P2", "Sam", "") },
         Media = new[] { new MenuMedia("M1", "foyer.png", false), new MenuMedia("M2", "sizzle.mp4", true) },
         TransitionDefault = "dissolve · 800 ms",
+        // Round 96: two windows a Stagewatch granted this desk — one ready, one still opening.
+        Windows = new[] { new MenuWindow("lobby", true, "", "on air"), new MenuWindow("foyer", false, "its page is still loading", "") },
     };
 
     private static ScreenFacts Screen(bool offLook = false, bool own = false, bool locked = false, bool mirror = false, bool staged = false, string number = "2") => new()

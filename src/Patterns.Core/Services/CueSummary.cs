@@ -102,6 +102,9 @@ public static class CueSummary
             case ShowActionKind.ScreenStagePreset: return $"PVW of {StageLabel(state, a.Target)} ← preset '{(a.Value.Length > 0 ? a.Value : "?")}'";
             case ShowActionKind.ScreenStagePattern: return $"PVW of {StageLabel(state, a.Target)} ← {(a.Value.Length > 0 ? a.Value : "?")}";
             case ShowActionKind.ScreenStageLibrary: return $"PVW of {StageLabel(state, a.Target)} ← library '{(a.Value.Length > 0 ? a.Value : "?")}'";
+            case ShowActionKind.ScreenStageWindow: return $"PVW of {StageLabel(state, a.Target)} ← Stagewatch window '{(a.Value.Length > 0 ? a.Value : "?")}'";
+            case ShowActionKind.ScreenWindow: return $"Screen '{ScreenLabel(state, a.Target)}' → Stagewatch window '{(a.Value.Length > 0 ? a.Value : "?")}'";
+            case ShowActionKind.NodesAskWindow: return $"Ask Stagewatch for window '{(a.Value.Length > 0 ? a.Value : "?")}'";
             case ShowActionKind.ScreenStageProgram: return $"PVW of {StageLabel(state, a.Target)} ← the programme";
             case ShowActionKind.ScreenStageReset: return $"PVW of {StageLabel(state, a.Target)} ← the look on air";
             case ShowActionKind.RunMonitor: return $"RUN monitor: {MonitorLabel(state, a.Target)}";

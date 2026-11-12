@@ -340,6 +340,54 @@ public sealed class RunViewModel : Observable
 
     public string VideoTip => _videoTip;
 
+    private string _windowChip = "";
+    private string _windowTip = "";
+    private bool _windowAmber;
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12): the LIVE strip's chip for the windows Stagewatch grants this desk — "▣ SW lobby · ON AIR 2" when one is
+    /// on the air with the outputs live, "△ SW lobby · PVW ONLY" or "△ SW lobby · OUTPUTS CLOSED" otherwise; "" when none is placed.
+    /// Read from the air alone: a window staged in the preview is never said shown.
+    /// </summary>
+    public string WindowChip => _windowChip;
+
+    public bool HasWindowChip => _windowChip.Length > 0;
+
+    /// <summary>A placed window is not on the air with the outputs live: the chip is amber, its shape △.</summary>
+    public bool WindowAmber => _windowAmber;
+
+    public string WindowTip => _windowTip;
+
+    private void RefreshWindows()
+    {
+        var rows = _s.StagewatchWindowRows().Where(r => r.Shown.Length > 0).ToList();
+        var lead = rows.FirstOrDefault(r => r.Shown == Patterns.Core.Services.StagewatchGrants.OnAir) ?? rows.FirstOrDefault();
+        var chip = lead is null ? "" : lead.Shown switch
+        {
+            Patterns.Core.Services.StagewatchGrants.OnAir => $"▣ SW {lead.Name} · ON AIR {string.Join(" ", lead.Screens)}",
+            Patterns.Core.Services.StagewatchGrants.OutputsClosed => $"△ SW {lead.Name} · OUTPUTS CLOSED",
+            _ => $"△ SW {lead.Name} · PVW ONLY",
+        } + (rows.Count > 1 ? $" +{rows.Count - 1}" : "");
+        var amber = lead is not null && lead.Shown != Patterns.Core.Services.StagewatchGrants.OnAir;
+        var tip = rows.Count == 0 ? "" : string.Join("\n", rows.Select(StagewatchWindows.RowWords)) + "\nShown is read from the air: the preview is never on air until TAKE.";
+        Track(ref _windowChip, chip, nameof(WindowChip), nameof(HasWindowChip));
+        Track(ref _windowTip, tip, nameof(WindowTip), null);
+        if (amber != _windowAmber)
+        {
+            _windowAmber = amber;
+            Raise(nameof(WindowAmber));
+        }
+    }
+
+    private void Track(ref string field, string value, string name, string? has)
+    {
+        if (value == field) return;
+        var had = field.Length > 0;
+        field = value;
+        Raise(name);
+        if (has is not null && had != (value.Length > 0)) Raise(has);
+    }
+
     private void RefreshVideo()
     {
         var r = _s.VideoOnAir();
@@ -522,6 +570,7 @@ public sealed class RunViewModel : Observable
         _s.CueStack.Poll();
         RefreshTiming();
         RefreshVideo();
+        RefreshWindows();
         RaiseIfChanged(nameof(RunningText), RunningText);
         RaiseIfChanged(nameof(StandbyPreRollGood), StandbyPreRollGood);
         RaiseIfChanged(nameof(StandbyPreRollWait), StandbyPreRollWait);

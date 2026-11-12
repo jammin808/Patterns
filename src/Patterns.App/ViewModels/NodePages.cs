@@ -59,6 +59,13 @@ public interface INodesPage
     ObservableCollection<ShowAppCard> ShowApps { get; }
     /// <summary>Round 87: how many apps are heard, and what the Stagewatch link is doing.</summary>
     string ShowBusLine { get; }
+
+    /// <summary>Round 96 (Show Bus 1.3 §12): the windows Stagewatch grants this machine, in words; "" when none (always on a node).</summary>
+    string StagewatchWindowsWords { get; }
+    /// <summary>Round 96 (Show Bus 1.3 §12.4): the window's name typed beside ASK — never pre-filled, emptied once the ask is sent.</summary>
+    string AskWindowName { get; set; }
+    /// <summary>NODES ASK WINDOW with the name typed: the one show action, journalled — a request to the linked Stagewatch's own desk.</summary>
+    RelayCommand AskWindowCommand { get; }
     /// <summary>Round 88: the Stagewatch's certificate changed and the link refuses it until ACCEPT.</summary>
     bool HasPendingCertificate { get; }
     /// <summary>

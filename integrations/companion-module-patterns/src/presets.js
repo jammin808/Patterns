@@ -236,6 +236,17 @@ export function buildPresets() {
 	add('audio_prev', key('Audio', 'Audio playlist — previous track', '♪ ⏮', '14', press('audio', { mode: 'PREV' }), [audioOn]))
 	add('audio_now', key('Audio', 'Audio playlist — what is on (press: play / resume)', '♪ $(patterns:audio_n)/$(patterns:audio_count)\n$(patterns:audio_track)\n$(patterns:audio_remaining)', 'auto', press('audio', { mode: 'PLAY' }), [audioOn]))
 	for (let n = 1; n <= 8; n++) add(`track_bank_${n}`, key('Audio', `Audio playlist track ${n} (labels itself)`, `♪ ${n}\n$(patterns:track_${n})`, 'auto', press('audio_item', { n }), [audioOn, empty('track', n)]))
+	// Round 96 (Show Bus 1.3 §12): a Stagewatch window granted to the desk, stage then take — the first press opens its page on screen 2's
+	// PVW (the air untouched), the second TAKEs it there once it is ready (the desk refuses a take of a page still opening, nothing changed).
+	out['stagewatch_window_stage_take'] = { category: 'Nodes', preset: {
+		type: 'simple', name: 'Stagewatch window — stage it on screen 2\'s PVW, then TAKE (edit the window\'s name)', style: { text: 'SW WINDOW\nlobby\n$(patterns:stagewatch_windows)', size: 'auto', ...idle() },
+		steps: [
+			{ name: 'STAGE', down: press('screen_window', { n: 2, how: 'PVW', window: 'lobby' }), up: [] },
+			{ name: 'TAKE', down: press('screen_take', { n: 2, mode: 'TAKE' }), up: [] },
+		],
+		feedbacks: [],
+	} }
+	add('stagewatch_window_ask', key('Nodes', "Stagewatch — ask its desk for a window for this desk (edit the window's name)", 'ASK\nlobby', '14', press('nodes_ask_window', { window: 'lobby' })))
 	// The install: the schedule's switch (a latch: press on, press off), an announcement by name, an advert by number, the END keys.
 	out['install_schedule'] = { category: 'Install', preset: {
 		type: 'simple', name: 'SCHEDULE — the clock runs the site (green while on)', style: { text: 'SCHEDULE\n$(patterns:install)', size: '14', ...idle() },

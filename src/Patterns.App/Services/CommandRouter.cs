@@ -793,7 +793,8 @@ public sealed class CommandRouter : IRouter
     /// The Stagewatch link as STATE's <c>bus.stagewatch</c> carries it and STAGEWATCH STATUS answers it — one projection. G34 appends, at
     /// the row's end, <c>follow</c> (the stage follows the Stagewatch's timer), <c>pending</c> (the short fingerprint of a changed
     /// certificate waiting for ACCEPT, "" when none) and <c>keyFor</c> (where the key goes: <c>node:&lt;id&gt;</c>, <c>addr:…</c>,
-    /// <c>none</c>, or "" for the target this desk's settings name) — where, never what: no field carries the key.
+    /// <c>none</c>, or "" for the target this desk's settings name) — where, never what: no field carries the key. Round 96 appends
+    /// <c>windows</c>: the windows Stagewatch grants this desk (Show Bus 1.3 §12), each by its held form, never its address.
     /// </summary>
     private object StagewatchRow(IReadOnlyList<EyeShowApp> apps)
     {
@@ -834,6 +835,13 @@ public sealed class CommandRouter : IRouter
             follow = config.FollowStage,                                             // G34: the stage follows its timer — appended at the row's end
             pending = TlsFingerprint.Short(link.PendingFingerprint),                 // G34: a changed certificate waiting for a person's ACCEPT, "" when none
             keyFor = config.KeyFor,                                                  // G34: where the key goes, never the key
+            // Round 96 (Show Bus 1.3 §12): the windows this Stagewatch grants this desk — the held form, never an address; ready, and
+            // shown as the air says it (on air, in the preview — not on air, outputs closed) — appended at the row's end.
+            windows = _services.StagewatchWindows.Rows().Select(r => new
+            {
+                window = r.Window, name = r.Name, how = r.How, held = r.Held, granted = r.Granted, cannot = r.Cannot, link = r.Link,
+                ready = r.Ready, why = r.ReadyWhy, shown = r.Shown, screens = r.Screens, staged = r.Staged,
+            }).ToArray(),
         };
     }
 

@@ -174,6 +174,10 @@ public class ShowBus12AppTests
         public int RefuseResults;
         /// <summary>Every result post, refused or taken, by the proposal's id.</summary>
         public readonly ConcurrentDictionary<string, int> ResultPosts = new();
+        /// <summary>Round 96: the grants message it sends on each /ws socket after its first frame, and again after a ping once it changes; null: none.</summary>
+        public volatile string? Grants;
+        /// <summary>Round 96: every message the desk sent on /ws that is not a ping — its grants-seen answers among them — byte for byte.</summary>
+        public readonly ConcurrentQueue<string> LinkMessages = new();
         /// <summary>Round 92: its door refuses the upgrade to /ws with this status line ("401 Unauthorized"); null: it upgrades.</summary>
         public volatile string? RefuseUpgrade;
         /// <summary>How many result posts still to answer 503 — no answer that says what became of it, so the result stays owed.</summary>
@@ -288,16 +292,29 @@ public class ShowBus12AppTests
                     if (StagewatchBytes.FirstFor(path, auth is null ? "" : auth["Authorization:".Length..].Trim()) is { } verdict)
                         await ws.SendAsync(Encoding.UTF8.GetBytes(verdict), WebSocketMessageType.Text, true, _cts.Token);
                     await ws.SendAsync(Encoding.UTF8.GetBytes(_frame), WebSocketMessageType.Text, true, _cts.Token);
+                    var granted = Grants;
+                    if (granted is not null) await ws.SendAsync(Encoding.UTF8.GetBytes(granted), WebSocketMessageType.Text, true, _cts.Token);
                     var buffer = new byte[8192];
                     while (ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
                     {
                         var r = await ws.ReceiveAsync(buffer, _cts.Token);
                         if (r.MessageType == WebSocketMessageType.Close) break;
-                        using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(buffer, 0, r.Count));
-                        var t = doc.RootElement.GetProperty("t").GetInt64();
+                        var text = Encoding.UTF8.GetString(buffer, 0, r.Count);
+                        using var doc = JsonDocument.Parse(text);
+                        if (!doc.RootElement.TryGetProperty("t", out var tAt))
+                        {
+                            LinkMessages.Enqueue(text);
+                            continue;
+                        }
+                        var t = tAt.GetInt64();
                         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                         await ws.SendAsync(Encoding.UTF8.GetBytes($"{{\"type\":\"pong\",\"t\":{t},\"t2\":{now},\"t3\":{now}}}"), WebSocketMessageType.Text, true, _cts.Token);
                         await ws.SendAsync(Encoding.UTF8.GetBytes(Stuck ? "{\"type\":\"beat\",\"live\":false}" : _frame), WebSocketMessageType.Text, true, _cts.Token);
+                        if (Grants is { } next && !ReferenceEquals(next, granted))
+                        {
+                            granted = next;
+                            await ws.SendAsync(Encoding.UTF8.GetBytes(next), WebSocketMessageType.Text, true, _cts.Token);
+                        }
                     }
                     return;
                 }

@@ -2440,6 +2440,25 @@ public sealed class StagewatchLinkConfig : Observable
     public ShowCollection<StagewatchFloor> Floors { get; init; } = new();
 
     /// <summary>
+    /// Show Bus 1.3 §12.4: the windows Stagewatches granted this desk, kept with the machine (this Control section, which no twin
+    /// mirrors) so a restart or a dropped link drops nothing; only a received <c>grants</c> list that leaves a window out removes
+    /// it. At most <see cref="Services.StagewatchGrants.Max"/>. A page grant's address rides here as <c>Secret</c>, masked by its
+    /// name wherever the settings are carried; the show names the window only as <c>stagewatch://&lt;sw&gt;/&lt;window&gt;</c>.
+    /// </summary>
+    public ShowCollection<Services.StagewatchGrant> Grants { get; init; } = new();
+
+    /// <summary>The grants kept now, swapped whole for <paramref name="next"/> when they differ; false when nothing changed.</summary>
+    public bool SetGrants(IReadOnlyList<Services.StagewatchGrant> next)
+    {
+        ArgumentNullException.ThrowIfNull(next);
+        var bounded = next.Take(Services.StagewatchGrants.Max).ToList();
+        if (bounded.SequenceEqual(Grants)) return false;
+        Grants.Clear();
+        foreach (var g in bounded) Grants.Add(g);
+        return true;
+    }
+
+    /// <summary>
     /// A verified link's floor (UI thread), replacing the one kept for <paramref name="key"/>, with the node id the link verified
     /// (<paramref name="node"/>, empty when it named none); at most 64 kept.
     /// </summary>

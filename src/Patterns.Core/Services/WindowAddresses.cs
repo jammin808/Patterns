@@ -25,6 +25,15 @@ public static class WindowAddresses
     /// <summary>The scheme of a private address that reached the show without being kept: inert, black.</summary>
     public const string UnkeptPrefix = "unkept://";
 
+    /// <summary>
+    /// Show Bus 1.3 §12.8: the scheme of a window a Stagewatch granted to this desk — <c>stagewatch://&lt;its node id&gt;/&lt;window id&gt;</c>.
+    /// It names the grant, never its address: the address comes on the Stagewatch's own link and rests in this machine's settings.
+    /// </summary>
+    public const string GrantPrefix = "stagewatch://";
+
+    /// <summary>The longest window id a grant form carries (Stagewatch's are "w" and six symbols).</summary>
+    public const int MaxWindowId = 32;
+
     /// <summary>Stagewatch's window alphabet: lower-case letters and digits without l, o, 0 and 1.</summary>
     public const string WindowAlphabet = "abcdefghijkmnpqrstuvwxyz23456789";
 
@@ -104,11 +113,53 @@ public static class WindowAddresses
         return userWithPassword && p.UserInfo.Contains(':', StringComparison.Ordinal);
     }
 
-    /// <summary>True for a held address: kept on a machine, or written into the show without its pass.</summary>
+    /// <summary>True for a held address: kept on a machine, written into the show without its pass, or a window a Stagewatch granted.</summary>
     public static bool IsHeld(string? address)
     {
         var s = (address ?? "").TrimStart();
-        return s.StartsWith(KeptPrefix, StringComparison.OrdinalIgnoreCase) || s.StartsWith(UnkeptPrefix, StringComparison.OrdinalIgnoreCase);
+        return s.StartsWith(KeptPrefix, StringComparison.OrdinalIgnoreCase) || s.StartsWith(UnkeptPrefix, StringComparison.OrdinalIgnoreCase)
+            || s.StartsWith(GrantPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>True for a granted window's held form (<c>stagewatch://&lt;node&gt;/&lt;window&gt;</c>) that names a node and a window.</summary>
+    public static bool IsGrant(string? address) => TryGrant(address, out _, out _);
+
+    /// <summary>The held form of a window a Stagewatch granted: its node id as the node says it, the window id in lower case.</summary>
+    public static string Grant(string node, string window)
+    {
+        if (!PeerLink.IsId(node)) throw new ArgumentException($"'{node}' is not a node id.", nameof(node));
+        var w = (window ?? "").Trim().ToLowerInvariant();
+        if (!IsWindowId(w)) throw new ArgumentException($"'{window}' is not a window id.", nameof(window));
+        return GrantPrefix + node + "/" + w;
+    }
+
+    /// <summary>Reads a granted window's held form: the granting node's id and the window's id (lower case). False for anything else.</summary>
+    public static bool TryGrant(string? address, out string node, out string window)
+    {
+        node = "";
+        window = "";
+        var s = (address ?? "").Trim();
+        if (!s.StartsWith(GrantPrefix, StringComparison.OrdinalIgnoreCase)) return false;
+        var rest = s[GrantPrefix.Length..];
+        var slash = rest.IndexOf('/', StringComparison.Ordinal);
+        if (slash <= 0) return false;
+        var id = rest[..slash];
+        var w = rest[(slash + 1)..].ToLowerInvariant();
+        if (!PeerLink.IsId(id) || !IsWindowId(w)) return false;
+        node = id;
+        window = w;
+        return true;
+    }
+
+    /// <summary>A window id a grant form may carry: 1–<see cref="MaxWindowId"/> lower-case letters and digits.</summary>
+    public static bool IsWindowId(string? id)
+    {
+        if (string.IsNullOrEmpty(id) || id.Length > MaxWindowId) return false;
+        foreach (var c in id)
+        {
+            if (!(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c))) return false;
+        }
+        return true;
     }
 
     /// <summary>True for a kept address (<c>kept://host[:port]/&lt;id&gt;</c>).</summary>
@@ -131,6 +182,7 @@ public static class WindowAddresses
         if (IsHeld(s))
         {
             if (IsCanonicalHeld(s)) return s;
+            if (TryGrant(s, out var node, out var window)) return Grant(node, window);
             return TryKept(s, out var host, out var port, out var id) ? Kept(host, port, id) : Unkept(s);
         }
         return LooksPrivate(s) ? Unkept(s) : s;
@@ -391,7 +443,8 @@ public static class WindowAddresses
     }
 
     private static bool IsHeldScheme(string scheme)
-        => scheme.Equals("kept", StringComparison.OrdinalIgnoreCase) || scheme.Equals("unkept", StringComparison.OrdinalIgnoreCase);
+        => scheme.Equals("kept", StringComparison.OrdinalIgnoreCase) || scheme.Equals("unkept", StringComparison.OrdinalIgnoreCase)
+           || scheme.Equals("stagewatch", StringComparison.OrdinalIgnoreCase);
 
     private static bool TrySplit(string s, out Parts parts)
     {
@@ -493,6 +546,19 @@ public static class WindowAddresses
     private static bool IsCanonicalHeld(string s)
     {
         ReadOnlySpan<char> authority;
+        if (s.StartsWith(GrantPrefix, StringComparison.Ordinal))
+        {
+            var rest = s.AsSpan(GrantPrefix.Length);
+            var slash = rest.IndexOf('/');
+            if (slash <= 0) return false;
+            var window = rest[(slash + 1)..];
+            if (window.Length is 0 or > MaxWindowId) return false;
+            foreach (var c in window)
+            {
+                if (!(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c))) return false;
+            }
+            return PeerLink.IsId(rest[..slash].ToString());
+        }
         if (s.StartsWith(KeptPrefix, StringComparison.Ordinal))
         {
             var rest = s.AsSpan(KeptPrefix.Length);

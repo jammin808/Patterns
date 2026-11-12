@@ -30,7 +30,8 @@ public sealed partial class ShowActions : IActionLayer
         ActionResult result;
         // Round 79: the take family is measured, not believed — the air's pictures read here before the take and
         // again after it (TakeMeasure), at the one place every take passes whatever asked for it.
-        var measure = IsTake(action.Kind) ? TakeMeasure.Before(_s) : null;
+        // Round 96: SCREEN n WINDOW puts a granted window on air live, so what it did to the air is measured as a take's is.
+        var measure = IsTake(action.Kind) || action.Kind == ShowActionKind.ScreenWindow ? TakeMeasure.Before(_s) : null;
         // Every verb the show has comes through here — the desk's keys, the wire, OSC, Companion,
         // a cue, the schedule, a device. That makes this the one place that can say "what happens
         // inside this is a take", which is what decides whether the pictures it changes transition
@@ -56,7 +57,7 @@ public sealed partial class ShowActions : IActionLayer
         // stamped here once for every origin: whether anybody could see this land (the outputs and the blackout after
         // it ran), and for a take what it did to the air. The journal row carries both, STATE and the Eye the last take.
         result = result with { Visibility = VisibilityNow(), Effect = measure?.After(_s) ?? ActionEffect.NotMeasured };
-        if (measure is not null) LastTake = new TakeRecord(action.Kind, result, ShowClock.UtcNow);
+        if (measure is not null && IsTake(action.Kind)) LastTake = new TakeRecord(action.Kind, result, ShowClock.UtcNow);
         if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby or ShowActionKind.StageAck)
             && !SweptPast(action, origin))
         {

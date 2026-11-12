@@ -54,6 +54,12 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public SKPoint? PointerNorm { get; private set; }
     public DateTime? LastClickUtc { get; private set; }
     public string CurrentUrl { get; private set; }
+
+    /// <summary>Round 96: the page as its browser reads it — black and why (held), and what a Stagewatch window's shell last said.</summary>
+    public bool Withheld { get; set; }
+    public string WithheldWhy { get; set; } = "";
+    public WebShellState? Shell { get; set; }
+
     public string Title { get; set; } = "A page";
     public double ZoomPct { get; set; } = 100;
     public bool IsMuted { get; set; }

@@ -38,11 +38,32 @@ public sealed partial class MainViewModel
 
     public string NodesLinkWords => _services.Twin.Status;
 
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12): the windows the linked Stagewatch grants this desk, each with where it is shown (the air's word) and
+    /// whether it is ready, or why no address came ("" when none is granted) — never an address.
+    /// </summary>
+    public string StagewatchWindowsWords => _services.StagewatchWindows.Words() is { Length: > 0 } words ? "Stagewatch windows granted to this desk: " + words : "";
+
     /// <summary>Round 88: the Stagewatch's certificate changed and waits for ACCEPT.</summary>
     public bool HasPendingCertificate => _services.Kernel.Stagewatch.PendingFingerprint.Length > 0;
 
     /// <summary>Round 89: the pairing token was seen in clear from another machine (the Nodes and Remote pages, amber); "" when it was not.</summary>
     public string TokenClearWords => _services.Kernel.TokenClearWords;
+
+    private RelayCommand? _askWindow;
+    private string _askWindowName = "";
+
+    /// <summary>The window's name typed beside ASK: never pre-filled, emptied once the ask is sent.</summary>
+    public string AskWindowName { get => _askWindowName; set => Set(ref _askWindowName, value ?? ""); }
+
+    /// <summary>NODES ASK WINDOW with the name typed: the one show action (Requested, journalled); the Stagewatch card's menu entry opens this page for it.</summary>
+    public RelayCommand AskWindowCommand => _askWindow ??= new RelayCommand(() =>
+    {
+        var result = Report(_services.Actions.Execute(new ShowAction(ShowActionKind.NodesAskWindow, "", AskWindowName.Trim()), ActionOrigin.Desk));
+        StatusMessage = result.Message;
+        if (result.Status == ActionStatus.Requested) AskWindowName = "";
+        PollNodes();
+    });
 
     private RelayCommand? _acceptCertificate;
     private string _acceptHex = "";
@@ -135,7 +156,7 @@ public sealed partial class MainViewModel
         var link = _services.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
         var (bind, bindName) = (link.KeyBindTarget, link.KeyBindName);
-        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{link.PendingFingerprint}|{TokenClearWords}|{trust}|{trustName}|{bind}|{bindName}";
+        var now = $"{NodesWord}|{NodesHue}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{ShowBusLine}|{HasPendingCertificate}|{link.PendingFingerprint}|{TokenClearWords}|{trust}|{trustName}|{bind}|{bindName}|{StagewatchWindowsWords}";
         if (now == _nodesSeen) return;
         _nodesSeen = now;
         (_trustShown, _trustShownName) = (trust, trustName);
@@ -153,6 +174,7 @@ public sealed partial class MainViewModel
         Raise(nameof(NodesHue));
         Raise(nameof(NodesIdentity));
         Raise(nameof(NodesLinkWords));
+        Raise(nameof(StagewatchWindowsWords));
     }
 
     private RelayCommand<NodeCard>? _openNodePages;

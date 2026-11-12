@@ -254,6 +254,13 @@ public static class CueValidator
                     if (a.Kind == ShowActionKind.ScreenPreset && a.Target.Length == 0) Hard($"{where}: which screen?");
                     break;
                 }
+                case ShowActionKind.ScreenWindow:
+                    // Round 96: live only once the window's page is ready here — the run refuses it otherwise, nothing changed.
+                    hasContent = true;
+                    if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    if (a.Value.Length == 0) Hard($"{where}: which Stagewatch window? Name one granted to this desk.");
+                    else Soft($"{where}: the window goes on air only when its page is ready here — stage it on the PVW in the cue before.");
+                    break;
                 case ShowActionKind.ScreenPattern:
                     hasContent = true;
                     if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
@@ -270,6 +277,7 @@ public static class CueValidator
                 case ShowActionKind.ScreenStageProgram:
                 case ShowActionKind.ScreenStageReset:
                 case ShowActionKind.ScreenStageLibrary:
+                case ShowActionKind.ScreenStageWindow:
                 {
                     // Staged on the preview, never on air: not content for the stinger rule. The
                     // target is a screen, a canvas, or blank / PGM for the programme.
@@ -291,6 +299,10 @@ public static class CueValidator
                         case ShowActionKind.ScreenStageLibrary:
                             // Round 73: the tile is found when the cue runs (files come and go); a blank name never can be.
                             if (a.Value.Length == 0) Hard($"{where}: which Library tile? Name one as the Library page lists it.");
+                            break;
+                        case ShowActionKind.ScreenStageWindow:
+                            // Round 96: a grant comes and goes on Stagewatch's word, so the window is found when the cue runs.
+                            if (a.Value.Length == 0) Hard($"{where}: which Stagewatch window? Name one granted to this desk.");
                             break;
                     }
                     break;

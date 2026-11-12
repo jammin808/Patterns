@@ -1024,3 +1024,30 @@ test('G34 — whether the stage follows the linked Stagewatch and a changed cert
 	assert.equal(old.ctx.variables.stagewatch_follow, '')
 	assert.equal(old.ctx.variables.stagewatch_pending, '')
 })
+
+test('round 96 — a Stagewatch window granted to the desk: staged on a PVW or live once ready, asked for by name, and read from STATE without its address', async () => {
+	const b = await boot()
+	assert.deepEqual(pressAction(b, 'screen_window', { n: 2, how: 'PVW', window: ' lobby ' }), ['SCREEN 2 PVW WINDOW lobby'])
+	assert.deepEqual(pressAction(b, 'screen_window', { n: 2, how: 'LIVE', window: 'lobby' }), ['SCREEN 2 WINDOW lobby'])
+	assert.deepEqual(pressAction(b, 'screen_window', { n: 2, how: 'LIVE', window: '  ' }), [])
+	assert.deepEqual(pressAction(b, 'nodes_ask_window', { window: 'lobby' }), ['NODES ASK WINDOW lobby'])
+	assert.deepEqual(pressAction(b, 'nodes_ask_window', { window: '' }), [])
+	// The fixture is the desk's STATE (DeckStateAppTests holds its keys): the window by name, where the air shows it, ready.
+	assert.equal(b.ctx.variables.stagewatch_windows, 'lobby — on air 2 (ready)')
+	assert.ok(b.ctx.variableDefs.stagewatch_windows, 'stagewatch_windows defined for the host')
+	const s = sampleState()
+	s.bus.stagewatch.windows = [
+		{ window: 'wk3m9x2', name: 'lobby', how: 'page', held: 'stagewatch://3f9c2a1b7d0e/wk3m9x2', granted: true, cannot: '', link: 'tls', ready: false, why: 'its page is still loading', shown: 'in the preview — not on air', screens: [], staged: ['2'] },
+	]
+	b.socket.receive('STATE ' + JSON.stringify(s) + '\n')
+	assert.equal(b.ctx.variables.stagewatch_windows, 'lobby — in the preview — not on air (not ready: its page is still loading)')
+	assert.doesNotMatch(b.ctx.variables.stagewatch_windows, /\/w\/|https?:/)
+	const older = sampleState()
+	delete older.bus.stagewatch.windows
+	const old = await boot({ state: older })
+	assert.equal(old.ctx.variables.stagewatch_windows, '')
+	// The stage-then-take preset is the two presses the desk asks for.
+	const preset = b.ctx.presets.stagewatch_window_stage_take
+	assert.ok(preset, 'the stage-then-take preset')
+	assert.deepEqual(preset.steps.map((st) => st.down[0].actionId), ['screen_window', 'screen_take'])
+})

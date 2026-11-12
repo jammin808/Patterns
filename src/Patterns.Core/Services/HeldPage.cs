@@ -136,6 +136,9 @@ public sealed class HeldPage
     /// <summary>The address the browser was sent to for the held page — the real one — or "" when it resolved to nothing. Never published.</summary>
     internal string Opens { get; private set; } = "";
 
+    /// <summary>The certificate a granted window's page is opened to (Show Bus 1.3 §12.5), "" for any other page.</summary>
+    public string Pin { get; private set; } = "";
+
     /// <summary>The resolved page is a Stagewatch window: its shell's word decides the picture.</summary>
     public bool IsShell { get; private set; }
 
@@ -204,6 +207,7 @@ public sealed class HeldPage
         Shell = default;
         _failed = "";
         _unresolved = "";
+        Pin = "";
         if (!WindowAddresses.IsHeld(a))
         {
             Address = "";
@@ -221,6 +225,7 @@ public sealed class HeldPage
             return null;
         }
         Opens = resolution.Url;
+        Pin = resolution.Pin;
         IsShell = WindowAddresses.IsStagewatchWindowUrl(Opens);
         if (Canonical(Opens) is { Length: > 0 } at)
         {

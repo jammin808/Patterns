@@ -56,6 +56,9 @@ public static class DeskMenus
             },
         };
 
+        // Round 96: a window Stagewatch granted this desk, staged on the PVW — offered only while one is granted.
+        if (d.Windows.Count > 0) preview.Insert(4, WindowDrawer("stage.window", d, name => new ShowAction(ShowActionKind.ScreenStageWindow, target, name), name => W($"PVW WINDOW {name}")));
+
         var tile = new List<MenuEntry>
         {
             new("tile.lock", s.Locked ? "Unlock — follow looks and cues again" : "Lock — keep its picture", MenuScope.Live, MenuTone.Tile)
@@ -125,7 +128,7 @@ public static class DeskMenus
         return WithMidi(d, new DeskMenu("screen", target, s.Title, subtitle, s.OffLook ? MenuTone.Warn : s.OnAir ? MenuTone.Live : MenuTone.Plain, new[]
         {
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, preview) { Note = PreviewNote },
-            new MenuGroup("TO AIR", MenuTone.Live, ScreenTakeEntries(d, s, target, W).Append(NextTransitionDrawer(d)).ToList()) { Note = "This screen alone: it becomes its own picture (OWN lights up) and every other screen stays." },
+            new MenuGroup("TO AIR", MenuTone.Live, ScreenTakeEntries(d, s, target, W).Append(NextTransitionDrawer(d)).Concat(d.Windows.Count > 0 ? new[] { LiveWindowDrawer(d, s, target, W) } : Array.Empty<MenuEntry>()).ToList()) { Note = "This screen alone: it becomes its own picture (OWN lights up) and every other screen stays." },
             new MenuGroup("THIS TILE", MenuTone.Tile, tile) { Note = "The tile's own switches — live, as its buttons are." },
             new MenuGroup("GO TO", MenuTone.Go, go),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.screen", "Ask the assistant about this screen", question, d) }),
@@ -909,6 +912,39 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
             Because = d.Presets.Count == 0 ? "No presets yet — save one on the Pattern page." : "",
         };
 
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12): a window Stagewatch granted this desk, staged on the PVW — its page opens and its shell is told what to
+    /// show while the air is untouched; TAKE puts it up once its PVW shows it.
+    /// </summary>
+    private static MenuEntry WindowDrawer(string id, DeskFacts d, Func<string, ShowAction> action, Func<string, string> wire)
+        => new(id, "Stagewatch window", MenuScope.Preview, MenuTone.Preview)
+        {
+            Detail = "A window a Stagewatch operator granted this desk — its page opens on the PVW first",
+            Children = d.Windows.Select(w => new MenuEntry($"{id}:{w.Name}", w.Name, MenuScope.Preview, MenuTone.Preview)
+            {
+                Action = action(w.Line),
+                Wire = wire(w.Line),
+                Detail = w.Shown.Length > 0 ? w.Shown : w.Ready ? "ready" : w.Why,
+            }).ToList(),
+        };
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12.9): a granted window on this screen alone, live — chosen only when its page is ready here; otherwise the
+    /// entry says why and the PVW drawer is the way.
+    /// </summary>
+    private static MenuEntry LiveWindowDrawer(DeskFacts d, ScreenFacts s, string target, Func<string, string> w)
+        => new("screen.window", "Stagewatch window, live", MenuScope.Live, MenuTone.Live)
+        {
+            Detail = "A ready window straight onto this screen alone — the air never shows a page still opening",
+            Children = d.Windows.Select(win => new MenuEntry($"screen.window:{win.Name}", win.Name, MenuScope.Live, MenuTone.Live)
+            {
+                Action = new ShowAction(ShowActionKind.ScreenWindow, target, win.Line),
+                Wire = w($"WINDOW {win.Line}"),
+                Because = s.Locked ? "A locked tile keeps its picture — unlock it first."
+                    : !win.Ready ? $"Not ready — {win.Why}. Stage it on the PVW first (IN THE PREVIEW ▸ Stagewatch window), then TAKE." : "",
+            }).ToList(),
+        };
+
     private static MenuEntry KindDrawer(string id, DeskFacts d, string showing, Func<string, ShowAction> action, Func<string, string> wire)
         => new(id, "Pattern", MenuScope.Preview, MenuTone.Preview)
         {
@@ -1085,6 +1121,18 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
             entries.Add(new MenuEntry("link.accept", "Accept its new certificate…", MenuScope.Go, MenuTone.Go)
             {
                 Detail = $"Compare {shortFp} with the fingerprint on {who}'s own screen, then type at least 8 hex of it beside ACCEPT on the Nodes page",
+                Route = new MenuRoute("Nodes"),
+            });
+        }
+        if (linked && !d.IsNode)
+        {
+            // Show Bus 1.3 §12.4: the window's name is typed on the Nodes page (a deck asks for it where the * is); a person on that
+            // Stagewatch's desk decides, and the grant comes back on the link.
+            entries.Add(new MenuEntry("link.ask.window", "Ask it for a window…", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = $"Type the window's name beside ASK on the Nodes page — a person on {who}'s desk decides; a grant comes back on the link",
+                Wire = "NODES ASK WINDOW *",
+                Action = new ShowAction(ShowActionKind.NodesAskWindow, "", "*"),          // the line's own action, the * where the name goes (a deck asks for it)
                 Route = new MenuRoute("Nodes"),
             });
         }

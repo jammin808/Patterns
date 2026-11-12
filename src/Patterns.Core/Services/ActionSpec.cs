@@ -201,6 +201,9 @@ public static class ActionSpec
         ShowActionKind.ScreenStagePreset => (TargetKind.Stage, ValueKind.Preset),
         ShowActionKind.ScreenStagePattern => (TargetKind.Stage, ValueKind.PatternKind),
         ShowActionKind.ScreenStageLibrary => (TargetKind.Stage, ValueKind.Library),
+        ShowActionKind.ScreenWindow => (TargetKind.Screen, ValueKind.Text),
+        ShowActionKind.ScreenStageWindow => (TargetKind.Stage, ValueKind.Text),
+        ShowActionKind.NodesAskWindow => (TargetKind.None, ValueKind.Text),
         ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset => (TargetKind.Stage, ValueKind.None),
         ShowActionKind.RunMonitor => (TargetKind.Monitor, ValueKind.None),
         ShowActionKind.RunMonitorOff => (TargetKind.None, ValueKind.None),
@@ -451,6 +454,9 @@ public static class ActionSpec
         ShowActionKind.StagewatchFloorLower => "Stagewatch link — lower the floor its proof recorded",
         ShowActionKind.StagewatchRelease => "Stagewatch link — release a fact held since the link was lost",
         ShowActionKind.StagewatchKeyBind => "Stagewatch link — send the key to the Stagewatch shown beside the press",
+        ShowActionKind.ScreenWindow => "Screen — a window Stagewatch granted, on it alone, once its page is ready",
+        ShowActionKind.ScreenStageWindow => "Preview — a window Stagewatch granted, staged on a screen's PVW",
+        ShowActionKind.NodesAskWindow => "Stagewatch link — ask the Stagewatch for a window, for this desk",
         _ => kind.ToString(),
     };
 
@@ -478,6 +484,7 @@ public static class ActionSpec
         ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset, ShowActionKind.ScreenPattern,
         ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset,
         ShowActionKind.ScreenStageLibrary,
+        ShowActionKind.ScreenWindow, ShowActionKind.ScreenStageWindow,
         ShowActionKind.RunMonitor, ShowActionKind.RunMonitorOff,
         ShowActionKind.CanvasOn, ShowActionKind.CanvasOff,
         ShowActionKind.PatternKind,
@@ -554,6 +561,7 @@ public static class ActionSpec
         ShowActionKind.StagewatchKeyBind => "the key is typed on this desk and goes only to the Stagewatch a person bound it to — a running order, a deck, the wire or an assistant never chooses where it goes",
         ShowActionKind.StagewatchLinkSet or ShowActionKind.StagewatchLinkAgain or ShowActionKind.StagewatchFollow or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease
             => "the operator's own link to a Stagewatch — the desk, its menus, the wire and a deck set it (Show Bus 1.3 §13.16.6); a running order or an assistant never repoints a key-bearing link or the speaker's timer",
+        ShowActionKind.NodesAskWindow => "a request to another machine's operator (Show Bus 1.3 §12.4) — the desk, its menus, the wire and a deck ask; a running order never asks a Stagewatch for a window by itself",
         _ => null,
     };
 
@@ -565,12 +573,12 @@ public static class ActionSpec
         ShowActionKind.ApplyLook or ShowActionKind.PlaylistPart or ShowActionKind.PatternKind or
         ShowActionKind.ScreenOn or ShowActionKind.ScreenOff or ShowActionKind.ScreenToggle or ShowActionKind.CanvasOn or ShowActionKind.CanvasOff or
         ShowActionKind.ScreenLook or ShowActionKind.ScreenProgram
-        or ShowActionKind.PatternPreset or ShowActionKind.ScreenPreset or ShowActionKind.ScreenPattern;
+        or ShowActionKind.PatternPreset or ShowActionKind.ScreenPreset or ShowActionKind.ScreenPattern or ShowActionKind.ScreenWindow;
 
     /// <summary>The staged verbs: a picture on a target's PVW in the preview, never on air (see <see cref="ShowActionKind.ScreenStageLook"/>).</summary>
     public static bool IsStaged(ShowActionKind kind) => kind is
         ShowActionKind.ScreenStageLook or ShowActionKind.ScreenStagePreset or ShowActionKind.ScreenStagePattern
-        or ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset or ShowActionKind.ScreenStageLibrary;
+        or ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset or ShowActionKind.ScreenStageLibrary or ShowActionKind.ScreenStageWindow;
 
     /// <summary>A percent value: a number from 0 to 125 (the player's own ceiling, ≈ +2 dB).</summary>
     public static bool TryParsePercent(string? value, out double percent)

@@ -34,8 +34,9 @@ public sealed record ShowBusHello
     /// <summary>
     /// What this machine can do for another app — the verbs and rows a caller may rely on. Round 87 adds Show Bus 1.1's
     /// words (docs/SHOWBUS.md §2): video, the Eye, a context any app's assistant can read, receipts and the clock exchange.
+    /// Show Bus 1.3 §12 adds <c>pages</c>: this desk opens a page a Stagewatch grants it in a browser of its own.
     /// </summary>
-    public static readonly string[] Capabilities = { "video", "video.clock", "video.end", "video.seek", "video.transport", "state", "eye", "context", "receipts", "clock" };
+    public static readonly string[] Capabilities = { "video", "video.clock", "video.end", "video.seek", "video.transport", "state", "eye", "context", "receipts", "clock", StagewatchGrants.Ability };
 
     /// <summary>The kind of node: "patterns" (other apps' kinds are "main" for Stagewatch, "agent", "messenger").</summary>
     [JsonPropertyName("t")] public string Kind { get; init; } = "patterns";

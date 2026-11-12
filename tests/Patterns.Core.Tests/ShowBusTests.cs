@@ -1195,10 +1195,10 @@ public class ShowBusTests
     [Fact]
     public void TheLinkDialsAsANodeNamingThisDeskAndAnIdThatIsNoNodeIdDialsAsAScreen()
     {
-        Assert.Equal("/ws?node=9f8e7d6c&t=patterns&cid=9f8e7d6c&page=/patterns", StagewatchFrame.SocketQuery("9f8e7d6c"));
+        Assert.Equal("/ws?node=9f8e7d6c&t=patterns&cid=9f8e7d6c&page=/patterns&can=pages", StagewatchFrame.SocketQuery("9f8e7d6c"));
         // An older Stagewatch keeps a cid only at 6–32 characters: a node id outside that sends today's cid beside it.
-        Assert.Equal("/ws?node=ab12&t=patterns&cid=patterns&page=/patterns", StagewatchFrame.SocketQuery("ab12"));
-        Assert.Equal($"/ws?node={new string('a', 40)}&t=patterns&cid=patterns&page=/patterns", StagewatchFrame.SocketQuery(new string('a', 40)));
+        Assert.Equal("/ws?node=ab12&t=patterns&cid=patterns&page=/patterns&can=pages", StagewatchFrame.SocketQuery("ab12"));
+        Assert.Equal($"/ws?node={new string('a', 40)}&t=patterns&cid=patterns&page=/patterns&can=pages", StagewatchFrame.SocketQuery(new string('a', 40)));
         foreach (var notAnId in new[] { "", null, new string('a', 41), "9f8e 7d6c", "9f8e7d6c&t=x", "ünï" })
             Assert.Equal("/ws?cid=patterns&page=/patterns", StagewatchFrame.SocketQuery(notAnId));
         Assert.True(StagewatchFrame.IsNodeId("a_b-C9"));

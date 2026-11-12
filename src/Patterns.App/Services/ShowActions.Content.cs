@@ -186,12 +186,17 @@ public sealed partial class ShowActions
                 var kindLabel = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
                 return ActionResult.Done($"{kind} on {kindLabel} alone — every other screen stays.");
             }
+            case ShowActionKind.ScreenWindow:
+                return ScreenWindow(a);
+            case ShowActionKind.NodesAskWindow:
+                return AskWindow(a);
             case ShowActionKind.ScreenStageLook:
             case ShowActionKind.ScreenStagePreset:
             case ShowActionKind.ScreenStagePattern:
             case ShowActionKind.ScreenStageProgram:
             case ShowActionKind.ScreenStageReset:
             case ShowActionKind.ScreenStageLibrary:
+            case ShowActionKind.ScreenStageWindow:
                 return Stage(a);
             case ShowActionKind.PlaylistPart:
             {
@@ -311,6 +316,19 @@ public sealed partial class ShowActions
                 what = $"library tile '{tile.Name}'";
                 break;
             }
+            case ShowActionKind.ScreenStageWindow:
+            {
+                // Round 96: a window Stagewatch granted this desk, staged so its page opens and its shell says what it shows before
+                // anything is taken — the air never goes black or white while a browser starts.
+                var grant = _s.StagewatchWindows.Find(a.Value);
+                if (grant is null) return ActionResult.Refused(NoWindow(a.Value));
+                if (grant.How != StagewatchGrants.HowPage) return ActionResult.Refused($"Stagewatch window '{grant.Name}' is granted to be drawn, not shown as a page — {StagewatchGrants.NoDraw}.");
+                var basis = program ? State.Pattern : LookService.Shown(State, target);
+                picture = JsonUtil.ClonePattern(basis);
+                LibraryItems.ApplyWeb(picture, grant.Held);
+                what = $"Stagewatch window '{grant.Name}'" + (grant.Opens ? "" : " (its address has not reached this desk — black until it does)");
+                break;
+            }
             default: // ScreenStageReset
             {
                 var onAir = _s.LookTally.OnAir();
@@ -366,6 +384,65 @@ public sealed partial class ShowActions
     }
 
     private static string Capitalise(string words) => words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
+
+    /// <summary>Why a window name finds no one grant: it names windows of two Stagewatches (each by the form that names one), or the windows this desk holds, or how to ask for one.</summary>
+    private string NoWindow(string name)
+    {
+        var held = _s.StagewatchWindows.Grants;
+        if (StagewatchGrants.Matches(held, name) is { Count: > 1 } found) return Capitalise(StagewatchGrants.AmbiguousWords(name, found)) + " — nothing changed.";
+        return held.Count == 0
+            ? $"No Stagewatch window '{name.Trim()}' is granted to this desk — none is. Ask for it: NODES ASK WINDOW {name.Trim()} (a person on Stagewatch decides)."
+            : $"No Stagewatch window '{name.Trim()}' is granted to this desk. Granted: {string.Join(", ", held.Select(g => g.Name))}.";
+    }
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12.9): SCREEN n WINDOW — a window Stagewatch granted this desk on that screen alone, live, and only when
+    /// its page is ready here (open, drawn, its shell told what to show, nothing loading, its link up). Otherwise refused with nothing
+    /// changed and steered to the preview first: SCREEN n PVW WINDOW, then SCREEN n TAKE once its PVW shows it.
+    /// </summary>
+    private ActionResult ScreenWindow(ShowAction a)
+    {
+        var target = ResolveScreenTarget(a.Target);
+        if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+        var grant = _s.StagewatchWindows.Find(a.Value);
+        if (grant is null) return ActionResult.Refused(NoWindow(a.Value));
+        var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+        if (ScreenRoles.IsLocked(State, target)) return ActionResult.Refused($"{label} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) first.");
+        var ready = _s.StagewatchWindows.Readiness(grant);
+        if (!ready.Ready)
+        {
+            return ActionResult.Refused($"Stagewatch window '{grant.Name}' is not ready on this desk — {ready.Why}; nothing changed. "
+                + $"Stage it first: SCREEN {a.Target.Trim()} PVW WINDOW {grant.Name}, then SCREEN {a.Target.Trim()} TAKE once its PVW shows it.");
+        }
+        var air = _s.AirState;
+        if (ContentTargets.UsesOwnPattern(air, target) && air.Independent.FirstOrDefault(x => x.ScreenId == target) is { } shown && StagewatchGrants.Uses(shown.Pattern, grant.Held))
+            return ActionResult.Refused($"{label} already shows Stagewatch window '{grant.Name}' — nothing changed.");
+        void Land(ShowState state)
+        {
+            var assignment = ContentTargets.EnsureAssignment(state, target);
+            LibraryItems.ApplyWeb(assignment.Pattern, grant.Held);
+            assignment.PinnedByTake = false;
+            ContentTargets.SetOwnPattern(state, target, true);
+        }
+        _s.BulkEdit(() => Land(State));
+        if (_s.Sandbox.Active) _s.EditAir(Land);
+        return ActionResult.Done($"Stagewatch window '{grant.Name}' on {label} alone — every other screen stays.");
+    }
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12.4): NODES ASK WINDOW — the linked Stagewatch's desk is asked for a window, for this desk alone; a person
+    /// there decides. Requested, never done: the grant is Stagewatch's to make, and arrives on its link when it does.
+    /// </summary>
+    private ActionResult AskWindow(ShowAction a)
+    {
+        var name = a.Value.Trim();
+        if (name.Length == 0) return ActionResult.Refused("Which window? NODES ASK WINDOW <its name on Stagewatch>.");
+        if (_s.StagewatchWindows.Find(name) is { Opens: true } held) return ActionResult.Refused($"Stagewatch window '{held.Name}' is granted to this desk already — stage it: PVW WINDOW {held.Name}.");
+        var id = _s.Kernel.Stagewatch.AskWindow(name, said => Log.Info($"Stagewatch link: the ask for window '{name}' — {said}."), out var why);
+        return id is null
+            ? ActionResult.Refused($"Could not ask Stagewatch for window '{name}' — {why}.")
+            : ActionResult.Requested($"Asked Stagewatch's desk for window '{name}' for this desk — a person there decides; the grant arrives on the link if they approve.");
+    }
 
     /// <summary>
     /// STATE's editing row (round 73): what the desk's editors are on — the target, whether it is its own

@@ -329,6 +329,17 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>Round 87: the show network's line and the Stagewatch link's words.</summary>
     public string ShowBusLine => _host.Kernel.Nodes.ShowBusLine;
 
+    /// <summary>A node shows no Stagewatch window: grants are a desk's.</summary>
+    public string StagewatchWindowsWords => "";
+
+    /// <summary>A node asks for no window (the box is the desk's alone); kept for the page's shape.</summary>
+    public string AskWindowName { get; set; } = "";
+
+    private RelayCommand? _askWindow;
+
+    /// <summary>A node asks for no window: grants are a desk's, and the box is not drawn here.</summary>
+    public RelayCommand AskWindowCommand => _askWindow ??= new RelayCommand(() => StatusMessage = "A node shows no Stagewatch window — ask from the desk.");
+
     /// <summary>Round 88: the Stagewatch's certificate changed and waits for ACCEPT.</summary>
     public bool HasPendingCertificate => _host.Kernel.Stagewatch.PendingFingerprint.Length > 0;
 

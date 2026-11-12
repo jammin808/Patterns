@@ -111,6 +111,18 @@ public static class LibraryItems
             });
         }
 
+        // Round 96 (Show Bus 1.3 §12): each window a Stagewatch granted this desk, a page tile under its held form — never its
+        // address — titled by the window's name; staged like any page, it goes up once its page is ready.
+        foreach (var grant in state.Control.Stagewatch.Grants.Where(g => g.How == StagewatchGrants.HowPage).ToList())
+        {
+            var held = grant.Held;
+            tiles.Add(new LibraryTile("window:" + grant.Sw + "/" + grant.Window, "Web", "Stagewatch windows", grant.Name)
+            {
+                Picture = target => ApplyWeb(target, held),
+                Swatch = WebSwatch(PageService.Page),
+            });
+        }
+
         foreach (var (name, path) in store.ListPresets())
         {
             var p = path;

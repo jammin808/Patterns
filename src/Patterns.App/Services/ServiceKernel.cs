@@ -260,6 +260,20 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
             Holds = new LinkHolds(Store.BaseDirectory),                         // a refused key's hold outlasts a restart (Show Bus 1.3 §13.15.3)
             Journal = Journal,                                                  // one row per change of the link's state (Show Bus 1.3 §13.16.7)
         };
+        // Show Bus 1.3 §12.4: the windows Stagewatch granted this desk outlive the link and a restart; a page held under one resolves
+        // from them, and a grants message that moves them is one journal row naming windows, never an address.
+        // A settings file is read as this desk keeps grants (StagewatchGrants.Sanitize): bounded, each address whole or none — a
+        // hand-edited or older file resolves nothing a grants message could not have given.
+        State.Control.Stagewatch.SetGrants(StagewatchGrants.Sanitize(State.Control.Stagewatch.Grants));
+        WebPasses.SetGrants(State.Control.Stagewatch.Grants);
+        Stagewatch.GrantsChanged += () =>
+        {
+            var grants = State.Control.Stagewatch.Grants.ToList();
+            WebPasses.SetGrants(grants);
+            Journal.Record("stagewatch", "Grants", "windows", "Done", grants.Count == 0
+                ? "no Stagewatch window is granted to this desk now"
+                : "granted to this desk: " + string.Join(", ", grants.Select(g => g.Name + (g.Opens ? "" : " (no address)"))));
+        };
         Mdns = new MdnsService(this);
         Nodes = new NodesService(this);
     }

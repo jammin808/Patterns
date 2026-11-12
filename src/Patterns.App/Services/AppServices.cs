@@ -152,6 +152,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public string OutputsHeldBy { get; set; } = "";
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
+
+    /// <summary>Round 96 (Show Bus 1.3 §12): the windows Stagewatch granted this desk, as every reader carries them.</summary>
+    public StagewatchWindows StagewatchWindows { get; }
     public StreamService Stream { get; }
     public SystemMetricsService Metrics { get; }
     public AudioAnalyserService Analyser { get; }
@@ -663,6 +666,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         ArcadeIn = new ArcadeInputEngine(Arcade);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
+        StagewatchWindows = new StagewatchWindows(this);
         Stream = new StreamService(this);
         Metrics = new SystemMetricsService(this);
         Analyser = new AudioAnalyserService(this);
@@ -954,6 +958,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         bool Refused(EyeShowApp a) => refused && a.KindWords == "Stagewatch" && (whose.StartsWith("node:", StringComparison.Ordinal) ? a.Id == whose[5..] : a.Linked);
         var follows = State.Control.Stagewatch.FollowStage;
         var speaker = follows ? Stage?.SpeakerLine ?? "" : "";
+        var windows = StagewatchWindows?.Words() ?? "";
         return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink)
             // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
             .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
@@ -961,6 +966,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             .Select(a => a.Linked && a.KindWords == "Stagewatch" && speaker.Length > 0 ? a with { Speaker = speaker } : a)
             // (profile 13.1): the Stagewatch the stage follows is one the show needs — the Eye counts its card on the rail.
             .Select(a => a.Linked && a.KindWords == "Stagewatch" && follows ? a with { Needed = true } : a)
+            // Round 96 (Show Bus 1.3 §12): the windows it grants this desk, where the air shows each — the Eye's node and the brief read it.
+            .Select(a => a.Linked && a.KindWords == "Stagewatch" && windows.Length > 0 ? a with { Windows = windows } : a)
             .Concat(ShowBusView.Nodes(Twin.NodeContexts(utcNow), utcNow))                // round 88: the desk's own nodes, each from its own context (L52)
             .ToList();
     }
@@ -1883,7 +1890,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Machine = MachineLinesForBrief(),
             Commissioning = CommissioningLinesForBrief(),
             Eye = EyeLinesForBrief(),
-            ShowNetwork = ShowBusView.BriefLines(ShowApps(DateTime.UtcNow)),           // round 87: the other show apps, a linked Stagewatch's own words
+            // Round 87: the other show apps, a linked Stagewatch's own words; round 96: each window it grants this desk, where the air shows it
+            // and whether it is ready (Show Bus 1.3 §12) — never its address.
+            ShowNetwork = ShowBusView.BriefLines(ShowApps(DateTime.UtcNow))
+                .Concat(s.StagewatchWindows.Rows().Select(r => "Stagewatch window granted to this desk: " + StagewatchWindows.RowWords(r) + $" — SCREEN n PVW WINDOW {r.Name}, then SCREEN n TAKE; SCREEN n WINDOW {r.Name} only once it is ready."))
+                .ToList(),
         };
     }
 
@@ -2068,6 +2079,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Devices.ConfirmSince(mark);
     IActionLayer IWireHost.Actions => Actions;
     IActionLayer IRunHost.Actions => Actions;
+    IReadOnlyList<StagewatchWindowRow> IRunHost.StagewatchWindowRows() => StagewatchWindows.Rows();
     IReadOnlyList<ScreenInfo> IRunHost.Screens => Screens.All;
     IReadOnlyList<string> IRunHost.OutputDeviceNames => AudioEndpoints.RenderNames;
 

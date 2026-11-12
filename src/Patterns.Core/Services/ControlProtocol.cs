@@ -250,6 +250,7 @@ public static class ControlProtocol
             "PRESET" when value.Length > 0 => Act(ShowActionKind.ScreenStagePreset, target, value),
             "PATTERN" when value.Length > 0 => Act(ShowActionKind.ScreenStagePattern, target, value),
             "LIBRARY" or "LIB" when value.Length > 0 => Act(ShowActionKind.ScreenStageLibrary, target, value),   // round 73: a Library tile
+            "WINDOW" when value.Length > 0 => Act(ShowActionKind.ScreenStageWindow, target, value),           // round 96: a window a Stagewatch granted
             "PROGRAM" or "PGM" or "FOLLOW" or "AIR" when value.Length == 0 => program ? Act(ShowActionKind.ScreenToPreview, target) : Act(ShowActionKind.ScreenStageProgram, target),
             "RESET" or "BACK" when value.Length == 0 => Act(ShowActionKind.ScreenStageReset, target),
             _ => Unknown(rest),
@@ -486,6 +487,13 @@ public static class ControlProtocol
                         return word is "ON" or "OFF" ? Act(ShowActionKind.ScreenTestRoute, n, word) : Unknown(s);
                     }
                 }
+                // "SCREEN 2 WINDOW lobby" (round 96, Show Bus 1.3 §12): a window a Stagewatch granted to this desk on that screen alone,
+                // live — taken only when its page is ready here; bare "SCREEN 2 WINDOW" names no window and is unknown.
+                if (rest.StartsWith("WINDOW ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var window = rest[7..].Trim();
+                    return window.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenWindow, n, window);
+                }
                 // "SCREEN 2 PATTERN Grid": a kind of picture on that screen alone, live.
                 if (rest.StartsWith("PATTERN ", StringComparison.OrdinalIgnoreCase))
                 {
@@ -505,7 +513,7 @@ public static class ControlProtocol
                     // "SCREEN 2 TAKE" / "SCREEN 2 CUT" (round 63): the desk's preview to that screen alone, as its own picture — the tile's own keys.
                     "TAKE" => Act(ShowActionKind.ScreenTake, n),
                     "CUT" => Act(ShowActionKind.ScreenCut, n),
-                    "LOOK" or "PRESET" or "ROLE" or "GROUP" or "PATTERN" or "AUDIO" or "SOUND" => Unknown(s),
+                    "LOOK" or "PRESET" or "ROLE" or "GROUP" or "PATTERN" or "AUDIO" or "SOUND" or "WINDOW" => Unknown(s),
                     "" or "TOGGLE" => Act(ShowActionKind.ScreenToggle, n),
                     _ => Unknown(s),                                                                  // round 72: no other word toggles
                 };
@@ -1347,11 +1355,19 @@ public static class ControlProtocol
 
             case "NODES":
             case "NODE":
+            {
+                // "NODES ASK WINDOW lobby" (round 96, Show Bus 1.3 §12.4): this desk asks its Stagewatch for a window, for itself.
+                var ask = arg.Split(' ', 3, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                if (ask.Length > 0 && ask[0].Equals("ASK", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ask.Length == 3 && ask[1].Equals("WINDOW", StringComparison.OrdinalIgnoreCase) ? Act(ShowActionKind.NodesAskWindow, "", ask[2]) : Unknown(s);
+                }
                 return arg.ToUpperInvariant() switch
                 {
                     "" or "STATUS" or "LIST" => Query(RemoteCommandKind.NodesStatus),
                     _ => Unknown(s),
                 };
+            }
 
             // G34 (Show Bus 1.3 §13.16.6): the Stagewatch link set and followed from the wire as the Nodes page sets it — LINK
             // ON|OFF|AUTO|AGAIN|<host[:port]>|id:<id>, FOLLOW ON|OFF, FLOOR LOWER, RELEASE and the read; TRUST, ACCEPT and KEY are the

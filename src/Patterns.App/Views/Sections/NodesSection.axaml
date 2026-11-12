@@ -80,6 +80,17 @@
     <!-- Round 87: the show network (Show Bus 1.1) — the other show apps, and the link to a Stagewatch. -->
     <TextBlock Classes="h2" Text="THE SHOW NETWORK" />
     <TextBlock Classes="hint" Text="{Binding ShowBusLine}" TextWrapping="Wrap" />
+    <!-- Round 96 (Show Bus 1.3 §12): the windows Stagewatch grants this desk — where each is shown, as the air says, and whether it is ready. -->
+    <TextBlock Classes="hint" Text="{Binding StagewatchWindowsWords}" TextWrapping="Wrap" Margin="0,2,0,0"
+               IsVisible="{Binding StagewatchWindowsWords, Converter={StaticResource NotEmpty}}"
+               ToolTip.Tip="A window a Stagewatch operator granted this desk (window grant on Stagewatch). Stage it on a screen's PVW (PVW WINDOW name), then TAKE once its page is ready; SCREEN n WINDOW name puts a ready one up live. NODES ASK WINDOW name asks Stagewatch's desk for one." />
+    <!-- Round 96 (Show Bus 1.3 §12.4): ask the linked Stagewatch's desk for a window, for this desk — the Stagewatch card's menu entry opens here. -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsDesk}" Margin="0,4,0,0">
+      <TextBox Text="{Binding AskWindowName}" Watermark="a window's name on Stagewatch" MinWidth="220"
+               ToolTip.Tip="Show Bus 1.3 §12.4: the name (or id) of a window on the linked Stagewatch. The ask goes to that Stagewatch's own desk, where a person decides; a grant comes back on the link and is listed above" />
+      <Button Content="ASK FOR WINDOW" Command="{Binding AskWindowCommand}"
+              ToolTip.Tip="NODES ASK WINDOW name — a request, never done here: the window is Stagewatch's to grant. The Stagewatch card's right-click menu opens this box" />
+    </StackPanel>
     <!-- Round 89: the pairing token crossed the network unencrypted from another machine — said in words, amber, until NEW TOKEN. -->
     <TextBlock Text="{Binding TokenClearWords, StringFormat='△ {0}'}" Foreground="#FFB020" TextWrapping="Wrap" Margin="0,2,0,0"
                IsVisible="{Binding TokenClearWords, Converter={StaticResource NotEmpty}}"

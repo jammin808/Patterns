@@ -321,6 +321,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         public volatile bool Heard;
         public volatile bool Legacy;
         public volatile bool OversizeSaid;
+        public volatile bool GrantsSaid;
         public volatile bool FaultSaid;
 
         /// <summary>A frame with a counter was held on this connection (the receive loop's alone): only the first is compared with the last connection's.</summary>
@@ -328,6 +329,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
         /// <summary>Why the core ended this connection ("" when it did not): a side call's 401 asking for a relink.</summary>
         public volatile string Ending = "";
+
+        /// <summary>Show Bus 1.3 §12.6: the revision of the last <c>grants</c> taken on this connection (the receive loop's alone), 0 before one.</summary>
+        public int GrantsRev;
+
+        /// <summary>The address the connection's sockets reached: a page grant's address is opened there (12.5's local link is this loopback address).</summary>
+        public IPAddress? At;
+
+        /// <summary>The certificate the key was put to over TLS — a person's pin, or the proof's once LINK verified ("" over a local link).</summary>
+        public volatile string Pin = "";
     }
 
     /// <summary>13.9.3: a floor this run keeps, with the node id the link that recorded it verified (empty when it named none).</summary>
@@ -348,6 +358,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         private volatile string _pinned = "";
 
         public void Pin(string fingerprint) => _pinned = fingerprint;
+
+        /// <summary>The certificate a proof pinned for the connection's sockets ("" before one did).</summary>
+        public string Pinned => _pinned;
 
         public bool Admits(string presented) => _pinned.Length == 0 || string.Equals(_pinned, presented, StringComparison.Ordinal);
     }
@@ -1567,7 +1580,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         using var http = new HttpClient(handler, disposeHandler: false) { Timeout = StagewatchFrame.SideCallWithin, MaxResponseContentBufferSize = SideAnswerMost };
         var baseUri = Address(target, tls, socket: false);
         using var sendGate = new SemaphoreSlim(1, 1);
-        var connection = new Connection(run, core, target, tls, keyed, isPublic, withheld, apiKey, ws, sendGate, link, certs) { Proved = keyed };
+        var connection = new Connection(run, core, target, tls, keyed, isPublic, withheld, apiKey, ws, sendGate, link, certs) { Proved = keyed, At = address, Pin = tls && pinned ? pin : "" };
         run.Live = connection;
         // The speaker's lane is this connection's from the instant it is the run's: a call asked before the lane's task has
         // started waits for it there, never refused for a lane not yet running. What was asked of the connection before and
@@ -1725,7 +1738,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// </summary>
     private async Task<IReadOnlyList<IPAddress>> DialAddressesAsync(Target target, CancellationToken ct)
     {
-        if (IPAddress.TryParse(target.Host, out var literal)) return [literal];
+        // An address a person typed is dialled as typed: its carrier is decided by that address. A heard one of this machine's own goes to loopback.
+        if (IPAddress.TryParse(target.Host, out var literal)) return [target.TypedKey.Length > 0 ? literal : OwnToLoopback(literal)];
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(ResolveWithin);
         IPAddress[] found;
@@ -1738,8 +1752,45 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         {
             throw new DialRefusedException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{target.Name} at {target.Host}:{target.Port}: the name did not resolve within {ResolveWithin.TotalSeconds:0} s — nothing sent; trying again."));
         }
-        var order = DialOrder(found);
+        var order = DialOrder(found.Select(OwnToLoopback));
         return order.Count > 0 ? order : throw new SocketException((int)SocketError.HostNotFound);
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §12.5, §13.15.4: a Stagewatch heard (or named) at one of this machine's own network addresses is dialled at loopback —
+    /// the one local carrier a grant's address rides plain. An address typed as an address is dialled as typed, and every address but
+    /// loopback reads as another machine's (TLS first, the key held until Trust, no page plain).
+    /// </summary>
+    private IPAddress OwnToLoopback(IPAddress at)
+    {
+        var a = at.IsIPv4MappedToIPv6 ? at.MapToIPv4() : at;
+        if (IPAddress.IsLoopback(a) || !IsThisMachine(a)) return a;
+        return a.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Loopback : IPAddress.Loopback;
+    }
+
+    /// <summary>
+    /// Whether an address is one of this machine's own network interfaces' (so a Stagewatch heard there runs here, and is dialled at
+    /// loopback). A test answers for a machine it plays. Read on the link's task: set it before the link is turned on.
+    /// </summary>
+    public Func<IPAddress, bool> IsThisMachine { get; set; } = OwnAddress;
+
+    private static bool OwnAddress(IPAddress address)
+    {
+        try
+        {
+            foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                foreach (var u in nic.GetIPProperties().UnicastAddresses)
+                {
+                    if (u.Address.Equals(address)) return true;
+                }
+            }
+        }
+        catch (System.Net.NetworkInformation.NetworkInformationException ex)
+        {
+            Log.Warn("Stagewatch link: this machine's addresses could not be read — a Stagewatch here is dialled at the address it is heard at.", ex);
+        }
+        return false;
     }
 
     /// <summary>
@@ -2523,7 +2574,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 long retryAfter = 0;
                 try
                 {
-                    using var post = Request(c, HttpMethod.Post, new Uri(baseUri, "/api/proposals"), apiKey, DeskProposals.Request(SelfId, SelfName, SelfId, e.Line, e.Reason, e.Risk));
+                    using var post = Request(c, HttpMethod.Post, new Uri(baseUri, "/api/proposals"), apiKey,
+                        e.ToDesk ? DeskProposals.Ask(SelfId, SelfName, e.Line, e.Reason) : DeskProposals.Request(SelfId, SelfName, SelfId, e.Line, e.Reason, e.Risk));
                     using var res = await http.SendAsync(post, ct);
                     status = (int)res.StatusCode;
                     body = await res.Content.ReadAsStringAsync(ct);
@@ -3067,6 +3119,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                     if (c.Transcript is not null) LinkVerdict(c, text);                                       // its hold recorded before the lane may send anything keyed
                     else Verdict(c, text);
                     break;
+                case StagewatchGrants.Type:
+                    await GrantsAsync(c, text, ct);
+                    break;
                 case "beat":
                     // A plain beat says the link is alive and nothing of the show; the stuck beat says the show is stuck.
                     if (stuckBeat)
@@ -3116,6 +3171,133 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             if (!c.Heard || type == "auth") SayChange();                                   // a first word or a verdict moves the record
             c.Heard = true;                                                                 // after the first word is applied: no keyed call before it
         }
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §12.6 on a link the key speaks on (12.5's first point): a <c>grants</c> message read fail closed against the link's
+    /// node, taken first on each connection whatever its revision and later only with a higher one; the grants kept with the machine
+    /// (on the UI thread, which owns the settings) and answered with <c>grants-seen</c>, its revision and why this desk shows no page,
+    /// through the connection's one writer. A message from any other link, or one that does not read, is said once and kept nowhere.
+    /// No word of it names a grant's address.
+    /// </summary>
+    private async Task GrantsAsync(Connection c, string text, CancellationToken ct)
+    {
+        var name = c.Target.Name;
+        if (!c.Keyed)
+        {
+            if (!c.GrantsSaid)
+            {
+                c.GrantsSaid = true;
+                Log.Warn($"Stagewatch link: {name} sent window grants on a link this desk's key does not speak on — none taken (Show Bus 1.3 §12.5).");
+            }
+            return;
+        }
+        // 12.5: the node the link verified, or the one its key was bound to by id; a link with neither takes no grants (TryParse refuses).
+        string? from;
+        lock (_core) from = c.Core.Machine.NodeId;
+        from ??= c.Target.PinKey.StartsWith("node:", StringComparison.Ordinal) ? c.Target.PinKey[5..] : null;
+        if (!StagewatchGrants.TryParse(text, from, out var heard, out var why))
+        {
+            Log.Warn($"Stagewatch link: {name} sent window grants this desk does not take — {why}; nothing kept from them.");
+            return;
+        }
+        if (!StagewatchGrants.Takes(c.GrantsRev, heard.Rev)) return;
+        c.GrantsRev = heard.Rev;
+        var baseAddress = GrantBase(c);
+        var pin = c.Tls ? (c.Pin.Length > 0 ? c.Pin : c.Certs.Pinned) : "";
+        // The receive loop never waits on the UI thread (a busy desk would stall its pongs): the grants land there, and the answer
+        // follows from there through the connection's one writer, after they have.
+        UiThread.Post(() =>
+        {
+            var cannot = TakeGrants(heard, baseAddress, pin);
+            _ = AnswerGrantsAsync(c, heard.Rev, cannot, ct);
+        });
+    }
+
+    /// <summary>12.6's answer to a <c>grants</c> taken: sent through the connection's one writer; a connection gone meanwhile hears it on its next link's grants.</summary>
+    private async Task AnswerGrantsAsync(Connection c, int rev, string cannot, CancellationToken ct)
+    {
+        try
+        {
+            await SendLinkAsync(c, StagewatchGrants.SeenJson(rev, cannot), ct);
+        }
+        catch (Exception ex) when (ex is WebSocketException or ObjectDisposedException or OperationCanceledException or IOException or InvalidOperationException)
+        {
+            Log.Info(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"Stagewatch link: the answer to {c.Target.Name}'s window grants (revision {rev}) was not sent — the connection ended; the next link's grants are answered."));
+        }
+    }
+
+    /// <summary>
+    /// Where a page grant's address is opened: at the very address the link's sockets reached and proved — never a name, which the
+    /// browser would resolve on its own — over TLS (the page opened only to the certificate its link was proved over, checked before
+    /// each navigation), or plain on a local link at loopback alone. "" when the link reached no address a page may be opened at.
+    /// </summary>
+    private static string GrantBase(Connection c)
+    {
+        if (c.At is not { } reached) return "";
+        var at = reached.IsIPv4MappedToIPv6 ? reached.MapToIPv4() : reached;
+        var port = c.Target.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (at.AddressFamily == AddressFamily.InterNetworkV6 && at.ScopeId != 0) return "";                   // a browser opens no zoned address
+        var host = at.AddressFamily == AddressFamily.InterNetworkV6 ? "[" + at + "]" : at.ToString();
+        if (c.Tls) return "https://" + host + ":" + port;
+        return IPAddress.IsLoopback(at) ? "http://" + host + ":" + port : "";
+    }
+
+    /// <summary>
+    /// The grants a <c>grants</c> message leaves this desk holding, kept with the machine (the UI thread's settings): one log line and
+    /// <see cref="GrantsChanged"/> when they moved, naming windows and never an address. Answers <c>grants-seen</c>'s <c>cannot</c>.
+    /// </summary>
+    private string TakeGrants(GrantsHeard heard, string baseAddress, string pin)
+    {
+        var cfg = _config();
+        var (kept, cannot) = StagewatchGrants.Apply(cfg.Grants.ToList(), heard, baseAddress, pin);
+        if (cfg.SetGrants(kept))
+        {
+            var mine = kept.Where(g => g.Sw == heard.From).ToList();
+            var words = mine.Count == 0
+                ? "none now"
+                : string.Join(", ", mine.Select(g => g.Name + (g.Opens ? "" : g.Cannot.Length > 0 ? " (no address: " + g.Cannot + ")" : " (no address)")));
+            _grantsWords = mine.Count == 0 ? "" : $"windows granted to this desk: {words}";
+            Log.Info($"Stagewatch link: the windows granted to this desk ({heard.Link} link, revision {heard.Rev.ToString(System.Globalization.CultureInfo.InvariantCulture)}) — {words}.");
+            GrantsChanged?.Invoke();
+            _changed();
+        }
+        return cannot;
+    }
+
+    private volatile string _grantsWords = "";
+
+    /// <summary>The windows the linked Stagewatch grants this desk, in words ("" when none): the Nodes page's line.</summary>
+    public string GrantsWords => _grantsWords;
+
+    /// <summary>Raised on the UI thread after a <c>grants</c> message changed the grants kept: a held page waiting on one resolves again.</summary>
+    public event Action? GrantsChanged;
+
+    /// <summary>
+    /// Show Bus 1.3 §12.4: this desk asks the Stagewatch it links to for a window, for itself — the proposal <c>window grant &lt;window&gt;
+    /// &lt;this desk's id&gt;</c> to that Stagewatch's own desk, where a person decides. Queued with the assistant's proposals and sent
+    /// on the same lane; <paramref name="said"/> hears each move of its state. Null when the line cannot be made, with why.
+    /// </summary>
+    public string? AskWindow(string window, Action<string> said, out string why)
+    {
+        why = "";
+        if (!_config().Enabled)
+        {
+            why = "the Stagewatch link is off — turn it on (STAGEWATCH LINK ON) to ask its desk for a window";
+            return null;
+        }
+        if (DeskProposals.AskWindowLine(window, SelfId) is not { } line)
+        {
+            why = PeerLink.IsId(SelfId) ? "a window is named by its name or id: up to 64 characters, no quotes" : "this desk has no show network id yet — the Show Bus beacon gives it one";
+            return null;
+        }
+        if (Approvals.AskOpen(line))
+        {
+            why = "this desk asked for it already — the ask waits for a person on Stagewatch's desk";
+            return null;
+        }
+        return Approvals.AddAsk(line, $"{SelfName} asks to show this window", said);
     }
 
     /// <summary>What LINK made of one message on a <c>link=</c> socket: kept by LINK alone, taken as any message, or the end of the connection.</summary>
@@ -3276,6 +3458,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         if (fp.Length > 0)
         {
             c.Certs.Pin(fp);
+            c.Pin = fp;
             c.Core.FirstSaved = "";
             _tlsWords = $"Stagewatch {target.Name}'s certificate {TlsFingerprint.Short(fp)} is pinned by its proof";
         }

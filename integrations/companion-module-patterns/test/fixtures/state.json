@@ -673,7 +673,25 @@
       },
       "follow": true,
       "pending": "",
-      "keyFor": ""
+      "keyFor": "",
+      "windows": [
+        {
+          "window": "wk3m9x2",
+          "name": "lobby",
+          "how": "page",
+          "held": "stagewatch://3f9c2a1b7d0e/wk3m9x2",
+          "granted": true,
+          "cannot": "",
+          "link": "tls",
+          "ready": true,
+          "why": "",
+          "shown": "on air",
+          "screens": [
+            "2"
+          ],
+          "staged": []
+        }
+      ]
     }
   },
   "control": {

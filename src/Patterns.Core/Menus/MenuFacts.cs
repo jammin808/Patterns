@@ -93,6 +93,12 @@ public sealed record DeskFacts
     /// </summary>
     public IReadOnlyList<VideoReading> OtherClips { get; init; } = Array.Empty<VideoReading>();
 
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12): the windows Stagewatch granted this desk — the tile menus stage one on a PVW and put a ready one on
+    /// air; an entry that cannot be chosen says why (not ready, no address). Empty with none, and on a node.
+    /// </summary>
+    public IReadOnlyList<MenuWindow> Windows { get; init; } = Array.Empty<MenuWindow>();
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;
@@ -283,6 +289,17 @@ public sealed record PageFacts(string Header)
 /// and the Eye name it, its name, and the certificate (sha256:…) a person compares on its screen before pressing Trust.
 /// </summary>
 public sealed record MenuTrust(string AppId, string Name, string Fingerprint);
+
+/// <summary>
+/// Round 96 (Show Bus 1.3 §12): a window Stagewatch granted this desk, as the menus offer it — its name, whether its page is ready to
+/// go on air here and why not, where the air shows it ("" when nowhere), and the words a line names it by (<see cref="Line"/>: its
+/// name, or <c>&lt;node&gt;/&lt;window&gt;</c> when two Stagewatches grant a window of that name).
+/// </summary>
+public sealed record MenuWindow(string Name, bool Ready, string Why, string Shown, string Key = "")
+{
+    /// <summary>What a line names the window by.</summary>
+    public string Line => Key.Length > 0 ? Key : Name;
+}
 
 /// <summary>
 /// G34 (Show Bus 1.3 §13.16.6): the Stagewatch link as the menus read it. <see cref="LinkedId"/> is the app id of the Stagewatch the

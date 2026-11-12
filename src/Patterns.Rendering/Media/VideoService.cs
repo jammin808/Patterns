@@ -92,6 +92,15 @@ public interface IWebSource : IVideoFrameSource
     /// </summary>
     bool Withheld => false;
 
+    /// <summary>Round 96: why a withheld page is black, in words that name no address ("" when it is drawn).</summary>
+    string WithheldWhy => "";
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12.9): what a held Stagewatch window's shell said it shows — its revision, its link and what is still
+    /// loading — or null for a page that is no window. A granted window goes on air only once this says it is ready.
+    /// </summary>
+    Patterns.Core.Services.WebShellState? Shell => null;
+
     string Title { get; }
 
     /// <summary>The browser zoom, 25–400 %. Applied live.</summary>

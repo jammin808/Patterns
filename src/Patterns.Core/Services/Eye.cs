@@ -222,6 +222,12 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     /// nodes): its card is counted by the rail, the worst, the problems queue's head and the headline.
     /// </summary>
     public bool Needed { get; init; }
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12): linked, the windows it grants this desk in one line — each by name, where the air shows it and
+    /// whether it is ready; "" with none. Never an address.
+    /// </summary>
+    public string Windows { get; init; } = "";
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -1026,6 +1032,7 @@ public sealed class EyeGraph
             if (app.Linked && app.Key.Line.Length > 0) words.Add("this desk's key: " + app.Key.Line);
             if (app.Linked && app.Link is { } record) words.Add("the link: " + record.Steady);
             if (app.Linked && app.Speaker.Length > 0) words.Add(app.Speaker);
+            if (app.Linked && app.Windows.Length > 0) words.Add("windows it grants this desk: " + app.Windows);
             if (app.Conflict.Length > 0) words.Add(app.Conflict + " — " + ShowBusView.ConflictHoldWords);
             if (app.Words.Length > 0) words.Add(app.Words);
             if (ctx is not null)

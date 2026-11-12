@@ -263,6 +263,9 @@ public interface IRunHost : ICueHost
     IReadOnlyList<string> OutputDeviceNames { get; }
     /// <summary>Round 89: this machine's kept page addresses — a cue step's address is secured through it before the step holds it.</summary>
     WebPasses WebPasses { get; }
+
+    /// <summary>Round 96 (Show Bus 1.3 §12): the windows Stagewatch granted this desk, as the Run strip's chip reads them; none on a node.</summary>
+    IReadOnlyList<StagewatchWindowRow> StagewatchWindowRows() => Array.Empty<StagewatchWindowRow>();
 }
 
 /// <summary>The one-line verbs on any action layer — a kind with its target and value, one cue fired — as the desk's own layer always offered them.</summary>

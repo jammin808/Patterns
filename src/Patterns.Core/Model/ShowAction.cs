@@ -552,6 +552,19 @@ public enum ShowActionKind
     /// <c>STAGEWATCH KEY …</c> carries nothing and is refused, so a key never rides a line.
     /// </summary>
     StagewatchKeyBind,
+    /// <summary>
+    /// Show Bus 1.3 §12: a window a Stagewatch granted to this desk on a screen's own picture, live (Target = the screen, Value =
+    /// the window's name or id) — only when its page is ready on this desk (open, drawn, its shell told what to show, its link
+    /// up); otherwise refused with nothing changed and steered to <see cref="ScreenStageWindow"/>, then <see cref="ScreenTake"/>.
+    /// </summary>
+    ScreenWindow,
+    /// <summary>A granted Stagewatch window staged on a target's PVW in the preview (Target = the screen, "" the programme; Value = the window).</summary>
+    ScreenStageWindow,
+    /// <summary>
+    /// Show Bus 1.3 §12.4: this desk asks the Stagewatch it links to for a window, for itself (Value = the window's name) — a
+    /// proposal <c>window grant &lt;window&gt; &lt;this desk's id&gt;</c> a person there decides.
+    /// </summary>
+    NodesAskWindow,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

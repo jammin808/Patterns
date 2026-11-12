@@ -183,6 +183,9 @@ public sealed partial class ShowActions
                 // and a take that would move nothing is refused with the reason, never reported as done.
                 var plan = PlanTake(scope);
                 if (plan.IsRefused) return ActionResult.Refused(plan.Refusal!);
+                // Round 96 (Show Bus 1.3 §12.9, one air): the wall's take and every scoped one land each taken target's PVW — a granted
+                // Stagewatch window still opening there would put black on the air, so the take is refused whole with nothing changed.
+                if (WindowsNotReady(plan.Taken, wall: !plan.IsScoped) is { } notReady) return ActionResult.Refused(notReady);
                 // Round 81: every scope but the rig lands on its targets alone, as their own pictures — the tile's own
                 // key, once per target — and the programme, its preview and every other screen are untouched.
                 if (plan.IsScoped) return TakeScoped(origin, cut, scope, plan);
@@ -271,6 +274,9 @@ public sealed partial class ShowActions
                         ? $"{where} was locked after the press — it keeps its picture; the take did not land."
                         : $"{where} is locked — it keeps its picture. Unlock it (LOCK on its tile, or LOCK n OFF) to take to it.");
                 }
+                // Round 96 (Show Bus 1.3 §12.9): a granted Stagewatch window staged on this PVW goes up only once its page is ready
+                // here — a take of one still opening would put black on the air — so it is refused with nothing changed.
+                if (StagedWindowNotReady(_s.Sandbox.PvwPicture(target), AirPicture(target)) is { } notReady) return ActionResult.Refused(NotReadyWords(where, notReady));
                 var cutOne = a.Kind == ShowActionKind.ScreenCut;
                 // Round 78: attempts are not facts. The tile's PVW holds one picture (SandboxService.PvwPicture — round 81:
                 // its own while it is OWN, else the programme's preview) and the take lands exactly that — so a press that
@@ -707,5 +713,43 @@ public sealed partial class ShowActions
     {
         if (RigDark()) return;
         _s.Stingers.SetBlack(false, (int)Math.Round(State.Transition.DurationMs));
+    }
+
+    /// <summary>The refusal of a take whose PVW holds a granted window not ready yet: the same words on a tile, the wall and every scope.</summary>
+    private static string NotReadyWords(string where, string notReady) => $"{where}'s PVW holds {notReady} — nothing taken; TAKE once its PVW shows it.";
+
+    /// <summary>
+    /// The refusal of a take (the wall's or a scoped one) one of whose taken targets' PVW — or, for the wall, the programme's preview
+    /// itself, which every screen that follows the programme lands — holds a granted window whose page is not ready; null when none does.
+    /// </summary>
+    private string? WindowsNotReady(IReadOnlyList<string> taken, bool wall)
+    {
+        if (_s.StagewatchWindows.Grants.Count == 0) return null;
+        if (wall && StagedWindowNotReady(State.Pattern, _s.AirState.Pattern) is { } onPreview) return NotReadyWords("The programme", onPreview);
+        if (taken.Count == 0) return null;
+        var geometry = Rig.Geometry(State, _s.Screens.All);
+        foreach (var target in taken)
+        {
+            if (StagedWindowNotReady(_s.Sandbox.PvwPicture(target), AirPicture(target)) is { } notReady) return NotReadyWords(geometry.LabelFor(State, target), notReady);
+        }
+        return null;
+    }
+
+    /// <summary>What the air shows on a target now: the picture a take there replaces.</summary>
+    private PatternConfig AirPicture(string target) => LookService.Shown(_s.AirState, ScreenRoles.ResolveMirror(_s.AirState, target));
+
+    /// <summary>
+    /// A granted window a PVW's picture holds that is not ready, in words ("Stagewatch window 'lobby', not ready — …"); null when none.
+    /// One the air already shows there is not the take's to judge: taking it again puts up nothing that is not already up.
+    /// </summary>
+    private string? StagedWindowNotReady(PatternConfig pvw, PatternConfig air)
+    {
+        foreach (var grant in _s.StagewatchWindows.Grants)
+        {
+            if (!StagewatchGrants.Uses(pvw, grant.Held) || StagewatchGrants.Uses(air, grant.Held)) continue;
+            var ready = _s.StagewatchWindows.Readiness(grant);
+            if (!ready.Ready) return $"Stagewatch window '{grant.Name}', not ready — {ready.Why}";
+        }
+        return null;
     }
 }

@@ -247,6 +247,31 @@ public static class DeskProposals
 
     public static string Result(bool ok, string words) => JsonSerializer.Serialize(new { ok, words = Cap256(words) });
 
+    /// <summary>
+    /// Show Bus 1.3 §12.4: the line by which this desk asks a Stagewatch for a window, for itself — <c>window grant &lt;window&gt;
+    /// &lt;this desk's id&gt;</c>, a window named with white space in quotes. Null for a window name a line cannot carry.
+    /// </summary>
+    public static string? AskWindowLine(string? window, string selfId)
+    {
+        var w = (window ?? "").Trim();
+        if (w.Length is 0 or > 64 || w.Contains('"', StringComparison.Ordinal) || w.Any(char.IsControl) || !PeerLink.IsId(selfId)) return null;
+        return "window grant " + (w.Any(char.IsWhiteSpace) ? "\"" + w + "\"" : w) + " " + selfId;
+    }
+
+    /// <summary>
+    /// A proposal for the Stagewatch's own desk (§11, target kind <c>main</c> with no id: the desk it is posted to) — the way an app
+    /// asks for a window (12.4): a person there decides, and Stagewatch runs it.
+    /// </summary>
+    public static string Ask(string fromId, string fromName, string line, string reason)
+        => JsonSerializer.Serialize(new
+        {
+            from = new { t = "patterns", id = fromId, name = fromName },
+            target = new { t = "main", id = "" },
+            line = Cap256(line),
+            reason = Cap256(reason),
+            risk = "high",
+        });
+
     /// <summary>"APPLY a3f9: Look "Keynote blue"" — the desk shows it; this desk finds its proposal by the id.</summary>
     public static string Line(string localId, string kindLabel, string title) => $"APPLY {localId}: {kindLabel} \"{Cap256(title).Replace('"', '\'')}\"";
 

@@ -14,6 +14,18 @@ namespace Patterns.App.Services;
 /// </summary>
 public static class DeskMenuFacts
 {
+    /// <summary>
+    /// The page windows Stagewatch granted this desk as the menus offer them: each named by its name, or by <c>&lt;node&gt;/&lt;window&gt;</c>
+    /// where that name finds windows of more than one Stagewatch, so a line from the menu names exactly one.
+    /// </summary>
+    private static IReadOnlyList<MenuWindow> MenuWindows(AppServices s)
+    {
+        var grants = s.StagewatchWindows.Grants;
+        return s.StagewatchWindows.Rows().Where(r => r.How == StagewatchGrants.HowPage)
+            .Select(r => new MenuWindow(r.Name, r.Ready, r.ReadyWhy, r.Shown, StagewatchGrants.Matches(grants, r.Name).Count == 1 ? "" : r.Sw + "/" + r.Window))
+            .ToList();
+    }
+
     /// <summary>The desk's facts every menu reads.</summary>
     public static DeskFacts Desk(AppServices s)
     {
@@ -50,6 +62,7 @@ public static class DeskMenuFacts
             MidiLearning = s.MidiLearn.Wire,
             Clip = s.VideoOnAir(),
             OtherClips = s.OtherVideosOnAir(),
+            Windows = MenuWindows(s),
         };
     }
 

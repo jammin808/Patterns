@@ -224,6 +224,7 @@ export function variableDefinitions() {
 		stagewatch_link_light: "The Stagewatch link's own light, from its record — red, amber, green or grey; empty from a desk that sends no record (round 93)",
 		stagewatch_link_flags: "The Stagewatch link's flags, from its record — legacy (it cannot prove itself yet), keyless, first, plain, apart and the rest, comma-separated; empty with none (round 93)",
 		stagewatch_follow: "Whether the stage pages follow the linked Stagewatch's timer — on or off; empty from a desk that does not say (round 93)",
+		stagewatch_windows: "The windows the linked Stagewatch grants the desk — each by name, where the air shows it (on air, in the preview — not on air, outputs closed) and whether its page is ready; empty with none (round 96)",
 		stagewatch_pending: "A changed certificate waiting for a person's ACCEPT on the desk, as its short fingerprint (8e8b c45b b14f 9c74) — compare it on the Stagewatch's own screen; empty with none (round 93)",
 		// Round 74: where the desk is, and the Navigator's keys.
 		desk_page: "The desk — the page it is on (Run while the Run surface is up)",

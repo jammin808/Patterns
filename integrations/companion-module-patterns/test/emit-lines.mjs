@@ -8,7 +8,7 @@ const SAMPLES = {
 	text: 'Hello there', what: 'Closing time', device: 'Projector', target: 'SCREEN 2', person: '2', design: '1', minutes: '5', time: '19:30', label: 'SHOW STARTS IN',
 	delta: '+2:00', game: 'pong', line: 'PING', word: '', show: 'results',
 	destination: 'Info HDMI', screen: 'INFO', time: '1:23', output: 'Info HDMI',
-	host: '10.0.0.9:9924', node: 'a1b2c3d4',
+	host: '10.0.0.9:9924', node: 'a1b2c3d4', window: 'lobby',
 }
 
 // A text field pressed both ways: empty and with a sample — a clip verb's key, whose empty form is the clip on air's line.

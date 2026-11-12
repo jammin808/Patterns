@@ -9,9 +9,10 @@ public sealed record WebPass(string Id, string Url, DateTime KeptUtc);
 
 /// <summary>
 /// What a held address opens: the real address when this machine keeps it (<see cref="Url"/>), or nothing and the
-/// reason in words. An address that is not held opens as it is.
+/// reason in words. An address that is not held opens as it is. <see cref="Pin"/>: for a granted window, the certificate its
+/// page is opened to (Show Bus 1.3 §12.5), "" otherwise.
 /// </summary>
-public readonly record struct WebPassResolution(string? Url, string Why)
+public readonly record struct WebPassResolution(string? Url, string Why, string Pin = "")
 {
     public bool Resolved => Url is not null;
 }
@@ -43,6 +44,9 @@ public sealed class WebPassBook
 
     /// <summary>The reason a kept id that names another host opens nothing.</summary>
     public const string MismatchWhy = "the kept id belongs to another address — paste the address again";
+
+    /// <summary>The reason a granted window's held form opens nothing on this machine: no grant with its address is kept here.</summary>
+    public const string NotGrantedWhy = "a Stagewatch window this machine holds no grant for — its address comes only on that Stagewatch's own link to this desk";
 
     /// <summary>The words for a book with no room left: every pass in it is one the show still names.</summary>
     public const string FullWhy = "this machine already keeps 64 private addresses the show names — remove a page that uses one first";
@@ -111,6 +115,7 @@ public sealed class WebPassBook
     {
         var a = (address ?? "").Trim();
         if (!WindowAddresses.IsHeld(a)) return new WebPassResolution(a, "");
+        if (WindowAddresses.IsGrant(a)) return new WebPassResolution(null, NotGrantedWhy);
         if (!WindowAddresses.TryKept(a, out _, out _, out var id)) return new WebPassResolution(null, UnkeptWhy);
         var pass = Find(id);
         if (pass is null) return new WebPassResolution(null, NotHereWhy);
@@ -128,6 +133,7 @@ public sealed class WebPassBook
     {
         var a = (address ?? "").Trim();
         if (!WindowAddresses.IsHeld(a)) return WebAddress.ShortName(a);
+        if (WindowAddresses.TryGrant(a, out _, out var window)) return $"Stagewatch window {window} (granted to this desk, no address here)";
         var host = WindowAddresses.HostOf(a);
         if (!WindowAddresses.IsKept(a)) return $"{host} (private address, not kept — paste it again)";
         return Resolve(a).Resolved ? $"{host} (private address, kept)" : $"{host} (private address, kept on another machine)";

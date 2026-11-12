@@ -376,7 +376,8 @@ public class WebSourceTests
         InputBus.Clear();
         try
         {
-            foreach (var address in new[] { "kept://10.0.0.5:9924/abcdefghijkl", "http://10.0.0.5:9924/w/q3x7m2k9p4abcdefghjk5n6r8t" })
+            // Round 96: a window a Stagewatch granted (stagewatch://<node>/<window>) is held too — black until its page is drawn.
+            foreach (var address in new[] { "kept://10.0.0.5:9924/abcdefghijkl", "http://10.0.0.5:9924/w/q3x7m2k9p4abcdefghjk5n6r8t", "stagewatch://3f9c2a1b7d0e/wk3m9x2" })
             {
                 var s = PageAsPattern(m =>
                 {
@@ -426,6 +427,15 @@ public class WebSourceTests
                 AllBlack(bmp, new SKRectI(box.Left + 2, box.Top + 2, box.Right - 2, box.Bottom - 2), $"{kind}'s box");   // no dashed frame, no "Layer 1 — …"
                 Assert.Equal(SKColors.Lime, bmp.GetPixel(100, 100));
                 Assert.DoesNotContain(sink.Hits, h => h.Kind == HitKind.WebPage);
+            }
+
+            // Round 96: a granted window on a layer is held the same way — a black box, no words, on either sink.
+            var granted = PageAsLayer(l => l.WebUrl = "stagewatch://3f9c2a1b7d0e/wk3m9x2");
+            granted.Overlays.Badge.Enabled = false;
+            foreach (var kind in new[] { SinkKind.Preview, SinkKind.Output })
+            {
+                using var bmp = RenderWithSink(granted, 1280, 720, kind, new SinkState());
+                AllBlack(bmp, new SKRectI(box.Left + 2, box.Top + 2, box.Right - 2, box.Bottom - 2), $"a granted window's {kind} box");
             }
 
             // A plain page with no picture still shows the desk its box and words on the preview.

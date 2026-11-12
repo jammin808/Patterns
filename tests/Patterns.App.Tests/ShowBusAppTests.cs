@@ -873,7 +873,7 @@ public class ShowBusAppTests
             Assert.Equal("amber", row.GetProperty("light").GetString());
             Assert.Equal(ShowBusView.StuckWords, row.GetProperty("headline").GetString());
             Assert.True(row.GetProperty("stuck").GetBoolean());
-            Assert.Equal(new[] { "stuck", "carrier", "key", "held", "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name).TakeLast(8));   // stuck appended, the carrier after it, then the key (round 91), the hold (Show Bus 1.3 §2), the link's record (§13.16.3), and G34's follow, pending and keyFor
+            Assert.Equal(new[] { "stuck", "carrier", "key", "held", "link", "follow", "pending", "keyFor", "windows" }, row.EnumerateObject().Select(p => p.Name).TakeLast(9));   // stuck appended, the carrier after it, then the key (round 91), the hold (Show Bus 1.3 §2), the link's record (§13.16.3), G34's follow, pending and keyFor, and the windows granted this desk (§12.4)
             Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
             // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
@@ -1047,7 +1047,8 @@ public class ShowBusAppTests
             // Off: the record says so, STATE carries it after the hold — G34's follow, pending and keyFor after it — and no reader shows a link that is not there.
             Assert.Equal(("off", "grey", "○"), (link.Record.State, link.Record.Light, link.Record.Mark));
             var quiet = StagewatchRow(services);
-            Assert.Equal(new[] { "held", "link", "follow", "pending", "keyFor" }, quiet.EnumerateObject().Select(p => p.Name).TakeLast(5));
+            Assert.Equal(new[] { "held", "link", "follow", "pending", "keyFor", "windows" }, quiet.EnumerateObject().Select(p => p.Name).TakeLast(6));
+            Assert.Equal(0, quiet.GetProperty("windows").GetArrayLength());                                    // no window granted: an empty list, never absent
             Assert.Equal("off", quiet.GetProperty("link").GetProperty("state").GetString());
             Assert.DoesNotContain("STAGEWATCH", services.GlanceWords, StringComparison.Ordinal);
             Assert.DoesNotContain(ShowContext.Parse(services.ContextJson())!.Items, i => i.Kind == "link");
@@ -1074,7 +1075,7 @@ public class ShowBusAppTests
 
             // STATE: the record, one object after the hold (G34's follow, pending and keyFor after it), in 13.16.3's fields; the row's own light no better than it.
             var row = StagewatchRow(services);
-            Assert.Equal(new[] { "held", "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name).TakeLast(5));
+            Assert.Equal(new[] { "held", "link", "follow", "pending", "keyFor", "windows" }, row.EnumerateObject().Select(p => p.Name).TakeLast(6));
             var json = row.GetProperty("link");
             Assert.Equal(new[] { "peer", "carrier", "level", "tls", "pin", "proof", "kid", "scope", "state", "refusal", "show", "flags", "light", "mark", "words", "since", "heardMs", "attempt", "nextMs", "clock", "counts", "floor" },
                 json.EnumerateObject().Select(p => p.Name));
@@ -1236,7 +1237,7 @@ public class ShowBusAppTests
             PumpUntil(() => services.Stage.Following.Length > 0 && link.Key.Word == "key", 15000);
 
             // The dial names this desk on the show network and its kind; cid and page for a Stagewatch older than its node links.
-            Assert.Equal($"/ws?node={id}&t=patterns&cid={id}&page=/patterns", new Uri(stagewatch.Url).PathAndQuery);
+            Assert.Equal($"/ws?node={id}&t=patterns&cid={id}&page=/patterns&can=pages", new Uri(stagewatch.Url).PathAndQuery);
             Assert.Equal("Bearer swk_testkey", stagewatch.Authorization);
             Assert.DoesNotContain("swk_", stagewatch.Url);
 
@@ -1250,7 +1251,7 @@ public class ShowBusAppTests
             // Taken: every reader says nothing of the key, STATE says key at the row's end; one log line.
             var row = StagewatchRow(services);
             Assert.Equal("key", row.GetProperty("key").GetString());
-            Assert.Equal(new[] { "key", "held", "link", "follow", "pending", "keyFor" }, row.EnumerateObject().Select(p => p.Name).TakeLast(6));   // the key appended, the hold (Show Bus 1.3 §2) after it, the link's record (§13.16.3), then G34's three
+            Assert.Equal(new[] { "key", "held", "link", "follow", "pending", "keyFor", "windows" }, row.EnumerateObject().Select(p => p.Name).TakeLast(7));   // the key appended, the hold (Show Bus 1.3 §2) after it, the link's record (§13.16.3), G34's three, then the granted windows (§12.4)
             Assert.Equal("", link.Key.Line);
             Assert.Equal(TimeSpan.Zero, link.KeyHeld);
             services.Nodes.Poll();

@@ -148,14 +148,15 @@ public sealed record StagewatchFrame
     /// and its kind (Stagewatch 2.18, Show Bus 1.3 §7.1): <c>/ws?node=&lt;id&gt;&amp;t=patterns&amp;cid=&lt;id&gt;&amp;page=/patterns</c>.
     /// <c>cid</c> and <c>page</c> are for a Stagewatch older than its node links, which ignores <c>node</c> and lists each
     /// install under its own <c>cid</c> (kept only at 6–32 characters, so a shorter or longer id sends today's). An id that is
-    /// no node id dials as today, a screen. The key never rides here: it goes in the Authorization header.
+    /// no node id dials as today, a screen. The key never rides here: it goes in the Authorization header. Round 96 (Show Bus 1.3
+    /// §12.6): <c>&amp;can=pages</c> — this desk opens a page a Stagewatch grants it.
     /// </summary>
     public static string SocketQuery(string? selfId)
     {
         var id = selfId ?? "";
         if (!IsNodeId(id)) return ScreenQuery;
         var cid = id.Length is >= 6 and <= 32 ? id : "patterns";
-        return $"/ws?node={id}&t=patterns&cid={cid}&page=/patterns";
+        return $"/ws?node={id}&t=patterns&cid={cid}&page=/patterns" + StagewatchGrants.CanQuery;
     }
 
     /// <summary>

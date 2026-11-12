@@ -604,6 +604,28 @@ export function buildActions(ctx) {
 				send(t === 'SCREEN' ? `SCREEN ${a.options.n} PVW LIBRARY ${x}` : t === 'PGM' ? `PVW LIBRARY ${x}` : `LIBRARY ${x}`)
 			},
 		},
+		// Round 96 (Show Bus 1.3 §12) — a window a Stagewatch operator granted this desk, by its name. STAGE opens its page on the screen's
+		// PVW (nothing changes on air until TAKE); LIVE puts it on that screen alone, and the desk takes it only once its page is ready —
+		// otherwise refused with nothing changed, and the stage-then-take preset is the way.
+		screen_window: {
+			name: 'Screen — a Stagewatch window granted to this desk: stage it on the PVW, or put a ready one live on this screen alone',
+			options: [
+				screenN,
+				{ type: 'dropdown', id: 'how', label: 'How', default: 'PVW', choices: [
+					{ id: 'PVW', label: 'Stage it on the PVW (nothing on air until TAKE)' }, { id: 'LIVE', label: 'Live, only once its page is ready' },
+				] },
+				text('window', "The window's name on Stagewatch", 'lobby'),
+			],
+			callback: (a) => {
+				const w = clean(a.options.window)
+				if (w) send(a.options.how === 'LIVE' ? `SCREEN ${a.options.n} WINDOW ${w}` : `SCREEN ${a.options.n} PVW WINDOW ${w}`)
+			},
+		},
+		nodes_ask_window: {
+			name: "Stagewatch — ask its desk for a window, for this desk (a person on Stagewatch decides)",
+			options: [text('window', "The window's name on Stagewatch", 'lobby')],
+			callback: (a) => { const w = clean(a.options.window); if (w) send(`NODES ASK WINDOW ${w}`) },
+		},
 		pvw: {
 			name: 'Preview — the programme\'s picture in the desk\'s preview: a look (whole), a preset, a kind of picture, the look on air back (RESET), or what is on air to edit (PROGRAM); nothing changes on air until CUT or TAKE',
 			options: [stagedWhat, text('name', 'Look / preset / kind (not for PROGRAM or RESET)')],

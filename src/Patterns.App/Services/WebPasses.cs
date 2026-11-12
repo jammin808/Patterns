@@ -69,26 +69,59 @@ public sealed class WebPasses
     /// <summary>Words for the operator: an address kept, or one that could not be (raised beside <see cref="Changed"/>).</summary>
     public event Action<string>? Noticed;
 
-    /// <summary>The real addresses the book keeps — secret values, masked wherever free text carries them (the support bundle).</summary>
+    /// <summary>The real addresses the book keeps, and every granted window's — secret values, masked wherever free text carries them (the support bundle).</summary>
     public IReadOnlyList<string> SecretValues
     {
         get
         {
             RereadIfUnread();
-            return Book.SecretValues;
+            var granted = Grants.Where(g => g.Opens).Select(g => g.Url).ToList();
+            return granted.Count == 0 ? Book.SecretValues : Book.SecretValues.Concat(granted).Distinct(StringComparer.Ordinal).ToList();
         }
     }
 
-    /// <summary>What an address opens on this machine: a kept address this book holds, its real address; any other held address nothing, with why.</summary>
+    private StagewatchGrant[] _grants = Array.Empty<StagewatchGrant>();
+
+    /// <summary>
+    /// Show Bus 1.3 §12.4: the windows Stagewatches granted this desk, as the settings keep them — immutable, swapped whole, read on
+    /// any thread. A <c>stagewatch://</c> address resolves against these and nothing else.
+    /// </summary>
+    public IReadOnlyList<StagewatchGrant> Grants => Volatile.Read(ref _grants);
+
+    /// <summary>The grants kept now (the settings' copy, handed in on the UI thread): a held page waiting on one is navigated again.</summary>
+    public void SetGrants(IEnumerable<StagewatchGrant> grants)
+    {
+        ArgumentNullException.ThrowIfNull(grants);
+        var next = StagewatchGrants.Sanitize(grants).ToArray();                // what resolves is only ever what a grants message could have given
+        if (next.AsSpan().SequenceEqual(Grants.ToArray())) return;
+        Volatile.Write(ref _grants, next);
+        RaiseChanged();
+    }
+
+    /// <summary>
+    /// What an address opens on this machine: a kept address this book holds, its real address; a granted window whose address
+    /// reached this desk, that address; any other held address nothing, with why.
+    /// </summary>
     public WebPassResolution Resolve(string? address)
     {
+        if (WindowAddresses.TryGrant(address, out var sw, out var window))
+        {
+            var grant = Grants.FirstOrDefault(g => g.Sw == sw && g.Window == window);
+            if (grant is null) return new WebPassResolution(null, WebPassBook.NotGrantedWhy);
+            if (!grant.Opens) return new WebPassResolution(null, grant.How == StagewatchGrants.HowPage
+                ? "Stagewatch granted this window, but its address has not reached this desk" + (grant.Cannot.Length > 0 ? " — " + grant.Cannot : "")
+                : StagewatchGrants.NoDraw);
+            return new WebPassResolution(grant.Url, "", grant.Pin);
+        }
         if (WindowAddresses.IsHeld(address)) RereadIfUnread();
         return Book.Resolve(address);
     }
 
-    /// <summary>An address in words a reader may publish (<see cref="WebPassBook.Label"/>).</summary>
+    /// <summary>An address in words a reader may publish (<see cref="WebPassBook.Label"/>); a granted window by its name.</summary>
     public string Label(string? address)
     {
+        if (WindowAddresses.TryGrant(address, out var sw, out var window) && Grants.FirstOrDefault(g => g.Sw == sw && g.Window == window) is { } grant)
+            return $"{grant.Name} (Stagewatch window, granted{(grant.Opens ? "" : " — no address here")})";
         if (WindowAddresses.IsHeld(address)) RereadIfUnread();
         return Book.Label(address);
     }

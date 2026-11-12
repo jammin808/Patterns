@@ -386,8 +386,9 @@ public sealed class ShowBusSpecTests
         var ours = Many("cap").Where(w => w.Skip(1).Contains("patterns")).Select(w => w[0]).ToHashSet(StringComparer.Ordinal);
         Assert.All(ShowBusHello.Capabilities, c => Assert.True(ours.Contains(c) && ShowBusPeers.IsCap(c), $"'{c}' is no cap row for patterns of §2's shape"));
         Assert.True(ShowBusHello.Capabilities.Length <= Whole("hello.caps"));
-        // Not said yet: peerlink (this desk's wire offers no LINK) and pages (it opens no page granted to it).
-        Assert.Equal(new[] { "pages", "peerlink" }, ours.Except(ShowBusHello.Capabilities).OrderBy(c => c, StringComparer.Ordinal));
+        // Not said yet: peerlink (this desk's wire offers no LINK). Round 96 says pages: it opens a page a Stagewatch grants it (§12).
+        Assert.Equal(new[] { "peerlink" }, ours.Except(ShowBusHello.Capabilities).OrderBy(c => c, StringComparer.Ordinal));
+        Assert.Contains(StagewatchGrants.Ability, ShowBusHello.Capabilities);
         Assert.DoesNotContain(Many("reserved"), w => w.Skip(1).Contains("patterns"));
     }
 

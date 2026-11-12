@@ -335,6 +335,18 @@ export function variableValues(s) {
 		// ACCEPT on the desk (its short fingerprint) — empty from a desk that does not say, never a guess.
 		stagewatch_follow: typeof s.bus?.stagewatch?.follow === 'boolean' ? (s.bus.stagewatch.follow ? 'on' : 'off') : '',
 		stagewatch_pending: typeof s.bus?.stagewatch?.pending === 'string' ? s.bus.stagewatch.pending : '',
+		// Round 96 (Show Bus 1.3 §12): the windows the linked Stagewatch grants the desk — each by name, where the air shows it and
+		// whether it is ready; empty with none or from a desk that does not say. Never an address: the desk publishes none.
+		stagewatch_windows: Array.isArray(s.bus?.stagewatch?.windows) ? s.bus.stagewatch.windows.map(windowWords).filter((w) => w.length > 0).join('; ') : '',
 		...bankVariables(s),
 	}
+}
+
+/** A granted window in the deck's words: "lobby — on air 2", "foyer — in the preview — not on air (ready)", "stage — not ready: …". */
+function windowWords(w) {
+	if (!w || typeof w.name !== 'string' || w.name.length === 0) return ''
+	const screens = Array.isArray(w.screens) && w.screens.length > 0 ? ' ' + w.screens.join(' ') : ''
+	const shown = typeof w.shown === 'string' && w.shown.length > 0 ? w.shown + screens : 'not shown'
+	const ready = w.ready === true ? 'ready' : 'not ready' + (typeof w.why === 'string' && w.why.length > 0 ? ': ' + w.why : '')
+	return `${w.name} — ${shown} (${ready})`
 }

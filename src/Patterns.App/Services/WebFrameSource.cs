@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Avalonia.Threading;
 using Microsoft.Web.WebView2.Core;
@@ -102,6 +104,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private readonly Func<string, WebPassResolution> _resolve;
     private volatile bool _withheld;
     private volatile string _withheldWhy = "";
+    private WebShellState? _shell;                 // the held window's shell's last word, null for any other page (the UI thread's)
     private double _zoomPct = 100;
     private bool _muted;
     private SKPoint? _pointer;
@@ -308,6 +311,29 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 if (_held.Accept(e.Source, text)) HeldMoved();
             };
             _core.ProcessFailed += (_, _) => _status = "The page's process failed — press Reload.";
+            // Round 96 (Show Bus 1.3 §12.5): a granted window's page opens over TLS only to the certificate its Stagewatch's link was
+            // proved over. Every certificate is put to the pin before the page is navigated (PinnedPageProbe, in NavigateCore); here,
+            // where the browser doubts one, the same decision (WindowCertificate.Decide) answers it: any other certificate, or any for a
+            // grant with no pin, is refused and the page draws black. A page that is no grant keeps the platform's own check.
+            _core.ServerCertificateErrorDetected += (_, e) =>
+            {
+                var presented = "";
+                try
+                {
+                    using var cert = X509Certificate2.CreateFromPem(e.ServerCertificate.ToPemEncoding());
+                    presented = TlsFingerprint.Of(cert);
+                }
+                catch (Exception ex) when (ex is CryptographicException or ArgumentException)
+                {
+                    Log.Warn("A held page's certificate could not be read — it is refused.", ex);
+                }
+                e.Action = WindowCertificate.Decide(_held.Address, presented, _held.Pin) switch
+                {
+                    WindowCertificateVerdict.Allow => CoreWebView2ServerCertificateErrorAction.AlwaysAllow,
+                    WindowCertificateVerdict.Deny => CoreWebView2ServerCertificateErrorAction.Cancel,
+                    _ => CoreWebView2ServerCertificateErrorAction.Default,
+                };
+            };
 
             // The page believes it is the focused, active window even though ours never takes the
             // focus (that would steal it from the desk): a caret blinks in a field, a player's
@@ -748,6 +774,12 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     /// <summary>Round 89: a held page this machine cannot open, or one not yet up (a Stagewatch window not yet assigned): every picture of it is black.</summary>
     public bool Withheld => _withheld;
+
+    /// <summary>Why the held page is black ("" when it is drawn): words that name no address.</summary>
+    public string WithheldWhy => _withheldWhy;
+
+    /// <summary>A held Stagewatch window's shell's last word (Show Bus 1.3 §12.9); null for any other page.</summary>
+    public WebShellState? Shell => _shell;
 
     public bool IsEnded => false;
 
@@ -1448,6 +1480,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private void NavigateCore(string url)
     {
         if (_core is null || _disposed) return;
+        _navigation++;                                                          // a check still running for an earlier navigation opens nothing
         var opens = _held.Open(url);
         HeldMoved();
         if (opens is null)
@@ -1462,6 +1495,11 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             var target = opens;
             if (!target.Contains("://") && File.Exists(target)) target = new Uri(Path.GetFullPath(target)).AbsoluteUri;
             _currentUrl = _held.IsHeld ? _held.Address : WindowAddresses.PublicForm(target);
+            if (WindowAddresses.IsGrant(_held.Address) && target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = OpenGrantedAsync(target, _held.Address, _held.Pin, _navigation);
+                return;
+            }
             _core.Navigate(target);
         }
         catch (Exception ex)
@@ -1478,6 +1516,40 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             }
             Log.Warn($"Web page navigate failed: {(_held.IsHeld ? _held.Address : WindowAddresses.PublicForm(url))}", ex);
         }
+    }
+
+    private int _navigation;                       // counts NavigateCore's calls (the UI thread's): a granted page's check opens only its own
+
+    /// <summary>
+    /// Round 96 (Show Bus 1.3 §12.5): a granted window's page over TLS — its server's certificate put to the pin first, on a worker
+    /// (black meanwhile, as any held page is until it opens); the browser's remembered certificate answers are forgotten, so an answer
+    /// given under an earlier pin never stands for this one; then, still the navigation asked for, the page is opened. Any other
+    /// certificate, or none pinned, and it is never opened: black, with the reason.
+    /// </summary>
+    private async Task OpenGrantedAsync(string target, string held, string pin, int navigation)
+    {
+        var why = await Task.Run(() => PinnedPageProbe.CheckAsync(target, pin, PinnedPageProbe.Within));
+        if (_core is not { } core || _disposed || navigation != _navigation) return;
+        try
+        {
+            if (why.Length == 0)
+            {
+                await core.ClearServerCertificateErrorActionsAsync();
+                if (_disposed || navigation != _navigation) return;
+                core.Navigate(target);
+                return;
+            }
+            Log.Warn($"Web page {held}: not opened — {why}.");
+        }
+        catch (Exception ex) when (ex is COMException or InvalidOperationException or ArgumentException)
+        {
+            why = "the page could not be opened";
+            Log.Warn($"Web page navigate failed: {held}", ex);
+        }
+        _held.Completed(false, why);
+        HeldMoved();
+        _status = "Black — " + _held.Why;
+        LeaveBehindBlack();
     }
 
     /// <summary>The page shown before a held page that opens nothing here: emptied behind the black, so no page runs on a pass this machine no longer keeps.</summary>
@@ -1498,6 +1570,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     {
         _withheldWhy = _held.Why;
         _withheld = _held.Withheld;
+        _shell = _held.IsHeld && _held.IsShell ? _held.Shell : null;
     }
 
     /// <summary>

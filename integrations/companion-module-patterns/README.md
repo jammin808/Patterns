@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.21.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.22.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.21.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.22.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
 desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
 paired` otherwise; from round 91 it shows its state only to a paired connection too — it says `NONCE` first and no
@@ -99,6 +99,13 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.22.0** — a Stagewatch window granted to the desk (round 96, Show Bus 1.3 §12): `screen_window` stages a granted window
+  on a screen's PVW (`SCREEN n PVW WINDOW name` — the air untouched) or puts a ready one live on that screen alone
+  (`SCREEN n WINDOW name`, which the desk takes only once the window's page is ready, and otherwise refuses with nothing changed);
+  `nodes_ask_window` asks the linked Stagewatch's desk for a window for this desk (`NODES ASK WINDOW name` — a person there
+  decides). `stagewatch_windows` names each granted window, where the air shows it (`on air` and its screens, `in the preview —
+  not on air`, `outputs closed`) and whether its page is ready — never its address, which the desk publishes nowhere. The
+  **Stagewatch window — stage, then TAKE** preset (Nodes) is the two presses the desk asks for.
 - **3.21.0** — the speaker's one message (round 94): while the desk's stage follows a Stagewatch and its link can carry it,
   `STAGE MESSAGE` goes to the speaker through that Stagewatch and the deck reads what came of it. `stage_speaker_from` is
   where the speaker's message is — `stagewatch`, `desk` (on the desk's displays only) or empty with none;
