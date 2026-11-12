@@ -33,6 +33,31 @@ public class PlayAppTests
         }
     }
 
+    /// <summary>
+    /// The hub's control listeners open — the wire and the web remote, which <see cref="ControlService.Listening"/> needs both of
+    /// — and the wire's port. A port <see cref="FreePort"/> found free is free only until its probe lets it go, and anything on
+    /// the machine may take it before the hub binds it; the hub's start then fails, and its retry every 5 s fails for as long as
+    /// the port is held, so no wait is long enough. The hub's own fact says which, and both are set before the boot returns (the
+    /// window's opening starts the listeners): it listens, or its start failed. A start that failed moves every listener to
+    /// another port, a bounded count of tries and never a clock; the status names the listener that failed.
+    /// </summary>
+    private static int WireOpen(TestApp.Booted hub, int port)
+    {
+        var control = hub.Services.Control;
+        for (var tries = 0; !control.Listening; tries++)
+        {
+            Assert.True(control.StartFailed, $"the hub's control listeners neither listen nor failed to start: {control.Status}");
+            Assert.True(tries < 8, $"the hub's control listeners could not bind in {tries} tries: {control.Status}");
+            port = FreePort();
+            hub.Vm.State.Control.TcpPort = port;
+            hub.Vm.State.Control.HttpPort = FreePort();
+            if (hub.Vm.State.Control.AudienceEnabled) hub.Vm.State.Control.AudiencePort = FreePort();
+            Dispatcher.UIThread.RunJobs();
+            control.Reconcile();
+        }
+        return port;
+    }
+
     private static void Settings(string dir, Action<ShowState> edit)
     {
         var s = SettingsStore.Fresh();
@@ -225,7 +250,10 @@ public class PlayAppTests
             Assert.Equal("Lunch?", d.Play.Room.Current!.Text);
             Assert.StartsWith("OK {", TestApp.Pump(new CommandRouter(d).ExecuteAsync(ControlProtocol.Parse("PLAY STATUS"))));
 
+            // The port picked for the hub's wire is taken before the hub binds it, as anything on the machine may take it.
             var wire = FreePort();
+            using var taken = new TcpListener(IPAddress.Any, wire);
+            taken.Start();
             hub = TestApp.Boot("patterns-tests-hub2-", dir => Settings(dir, s =>
             {
                 s.Name = "Gala";
@@ -237,11 +265,7 @@ public class PlayAppTests
                 s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             }), NodeKind.Arcade);
             var h = hub.Services;
-            PumpUntil(() =>
-            {
-                try { using var probe = new TcpClient(); probe.Connect(IPAddress.Loopback, wire); return true; }
-                catch (SocketException) { return false; }
-            });
+            Assert.NotEqual(wire, WireOpen(hub, wire));
             d.Beacon.Hear(h.Beacon.Build() with { Machine = "HUB-PC" }, new IPEndPoint(IPAddress.Loopback, 9700));
             d.Nodes.Poll();
             Assert.Single(d.Nodes.Arcades());

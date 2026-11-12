@@ -342,4 +342,47 @@ public class AudienceFuzzTests
             b.Dispose();
         }
     }
+
+    [AvaloniaFact]
+    public void AConnectionClosedOnARefusalHearsNothingAfterItEvenAPushThatLandsBeforeTheClose()
+    {
+        var wire = FreePort();
+        var b = TestApp.Boot("patterns-tests-lastword-", dir =>
+        {
+            var s = SettingsStore.Fresh();
+            s.Control.Enabled = true;
+            s.Control.HttpPort = FreePort();
+            s.Control.TcpPort = wire;
+            s.Twin.AcceptCallers = false;
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+            File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
+        });
+        ControlService.TrustLoopback = false;
+        // The desk moves in the instant between each refusal and its close: a STATE push lands on the closing connection there.
+        const string Late = "STATE {\"pushedBetweenTheRefusalAndTheClose\":true}";
+        ControlService.AfterLastWord = peer => peer.Push(Late);
+        try
+        {
+            Assert.True(b.Services.Control.Listening, b.Services.Control.Status);
+            foreach (var (bytes, words) in new[]
+                     {
+                         (Encoding.ASCII.GetBytes(new string('x', 200_000)), $"past {ControlService.WireLineBytes} bytes"),
+                         (Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: desk\r\n\r\n"), ControlProtocol.HttpOnWire),
+                     })
+            {
+                var answer = Wire(wire, bytes);
+                Assert.StartsWith("STATE ", answer[0]);                                           // the greeting
+                Assert.StartsWith("ERR", answer[^1]);                                             // the refusal is the last line
+                Assert.Contains(words, answer[^1], StringComparison.Ordinal);
+                Assert.DoesNotContain(Late, answer);
+            }
+        }
+        finally
+        {
+            ControlService.AfterLastWord = null;
+            ControlService.TrustLoopback = true;
+            b.Dispose();
+        }
+    }
 }

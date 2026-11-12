@@ -389,8 +389,7 @@ public sealed partial class ControlService : IDisposable
                 catch (InvalidDataException ex)
                 {
                     // A line that never ends is not a command: said once, and the door closed.
-                    peer.Say(ControlProtocol.Err($"{ex.Message} — the wire's lines are commands, and this one was not; closed"));
-                    await peer.FlushAsync(LastWordWait);
+                    await LastWordAsync(peer, ControlProtocol.Err($"{ex.Message} — the wire's lines are commands, and this one was not; closed"));
                     break;
                 }
                 if (line is null) break;
@@ -403,8 +402,7 @@ public sealed partial class ControlService : IDisposable
                     // anything after it is read.
                     if (_busySaid.Allow("http-on-wire:" + address, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
                         Log.Warn($"Wire: {address} sent an HTTP request to the Companion port (a browser's page does that) — closed before anything after it was read.");
-                    peer.Say(ControlProtocol.Err(ControlProtocol.HttpOnWire));
-                    await peer.FlushAsync(LastWordWait);
+                    await LastWordAsync(peer, ControlProtocol.Err(ControlProtocol.HttpOnWire));
                     break;
                 }
                 var readAt = ClockPing.Ms(ShowClock.UtcNow);                          // t2 of a clock exchange: when the line was read
@@ -468,8 +466,7 @@ public sealed partial class ControlService : IDisposable
                     }
                     else if (++wrongTokens >= WrongTokensBeforeClose)
                     {
-                        Reply(ControlProtocol.Err(ControlProtocol.WrongToken + " — closed"));
-                        await peer.FlushAsync(LastWordWait);
+                        await LastWordAsync(peer, WireReceipt.Tag(ControlProtocol.Err(ControlProtocol.WrongToken + " — closed"), rid));
                         break;
                     }
                     else
@@ -573,6 +570,21 @@ public sealed partial class ControlService : IDisposable
 
     /// <summary>How long a last word (an ERR before a close) is given to reach the peer.</summary>
     private static readonly TimeSpan LastWordWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// A connection's last word before its close — a refusal that ends it: the last line it reads. A STATE push waiting, or one
+    /// that lands between the word and the close (the desk goes on changing), is dropped, never written after it: a connection
+    /// refused hears nothing after its refusal.
+    /// </summary>
+    private static async Task LastWordAsync(WirePeer peer, string line)
+    {
+        peer.SayLast(line);
+        AfterLastWord?.Invoke(peer);
+        await peer.FlushAsync(LastWordWait);
+    }
+
+    /// <summary>What a test plays between a connection's last word and its close — a push landing in that window. Null in the desk.</summary>
+    public static Action<WirePeer>? AfterLastWord { get; set; }
 
     /// <summary>Wrong AUTH lines a connection may send before it is closed.</summary>
     public const int WrongTokensBeforeClose = 5;

@@ -175,9 +175,11 @@ public sealed class StageService
     /// <summary>
     /// The unseen messages off the displays: marked seen by the desk, so the receipts read "cleared". The Stagewatch's speaker
     /// screen is cleared too only of a message this desk posted: one its frame names now — answered or not, since an answered
-    /// message stays on that stage until it is cleared — asked at once; or one still on its way there, asked behind it and
-    /// dropped unasked if that message never reaches the Stagewatch. The Stagewatch's own message is not this desk's to clear,
-    /// and the words say it stays; a message it has not confirmed may still reach its screen, and the words say that.
+    /// message stays on that stage until it is cleared — or one its receipt bound there before a frame named it, while that
+    /// receipt is fresh and no message has come on that stage since, asked at once; or one still on its way there, asked behind
+    /// it and dropped unasked if that message never reaches the Stagewatch. The Stagewatch's own message is not this desk's to
+    /// clear, and the words say it stays; a message it has not confirmed may still reach its screen, and a bound one no frame has
+    /// shown and nothing asked about may still be on it, and the words say that.
     /// <paramref name="execution"/>: the cue execution clearing, whose row waits for the clear's receipt.
     /// </summary>
     public ActionResult Clear(string execution = "")
@@ -187,7 +189,8 @@ public sealed class StageService
         var sight = _s.FollowedStagewatch;
         var seen = FollowsNow(sight) ? sight.Message : StageMessageSeen.None;
         var all = _s.AirState.Stage.Messages;
-        var there = all.Any(m => IsOnTheirStage(m, seen));
+        var there = all.Any(m => IsOnTheirStage(m, seen) || IsBoundThereUnseen(m, seen));
+        var maybe = !there && all.Any(m => IsBoundMaybeThere(m, seen));
         var onWay = all.Where(m => m.AckUtc is null && m.Via == StageSpeakerWords.Via && !IsOnTheirStage(m, seen)
                                    && m.SwAck is StageSpeakerWords.Requested or StageSpeakerWords.Accepted or StageSpeakerWords.Unconfirmed).ToList();
         var unanswered = onWay.Where(m => m.SwAck == StageSpeakerWords.Requested).Select(m => m.SwRequestId).ToList();
@@ -227,7 +230,8 @@ public sealed class StageService
         }
         if (onWay.Count > 0)
             return ActionResult.Done($"{words} A message Stagewatch {name} has not confirmed may still reach its speaker's screen — clear it there if it does.");
-        return ActionResult.Done(seen.On && !seen.Answered ? $"{words} {StageSpeakerWords.OwnStays(name)}." : words);
+        if (seen.On && !seen.Answered) words = $"{words} {StageSpeakerWords.OwnStays(name)}.";
+        return ActionResult.Done(maybe ? $"{words} {StageSpeakerWords.MaybeStays(name)}." : words);
     }
 
     /// <summary>The display's ACK: the message is seen, and the desk knows when — the receipt's words, or null for a message that is not there to see.</summary>
@@ -337,6 +341,43 @@ public sealed class StageService
         => seen.On && m.Via == StageSpeakerWords.Via
            && (m.SwMessageId > 0 ? seen.Id == m.SwMessageId
                : m.SwAck is StageSpeakerWords.Sent or StageSpeakerWords.Accepted or StageSpeakerWords.Unconfirmed && seen.Text == m.Text);
+
+    /// <summary>
+    /// A message this desk sent that its applied receipt (or a bind) put on the Stagewatch's stage, that no frame has shown there
+    /// and that <see cref="Follow"/> still holds as sent there — the answer comes on the call and the frame on the socket, either
+    /// first. <paramref name="bound"/>: when its receipt or bind came, on the master clock.
+    /// </summary>
+    private bool IsBoundUnseen(StageMessage m, out double bound)
+    {
+        bound = 0;
+        return m.AckUtc is null && m.Via == StageSpeakerWords.Via && m.SwAck == StageSpeakerWords.Sent
+               && _boundAt.TryGetValue(m.Id, out bound) && !_shownThere.Contains(m.Id);
+    }
+
+    /// <summary>
+    /// The Stagewatch's stage shows a message that is not this one and is surely later: a later signal than the one it was bound to.
+    /// A message with no signal (id 0) — any its own operator types, any sent without an acknowledgement — orders against nothing.
+    /// </summary>
+    private static bool IsSurelyReplaced(StageMessage m, StageMessageSeen seen)
+        => !IsOnTheirStage(m, seen) && m.SwMessageId > 0 && seen.Id > m.SwMessageId;
+
+    /// <summary>
+    /// A bound, unseen message a clear asks the Stagewatch's stage about at once: its receipt is within a receipt's wait, on the
+    /// master clock, and the stage shows nothing that came after its bind but itself — a message that arrived after it, signal or
+    /// not, may be the Stagewatch's own that replaced it, which is not this desk's to clear (a frame a moment behind its receipt
+    /// may also be showing an older one: then it is unknown, and asked about by nobody).
+    /// </summary>
+    private bool IsBoundThereUnseen(StageMessage m, StageMessageSeen seen)
+        => IsBoundUnseen(m, out var bound) && ShowClock.Seconds - bound <= BindWithin.TotalSeconds && !IsSurelyReplaced(m, seen)
+           && !(seen.On && seen.AtSeconds > bound && !IsOnTheirStage(m, seen));
+
+    /// <summary>
+    /// A bound, unseen message no clear asks about and no later signal has replaced: it may still be on the Stagewatch's stage —
+    /// a frame since its bind showed another message whose order is unknown, or frames have stopped past a receipt's wait while the
+    /// link stands — so the clear's words say it may be there.
+    /// </summary>
+    private bool IsBoundMaybeThere(StageMessage m, StageMessageSeen seen)
+        => IsBoundUnseen(m, out _) && !IsOnTheirStage(m, seen) && !IsSurelyReplaced(m, seen) && !IsBoundThereUnseen(m, seen);
 
     /// <summary>
     /// The one speaker message the pages draw, or null: while the stage follows a Stagewatch, the later of its message and a

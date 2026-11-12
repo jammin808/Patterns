@@ -241,6 +241,90 @@ public sealed class StageSpeakerServiceTests
         Assert.Equal(StageSpeakerWords.Cleared, slow.SwAck);
     }
 
+    [Fact]
+    public void AClearBetweenAMessagesAppliedReceiptAndTheFrameThatNamesItAsksTheStagewatchTheReceiptBoundItTo()
+    {
+        var (host, stage) = Following();
+        // The Stagewatch's own message is on its stage. This desk's runs there: its receipt says applied, message 41 — and the
+        // frame that names it, which travels on the socket while the answer comes on the call, has not come yet.
+        host.Sight = Stage(Signal(40, "Their own", ShowClock.Seconds));
+        var (m, call) = Send(host, stage, "Wrap up");
+        Answer(stage, call, LinkOutcome.Applied, id: 41);
+        Assert.Equal((StageSpeakerWords.Sent, 41L), (m.SwAck, m.SwMessageId));
+
+        // A clear in that instant clears this desk's displays and asks that stage at once, tied to nothing: the message is there.
+        var cleared = stage.Clear("exec-2");
+        Assert.Equal((ActionStatus.Requested, $"1 message cleared from the displays. Stagewatch {Name}'s speaker screen is asked to clear this desk's message — its receipt comes back here."), (cleared.Status, cleared.Message));
+        var clear = Assert.Single(host.Link!.Asked, c => c.Kind == SpeakerCall.Clear);
+        Assert.Equal(StageMessagePath.Clear, clear.Path);
+        Assert.Empty(clear.After);
+        Assert.Equal(StageSpeakerWords.Cleared, m.SwAck);
+        // Its receipt is the cue row's, and the journal's.
+        Answer(stage, clear, LinkOutcome.Applied);
+        Assert.Equal(("applied", StageSpeakerWords.ClearRow(Name, new StageReceipt(LinkOutcome.Applied, 0, ""))), (host.Rows[^1].Outcome, host.Rows[^1].Words));
+        Assert.Equal(("exec-2", (bool?)true, $"Stagewatch {Name}'s speaker screen is cleared of this desk's message"), host.Receipts[^1]);
+        // The frames that follow — the message, then the cleared stage — move nothing more and ask nothing more.
+        host.Sight = Stage(Signal(41, "Wrap up", ShowClock.Seconds));
+        stage.Follow();
+        host.Sight = Stage(StageMessageSeen.None);
+        stage.Follow();
+        Assert.Single(host.Link.Asked, c => c.Kind == SpeakerCall.Clear);
+        Assert.Equal(StageSpeakerWords.Cleared, m.SwAck);
+
+        // A message bound there that a later signal has replaced — the Stagewatch's operator, in the gap — is not on that stage:
+        // nothing is asked, and the words say the Stagewatch's own stays.
+        var (later, laterCall) = Send(host, stage, "Two minutes");
+        Answer(stage, laterCall, LinkOutcome.Applied, id: 43);
+        host.Sight = Stage(Signal(44, "Theirs after", ShowClock.Seconds));
+        var kept = stage.Clear();
+        Assert.Equal((ActionStatus.Done, $"1 message cleared from the displays. {StageSpeakerWords.OwnStays(Name)}."), (kept.Status, kept.Message));
+        Assert.Single(host.Link.Asked, c => c.Kind == SpeakerCall.Clear);
+        Assert.Equal(StageSpeakerWords.Cleared, later.SwAck);
+
+        // A message with no signal came on that stage after the bind — one its own operator typed, which orders against nothing:
+        // it may have replaced this desk's, or be a frame a moment behind the receipt. Nothing is asked, and the words say both.
+        var (third, thirdCall) = Send(host, stage, "One minute");
+        Answer(stage, thirdCall, LinkOutcome.Applied, id: 45);
+        host.Sight = Stage(Signal(0, "Theirs, no ack", ShowClock.Seconds + 0.5));
+        var theirs = stage.Clear();
+        Assert.Equal((ActionStatus.Done, $"1 message cleared from the displays. {StageSpeakerWords.OwnStays(Name)}. {StageSpeakerWords.MaybeStays(Name)}."), (theirs.Status, theirs.Message));
+        Assert.Single(host.Link.Asked, c => c.Kind == SpeakerCall.Clear);
+        Assert.Equal(StageSpeakerWords.Cleared, third.SwAck);
+
+        // The same for a message of this desk's bound to no signal (sent without an acknowledgement): the later message is not its own.
+        var (plain, plainCall) = Send(host, stage, "Thank you");
+        Answer(stage, plainCall, LinkOutcome.Applied);
+        Assert.Equal((StageSpeakerWords.Sent, 0L), (plain.SwAck, plain.SwMessageId));
+        host.Sight = Stage(Signal(0, "Theirs again", ShowClock.Seconds + 0.5));
+        var again = stage.Clear();
+        Assert.Equal((ActionStatus.Done, $"1 message cleared from the displays. {StageSpeakerWords.OwnStays(Name)}. {StageSpeakerWords.MaybeStays(Name)}."), (again.Status, again.Message));
+        Assert.Single(host.Link.Asked, c => c.Kind == SpeakerCall.Clear);
+
+        // Bound to no signal and shown by its words: it is on that stage, and the clear asks there.
+        var (shown, shownCall) = Send(host, stage, "Doors open");
+        Answer(stage, shownCall, LinkOutcome.Applied);
+        host.Sight = Stage(Signal(0, "Doors open", ShowClock.Seconds + 0.5));
+        Assert.Equal(ActionStatus.Requested, stage.Clear().Status);
+        Assert.Equal(2, host.Link.Asked.Count(c => c.Kind == SpeakerCall.Clear));
+        Assert.Equal(StageSpeakerWords.Cleared, shown.SwAck);
+    }
+
+    [Fact]
+    public void AClearPastAReceiptsWaitWithNoFrameSinceAsksNothingAndSaysTheMessageMayStillBeThere()
+    {
+        var (host, stage) = Following();
+        stage.BindWithin = TimeSpan.FromMilliseconds(40);
+        var (m, call) = Send(host, stage, "Stalled");
+        Answer(stage, call, LinkOutcome.Applied, id: 50);
+        // The frames have stopped while the link stands: by its own record the desk still holds it as sent there.
+        Thread.Sleep(80);
+        Assert.Equal(StageSpeakerWords.Sent, m.SwAck);
+        var cleared = stage.Clear();
+        Assert.Equal((ActionStatus.Done, $"1 message cleared from the displays. {StageSpeakerWords.MaybeStays(Name)}."), (cleared.Status, cleared.Message));
+        Assert.DoesNotContain(host.Link!.Asked, c => c.Kind == SpeakerCall.Clear);
+        Assert.Equal(StageSpeakerWords.Cleared, m.SwAck);
+    }
+
     // ---- a cue's row ---------------------------------------------------------------------------------------------------
 
     [Fact]

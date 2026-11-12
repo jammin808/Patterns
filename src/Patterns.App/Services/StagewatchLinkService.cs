@@ -2190,7 +2190,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// link ended since it was asked is not-sent, with why), then posted with its id and read by 13.12.3. A 401 and a 429 go through
     /// 13.7.3's one door (<see cref="Answered"/>: a relink, the key's hold, the rate limit's wait); a 403 to a message or a clear
     /// says the key may not send them and holds nothing else; a 403 to an ACK is only that ACK's refusal. No answer after the
-    /// request was written is unconfirmed, never refused; a connection that could not be made is not-sent.
+    /// request was written is unconfirmed, never refused; a connection that could not be made is not-sent — and it can only be
+    /// this call's first, since a POST here always carries a body (<see cref="Request"/>), which the handler never sends twice.
     /// </summary>
     private async Task<StageReceipt> SpeakerCallAsync(Connection c, HeardShow show, HttpClient http, Uri baseUri, string apiKey, SpeakerCall call, CancellationToken ct)
     {
@@ -2240,11 +2241,19 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         return receipt;
     }
 
+    /// <summary>
+    /// One side call's request. A POST always carries a body — an empty one when it has nothing to say, the same bytes on the
+    /// wire (<c>Content-Length: 0</c>) — because the HTTP handler sends a request with no body again, on a new connection, when
+    /// the connection it went on closes before an answer byte: once any byte of a command may have reached the Stagewatch it is
+    /// never sent again (Show Bus 1.3 §13.12.7), and with no second connect a refused connect is only ever the first, so a
+    /// not-sent outcome means nothing left (13.12.3).
+    /// </summary>
     private static HttpRequestMessage Request(HttpMethod method, Uri url, string apiKey, string? json = null)
     {
         var r = new HttpRequestMessage(method, url);
         if (apiKey.Length > 0) r.Headers.TryAddWithoutValidation("Authorization", "Bearer " + apiKey);
         if (json is not null) r.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        else if (method == HttpMethod.Post) r.Content = new ByteArrayContent([]);
         return r;
     }
 

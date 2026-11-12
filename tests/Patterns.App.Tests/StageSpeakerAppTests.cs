@@ -73,6 +73,7 @@ public class StageSpeakerAppTests
         private TaskCompletionSource? _holdAnswer;
         private int _held;
         private int _contextInFlight;
+        private int _closeUnanswered;
 
         public int Port { get; }
 
@@ -116,7 +117,10 @@ public class StageSpeakerAppTests
             _ = Task.Run(Serve, _cts.Token);
         }
 
-        public IReadOnlyList<Call> Speaker => Calls.Where(c => c.Path.StartsWith("/api/message/", StringComparison.Ordinal) || c.Path == "/api/clearmessage" || c.Path.StartsWith("/api/ack/", StringComparison.Ordinal)).ToList();
+        public IReadOnlyList<Call> Speaker => Calls.Where(c => IsSpeakerPath(c.Path)).ToList();
+
+        private static bool IsSpeakerPath(string path)
+            => path.StartsWith("/api/message/", StringComparison.Ordinal) || path == "/api/clearmessage" || path.StartsWith("/api/ack/", StringComparison.Ordinal);
 
         public IReadOnlyList<Call> Messages => Calls.Where(c => c.Path.StartsWith("/api/message/", StringComparison.Ordinal)).ToList();
 
@@ -142,6 +146,13 @@ public class StageSpeakerAppTests
         {
             lock (_gate) _holdAnswer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         }
+
+        /// <summary>
+        /// The next of the speaker's calls is read whole and its connection closed with no answer byte — the request reached
+        /// it and was not run; with <paramref name="shut"/> its door is shut in the same instant, so a connect after it is
+        /// refused while the link's socket stays up.
+        /// </summary>
+        public void CloseNextUnanswered(bool shut) => Volatile.Write(ref _closeUnanswered, shut ? 2 : 1);
 
         public void Release()
         {
@@ -313,6 +324,11 @@ public class StageSpeakerAppTests
                 }
                 var requestId = Header("X-Request-Id");
                 Calls.Enqueue(new Call(method, path, auth, requestId, Environment.TickCount64, ContextInFlight > 0));
+                if (IsSpeakerPath(path) && Interlocked.Exchange(ref _closeUnanswered, 0) is var close and > 0)
+                {
+                    if (close == 2) _listener.Stop();
+                    return;                                                                     // closed below, before an answer byte
+                }
                 var (status, reply, retryAfter) = await Route(method, path, auth, requestId);
                 var bytes = Encoding.UTF8.GetBytes(reply);
                 var retry = retryAfter > 0 ? $"Retry-After: {retryAfter}\r\n" : "";
@@ -959,6 +975,44 @@ public class StageSpeakerAppTests
             sw.Release();
             Unlink(b);
             gone.Dispose();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ACallWhoseConnectionClosesBeforeAnAnswerByteIsUnconfirmedAndNeverSentTwice()
+    {
+        var b = TestApp.Boot();
+        using var sw = new SpeakerStagewatch();
+        try
+        {
+            Link(b, sw);
+            // The message reaches the Stagewatch and its connection closes before an answer byte. It may have run: unconfirmed,
+            // and no layer under the link sends it again on another connection (Show Bus 1.3 §13.12.7) — one POST.
+            sw.CloseNextUnanswered(shut: false);
+            Sent(b, "Wrap up");
+            var open = Last(b);
+            PumpUntil(() => open.SwAck != StageSpeakerWords.Requested, 20000, () => open.SwAck);
+            Assert.Equal((StageSpeakerWords.Unconfirmed, $"the connection closed before Stagewatch {Name} answered"), (open.SwAck, open.SwWords));
+            ShowBus12AppTests.PumpFor(1000);
+            Assert.Single(sw.Messages);
+            Assert.Equal(StageSpeakerWords.Unconfirmed, open.SwAck);
+
+            // The same with the Stagewatch's door shut in that instant, so a second connect would be refused: still unconfirmed —
+            // a call is not-sent only when no byte of it can have left — and still one POST.
+            sw.CloseNextUnanswered(shut: true);
+            Sent(b, "Two minutes");
+            var shut = Last(b);
+            PumpUntil(() => shut.SwAck != StageSpeakerWords.Requested, 20000, () => shut.SwAck);
+            Assert.Equal((StageSpeakerWords.Unconfirmed, $"the connection closed before Stagewatch {Name} answered"), (shut.SwAck, shut.SwWords));
+            ShowBus12AppTests.PumpFor(1000);
+            Assert.Equal(2, sw.Messages.Count);
+            Assert.Equal(2, Rows(b).Count(r => r.Outcome == "unconfirmed" && r.Message.StartsWith($"stage message → Stagewatch {Name}: unconfirmed (the connection closed before Stagewatch {Name} answered)", StringComparison.Ordinal)));
+            Assert.DoesNotContain(Rows(b), r => r.Outcome == "not-sent");
+        }
+        finally
+        {
+            Unlink(b);
             b.Dispose();
         }
     }

@@ -292,6 +292,13 @@ public static class StageSpeakerWords
     /// <summary>STAGE CLEAR's words when the Stagewatch's own message is on and is not this desk's to clear.</summary>
     public static string OwnStays(string name) => $"Stagewatch {name}'s own message stays — clear it there";
 
+    /// <summary>
+    /// STAGE CLEAR's words for a message of this desk's the Stagewatch ran that no frame has shown since, and that the clear did
+    /// not ask about: its stage may still hold it.
+    /// </summary>
+    public static string MaybeStays(string name)
+        => $"This desk's message ran on Stagewatch {name} and no frame has shown it there since — it may still be on its speaker's screen; clear it there if it is";
+
     /// <summary>The journal's row for a clear asked of the Stagewatch.</summary>
     public static string ClearRow(string name, StageReceipt receipt) => receipt.Outcome switch
     {
