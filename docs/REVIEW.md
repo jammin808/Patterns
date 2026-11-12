@@ -4793,7 +4793,7 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
 
 ### The suites
 
-- Whole validate on the tree as committed: Core 1,652, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 1,018 (by six parts, summing to the suite's listed count) — 3,459 in all, each green with no skip; the module's npm ci, npm test (51), the lines.txt diff and npm run check green. One App test (MdnsAppTests, one-shot query on the shared mDNS port) failed once beside the other suites' processes and passed on three reruns alone and on the part's rerun; it reads a datagram another responder may take first.
+- Whole validate on the tree as committed: Core 1,652, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 1,018 (by six parts, summing to the suite's listed count) — 3,459 in all, each green with no skip; the module's npm ci, npm test (51), the lines.txt diff and npm run check green. One App test (MdnsAppTests, one-shot query on the shared mDNS port) failed once in the first part while a second App test run was going on the same machine (a timing run of the six parts, started outside this stage) and passed on three reruns alone and on the part's rerun once that run had ended; two App test runs on one machine hear each other's mDNS answers and beacons, so the suite wants a machine no other test run shares.
 - CI: the runs on `d707925` (96.0, green), `d34e67d` (round 95's papers, green), `31d5056` (96.1, red on L110's canary
   alone) and `12cdffd` (96.2, green, release skipped) are read in PLAN §114.7; the run on `b2dbb5b` (96.3) was still
   running. These papers go out at the maintainer's next push.
