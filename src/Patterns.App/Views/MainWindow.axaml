@@ -115,13 +115,13 @@
           </ItemsControl>
 
           <!-- EYE (round 66): the God's Eye — the whole show as one picture; the foot wears the worst
-               light in it and says how many things are red or amber. Click opens it. -->
+               light in it, its colour and its mark, and says how many things are red or amber. Click opens it. -->
           <Button Grid.Row="1" Name="RailEye" Classes="navGroup railFoot" Focusable="False" Margin="0,10,0,0"
                   Command="{Binding SelectPageByNameCommand}" CommandParameter="Eye"
                   ToolTip.Tip="{Binding EyeLine}" IsVisible="{Binding IsDesk}">
             <StackPanel Spacing="5" HorizontalAlignment="Center">
               <Border Classes="railRule" Background="{Binding EyeHue}" Height="2" CornerRadius="1" Margin="10,0,10,2" />
-              <Ellipse Classes="dot" Fill="{Binding EyeHue}" Width="10" Height="10" HorizontalAlignment="Center" />
+              <TextBlock Name="RailEyeMark" Text="{Binding EyeMark}" Foreground="{Binding EyeHue}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" />
               <TextBlock Classes="navlabel" Text="EYE" HorizontalAlignment="Center" />
               <TextBlock Classes="navlabel railFootWord" Text="{Binding EyeWord}" Foreground="{Binding EyeHue}" HorizontalAlignment="Center" />
             </StackPanel>

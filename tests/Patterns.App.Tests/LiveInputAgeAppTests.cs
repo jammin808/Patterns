@@ -47,7 +47,7 @@ public class LiveInputAgeAppTests
             services.Metrics.Poll();
             Assert.True(services.Metrics.Current!.LiveAgeWorstMs >= 33, "the sample carries the outputs' worst");
             var csv = MetricsCsv.Line(services.Metrics.Current!);
-            Assert.Matches(@",\d+(\.\d+)?,\d+(\.\d+)?,\d+$", csv);                                      // the age, then the retiring bytes and the starved count
+            Assert.Matches(@",\d+(\.\d+)?,\d+(\.\d+)?,\d+,[\d.]*,\d+,\d*$", csv);                        // the age, the retiring bytes and the starved count, then the Eye's rebuilds
 
             var facts = services.Metrics.GatherFacts();
             Assert.True(facts.LiveAgeWorstMs >= 33);

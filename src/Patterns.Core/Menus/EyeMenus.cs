@@ -62,19 +62,25 @@ public static class EyeMenus
             });
         }
 
+        // One entry per link, never per neighbour: two things joined twice (a context's feeds and hears) are two entries, each with
+        // its own verb and mark, and each its own id — the first link to a thing keeps the thing's id, the next ones a count after it.
         var linked = new List<MenuEntry>();
         foreach (var id in g.Neighbours(n.Id))
         {
             var c = g.Find(id);
             if (c is null) continue;
-            var edge = g.EdgeBetween(n.Id, id);
-            var verb = edge is null ? "" : edge.From == n.Id ? $"{verbWord(edge)} it" : $"{verbWord(edge)} this";
-            linked.Add(new MenuEntry("eye.contact:" + c.Id, c.Label, MenuScope.Live, ToneOf(c.Light))
+            var edges = g.EdgesBetween(n.Id, id);
+            for (var k = 0; k < edges.Count; k++)
             {
-                Detail = string.Join(" · ", new[] { verb, c.Sub }.Where(w => w.Length > 0)),
-                Wire = "EYE FOCUS " + c.Id,
-                Action = new ShowAction(ShowActionKind.EyeFocus, "", c.Id),
-            });
+                var edge = edges[k];
+                var verb = $"{EyeMarks.Glyph(edge.Mark)} " + (edge.From == n.Id ? $"{verbWord(edge)} it" : $"{verbWord(edge)} this");
+                linked.Add(new MenuEntry(ContactId(c.Id, k), c.Label, MenuScope.Live, ToneOf(c.Light))
+                {
+                    Detail = string.Join(" · ", new[] { verb, EyeMarks.Unmarked(edge.Words, edge.Mark), c.Sub }.Where(w => w.Length > 0)),
+                    Wire = "EYE FOCUS " + c.Id,
+                    Action = new ShowAction(ShowActionKind.EyeFocus, "", c.Id),
+                });
+            }
         }
 
         var go = new List<MenuEntry>();
@@ -140,6 +146,9 @@ public static class EyeMenus
             _ => "sends to",
         };
     }
+
+    /// <summary>The LINKED TO entry for the <paramref name="index"/>-th link (0-based) between the menu's thing and <paramref name="contact"/>: one id per link.</summary>
+    public static string ContactId(string contact, int index) => index == 0 ? "eye.contact:" + contact : $"eye.contact:{contact}#{(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
     private static MenuTone ToneOf(CheckLight light) => light switch
     {

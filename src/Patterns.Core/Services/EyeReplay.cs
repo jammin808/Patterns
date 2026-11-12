@@ -154,7 +154,8 @@ public static class EyeReplay
 
     /// <summary>
     /// The structure with the moment's lights and words: every node and every link kept, in order, with
-    /// its light and words replaced; the links are grey because the record holds things, not links.
+    /// its light and words replaced; the links are grey because the record holds things, not links. Marks
+    /// are derived from lights, so each thing and link wears its replayed light's mark.
     /// </summary>
     public static EyeGraph Apply(EyeGraph structure, ReplayMoment moment)
     {
@@ -292,7 +293,9 @@ public static class EyeReplay
             sub = isDesk ? desk.Sub + " · " + lastWords : lastWords + (last.Message.Length > 0 ? " · " + last.Message : "");
             words.AddRange(rows.Select(Line));
         }
-        return n with { Light = light, Sub = sub, Words = words };
+        // The record holds lights, not information: a relit thing's mark is its replayed light's (EyeNode.Mark derives it), never
+        // the i it wore now, so no mark of now is left on a picture of then.
+        return n with { Light = light, Sub = sub, Words = words, Info = false };
     }
 
     private static long Rose(long now, long? before) => before is { } b ? Math.Max(0, now - b) : now;

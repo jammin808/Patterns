@@ -122,13 +122,13 @@ public class EyeLayoutTests
         Assert.Equal(p.Note, p.Bands[0].Note);
         using var doc = System.Text.Json.JsonDocument.Parse(EyeJson.Write(g, p, null, EyeLens.All));
         var root = doc.RootElement;
-        Assert.Equal(new[] { "replay", "replayAt", "moment", "expanded", "left", "fit", "problemsCounted" }, root.EnumerateObject().Select(o => o.Name).TakeLast(7));
+        Assert.Equal(new[] { "replay", "replayAt", "moment", "expanded", "left", "fit", "problemsCounted", "worstMark" }, root.EnumerateObject().Select(o => o.Name).TakeLast(8));
         Assert.Equal(6, root.GetProperty("expanded").GetArrayLength());
         Assert.Equal((0, 0), (root.GetProperty("left").GetProperty("apps").GetInt32(), root.GetProperty("left").GetProperty("items").GetInt32()));
         Assert.Equal("", root.GetProperty("fit").GetString());
         var row = root.GetProperty("nodes").EnumerateArray().Single(n => n.GetProperty("id").GetString() == projector.Id);
         Assert.Equal(("video", "network"), (row.GetProperty("plane").GetString(), row.GetProperty("band").GetString()));
-        Assert.Equal("band", row.EnumerateObject().Last().Name);                                 // appended at the end of its row
+        Assert.Equal(new[] { "band", "mark" }, row.EnumerateObject().Select(o => o.Name).TakeLast(2));   // each appended at the end of its row
     }
 
     [Fact]

@@ -92,7 +92,7 @@ public class EyeReplayAppTests
             // STATE's eye row carries replay and replayAt where round 84 appended them, the NETWORK band's fields after them.
             var row = JsonUtil.SerializeCompact(services.Eye.Row());
             Assert.Contains($",\"replay\":true,\"replayAt\":\"{at30}\",\"expanded\":[", row, StringComparison.Ordinal);
-            Assert.Matches("\"left\":\\{\"apps\":\\d+,\"items\":\\d+\\},\"problemsCounted\":\\d+\\}$", row);
+            Assert.Matches("\"left\":\\{\"apps\":\\d+,\"items\":\\d+\\},\"problemsCounted\":\\d+,\"worstMark\":\"[^\"]+\"\\}$", row);
 
             // EYE is the picture of now; EYE AT answers the record at an instant without moving the page.
             using (var live = JsonDocument.Parse(Send(router, "EYE")[3..]))

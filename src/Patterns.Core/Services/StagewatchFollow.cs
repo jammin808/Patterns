@@ -516,6 +516,9 @@ public sealed record StagewatchSight(string Name, string Address, ShowBusState S
     /// <summary>The link is live and its show is stuck: every reader shows no time from it, the link amber.</summary>
     public bool StuckLive => Stuck && State == ShowBusState.Live;
 
+    /// <summary>The revision <see cref="Context"/> was kept with (<see cref="KeptContext"/>) — what the Eye's hash reads in its place; 0 with none.</summary>
+    public long ContextRev { get; init; }
+
     /// <summary>Round 91: what the Stagewatch made of this desk's key — its verdict, or P-legacy's HTTP evidence.</summary>
     public StagewatchKey Key { get; init; } = StagewatchKey.Unknown;
 
@@ -654,6 +657,7 @@ public static class ShowBusView
             apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, state, linked, words)
             {
                 Context = linked ? Shown(sight.Context, stuck) : null,
+                ContextRev = linked && sight.Context is not null ? sight.ContextRev : 0,       // the Eye's hash reads this, never the context
                 Stuck = stuck,
                 Key = linked ? sight.Key : StagewatchKey.Unknown,                                   // round 91: the linked one's verdict on this desk's key
                 Conflict = p.Conflict?.Words ?? "",                                                 // Show Bus 1.3 §2: two running nodes say its id
@@ -669,6 +673,7 @@ public static class ShowBusView
             apps.Add(new EyeShowApp(id, "Stagewatch", sight.Context?.Node.Name is { Length: > 0 } n ? n : sight.Name, sight.State, true, sight.Address)
             {
                 Context = Shown(sight.Context, stuck),
+                ContextRev = sight.Context is not null ? sight.ContextRev : 0,
                 Stuck = stuck,
                 Key = sight.Key,
                 Link = sight.Link,                                                                  // no hello names it: §6's heard stays empty
@@ -694,6 +699,19 @@ public static class ShowBusView
     /// </summary>
     public static CheckLight WithLink(EyeShowApp app, CheckLight own)
         => app.Linked && app.Link is { IsLive: true } r ? ShowContext.Worst(new[] { own, r.LightValue }) : own;
+
+    /// <summary>
+    /// The light an app's card is drawn with — the Eye's card and the Nodes page's card, and so the mark both draw beside it: gone
+    /// red, quiet amber; a stuck show, this desk's key not taken or its id said by two machines the worse of its own light and amber;
+    /// else its context's light, green linked with none, grey heard; no better than a live link's record (<see cref="WithLink"/>).
+    /// </summary>
+    public static CheckLight CardLight(EyeShowApp app) => WithLink(app, app.State switch
+    {
+        ShowBusState.Gone => CheckLight.Red,
+        ShowBusState.Stale => CheckLight.Amber,
+        _ when (app.Stuck && app.State == ShowBusState.Live) || KeyAmber(app) || ConflictAmber(app) => ShowContext.LightOf(StuckLight(app.Context?.Light)),
+        _ => app.Context is { } ctx ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
+    });
 
     /// <summary>
     /// Round 91: a linked app whose verdict on this desk's key is amber (refused, speaking for no node of this desk's, or
@@ -756,11 +774,12 @@ public static class ShowBusView
     /// Round 88 (closes L52): this desk's own nodes — timers, callers, the arcade — as the Eye draws them from the context
     /// each sends over the twin: one card per node, its things inside, quiet after 6 s of silence, gone after 12.
     /// </summary>
-    public static IReadOnlyList<EyeShowApp> Nodes(IReadOnlyList<(string Name, ShowContext Context, DateTime AtUtc)> nodes, DateTime utcNow)
-        => nodes.Select(n => new EyeShowApp("node:" + n.Context.Node.Id, "Patterns node", n.Context.Node.Name.Length > 0 ? n.Context.Node.Name : n.Name,
-                ShowBusLiveness.StateOf(TimeSpan.FromSeconds(Math.Max(5, (utcNow - n.AtUtc).TotalSeconds) - 5)), true, n.Context.Headline)
+    public static IReadOnlyList<EyeShowApp> Nodes(IReadOnlyList<(string Name, KeptContext Kept, DateTime AtUtc)> nodes, DateTime utcNow)
+        => nodes.Select(n => new EyeShowApp("node:" + n.Kept.Context.Node.Id, "Patterns node", n.Kept.Context.Node.Name.Length > 0 ? n.Kept.Context.Node.Name : n.Name,
+                ShowBusLiveness.StateOf(TimeSpan.FromSeconds(Math.Max(5, (utcNow - n.AtUtc).TotalSeconds) - 5)), true, n.Kept.Context.Headline)
             {
-                Context = n.Context with { At = 0 },
+                Context = n.Kept.Context with { At = 0 },
+                ContextRev = n.Kept.Rev,                                                            // the Eye's hash reads this, never the context
                 Needed = true,                                                                      // this desk's own node
             })
             .ToList();
@@ -878,10 +897,10 @@ public static class ShowBusView
 }
 
 /// <summary>Round 87: one other show app on the Nodes page — its kind in its colour, its name, and a line of what it is doing.</summary>
-public sealed record ShowAppCard(string Id, string KindLabel, string Name, string Line, string Hue, bool Linked)
+public sealed record ShowAppCard(string Id, string KindLabel, string Name, string Line, string Hue, bool Linked, string Mark = "○")
 {
     /// <summary>What the page compares to know the card moved.</summary>
-    public string Key => $"{Id}:{KindLabel}:{Name}:{Line}:{Hue}:{Linked}";
+    public string Key => $"{Id}:{KindLabel}:{Name}:{Line}:{Hue}:{Linked}:{Mark}";
 
     public static ShowAppCard Of(EyeShowApp app)
     {
@@ -894,21 +913,17 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         if (app.Linked && app.Link is { } link) line += " · link " + link.Steady;
         // Show Bus 1.3 §2: two running nodes say its id — both named, and what this desk does about it.
         if (app.Conflict.Length > 0) line += " · " + app.Conflict + " — " + ShowBusView.ConflictHoldWords;
-        var hue = app.State switch
+        // The card's light is the Eye card's (CardLight): gone or a red its own context or a live link's record says, dark red; quiet,
+        // stuck, this desk's key not taken, its id said by two machines, or an amber its context or record says, amber; else the
+        // kind's own colour. Its mark is that light's shape, so the colour and the mark say one thing and neither is alone.
+        var light = ShowBusView.CardLight(app);
+        var hue = light switch
         {
-            ShowBusState.Gone => "#B03030",
-            ShowBusState.Stale => "#FFB020",
-            // A stuck show, this desk's key refused, or its id said by two machines: the worse of the app's own light and amber — red only when its own light is red.
-            _ when app.Stuck || ShowBusView.KeyAmber(app) || ShowBusView.ConflictAmber(app) => ShowBusView.StuckLight(app.Context?.Light) == "red" ? "#B03030" : "#FFB020",
-            // Show Bus 1.3 §13.16.4: a live link's record darker than the app's own colour — amber at level 0 — wears its light.
-            _ => ShowBusView.WithLink(app, CheckLight.Green) switch
-            {
-                CheckLight.Red => "#B03030",
-                CheckLight.Amber => "#FFB020",
-                _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
-            },
+            CheckLight.Red => "#B03030",
+            CheckLight.Amber => "#FFB020",
+            _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
         };
-        return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked);
+        return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked, EyeMarks.Glyph(light));
     }
 
     /// <summary>

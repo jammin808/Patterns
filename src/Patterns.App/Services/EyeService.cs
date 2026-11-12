@@ -8,9 +8,11 @@ namespace Patterns.App.Services;
 
 /// <summary>
 /// The God's Eye on the desk (round 66): the facts gathered from every service once a second and
-/// hashed, the graph rebuilt only when they moved, and the operator's view — the focus and the
-/// lens — moved by the page, the keys and the wire through the action layer. Nothing here probes
-/// a machine or a network: it reads what the services already know.
+/// keyed by their steady projection (<see cref="EyeFacts.Key"/> — other apps' contexts by revision,
+/// links by their steady face), the graph rebuilt only when that moved and each rebuild's cost kept
+/// for the metrics file, and the operator's view — the focus and the lens — moved by the page, the
+/// keys and the wire through the action layer. Nothing here probes a machine or a network: it reads
+/// what the services already know.
 /// </summary>
 public sealed class EyeService
 {
@@ -51,6 +53,9 @@ public sealed class EyeService
     /// <summary>The rail's colour: the worst light in the picture.</summary>
     public string RailHue => Graph.Nodes.Count == 0 ? "#4A505E" : Hue(Graph.WorstLight);
 
+    /// <summary>The rail foot's mark: the worst light's shape (○ before a picture) — what STATE's and EYE's <c>worstMark</c> say.</summary>
+    public string RailMark => Graph.Nodes.Count == 0 ? EyeMarks.Glyph(EyeMark.Off) : EyeMarks.Glyph(Graph.WorstLight);
+
     public string RailLine => Graph.Headline;
 
     public static string Hue(CheckLight light) => light switch
@@ -74,16 +79,49 @@ public sealed class EyeService
             Log.Warn("The Eye could not read the desk.", ex);
             return false;
         }
-        var hash = JsonUtil.SerializeCompact(facts);
+        var hash = facts.Key();
         if (hash == _hash) return false;
         _hash = hash;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         Graph = EyeGraph.Build(facts);
         Placement = Place();
+        Cost.Record(new EyeBuild(DateTime.UtcNow, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds, Graph.Nodes.Count, Graph.Edges.Count));
         if (FocusId is not null && Graph.Find(FocusId) is null) FocusId = null;           // the focused thing left the picture
         if (_record is not null && Moment is { } moment) _replayed = EyeReplay.Apply(Graph, moment);   // round 84: the structure of now, the lights of then
         Moved();
         return true;
     }
+
+    /// <summary>What the rebuilds cost — the graph and its layout, timed on the desk's thread; the metrics file reads it (no governor reads it).</summary>
+    public EyeCost Cost { get; } = new();
+
+    private long _hopsRev = -1;
+    private string? _hopsFocus;
+    private IReadOnlyDictionary<string, int>? _hops;
+
+    /// <summary>
+    /// The focus's neighbourhood in hops over the picture shown — walked once per (<see cref="Rev"/>, focus) and kept, so the
+    /// canvas's every render and animation tick reads it without walking; null with no focus. Rev moves with every change of
+    /// the picture or the view, the replay's moments among them, so what is kept is never another picture's.
+    /// </summary>
+    public IReadOnlyDictionary<string, int>? FocusHops
+    {
+        get
+        {
+            if (FocusId is not { } focus) return null;
+            if (_hops is null || _hopsRev != Rev || !string.Equals(_hopsFocus, focus, StringComparison.Ordinal))
+            {
+                _hops = Shown.Hops(focus);
+                _hopsRev = Rev;
+                _hopsFocus = focus;
+                HopsWalks++;
+            }
+            return _hops;
+        }
+    }
+
+    /// <summary>The walks <see cref="FocusHops"/> has taken — the seam a test reads to hold it to one per revision and focus.</summary>
+    public long HopsWalks { get; private set; }
 
     /// <summary>The picture read afresh when it was never read — a wire query before the first tick.</summary>
     private void EnsureRead()
@@ -261,6 +299,7 @@ public sealed class EyeService
         expanded = Placement.Expanded,                                                      // the NETWORK band's open clusters, the view's own
         left = new { apps = Placement.LeftApps, items = Placement.LeftItems },
         problemsCounted = Graph.CountedProblems,                                           // the head of problems the rail counts; another app's after
+        worstMark = EyeMarks.Glyph(Graph.WorstLight),                                      // the rail's light as its shape, never colour alone
     };
 
     /// <summary>The picture in words for the assistant's brief — the picture of now, with one line first while the page replays the record, so the assistant never mistakes then for now.</summary>

@@ -137,6 +137,14 @@ public sealed class EyeFacts
     public EyeAssistant? Assistant { get; init; }
     /// <summary>Round 87: the other show apps heard on the show network's hello (UDP 9928), with what each one's context says when this desk reads it.</summary>
     public IReadOnlyList<EyeShowApp> ShowApps { get; init; } = Array.Empty<EyeShowApp>();
+
+    /// <summary>
+    /// The facts' steady projection — what the desk compares, once a second, to know whether the picture moved (the Eye design's
+    /// D9): every fact the graph is built from, with each other app's context as its revision (<see cref="EyeShowApp.ContextRev"/>)
+    /// and each link as its record's steady face (<see cref="EyeShowApp.LinkFace"/>). No context is serialised here, and a link heard
+    /// again, counting down to a redial or taking a clock sample leaves it as it was.
+    /// </summary>
+    public string Key() => JsonUtil.SerializeCompact(this);
 }
 
 /// <summary>
@@ -146,7 +154,27 @@ public sealed class EyeFacts
 /// </summary>
 public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBusState State, bool Linked, string Words)
 {
+    /// <summary>
+    /// Its context as this desk shows it (its moment left out). Left out of the Eye's hash: <see cref="ContextRev"/> stands for it
+    /// there, so the once-a-second tick never serialises another app's context to learn whether it moved (the Eye design's D9) —
+    /// the revision is reckoned once per arrival, on the thread that received the context (the side-call lane for a Stagewatch,
+    /// the desk's thread for a twin node's, every 5 s).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public ShowContext? Context { get; init; }
+
+    /// <summary>
+    /// The context's revision as its receiver kept it (<see cref="KeptContext"/>): it moves when what the context says moves, and
+    /// is what the Eye's hash reads in its place. 0 for an app this desk reads no context of — or one handed in without a
+    /// revision, which <see cref="ContextUnrevised"/> then stands for.
+    /// </summary>
+    public long ContextRev { get; init; }
+
+    /// <summary>
+    /// What the hash reads of a context handed in with no revision (an app built by hand): its text, so a picture is never left
+    /// stale for want of a revision; "" whenever a revision stands for it — every receiver on the desk keeps one.
+    /// </summary>
+    public string ContextUnrevised => ContextRev != 0 || Context is null ? "" : Context.ToJson();
 
     /// <summary>
     /// Round 89: linked and live, and the app says its show is stuck — the link stays live and amber, the card the worse
@@ -174,8 +202,11 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     [System.Text.Json.Serialization.JsonIgnore]
     public LinkRecord? Link { get; init; }
 
-    /// <summary>What the Eye's hash reads of the link: its record's steady face (<see cref="LinkRecord.Steady"/>), "" with none.</summary>
-    public string LinkFace => Link?.Steady ?? "";
+    /// <summary>
+    /// What the Eye's hash reads of the link: its record's steady projection (<see cref="LinkRecord.Face"/>) — what the Eye draws of
+    /// it and nothing that runs on (<c>heardMs</c>, <c>nextMs</c>, the attempt, the clock's age and offset, the counts); "" with none.
+    /// </summary>
+    public string LinkFace => Link?.Face ?? "";
 
     /// <summary>§6's <c>heard</c>: its hello's age — <c>live</c>, <c>stale</c> or <c>gone</c> — or "" when no hello names it.</summary>
     public string Heard { get; init; } = "";
@@ -325,6 +356,15 @@ public sealed record EyeNode(string Id, EyeKind Kind, EyePlane Plane, int Tier, 
     /// stay in the picture and in the queue, after every counted problem.
     /// </summary>
     public bool Counted { get; init; } = true;
+
+    /// <summary>
+    /// A grey that is information, not a gap (a Companion heard and not connected, the apps past the bound): its mark is i. Only
+    /// grey reads it — any other light draws its own mark — and a replay's relighting clears it, since the record holds lights.
+    /// </summary>
+    public bool Info { get; init; }
+
+    /// <summary>The shape drawn beside its colour, derived from <see cref="Light"/> (and <see cref="Info"/>) — never stored, so never stale.</summary>
+    public EyeMark Mark => EyeMarks.Of(Light, Info);
 }
 
 /// <summary>One link of the Eye, with its own light and its own words.</summary>
@@ -332,6 +372,9 @@ public sealed record EyeEdge(string From, string To, EyeEdgeKind Kind, CheckLigh
 {
     /// <summary>"feeds", "drives", "carries"… — the word between the two things.</summary>
     public string Verb => Kind.ToString().ToLowerInvariant();
+
+    /// <summary>The shape drawn at its segment's midpoint beside its colour, derived from <see cref="Light"/>.</summary>
+    public EyeMark Mark => EyeMarks.Of(Light);
 
     /// <summary>
     /// A link this desk holds to another app (its card follows the desk) — the rail, the worst and the headline count
@@ -359,6 +402,7 @@ public sealed class EyeGraph
     private readonly List<string> _problems;
     private readonly Dictionary<string, HashSet<EyePlane>> _clusterPlanes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CheckLight> _counted = new(StringComparer.Ordinal);
+    private readonly (int Index, int Count)[] _lanes;
 
     private EyeGraph(List<EyeNode> nodes, List<EyeEdge> edges)
     {
@@ -367,14 +411,34 @@ public sealed class EyeGraph
         _byId = nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
         _adjacent = nodes.ToDictionary(n => n.Id, _ => new List<string>(), StringComparer.Ordinal);
         _edgesOf = nodes.ToDictionary(n => n.Id, _ => new List<EyeEdge>(), StringComparer.Ordinal);
+        // Two things may share several links (a context's feeds and hears between the same pair): each link is kept, each
+        // neighbour once — the walk, the lens and the readers count a thing once and list every link to it.
+        var seen = new HashSet<(string, string)>();
         foreach (var e in edges)
         {
             if (!_byId.ContainsKey(e.From) || !_byId.ContainsKey(e.To)) continue;
-            _adjacent[e.From].Add(e.To);
-            _adjacent[e.To].Add(e.From);
+            // A pair met for the first time, either way: each end lists the other once (a thing linked to itself lists itself once).
+            if (seen.Add((e.From, e.To)))
+            {
+                seen.Add((e.To, e.From));
+                _adjacent[e.From].Add(e.To);
+                if (e.From != e.To) _adjacent[e.To].Add(e.From);
+            }
             _edgesOf[e.From].Add(e);
-            _edgesOf[e.To].Add(e);
+            if (e.From != e.To) _edgesOf[e.To].Add(e);
         }
+        // Each link's lane among the links joining its pair, either way, reckoned once per picture: the canvas draws the k-th
+        // of n side by side from it on every frame without counting the pair again.
+        _lanes = new (int Index, int Count)[edges.Count];
+        var perPair = new Dictionary<(string, string), int>();
+        for (var i = 0; i < edges.Count; i++)
+        {
+            var pair = PairOf(edges[i]);
+            var index = perPair.TryGetValue(pair, out var before) ? before : 0;
+            perPair[pair] = index + 1;
+            _lanes[i] = (index, 0);
+        }
+        for (var i = 0; i < edges.Count; i++) _lanes[i] = (_lanes[i].Index, perPair[PairOf(edges[i])]);
         // What the rail counts — this desk's own things, its links to other apps and the cards of the apps the show needs — as
         // things: a link and its app's card are one counted thing, lit by the worse of the two, so the four counts sum to Things
         // and each counted problem is queued by the light it is counted with.
@@ -471,13 +535,27 @@ public sealed class EyeGraph
 
     public EyeNode? Find(string id) => _byId.TryGetValue(id, out var n) ? n : null;
 
-    /// <summary>The things linked to one, either way, in the edges' order.</summary>
+    /// <summary>The things linked to one, either way, each once however many links join them, in the order of their first link.</summary>
     public IReadOnlyList<string> Neighbours(string id) => _adjacent.TryGetValue(id, out var l) ? l : Array.Empty<string>();
 
+    /// <summary>Every link that touches a thing, in the edges' order — two links to one neighbour are two entries.</summary>
     public IReadOnlyList<EyeEdge> EdgesOf(string id) => _edgesOf.TryGetValue(id, out var l) ? l : Array.Empty<EyeEdge>();
 
-    /// <summary>The edge between two things, either way, or null.</summary>
-    public EyeEdge? EdgeBetween(string a, string b) => EdgesOf(a).FirstOrDefault(e => (e.From == a && e.To == b) || (e.From == b && e.To == a));
+    /// <summary>The first link between two things, either way, or null — <see cref="EdgesBetween"/> for all of them.</summary>
+    public EyeEdge? EdgeBetween(string a, string b) => EdgesOf(a).FirstOrDefault(e => Joins(e, a, b));
+
+    /// <summary>Every link between two things, either way, in the edges' order: one row, one menu entry and one segment each.</summary>
+    public IReadOnlyList<EyeEdge> EdgesBetween(string a, string b) => EdgesOf(a).Where(e => Joins(e, a, b)).ToList();
+
+    private static bool Joins(EyeEdge e, string a, string b) => (e.From == a && e.To == b) || (e.From == b && e.To == a);
+
+    private static (string, string) PairOf(EyeEdge e) => string.CompareOrdinal(e.From, e.To) <= 0 ? (e.From, e.To) : (e.To, e.From);
+
+    /// <summary>
+    /// The lane of <see cref="Edges"/>[<paramref name="edge"/>] among the links joining its two things, either way, in the edges'
+    /// order — its index and how many there are (1 for a link alone) — kept with the picture, so a frame reads it without counting.
+    /// </summary>
+    public (int Index, int Count) Lane(int edge) => _lanes[edge];
 
     /// <summary>
     /// How far every thing in the focus's neighbourhood is, in hops; a thing not reached is absent.
@@ -838,7 +916,7 @@ public sealed class EyeGraph
         foreach (var c in f.Companions.Where(c => !deckAddresses.Contains(c.Address)).OrderBy(c => c.Host, StringComparer.OrdinalIgnoreCase))
         {
             var id = "companion:" + c.Host;
-            Add(new EyeNode(id, EyeKind.Companion, EyePlane.Control, 0, "Companion " + c.Host, c.Fresh ? "heard on mDNS · not connected" : "was heard · gone quiet", CheckLight.Grey) { Words = new[] { c.Address, c.Version.Length > 0 ? "v" + c.Version : "" }.Where(w => w.Length > 0).ToList(), Route = new MenuRoute("Remote") });
+            Add(new EyeNode(id, EyeKind.Companion, EyePlane.Control, 0, "Companion " + c.Host, c.Fresh ? "heard on mDNS · not connected" : "was heard · gone quiet", CheckLight.Grey) { Words = new[] { c.Address, c.Version.Length > 0 ? "v" + c.Version : "" }.Where(w => w.Length > 0).ToList(), Route = new MenuRoute("Remote"), Info = c.Fresh });   // heard now is information (i); gone quiet is a gap (○)
             Link(id, DeskId, EyeEdgeKind.Hears, CheckLight.Grey, "heard, not connected");
         }
         if (f.WireClients > 0)
@@ -937,13 +1015,7 @@ public sealed class EyeGraph
             // Show Bus 1.3 §2: two running nodes say its id — amber while it is live, both machines named; never red for that alone.
             var conflict = ShowBusView.ConflictAmber(app);
             // Show Bus 1.3 §13.16.4: a live link's record darker than the card — amber at level 0 — is the card's light too.
-            var light = ShowBusView.WithLink(app, app.State switch
-            {
-                ShowBusState.Gone => CheckLight.Red,
-                ShowBusState.Stale => CheckLight.Amber,
-                _ when stuck || keyAmber || conflict => ShowContext.LightOf(ShowBusView.StuckLight(ctx?.Light)),
-                _ => ctx is not null ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
-            });
+            var light = ShowBusView.CardLight(app);
             var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
             var sub = stuck ? ShowBusView.StuckWords
                 : ShowBusView.KeyLineLeads(app) ? app.Key.Line
@@ -1021,6 +1093,7 @@ public sealed class EyeGraph
                 Route = new MenuRoute("Nodes"),
                 Band = EyePlane.Network,
                 Counted = false,
+                Info = true,
             });
         }
 

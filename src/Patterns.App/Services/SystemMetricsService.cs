@@ -280,6 +280,7 @@ public sealed class SystemMetricsService : IDisposable
             // Network/removable drives can refuse — unknown is fine.
         }
 
+        var eye = _services.Eye.Cost.Read(utcNow);
         return new MetricSample
         {
             Utc = utcNow,
@@ -307,6 +308,9 @@ public sealed class SystemMetricsService : IDisposable
             LiveAgeWorstMs = outputs.Count > 0 ? outputs.Max(r => r.LiveAgeMs) : -1,
             RetiringMB = (Patterns.Rendering.Media.RetiredFrames.Bytes + Patterns.Rendering.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0),
             PoolStarved = Patterns.Rendering.Media.FramePools.Starved,
+            EyeBuildWorstMs = eye.WorstMs,                                                      // the Eye's rebuilds of the last minute, measured where they ran
+            EyeBuilds = eye.Builds,
+            EyeNodes = eye.Nodes,
             Threads = threads,
             Handles = handles,
             GcPausePct = gcPause,

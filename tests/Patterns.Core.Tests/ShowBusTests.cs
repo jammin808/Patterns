@@ -824,7 +824,7 @@ public class ShowBusTests
         Assert.Contains("AGMessage AGM — heard, not linked", brief);
 
         var card = ShowAppCard.Of(apps[0]);
-        Assert.Equal("#35E0D0", card.Hue);
+        Assert.Equal(("#FFB020", "△"), (card.Hue, card.Mark));                                 // its context says amber: the card wears it, colour and mark alike
         Assert.StartsWith("linked · Keynote", card.Line, StringComparison.Ordinal);
         Assert.Equal("2 apps on the show network. Stagewatch link: following Hall A.", ShowAppCard.NetworkLine(2, true, "Stagewatch link: following Hall A."));
         Assert.StartsWith("Not listening", ShowAppCard.NetworkLine(0, false, ""), StringComparison.Ordinal);

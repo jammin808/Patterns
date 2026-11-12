@@ -8,8 +8,11 @@ namespace Patterns.App.ViewModels;
 /// <summary>One lens chip of the Eye page.</summary>
 public sealed record EyeLensChip(string Label, string Word, bool IsCurrent);
 
-/// <summary>One thing the selected thing links to, as the side card lists it.</summary>
-public sealed record EyeContactRow(string Id, string Label, string Sub, string Verb, string Hue);
+/// <summary>
+/// One link of the selected thing, as the side card lists it — a row per link, so two links to one thing are two rows: the thing
+/// at its other end (its id, label, line, colour and mark) and the link's direction, verb and mark.
+/// </summary>
+public sealed record EyeContactRow(string Id, string Label, string Sub, string Verb, string Hue, string Mark = "○");
 
 /// <summary>The EYE foot of the rail and the God's Eye page (round 66): the picture's words, the selection, its contacts, the lenses, the verbs.</summary>
 public sealed partial class MainViewModel
@@ -24,6 +27,9 @@ public sealed partial class MainViewModel
     public string EyeWord => _services.Eye.RailWord;
 
     public string EyeHue => _services.Eye.RailHue;
+
+    /// <summary>The rail's EYE foot's mark — the worst light's shape beside its colour, so the foot is never colour alone.</summary>
+    public string EyeMark => _services.Eye.RailMark;
 
     public string EyeLine => _services.Eye.RailLine;
 
@@ -77,6 +83,9 @@ public sealed partial class MainViewModel
 
     public string EyeSelectedHue => EyeSelected is { } n ? EyeService.Hue(n.Light) : "#4A505E";
 
+    /// <summary>The selected thing's mark — the shape beside its colour, derived from its light (✓ △ ✕ ○ i).</summary>
+    public string EyeSelectedMark => EyeSelected is { } n ? EyeMarks.Glyph(n.Mark) : "";
+
     public bool EyeCanOpen => EyeSelected?.Route is not null;
 
     public string EyeOpenWords => EyeSelected?.Route is { } r ? $"OPEN {r.Page.ToUpperInvariant()}" : "OPEN";
@@ -102,14 +111,18 @@ public sealed partial class MainViewModel
         {
             var g = _services.Eye.Shown;
             if (EyeSelected is not { } n) return Array.Empty<EyeContactRow>();
+            // A row per link, in the menu's LINKED TO order: the right-click menu and the side card list the same links.
             var rows = new List<EyeContactRow>();
             foreach (var id in g.Neighbours(n.Id))
             {
                 var c = g.Find(id);
                 if (c is null) continue;
-                var edge = g.EdgeBetween(n.Id, id);
-                var verb = edge is null ? "" : edge.From == n.Id ? $"→ {edge.Verb}" : $"← {edge.Verb}";
-                rows.Add(new EyeContactRow(c.Id, c.Label, c.Sub, verb, EyeService.Hue(c.Light)));
+                foreach (var edge in g.EdgesBetween(n.Id, id))
+                {
+                    var words = EyeMarks.Unmarked(edge.Words, edge.Mark);                          // the mark said once, first
+                    var verb = $"{EyeMarks.Glyph(edge.Mark)} " + (edge.From == n.Id ? $"→ {edge.Verb}" : $"← {edge.Verb}") + (words.Length > 0 ? " · " + words : "");
+                    rows.Add(new EyeContactRow(c.Id, c.Label, c.Sub, verb, EyeService.Hue(c.Light), EyeMarks.Glyph(c.Mark)));
+                }
             }
             return rows;
         }
@@ -253,6 +266,7 @@ public sealed partial class MainViewModel
         Raise(nameof(EyeHeadline));
         Raise(nameof(EyeWord));
         Raise(nameof(EyeHue));
+        Raise(nameof(EyeMark));
         Raise(nameof(EyeLine));
         Raise(nameof(EyeRev));
         Raise(nameof(EyeLenses));
@@ -279,6 +293,7 @@ public sealed partial class MainViewModel
         Raise(nameof(EyeSelectedKind));
         Raise(nameof(EyeSelectedWords));
         Raise(nameof(EyeSelectedHue));
+        Raise(nameof(EyeSelectedMark));
         Raise(nameof(EyeCanOpen));
         Raise(nameof(EyeOpenWords));
         Raise(nameof(EyeContacts));

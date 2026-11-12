@@ -90,9 +90,9 @@ public class LiveInputTests
     [Fact]
     public void TheSampleTheCsvAndTheCheckCarryTheLiveAge()
     {
-        Assert.EndsWith(",managedMB,liveAgeWorstMs,retiringMB,poolStarved", MetricsCsv.Header);
-        Assert.EndsWith(",,33,,0", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, LiveAgeWorstMs = 33 }));
-        Assert.EndsWith(",,,,0", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch }));     // none drawn: the column is empty, never a nought
+        Assert.EndsWith(",managedMB,liveAgeWorstMs,retiringMB,poolStarved,eyeBuildWorstMs,eyeBuilds,eyeNodes", MetricsCsv.Header);
+        Assert.EndsWith(",,33,,0,,0,", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, LiveAgeWorstMs = 33 }));
+        Assert.EndsWith(",,,,0,,0,", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch }));     // none drawn: the column is empty, never a nought
         var agg = MetricsHistory.Aggregate(new[]
         {
             new MetricSample { Utc = DateTime.UnixEpoch, LiveAgeWorstMs = 21 },

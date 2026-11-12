@@ -4,7 +4,7 @@ namespace Patterns.Core.Services;
 /// The Eye on the wire (round 66): EYE / EYE STATUS answers the picture as one JSON object — the headline, the counts, the problems,
 /// the focus and the lens, every thing with its place and its words, every link with its light. Each thing's band, then at
 /// the end the open clusters, what the NETWORK band leaves out and, when the fit view shows marks only, the band's words for it. A
-/// thing in a folded cluster has no place (0 × 0).
+/// thing in a folded cluster has no place (0 × 0). Every thing and link carries its mark (✓ △ ✕ ○ i), derived from its light.
 /// </summary>
 public static class EyeJson
 {
@@ -44,9 +44,10 @@ public static class EyeJson
                     item = n.Route?.Item ?? "",
                     wire = "EYE FOCUS " + n.Id,
                     band = n.Band.ToString().ToLowerInvariant(),                               // where it is drawn; plane is its lens
+                    mark = EyeMarks.Glyph(n.Mark),                                             // the shape beside its light, derived from it
                 };
             }).ToArray(),
-            edges = g.Edges.Select(e => new { from = e.From, to = e.To, kind = e.Verb, light = EyeGraph.Light(e.Light), words = e.Words }).ToArray(),
+            edges = g.Edges.Select(e => new { from = e.From, to = e.To, kind = e.Verb, light = EyeGraph.Light(e.Light), words = e.Words, mark = EyeMarks.Glyph(e.Mark) }).ToArray(),
             replay = moment is not null,
             replayAt = moment is null ? "" : ReplayTime.Stamp(moment.AtUtc),
             moment = moment is null ? "" : EyeReplay.Words(moment),
@@ -54,6 +55,7 @@ public static class EyeJson
             left = new { apps = p.LeftApps, items = p.LeftItems },
             fit = p.MarksOnly ? p.Note : "",
             problemsCounted = g.CountedProblems,                                              // the head of problems the rail counts; another app's after
+            worstMark = EyeMarks.Glyph(g.WorstLight),                                         // the rail's light as its shape
         };
         return JsonUtil.SerializeCompact(payload);
     }

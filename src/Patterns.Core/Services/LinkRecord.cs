@@ -154,13 +154,28 @@ public sealed record LinkRecord(
     public string Said => FlagLines is { Count: > 0 } flags ? $"{Mark} {Words} · {string.Join(" · ", flags)}" : $"{Mark} {Words}";
 
     /// <summary>
-    /// The record's words without a running count: its own words where they say what stands (13.16.1's off, finding, connecting,
-    /// live and refused), else its peer, its state and its refusal — stale, down and held count seconds in their words, which a reader
-    /// that redraws only when what it shows moves would otherwise freeze or redraw every second.
+    /// The record's words without a running count: its own words where they say what stands (13.16.1's off, finding, live and
+    /// refused; connecting's without its attempt), else its peer, its state and its refusal — stale, down and held count seconds in
+    /// their words, which a reader that redraws only when what it shows moves would otherwise freeze or redraw every second.
     /// </summary>
-    public string SteadyWords => State is "stale" or "down" or "held"
-        ? $"{PeerName} {State}" + (Refusal.Length > 0 ? " — " + Refusal : "")
-        : Words;
+    public string SteadyWords => State switch
+    {
+        "stale" or "down" or "held" => $"{PeerName} {State}" + (Refusal.Length > 0 ? " — " + Refusal : ""),
+        // connecting counts its attempts in its words ("… (attempt 3)"); the count is the record's Attempt, read where it is shown
+        "connecting" when Words.LastIndexOf(AttemptWords, StringComparison.Ordinal) is var at and > 0 => Words[..at],
+        _ => Words,
+    };
+
+    /// <summary>Where a connecting record's words begin to count its attempt.</summary>
+    private const string AttemptWords = " (attempt ";
+
+    /// <summary>
+    /// The record's steady projection — its state, light, level and show, then <see cref="Steady"/> (its mark, its words without a
+    /// running count, its flags): what a reader that redraws only on a change keys on. Nothing that runs on with time is in it —
+    /// <c>heardMs</c>, <c>nextMs</c>, <c>since</c>, the attempt, the clock's age, offset and error, the counts — so a link heard
+    /// again, a redial's countdown or a new clock sample moves it only when what the readers draw moves.
+    /// </summary>
+    public string Face => $"{State}|{Light}|{Level.ToString(System.Globalization.CultureInfo.InvariantCulture)}|{Show}|{Steady}";
 
     /// <summary>
     /// <see cref="Said"/> without a running count: the face a reader keyed or hashed on what it draws shows — the Eye's card and edge,

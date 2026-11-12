@@ -96,6 +96,33 @@ public class DeskMenuTests
         Games = new[] { new MenuThing("pong", "PONG"), new MenuThing("snake", "SNAKE") },
     };
 
+    /// <summary>A picture with another app whose timer and lobby are joined twice, each way once.</summary>
+    private static EyeGraph ParallelEye() => EyeGraph.Build(new EyeFacts
+    {
+        MachineName = "SHOW-PC",
+        ShowApps = new[]
+        {
+            new EyeShowApp("a1b2c3d4", "Stagewatch", "Hall A", ShowBusState.Live, true, "")
+            {
+                ContextRev = 1,
+                Context = new ShowContext
+                {
+                    Node = new ShowContextNode { Kind = "main", Id = "a1b2c3d4", Name = "Hall A" },
+                    Items = new[]
+                    {
+                        new ShowContextItem { Id = "timer", Kind = "timer", Label = "Keynote", Light = "green" },
+                        new ShowContextItem { Id = "lobby", Kind = "screen", Label = "Lobby", Light = "amber" },
+                    },
+                    Links = new[]
+                    {
+                        new ShowContextLink { From = "timer", To = "lobby", Kind = "feeds", Light = "green" },
+                        new ShowContextLink { From = "lobby", To = "timer", Kind = "hears", Light = "amber" },
+                    },
+                },
+            },
+        },
+    });
+
     private static IEnumerable<DeskMenu> Every(DeskFacts d)
     {
         yield return DeskMenus.Screen(d, Screen());
@@ -110,6 +137,9 @@ public class DeskMenuTests
         yield return DeskMenus.Monitor(d, Monitor());
         yield return DeskMenus.Monitor(d, Monitor("OFF"));
         yield return DeskMenus.Transport(d);
+        // The Eye's menu on a thing two links join to one other (a context's feeds and hears): one entry, one id per link.
+        var parallel = ParallelEye();
+        yield return EyeMenus.For(d, parallel, parallel.Find("app:a1b2c3d4:timer")!);
         foreach (var page in DeskPages.All) yield return DeskMenus.Page(d, PageFor(page.Header));   // round 74: every page's own menu
         // G34: a Stagewatch's card, linked with everything waiting for a person, and another one heard.
         const string pending = "sha256:8e8bc45bb14f9c74a1b2c3d4e5f60718293a4b5c6d7e8f901122334455667788";

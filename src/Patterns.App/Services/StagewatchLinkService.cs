@@ -110,7 +110,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     {
         public string Key { get; } = key;
         public string Name { get; } = name;
-        public volatile ShowContext? Context;
+
+        /// <summary>Its context with the revision it was kept with (one writer, the side-call lane; one reference write publishes both).</summary>
+        public volatile KeptContext? Context;
         public volatile bool Stuck;
     }
 
@@ -363,10 +365,10 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             // mark, so a read that finds the mark cleared finds that frame or a newer one — never a frozen frame counting.
             var show = _run.Show;
             var stuck = show is { Stuck: true };
-            var context = show?.Context;
+            var kept = show?.Context;
             var s = _sight;
             if (s.Name.Length == 0 && s.Address.Length == 0) return s;
-            s = s with { Context = context, Key = KeyNow() };
+            s = s with { Context = kept?.Context, ContextRev = kept?.Rev ?? 0, Key = KeyNow() };
             if (stuck) s = s with { Frame = s.Frame is { } f ? f with { Live = false } : null, Stuck = true };
             // The state is the silence since the last word, read now: a link that stopped talking goes stale on its own.
             var silent = TimeSpan.FromSeconds(Math.Max(0, ShowClock.Seconds - s.FrameAtSeconds));
@@ -2281,7 +2283,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             var json = StagewatchFrame.MaskSecret(await response.Content.ReadAsStringAsync(ct), c.Secret);
             if (ShowContext.Parse(json) is { } context)
             {
-                show.Context = context;
+                show.Context = KeptContext.Next(show.Context, context);                          // its revision moves only when what it says moved
                 UiThread.Post(_changed);
             }
         }

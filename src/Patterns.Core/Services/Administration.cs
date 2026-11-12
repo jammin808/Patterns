@@ -205,6 +205,10 @@ public sealed record MetricSample
     public bool OnBattery { get; init; }
     public int BatteryPct { get; init; } = -1;
     public long Faults { get; init; }
+    /// <summary>The Eye's rebuilds of the last minute (<see cref="EyeCost.Read"/>): the slowest (ms; -1 none), how many, and the nodes of the newest (-1 before one) — measured, governed by nothing yet.</summary>
+    public double EyeBuildWorstMs { get; init; } = -1;
+    public int EyeBuilds { get; init; }
+    public int EyeNodes { get; init; } = -1;
 }
 
 /// <summary>
@@ -615,7 +619,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB,liveAgeWorstMs,retiringMB,poolStarved";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB,liveAgeWorstMs,retiringMB,poolStarved,eyeBuildWorstMs,eyeBuilds,eyeNodes";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -637,7 +641,11 @@ public static class MetricsCsv
         s.ManagedMB < 0 ? "" : s.ManagedMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
         R(s.LiveAgeWorstMs),
         R(s.RetiringMB),
-        s.PoolStarved.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        s.PoolStarved.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        // The Eye's rebuild in the last minute: the slowest to the hundredth of a ms (a rebuild is sub-millisecond on a small rig), how many, its size.
+        s.EyeBuildWorstMs < 0 ? "" : Math.Round(s.EyeBuildWorstMs, 2).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        s.EyeBuilds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        s.EyeNodes < 0 ? "" : s.EyeNodes.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -703,6 +711,9 @@ public static class MetricsCsv
                 LiveAgeWorstMs = D("liveAgeWorstMs", -1),
                 RetiringMB = D("retiringMB", -1),
                 PoolStarved = I("poolStarved"),
+                EyeBuildWorstMs = D("eyeBuildWorstMs", -1),
+                EyeBuilds = I("eyeBuilds"),
+                EyeNodes = (int)Math.Clamp(D("eyeNodes", -1), int.MinValue, int.MaxValue),
             });
         }
         return samples;

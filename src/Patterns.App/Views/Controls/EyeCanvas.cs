@@ -17,7 +17,11 @@ namespace Patterns.App.Views.Controls;
 /// double-click focuses, right-click opens the thing's own desk menu, Esc is the whole picture.
 /// It redraws only when the picture changed, the camera moved or the pointer crossed a thing;
 /// its timer runs only while the camera's spring or an emphasis is still moving. Text layouts
-/// are cached by words and size; hit-testing is rectangle maths; a thing off the view is not drawn.
+/// are cached by words and size; hit-testing is rectangle maths; a thing off the view is not drawn,
+/// nor a link whose segment misses the view; the focus's walk is the Eye's, kept per revision and
+/// focus. Every light carries its mark in its geometry (✓ disc, △ triangle, ✕ cross, ■ square,
+/// ○ ring, i) at every scale; links that join the same two things are drawn side by side, each with
+/// its own mark at its midpoint.
 /// </summary>
 public sealed class EyeCanvas : Control
 {
@@ -63,6 +67,13 @@ public sealed class EyeCanvas : Control
 
     /// <summary>The camera, for a test: where the picture is and where it is going.</summary>
     public EyeCamera Camera => _camera;
+
+    /// <summary>The last render's links drawn, links skipped for missing the view, and marks drawn — what a test reads of a frame.</summary>
+    public int EdgesDrawn { get; private set; }
+
+    public int EdgesCulled { get; private set; }
+
+    public int MarksDrawn { get; private set; }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -167,9 +178,12 @@ public sealed class EyeCanvas : Control
         }
         EnsureFitted(w, h);
         var lens = _eye.Lens;
-        var hops = _eye.FocusId is { } f ? g.Hops(f) : null;
+        var hops = _eye.FocusHops;                                                               // walked once per revision and focus, never per frame
         var scale = _camera.Scale;
         var view = new Rect(0, 0, w, h);
+        EdgesDrawn = 0;
+        EdgesCulled = 0;
+        MarksDrawn = 0;
 
         foreach (var band in p.Bands)
         {
@@ -189,23 +203,41 @@ public sealed class EyeCanvas : Control
             }
         }
 
-        foreach (var e in g.Edges)
+        // The view in world units, a mark's reach wider: a link whose segment misses it is not drawn (exact, so a long link that
+        // crosses the view with both ends outside it still is).
+        var (vx0, vy0) = _camera.ViewToWorld(0, 0);
+        var (vx1, vy1) = _camera.ViewToWorld(w, h);
+        var reach = 12 / Math.Max(scale, 1e-6);
+        var seen = new EyeRect(Math.Min(vx0, vx1), Math.Min(vy0, vy1), Math.Abs(vx1 - vx0), Math.Abs(vy1 - vy0)).Inflate(reach);
+        for (var i = 0; i < g.Edges.Count; i++)
         {
+            var e = g.Edges[i];
             var a = g.Find(e.From);
             var b = g.Find(e.To);
             if (a is null || b is null || !g.Visible(a, lens) || !g.Visible(b, lens)) continue;
             var ra = p.Of(a.Id);
             var rb = p.Of(b.Id);
             if (ra.IsEmpty || rb.IsEmpty) continue;
+            // Links joining the same two things sit side by side, centred on the line between them, each with its own mark; the
+            // lane is the picture's, reckoned once per rebuild.
+            var (index, count) = g.Lane(i);
+            var (sx1, sy1, sx2, sy2) = Ends(ra, rb);
+            var (x1, y1, x2, y2) = EyeGeometry.Shift(sx1, sy1, sx2, sy2, EyeGeometry.Offset(index, count));
+            if (!EyeGeometry.Meets(x1, y1, x2, y2, seen))
+            {
+                EdgesCulled++;
+                continue;
+            }
+            EdgesDrawn++;
             var alpha = Math.Min(Emphasis(a.Id, hops), Emphasis(b.Id, hops));
-            var (x1, y1, x2, y2) = Ends(ra, rb);
             var from = _camera.WorldToView(x1, y1);
             var to = _camera.WorldToView(x2, y2);
-            var pen = Pen(EyeService.Hue(e.Light), (int)Math.Round(alpha * 200), e.Light == CheckLight.Grey, Math.Max(1, 1.5 * scale));
+            var hue = EyeService.Hue(e.Light);
+            var pen = Pen(hue, (int)Math.Round(alpha * 200), e.Light == CheckLight.Grey, Math.Max(1, 1.5 * scale));
             ctx.DrawLine(pen, new Point(from.X, from.Y), new Point(to.X, to.Y));
-            var dot = Brush(EyeService.Hue(e.Light), (int)Math.Round(alpha * 230));
             var radius = Math.Max(1.5, 3 * scale);
-            ctx.DrawEllipse(dot, null, new Point(to.X, to.Y), radius, radius);
+            ctx.DrawEllipse(Brush(hue, (int)Math.Round(alpha * 230)), null, new Point(to.X, to.Y), radius, radius);   // where it lands
+            DrawMark(ctx, e.Mark, new Point((from.X + to.X) / 2, (from.Y + to.Y) / 2), Math.Max(2.5, 4 * scale), hue, (int)Math.Round(alpha * 255));
         }
 
         var selected = _vm?.EyeSelectedId ?? "";
@@ -222,8 +254,8 @@ public sealed class EyeCanvas : Control
             ctx.DrawRectangle(Brush("#181B22", (int)Math.Round(alpha * 255)), Pen(hue, (int)Math.Round(alpha * (n.IsProblem ? 220 : 120)), false, Math.Max(1, 1.2 * scale)), new RoundedRect(r, radius));
             if (n.Id == selected) ctx.DrawRectangle(null, Selected, new RoundedRect(r.Inflate(2), radius + 2));
             else if (n.Id == _hover) ctx.DrawRectangle(null, Hovered, new RoundedRect(r.Inflate(1), radius + 1));
-            var dotR = Math.Max(2, 5 * scale);
-            ctx.DrawEllipse(Brush(hue, (int)Math.Round(alpha * 255)), null, new Point(r.X + 14 * scale, r.Y + r.Height / 2), dotR, dotR);
+            // The dot is the light's mark, in its geometry, at every scale: below the label scale it is all there is of a thing.
+            DrawMark(ctx, n.Mark, new Point(r.X + 14 * scale, r.Y + r.Height / 2), Math.Max(2.5, 5 * scale), hue, (int)Math.Round(alpha * 255));
             if (scale < EyeLayout.LabelScale) continue;
             var textX = r.X + 26 * scale;
             var maxW = Math.Max(10, r.Width - 34 * scale);
@@ -244,6 +276,50 @@ public sealed class EyeCanvas : Control
                 ctx.DrawText(sub, new Point(textX, r.Y + r.Height - sub.Height - 6 * scale));
             }
         }
+    }
+
+    /// <summary>
+    /// One mark in its geometry, centred on <paramref name="c"/> with reach <paramref name="r"/>: ✓ a filled disc, △ a filled triangle,
+    /// ✕ a cross, ■ a filled square, ○ a ring, i a dot over a bar — six shapes no two alike, so no light is told by colour alone.
+    /// </summary>
+    private void DrawMark(DrawingContext ctx, EyeMark mark, Point c, double r, string hex, int alpha)
+    {
+        var fill = Brush(hex, alpha);
+        var stroke = Pen(hex, alpha, false, Math.Max(1.2, r * 0.45));
+        switch (mark)
+        {
+            case EyeMark.Ok:
+                ctx.DrawEllipse(fill, null, c, r, r);
+                break;
+            case EyeMark.Warn:
+            {
+                var tri = new StreamGeometry();
+                using (var g = tri.Open())
+                {
+                    g.BeginFigure(new Point(c.X, c.Y - r * 1.1), true);
+                    g.LineTo(new Point(c.X + r * 1.05, c.Y + r * 0.8));
+                    g.LineTo(new Point(c.X - r * 1.05, c.Y + r * 0.8));
+                    g.EndFigure(true);
+                }
+                ctx.DrawGeometry(fill, null, tri);
+                break;
+            }
+            case EyeMark.Fault:
+                ctx.DrawLine(stroke, new Point(c.X - r, c.Y - r), new Point(c.X + r, c.Y + r));
+                ctx.DrawLine(stroke, new Point(c.X - r, c.Y + r), new Point(c.X + r, c.Y - r));
+                break;
+            case EyeMark.Armed:
+                ctx.FillRectangle(fill, new Rect(c.X - r * 0.85, c.Y - r * 0.85, r * 1.7, r * 1.7));
+                break;
+            case EyeMark.Info:
+                ctx.DrawEllipse(fill, null, new Point(c.X, c.Y - r * 0.7), r * 0.3, r * 0.3);
+                ctx.DrawLine(stroke, new Point(c.X, c.Y - r * 0.15), new Point(c.X, c.Y + r));
+                break;
+            default:
+                ctx.DrawEllipse(null, Pen(hex, alpha, false, Math.Max(1, r * 0.35)), c, r * 0.85, r * 0.85);
+                break;
+        }
+        MarksDrawn++;
     }
 
     /// <summary>The line between two things leaves the right edge and lands on the left edge when the target is to the right; otherwise centre to centre.</summary>
@@ -319,7 +395,7 @@ public sealed class EyeCanvas : Control
         var moving = _camera.Step(dt);
         if (_eye is not null)
         {
-            var hops = _eye.FocusId is { } f ? _eye.Shown.Hops(f) : null;
+            var hops = _eye.FocusHops;                                                           // the kept walk, not a new one per tick
             foreach (var n in _eye.Shown.Nodes)
             {
                 var target = EyeGraph.EmphasisOf(n.Id, hops);

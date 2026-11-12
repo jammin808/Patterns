@@ -62,7 +62,8 @@
                        Text="Click a thing on the picture to read it here. Double-click focuses the eye on it and dims what it does not touch; right-click opens its own menu — a screen's is the wall tile's; the wheel zooms about the pointer; drag pans; Esc is the whole picture; arrows walk the problems." />
             <StackPanel Spacing="5" IsVisible="{Binding HasEyeSelection}">
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <Ellipse Width="11" Height="11" Fill="{Binding EyeSelectedHue}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding EyeSelectedMark}" Foreground="{Binding EyeSelectedHue}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" MinWidth="12"
+                           ToolTip.Tip="Its light as a shape beside the colour: ✓ green, △ amber, ✕ red, ○ grey (unknown), i information — the canvas draws the same" />
                 <TextBlock FontWeight="SemiBold" FontSize="15" Text="{Binding EyeSelectedLabel}" TextWrapping="Wrap" />
               </StackPanel>
               <TextBlock Classes="label" Text="{Binding EyeSelectedKind}" />
@@ -84,9 +85,9 @@
                   <DataTemplate x:DataType="vm:EyeContactRow">
                     <Button Classes="chip" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="8,5"
                             Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).EyeSelectCommand}" CommandParameter="{Binding Id}"
-                            ToolTip.Tip="Select it; FOCUS then puts the eye on it">
+                            ToolTip.Tip="One row per link — two links to one thing are two rows, each with its verb and its mark. Select it; FOCUS then puts the eye on it">
                       <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Ellipse Width="9" Height="9" Fill="{Binding Hue}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Mark}" Foreground="{Binding Hue}" FontWeight="Bold" VerticalAlignment="Center" MinWidth="10" />
                         <StackPanel>
                           <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
                           <TextBlock Classes="label" Text="{Binding Verb}" />
