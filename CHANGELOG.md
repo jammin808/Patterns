@@ -10,6 +10,18 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 96 — 2026-11-12 — the Stagewatch link proves itself with LINK on its socket, a window Stagewatch grants to this desk is shown only from the air, and the twin tells the standby which grants it lacks
+
+`round-96` · PLAN §114 · REVIEW round 96 · 3,393 tests · module 3.21.0 · evidence: a handed-in critique (the PeerLink profile and windows for peers, with the plan's critique), no field files and no rig report; no measurement taken at the opening
+
+- **The round opens (96.0).** PLAN §114.1 names the round's number (the plan's round 95), reads round 95's CI runs (the run on
+  95.0 red once on the held-playlist case, made deterministic by 95.3 and left with its other order unfenced for **L105**,
+  which 96.1 owes a test; 95.1 to 95.3 green, 3,393 tests), says where Stagewatch's landed `/ws` `LINK` and window grants differ
+  from the plan's words (an empty `can` until SW22.1c, D0 answered so a level-0 link may carry a grant, no real Stagewatch able
+  to grant before its SW22.5), names the OPEN rows it touches (L105, L95, L60, L61, L40; L66, L94, L96, L84, L50, L21, L10 and
+  L107 read), the requester, the evidence class, the platform paths (WebView2 showing a grant, the twin) and the unit table 96.0
+  to 96.4. The count and the module are round 95's until the units land.
+
 ## Round 95 — 2026-11-12 — the Eye draws every other app as a cluster on a NETWORK band of its own, bounded by the canvas, with its labels readable at the fit view
 
 `round-95` · PLAN §113 · REVIEW round 95 · 3,393 tests · module 3.21.0 (unmoved) · evidence: a handed-in critique (the Eye design and its critique, the plan's issues 5, 6, 7, 9, 10, 11, 14 and 20), no field files and no rig report; the one measurement is the layout's — the fit scale at 48 things, 3,304 world units in one column, 0.303 on a 1,080-px canvas and no label under 1,237 px — worked from the constants, not timed; the rebuild's cost becomes a column of `patterns.metrics.csv`, measured from now and governed by nothing

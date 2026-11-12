@@ -15644,3 +15644,124 @@ Eye page is (ASK types the question in on the Assistant page).
   nothing on a screen, a wall or a receiver, so no journal row, log line or Super Check row is read beside an output for
   it. The row it names is the metrics file's: `patterns.metrics.csv`'s `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes`,
   read beside the Eye page with the show's apps linked — the rebuild's first measurement on a rig.
+
+## 114. Round 96 — the Stagewatch link proves itself with `LINK` on its socket, a window Stagewatch grants to this desk is shown only from the air, and the twin tells the standby which grants it lacks
+
+### 114.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 95 — its units P95.0 to P95.4, the fifth train's Patterns round — under the
+number §110.1's key gives it: round 96 here, §114, not the plan's §113. The units keep their order and their dependencies,
+and a dependency that names another Patterns unit of the plan reads one higher where the plan's round was one of 92 to 95:
+
+| The plan's unit | Here | What it is | Depends on (here) |
+|---|---|---|---|
+| P95.0 | 96.0 | this opening: PLAN §114's first lines and the changelog's round 96 entry | 95.4's papers (`d34e67d`); Stagewatch's SW22.1b (`1958220`) and SW22.4 (`536e59b`) |
+| P95.1 | 96.1 | the Stagewatch link proves itself: `LINK` on `/ws?…&link=1`, the certificate pinned only after the proof, floors `{tls, level, proof}` kept per id, side calls carrying `S` only to the pin or loopback; and the held playlist's other order (below) | 96.0; SW22.1b; 93.4 (the plan's P92.4, `c5cc9cf`) |
+| P95.2 | 96.2 | a Stagewatch window granted to this desk: `can=pages`, grants on the link with a rev per link, kept in the `Control` section and never the show, `SCREEN n WINDOW` only when the page is ready (else `PVW WINDOW`, then TAKE), `NODES ASK WINDOW`, "shown" derived from the air | 96.1; SW22.4; 89.4 (`1fa3eb0`); 91.1 (`2844dbd`) |
+| P95.3 | 96.3 | the twin's `WINDOWS` word, the standby's Super Check row, DRILL scenario 23 | 96.2 |
+| P95.4 | 96.4 | the papers (PLAN §114, REVIEW, CHANGELOG, README, REMOTE, COMPANION, DRILL, QUALIFICATION, OPEN) and round 95's tag row | 96.1, 96.3 |
+
+The plan's check for this unit greps for `^## 113\. Round 95`; here it is `^## 114\. Round 96`. The plan's "Round 95 papers
+(PLAN §113)" is 96.4 and §114 here; the plan's next round (node devices, P96) is round 97 and §115. The plan's R1 asks a
+round to open only after the previous round's papers: round 95's are `d34e67d`. Its run (43197976631) was still running
+when this opening was written and is not read here (below).
+
+**What the files said.** Nothing from the rig: `docs/field/` holds only its README, as at the last three openings. The files
+this opening reads are CI's, from round 95's pushes, in the shape §96.1 reads a report:
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 43155484878, 95.0 (2026-11-12 04:32 UTC) — test | One failure of 992 in the App suite, `VideoTransportAppTests.WhatWaitedUnderAHoldIsNotThePlaylistsThatComesBackOnAir(playedFirst: True)`, `Assert.Equal(0, …)` at `VideoTransportAppTests.cs:438`, actual 1, after 20 m 1 s; Core 1,558, Rendering 724 and the four small suites green; `lifecycle`, `windows-smoke`, `companion-module` and `rollback-script` green | The case claims "no tick between" VIDEO PLAY and the leaving; the playlist's own 250 ms desk timer, firing inside the pump the play waits on, is a tick between. The bench had it one run in three | 95.3 stopped that timer in the case, so the order it fences is deterministic. The other order, a tick between the release and the leaving, is asserted nowhere: **L105**, owed by 96.1 |
+| 43165589425 (95.1) and 43175648291 (95.2) | Green, every job | The NETWORK band and the Eye's cost held on a runner | Nothing |
+| 43190219199, 95.3 (09:17 UTC) — the whole run | Green: Core 1,607, Rendering 724, App 997, Devices 9, Audio 14, Assistant 39, Audience 3 (3,393); `windows-smoke`, `lifecycle` (11 and 2), `companion-module`, `rollback-script`, `portable-exe` green; `release` skipped for no tag | The held-playlist case and the allocation fences held on both runners with their causes fenced | Nothing; the count 3,393 is round 95's close |
+| the head, `d34e67d` (95.4, the papers) — run 43197976631 | `companion-module` and `rollback-script` green; `test`, `lifecycle` and `windows-smoke` still running at this opening | Round 95's papers add no code, so no new fault is expected of them | Round 96's papers read it, beside the next push's |
+
+**The other trees, read at this head (R6: every citation of the plan re-read).** Stagewatch's head is `536e59b` (SW22.4);
+Mapper's is `783319e1`. The contract's body hashes alike in the three trees and `tools/showbus/peerlink-peer.mjs` matches
+Stagewatch's committed copy byte for byte; Stagewatch's committed header differs from this copy's in its account of what its
+`/ws` acceptor runs and in its Landed line, which a copy's header does not follow. Stagewatch's working tree holds
+uncommitted edits (its SW22.1c, the receipts and `final` on `/ws`, in progress on another chain); the facts below are the
+committed head's. Where the head or the contract differs from the plan's words:
+- **`LINK` on `/ws`.** The plan's dial, `/ws?…&link=1` with no `Authorization` header, is the head's: Stagewatch's REMOTE gives
+  `GET /ws?node=<id>&t=patterns&link=1`, the offer (`snonce`, `bind`) before any frame, one link message within 10 s, a
+  refusal with `class` and `retry`, `link=0` refused `version`, `link=` with no `node` refused 400, at most four unfinished
+  `link=` sockets per address (the fifth 429 before the upgrade) and a plain `link=` socket taken only from this machine. The
+  verdict's `can` is an empty list at this head: `final`, `receipts` and S14 at `/ws` are SW22.1c's, which has not landed, so
+  96.1's S14 runs against the kit's scripted peer and a real Stagewatch's link keeps no receipts feature until it does. That is
+  not a wait on this round's other units: the desk reads `can` as it comes.
+- **Side calls with `S`.** Landed as the plan has it (the routes `/api/context`, `/api/peers/context`, `/api/proposals` and
+  `/api/message`, `/api/clearmessage`, `/api/messageclear`, `/api/clear`; any other route takes `S` as no credential; a
+  revocation ends `S` and the side call hears 401 `relink`). An `S` in clear from another machine ends its link, so 96.1 sends
+  it only to the pin or loopback, as the plan says.
+- **D0 was answered.** The plan's 96.2 text says the grant arrives on a proved link "whatever D0's wording". The contract's §12.5
+  now names the carriers: a node link the grant's own node's key proves — verified by `LINK`, or until that node speaks `LINK`
+  a 2.18 node link with `verified:"key"` — on pinned TLS or a loopback address (never another address the node owns), on a key
+  never seen in clear, offering `pages`. So a level-0 link can carry a grant; 96.2's dependence on 96.1 stays for the order
+  (plan critique issue 13) and for the floor, not because the wire needs `LINK`.
+- **Grants as landed.** `can=pages` on the dial's query (the first 32 words, `pages` only for an app of kind `patterns`); the
+  `grants` frame after the verdict and before any frame, whole on each change, `rev` rising per link from 1, `link` `tls`,
+  `local` or `plain`, rows `{window, name, how, path, cannot}`; the app says `{"type":"grants-seen","rev","cannot"}` and, for
+  a draw grant only, `window-shown`; a grant address that stops working ends a link open on it with
+  `{"type":"window","revoked":true,"black":true}`, and a later reconnect or reload hears the window message's end in words and
+  `GET /w/<it>` the 404 page (no tombstone kept). At most four grants a window. A page grant's `path` is on no list and no
+  frame but this one.
+- **No real Stagewatch can grant yet.** Stagewatch's desk and rig do not hear show apps for `window grant` (its SW22.5 and
+  SW22.6): every grant there is refused with "this Stagewatch hears none", and its context lists no grant row (SW22.2). 96.2
+  is proved against an in-process Stagewatch that speaks the landed frames and against the kit's scripted peer; the pair
+  with a real Stagewatch is SW22.11's interop row, which waits on this round's papers. The round's papers say so.
+- **The design's names and lines are stale in this tree.** The plan's sources name `ShellState.Parse` (here
+  `WebShellState.TryParse`, `HeldPage.cs:13`, `:32`), `DeskProposals.Ask` (here `DeskProposals.Request`,
+  `ShowBusNodes.cs:238`), `StagewatchLinkService.Resolve` at `:225-241` (here `:1174`, the target a dial resolves), `Twin.cs`'s `CarriesSecrets` including `Web` (here `:426`, `Interactive` and `Weather`, the
+  kept pages riding the `KEPT` word beside `Join` and `Welcome` since round 89), `WebConfig.Passes` in the show (here a book
+  file, `patterns.webpasses.json`, `WebPasses.cs`), a `Take(12)` in `StagewatchFollow.cs` (not in this tree) and
+  `WindowCertificate.Decide` (not yet written: no `ServerCertificateErrorDetected` handler stands in `WebFrameSource.cs`). Each
+  unit works from the code at its head, not the plan's cite.
+
+**OPEN rows to touch.** The ledger (`docs/OPEN.md`) was read whole at this opening: fifty-eight open, forty-nine closed.
+- **L105** (the held playlist's release fenced in one order) — closed by 96.1, which owes one test: the other order. In
+  `WhatWaitedUnderAHoldIsNotThePlaylistsThatComesBackOnAir` the playlist's own timer is stopped (95.3) so no tick falls between
+  `VIDEO PLAY` and the leaving; 96.1 adds the case with a tick placed between the release and the leaving and asserts, from
+  the published snapshot and the journal, what the playlist then does with the window that waited. A test that fails
+  there is a finding, not a case to loosen.
+- **L95** (every keyed Stagewatch link reads amber `legacy` until both ends speak `LINK`) — 96.1 answers it for a Stagewatch
+  that offers `LINK`; 96.4 says whether it closes whole or splits, the level-0 fallback staying for an older Stagewatch
+  (P-legacy) until Show Bus 1.4's default flip. **L66** (the fallback's reading of a 2.16's answers) read and kept.
+- **L96** (a pin kept before pins said who made them reads `first`) and **L94** (TRUST and ACCEPT on the desk alone) — read,
+  kept: 96.1 pins a certificate after the proof (13.8.2), which makes a pin by a proof and asks no person, and leaves a person's
+  Trust for the level-0 link; the maintainer's answer to L96 has not come.
+- **L84** (the side calls' lane) read: 96.1 moves where `S` is sent, not the lane. **L50** (the link has not met a real
+  Stagewatch on a real network) read, kept: no rig run is asked of the link here beyond SW22.11's.
+- **L60**, **L61** and **L40** — 96.3 and 96.2 touch them: the standby that holds no grant takes the show with that window
+  black (L60 names "a window granted to the standby by Stagewatch itself (round 96's twin `WINDOWS`)" as part of what closes
+  it); a grant is bound to this desk's Show Bus id, which is what L61 says a takeover does not carry; and a grant's address, kept
+  to survive a restart, joins L40's plain-JSON class, and stays off the twin (the plan's 96.3). 96.4 amends or closes each
+  naming the unit.
+- **L21** (the twin has never run on two machines) — DRILL scenario 23 is added unrun; the row's count reads 0 of 23 scenarios.
+  **L10** (the WebView2 screencast refused on the field machine) read: a granted page is a WebView2 page and rides the
+  screenshot poll where the screencast is refused. **L107** (no line from a Patterns screen to the window it shows) read,
+  kept: the Eye's `@` chain is the plan's round 98, round 99 here.
+- **G08, G43 and G10** are the plan's gaps the round answers; the units close them by their own rows.
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains: Stagewatch
+and this desk prove each other with PeerLink, and a Stagewatch window can be shown on a Patterns screen without the page's
+address being copied. The evidence is **a handed-in critique** — the PeerLink profile (`docs/ecosystem/peerlink.md`, its
+Patterns Round PL) and *windows for peers* (`docs/ecosystem/windows-for-peers.md`, its PT-W2 to PT-W5), both in Stagewatch's
+tree, with the plan's critique, whose issue 13 puts 96.2 after 96.1. No maintainer's list, rig report or show laptop's files
+stand behind it.
+
+**The round's platform paths.** WebView2 showing a grant (96.2: a granted page opens in a WebView2 page, its certificate
+decision against the pinned Stagewatch, the shell observer under the window's content-security policy, a withdrawn, revoked
+or restarted grant going black) and the twin (96.3: a new word on the link between a main and its standby). Both ask a walk
+(`docs/QUALIFICATION.md` §22, and for the twin §28's takeover rows; the plan names §27, whose rows are TLS, pins and the node relay) on the next build the maintainer picks up; until its row is filled the
+round is `unwalked`, which 96.4 says in REVIEW. The rig cannot be asked at this opening: the Windows runner has one display, no
+GPU and no Stagewatch.
+
+**Measurement.** No measurement this round. The bounds the units meet are the contract's (at most four grants a window, an
+app's message to the node within `link.ws.in.bytes`, the first `hello.caps` words of `can=`) and the design's (a book of at most 64 grants); a
+deterministic test holds each where the unit lands it, and the private-address fence (`PrivateAddressFenceTests`) takes a
+grant's address as a new canary: it rides no log line, journal row, STATE, context, Eye, twin line or support bundle.
+
+**What the round does not do, said at its opening.** It adds no governor. It does not make Stagewatch grant anything: the
+operator's `window grant` is Stagewatch's. The Eye's chain from a screen to the window it shows is round 99's. `CONTEXT POST`
+over a verified link, this desk accepting `LINK` and TLS on 9697 and node devices are rounds 97 to 100. The closing sentence's
+rig verb is `SCREEN n WINDOW`, whose journal row is read beside the tile it fills; 96.4 names whether it was read.
