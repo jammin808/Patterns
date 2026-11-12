@@ -104,16 +104,27 @@ public sealed partial class MainViewModel
     /// <summary>Show Bus 1.3 §13.6.8: the Stagewatch's certificate waits for a person's Trust.</summary>
     public bool HasTrust => _trustShown.Length > 0;
 
+    /// <summary>The certificate's fingerprint as the card draws it beside TRUST ("" when none waits): the one a press trusts.</summary>
+    public string TrustShown => _trustShown;
+
     public string TrustWords => StagewatchLinkActions.Words(_trustShownName, _trustShown);
 
     private RelayCommand? _trustCertificate;
 
     /// <summary>TRUST beside the short fingerprint: the one action the card's right-click entry runs too, journalled through the action layer.</summary>
-    public RelayCommand TrustCertificateCommand => _trustCertificate ??= new RelayCommand(() =>
+    public RelayCommand TrustCertificateCommand => _trustCertificate ??= new RelayCommand(() => TrustCertificate());
+
+    /// <summary>
+    /// The TRUST press for <see cref="TrustShown"/>: the show action from the desk, journalled through the action layer, its words on
+    /// the status line and the card drawn again at once. The button, the card's right-click entry and the bench's trust line press it.
+    /// </summary>
+    public ActionResult TrustCertificate()
     {
-        StatusMessage = Report(_services.Actions.Execute(StagewatchLinkActions.TrustAction(_trustShown), ActionOrigin.Desk)).Message;
+        var result = Report(_services.Actions.Execute(StagewatchLinkActions.TrustAction(_trustShown), ActionOrigin.Desk));
+        StatusMessage = result.Message;
         PollNodes();
-    });
+        return result;
+    }
 
     /// <summary>On the desk's tick: the beacons onto the cards, the rail's word when it moved.</summary>
     private void PollNodes()

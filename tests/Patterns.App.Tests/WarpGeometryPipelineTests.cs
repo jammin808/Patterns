@@ -2,6 +2,7 @@ using Patterns.App.Rendering;
 using Patterns.Core.Model;
 using Patterns.Rendering;
 using Patterns.Core.Services;
+using Patterns.Tests;
 using SkiaSharp;
 using Xunit;
 
@@ -34,9 +35,13 @@ public class WarpGeometryPipelineTests
     {
         for (var i = 0; i < 5; i++) pipeline.Render(surface.Canvas, w, h, 1.0);                      // warm-up: the offscreen, the shaders, the geometry
         const int frames = 20;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < frames; i++) pipeline.Render(surface.Canvas, w, h, 1.0);
-        return (GC.GetAllocatedBytesForCurrentThread() - before) / (double)frames;
+        // Counted where no collection can begin (ThreadBytes): a background mark ending among the frames would add the
+        // thread's unused context to the count, up to 400 bytes a frame here, which no frame allocated.
+        var bytes = ThreadBytes.Allocating(() =>
+        {
+            for (var i = 0; i < frames; i++) pipeline.Render(surface.Canvas, w, h, 1.0);
+        });
+        return bytes / (double)frames;
     }
 
     private static SnapshotBus WhiteBus()

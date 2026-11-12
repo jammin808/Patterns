@@ -2004,7 +2004,10 @@ not write is refused, never written over), reads the token from `--token-file` a
 `--stagewatch-key-file` — never from the command line — and lets no caller node link. Its first line on stdout says it
 is ready (the ports, the show network id, the build, no secret); then it answers `clip <name> <seconds>` (a synthetic
 clip on the air; libVLC is off in its process), `propose look <title>` (to a linked Stagewatch's approval desk only,
-never applied here) and `exit` on its standard input, and refuses anything else without repeating it. A refusal at the
+never applied here), `trust <hex>` (the Nodes page's Trust press for the certificate its Stagewatch link holds the key
+back from, taken only when at least 8 hex typed begin the fingerprint the card draws then, and pressed as a person presses it;
+the wire, a deck, MIDI, the assistant and the module still cannot press it) and `exit` on its standard input, and
+refuses anything else without repeating it. A refusal at the
 start exits 2 with words, and a control listener that has not opened within 50 s exits 1; the end of the input,
 SIGTERM, SIGINT, `exit` and `--exit-after` stop it with 0. The other options: `--http`, `--wire`, `--bind`, `--name`,
 `--stagewatch <host:port>|find`, `--trust-loopback on|off`. `docs/PLAN.md` §108 is its design; `BenchHostTests` start

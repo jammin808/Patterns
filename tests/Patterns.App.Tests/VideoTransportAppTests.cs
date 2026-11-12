@@ -410,6 +410,9 @@ public class VideoTransportAppTests
                 list.Sections.Add(part);
             });
             var options = vm.ActivePattern.Media.Playlist;
+            // The playlist ticks only where this test ticks it: its own 250 ms timer, firing inside the pump VIDEO PLAY
+            // waits on, would tick it on air between the play and the leaving that "no tick between" rules out.
+            services.Playlist.Dispose();
 
             // Held before the minute; the minute comes under the hold, and both wait.
             clock = T0.AddSeconds(30);

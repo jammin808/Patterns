@@ -20,6 +20,11 @@ namespace Patterns.Bench;
 /// <item><c>propose look &lt;title…&gt;</c> — the assistant's road to a linked Stagewatch approval desk and no other
 /// (<see cref="AssistantPage.ProposeToApprovalDesk"/>): queued there, then the chip's words each time the desk moves it,
 /// or refused when no approval desk is live — never applied here in its place;</item>
+/// <item><c>trust &lt;hex&gt;</c> — the Nodes page's TRUST press, made by the lane that stands in for the person at the desk
+/// (<see cref="MainViewModel.TrustCertificate"/>, the press the button and the card's right-click entry make: journalled, its words
+/// on the status line, the card drawn again): taken only when the hex typed — at least <see cref="TrustHexMin"/> — is the start
+/// of the fingerprint the card draws beside TRUST at that moment, refused with the reason otherwise. The bench's alone: the
+/// wire, a deck, MIDI, the assistant and the module still cannot press Trust;</item>
 /// <item><c>exit</c> — the bench stops as SIGTERM stops it.</item>
 /// </list>
 /// Anything else is refused, never guessed. An unknown word is echoed only when it is a short plain word (a verb mistyped);
@@ -35,7 +40,10 @@ internal sealed partial class BenchControl
     /// <summary>The most lines read and not yet answered; the reader waits for room beyond it.</summary>
     public const int MaxWaiting = 64;
 
-    private const string Known = "unknown control (clip, propose look, exit)";
+    /// <summary>The fewest hex of the fingerprint a <c>trust</c> line types: what the desk asks a person to compare (ACCEPT's rule).</summary>
+    public const int TrustHexMin = 8;
+
+    private const string Known = "unknown control (clip, propose look, trust, exit)";
 
     private readonly AppServices _services;
     private readonly MainViewModel _vm;
@@ -188,6 +196,9 @@ internal sealed partial class BenchControl
             case "propose":
                 Propose(rest);
                 break;
+            case "trust":
+                Trust(rest);
+                break;
             case "exit" when rest.Length == 0:
                 _out.Line(new { control = "exit", ok = true });
                 _ended = true;
@@ -292,6 +303,45 @@ internal sealed partial class BenchControl
         // The approval desk's entry holds the chip while the desk can still move it (its own cap bounds them); the bench
         // only listens, so its words reach stdout for as long as there are words to say and nothing is kept past that.
         chip.PropertyChanged += (_, e) => Said(chip, title, localId, e);
+    }
+
+    /// <summary>
+    /// The TRUST press for the certificate the card draws now (UI thread, so the fingerprint compared is the one the press takes):
+    /// the typed hex is the start of that fingerprint, in either case, and the press is the desk's own
+    /// (<see cref="MainViewModel.TrustCertificate"/>), so the link compares and takes it in one step, as it does a person's press.
+    /// Each refusal says why and changes nothing; the answer names the certificate by its short fingerprint, which is public.
+    /// </summary>
+    private void Trust(string rest)
+    {
+        var hex = rest.ToLowerInvariant();
+        if (hex.Length is < TrustHexMin or > 64 || !PeerLink.IsHex(hex, hex.Length))
+        {
+            _out.Line(new { control = "trust", ok = false, error = $"trust takes at least {TrustHexMin} hex of the fingerprint the desk shows for its Stagewatch link, and nothing else" });
+            return;
+        }
+        if (!_services.State.Control.Stagewatch.Enabled)
+        {
+            _out.Line(new { control = "trust", ok = false, error = "no Stagewatch link: start the bench with --stagewatch" });
+            return;
+        }
+        var shown = _vm.TrustShown;
+        if (shown.Length == 0)
+        {
+            _out.Line(new { control = "trust", ok = false, error = "nothing waits for Trust: the Nodes card draws no certificate beside TRUST" });
+            return;
+        }
+        if (!shown[TlsFingerprint.Prefix.Length..].StartsWith(hex, StringComparison.Ordinal))
+        {
+            _out.Line(new { control = "trust", ok = false, error = $"the certificate waiting for Trust begins {TlsFingerprint.Short(shown)} — not the hex typed; nothing is trusted" });
+            return;
+        }
+        var result = _vm.TrustCertificate();
+        if (result.Status != ActionStatus.Done)
+        {
+            _out.Line(new { control = "trust", ok = false, error = result.Message });
+            return;
+        }
+        _out.Line(new { control = "trust", ok = true, fingerprint = TlsFingerprint.Short(shown), said = result.Message });
     }
 
     /// <summary>The chip's words each time the approval desk moves the proposal: pending, approved, applied, rejected….</summary>

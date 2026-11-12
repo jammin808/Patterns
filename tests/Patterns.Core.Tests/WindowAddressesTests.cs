@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Patterns.Core.Media;
 using Patterns.Core.Services;
+using Patterns.Tests;
 using Xunit;
 
 namespace Patterns.Core.Tests;
@@ -289,13 +290,13 @@ public class WindowAddressesTests
         }
         Assert.Equal(0, held);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        // Counted from a window no other thread's collection can move (ThreadBytes): what it reads is this loop's alone.
+        var start = ThreadBytes.Start();
         for (var i = 0; i < 500; i++)
         {
             foreach (var a in addresses) held += WindowAddresses.LooksPrivate(a) || !ReferenceEquals(WindowAddresses.Held(a), a) ? 1 : 0;
         }
-        var after = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Equal(0, after - before);
+        Assert.Equal(0, ThreadBytes.Since(start));
         Assert.Equal(0, held);
     }
 

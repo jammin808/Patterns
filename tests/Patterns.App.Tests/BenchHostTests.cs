@@ -1,14 +1,17 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Headless.XUnit;
+using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.Assistant;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -280,12 +283,27 @@ public class BenchHostTests
             Assert.Equal(clip.GetProperty("key").GetString(), video.GetProperty("key").GetString());
             Assert.Equal("program", video.GetProperty("role").GetString());
 
+            // trust: too few hex, or not hex, refused before anything is read; with no Stagewatch link, refused as such.
+            foreach (var (line, error) in new[]
+                     {
+                         ("trust", "trust takes at least 8 hex of the fingerprint the desk shows for its Stagewatch link, and nothing else"),
+                         ("trust 03e9b15", "trust takes at least 8 hex of the fingerprint the desk shows for its Stagewatch link, and nothing else"),
+                         ("trust 03e9b15g", "trust takes at least 8 hex of the fingerprint the desk shows for its Stagewatch link, and nothing else"),
+                         ("trust 03e9 b152", "trust takes at least 8 hex of the fingerprint the desk shows for its Stagewatch link, and nothing else"),
+                         ("trust 03e9b152", "no Stagewatch link: start the bench with --stagewatch"),
+                     })
+            {
+                bench.Send(line);
+                var answer = bench.Next(AnswerWithin);
+                Assert.Equal(("trust", false, error), (answer.GetProperty("control").GetString(), answer.GetProperty("ok").GetBoolean(), answer.GetProperty("error").GetString()));
+            }
+
             // A word the bench does not know is refused, never guessed.
             bench.Send("fish");
             var fish = bench.Next(AnswerWithin);
             Assert.Equal("fish", fish.GetProperty("control").GetString());
             Assert.False(fish.GetProperty("ok").GetBoolean());
-            Assert.Equal("unknown control (clip, propose look, exit)", fish.GetProperty("error").GetString());
+            Assert.Equal("unknown control (clip, propose look, trust, exit)", fish.GetProperty("error").GetString());
 
             // exit: answered, then the desk closes and the process ends with 0.
             bench.Send("exit");
@@ -353,7 +371,7 @@ public class BenchHostTests
             var unknown = bench.Next(AnswerWithin);
             Assert.Equal("?", unknown.GetProperty("control").GetString());
             Assert.False(unknown.GetProperty("ok").GetBoolean());
-            Assert.Equal("unknown control (clip, propose look, exit)", unknown.GetProperty("error").GetString());
+            Assert.Equal("unknown control (clip, propose look, trust, exit)", unknown.GetProperty("error").GetString());
 
             // A line past the longest is refused whole, and the next line is read as its own.
             var tooLong = bench.Next(AnswerWithin);
@@ -380,6 +398,119 @@ public class BenchHostTests
             Assert.DoesNotContain(bench.Seen.Concat(bench.Stderr), l => secrets.Any(x => l.Contains(x, StringComparison.OrdinalIgnoreCase)));
             Assert.Equal(key, Saved(home).Control.Stagewatch.ApiKey);                                  // the key reached the link, in its settings
             AssertNoSecretInHome(home, secrets);
+        }
+        finally
+        {
+            TempRun.Remove(dir);
+        }
+    }
+
+    /// <summary>
+    /// An address of this machine that is not loopback: the desk counts every address but loopback as another machine
+    /// (<see cref="StagewatchLinkService.IsLocal"/>), so a Stagewatch listening there is one the key is held back from until Trust.
+    /// </summary>
+    private static IPAddress NotLoopback()
+    {
+        var found = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up)
+            .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+            .Select(u => u.Address)
+            .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+        Assert.True(found is not null, "this machine has no IPv4 address but loopback: a Stagewatch on another machine cannot be played here");
+        return found!;
+    }
+
+    /// <summary>
+    /// Round 95: <c>trust &lt;hex&gt;</c>, the lane's stand-in for the person's Trust press beside the fingerprint (Show Bus 1.3
+    /// §13.8.2). A Stagewatch on another machine is read without the key until then; the line is taken only when its hex begins
+    /// the fingerprint the Nodes card draws, is the card's own press (journalled from the desk), and only after it does the key go. Each refusal
+    /// changes nothing, and the wire's TRUST still carries nothing and is refused: the press is the bench's control alone.
+    /// </summary>
+    [Fact]
+    public void TheBenchsTrustLineTakesOnlyTheFingerprintTheDeskShowsAndTheKeyGoesOnlyAfterIt()
+    {
+        var dir = TempRun.Folder("patterns-bench-").Path;
+        var home = Path.Combine(dir, "home");
+        Directory.CreateDirectory(dir);
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        const string Key = "swk_benchkey";
+        var tokenFile = SecretFile(dir, "token", token + "\n");
+        var keyFile = SecretFile(dir, "key", Key + "\n");
+        var http = FreePort();
+        var wirePort = FreePort();
+        while (wirePort == http) wirePort = FreePort();
+        using var cert = ShowBus12AppTests.Cert("Hall A");
+        var fp = TlsFingerprint.Of(cert);
+        var hex = fp[TlsFingerprint.Prefix.Length..];
+        var wrong = (hex[0] == '0' ? "1" : "0") + hex[1..8];                                     // eight hex that begin another fingerprint
+        var at = NotLoopback();
+        using var sw = new ShowBus12AppTests.FakeStagewatch(ShowBus12AppTests.Frame, cert, 0, at);
+        try
+        {
+            using var bench = new Bench("--home", home, "--token-file", tokenFile, "--http", http.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "--wire", wirePort.ToString(System.Globalization.CultureInfo.InvariantCulture), "--bind", "127.0.0.1",
+                "--stagewatch", at + ":" + sw.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--stagewatch-key-file", keyFile, "--control", "stdin");
+            Assert.Equal("ready", bench.Next(ReadyWithin).GetProperty("patterns").GetString());
+
+            JsonElement Trust(string line)
+            {
+                bench.Send(line);
+                var answer = bench.Next(AnswerWithin);
+                Assert.Equal("trust", answer.GetProperty("control").GetString());
+                return answer;
+            }
+
+            // Until the link has read the Stagewatch over TLS and pinned its certificate first, nothing waits; then the desk shows
+            // it, and hex that begins another fingerprint is refused by the one shown — nothing trusted, the key not sent.
+            var deadline = DateTime.UtcNow.AddSeconds(40);
+            JsonElement refused;
+            while (true)
+            {
+                refused = Trust("trust " + wrong);
+                Assert.False(refused.GetProperty("ok").GetBoolean());
+                if (refused.GetProperty("error").GetString() != "nothing waits for Trust: the Nodes card draws no certificate beside TRUST") break;
+                Assert.True(DateTime.UtcNow < deadline, "the desk never showed a certificate waiting for Trust");
+                Thread.Sleep(200);
+            }
+            Assert.Equal($"the certificate waiting for Trust begins {TlsFingerprint.Short(fp)} — not the hex typed; nothing is trusted", refused.GetProperty("error").GetString());
+            Assert.Empty(sw.Authorizations);
+
+            // The wire cannot press it: TRUST on a paired wire carries nothing and is refused as the desk's alone.
+            using var wire = new Wire(wirePort);
+            Assert.Equal("OK", wire.Say("HELLO bench-test"));
+            Assert.Equal("OK paired", wire.Say("AUTH-PROOF " + WireProof.Proof(token, wire.Nonce, "bench-test")));
+            var said = wire.Say("STAGEWATCH TRUST " + hex);
+            Assert.StartsWith("ERR", said);
+            Assert.Contains(StagewatchVerbs.DeskOnlyWords, said, StringComparison.Ordinal);
+            Assert.Empty(sw.Authorizations);
+
+            // Too few hex is refused before the fingerprint is read; eight hex that begin it, in either case, are the press.
+            Assert.False(Trust("trust " + hex[..7]).GetProperty("ok").GetBoolean());
+            var taken = Trust("trust " + hex[..8].ToUpperInvariant());
+            Assert.True(taken.GetProperty("ok").GetBoolean(), taken.ToString());
+            Assert.Equal(TlsFingerprint.Short(fp), taken.GetProperty("fingerprint").GetString());
+            Assert.StartsWith("Trusted Stagewatch", taken.GetProperty("said").GetString());
+
+            // The key goes from now, over that certificate and never in clear; and the offer is spent.
+            deadline = DateTime.UtcNow.AddSeconds(40);
+            while (sw.Authorization != "Bearer " + Key)
+            {
+                Assert.True(DateTime.UtcNow < deadline, "the key did not reach the Stagewatch after Trust");
+                Thread.Sleep(100);
+            }
+            Assert.Empty(sw.PlainAuthorizations);
+            Assert.Equal("nothing waits for Trust: the Nodes card draws no certificate beside TRUST", Trust("trust " + hex[..8]).GetProperty("error").GetString());
+
+            bench.Send("exit");
+            Assert.True(bench.Next(AnswerWithin).GetProperty("ok").GetBoolean());
+            Assert.Equal(0, bench.ExitCode(TimeSpan.FromSeconds(60)));
+
+            // Journalled as the Nodes page's press is: one row from the desk, done; the wire's TRUST a refusal of its own.
+            var rows = new ShowLog(home).Tail(200).Where(e => e.Kind == nameof(ShowActionKind.StagewatchTrust)).ToList();
+            var done = Assert.Single(rows, e => e.Outcome == nameof(ActionStatus.Done));
+            Assert.Equal("desk", done.Origin);
+            Assert.DoesNotContain(rows, e => e.Outcome == nameof(ActionStatus.Done) && e.Origin != "desk");
+            Assert.DoesNotContain(bench.Seen.Concat(bench.Stderr), l => l.Contains(Key, StringComparison.Ordinal) || l.Contains(token, StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

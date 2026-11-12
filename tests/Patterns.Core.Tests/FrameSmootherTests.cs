@@ -1,5 +1,6 @@
 using Patterns.Core.Media;
 using Patterns.Core.Services;
+using Patterns.Tests;
 using Xunit;
 
 namespace Patterns.Core.Tests;
@@ -318,9 +319,8 @@ public class FrameSmootherTests
         for (; n < 200; n++) s.Offer(n, Arrival(n));
         Assert.True(s.Measured);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        var start = ThreadBytes.Start();                                                    // a window no other thread's collection can move
         for (var k = 0; k < 600; k++, n++) s.Offer(n, Arrival(n));
-        var after = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Equal(0, after - before);
+        Assert.Equal(0, ThreadBytes.Since(start));
     }
 }
