@@ -10,6 +10,15 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 95 — 2026-11-12 — the Eye draws every other app as a cluster on a NETWORK band of its own, bounded by the canvas, with its labels readable at the fit view
+
+`round-95` · PLAN §113 · REVIEW round 95 · 3,339 tests · module 3.21.0 · evidence: a handed-in critique (the Eye design and its critique, the plan's issues 5, 6, 7, 9, 10, 11 and 14), no field files and no rig report; the one measurement is the layout's — the fit scale at 48 things, 3,304 world units in one column, 0.303 on a 1,080-px canvas and no label under 1,237 px — worked from the constants, not timed
+
+- **The round opens (95.0).** PLAN §113.1 names the round's number (the plan's round 94), reads round 94's CI runs (one
+  allocation fence in Core failed once on a runner, 1,304 bytes, for **L104**; nothing from the rig), names the OPEN rows
+  it touches (L76; L44 kept), the requester and the evidence class, and the layout's measurement. The count and the
+  module are round 94's until the units land.
+
 ## Round 94 — 2026-11-11 — one speaker message, through a followed Stagewatch when the link can carry it and on this desk with words when not; a playlist item and a stinger's clip held with their clocks; VIDEO … ON <key> for a layer's or a screen's own clip
 
 `round-94` · PLAN §112 · REVIEW round 94 · 3,339 tests · module 3.21.0 · evidence: a handed-in critique (patterns-playmap-side's G21 and G48 with the plan's critique, which put L49 back), beside this tree's own rows L48 and L49 from round 86 and Stagewatch's `message.e2e.cjs`, the bytes 94.1's fake is to copy; no measurement

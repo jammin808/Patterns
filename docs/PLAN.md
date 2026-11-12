@@ -15325,3 +15325,93 @@ proposes only the bare forms (L100).
   outcome (applied, accepted, refused, unconfirmed, not-sent), bound, seen — read beside the stage page, whose one
   speaker message and its ACK are those rows' message; beside it, VIDEO PAUSE's row for a playlist item, read beside the
   playlist's "Held … left".
+
+## 113. Round 95 — the Eye's NETWORK band: every other app a cluster on a band of its own, bounded by the canvas, its labels readable at the fit view, and the picture's cost taken off the desk's thread
+
+### 113.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 94 — its units P94.0 to P94.3, the fourth train's Patterns round — under
+the number §110.1's key gives it: round 95 here, §113, not the plan's §112. The plan is the cross-app plan of record
+(`docs/ecosystem/master-plan.md` in Stagewatch's tree); its closing note says the same of the numbers. The units keep
+their order and their dependencies:
+
+| The plan's unit | Here | What it is |
+|---|---|---|
+| P94.0 | 95.0 | this opening: PLAN §113's first lines and the changelog's round 95 entry |
+| P94.1 | 95.1 | the NETWORK band: per-app clusters on a band of their own, bounded by the canvas (EYE.1; the design's F1) |
+| P94.2 | 95.2 | the Eye's cost and marks: revisions not contexts, the walk cached, parallel edges, shapes at every scale (the design's F5, F6, F7) |
+| P94.3 | 95.3 | the papers (PLAN §113, REVIEW, CHANGELOG, README, REMOTE, COMPANION, EYE.md, OPEN) and round 94's tag row |
+
+The plan's check for this unit greps for `^## 112\. Round 94`; here it is `^## 113\. Round 95`. Round 94 ran one unit
+more than the plan's round 93 (94.4, the speaker message's mends, was inserted), so what the plan calls its dependency
+P93.4 is 94.5 here, `fa5d76b`, the papers; this opening starts on it. Round 95 waits on no other tree's unit: the
+plan gives P94.1 to P94.3 no dependency outside this tree, and the other apps' own publishing duties (the design's
+SB-EYE, PM-EYE.1, AG-EYE.1) are theirs. A line this round draws from another app is drawn from what that app publishes
+today; where it publishes nothing, the band says so and draws nothing (§113.1 *what the round does not do*).
+
+**What the files said.** Nothing from the rig: `docs/field/` holds only its README, no report has arrived since round 79
+began keeping them, and the last files read were round 78's (§96.1). The files this opening reads are CI's, read from
+the runs of round 94's pushes in the shape §96.1 reads a report:
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 43110257591, 94.1 (2026-11-11 22:15 UTC) — test | One failure of 972 in the App suite (`StageSpeakerAppTests.ACuesRowSettlesWhenItsMessageIsClearedHereAndACuesClearOnItsOwnReceipt`), 19 m; every other suite and job green | The test read `Done` where it waited for `Requested`; the test's wait was mended in round 94 (§112.10) | Nothing: closed in round 94 |
+| 43131691335, 94.2 and 43141987261, 94.3 | Green, every job (94.3's: `test`, `lifecycle`, `windows-smoke`, `rollback-script`, `companion-module`, `portable-exe`; `release` skipped for no tag) | The hold with its clock and `VIDEO … ON <key>` held on a runner | Nothing |
+| 43148556346, 94.4 (2026-11-12 03:29 UTC) — test | One failure of 1,558 in Core: `WindowAddressesTests.TheFenceAllocatesNothingForAnAddressWithNoPassOrOneAlreadyHeld`, `Assert.Equal(0, after - before)` at `WindowAddressesTests.cs:298`, actual 1,304 bytes over 3,000 calls on the test's thread; Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3 and App 992 passed (3,339 in all, round 94's count); `lifecycle`, `windows-smoke`, `rollback-script` and `companion-module` green; `portable-exe` and `release` skipped behind the red job | An allocation fence over `WindowAddresses.LooksPrivate` and `Held` that 94.3's run, and every run before it, passed, failed once with 1,304 bytes. Nothing in round 94 touched `WindowAddresses`. The cause is not known: a first-use or tiering cost on the measuring thread is a guess, not a finding | A row, not a fix here: **L104**, added by 95.3 with the run's numbers, and a deterministic bound if it recurs — "measured, then governed" asks for a second sighting and a cause before the fence is loosened; the fence is not skipped, disabled or relaxed |
+| the head, `fa5d76b` (94.5, the papers) | Round 94's papers are the head of the branch; its run is not read at this opening | The papers' own validate ran all seven suites and the module on the committing machine | Round 95's papers read it, beside the next push's |
+
+**OPEN rows to touch.** The ledger (`docs/OPEN.md`) was read whole at this opening: fifty-six open, forty-seven closed.
+- **L76** (a hello anyone can send lights the Eye's problems) — 95.1 touches it: the plan's rule that the rail, `worst` and
+  the headline count only this desk's own nodes, their links and the cards a link needs moves part of what the row
+  asks. 95.3 says whether the row closes or is amended; the plan gives the whole of its closing to a later round.
+- **L44** (the problems queue's memory) — read, kept open: the design's §13 names it as not done.
+- **L74** and **L85** (this desk's own id said elsewhere; its own context's per-field sizes) — read, not touched: no
+  unit here moves the builder or the hello's reader.
+- **To add by 95.3, from the design's §13, if the units leave them:** the replay does not relight link edges from the
+  journal's link rows; NDI chains across apps are not drawn (PlayMap knows an NDI source by name, not by Show Bus id); the
+  band draws another app from what it publishes and nothing it does not. **L104** (the allocation fence) as above.
+- **G24** (the Eye's network, the gap map's) is the gap the round answers; the units close it by their own rows.
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains: the
+Eye "knows about all connected apps, nodes and devices" and is to be updated to the standards the Show Bus and PeerLink
+now set. The evidence is **a handed-in critique** — the Eye design (`docs/ecosystem/eye.md` in Stagewatch's tree, whose §1.5
+gives the faults F1 to F10 and §8 the geometry) and its critique, which the plan folded in (its issues 5, 6, 9 and 14 are
+this round's 95.1; 7, 10 and 11 are 95.2; 20 the papers). No maintainer's list, rig report or show laptop's files stand
+behind it, and the only measurement is the one below.
+
+**The layout's measurement.** The fit scale at 48 things, read from the constants at this head and worked, not timed:
+- **Where the things go.** Every other app's item is an `EyeNode` of kind `ShowAppItem` in the CONTROL plane at tier 3
+  (`Eye.cs:880`), at most a dozen per app, the reds and ambers first (`Eye.cs:872`); a tier's cell is one vertical stack
+  (`EyeLayout.cs:121`, `:133`) of `NodeH` 52 and `RowGap` 16 (`:84`, `:86`) inside a band padded `BandPad` 28 at each end
+  (`:88`). The reference room is Stagewatch, PlayMap and AGMessage at 12 things each and three timer nodes at 4 — 48
+  things in the one column.
+- **The column.** 48 × 52 + 47 × 16 + 2 × 28 = **3,304** world units (48 × 68 − 16 + 56, the same number).
+- **The camera.** `EyeCamera.FitTo` scales to `(H − 80) / world height` (`pad` 40 each side, `EyeCamera.cs:50-55`),
+  floored at `MinScale` 0.12 (`:15`). On a 1,080-px canvas the column alone gives (1,080 − 80) / 3,304 = **0.303**; the
+  band is one of four in the world, so the whole picture fits smaller still.
+- **What the scale buys.** A node's label is drawn only at scale 0.35 or more and its sub line at 0.6 or more
+  (`EyeCanvas.cs:217`, `:222`): below 0.35 a node is a dot with no word. 0.35 × 3,304 + 80 = 1,236.4, so the column alone
+  shows **no label at the fit view on any canvas under 1,237 px tall**, and a laptop's 1,080-px Eye page reads a column of
+  dots.
+- **What the round holds.** The design's §8 puts the same room in six clusters, three to a row, at about 0.45 on a
+  1,080-px canvas, and its fence asserts a fit scale of at least 0.35 computed from the layout and the camera with no
+  rendering. 95.1 writes that fence over this reference room (and over a room of 128 apps, whose cards must still fit
+  the bounds the plan gives), so the claim is a test that fails the build, not a picture.
+- **No timing.** The round takes no timing at its opening: the layout's cause is geometry, and the cost of the per-second
+  hash (the design's F5: every context serialised on the desk's thread, about 30 KB today, computed from the caps, never
+  taken) is a computation too. 95.2 records the rebuild's duration and node count in `patterns.metrics.csv` so that a later
+  round can govern from a measured cause; this round adds no governor — the bounds are what a person can read.
+
+**The other trees, read at this opening.** Stagewatch's head is `7c8b738` (its 2.21 code and the papers that follow it
+through `af6b7e0`); Mapper's is `783319e1`. `docs/SHOWBUS.md` and `tools/showbus/peerlink-peer.mjs` match both trees'
+copies byte for byte (`cmp`). Stagewatch's interop lane still pins this tree at `5a8ad8f` (`tools/interop/siblings.json`),
+so no lane row reads rounds 92 to 95. `.github/scripts/tag-rounds.sh`'s table holds its rows to round 93 (`b57410d`);
+round 94's row (`fa5d76b`) is 95.3's to write, and the maintainer's run makes the tags.
+
+**What the round does not do, said at its opening.** It adds no verb and no wire word: the NETWORK band is the Eye's
+drawing of facts the desk already holds, and `EYE LENS NETWORK` and the STATE `eye` additions the design names wait for
+the unit that needs them. It does not make another app publish anything. It does not decide a trust question: the Eye
+reads a link's record and never makes one. A walk (QUALIFICATION §22) is not asked: no display topology, hot-plug, audio
+endpoint, WebView2, process, twin, registry or CUT/TAKE path moves. The closing sentence's rig verb is one the Eye can
+show — the NETWORK band's cluster for a followed Stagewatch, read beside the Nodes page's card for the same app — and 95.3
+names whether it was read.
