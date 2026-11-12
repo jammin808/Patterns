@@ -736,6 +736,23 @@ a refused key's hold runs (the hold ends, the key goes at the next dial); `$(pat
 forgets, a link the deck repointed carrying a key it was not bound to, or a journal row per beat. The row above stays as
 it is, unwalked.
 
+**Round 94 (a note to this walk, not a section of its own).** On a build from round 94, with the stage following the
+Stagewatch and its certificate Trusted, step (1) gains the speaker's message through it. Send `STAGE MESSAGE Wrap up`
+from the desk's stage panel (and once from the Companion deck, module 3.21.0): the reply reads "To Stagewatch <name>'s
+speaker: 'Wrap up' — its receipt and the speaker's ACK come back here.", the message is on the Stagewatch's own speaker
+screen once, and the journal holds one row for the send and one for the receipt's outcome (`applied`, or `accepted` then
+bound), read beside `/stage` on a phone, which draws that one message and no second beside it. Press its ACK on the Stagewatch's screen: the desk's row reads `done` and who answered, and
+`$(patterns:stage_speaker_ack)` reads `done`. Press ACK on this desk's `/stage` instead for a second message: it goes to
+the Stagewatch (`/api/ack/<n>/seen/<this desk>`) and, on a Stagewatch that requires crew links, comes back refused in
+its words with the button giving way to where it is answered. `STAGE CLEAR` clears this desk's message there and leaves
+a message the Stagewatch's own operator typed. Step (2) gains a cable pulled while a message is on its way: the message
+reads `unconfirmed` ("it may be on the speaker's screen"), is not sent again after the cable is back, and binds if the
+Stagewatch's frame then shows it. With the key removed, a message stays on this desk's displays and the reply says why.
+Beside it, with a playlist running: `VIDEO PAUSE` from the deck holds the playlist item and its "left" stops counting;
+`VIDEO PLAY` runs both on with no part skipped; `VIDEO PAUSE ON vid:<a layer's clip>` holds that clip alone. A fail adds:
+a message on both screens at once, a message sent twice, a refusal shown as `Done`, a clear that removes the
+Stagewatch's own message, or a held playlist that moves on. The row above stays as it is, unwalked.
+
 ## 27. TLS, the pins, the approval queue and the node relay (round 88)
 
 **Set up.** The show laptop (the desk) with a timer node on a second machine linked to it, Stagewatch 2.16 on a third

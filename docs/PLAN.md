@@ -15056,3 +15056,272 @@ The heading above and the changelog's entry name what the round means to land; 9
 holds the changelog's newest round to the plan's, so round 94's entry opens in this commit. From here until 94.4,
 `tag-rounds.sh` stops at round 93 ("neither in the table nor a tag") unless `round-93` was made at `b57410d` first;
 94.4 writes round 93's row, and the round's own tag waits for that commit.
+
+**The units as they landed (read at the papers).** The opening's table named the papers 94.4. The round inserted a unit
+before them: 94.4 is a mends unit, and the papers are 94.5 — the plan's P93.4 under this tree's next number, as the
+renumbering note numbers every unit the plan did not foresee. Why: 94.2's whole App runs, which ran 94.1's tests beside
+its own, met three faults of 94.1's speaker message and wrote them down as found, not mended — a STAGE CLEAR between a
+message's applied receipt and the frame that names it stayed on this desk and never asked the Stagewatch; a speaker
+POST whose connection closed before an answer byte was sent again by the HTTP handler on a new connection and read
+`not-sent` where 13.12.3 says `unconfirmed`; and a hub's wire port awaited on a 15 s clock — and 94.3's whole run met a
+fourth, a STATE push read after the control wire's long-line refusal (`AudienceFuzzTests`, one of L81's three). Three
+are faults of the product, two of them in the round's own code: papers that wrote them into OPEN and closed the round
+would have shipped a clear that leaves the speaker's message up and a message that may run twice. So the mends were
+a unit of their own, with its own tests and mutation checks, before the papers (§112.6). Every unit of 94.1 to 94.4 is
+committed (`72e73ca`, `fd91272`, `66fd5c5`, `266f23e`), so none moved under R3, and nothing in these papers waits on
+another tree. The tag row the opening gave 94.4 is these papers' (`b57410d`, round 93's last commit). Sections 112.2 to
+112.10 are written by 94.5.
+
+### 112.2 One speaker message, through the Stagewatch the stage follows (94.1 — G21)
+
+**The harm.** While the stage followed a Stagewatch, STAGE MESSAGE changed this desk's stage alone. The room held two
+speaker messages — this desk's on its pages beside the Stagewatch's time, the Stagewatch's own reaching only
+`/api/stage`'s `follows.message`, which no page read — and neither desk knew of the other's.
+
+**What landed** (`72e73ca`).
+- **The route.** While the stage follows a Stagewatch and the link can carry it (§112.1: the stage follows, the
+  Stagewatch is not stuck, the node routes are open, so at level 0 a person's pin or loopback), STAGE MESSAGE to the
+  speaker is kept here as a `StageMessage` marked `via` `stagewatch` and posted as `POST
+  /api/message/<one percent-encoded segment>/info/<slow|off>/ack` with the key and a 13.12.1 id in `X-Request-Id`
+  (`StageMessagePath`). The bytes are the ones Stagewatch's own contract test pins (`message.e2e.cjs` at `b256a9f`),
+  checked into the tests with the file's hash (`StagewatchMessageBytes`); the scripted Stagewatch answers them. The
+  reply is `Requested` ("To Stagewatch Hall A's speaker: '…' — its receipt and the speaker's ACK come back here."), and
+  only the receipt and then the frames move it.
+- **Otherwise here, with the reason.** No key, the key waiting for Trust, a hold, a key that may read but not send, a
+  quiet or stuck Stagewatch, words the route cannot carry (over 500 characters, a lone surrogate, a segment of dots
+  alone), a stage that does not follow it, the
+  crew's channel: the message stays on this desk's displays, `Done`, and the reply says why ("… on this desk's displays
+  only; Stagewatch Hall A's displays do not show it (…)").
+- **The lane.** The speaker's calls — a message, the clear of one this desk posted, a page's ACK forwarded — are a kind
+  of side call of their own (13.7.2) on the link's handler, pin and key: one in flight, woken at once, never a beat or a
+  context read behind. A newer message replaces one not yet written (journalled "superseded"); what one connection never
+  wrote is `not-sent` with why when it ends, and the next connection sends none of it late.
+- **The outcomes** (13.12.3), one journal row each: `applied` (bound to `refs.messageId`), `accepted`, `refused` (a 409,
+  403 or 401 in Stagewatch's words; a 429 with its wait, the lane holding `Retry-After` before its next call),
+  `unconfirmed` (a timeout, a 408, a 5xx, the link gone mid-call — "it may be on the speaker's screen") and `not-sent`.
+  None sends the message again (13.12.7). An `accepted` or `unconfirmed` message binds when a frame names a signal with
+  its words that arrived after the message left — never by a new id alone. A bound message no frame shows within
+  `receipt.final.ms` of its receipt has left that stage. A message this run holds no call for (a restart, or a show
+  taken over) reads `unconfirmed`, on this desk's displays, said once; a standby moves nothing.
+- **The frames.** `messageAckBy` and `flash` are read; `messageAck` is kept as `sent`, `seen` or `done`, and an answer
+  is kept after the frame's three fields reset (`StageMessageSeen`). The pages draw one speaker message, the later of
+  the Stagewatch's and one on this desk's displays alone (`StageSpeakerChoice`, `speakerShown`). The Stagewatch's
+  message offers its ACK only where the display can give one; with no key, under a hold, on a node alone or after the
+  Stagewatch refused this desk's ACK, the button gives way to words saying where it is answered.
+- **STAGE CLEAR** clears this desk's message from the Stagewatch's stage (`/api/clearmessage`), answered or not and
+  after the frame's fields reset; it never clears the Stagewatch's own, and says so ("Stagewatch Hall A's own message
+  stays — clear it there").
+- **A cue's row** owes the message's receipt as a device's line is owed, and only the receipt settles it, never the
+  12 s clock: `Done` on `applied` or a bind, `FailedLate` on `refused` or `not-sent`, `Requested` with the outcome's
+  words on `accepted` or `unconfirmed`.
+
+**Readers reached.** The wire's and the deck's replies; STATE `stage` (`speakerFrom`, `speakerAck`, `speakerAckBy`,
+appended); `/api/stage` (`speakerShown` with `ack` and `why`; `follows.messageId`, `messageAck`, `messageAckBy`; each
+message's `via`, `ack`, `by` and `receipt`); the stage and timer pages; the desk's stage panel; a timer node's page
+through the twin relay (repainted when the frame's message moves); the stage status line; the Run strip (a message
+refused, unconfirmed or never sent that still waits here); the Eye's Stagewatch node and the assistant's facts
+(`StageService.SpeakerLine`); the context's STAGE MESSAGE row (its words); the journal; the Run page's cue row; the
+module (3.21.0: `stage_speaker_from`, `stage_speaker_ack`, `stage_speaker_ack_by`, the feedback
+`stage_speaker_ack_is`; `lines.txt` unchanged).
+
+**Not reached, said.** A node running alone answers no Stagewatch message (its page says where it is answered); on a
+node the later-wins choice reads the wall clock of the message's sending, so for a refused or unconfirmed message its
+page can draw another than the desk's; the lane's hand-over between two connections is read, not tested — the race has
+no seam (L101). A walk through a real Stagewatch is §26's.
+
+**The tests.** `StageSpeakerTests` (Core: the path for spaces, `/`, `%`, 500 and 501 characters and flash, the receipt
+reader over 13.12.3's rows, the frame fold, latest-wins, the words); `StageSpeakerServiceTests` (the service against a
+host and a link the test plays, each rule at an instant it chooses); `StageSpeakerAppTests` (a live desk against the
+scripted Stagewatch: each outcome, the lost answer, the clear both ways and behind a message, a cue's row per outcome,
+the panel, the lane, a message not delayed by a slow context read, and the key in no journal row, log line, STATE or
+page). Three mutation checks, as the commit records them (REVIEW round 94).
+
+### 112.3 A playlist item and a stinger's clip held with their clocks (94.2 — L48)
+
+**The harm.** VIDEO PAUSE and VIDEO STOP refused a playlist item and a stinger's clip (L48): their clocks would have run
+on under a frozen picture. Stagewatch's playout link refused both for those roles in this desk's words.
+
+**What landed** (`fd91272`).
+- **The playlist.** `PlaylistSequencer` gains `Hold`, `Release`, `Held`, `HeldSinceUtc` and `ItemElapsedSeconds`: a held
+  item does not advance, and the release moves its start — and a scheduled interruption's start and end — on by the
+  held span. `PlaylistService` holds and releases through it on an injectable clock; its status reads "Held 1/2: … ·
+  20s left — VIDEO PLAY runs it on" and does not count down. STOP puts the item's clip and clock back to the top, held.
+- **What comes due under a hold.** A scheduled entry whose minute comes during a hold fires at the release if still
+  inside its window (max(60 s, its own length)), else is skipped with one journal row (`PlaylistSchedule` / Skipped) and
+  one log line — never played late. A part whose start comes during a hold takes over at the release.
+- **A hold that ends on its own** — the playlist off the air, its decoder closed, replaced or at its end, its item gone
+  from the running order — ends with one journal row (`PlaylistHold` / Ended) and one log line; what waited under it is
+  forgotten, so the next playlist on air neither jumps to a stale part nor fires a stale entry.
+- **The stinger.** `StingerService.HoldClip` holds the stinger's ending with its clip: its stall guards do not run under
+  the hold and their instants move on by the held span at the release, for a decoder that says it plays under a pause
+  and one that does not. STOP on a stinger's clip stays refused, toward STINGER STOP.
+- **One rule, every reader.** `VideoClock.RoleOf` by the stinger's clip key; `VideoClock.WhyNot` is the executor's
+  refusal, the five THE CLIP right-click entries' reason and the panel's ⏯ and ⏹. STATE `video` appends `pausable` and
+  `stoppable` after `seq` (a playlist item true and true, a stinger's clip true and false, a live source false and
+  false); OSC feedback `/patterns/state/video/pausable` and `/stoppable`; the module's `video_pausable`,
+  `video_stoppable` and `video_can`; the Run strip's tip, Help and the assistant's "Clip on air:" fact say what holds
+  with it (`VideoReading.ClockHeld`). The six transport verbs answer with their words ("OK 'opener.mp4' paused at
+  1:02 — the playlist holds with it; VIDEO PLAY runs both on.").
+
+**Not reached, said.** The Eye words no clip state; the context's PAUSE and STOP rows keep their words; the phone page's
+transport buttons are static (L102). A held stinger's clip has no end of its own and defers every autosave while it owns
+the screens, until VIDEO PLAY or STINGER STOP (L103; no measurement).
+
+**Found in its runs.** One of 94.1's tests mended, the test only (its cue-clear test waited for the receipt where the
+clear asks of the frame — CI's run on `72e73ca` failed on it); three faults of 94.1's left as found for 94.4 (§112.1).
+
+**The tests.** `PlaylistAndFeedTests` (Core: hold and release, a clock set under a hold, entries inside and past their
+window, a held interruption, a part at the release, what waited forgotten), `VideoTransportTests`, `VideoClockTests`
+(Rendering: the role by clip key, a sting on one screen beside a playlist), `VideoTransportAppTests` (every reader; the
+stinger past the stall guard with both kinds of decoder; STINGER STOP from under a hold; a firing over a paused
+decoder), `AssistantTests`, the module's tests. Thirteen mutation checks, as the commit records them (REVIEW round 94).
+
+### 112.4 VIDEO … ON <key> for a layer's or a screen's own clip (94.3 — L49)
+
+**The harm.** The transport reached only the clip on air (L49); a layer's clip or a screen's own, listed in
+`videos[]` by its key, could not be driven.
+
+**What landed** (`66fd5c5`).
+- **The wire.** `VIDEO`, `VT` and `CLIP` `END [n]`, `RESTART`, `PLAY`, `PAUSE`, `STOP` and `SEEK <point>` take `ON
+  <key>`: the key is the rest of the line after the first word `ON`, spaces and case kept; `ON` with nothing after it is
+  refused, and a word after the key is part of it. `WireWriter` puts the key last. OSC takes a last `vid:…` argument.
+- **The executor** (`ShowActions.ClipOf`, `AppServices.VideosOnAir` / `VideoByKey`) checks a key against the clips the
+  air's snapshot holds: a key no clip has, a clip mounted for the preview alone under EDIT SAFE and the standby's
+  pre-rolled clip are refused, each with its own words, and never read as the clip on air. Roles follow the clip named
+  through `VideoClock.RoleOf`, so a key naming the playlist's item holds the playlist's clock, as 94.2's rule does.
+- **Readers.** STATE `videos[]` gains `air` at the end of each row (the keys `VIDEO … ON` reaches); the context lists
+  three high-risk forms in the shape Stagewatch's `PlayoutDirector.OffersOnKey` looks for — which Show Bus §6 reads as
+  a secret placeholder (L100); cue steps take `TargetKind.Clip` through the cue sheet, validator, summary and editor;
+  the assistant resolves a clip step by the cue sheet's rule and lists the other clips by role and clock, never a file
+  or a key; the Media page's right-click gains OTHER CLIPS (at most three); Help; the module's four video actions take
+  a clip key (ids unchanged); `lines.txt` gains seven lines; REMOTE's grammar, OSC and `videos[]` rows.
+
+**Not reached, said.** The desk's own transport buttons and the screen tile and layer cards act on the clip on air
+alone; other clips are reached from the Media page's right-click, the wire, OSC, cues and the deck (L102).
+
+**The tests.** `ControlProtocolTests` (Rendering), `VideoTransportTests`, `WireVocabularyTests`, `OscMapTests`,
+`ShowBusTests` (the context's rows: `OffersOnKey`'s three conditions, and that they are the only rows a §6 reader takes
+for a secret), `VideoTransportAppTests`, `AssistantTests`, the module's tests and `lines.txt`. The commit records no
+mutation check; these papers ran two (REVIEW round 94).
+
+### 112.5 What the context, the Eye and the assistant say
+
+The context's STAGE MESSAGE row keeps its verb and its place and changes its words; the three `VIDEO … ON <key>` rows are
+appended. The Eye's Stagewatch node carries the speaker's line while the stage follows; the assistant reads the same
+line and "Clip on air:" with what holds with it, and proposes no transport with a key.
+
+### 112.6 The speaker message's mends (94.4, inserted)
+
+**What landed** (`266f23e`), read against Stagewatch's message bytes and its show thread (`MainViewModel.SetMessage`,
+`SnapshotJson`).
+- **A clear between the receipt and the frame.** A message the receipt bound but no frame had shown was neither "there"
+  nor "on its way", so STAGE CLEAR stayed on this desk. A clear now asks that stage at once for a bound, unseen message
+  Follow still holds as sent — only while the receipt is within a receipt's wait on the master clock and the stage shows
+  nothing that came after the bind but the message itself. A message with no signal (id 0: anything Stagewatch's own
+  operator types) orders against nothing, so nothing is asked; past the wait with frames stopped, nothing is asked
+  either, and the words add that this desk's message may still be on the speaker's screen
+  (`StageSpeakerWords.MaybeStays`).
+- **A speaker POST never sent twice.** `SocketsHttpHandler` resends a bodiless request on a new connection when the
+  connection closes before an answer byte. Every bodiless POST on the Stagewatch link now carries an empty body — the
+  same bytes (`Content-Length: 0`) — so a command that may have reached Stagewatch is never sent again (13.12.7), and a
+  refused connect can only be the call's first, so `not-sent` means nothing left (13.12.3).
+- **A connection closed on a refusal hears nothing after it.** The long line, an HTTP request on the wire and the fifth
+  wrong token go through `ControlService.LastWordAsync`; a STATE push waiting, or landing in that window, is dropped.
+  `ControlService.AfterLastWord` is the test's hook into the window, null in the desk, restored in `finally` as
+  `TrustLoopback` is. This is L81's `AudienceFuzzTests` sighting, its cause read and closed.
+- **PlayAppTests** waits on the hub's own fact (`Listening` or `StartFailed`), not a connect probe on a clock; a failed
+  start moves every control listener to a fresh port, a bounded count of tries, and the test holds the first port so
+  the recovery path runs every pass.
+
+**The tests and mutations.** `StageSpeakerServiceTests` (the clear between receipt and frame and its four refusals; a
+clear past the wait), `StageSpeakerAppTests` (a call closed before an answer byte is unconfirmed and never sent twice),
+`AudienceFuzzTests` (nothing after a refusal). With the arrived-after-the-bind rule dropped the clear test fails; with
+the three source mends reverted together each of the three new tests failed.
+
+### 112.7 With AI offline
+
+Nothing in the round needs a key or the internet. The speaker's route is the control network to a Stagewatch the desk
+already links; the hold and the key are this machine's. The assistant reads the speaker's line and the clip's hold as
+words and proposes STAGE MESSAGE as before (review); it proposes no transport with a key, and another app's assistant
+proposes only the bare forms (L100).
+
+### 112.8 The proof
+
+- **CI.** The code units reached the remote one by one, each with its run on GitHub. Run 43110257591 on `72e73ca` (94.1):
+  red — the test job's App suite 971 of 972, `StageSpeakerAppTests`'
+  `ACuesRowSettlesWhenItsMessageIsClearedHereAndACuesClearOnItsOwnReceipt` reading `Done` where it waited for `Requested` (the test's wait for the receipt alone, mended
+  by 94.2 in the test); Core 1,544, Rendering 689, Devices 9, Audio 14, Assistant 38, Audience 3; lifecycle,
+  windows-smoke, rollback-script and companion-module green; portable-exe and release skipped. Run 43131691335 on
+  `fd91272` (94.2): every job green, `release` skipped — Core 1,555, Rendering 689, Devices 9, Audio 14, Assistant 38,
+  Audience 3, App 984 (19 m 21 s); windows-smoke the six suites, the desk's classes 33 of 33, "WebView2: ok — runtime
+  156.0.4314.58 … in 4108 ms", RUNTIME OK. Run 43141987261 on `66fd5c5` (94.3): every job green, `release` skipped —
+  Core 1,558, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 988 (18 m 56 s), "25 Scripted
+  Stagewatch (an HttpListener on localhost): reached at ::1."; windows-smoke (windows-2025-vs2026 20261103.298.1) the
+  six suites with those counts, the desk's 33 of 33, WebView2 (3395 ms) and RUNTIME OK. Run 43075392576 on `d44bc93`
+  (the opening) green. Run 43148556346 on `266f23e` (94.4) was running when these papers were written; its result is
+  the next round's to read.
+- **Core:** `StageSpeakerTests`, `StagewatchMessageBytes`, `PlaylistAndFeedTests`, `VideoTransportTests`,
+  `WireVocabularyTests`, `OscMapTests`, `ShowBusTests`, `ChangelogTests`, `DeskWordsFenceTests`.
+- **Rendering:** `ControlProtocolTests` (`RemotePresenterWarpTests.cs`), `VideoClockTests`.
+- **App:** `StageSpeakerServiceTests`, `StageSpeakerAppTests`, `VideoTransportAppTests`, `AudienceFuzzTests`,
+  `PlayAppTests`.
+- **Assistant:** `AssistantTests` (the clip on air by role, the clip target).
+- **The module:** its node tests (stage speaker variables and feedback, `video_pausable`, `video_stoppable`, `video_can`,
+  the clip key), `lines.txt` current, `npm run check`.
+- **Mutation checks:** three for 94.1, thirteen for 94.2, two for 94.3 (run by these papers) and two for 94.4, each
+  applied, built, run and restored, recorded in REVIEW round 94 under the unit.
+- **Measured:** nothing. 500 characters, 40 characters, `receipt.final.ms`, `link.sidecall.*` and `request.id.chars`
+  are Show Bus 1.3's numbers or Stagewatch's; 60 s is a schedule entry's own minute; 15 s is the stinger guard's own.
+- **At the close:** Core 1,558, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 992 (20 m 3 s) — 3,339
+  tests — and the module's 50 node tests, `lines.txt` current, `npm ci` and `npm run check` clean, run on this bench with
+  `TMPDIR` under the tree's `artifacts/` on a build of `266f23e` with these papers; the two mutation checks of §112.4 run
+  after, the tree restored and the Core and Rendering suites run again. The papers change no code under `src/`.
+
+### 112.9 What the round did not do
+
+- **No walk.** No platform path the brief names is touched (§112.1), so no walk is asked: "Walk: none asked". What only
+  a real Stagewatch shows — the message's route, its receipt, the forwarded ACK and a crew-link refusal — is §26's
+  round-94 note, and stays `unwalked` with L50 and L56.
+- **A node alone, the node's later-wins clock and the lane's hand-over** (L101).
+- **The desk's transport buttons, the tile and layer cards, the Eye's clip words and the phone's buttons** stay the
+  clip on air's (L102).
+- **A held stinger's clip has no end of its own** and defers autosaves until it is released (L103); no limit without a
+  measurement.
+- **The `ON <key>` forms are not proposable across apps** through a 1.3 approval desk until Stagewatch's reader takes a
+  name §6 does not hold (L100).
+- **A message's receipt lives in the process**: a restart reads it `unconfirmed`, said once (L97).
+- **No measurement** (§112.8).
+
+### 112.10 The ledger and the papers (94.5)
+
+- **OPEN.** Closed: L48 by 94.2 (the hold with its clock, a test per role, `video.pausable` and `stoppable`); L49 by
+  94.3 (`VIDEO … ON <key>`, refused for a key not mounted, the preview's alone or pre-rolled); L99, G21's "two speaker
+  messages while following", added and closed by 94.1 with 94.4's mends. Added: L100 (the `ON <key>` rows a §6 reader
+  takes for a secret placeholder; Stagewatch's chain closes it, then this desk renames the value), L101 (94.1's node
+  side and the lane's hand-over), L102 (the transport's readers that act on the clip on air alone), L103 (a held
+  stinger's clip defers autosaves without an end). Amended: L81 (its `AudienceFuzzTests` sighting read and closed by
+  94.4; two stand), L97 (a speaker message's receipt in the process), L50 (round 94's route through §26's note). Read
+  and kept: L56, L63 (the bench's clip pauses and seeks, so SW20.13's rows can read 94.2 there), L71, L94 to L96, L98.
+  Fifty-six open, forty-seven closed.
+- **QUALIFICATION.** §26 gains a round-94 note (the message through a real Stagewatch: applied, a forwarded ACK, a
+  refused crew-link ACK, a clear, a cable pulled mid-call; a playlist item held from the deck and by its key). The row
+  stays `unwalked`.
+- **The walk.** None asked: no display topology, hot-plug, audio endpoint, WebView2, process or watchdog, twin protocol,
+  registry or CUT/TAKE path moves. A timer node's page repaints from the twin's relay as before.
+- **The other trees, read at the papers.** Stagewatch's head, local and on its remote, is `af6b7e0`, after SW21.3 to
+  SW21.9 (its fourth train's code); SW20.13 (its VT interop rows) and SW20.14 (the 2.20 papers and release) wait on
+  these papers, and its working tree holds another chain's unit in progress, not read. Mapper's head is `783319e1`.
+  `docs/SHOWBUS.md` and `tools/showbus/peerlink-peer.mjs` match both trees' copies byte for byte (`cmp`). The interop
+  lane still pins this tree at `5a8ad8f`.
+- **R1, read for this close** as §111.9 read it: the second train's Stagewatch releases are the maintainer's PC work,
+  not run; no unit of this round waits on a release.
+- **The papers:** §112.1's closing paragraph and §112.2 to §112.10; REVIEW round 94; CHANGELOG (94.1 to 94.4 and these
+  papers, the count, module 3.21.0); README (the ledger's entry for round 94, the stage paragraph, the VT clock's round
+  94 line, the count); `docs/REMOTE.md` (VIDEO PAUSE and STOP for every role, STAGE MESSAGE and CLEAR through a followed
+  Stagewatch, STAGE STATUS's new fields, STATE `stage` and `video`, the OSC feedback, one room one timer);
+  `docs/COMPANION.md` (round 94, 3.21.0); `docs/QUALIFICATION.md` §26's round-94 note; `docs/OPEN.md`; the tag table's
+  row 93 (`b57410d`). No code changes.
+- **The rig's reading.** STAGE MESSAGE through a followed Stagewatch is one journal row per step — sent, the receipt's
+  outcome (applied, accepted, refused, unconfirmed, not-sent), bound, seen — read beside the stage page, whose one
+  speaker message and its ACK are those rows' message; beside it, VIDEO PAUSE's row for a playlist item, read beside the
+  playlist's "Held … left".

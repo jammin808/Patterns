@@ -4436,3 +4436,136 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   the key held for one Trust press after the upgrade, a hold across a restart, the beat on its own timer, the level-0
   amber, LINK AGAIN and FOLLOW from a deck, a typed ACCEPT and the wire's refusals — which §26's and §27's round-93
   notes add to their steps. The three rows stay unwalked.
+
+## Round 94 review — one speaker message through a followed Stagewatch, a playlist item and a stinger's clip held with their clocks, VIDEO … ON <key>, and the speaker message's mends
+
+### 94.0 — the round opened
+
+- The plan's round 93 (its P93.0 to P93.4) is round 94 here, §112, under §110.1's key. The requester: the maintainer's
+  show-network ask, the plan's third train ("every link honest from its own end"). Evidence class: a handed-in critique —
+  patterns-playmap-side's G21 and G48 with the plan's critique, which put L49 back — beside this tree's L48 and L49 from
+  round 86 and Stagewatch's `message.e2e.cjs` (`b256a9f`), the bytes 94.1's fake copies. `docs/field/` holds only its
+  README; CI's run 285 on round 93's papers was read as the files. No measurement.
+- The opening read every citation again at `b57410d` (R6) and took the head where it differs: the contract file's
+  bytes, not the plan's shorthand; a frame's `messageAck` never `seen`; the speaker's calls a side-call kind of their
+  own; 13.12.3's five outcomes, a timeout `unconfirmed`; a cue's row settled on the receipt, never the 12 s clock; the
+  refusals at `:499` and `:514`; the stinger's guard tripping at the release; the key the rest of the line, naming only
+  a clip the programme holds; the context's `ON <key>` rows read by §6 as a secret placeholder.
+
+### 94.1 — one speaker message (G21)
+
+- **Done.** PLAN §112.2. `StageMessagePath`, `StageReceipt`, `StageMessageSeen`, `StageSpeakerChoice`,
+  `StageSpeakerWords` (Core); the route, the lane, the outcomes, the frames, STAGE CLEAR and a cue's row in
+  `StageService`, `StagewatchLinkService` and `CueStackService`; every reader of §112.2's list; the module's 3.21.0
+  variables and feedback. `StageSpeakerTests`, `StagewatchMessageBytes`, `StageSpeakerServiceTests`,
+  `StageSpeakerAppTests`.
+- **Mutation checks** — three, as the unit's commit records them (each applied, run and reverted): the bind held to
+  the on-desk instant; the clear asked only for an unanswered message; the clear written whatever became of its
+  message — each fails a test.
+- **Not reached, said:** a node alone answers no Stagewatch message; a node's later-wins reads the wall clock of the
+  sending; the lane's hand-over between connections is read, not tested (L101).
+- **CI:** its run on `72e73ca` was red on its own `StageSpeakerAppTests` cue-clear test (971 of 972), the race 94.2
+  mended in the test.
+
+### 94.2 — a playlist item and a stinger's clip held with their clocks (L48)
+
+- **Done.** PLAN §112.3. `PlaylistSequencer.Hold`/`Release`/`Held`/`HeldSinceUtc`/`ItemElapsedSeconds`, the
+  playlist's held status, the schedule's window at the release, a hold that ends on its own with one row,
+  `StingerService.HoldClip`, `VideoClock.RoleOf` and `WhyNot` in every reader, STATE `video.pausable` and `stoppable`,
+  OSC's two addresses, the module's `video_pausable`, `video_stoppable` and `video_can`, the worded replies.
+- **Mutation checks** — thirteen, as the unit's commit records them, each caught and restored: the role by any
+  stinger clip; forgetting only when the hold ends off the air; the sequencer's forget emptied; no row for an item that
+  left the playlist; a paused decoder not told to play at a firing; a republish off the air; no held status; ClockHeld
+  from the role; the stinger's hold taken out (the leg that plays under a pause fails inside the hold, the other at the
+  first tick after PLAY); and five of the sequencer (the held return, a release that moves nothing, an entry never
+  missed, a schedule that fires under a hold, a part that takes over under a hold).
+- **Found in its runs:** 94.1's cue-clear test mended (it now waits for the receipt and the frame, `OnTheirStage`);
+  three faults of 94.1's written down as found and left to 94.4 (below).
+- **Not reached, said:** the Eye's clip words, the context's PAUSE and STOP rows' words, the phone's buttons (L102); a
+  held stinger's clip defers autosaves until it is released (L103).
+
+### 94.3 — VIDEO … ON <key> (L49)
+
+- **Done.** PLAN §112.4. The grammar in `ControlProtocol` and `WireWriter`, OSC's last `vid:` argument,
+  `ShowActions.ClipOf`, `AppServices.VideosOnAir`/`VideoByKey`/`OtherVideosOnAir`, the three refusals, STATE
+  `videos[].air`, the context's three rows, `TargetKind.Clip` through the cue sheet, the assistant's clip target and
+  facts, the Media page's OTHER CLIPS, Help, the module's clip key and seven `lines.txt` lines, REMOTE's rows.
+- **The review's items, folded in at the unit:** the other clips taken out by key, not by `Skip(1)`; `videos[].air` in
+  place of an OPEN row for a key that cannot be told apart; `ResolveTarget`'s Clip case; a parser case only the new
+  split produces (`VIDEO SEEK END ON vid:x`); two test comments without a round number or another tree's unit id.
+- **Mutation checks** — the unit's commit records none, so these papers ran two, each applied to Core, the test
+  project built, run and restored byte for byte (`git diff` of `src/` empty after each):
+  - `ON` with nothing after it read as the clip on air (`TrySplitOnKey` answering true for an empty key): six cases of
+    `ControlProtocolTests.AClipVerbWithoutItsKeyOrWithAWordOutOfPlaceIsRefused` fail (`VIDEO PAUSE ON`, `VIDEO END 5 ON`,
+    `VIDEO SEEK 83 ON`, `VT STOP ON`, `CLIP PLAY ON`, `VIDEO PAUSE ON   `), the Rendering suite filtered to
+    `ControlProtocol`, 6 of 100;
+  - `STOP` dropped from the context's `VIDEO RESTART|PLAY|PAUSE|STOP ON <key>` row: `ShowBusTests`'
+    `TheClipByKeyRowsAreTheShapeStagewatchsLinkAsksAndTheOnlyRowsASection6ReaderTakesForASecret` and
+    `TheContextListsWhatAPeerMayProposeAppendedAfterTheFourteenAndEveryFormIsAVerbOfThisDesk` fail, 2 of 66.
+- **Seen and left to 94.4:** `AudienceFuzzTests.TheControlWiresLinesAndTheTwinsFirstLineAreBoundedToo` failed once
+  in the unit's whole App run (987 of 988), a STATE push between the long-line refusal and the close.
+- **Not reached, said:** the desk's transport buttons, the tile and the layer cards (L102).
+
+### 94.4 — the speaker message's mends (inserted)
+
+- **Why a unit.** §112.1: three of the four faults 94.2's and 94.3's whole runs found are the product's — two in 94.1's
+  own code — and papers that only wrote them down would have closed a round whose clear can leave this desk's message
+  on the speaker's screen and whose message can run twice. The plan has no such unit; the round inserted it before the
+  papers, which became 94.5.
+- **Done.** PLAN §112.6. A clear between the receipt and the frame asks the stage the receipt bound, within a
+  receipt's wait and only while nothing after the bind shows; a bodiless POST carries an empty body, so the handler
+  never resends it and `not-sent` means nothing left; a connection closed on a refusal hears nothing after it
+  (`LastWordAsync`, `AfterLastWord`); `PlayAppTests` waits on the hub's own fact and moves to a fresh port on a failed
+  start.
+- **Mutation checks** — two, as the unit's commit records them: the arrived-after-the-bind rule dropped, the clear
+  test fails; the three source mends reverted together, each of the three new tests fails.
+
+### 94.5 — the papers
+
+- §112.1's closing paragraph and §112.2 to §112.10; this section; the CHANGELOG entry completed; README (the ledger's
+  round 94 entry, the stage paragraph, the VT clock's round 94 line, the count); `docs/REMOTE.md` (VIDEO PAUSE and STOP
+  for every role, STAGE MESSAGE and CLEAR through a followed Stagewatch, STAGE STATUS and STATE `stage` and `video`, the
+  OSC feedback, one room one timer); `docs/COMPANION.md` (round 94, 3.21.0); `docs/QUALIFICATION.md` §26's round-94
+  note; `docs/OPEN.md`; the tag table's row 93 (`b57410d`). No code changes.
+- **Read again at the papers:** the opening's table named the papers 94.4 — the round inserted the mends and the papers
+  are 94.5, said in §112.1. Its "STAGE messages stay this desk's" in REMOTE's *One room, one timer* is no longer true of
+  the speaker's; REMOTE's VIDEO PAUSE row still said a playlist item and a stinger answer `ERR`; STAGE STATUS and STATE
+  `stage` listed none of 94.1's fields and `video` neither of 94.2's; OSC's feedback stopped at `/video/seq` — each now
+  says what the code does. The changelog's entry named only the opening.
+- Every unit of 94.1 to 94.4 is committed; none moved under R3.
+
+### The review's items, answered
+
+- **G21 — two speaker messages while following:** landed as 94.1 with 94.4's mends; L99 added and closed.
+- **G48 — VIDEO PAUSE and STOP on a playlist item and a stinger's clip:** landed as 94.2 (L48) and its second half,
+  `VIDEO … ON <key>`, as 94.3 (L49). Stagewatch's link reads `video.pausable`, `stoppable` and the `ON <key>` rows; its
+  VT interop rows (SW20.13) wait on these papers.
+- **X-declines — the crew-key ACK policy:** a forwarded ACK that Stagewatch refuses at its door is shown as a refusal,
+  and the page's button gives way to words saying where it is answered.
+
+### The ledger's rows, answered
+
+- **Closed:** L48 (94.2); L49 (94.3); L99 (added and closed: 94.1 with 94.4).
+- **Added:** L100 (the `ON <key>` rows a §6 reader takes for a secret), L101 (94.1's node side and the lane's
+  hand-over), L102 (the transport's readers that act on the clip on air alone), L103 (a held stinger's clip defers
+  autosaves).
+- **Amended:** L50 (round 94's route, §26's note); L81 (its `AudienceFuzzTests` sighting read and closed by 94.4; two
+  stand); L97 (a speaker message's receipt in the process).
+- **Read and kept:** L56, L63, L71, L94 to L96, L98.
+- Closed rows: forty-seven; open: fifty-six.
+
+### The suites
+
+- At the close, on this bench with `TMPDIR` under the tree's `artifacts/`, on a build of `266f23e` with these papers: Core
+  1,558, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 992 (20 m 3 s) — 3,339; each suite's temporary
+  folder fence passed (a fault fails it). The module's 50 node tests (the package test still leaving its
+  `patterns-module-*` folder, L93), `lines.txt` current, `npm ci` and `npm run check` clean. After the two mutation checks
+  the tree was restored and the Core and Rendering suites run again on its build. No code changes under `src/`.
+- CI: the runs on `72e73ca` (red, 94.1's own test, mended by 94.2), `fd91272`, `66fd5c5` and `d44bc93` (green, release
+  skipped) are read in PLAN §112.8; the run on `266f23e` (94.4) was in progress at the papers and is the next round's to
+  read. These papers go out at the maintainer's next push.
+- The rig's reading: STAGE MESSAGE's journal rows through a followed Stagewatch — sent, the receipt's outcome, bound,
+  seen — read beside the stage page's one speaker message and its ACK; VIDEO PAUSE's row for a playlist item beside the
+  playlist's "Held … left" (§112.10).
+- Walk: none asked — no platform path the brief names is touched. What only a real Stagewatch shows is §26's round-94
+  note, beside L50 and L56; the row stays unwalked.

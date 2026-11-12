@@ -12,8 +12,37 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 94 — 2026-11-11 — one speaker message, through a followed Stagewatch when the link can carry it and on this desk with words when not; a playlist item and a stinger's clip held with their clocks; VIDEO … ON <key> for a layer's or a screen's own clip
 
-`round-94` · PLAN §112 · 3,225 tests at the opening · module 3.20.0 at the opening · evidence: a handed-in critique (patterns-playmap-side's G21 and G48 with the plan's critique, which put L49 back), beside this tree's own rows L48 and L49 from round 86 and Stagewatch's `message.e2e.cjs`, the bytes 94.1's fake is to copy; no measurement
+`round-94` · PLAN §112 · REVIEW round 94 · 3,339 tests · module 3.21.0 · evidence: a handed-in critique (patterns-playmap-side's G21 and G48 with the plan's critique, which put L49 back), beside this tree's own rows L48 and L49 from round 86 and Stagewatch's `message.e2e.cjs`, the bytes 94.1's fake is to copy; no measurement
 
+- **One speaker message (94.1, G21).** While the stage follows a Stagewatch and the link can carry it, STAGE MESSAGE to
+  the speaker goes to that Stagewatch's own speaker screen (`POST /api/message/<text>/info/<slow|off>/ack`, the bytes
+  Stagewatch's contract test pins) and the reply is *requested*: only its receipt — applied, accepted, refused,
+  unconfirmed ("it may be on the speaker's screen") or not sent, one journal row each, never sent twice — and then the
+  Stagewatch's frames move it to *seen* or *done*, with who answered. Otherwise the message stays on this desk's
+  displays and the reply says why (no key, the key waiting for Trust, a hold, a quiet or stuck Stagewatch, the crew's
+  channel…). The stage pages draw one speaker message, the later of the two; a page's ACK on the Stagewatch's message
+  is forwarded; STAGE CLEAR clears only this desk's message there; a cue's row settles on the receipt, never on the
+  clock. STATE `stage` appends `speakerFrom`, `speakerAck` and `speakerAckBy`, STAGE STATUS `speakerShown` and the
+  frame's `messageId`, `messageAck`, `messageAckBy`; the Eye, the Run strip and the assistant say where the message
+  went; the module (3.21.0) reads `stage_speaker_from`, `stage_speaker_ack`, `stage_speaker_ack_by` and lights
+  `stage_speaker_ack_is`.
+- **A playlist item and a stinger's clip held with their clocks (94.2, L48).** VIDEO PAUSE holds a playlist item and
+  its playlist's clock (a held item does not move on; a scheduled entry due in the hold fires at the release inside its
+  own time, else is skipped and journalled) and a stinger's clip with its ending (its stall guard does not put the show
+  back for the hold); PLAY runs both on; STOP puts a playlist item back to its top, held, and stays refused on a
+  stinger's clip, toward STINGER STOP. STATE `video` appends `pausable` and `stoppable`, OSC feedback
+  `/patterns/state/video/pausable` and `/stoppable`, the module `video_pausable`, `video_stoppable` and `video_can`; the
+  replies say what holds with the clip.
+- **VIDEO … ON <key> (94.3, L49).** Every clip verb names another clip the programme holds by its key from STATE
+  `videos[]` (`VIDEO PAUSE ON vid:…`, the key the rest of the line); a key not mounted, a clip only the preview holds
+  and the standby's pre-roll are refused with their words. `videos[]` gains `air`; cues, OSC, the Media page's OTHER
+  CLIPS, the assistant and the module's four video actions take the key; `lines.txt` gains seven lines. The context
+  lists the forms for Stagewatch's playout link; Show Bus §6 reads their value as a secret placeholder, so another app's
+  assistant proposes only the bare forms (L100).
+- **The speaker message's mends (94.4, inserted).** A STAGE CLEAR between a message's receipt and the frame that shows
+  it now asks the Stagewatch; a speaker POST is never sent a second time by the HTTP handler; a control connection
+  closed on a refusal hears nothing after it (L81's `AudienceFuzzTests` sighting, read and closed); `PlayAppTests`
+  waits on the hub's own fact.
 - **Opened (94.0).** The plan's round 93 — P93.0 to P93.4, the third train's second Patterns round — is this round, 94.0
   to 94.4, at PLAN §112 (the plan's §111), by §110.1's key. Nothing in `docs/field/`, and no push or report in the two
   weeks since round 93's papers; CI's run 285, on those papers (`b57410d`), read as the files: every job green but
@@ -43,6 +72,16 @@ is the Bitfocus Companion module, where its version moved.
   note to §26 for what only a real Stagewatch shows. STAGE MESSAGE's journal row with the receipt's stage, read beside
   the stage page, closes the round. The papers (94.4) write what landed, REVIEW round 94, the count at the round's end
   and round 93's tag row (`b57410d`); the round's tag waits for them.
+- **The papers (94.5).** The round inserted 94.4 for what 94.2's and 94.3's whole runs found in 94.1's speaker message,
+  so the papers the opening named 94.4 are 94.5; every unit is committed and none moved. OPEN: L48 (94.2) and L49
+  (94.3) closed; L99, G21's two speaker messages, added and closed; L100 (the `ON <key>` rows read as a secret
+  placeholder), L101 (the speaker message on a node alone, a node's later-wins clock, the lane's hand-over), L102 (the
+  desk's transport buttons, tile and layer cards, the Eye and the phone act on the clip on air alone) and L103 (a held
+  stinger's clip defers autosaves) added; L50, L81 and L97 amended. QUALIFICATION §26 gains a round-94 note. Round 93's
+  row in the tag table. CI on the code units: 94.1's run red on its own cue-clear test, mended in 94.2's; 94.2's and
+  94.3's runs green, 94.3's with 3,335 tests. Walk: none asked. STAGE MESSAGE's journal row with the receipt's stage,
+  read beside the stage page, closes the round, and beside it VIDEO PAUSE's row for a playlist item, read beside the
+  playlist's "Held … left".
 
 ## Round 93 — 2026-10-27 — PeerLink from Patterns' side: the core and its vectors in Core, the Stagewatch link on it at level 0, the link's record in every reader, and the STAGEWATCH verbs on the wire, a deck and the menus, with trust, accept and the key on the desk alone
 

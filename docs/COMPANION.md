@@ -470,6 +470,33 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 94 — the speaker's one message, a clip held with its clock, and a clip by its key (module 3.21.0)
+
+- **The speaker's message** (3.21.0, a minor version: variables, feedbacks and an option added). While the desk's stage
+  follows a Stagewatch and its link can carry it, a deck's STAGE MESSAGE goes to that Stagewatch's speaker screen and the
+  button's answer is `OK To Stagewatch Hall A's speaker: '…' — its receipt and the speaker's ACK come back here.`; the
+  deck reads what came of it from STATE `stage`. `$(patterns:stage_speaker_from)` is where the speaker's message is —
+  `stagewatch`, `desk` (the desk's displays only) or empty; `$(patterns:stage_speaker_ack)` its receipt's word —
+  `requested`, `accepted`, `sent`, `seen`, `done`, `refused`, `unconfirmed` or `not-sent`; `$(patterns:stage_speaker_ack_by)`
+  who answered, as the Stagewatch names them. The feedback *The speaker's message — its receipt is …*
+  (`stage_speaker_ack_is`) lights a key on any of those words — a WRAP UP key amber while it waits, green once seen.
+  `stage_pending` keeps its meaning and clears once a message sent through the Stagewatch is answered there. When the
+  link cannot carry it the button's answer says why, and the message is on the desk's displays only. A desk before round
+  94 sends none of the three: they read empty and the feedback lights for no word.
+- **A clip held with its clock.** The transport's PAUSE now holds a playlist item with its playlist's clock and a
+  stinger's clip with its ending; STOP puts a playlist item back to its top, held, and is refused on a stinger's clip
+  (`STINGER STOP` puts the show back). `$(patterns:video_pausable)` and `$(patterns:video_stoppable)` read STATE's
+  `video.pausable` and `video.stoppable` (`yes` or `no`; `no` with no clip; empty from a desk that does not say), and the
+  feedback *The clip on air can be paused — or stopped* (`video_can`) lights a PAUSE or a STOP key by them, so a STOP key
+  goes dark under a stinger's clip before it is pressed.
+- **A clip by its key.** The four video actions (*jump to the clip's last seconds*, *from the top*, *pause, play on or
+  stop*, *move … to a point*) gain a **Clip key** option: empty is the clip on air, as before; a key from STATE
+  `videos[]` (`vid:` and its file) sends `VIDEO <verb> … ON <key>` for that clip among the clips the programme holds — a
+  layer's or a screen's own. The desk refuses a key it does not hold on air, a clip only the preview holds and the
+  standby's pre-roll, each in its words. The action ids are unchanged, so saved pages keep working; `test/lines.txt`
+  gains the seven `ON` lines.
+- The version moves to 3.21.0 in every file that carries it, once for the round.
+
 ## Round 93 — the Stagewatch link's record and its verbs on a deck (module 3.20.0)
 
 - **The link's own record** (3.20.0, a minor version: variables, a feedback and actions added).
