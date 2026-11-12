@@ -102,17 +102,58 @@ public static class VideoClock
         if (wanted is null) return null;
         var source = resolve(wanted.Key);
         if (source is null) return null;
-
-        var state = snap.State;
-        var role = VideoRole.Layer;
-        if (!string.IsNullOrEmpty(stingerClipKey) && wanted.Key == stingerClipKey) role = VideoRole.Stinger;
-        else if (state.Pattern.Kind == PatternKind.Media && state.Pattern.Media.Source == MediaSource.Video &&
-                 wanted.Key == InputKeys.Video(state.Pattern.Media.VideoPath)) role = VideoRole.Program;
-        else if (snap.PlaylistNow is { IsVideo: true } now && wanted.Key == InputKeys.Video(now.Path)) role = VideoRole.Playlist;
-
-        return new VideoReading(wanted.Key, wanted.Target, role, source.PositionSeconds, source.DurationSeconds,
+        return new VideoReading(wanted.Key, wanted.Target, RoleOf(snap, wanted.Key, stingerClipKey), source.PositionSeconds, source.DurationSeconds,
             source.IsPlaying, source.IsEnded, wanted.Loop, source.CanSeek, source.Rate, source.IsPaused);
     }
+
+    /// <summary>
+    /// Whose clip a key is in this picture: the stinger's when it is the clip a stinger has on the screens, the
+    /// programme's own media, the playlist's item, else a layer's or a screen's own. One rule for the clip on air and
+    /// for a clip named by its key, so the clock that holds with a clip is the same whichever way it was asked.
+    /// </summary>
+    public static VideoRole RoleOf(ShowSnapshot snap, string key, string? stingerClipKey = null)
+    {
+        var state = snap.State;
+        if (!string.IsNullOrEmpty(stingerClipKey) && key == stingerClipKey) return VideoRole.Stinger;
+        if (state.Pattern.Kind == PatternKind.Media && state.Pattern.Media.Source == MediaSource.Video &&
+            key == InputKeys.Video(state.Pattern.Media.VideoPath)) return VideoRole.Program;
+        if (snap.PlaylistNow is { IsVideo: true } now && key == InputKeys.Video(now.Path)) return VideoRole.Playlist;
+        return VideoRole.Layer;
+    }
+
+    /// <summary>
+    /// The clips the programme holds, each as the transport reads it, in the picture's own order (the clip on air
+    /// first): every file the air's snapshot plays whose decoder is open. A clip mounted for the preview alone and
+    /// the standby's pre-roll are not the air's and are not here.
+    /// </summary>
+    public static IReadOnlyList<VideoReading> ReadAll(ShowSnapshot snap, Func<string, IPlayheadSource?> resolve, string? stingerClipKey = null)
+    {
+        var list = new List<VideoReading>();
+        foreach (var wanted in MediaLocator.FindWantedInputs(snap))
+        {
+            if (wanted.Kind != MediaLocator.WantedKind.VideoFile || resolve(wanted.Key) is not { } source) continue;
+            list.Add(new VideoReading(wanted.Key, wanted.Target, RoleOf(snap, wanted.Key, stingerClipKey), source.PositionSeconds, source.DurationSeconds,
+                source.IsPlaying, source.IsEnded, wanted.Loop, source.CanSeek, source.Rate, source.IsPaused));
+        }
+        return list;
+    }
+
+    /// <summary>The file a clip's key names without its folders — "b-roll.mp4" for "vid:C:\clips\b-roll.mp4"; the key itself when it is no file's.</summary>
+    public static string NameOfKey(string key)
+    {
+        var path = key.StartsWith("vid:", StringComparison.Ordinal) ? key[4..] : key;
+        var cut = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+        return cut >= 0 && cut < path.Length - 1 ? path[(cut + 1)..] : path;
+    }
+
+    /// <summary>What a clip verb answers for a key no mounted clip has. The key is never read as the clip on air.</summary>
+    public const string NotMountedWords = "No clip with that key is mounted — STATE videos[] lists them.";
+
+    /// <summary>What a clip verb answers for a clip only the preview holds: the transport is the air's.</summary>
+    public static string PreviewOnlyWords(string key) => $"'{NameOfKey(key)}' is the preview's clip, not the air's — a take puts it on the air.";
+
+    /// <summary>What a clip verb answers for the standby's pre-rolled clip: it is held until its cue goes.</summary>
+    public static string PreRolledWords(string key) => $"'{NameOfKey(key)}' is held for the standby — it plays when that goes.";
 
     /// <summary>What every transport verb answers with nothing to act on.</summary>
     public const string NoClipWords = "No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.";
@@ -175,6 +216,15 @@ public static class VideoClock
         };
         return $"{what} · {Times(r)}{HeldWords(r)}";
     }
+
+    /// <summary>
+    /// The clips the programme holds beside the clip on air, for the assistant's facts — each by its role and clock,
+    /// never a file's name or a key — and the form that drives one: "a layer's or a screen's own clip · 0:12 / 1:00 ·
+    /// 0:48 left — each is driven by its key: VIDEO PAUSE|PLAY|STOP|RESTART ON &lt;key&gt; …". "" with none.
+    /// </summary>
+    public static string OtherFactWords(IReadOnlyList<VideoReading> others)
+        => others.Count == 0 ? "" : string.Join("; ", others.Select(FactWords))
+            + " — each is driven by its key from STATE videos[]: VIDEO PAUSE|PLAY|STOP|RESTART ON <key>, VIDEO END <seconds> ON <key>, VIDEO SEEK <point> ON <key>; with no key a clip verb is the clip on air's";
 
     private static string HeldWords(VideoReading r)
     {

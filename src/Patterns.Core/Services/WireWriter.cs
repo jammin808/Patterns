@@ -37,6 +37,7 @@ public static class WireWriter
         var t = a.Target ?? "";
         var v = a.Value ?? "";
         static string Join(params string[] parts) => string.Join(' ', parts.Where(p => p.Length > 0));
+        string OnClip(string line) => t.Length == 0 ? line : line + " ON " + t;
         return a.Kind switch
         {
             ShowActionKind.OutputsOn => "GO",
@@ -144,12 +145,13 @@ public static class WireWriter
             ShowActionKind.DeckNext => "DECK NEXT",
             ShowActionKind.DeckPrev => "DECK PREV",
             ShowActionKind.DeckPage => v.Equals("last", StringComparison.OrdinalIgnoreCase) ? "DECK LAST" : Join("DECK PAGE", v),
-            ShowActionKind.VideoToEnd => Join("VIDEO END", v),
-            ShowActionKind.VideoRestart => "VIDEO RESTART",
-            ShowActionKind.VideoPlay => "VIDEO PLAY",
-            ShowActionKind.VideoPause => "VIDEO PAUSE",
-            ShowActionKind.VideoSeek => Join("VIDEO SEEK", v),
-            ShowActionKind.VideoStop => "VIDEO STOP",
+            // A clip verb's target is another clip's key (STATE videos[]), last on the line; none is the clip on air.
+            ShowActionKind.VideoToEnd => OnClip(Join("VIDEO END", v)),
+            ShowActionKind.VideoRestart => OnClip("VIDEO RESTART"),
+            ShowActionKind.VideoPlay => OnClip("VIDEO PLAY"),
+            ShowActionKind.VideoPause => OnClip("VIDEO PAUSE"),
+            ShowActionKind.VideoSeek => OnClip(Join("VIDEO SEEK", v)),
+            ShowActionKind.VideoStop => OnClip("VIDEO STOP"),
             ShowActionKind.DeviceSend => Join("DEVICE", t, v),
             ShowActionKind.Announce => Join("ANNOUNCE", v),
             ShowActionKind.AnnounceOff => "ANNOUNCE OFF",

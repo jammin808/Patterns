@@ -11,6 +11,9 @@ const SAMPLES = {
 	host: '10.0.0.9:9924', node: 'a1b2c3d4',
 }
 
+// A text field pressed both ways: empty and with a sample — a clip verb's key, whose empty form is the clip on air's line.
+const BOTH = { clip: ['', 'vid:clips/b roll.mp4'] }
+
 function sample(field) {
 	if (field.type === 'number') return field.default ?? field.min ?? 1
 	if (field.type === 'checkbox') return field.default ?? false
@@ -26,9 +29,10 @@ export async function allLines() {
 		const drops = fields.filter((f) => f.type === 'dropdown')
 		let combos = [{}]
 		for (const d of drops) combos = combos.flatMap((c) => d.choices.map((ch) => ({ ...c, [d.id]: ch.id })))
+		for (const f of fields.filter((x) => x.type === 'textinput' && BOTH[x.id])) combos = combos.flatMap((c) => BOTH[f.id].map((v) => ({ ...c, [f.id]: v })))
 		for (const combo of combos) {
 			const options = {}
-			for (const f of fields) options[f.id] = f.type === 'dropdown' ? combo[f.id] : sample(f)
+			for (const f of fields) options[f.id] = f.id in combo ? combo[f.id] : sample(f)
 			for (const line of pressAction(b, id, options)) out.add(line)
 		}
 	}

@@ -399,7 +399,12 @@ public static class CueValidator
                     {
                         Hard($"{where}: the point must be a time from the top (1:23, 83) or from the end (END, END 5) — not '{a.Value}'.");
                     }
-                    if (MediaLocator.FindActiveMedia(sim, MediaSource.Video) is null && MediaLocator.FindActivePlaylist(sim) is null)
+                    if (a.Target.Length > 0)
+                    {
+                        // A clip named by its key is refused when it fires unless the programme holds that clip then; the checks cannot see the mounts.
+                        if (!a.Target.StartsWith("vid:", StringComparison.Ordinal)) Hard($"{where}: '{a.Target}' is not a clip's key — a key is vid: and the file, as STATE videos[] lists it (blank = the clip on air).");
+                    }
+                    else if (MediaLocator.FindActiveMedia(sim, MediaSource.Video) is null && MediaLocator.FindActivePlaylist(sim) is null)
                     {
                         Soft($"{where}: no video is on air at this cue as far as the checks can see — the action reaches whatever clip is on when it fires.");
                     }

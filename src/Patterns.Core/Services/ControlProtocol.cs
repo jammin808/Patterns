@@ -193,6 +193,29 @@ public static class ControlProtocol
     /// <summary>Minutes as the wire carries them: "5", "2.5", "1.333".</summary>
     private static string Minutes(double minutes) => minutes.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// A clip verb's words after the verb, split at the first word ON: what is before it is the verb's own argument, and
+    /// everything after it — as it stands, spaces and all — is the clip's key. With no ON the whole is the verb's own and
+    /// the key is "" (the clip on air). False when ON is there and no key follows it: a key is never guessed.
+    /// </summary>
+    private static bool TrySplitOnKey(string rest, out string own, out string key)
+    {
+        var i = 0;
+        while (i < rest.Length)
+        {
+            while (i < rest.Length && rest[i] == ' ') i++;
+            var start = i;
+            while (i < rest.Length && rest[i] != ' ') i++;
+            if (i - start != 2 || !rest.AsSpan(start, 2).Equals("ON", StringComparison.OrdinalIgnoreCase)) continue;
+            own = rest[..start].Trim();
+            key = rest[i..].Trim();
+            return key.Length > 0;
+        }
+        own = rest.Trim();
+        key = "";
+        return true;
+    }
+
     /// <summary>Milliseconds the parser read as the action's seconds ("2", "1.5"); none for the show's own time.</summary>
     private static string Seconds(int ms) => ms > 0 ? (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "";
 
@@ -777,14 +800,17 @@ public static class ControlProtocol
             }
 
             // The clip on air: "VIDEO END", "VIDEO END 5", "VT END", "VIDEO RESTART", "CLIP START" — the rehearsal's skip and the top;
-            // round 86: "VIDEO PLAY", "VIDEO PAUSE", "VIDEO SEEK 1:23", "VIDEO SEEK END 5", "VIDEO STOP" — the clip's transport.
+            // "VIDEO PLAY", "VIDEO PAUSE", "VIDEO SEEK 1:23", "VIDEO SEEK END 5", "VIDEO STOP" — the clip's transport.
             // VIDEO STOP is the clip's stop and nothing else: bare STOP stays OUTPUTS OFF.
+            // "… ON <key>" names another clip the programme holds by its key from STATE videos[]: "VIDEO PAUSE ON vid:C:\clips\b roll.mp4",
+            // "VIDEO SEEK 83 ON vid:…". The key is the rest of the line, as it stands — a path holds spaces — and is the action's target.
             case "VIDEO":
             case "VT":
             case "CLIP":
             {
                 if (arg.Length == 0) return Unknown(s);
                 var words = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                if (!TrySplitOnKey(words.Length > 1 ? words[1] : "", out var own, out var clip)) return Unknown(s);
                 switch (words[0].ToUpperInvariant())
                 {
                     case "END":
@@ -792,31 +818,29 @@ public static class ControlProtocol
                     case "OUT":
                     case "TAIL":
                     {
-                        var rest = words.Length > 1 ? words[1] : "";
-                        if (!TryParseSeconds(rest, out var ms)) return Unknown(s);
-                        return Act(ShowActionKind.VideoToEnd, "", Seconds(ms));
+                        if (!TryParseSeconds(own, out var ms)) return Unknown(s);
+                        return Act(ShowActionKind.VideoToEnd, clip, Seconds(ms));
                     }
                     case "RESTART":
                     case "START":
                     case "TOP":
                     case "BEGIN":
                     case "REWIND":
-                        return words.Length == 1 ? Act(ShowActionKind.VideoRestart) : Unknown(s);
+                        return own.Length == 0 ? Act(ShowActionKind.VideoRestart, clip) : Unknown(s);
                     case "PLAY":
                     case "RESUME":
-                        return words.Length == 1 ? Act(ShowActionKind.VideoPlay) : Unknown(s);
+                        return own.Length == 0 ? Act(ShowActionKind.VideoPlay, clip) : Unknown(s);
                     case "PAUSE":
                     case "HOLD":
-                        return words.Length == 1 ? Act(ShowActionKind.VideoPause) : Unknown(s);
+                        return own.Length == 0 ? Act(ShowActionKind.VideoPause, clip) : Unknown(s);
                     case "STOP":
-                        return words.Length == 1 ? Act(ShowActionKind.VideoStop) : Unknown(s);
+                        return own.Length == 0 ? Act(ShowActionKind.VideoStop, clip) : Unknown(s);
                     case "SEEK":
                     case "GOTO":
                     case "AT":
                     {
-                        var point = words.Length > 1 ? words[1] : "";
-                        if (!VideoClock.TryParseSeek(point, out _, out _)) return Unknown(s);
-                        return Act(ShowActionKind.VideoSeek, "", point);
+                        if (!VideoClock.TryParseSeek(own, out _, out _)) return Unknown(s);
+                        return Act(ShowActionKind.VideoSeek, clip, own);
                     }
                     default:
                         return Unknown(s);

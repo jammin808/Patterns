@@ -295,6 +295,7 @@ public sealed class ActionRow : Observable
         TargetKind.AudioDestination => "Which destination…",
         TargetKind.DeskPage => "Which page or rail… (Cues, Looks, Screens, SHOW, PLAN…)",
         TargetKind.Preset => "Which lower-thirds preset… (blank = plain)",
+        TargetKind.Clip => "Which clip… (blank = the clip on air)",
         _ => "",
     };
 
@@ -339,7 +340,7 @@ public sealed class ActionRow : Observable
         get
         {
             // A fade with no place is every screen — the picker's first row, not an empty picker.
-            if (Action.Target.Length == 0) return ActionSpec.For(Action.Kind).Target == TargetKind.Place ? TargetChoices.FirstOrDefault(t => t.Id.Length == 0) : null;
+            if (Action.Target.Length == 0) return ActionSpec.For(Action.Kind).Target is TargetKind.Place or TargetKind.Clip ? TargetChoices.FirstOrDefault(t => t.Id.Length == 0) : null;
             // A reference by name (an older show, a hand-typed target) resolves like the validator resolves it.
             return TargetChoices.FirstOrDefault(t => t.Id == Action.Target)
                    ?? TargetChoices.FirstOrDefault(t => string.Equals(t.Label, Action.Target, StringComparison.OrdinalIgnoreCase))
@@ -480,7 +481,7 @@ public sealed class CueEditor : Observable
             if (SelectedCue is null || name is null || !Enum.TryParse<ShowActionKind>(name, out var kind)) return;
             SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
             OnCueEdited();
-            var needsTarget = ActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device or TargetKind.Place) && kind != ShowActionKind.Announce;
+            var needsTarget = ActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device or TargetKind.Place or TargetKind.Clip) && kind != ShowActionKind.Announce;
             _status($"{SelectedCue.Number}: {ActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
         });
 
@@ -948,6 +949,14 @@ public sealed class CueEditor : Observable
                 // The show's own rows first, then what this machine has: a cue names a destination by its key, its label reads the same on the wire.
                 return AudioRouting.Destinations(state, _s.OutputDeviceNames)
                     .Select(d => new PickItem(d.Key, d.Configured ? d.Label : $"{d.Label} (not routed yet)"));
+            case TargetKind.Clip:
+            {
+                // The clip on air first — what a clip verb means with no key — then the Library's clips by the key STATE videos[] gives each once it is mounted.
+                var items = new List<PickItem> { new("", "The clip on air") };
+                items.AddRange(state.MediaLibrary.Where(m => m.IsVideo && m.Path.Length > 0)
+                    .Select(m => new PickItem(Patterns.Core.Media.InputKeys.Video(m.Path), m.Name.Length > 0 ? $"{m.Name} · {VideoClock.NameOfKey(m.Path)}" : VideoClock.NameOfKey(m.Path))));
+                return items;
+            }
             case TargetKind.Page:
             {
                 // The pages the show has now, then the remembered ones: a cue names a page by its address (its nickname or a word of it reads the same).

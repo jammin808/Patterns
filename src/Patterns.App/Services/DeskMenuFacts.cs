@@ -49,6 +49,7 @@ public static class DeskMenuFacts
             MidiSurfaceOpen = s.MidiLearn.SurfaceOpen,
             MidiLearning = s.MidiLearn.Wire,
             Clip = s.VideoOnAir(),
+            OtherClips = s.OtherVideosOnAir(),
         };
     }
 

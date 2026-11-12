@@ -213,6 +213,7 @@ public class OscMapTests
         "seconds" => 2,
         "name" => "Walk-in",
         "kind" => "Bars",
+        "\"vid:<file>\"" => "vid:/clips/b-roll.mp4",
         _ => "1",
     };
 

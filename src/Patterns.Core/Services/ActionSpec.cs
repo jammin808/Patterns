@@ -38,6 +38,8 @@ public enum TargetKind
     DeskPage,
     /// <summary>Round 74: a lower-thirds preset by its name (blank = the plain one).</summary>
     Preset,
+    /// <summary>A clip the programme holds, by its key from STATE videos[] (blank = the clip on air).</summary>
+    Clip,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -202,8 +204,9 @@ public static class ActionSpec
         ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset => (TargetKind.Stage, ValueKind.None),
         ShowActionKind.RunMonitor => (TargetKind.Monitor, ValueKind.None),
         ShowActionKind.RunMonitorOff => (TargetKind.None, ValueKind.None),
-        ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
-        ShowActionKind.VideoSeek => (TargetKind.None, ValueKind.ClipPoint),
+        ShowActionKind.VideoToEnd => (TargetKind.Clip, ValueKind.Seconds),
+        ShowActionKind.VideoSeek => (TargetKind.Clip, ValueKind.ClipPoint),
+        ShowActionKind.VideoRestart or ShowActionKind.VideoPlay or ShowActionKind.VideoPause or ShowActionKind.VideoStop => (TargetKind.Clip, ValueKind.None),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         ShowActionKind.Take or ShowActionKind.Cut => (TargetKind.Place, ValueKind.Transition),
         ShowActionKind.NextTransition => (TargetKind.None, ValueKind.Transition),

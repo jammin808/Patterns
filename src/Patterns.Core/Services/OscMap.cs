@@ -72,6 +72,7 @@ public static class OscMap
         ("/patterns/video/play, /patterns/video/pause", "VIDEO PLAY / PAUSE — the clip on air plays on, or holds where it is (also /patterns/vt/…)"),
         ("/patterns/video/stop", "VIDEO STOP — the clip back to its top and held until PLAY; the outputs stay on"),
         ("/patterns/video/seek <point>", "VIDEO SEEK — the clip on air to a point: seconds or 1:23 from the top, or end [n] from its end (also /patterns/video/seek/83, /patterns/video/seek/end/5)"),
+        ("/patterns/video/pause \"vid:<file>\", /patterns/video/seek <point> \"vid:<file>\"", "VIDEO … ON <key> — a last argument that is a clip's key, as STATE videos[] lists it, names another clip the programme holds, on every /patterns/video/ address: /patterns/video/pause \"vid:C:\\clips\\b-roll.mp4\", /patterns/video/seek 83 \"vid:…\""),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/device/<name> <text>", "DEVICE name text — a line to a device of the Interactive area (also /patterns/device \"name\" \"text\", /patterns/send/…; * is the first device)"),
         ("/patterns/announce <name|words>", "ANNOUNCE — an announcement of the Install page by name, else the words as a free-text announcement (also /patterns/announce/<name>); /patterns/announce/off ends it"),
@@ -352,26 +353,30 @@ public static class OscMap
             }
             case "section": return Named("SECTION", m, seg);
             // /patterns/video/end · /patterns/video/end 5 · /patterns/video/end/5 · /patterns/video/restart (vt and clip are aliases)
+            // A last argument that is a clip's key ("vid:…", as STATE videos[] lists it) names that clip: /patterns/video/pause "vid:C:\\clips\\b-roll.mp4".
             case "video":
             case "vt":
             case "clip":
             {
+                var clip = m.Args.Count > 0 && m.Args[^1] is string last && last.StartsWith("vid:", StringComparison.Ordinal) && last.Length > 4 ? last : "";
+                if (clip.Length > 0) m = OscMessage.Of(m.Address, m.Args.Take(m.Args.Count - 1).ToArray());
+                string OnClip(string line) => clip.Length == 0 ? line : line + " ON " + clip;
                 var what = Sub(m, seg);
                 switch (what)
                 {
                     case "end": case "last": case "out": case "tail":
                     {
                         var secs = seg2.Length > 0 ? seg2 : seg.Length > 0 ? (m.Number()?.ToString(CultureInfo.InvariantCulture) ?? m.Text() ?? "") : m.Text(1) ?? "";
-                        return secs.Length > 0 ? "VIDEO END " + secs : "VIDEO END";
+                        return OnClip(secs.Length > 0 ? "VIDEO END " + secs : "VIDEO END");
                     }
                     case "restart": case "start": case "top": case "begin": case "rewind":
-                        return "VIDEO RESTART";
+                        return OnClip("VIDEO RESTART");
                     case "play": case "resume":
-                        return "VIDEO PLAY";
+                        return OnClip("VIDEO PLAY");
                     case "pause": case "hold":
-                        return "VIDEO PAUSE";
+                        return OnClip("VIDEO PAUSE");
                     case "stop":
-                        return "VIDEO STOP";
+                        return OnClip("VIDEO STOP");
                     case "seek": case "goto":
                     {
                         // /patterns/video/seek 83 · /seek "1:23" · /seek/83 · /seek/end · /seek/end/5 · /seek "end 5"
@@ -379,7 +384,7 @@ public static class OscMap
                             ? (seg3.Length > 0 ? seg2 + " " + seg3 : seg2)
                             : m.Number()?.ToString(CultureInfo.InvariantCulture) ?? m.Text() ?? "";
                         if (point.Equals("end", StringComparison.OrdinalIgnoreCase) && m.Number() is { } n) point = "end " + n.ToString(CultureInfo.InvariantCulture);
-                        return point.Length > 0 && VideoClock.TryParseSeek(point, out _, out _) ? "VIDEO SEEK " + point.ToUpperInvariant() : null;
+                        return point.Length > 0 && VideoClock.TryParseSeek(point, out _, out _) ? OnClip("VIDEO SEEK " + point.ToUpperInvariant()) : null;
                     }
                     default:
                         return null;

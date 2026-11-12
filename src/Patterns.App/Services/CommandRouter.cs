@@ -280,10 +280,13 @@ public sealed class CommandRouter : IRouter
     /// <summary>
     /// Round 86: every mounted clip with a timeline, the one on air first marked — STATE videos[]. The
     /// program can show one clip while a layer, a screen of its own or the standby's pre-roll holds others.
+    /// `air` (last in the row) is true for a clip the programme holds — the keys VIDEO … ON &lt;key&gt; accepts;
+    /// a clip mounted for the preview alone under EDIT SAFE, and the standby's pre-roll, read false.
     /// </summary>
     private object[] VideosRow()
     {
         var onAir = _services.VideoOnAir()?.Key;
+        var air = _services.VideosOnAir().Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
         return _services.Video.Clips().Select(c =>
         {
             var length = c.Source.DurationSeconds;
@@ -301,6 +304,7 @@ public sealed class CommandRouter : IRouter
                 ended = c.Source.IsEnded,
                 loops = c.Loops,
                 rate = Math.Round(c.Source.Rate, 3),
+                air = air.Contains(c.Key),
             };
         }).ToArray();
     }

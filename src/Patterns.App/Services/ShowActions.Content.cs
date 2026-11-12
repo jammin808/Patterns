@@ -442,11 +442,7 @@ public sealed partial class ShowActions
     /// </summary>
     private ActionResult VideoJump(ShowAction a)
     {
-        var reading = _s.VideoOnAir();
-        if (reading is null)
-        {
-            return ActionResult.Refused(VideoClock.NoClipWords);
-        }
+        if (ClipOf(a, out var refusal) is not { } reading) return ActionResult.Refused(refusal);
         var source = Patterns.Rendering.Media.InputBus.For(reading.Key);
         if (source is null || !source.CanSeek)
         {
@@ -473,8 +469,9 @@ public sealed partial class ShowActions
     }
 
     /// <summary>
-    /// The clip on air's transport — PLAY, PAUSE, STOP (back to the top, held) and SEEK — from the
-    /// panel, a cue, the wire, OSC or another app (Stagewatch's VT countdown). A clip is paused
+    /// A clip's transport — PLAY, PAUSE, STOP (back to the top, held) and SEEK — from the panel, a
+    /// cue, the wire, OSC or another app (Stagewatch's VT countdown): the clip on air, or with a
+    /// target the clip that key names (<see cref="ClipOf"/>). A clip is paused
     /// only with the clock it runs on: a playlist item holds the playlist's clock with its picture,
     /// a stinger's clip holds the stinger's ending, and PLAY releases both. STOP puts a playlist
     /// item and its clock back to the top, held; a stinger's clip is not stopped here — STINGER STOP
@@ -484,8 +481,7 @@ public sealed partial class ShowActions
     /// </summary>
     private ActionResult VideoTransport(ShowAction a)
     {
-        var reading = _s.VideoOnAir();
-        if (reading is null) return ActionResult.Refused(VideoClock.NoClipWords);
+        if (ClipOf(a, out var refusal) is not { } reading) return ActionResult.Refused(refusal);
         var source = Patterns.Rendering.Media.InputBus.For(reading.Key);
         if (source is null || !source.CanSeek)
         {
@@ -555,6 +551,26 @@ public sealed partial class ShowActions
                 return ActionResult.Done($"'{reading.Name}' to {VideoClock.Format(target)}{of}{(reading.Paused ? " — still paused" : "")}.");
             }
         }
+    }
+
+    /// <summary>
+    /// The clip a transport verb acts on: the clip on air with no target, else the clip the target's key names among
+    /// the clips the programme holds (VIDEO … ON &lt;key&gt;, the key from STATE videos[]). A key that names none — not
+    /// mounted, the preview's alone, the standby's pre-roll — is refused with its reason and never read as the clip
+    /// on air; the role's rules (a playlist's clock, a stinger's ending) follow the clip named.
+    /// </summary>
+    private VideoReading? ClipOf(ShowAction a, out string refusal)
+    {
+        var key = a.Target ?? "";
+        if (key.Length == 0)
+        {
+            var onAir = _s.VideoOnAir();
+            refusal = onAir is null ? VideoClock.NoClipWords : "";
+            return onAir;
+        }
+        var (clip, why) = _s.VideoByKey(key);
+        refusal = why;
+        return clip;
     }
 
     /// <summary>The clock a clip runs on stands still with it: the playlist's for its item, the stinger's for its clip; a clip on no clock but its own holds nothing more. False when that clock would not hold.</summary>

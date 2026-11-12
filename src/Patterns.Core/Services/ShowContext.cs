@@ -251,6 +251,12 @@ public static class ShowContextBuilder
     /// and every <c>SCREEN</c> line reads high there), and a staged verb reaches review only under 1.3's rule. A form
     /// that can name a brand kit (<c>LIBRARY</c>) is high: a brand kit's colours go on the show itself, on air at once
     /// while EDIT SAFE is closed (docs/OPEN.md L72).
+    ///
+    /// The <c>VIDEO … ON &lt;key&gt;</c> rows are written in the shape Stagewatch's playout link looks for before it names a
+    /// clip by its key: a verb that starts <c>VIDEO </c>, holds <c>ON &lt;key&gt;</c> and names the word it sends. §6 reads a
+    /// value whose whole name is <c>key</c> as a secret placeholder, so a 1.3 approval desk does not send or queue a line
+    /// that fills it: the forms with a key reach this desk from a link that writes the line itself, and are not
+    /// proposable across apps; the bare forms — the clip on air — are. A clip's key is no secret (STATE publishes it).
     /// </summary>
     public static readonly IReadOnlyList<ShowContextCommand> Commands = new[]
     {
@@ -287,6 +293,9 @@ public static class ShowContextBuilder
         new ShowContextCommand { Verb = "WEB KEY <key name> [ON <page>]", Risk = "high", Words = "a key to the web page on air" },
         new ShowContextCommand { Verb = "WEB CLICK <x> <y> [ON <page>]", Risk = "high", Words = "a click at a point of the page on air, x and y in percent of the page" },
         new ShowContextCommand { Verb = "WEB RELOAD [<page>]", Risk = "high", Words = "reload the page on air" },
+        new ShowContextCommand { Verb = "VIDEO END <seconds> ON <key>", Risk = "high", Words = "jump a clip the programme holds, named by its key from STATE videos[], to that long before its end" },
+        new ShowContextCommand { Verb = "VIDEO SEEK <m:ss> ON <key>", Risk = "high", Words = "move a clip the programme holds, named by its key from STATE videos[], to a point" },
+        new ShowContextCommand { Verb = "VIDEO RESTART|PLAY|PAUSE|STOP ON <key>", Risk = "high", Words = "a clip the programme holds, named by its key from STATE videos[]: from the top, played on, held, or back to its top and held" },
     };
 
     /// <summary>The Eye's kinds that are another app's things, drawn here from its own context.</summary>

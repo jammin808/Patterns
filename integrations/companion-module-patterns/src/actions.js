@@ -29,6 +29,15 @@ const stagedLine = (prefix, what, name) => {
 
 export function buildActions(ctx) {
 	const send = (cmd) => ctx.send(cmd)
+	// A clip verb with a key names that clip — VIDEO … ON <key>, the key as STATE videos[] lists it (vid: and the file), last on the
+	// line as it stands; empty is the clip on air. A key with a line break is never sent: the wire reads a line.
+	const clipKey = text('clip', "Clip key from STATE videos[] (vid:… — empty: the clip on air)", '')
+	const onClip = (line, a) => {
+		const key = clean(a.options.clip)
+		if (key === '') return send(line)
+		if (/[\r\n]/.test(key)) return
+		send(`${line} ON ${key}`)
+	}
 	return {
 		// Action ids stay 'go' / 'stop' so saved pages keep working; the verbs are the
 		// outputs transport. GO is reserved for the cue stack.
@@ -477,25 +486,27 @@ export function buildActions(ctx) {
 			callback: (a) => send(a.options.mode === 'PAGE' ? `DECK PAGE ${a.options.n}` : `DECK ${a.options.mode}`),
 		},
 		// The clip on air — the caller's VT clock: the rehearsal's skip to its last seconds, and the top again.
-		video_end: { name: "Video — jump to the clip's last seconds (rehearsal)", options: [{ type: 'number', id: 'seconds', label: 'Seconds before the end', default: 10, min: 0, max: 3600 }], callback: (a) => send(`VIDEO END ${a.options.seconds}`) },
-		video_restart: { name: 'Video — the clip on air from the top', options: [], callback: () => send('VIDEO RESTART') },
+		// Each takes a clip's key: empty, the clip on air; with one, that clip among the clips the programme holds (a layer's, a screen's own).
+		video_end: { name: "Video — jump to the clip's last seconds (rehearsal)", options: [{ type: 'number', id: 'seconds', label: 'Seconds before the end', default: 10, min: 0, max: 3600 }, clipKey], callback: (a) => onClip(`VIDEO END ${a.options.seconds}`, a) },
+		video_restart: { name: 'Video — the clip on air (or a clip by its key) from the top', options: [clipKey], callback: (a) => onClip('VIDEO RESTART', a) },
 		// Round 86: the clip's transport. VIDEO STOP is the clip's stop (back to its top, held) — never the outputs, which bare STOP is.
 		video_transport: {
-			name: 'Video — pause, play on or stop the clip on air',
-			options: [{ type: 'dropdown', id: 'mode', label: 'Transport', default: 'PAUSE', choices: [{ id: 'PAUSE', label: 'Pause where it is' }, { id: 'PLAY', label: 'Play on' }, { id: 'STOP', label: 'Stop: back to its top, held' }] }],
-			callback: (a) => send(`VIDEO ${a.options.mode}`),
+			name: 'Video — pause, play on or stop the clip on air (or a clip by its key)',
+			options: [{ type: 'dropdown', id: 'mode', label: 'Transport', default: 'PAUSE', choices: [{ id: 'PAUSE', label: 'Pause where it is' }, { id: 'PLAY', label: 'Play on' }, { id: 'STOP', label: 'Stop: back to its top, held' }] }, clipKey],
+			callback: (a) => onClip(`VIDEO ${a.options.mode}`, a),
 		},
 		video_seek: {
-			name: 'Video — move the clip on air to a point',
+			name: 'Video — move the clip on air (or a clip by its key) to a point',
 			options: [
 				{ type: 'dropdown', id: 'from', label: 'Counted from', default: 'TOP', choices: [{ id: 'TOP', label: 'The top (seconds or 1:23)' }, { id: 'END', label: 'The end (seconds before it)' }] },
 				{ type: 'textinput', id: 'point', label: 'Point (83, 1:23 — or seconds before the end)', default: '10' },
+				clipKey,
 			],
 			callback: (a) => {
 				// A number or a clock time only: anything else would be refused by the desk, so it never goes out.
 				const raw = clean(a.options.point)
 				if (!/^\d{1,5}(\.\d+)?$|^\d{1,2}(:\d{1,2}){1,2}(\.\d+)?$/.test(raw)) return
-				send(a.options.from === 'END' ? `VIDEO SEEK END ${raw}` : `VIDEO SEEK ${raw}`)
+				onClip(a.options.from === 'END' ? `VIDEO SEEK END ${raw}` : `VIDEO SEEK ${raw}`, a)
 			},
 		},
 		// VOG / STING name the same library by the same number and only assert the kind: a key that says VOG never fires a stinger.

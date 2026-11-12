@@ -229,8 +229,8 @@ public class VideoClockTests
     [Fact]
     public void TheCueActionsAreSpecifiedSummarisedAndChecked()
     {
-        Assert.Equal((TargetKind.None, ValueKind.Seconds), ActionSpec.For(ShowActionKind.VideoToEnd));
-        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.VideoRestart));
+        Assert.Equal((TargetKind.Clip, ValueKind.Seconds), ActionSpec.For(ShowActionKind.VideoToEnd));       // the target is a clip's key; blank is the clip on air
+        Assert.Equal((TargetKind.Clip, ValueKind.None), ActionSpec.For(ShowActionKind.VideoRestart));
         Assert.Contains(ShowActionKind.VideoToEnd, ActionSpec.CueKinds);
         Assert.Contains(ShowActionKind.VideoRestart, ActionSpec.CueKinds);
         Assert.False(ActionSpec.ChangesContent(ShowActionKind.VideoToEnd));

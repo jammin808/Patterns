@@ -8,6 +8,73 @@ namespace Patterns.Core.Tests;
 
 public class ControlProtocolTests
 {
+    // VIDEO … ON <key>: every clip verb takes another clip's key (STATE videos[]) after the word ON — the rest of the line as
+    // it stands, a path's spaces and case kept — as the action's target, its own argument before ON as its value. VT and CLIP alike.
+    [Theory]
+    [InlineData("VIDEO END ON vid:/clips/b-roll.mp4", ShowActionKind.VideoToEnd, "vid:/clips/b-roll.mp4", "")]
+    [InlineData("VIDEO END 5 ON vid:/clips/b-roll.mp4", ShowActionKind.VideoToEnd, "vid:/clips/b-roll.mp4", "5")]
+    [InlineData("VIDEO RESTART ON vid:/clips/b-roll.mp4", ShowActionKind.VideoRestart, "vid:/clips/b-roll.mp4", "")]
+    [InlineData("VIDEO PLAY ON vid:/clips/b-roll.mp4", ShowActionKind.VideoPlay, "vid:/clips/b-roll.mp4", "")]
+    [InlineData("VIDEO PAUSE ON vid:/clips/b-roll.mp4", ShowActionKind.VideoPause, "vid:/clips/b-roll.mp4", "")]
+    [InlineData("VIDEO STOP ON vid:/clips/b-roll.mp4", ShowActionKind.VideoStop, "vid:/clips/b-roll.mp4", "")]
+    [InlineData("VIDEO SEEK 83 ON vid:/clips/b-roll.mp4", ShowActionKind.VideoSeek, "vid:/clips/b-roll.mp4", "83")]
+    [InlineData("VIDEO SEEK 1:23 ON vid:/clips/b-roll.mp4", ShowActionKind.VideoSeek, "vid:/clips/b-roll.mp4", "1:23")]
+    [InlineData("VIDEO SEEK END 5 ON vid:/clips/b-roll.mp4", ShowActionKind.VideoSeek, "vid:/clips/b-roll.mp4", "END 5")]
+    [InlineData("VIDEO SEEK END ON vid:x", ShowActionKind.VideoSeek, "vid:x", "END")]
+    [InlineData("VT PAUSE ON vid:/clips/b-roll.mp4", ShowActionKind.VideoPause, "vid:/clips/b-roll.mp4", "")]
+    [InlineData("CLIP SEEK 83 ON vid:/clips/b-roll.mp4", ShowActionKind.VideoSeek, "vid:/clips/b-roll.mp4", "83")]
+    [InlineData("clip hold on vid:/Clips/B-Roll.MP4", ShowActionKind.VideoPause, "vid:/Clips/B-Roll.MP4", "")]
+    [InlineData("VIDEO PAUSE ON vid:C:\\My Clips\\b roll.mp4", ShowActionKind.VideoPause, "vid:C:\\My Clips\\b roll.mp4", "")]
+    [InlineData("VIDEO PAUSE  ON   vid:/clips/lights ON stage.mp4", ShowActionKind.VideoPause, "vid:/clips/lights ON stage.mp4", "")]
+    [InlineData("VIDEO PAUSE", ShowActionKind.VideoPause, "", "")]
+    [InlineData("VIDEO SEEK END 5", ShowActionKind.VideoSeek, "", "END 5")]
+    public void AClipVerbTakesAnotherClipsKeyAfterOn(string line, ShowActionKind kind, string key, string value)
+    {
+        var parsed = ControlProtocol.Parse(line);
+        Assert.True(parsed.IsAction, line);
+        Assert.Equal(new ShowAction(kind, key, value), parsed.Action);
+        // What the writer spells for the action is a line the parser reads back as the same action.
+        Assert.Equal(parsed.Action, ControlProtocol.Parse(WireWriter.Line(parsed.Action)).Action);
+    }
+
+    // A key is never guessed: ON with nothing after it, a word where ON belongs, a word between a verb's own argument and
+    // ON, and a verb's argument that is not one are each refused — never read as the clip on air.
+    [Theory]
+    [InlineData("VIDEO PAUSE ON")]
+    [InlineData("VIDEO PAUSE ON   ")]
+    [InlineData("VIDEO END 5 ON")]
+    [InlineData("VIDEO SEEK 83 ON")]
+    [InlineData("VT STOP ON")]
+    [InlineData("CLIP PLAY ON")]
+    [InlineData("VIDEO PAUSE vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO PAUSE AT vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO PAUSE NOW ON vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO RESTART twice ON vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO END soon ON vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO END 5 NOW ON vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO SEEK ON vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO SEEK soon ON vid:/clips/b-roll.mp4")]
+    [InlineData("VT STOP NOW ON vid:/clips/b-roll.mp4")]
+    [InlineData("CLIP FREEZE ON vid:/clips/b-roll.mp4")]
+    [InlineData("VIDEO ON vid:/clips/b-roll.mp4")]
+    public void AClipVerbWithoutItsKeyOrWithAWordOutOfPlaceIsRefused(string line)
+        => Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse(line).Kind);
+
+    [Fact]
+    public void AWordAfterTheKeysPlaceIsTheKeysAndTheWriterPutsTheKeyLast()
+    {
+        // The key is the rest of the line: a word after it is part of it, so it names no mounted clip and the desk refuses
+        // it (VideoTransportAppTests) — the wire has no word that follows a key.
+        Assert.Equal("vid:/clips/b-roll.mp4 NOW", ControlProtocol.Parse("VIDEO PAUSE ON vid:/clips/b-roll.mp4 NOW").Action.Target);
+        Assert.Equal("VIDEO PAUSE ON vid:/clips/b roll.mp4", WireWriter.Line(new ShowAction(ShowActionKind.VideoPause, "vid:/clips/b roll.mp4")));
+        Assert.Equal("VIDEO END 5 ON vid:a.mp4", WireWriter.Line(new ShowAction(ShowActionKind.VideoToEnd, "vid:a.mp4", "5")));
+        Assert.Equal("VIDEO END ON vid:a.mp4", WireWriter.Line(new ShowAction(ShowActionKind.VideoToEnd, "vid:a.mp4")));
+        Assert.Equal("VIDEO SEEK END 5 ON vid:a.mp4", WireWriter.Line(new ShowAction(ShowActionKind.VideoSeek, "vid:a.mp4", "END 5")));
+        Assert.Equal("VIDEO RESTART", WireWriter.Line(new ShowAction(ShowActionKind.VideoRestart)));
+        // Bare STOP stays the outputs' with a key in the room: only VIDEO STOP is the clip's.
+        Assert.Equal(ShowActionKind.OutputsOff, ControlProtocol.Parse("STOP ON vid:a.mp4").Action.Kind);
+    }
+
     // A verb on the wire is a show action: the parser speaks the one vocabulary, nothing maps it later.
     [Theory]
     [InlineData("GO", ShowActionKind.OutputsOn)]          // frozen alias: outputs, never a cue

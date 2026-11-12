@@ -1366,6 +1366,23 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
                         new MenuEntry("video.play", "Play the clip on", MenuScope.Live, MenuTone.Live) { Detail = "A paused or stopped clip plays on from where it is held, and what held with it runs on", Wire = "VIDEO PLAY", Action = new ShowAction(ShowActionKind.VideoPlay), Because = VideoClock.WhyNot(ShowActionKind.VideoPlay, d.Clip) },
                         new MenuEntry("video.stop", "Stop the clip", MenuScope.Live, MenuTone.Live) { Detail = "Back to its top and held there until Play — the outputs stay on (a stinger's clip is put back by STINGER STOP)", Wire = "VIDEO STOP", Action = new ShowAction(ShowActionKind.VideoStop), Because = VideoClock.WhyNot(ShowActionKind.VideoStop, d.Clip) },
                     }) { Note = LiveNote });
+                    // A layer's or a screen's own clip, by its key: the wire's lines, each disabled by the rule the wire refuses with.
+                    var others = d.OtherClips.Take(OtherClipsShown).SelectMany(c =>
+                    {
+                        var toggle = c.Paused ? ShowActionKind.VideoPlay : ShowActionKind.VideoPause;
+                        var at = $"{VideoClock.Times(c)} — the clip on air plays on untouched";
+                        return new[]
+                        {
+                            ClipEntry(c, toggle, c.Paused ? "play" : "pause", c.Paused ? $"Play '{c.Name}' on" : $"Pause '{c.Name}'", at),
+                            ClipEntry(c, ShowActionKind.VideoRestart, "restart", $"'{c.Name}' from the top", at),
+                            ClipEntry(c, ShowActionKind.VideoStop, "stop", $"Stop '{c.Name}'", "Back to its top and held there until Play"),
+                        };
+                    }).ToList();
+                    if (others.Count > 0)
+                    {
+                        var more = d.OtherClips.Count - OtherClipsShown;
+                        groups.Add(new MenuGroup("OTHER CLIPS", MenuTone.Live, others) { Note = more > 0 ? $"{LiveNote} {more} more on the air: VIDEO … ON <key>, the key from STATE videos[]." : LiveNote });
+                    }
                 }
                 break;
             }
@@ -1514,6 +1531,16 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
         Wire = $"{verb} {name}",
         Action = ControlProtocol.Parse($"{verb} {name}").Action,
     }).ToList();
+
+    /// <summary>How many other clips the Media page's menu lists; the rest are reached by the wire's line, and the group's note says so.</summary>
+    public const int OtherClipsShown = 3;
+
+    /// <summary>One entry of OTHER CLIPS: a transport verb on the clip its key names, the wire's line as the wire writes it.</summary>
+    private static MenuEntry ClipEntry(VideoReading clip, ShowActionKind kind, string word, string label, string detail)
+    {
+        var action = new ShowAction(kind, clip.Key);
+        return new MenuEntry($"video.{word}:{clip.Key}", label, MenuScope.Live, MenuTone.Live) { Detail = detail, Wire = WireWriter.Line(action), Action = action, Because = VideoClock.WhyNot(kind, clip) };
+    }
 
     /// <summary>A build verb that takes a text where its * is; the action is the line parsed with the * in place, so the kind is the line's.</summary>
     private static MenuEntry Build(string id, string text, string wire, string detail) => new(id, text, MenuScope.Stack, MenuTone.Stack)

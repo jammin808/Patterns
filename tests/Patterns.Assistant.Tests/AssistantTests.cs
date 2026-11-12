@@ -727,4 +727,18 @@ public class AssistantTests
         Assert.Contains("THE DESK'S OWN MEASUREMENTS", AssistantScope.Fence);
         Assert.Contains("never guess at a cause the brief does not name", AssistantScope.Fence);
     }
+
+    [Fact]
+    public void AClipStepTheAssistantNamesByALibraryClipBecomesTheKeyTheCueSheetWrites()
+    {
+        var s = new ShowState();
+        s.MediaLibrary.Add(new MediaLibraryEntry { Path = "/clips/b-roll.mp4", IsVideo = true, Name = "B roll" });
+        var key = Patterns.Core.Media.InputKeys.Video("/clips/b-roll.mp4");
+        Assert.Equal(key, AssistantApply.ResolveTarget(s, TargetKind.Clip, "B roll"));
+        Assert.Equal(key, AssistantApply.ResolveTarget(s, TargetKind.Clip, "b-roll.mp4"));
+        Assert.Equal("vid:/elsewhere/x.mp4", AssistantApply.ResolveTarget(s, TargetKind.Clip, " vid:/elsewhere/x.mp4 "));
+        Assert.Equal("not a clip", AssistantApply.ResolveTarget(s, TargetKind.Clip, "not a clip"));
+        Assert.Equal("", AssistantApply.ResolveTarget(s, TargetKind.Clip, ""));
+        Assert.Equal(CueSheet.ClipKey(s, "B roll"), AssistantApply.ResolveTarget(s, TargetKind.Clip, "B roll"));
+    }
 }

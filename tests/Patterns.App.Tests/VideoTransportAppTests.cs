@@ -780,6 +780,315 @@ public class VideoTransportAppTests
         }
     }
 
+    // ---- VIDEO … ON <key>: a clip the programme holds, named by its key from STATE videos[] ----
+
+    /// <summary>A clip on the programme's first layer, over whatever the pattern shows: its key and the fake the pool opened for it.</summary>
+    private static (string Key, FakeSource Fake) PutLayerClip(TestApp.Booted b, AudioFakes fakes, string name, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
+    {
+        var (services, vm, _) = b;
+        var path = AudioFakes.TempFile(b, name, file, member);
+        vm.ActivePattern.Layer1.Source = LayerSource.Video;
+        vm.ActivePattern.Layer1.VideoPath = path;
+        vm.ActivePattern.Layer1.Enabled = true;
+        Dispatcher.UIThread.RunJobs();
+        services.ReconcileInputs();
+        var key = Patterns.Core.Media.InputKeys.Video(path);
+        return (key, fakes.Sources.Last(f => f.Wanted.Key == key && !f.Disposed));
+    }
+
+    /// <summary>STATE videos[]: the row of one key — on air, pre-rolled, paused, held by the air — or null when the list does not hold it.</summary>
+    private static (bool OnAir, bool PreRoll, bool Paused, bool Air)? VideosRow(string json, string key)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        foreach (var row in doc.RootElement.GetProperty("videos").EnumerateArray())
+        {
+            if (row.GetProperty("key").GetString() != key) continue;
+            return (row.GetProperty("onAir").GetBoolean(), row.GetProperty("preRoll").GetBoolean(), row.GetProperty("paused").GetBoolean(), row.GetProperty("air").GetBoolean());
+        }
+        return null;
+    }
+
+    [AvaloniaFact]
+    public void ALayersClipIsDrivenByItsKeyWhileTheClipOnAirPlaysOn()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            vm.IsSandboxActive = false;
+            var fakes = AudioFakes.Install(b);
+            var router = new CommandRouter(services);
+            var onAir = PutClipOnAir(b, fakes, "opener.mp4");
+            var onAirKey = onAir.Wanted.Key;
+            var (key, layer) = PutLayerClip(b, fakes, "b roll.mp4");                    // a path with a space: the key is the rest of the line
+            layer.Length = 60;
+            layer.Position = 12;
+            Assert.Contains(' ', key);
+            var side = VideoClock.NameOfKey(key);                                        // the file's name, as the replies say it
+            var opener = VideoClock.NameOfKey(onAirKey);
+
+            // STATE lists both clips; the programme's own is the one on air, and the transport's with no key.
+            var before = router.StateJson();
+            Assert.Equal((true, false, false, true), VideosRow(before, onAirKey));
+            Assert.Equal((false, false, false, true), VideosRow(before, key));
+            Assert.Equal(new[] { onAirKey, key }, services.VideosOnAir().Select(r => r.Key));
+            Assert.Equal(VideoRole.Layer, services.VideosOnAir()[1].Role);
+
+            // PAUSE by the key: the layer's clip holds, in the wire's words; the clip on air plays on and STATE says which is which.
+            var reply = Send(router, $"VIDEO PAUSE ON {key}");
+            Assert.Equal($"OK '{side}' paused at 0:12.", reply);
+            Assert.True(layer.Paused);
+            Assert.False(onAir.Paused);
+            var held = router.StateJson();
+            Assert.Equal((true, false, false, true), VideosRow(held, onAirKey));
+            Assert.Equal((false, false, true, true), VideosRow(held, key));
+            Assert.Equal(("program", false, true, true, "seq,pausable,stoppable"), VideoRow(held));
+            var row = Assert.Single(services.Journal.Tail(5), e => e.Kind == nameof(ShowActionKind.VideoPause));
+            Assert.Equal((key, "Done"), (row.Target, row.Outcome));
+
+            // The rule follows the clip named: a second PAUSE by the key changes nothing and is refused; bare PLAY is the clip on air's.
+            Assert.Contains($"'{side}' is already paused at 0:12", Send(router, $"VIDEO PAUSE ON {key}"));
+            Assert.Contains($"'{opener}' is already playing", Send(router, "VIDEO PLAY"));
+            Assert.True(layer.Paused);
+
+            // SEEK, END and RESTART by the key move the layer's clip and nothing else; STOP at its top, held, would change nothing.
+            Assert.Equal($"OK '{side}' to 0:30 of 1:00 — still paused.", Send(router, $"VIDEO SEEK 30 ON {key}"));
+            Assert.Equal(30, layer.SeekedTo);
+            Assert.StartsWith($"OK '{side}' to its last 5 s", Send(router, $"VT END 5 ON {key}"));
+            Assert.Equal(55, layer.SeekedTo);
+            Assert.StartsWith($"OK '{side}' from the top", Send(router, $"CLIP RESTART ON {key}"));
+            Assert.Equal(0, layer.SeekedTo);
+            Assert.Contains("already stopped at its top", Send(router, $"VIDEO STOP ON {key}"));
+            Assert.Null(onAir.SeekedTo);
+            Assert.False(onAir.Paused);
+
+            // PLAY by the key runs it on; then STOP puts it back to its top, held — the clip on air and the outputs untouched.
+            Assert.Equal($"OK '{side}' plays on from 0:00.", Send(router, $"VIDEO PLAY ON {key}"));
+            Assert.False(layer.Paused);
+            layer.Position = 20;
+            var outputs = services.Bus.OutputsLive;
+            Assert.Equal($"OK '{side}' stopped — back to its top, held. VIDEO PLAY runs it.", Send(router, $"VIDEO STOP ON {key}"));
+            Assert.True(layer.Paused);
+            Assert.Equal(outputs, services.Bus.OutputsLive);
+            Assert.Null(onAir.SeekedTo);
+
+            // A key that is not mounted is refused with the reason and never read as the clip on air — a word after the key,
+            // another case, a path the show never opened, a live source's key.
+            foreach (var wrong in new[] { key + " NOW", key.ToUpperInvariant(), "vid:/nowhere/else.mp4", "cap:Camera 1", "opener.mp4" })
+            {
+                foreach (var verb in new[] { "PAUSE", "PLAY", "STOP", "RESTART", "END 5", "SEEK 10" })
+                {
+                    Assert.Equal("ERR " + VideoClock.NotMountedWords, Send(router, $"VIDEO {verb} ON {wrong}"));
+                }
+            }
+            Assert.False(onAir.Paused);
+            Assert.Null(onAir.SeekedTo);
+            Assert.Equal(0, layer.SeekedTo);
+            Assert.Contains(services.Journal.Tail(40), e => e.Kind == nameof(ShowActionKind.VideoPause) && e.Outcome == "Refused" && e.Target == "vid:/nowhere/else.mp4");
+
+            // The clip on air by its own key is the clip on air: the same clip, the same rule.
+            Assert.Equal($"OK '{opener}' paused at 1:02.", Send(router, $"VIDEO PAUSE ON {onAirKey}"));
+            Assert.True(onAir.Paused);
+            Assert.Contains("already paused", Send(router, "VIDEO PAUSE"));
+            Assert.StartsWith("OK", Send(router, "VIDEO PLAY"));
+
+            // The desk's right-click: OTHER CLIPS on the Media page lists the layer's clip with the wire's own lines, off by the wire's rule.
+            var others = Patterns.Core.Menus.DeskMenus.Page(DeskMenuFacts.Desk(services), DeskMenuFacts.Page(services, "Media")).Groups.Single(g => g.Heading == "OTHER CLIPS").Entries;
+            Assert.Equal(new[] { $"VIDEO PLAY ON {key}", $"VIDEO RESTART ON {key}", $"VIDEO STOP ON {key}" }, others.Select(e => e.Wire));
+            Assert.Contains("already stopped", others[2].Because);
+            Assert.Equal("", others[0].Because);
+            Assert.True(services.Actions.Execute(others[0].Action!.Value, ActionOrigin.Desk).Ok);
+            Assert.False(layer.Paused);
+
+            // A cue's step carries the key as its target, and the step's words name the clip.
+            var step = new CueActionConfig { Kind = ShowActionKind.VideoPause, Target = key };
+            Assert.Equal($"Video: pause → {side}", CueSummary.DescribeAction(services.State, step));
+            var cue = new RunCueConfig { Number = "01.010", Name = "Hold the side clip" };
+            cue.Actions.Add(step);
+            services.CueStack.Stack.Cues.Add(cue);
+            Assert.True(((ICueHost)services).RunCue(services.CueStack.Stack, cue, ActionOrigin.Desk).Ok);
+            Assert.True(layer.Paused);
+            Assert.False(onAir.Paused);
+
+            // The assistant's facts: the other clip by its role and clock, never its file or its key, with the form that drives it.
+            var facts = services.GatherFacts();
+            Assert.StartsWith("a layer's or a screen's own clip · ", facts.ClipsByKey);
+            Assert.Contains("VIDEO PAUSE|PLAY|STOP|RESTART ON <key>", facts.ClipsByKey);
+            Assert.DoesNotContain("b roll", facts.ClipsByKey);
+            Assert.StartsWith("the programme's clip · ", facts.ClipNow);
+
+            // With the layer off, its key names no mounted clip: refused, and OTHER CLIPS is gone.
+            vm.ActivePattern.Layer1.Enabled = false;
+            Dispatcher.UIThread.RunJobs();
+            services.ReconcileInputs();
+            Assert.Equal("ERR " + VideoClock.NotMountedWords, Send(router, $"VIDEO PLAY ON {key}"));
+            Assert.Empty(DeskMenuFacts.Desk(services).OtherClips);
+            Assert.Equal("", services.GatherFacts().ClipsByKey);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AClipOnlyThePreviewHoldsIsRefusedByItsKeyUntilATakePutsItOnTheAir()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            vm.IsSandboxActive = false;
+            var fakes = AudioFakes.Install(b);
+            var router = new CommandRouter(services);
+            var onAir = PutClipOnAir(b, fakes, "opener.mp4");
+
+            // EDIT SAFE: a layer's clip staged in the preview is mounted for the preview alone. STATE lists it; the air does not hold it.
+            vm.IsSandboxActive = true;
+            Dispatcher.UIThread.RunJobs();
+            var (key, staged) = PutLayerClip(b, fakes, "staged.mp4");
+            var stagedName = VideoClock.NameOfKey(key);
+            staged.Length = 60;
+            staged.Position = 7;
+            Assert.False(services.AirState.Pattern.Layer1.Enabled);
+            Assert.Equal((false, false, false, false), VideosRow(router.StateJson(), key));
+            Assert.DoesNotContain(services.VideosOnAir(), r => r.Key == key);
+            Assert.Empty(DeskMenuFacts.Desk(services).OtherClips);
+
+            // Every clip verb by its key is refused with the reason; the staged clip and the clip on air are untouched.
+            foreach (var verb in new[] { "PAUSE", "PLAY", "STOP", "RESTART", "END 5", "SEEK 10" })
+            {
+                Assert.Equal($"ERR '{stagedName}' is the preview's clip, not the air's — a take puts it on the air.", Send(router, $"VIDEO {verb} ON {key}"));
+            }
+            Assert.False(staged.Paused);
+            Assert.Null(staged.SeekedTo);
+            Assert.Equal(7, staged.Position);
+            Assert.False(onAir.Paused);
+            Assert.Null(onAir.SeekedTo);
+            Assert.Contains(services.Journal.Tail(10), e => e.Kind == nameof(ShowActionKind.VideoPause) && e.Outcome == "Refused" && e.Target == key);
+
+            // The clip the programme and the preview both hold is the programme's, and is driven.
+            Assert.StartsWith($"OK '{VideoClock.NameOfKey(onAir.Wanted.Key)}' paused", Send(router, $"VIDEO PAUSE ON {onAir.Wanted.Key}"));
+            Assert.StartsWith("OK", Send(router, $"VIDEO PLAY ON {onAir.Wanted.Key}"));
+
+            // A take puts it on the air: now the key names a clip the programme holds.
+            Assert.True(services.Actions.Execute(ShowActionKind.Cut, ActionOrigin.Desk, "").Ok);
+            Dispatcher.UIThread.RunJobs();
+            services.ReconcileInputs();
+            Assert.True(services.AirState.Pattern.Layer1.Enabled);
+            var live = fakes.Sources.Last(f => f.Wanted.Key == key && !f.Disposed);
+            Assert.StartsWith($"OK '{stagedName}' paused", Send(router, $"VIDEO PAUSE ON {key}"));
+            Assert.True(live.Paused);
+            Assert.False(onAir.Paused);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheStandbysPreRolledClipIsRefusedByItsKeyAndStaysHeld()
+    {
+        var b = TestApp.Boot();
+        var fakes = AudioFakes.Install(b);
+        try
+        {
+            var (services, _, _) = b;
+            var router = new CommandRouter(services);
+            var state = services.State;
+            var clip = AudioFakes.TempFile(b, "vt.mp4");
+            var key = Patterns.Core.Media.InputKeys.Video(clip);
+
+            // Two looks — one with the clip, one plain — and the clip's cue on standby: the pool opens the clip and holds it on its first frame.
+            services.BulkEdit(() =>
+            {
+                state.Pattern.Kind = PatternKind.Media;
+                state.Pattern.Media.Source = MediaSource.Video;
+                state.Pattern.Media.VideoPath = clip;
+                state.Pattern.Media.Loop = false;
+            });
+            state.LooksAndCues.Looks.Add(new LookConfig { Name = "VT in", Json = LookService.Capture(state) });
+            services.BulkEdit(() => state.Pattern.Kind = PatternKind.Grid);
+            state.LooksAndCues.Looks.Add(new LookConfig { Name = "Plain", Json = LookService.Capture(state) });
+            Dispatcher.UIThread.RunJobs();
+            var vtCue = new RunCueConfig { Number = "01.010", Name = "VT" };
+            vtCue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "VT in" });
+            services.CueStack.Stack.Cues.Add(vtCue);
+            services.CueStack.Standby(vtCue.Id);
+            var held = Assert.Single(fakes.Sources, f => f.Wanted.Key == key && !f.Disposed && f.FadeMs < 0);
+            Assert.True(held.IsHeld);
+            Assert.Equal(PreRoll.State.Ready, services.Video.PreRollStateOf(key));
+
+            // STATE lists it, pre-rolled; the air does not hold it, and no clip is on air.
+            Assert.Equal((false, true, false, false), VideosRow(router.StateJson(), key));
+            Assert.Empty(services.VideosOnAir());
+            Assert.Null(services.VideoOnAir());
+
+            // Every clip verb by its key is refused with the reason: the pre-roll is not released, moved or paused.
+            foreach (var verb in new[] { "PAUSE", "PLAY", "STOP", "RESTART", "END 5", "SEEK 10" })
+            {
+                Assert.Equal($"ERR '{Path.GetFileName(clip)}' is held for the standby — it plays when that goes.", Send(router, $"VIDEO {verb} ON {key}"));
+            }
+            Assert.True(held.IsHeld);
+            Assert.Equal(0, held.Releases);
+            Assert.Null(held.SeekedTo);
+            Assert.False(held.Paused);
+            Assert.Equal(PreRoll.State.Ready, services.Video.PreRollStateOf(key));
+            Assert.Equal((false, true, false, false), VideosRow(router.StateJson(), key));
+            Assert.Contains(services.Journal.Tail(10), e => e.Kind == nameof(ShowActionKind.VideoPlay) && e.Outcome == "Refused" && e.Target == key);
+
+            // With no key the answer is still the air's: nothing is on air.
+            Assert.Equal("ERR " + VideoClock.NoClipWords, Send(router, "VIDEO PLAY"));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AKeyThatIsThePlaylistsItemIsHeldWithThePlaylistsClock()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            vm.IsSandboxActive = false;
+            var fakes = AudioFakes.Install(b);
+            var router = new CommandRouter(services);
+            var clock = T0;
+            var (opener, fake) = PutPlaylistOnAir(b, fakes, () => clock);
+            var name = Path.GetFileName(opener);
+            var key = Patterns.Core.Media.InputKeys.Video(opener);
+            Assert.Equal(VideoRole.Playlist, Assert.Single(services.VideosOnAir()).Role);
+
+            // PAUSE by the key: the role's rule follows the clip named — the playlist's clock holds with its item, as with no key.
+            clock = T0.AddSeconds(10);
+            Assert.Equal($"OK '{name}' paused at 1:02 — the playlist holds with it; VIDEO PLAY runs both on.", Send(router, $"VIDEO PAUSE ON {key}"));
+            Assert.True(fake.Paused);
+            Assert.True(services.Playlist.Held);
+            Assert.Equal(("playlist", true, true, true, "seq,pausable,stoppable"), VideoRow(router.StateJson()));
+            clock = T0.AddSeconds(310);
+            Tick(services);
+            Assert.Equal(opener, services.Bus.Current.PlaylistNow?.Path);                   // held: not advanced past its end
+
+            // PLAY by the key releases both; STOP by the key puts the item and its clock back to the top, held.
+            Assert.Equal($"OK '{name}' plays on from 1:02 — the playlist runs on with it.", Send(router, $"VIDEO PLAY ON {key}"));
+            Assert.False(fake.Paused);
+            Assert.False(services.Playlist.Held);
+            Assert.Equal($"OK '{name}' stopped — back to its top, held, and the playlist holds with it. VIDEO PLAY runs both on.", Send(router, $"VIDEO STOP ON {key}"));
+            Assert.True(services.Playlist.Held);
+            Assert.Equal(0, fake.SeekedTo);
+            Assert.StartsWith("OK", Send(router, $"VIDEO PLAY ON {key}"));
+            Assert.False(services.Playlist.Held);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void ALoopHasNoEndToCountDownTo()
     {

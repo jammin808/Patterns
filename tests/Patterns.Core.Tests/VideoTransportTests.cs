@@ -244,13 +244,90 @@ public class VideoTransportTests
     }
 
     [Fact]
+    public void AClipByItsKeyReachesOscTheCueSideAndTheMenus()
+    {
+        const string key = "vid:C:\\clips\\b roll.mp4";
+
+        // OSC: a last argument that is a clip's key names the clip; the verb's own argument keeps its place.
+        Assert.Equal("VIDEO PAUSE ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/pause", key)));
+        Assert.Equal("VIDEO PLAY ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/vt", "play", key)));
+        Assert.Equal("VIDEO STOP ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/clip/stop", key)));
+        Assert.Equal("VIDEO RESTART ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/restart", key)));
+        Assert.Equal("VIDEO END ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/end", key)));
+        Assert.Equal("VIDEO END 5 ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/end", 5, key)));
+        Assert.Equal("VIDEO END 5 ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/end/5", key)));
+        Assert.Equal("VIDEO SEEK 83 ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/seek", 83, key)));
+        Assert.Equal("VIDEO SEEK END 5 ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/seek/end", 5, key)));
+        Assert.Equal("VIDEO SEEK 1:23 ON " + key, OscMap.ToLine(OscMessage.Of("/patterns/video/seek", "1:23", key)));
+        Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/video/seek", key)));                  // a key is no point
+        Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/video/seek", "soon", key)));
+        Assert.Equal("VIDEO PAUSE", OscMap.ToLine(OscMessage.Of("/patterns/video/pause", "vid:")));   // "vid:" alone is no key
+        foreach (var m in new[] { OscMessage.Of("/patterns/video/pause", key), OscMessage.Of("/patterns/video/end", 5, key), OscMessage.Of("/patterns/video/seek", 83, key) })
+        {
+            Assert.Equal(key, ControlProtocol.Parse(OscMap.ToLine(m)!).Action.Target);
+        }
+        Assert.Contains(OscMap.Reference, r => r.Address.Contains("vid:", StringComparison.Ordinal) && r.Means.Contains("ON <key>", StringComparison.Ordinal));
+
+        // The cue side: every clip verb's target is a clip (blank = the clip on air), said in the step's words by its file.
+        foreach (var kind in new[] { ShowActionKind.VideoToEnd, ShowActionKind.VideoRestart, ShowActionKind.VideoPlay, ShowActionKind.VideoPause, ShowActionKind.VideoStop, ShowActionKind.VideoSeek })
+        {
+            Assert.Equal(TargetKind.Clip, ActionSpec.For(kind).Target);
+            Assert.EndsWith(" → b roll.mp4", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = kind, Target = key, Value = kind == ShowActionKind.VideoSeek ? "1:23" : "" }));
+        }
+        Assert.Equal("Video: pause", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = ShowActionKind.VideoPause }));
+        Assert.Equal("b roll.mp4", VideoClock.NameOfKey(key));
+        Assert.Equal("b-roll.mp4", VideoClock.NameOfKey("vid:/clips/b-roll.mp4"));
+        Assert.Equal("b-roll.mp4", VideoClock.NameOfKey("vid:b-roll.mp4"));
+
+        // The menus: OTHER CLIPS lists the programme's other clips, each entry the wire's own line and off by the wire's rule.
+        var onAir = new VideoReading("vid:/clips/opener.mp4", "/clips/opener.mp4", VideoRole.Program, 62, 210, true, false, false, true);
+        var layer = new VideoReading(key, "C:\\clips\\b roll.mp4", VideoRole.Layer, 12, 60, true, false, true, true);
+        var held = new VideoReading("vid:/clips/side.mp4", "/clips/side.mp4", VideoRole.Layer, 0, 30, false, false, false, true, 1, Paused: true);
+        var page = DeskMenus.Page(new DeskFacts { Clip = onAir, OtherClips = new[] { layer, held } }, new PageFacts("Media"));
+        var others = page.Groups.Single(g => g.Heading == "OTHER CLIPS").Entries;
+        Assert.Equal(6, others.Count);
+        Assert.Equal(new[] { "VIDEO PAUSE ON " + key, "VIDEO RESTART ON " + key, "VIDEO STOP ON " + key }, others.Take(3).Select(e => e.Wire));
+        Assert.Equal(new[] { "VIDEO PLAY ON vid:/clips/side.mp4", "VIDEO RESTART ON vid:/clips/side.mp4", "VIDEO STOP ON vid:/clips/side.mp4" }, others.Skip(3).Select(e => e.Wire));
+        Assert.All(others, e => Assert.Equal(e.Action, ControlProtocol.Parse(e.Wire).Action));
+        Assert.All(others.Take(3), e => Assert.Equal("", e.Because));
+        Assert.Contains("already stopped", others[5].Because);                                    // held at its top: STOP would change nothing
+        Assert.Equal(others.Count, others.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count());
+        Assert.DoesNotContain(DeskMenus.Page(new DeskFacts { Clip = onAir }, new PageFacts("Media")).Groups, g => g.Heading == "OTHER CLIPS");
+        var many = Enumerable.Range(0, 5).Select(i => layer with { Key = $"vid:/clips/{i}.mp4", File = $"/clips/{i}.mp4" }).ToList();
+        var crowded = DeskMenus.Page(new DeskFacts { Clip = onAir, OtherClips = many }, new PageFacts("Media")).Groups.Single(g => g.Heading == "OTHER CLIPS");
+        Assert.Equal(DeskMenus.OtherClipsShown * 3, crowded.Entries.Count);
+        Assert.Contains("2 more on the air: VIDEO … ON <key>", crowded.Note);
+
+        // The assistant's words: the other clips by role and clock, never a file's name or a key, and the form that drives one.
+        var words = VideoClock.OtherFactWords(new[] { layer });
+        Assert.StartsWith("a layer's or a screen's own clip · 0:12 / 1:00 · loop — each is driven by its key from STATE videos[]: VIDEO PAUSE|PLAY|STOP|RESTART ON <key>", words);
+        Assert.DoesNotContain("b roll", words);
+        Assert.Equal("", VideoClock.OtherFactWords(Array.Empty<VideoReading>()));
+    }
+
+    [Fact]
+    public void ACueSheetNamesAClipByALibraryClipsNameOrItsKey()
+    {
+        var state = new ShowState();
+        state.MediaLibrary.Add(new MediaLibraryEntry { Name = "B roll", Path = "/clips/b-roll.mp4", IsVideo = true });
+        state.MediaLibrary.Add(new MediaLibraryEntry { Name = "Logo", Path = "/stills/logo.png", IsVideo = false });
+        var sheet = "Name,Action,Target,Value\nHold the side screen,Video — pause where it is,B roll,\nBy its file,Video — play on (after a pause or a stop),b-roll.mp4,\n"
+                    + "By its key,Video — move to a point,vid:/clips/other.mp4,1:23\nThe clip on air,Video — pause where it is,,\nNo clip,Video — pause where it is,Logo,\n";
+        var parsed = CueSheet.Import(CsvTable.Parse(sheet), state);
+        var steps = parsed.Cues.Select(c => c.Actions.Single()).ToList();
+        Assert.Equal(new[] { "vid:/clips/b-roll.mp4", "vid:/clips/b-roll.mp4", "vid:/clips/other.mp4", "", "Logo" }, steps.Select(a => a.Target));
+        Assert.Contains(parsed.Notes, n => n.Contains("'Logo' is not a clip of the Library", StringComparison.Ordinal));
+        Assert.DoesNotContain(parsed.Notes, n => n.Contains("B roll", StringComparison.Ordinal) || n.Contains("needs a Target", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void TheCueSideKnowsTheTransport()
     {
         Assert.Equal(ShowActionKind.VideoPause, CueSheet.ParseKind("pause video"));
         Assert.Equal(ShowActionKind.VideoStop, CueSheet.ParseKind("video stop"));
         Assert.Equal(ShowActionKind.VideoSeek, CueSheet.ParseKind("Video — move to a point"));
         Assert.Contains(ShowActionKind.VideoSeek, ActionSpec.CueKinds);
-        Assert.Equal((TargetKind.None, ValueKind.ClipPoint), ActionSpec.For(ShowActionKind.VideoSeek));
+        Assert.Equal((TargetKind.Clip, ValueKind.ClipPoint), ActionSpec.For(ShowActionKind.VideoSeek));
         Assert.Equal("Video: to 1:23", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = ShowActionKind.VideoSeek, Value = "1:23" }));
         Assert.Equal("Video: to 5 s before its end", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = ShowActionKind.VideoSeek, Value = "END 5" }));
     }

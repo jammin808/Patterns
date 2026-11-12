@@ -87,6 +87,12 @@ public sealed record DeskFacts
     /// </summary>
     public VideoReading? Clip { get; init; }
 
+    /// <summary>
+    /// The other clips the programme holds — a layer's, a screen's own — as the transport reads each by its key;
+    /// empty with none, and on a node. OTHER CLIPS' entries send the wire's lines, VIDEO … ON &lt;key&gt;.
+    /// </summary>
+    public IReadOnlyList<VideoReading> OtherClips { get; init; } = Array.Empty<VideoReading>();
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
 
     public bool PreviewIsMedia => PreviewSource.Length > 0;

@@ -31,6 +31,20 @@ public sealed class CueSheetImport
 /// </summary>
 public static class CueSheet
 {
+    /// <summary>
+    /// The key a clip step names: a key as STATE videos[] writes it (vid: and the file) is kept as written; a Library
+    /// clip's name or file becomes its key; anything else is null. One rule for a cue sheet and for the assistant.
+    /// </summary>
+    public static string? ClipKey(ShowState state, string target)
+    {
+        var t = (target ?? "").Trim();
+        if (t.Length == 0) return null;
+        if (t.StartsWith("vid:", StringComparison.Ordinal)) return t;
+        var clip = state.MediaLibrary.FirstOrDefault(m => m.IsVideo && m.Path.Length > 0
+            && (string.Equals(m.Name.Trim(), t, StringComparison.OrdinalIgnoreCase) || string.Equals(VideoClock.NameOfKey(m.Path), t, StringComparison.OrdinalIgnoreCase)));
+        return clip is null ? null : Media.InputKeys.Video(clip.Path);
+    }
+
     public static readonly string[] Headers =
     {
         "Number", "Name", "Track", "Start", "Duration", "Follow", "Mark", "Confirm", "Look", "Action", "Target", "Value", "After", "Notes",
@@ -327,8 +341,8 @@ public static class CueSheet
         if (targetKind == TargetKind.None) return ("", null);
         if (target.Length == 0)
         {
-            // Break music resumes with no entry; the audio playlist plays with no track; a web action with no page reaches the page on air; an announcement with no slot says its value; a fade with no place is every screen.
-            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track or TargetKind.Place || kind == ShowActionKind.Announce ? ("", null) : ("", $"{ActionSpec.Label(kind)} needs a Target.");
+            // Break music resumes with no entry; the audio playlist plays with no track; a web action with no page reaches the page on air; an announcement with no slot says its value; a fade with no place is every screen; a clip verb with no key is the clip on air.
+            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track or TargetKind.Place or TargetKind.Clip || kind == ShowActionKind.Announce ? ("", null) : ("", $"{ActionSpec.Label(kind)} needs a Target.");
         }
         switch (targetKind)
         {
@@ -367,6 +381,8 @@ public static class CueSheet
                 return SpotifyLibrary.Find(state, target) is { } music ? (music.Id, null) : (target, $"break music '{target}' not found.");
             case TargetKind.LowerThird:
                 return state.LowerThirds.Find(target) is { } design ? (design.Id, null) : (target, $"lower third '{target}' not found.");
+            case TargetKind.Clip:
+                return ClipKey(state, target) is { } clipKey ? (clipKey, null) : (target, $"'{target}' is not a clip of the Library — a Library clip's name, or a clip's key from STATE videos[] (vid:…).");
             case TargetKind.Slot:
                 // A slot is named by its name, so a sheet reads "Advert: Lunch offer" and survives a re-add.
                 return Schedule.Find(state.Install, target) is { } slot ? (slot.Name, null) : (target, $"'{target}' is not on the Install page.");

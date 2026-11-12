@@ -334,6 +334,7 @@ public class ShowBusTests
         {
             ["<n>"] = "2", ["<name>"] = "Walk-in", ["<cue>"] = "12", ["<key name>"] = "Ctrl+Shift+F5", ["<x>"] = "50", ["<y>"] = "40", ["<page>"] = "slides",
             ["<thing>"] = "screen-2", ["<words>"] = "Five minutes", ["<seconds>"] = "10", ["<m:ss>"] = "1:23", ["<proposal>"] = "a3f9c2d1",
+            ["<key>"] = "vid:/clips/b-roll.mp4",
         };
         foreach (var (slot, value) in slots) form = form.Replace(slot, value, StringComparison.Ordinal);
         Assert.DoesNotContain('<', form);
@@ -379,6 +380,9 @@ public class ShowBusTests
             ("WEB KEY <key name> [ON <page>]", "high"),
             ("WEB CLICK <x> <y> [ON <page>]", "high"),
             ("WEB RELOAD [<page>]", "high"),
+            ("VIDEO END <seconds> ON <key>", "high"),
+            ("VIDEO SEEK <m:ss> ON <key>", "high"),
+            ("VIDEO RESTART|PLAY|PAUSE|STOP ON <key>", "high"),
         }, appended);
         Assert.All(commands, c => Assert.True(c.Words.Length is > 0 and <= ShowContext.MaxWordsChars && c.Verb.Length <= ShowContextBuilder.OwnVerbMostChars, c.Verb));
         Assert.All(commands, c => Assert.Contains(c.Risk, new[] { "low", "review", "high" }));                    // every row says its risk, none left to a default
@@ -407,6 +411,9 @@ public class ShowBusTests
             ["WEB KEY <key name> [ON <page>]"] = new[] { ShowActionKind.WebKey },
             ["WEB CLICK <x> <y> [ON <page>]"] = new[] { ShowActionKind.WebClick },
             ["WEB RELOAD [<page>]"] = new[] { ShowActionKind.WebReload },
+            ["VIDEO END <seconds> ON <key>"] = new[] { ShowActionKind.VideoToEnd },
+            ["VIDEO SEEK <m:ss> ON <key>"] = new[] { ShowActionKind.VideoSeek },
+            ["VIDEO RESTART|PLAY|PAUSE|STOP ON <key>"] = new[] { ShowActionKind.VideoRestart, ShowActionKind.VideoPlay, ShowActionKind.VideoPause, ShowActionKind.VideoStop },
         };
         Assert.Equal(appended.Skip(1).Select(a => a.Verb), kinds.Keys);
         foreach (var (form, allowed) in kinds)
@@ -439,8 +446,79 @@ public class ShowBusTests
         // The context's own bytes: the rows follow BLACKOUT OFF, and the last closes the list — a reader matching text keeps its matches.
         var json = ShowContextBuilder.FromEye(Graph(), "ab12cd34", "FOH", Now, Array.Empty<ShowLogEntry>(), Array.Empty<ShowContextPeer>()).ToJson();
         Assert.Contains("{\"verb\":\"BLACKOUT OFF\",\"risk\":\"high\",\"words\":\"the pictures back\"},{\"verb\":\"APPLY \\u003Cproposal\\u003E\",\"risk\":\"review\",", json, StringComparison.Ordinal);
-        Assert.Contains("{\"verb\":\"WEB RELOAD [\\u003Cpage\\u003E]\",\"risk\":\"high\",\"words\":\"reload the page on air\"}],\"peers\":", json, StringComparison.Ordinal);
+        Assert.Contains("{\"verb\":\"WEB RELOAD [\\u003Cpage\\u003E]\",\"risk\":\"high\",\"words\":\"reload the page on air\"},{\"verb\":\"VIDEO END \\u003Cseconds\\u003E ON \\u003Ckey\\u003E\",\"risk\":\"high\",", json, StringComparison.Ordinal);
+        Assert.Contains("{\"verb\":\"VIDEO RESTART|PLAY|PAUSE|STOP ON \\u003Ckey\\u003E\",\"risk\":\"high\",\"words\":\"" + commands[^1].Words + "\"}],\"peers\":", json, StringComparison.Ordinal);
+        Assert.Equal(new ShowAction(ShowActionKind.VideoSeek, "vid:/clips/b-roll.mp4", "1:23"), ControlProtocol.Parse("VIDEO SEEK 1:23 ON vid:/clips/b-roll.mp4").Action);
         Assert.Equal(commands.Select(c => (c.Verb, c.Risk, c.Words)), ShowContext.Parse(json)!.Commands.Select(c => (c.Verb, c.Risk, c.Words)));
+    }
+
+    /// <summary>
+    /// Stagewatch's playout link names a clip by its key only when the desk's context offers the form
+    /// (<c>PlayoutDirector.OffersOnKey</c>): the context parsed, and a command whose verb starts
+    /// <c>VIDEO </c>, holds <c>ON &lt;key&gt;</c> and names the clip verb among its words, split at a space, '|', '[' and ']'.
+    /// </summary>
+    private static bool OffersOnKey(string contextJson, string what)
+    {
+        using var doc = JsonDocument.Parse(contextJson);
+        return doc.RootElement.GetProperty("commands").EnumerateArray().Select(c => c.GetProperty("verb").GetString()!.Trim())
+            .Any(verb => verb.StartsWith("VIDEO ", StringComparison.Ordinal) && verb.Contains("ON <key>", StringComparison.Ordinal)
+                         && verb.Split(' ', '|', '[', ']').Contains(what, StringComparer.Ordinal));
+    }
+
+    /// <summary>Show Bus 1.3 §6: a value whose whole name is token, key, password, passcode or secret, in any case, is a secret placeholder.</summary>
+    private static bool HasSecretValue(string form)
+    {
+        var names = new List<string>();
+        for (var open = form.IndexOf('<', StringComparison.Ordinal); open >= 0; open = form.IndexOf('<', open + 1))
+        {
+            var close = form.IndexOf('>', open);
+            if (close < 0) break;
+            names.Add(form[(open + 1)..close]);
+        }
+        return names.Exists(n => new[] { "token", "key", "password", "passcode", "secret" }.Contains(n, StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void TheClipByKeyRowsAreTheShapeStagewatchsLinkAsksAndTheOnlyRowsASection6ReaderTakesForASecret()
+    {
+        // Two readers of one row. Stagewatch's playout link, which writes the line itself, sends VIDEO … ON <key>
+        // only to a desk whose context lists that form for the word it sends. A 1.3 approval desk reads <key> as a secret
+        // placeholder and neither sends nor queues a line that fills it — so the forms with a key are not proposable across
+        // apps, and no other row of this desk's context reads so.
+        var context = ShowContextBuilder.FromEye(Graph(), "ab12cd34", "FOH", Now, Array.Empty<ShowLogEntry>(), Array.Empty<ShowContextPeer>());
+        var json = context.ToJson();
+        var words = new[] { "END", "RESTART", "PLAY", "PAUSE", "STOP", "SEEK" };
+        Assert.All(words, w => Assert.True(OffersOnKey(json, w), w));
+        Assert.False(OffersOnKey(json, "FREEZE"));
+        Assert.False(OffersOnKey(json, "NEXT"));                                                   // WEB NEXT … [ON <page>] is no clip's form
+
+        // Without the rows no word is offered: a desk before this round is sent the clip on air, never a key it would refuse.
+        var before = context with { Commands = context.Commands.Where(c => !c.Verb.Contains("ON <key>", StringComparison.Ordinal)).ToList() };
+        Assert.Equal(context.Commands.Count - 3, before.Commands.Count);
+        Assert.All(words, w => Assert.False(OffersOnKey(before.ToJson(), w), w));
+
+        // Each offered word is a line this desk's wire reads with the key as it stands, as Stagewatch's link writes it.
+        const string key = "vid:C:\\clips\\opener.mp4";
+        foreach (var (line, kind, value) in new[]
+                 {
+                     ($"VIDEO END 5 ON {key}", ShowActionKind.VideoToEnd, "5"), ($"VIDEO RESTART ON {key}", ShowActionKind.VideoRestart, ""),
+                     ($"VIDEO PLAY ON {key}", ShowActionKind.VideoPlay, ""), ($"VIDEO PAUSE ON {key}", ShowActionKind.VideoPause, ""),
+                     ($"VIDEO STOP ON {key}", ShowActionKind.VideoStop, ""), ($"VIDEO SEEK 83 ON {key}", ShowActionKind.VideoSeek, "83"),
+                 })
+        {
+            Assert.Equal(new ShowAction(kind, key, value), ControlProtocol.Parse(line).Action);
+        }
+
+        // §6: the three rows, and only they, hold a value a reader takes for a secret; no row carries "secret": n.
+        var secret = ShowContextBuilder.Commands.Where(c => HasSecretValue(c.Verb)).Select(c => c.Verb).ToArray();
+        Assert.Equal(new[] { "VIDEO END <seconds> ON <key>", "VIDEO SEEK <m:ss> ON <key>", "VIDEO RESTART|PLAY|PAUSE|STOP ON <key>" }, secret);
+        Assert.False(HasSecretValue("WEB KEY <key name> [ON <page>]"));
+        Assert.True(HasSecretValue("LOGIN <Password>"));
+        Assert.DoesNotContain("\"secret\"", json, StringComparison.Ordinal);
+        // The bare forms — the clip on air — hold none, and stay proposable as before.
+        Assert.All(new[] { "VIDEO END <seconds>", "VIDEO PLAY", "VIDEO PAUSE", "VIDEO SEEK <m:ss>", "VIDEO RESTART", "VIDEO STOP" },
+            v => Assert.False(HasSecretValue(ShowContextBuilder.Commands.Single(c => c.Verb == v).Verb)));
+        Assert.All(secret, v => Assert.Equal("high", ShowContextBuilder.Commands.Single(c => c.Verb == v).Risk));
     }
 
     private static int RiskRank(string risk) => risk switch { "low" => 0, "review" => 1, _ => 2 };

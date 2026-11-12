@@ -1868,6 +1868,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             MediaNames = state.MediaLibrary.Where(m => m.Name.Trim().Length > 0).Select(m => m.Name.Trim()).ToList(),
             AudioNow = audioNow,
             ClipNow = VideoClock.FactWords(s.VideoOnAir()),
+            ClipsByKey = VideoClock.OtherFactWords(s.OtherVideosOnAir()),
             VogOnAir = s.Stingers.VogOnAir,
             StingOnAir = s.Stingers.StingOnAir,
             LowerThirdOnAir = lowerThird,
@@ -2336,12 +2337,53 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         // A stinger's role is its own clip's alone, and "holds with it" is what is held, not what the role could hold.
         var r = VideoClock.Read(Bus.Current, InputBus.For, Stingers?.ClipKey);
-        return r?.Role switch
+        return r is null ? null : WithClock(r);
+    }
+
+    private VideoReading WithClock(VideoReading r) => r.Role switch
+    {
+        VideoRole.Playlist when Playlist is { Held: true } => r with { ClockHeld = true },
+        VideoRole.Stinger when Stingers is { ClipHeld: true } => r with { ClockHeld = true },
+        _ => r,
+    };
+
+    /// <summary>
+    /// Every clip the programme holds with a timeline, the clip on air first — what VIDEO … ON &lt;key&gt; may name.
+    /// The air's snapshot decides, never the mounts alone: a clip mounted for the preview only, and the standby's
+    /// pre-roll, are listed in STATE videos[] and are not here (UI thread).
+    /// </summary>
+    public IReadOnlyList<VideoReading> VideosOnAir()
+    {
+        var held = Video.Clips().Where(c => !c.PreRoll).Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
+        return VideoClock.ReadAll(Bus.Current, InputBus.For, Stingers?.ClipKey).Where(r => held.Contains(r.Key)).Select(WithClock).ToList();
+    }
+
+    /// <summary>
+    /// The clips the programme holds beside the clip on air — a layer's, a screen's own — taken out by key, so a clip
+    /// on air whose decoder is not open yet (and so not first in <see cref="VideosOnAir"/>) hides no other (UI thread).
+    /// </summary>
+    public IReadOnlyList<VideoReading> OtherVideosOnAir()
+    {
+        var onAir = VideoOnAir()?.Key;
+        return VideosOnAir().Where(r => r.Key != onAir).ToList();
+    }
+
+    /// <summary>
+    /// The clip a key names, as the transport reads it, or why the key names none the air holds: not mounted (or with
+    /// no timeline), held for the standby, or mounted for the preview alone. A clip the air holds whose decoder is
+    /// not open yet goes on to the transport and answers as the clip on air does then. The key is never read as the clip on air.
+    /// </summary>
+    public (VideoReading? Clip, string Refusal) VideoByKey(string key)
+    {
+        var reading = VideoClock.ReadAll(Bus.Current, InputBus.For, Stingers?.ClipKey).FirstOrDefault(r => r.Key == key);
+        var mounts = Video.Clips().Where(c => c.Key == key).ToList();
+        if (mounts.Count == 0)
         {
-            VideoRole.Playlist when Playlist is { Held: true } => r with { ClockHeld = true },
-            VideoRole.Stinger when Stingers is { ClipHeld: true } => r with { ClockHeld = true },
-            _ => r,
-        };
+            // The air's own clip with no timeline yet goes on to the transport, whose decoder check answers for it.
+            return reading is null ? (null, VideoClock.NotMountedWords) : (WithClock(reading), "");
+        }
+        if (mounts[0].PreRoll) return (null, VideoClock.PreRolledWords(key));
+        return reading is null ? (null, VideoClock.PreviewOnlyWords(key)) : (WithClock(reading), "");
     }
 
     private readonly VideoSequence _videoSeq = new();

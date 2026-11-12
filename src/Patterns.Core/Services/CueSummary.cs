@@ -199,14 +199,14 @@ public static class CueSummary
             case ShowActionKind.DeckPrev: return "Deck: the previous page";
             case ShowActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
             case ShowActionKind.VideoToEnd:
-                return VideoClock.TryParseBeforeEnd(a.Value, out var before) ? $"Video: to its last {before:0.#} s" : $"Video: to its last '{a.Value}' (not seconds)";
-            case ShowActionKind.VideoRestart: return "Video: restart from the top";
-            case ShowActionKind.VideoPlay: return "Video: play on";
-            case ShowActionKind.VideoPause: return "Video: pause";
-            case ShowActionKind.VideoStop: return "Video: stop (back to the top, held)";
+                return (VideoClock.TryParseBeforeEnd(a.Value, out var before) ? $"Video: to its last {before:0.#} s" : $"Video: to its last '{a.Value}' (not seconds)") + ClipSuffix(a);
+            case ShowActionKind.VideoRestart: return "Video: restart from the top" + ClipSuffix(a);
+            case ShowActionKind.VideoPlay: return "Video: play on" + ClipSuffix(a);
+            case ShowActionKind.VideoPause: return "Video: pause" + ClipSuffix(a);
+            case ShowActionKind.VideoStop: return "Video: stop (back to the top, held)" + ClipSuffix(a);
             case ShowActionKind.VideoSeek:
-                return !VideoClock.TryParseSeek(a.Value, out var point, out var fromEnd) ? $"Video: to '{a.Value}' (not a point)"
-                    : fromEnd ? $"Video: to {point:0.#} s before its end" : $"Video: to {VideoClock.Format(point)}";
+                return (!VideoClock.TryParseSeek(a.Value, out var point, out var fromEnd) ? $"Video: to '{a.Value}' (not a point)"
+                    : fromEnd ? $"Video: to {point:0.#} s before its end" : $"Video: to {VideoClock.Format(point)}") + ClipSuffix(a);
             case ShowActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
             case ShowActionKind.Announce:
             {
@@ -278,6 +278,9 @@ public static class CueSummary
     };
 
     private static string SwitchWords(string value) => OverlayControl.SwitchWord(value);
+
+    /// <summary>" → b-roll.mp4" for a clip verb that names its clip by key; "" for the clip on air.</summary>
+    private static string ClipSuffix(CueActionConfig a) => a.Target.Length == 0 ? "" : $" → {VideoClock.NameOfKey(a.Target)}";
 
     /// <summary>" → the page" when a web action names one; "" for the page on air.</summary>
     private static string PageSuffix(CueActionConfig a)
