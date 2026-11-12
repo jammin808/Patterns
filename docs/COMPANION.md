@@ -470,6 +470,32 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 96 — a Stagewatch window granted to the desk, and a link that proves itself (module 3.22.0)
+
+- **A granted window on a key** (3.22.0, a minor version: two actions, a variable and two presets added; Show Bus 1.3
+  §12). *Screen — a Stagewatch window granted to this desk* (`screen_window`) takes the screen, a **How** — *Stage it on
+  the PVW* (the default: `SCREEN n PVW WINDOW <name>`, nothing on air until TAKE) or *Live, only once its page is ready*
+  (`SCREEN n WINDOW <name>`) — and the window's name on Stagewatch. The desk takes the live line only once the window's
+  page is ready there, and otherwise answers `ERR … is not ready on this desk — <why>; nothing changed. Stage it first: …`
+  on the button's log; a TAKE key under a PVW that holds a window still opening is refused alike, so a deck never puts a
+  page that is still loading on the air. *Stagewatch — ask its desk for a window* (`nodes_ask_window`) sends `NODES ASK
+  WINDOW <name>`: the answer is *requested* — a person on Stagewatch decides, and the grant arrives on the desk's link.
+  `$(patterns:stagewatch_windows)` reads STATE's `bus.stagewatch.windows` in the deck's words — each window by name, where
+  the air shows it (`on air` and its screens, `in the preview — not on air`, `outputs closed`, `not shown`) and whether its
+  page is ready (`ready`, or `not ready: <why>`); empty with none, or from a desk before round 96. Never an address: the
+  desk publishes none. The presets (Nodes): **Stagewatch window — stage, then TAKE**, two steps on one key (screen 2's PVW,
+  then its TAKE; edit the window's name), and **ASK lobby**. `test/lines.txt` gains `NODES ASK WINDOW lobby`, `SCREEN 1
+  PVW WINDOW lobby` and `SCREEN 1 WINDOW lobby`; the STATE fixture carries a granted window, and the module's tests fill
+  `stagewatch_windows` from it.
+- **The link proves itself.** The desk's link to a Stagewatch 2.22 now proves its key with PeerLink (`LINK`) and records a
+  floor; `$(patterns:stagewatch_link_flags)` no longer names `legacy` for such a link, and its light is the record's. The
+  module's *lower floor* key (`STAGEWATCH FLOOR LOWER`) now has a floor to lower: it takes every floor the desk keeps for
+  that Stagewatch, and the next dial asks for `LINK` again.
+- **What the module does not do.** It has no variable of its own for STATE's `twin.windows` (the granted windows on air a
+  takeover would show black): a deck reads that only where `$(patterns:twin_words)`, the Machine page's line, names it
+  (OPEN L109). It draws no grant, and asks for none on its own: the ask is a person's press.
+- The version moves to 3.22.0 in every file that carries it, once for the round.
+
 ## Round 94 — the speaker's one message, a clip held with its clock, and a clip by its key (module 3.21.0)
 
 - **The speaker's message** (3.21.0, a minor version: variables, feedbacks and an option added). While the desk's stage

@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 96 — 2026-11-12 — the Stagewatch link proves itself with LINK on its socket, a window Stagewatch grants to this desk is shown only from the air, and the twin tells the standby which grants it lacks
 
-`round-96` · PLAN §114 · REVIEW round 96 · 3,393 tests · module 3.21.0 · evidence: a handed-in critique (the PeerLink profile and windows for peers, with the plan's critique), no field files and no rig report; no measurement taken at the opening
+`round-96` · PLAN §114 · REVIEW round 96 · 3,459 tests · module 3.22.0 · evidence: a handed-in critique (the PeerLink profile and windows for peers, with the plan's critique), no field files and no rig report; no measurement this round · Walk: unwalked (WebView2 showing a grant, the twin's WINDOWS word)
 
 - **The round opens (96.0).** PLAN §114.1 names the round's number (the plan's round 95), reads round 95's CI runs (the run on
   95.0 red once on the held-playlist case, made deterministic by 95.3 and left with its other order unfenced for **L105**,
@@ -20,7 +20,32 @@ is the Bitfocus Companion module, where its version moved.
   from the plan's words (an empty `can` until SW22.1c, D0 answered so a level-0 link may carry a grant, no real Stagewatch able
   to grant before its SW22.5), names the OPEN rows it touches (L105, L95, L60, L61, L40; L66, L94, L96, L84, L50, L21, L10 and
   L107 read), the requester, the evidence class, the platform paths (WebView2 showing a grant, the twin) and the unit table 96.0
-  to 96.4. The count and the module are round 95's until the units land.
+  to 96.4.
+- **The Stagewatch link proves itself (96.1).** Against a Stagewatch 2.22 the link dials `/ws` with `link=1` and no
+  `Authorization` header and proves its key in one link message, never sending it; it takes nothing before a verdict whose
+  proof verifies, then pins the certificate by the proof, keeps a floor `{tls, level, proof}` per address and node, and
+  carries `S` (`ShowBus lid=…, s=…`) on every side call, to the pin or loopback alone. A Stagewatch that later offers less
+  is refused red until a person's `STAGEWATCH FLOOR LOWER`, which takes every floor of that node; an older Stagewatch is
+  followed at level 0, amber `legacy`, its bearer only where 13.6.8 lets one go (**L95** amended). The held playlist's other
+  order has its case (**L105** closed). A floored Stagewatch inside a refused key's hold gets no public viewer (**L108**).
+- **A Stagewatch window granted to this desk (96.2).** The desk offers `pages`; a `grants` message on the Stagewatch
+  node's own verified link is read fail closed per link revision, kept with this machine (never the show or a twin),
+  answered with `grants-seen` and journalled by window name. The page opens under its held form at the address the link
+  reached and only to the certificate the link was proved over, black until Stagewatch says what it shows.
+  **`SCREEN n WINDOW <name>`** puts it on one screen live only once its page is ready — otherwise refused with nothing
+  changed, toward **`SCREEN n PVW WINDOW`** then TAKE — and every take waits for a staged window alike; "shown" is read from
+  the air. **`NODES ASK WINDOW <name>`** asks the Stagewatch's own desk for a window. STATE `bus.stagewatch.windows`, the Run
+  strip's chip, the tile menus, the Nodes page, the Eye's words, the brief, the Library and module 3.22.0 (`screen_window`,
+  `nodes_ask_window`, `stagewatch_windows`) read it; no token reaches any of them.
+- **The twin's WINDOWS word (96.3).** A standby tells its main which windows a Stagewatch granted it itself (held forms and
+  its id only), and the Super Check's *Twin windows* row on both desks, the WATCHDOG tile, the Eye, the glance, STATE
+  `twin.windows` and TWIN STATUS name each window on air a takeover would show black and the grant to ask for. DRILL
+  scenario 23.
+- **The papers (96.4).** PLAN §114, REVIEW round 96, README, `docs/REMOTE.md` (the window verbs and STATE, the `LINK` dial,
+  `S`, the floors), `docs/COMPANION.md` (3.22.0), `docs/QUALIFICATION.md` (§22 steps 17 and 18, the §27 and §28 notes), OPEN
+  (L105 closed; L95, L60, L61, L40, L107 amended; L108 to L110 added, L110 the hex canary CI's run on 96.1 met) and round
+  95's tag row. `SCREEN n WINDOW`'s journal row is the rig's, read beside the tile and the Run strip's chip; not read on a
+  rig this round.
 
 ## Round 95 — 2026-11-12 — the Eye draws every other app as a cluster on a NETWORK band of its own, bounded by the canvas, with its labels readable at the fit view
 

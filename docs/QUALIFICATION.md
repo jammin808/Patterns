@@ -582,11 +582,34 @@ not a footnote. The files go to `docs/field/round-NN/` (`docs/field/README.md`).
     s APART — <standby>'s clock is ahead; set both machines to one time server" and `clocks[]` reads `apart` true with
     its `errMs`; set it 1.5 s off and the words go, since 13.11.5 counts the clocks apart only when the offset less the
     sample's error is past 2 s. Put the second machine's clock back.
+17. **A Stagewatch window granted to this desk** (round 96 — WebView2 showing a grant; Show Bus 1.3 §12). A Stagewatch
+    2.22 or later on another machine, over TLS, linked by key from the Nodes page; the TV on the outputs. (a) The Nodes
+    card reads no `legacy` flag and STATE's `bus.stagewatch.link` reads `proof` `mutual` with its `floor` filled, and
+    `patterns.log` names no key. (b) On Stagewatch, `window grant lobby <this desk's id>` (or this desk's `NODES ASK WINDOW lobby`,
+    approved there): one journal row "granted to this desk: lobby", the Nodes page's grant row, STATE's
+    `bus.stagewatch.windows` with `held` `stagewatch://…/lobby` and no address. (c) `SCREEN 2 WINDOW lobby` before
+    anything is staged: refused with "not ready on this desk — …; nothing changed", the TV unchanged. (d) `SCREEN 2 PVW
+    WINDOW lobby`: the PVW tile is black until Stagewatch's window says what it shows (never a white page, never the
+    "address replaced" notice), then drawn; the Run strip's chip △ `SW lobby · PVW ONLY`. (e) TAKE on the tile: the TV
+    shows the window; the journal row of the take (`effect` Changed, `visibility` OutputsLive) beside the tile, the
+    chip ▣ `SW lobby · ON AIR 2`; then `SCREEN 3 WINDOW lobby` goes live in one press, its own journal row (verb
+    `ScreenWindow`) read beside screen 3's tile. (f) Reinstall or renew the Stagewatch's certificate: the page does not
+    open to the new certificate (black, with the words) until the link is accepted again. (g) Withdraw the grant on
+    Stagewatch, then grant it and revoke the key, then restart the desk with the grant kept: each time the screen goes
+    black (a withdrawal: the journal's "no Stagewatch window is granted to this desk now"), and after the restart the
+    window comes back drawn from the kept grant once its page is ready. (h) The support bundle, `patterns.log`, the
+    journal and STATE carry no `/w/` path.
+18. **The twin's WINDOWS word** (round 96 — the twin). With step 17's window on air on screen 2 and the standby on this
+    machine in step, holding no grant of its own: the Super Check's *Twin windows* row on the main is amber and names
+    `lobby` and the grant to ask for (`… window grant lobby <the standby's id>`), the WATCHDOG tile amber, STATE's
+    `twin.windows` the same words; the standby's own row says its `NODES ASK WINDOW lobby`. Grant `lobby` to the standby
+    on Stagewatch: the main's row goes green. `TWIN TAKEOVER`: the window comes up on the standby from its own grant,
+    ready-gated; TAKE BACK. No line of `patterns.log` on either desk holds a window's address.
 
 **Pass.** Every step ticked with the readings it asks for; the three lines posted; the four files
 committed. A step that fails is a row of `docs/OPEN.md` with the reading beside it.
 
-| date | machine | build | steps ticked (1–16) | Start-up / Desk tick / Render frame | result | files |
+| date | machine | build | steps ticked (1–18) | Start-up / Desk tick / Render frame | result | files |
 |------|---------|-------|---------------------|-------------------------------------|--------|-------|
 |      |         |       |                     |                                     |        |       |
 
@@ -800,6 +823,17 @@ journal row each, nothing pinned. A fail adds: an ACCEPT
 box filled by the desk, a changed certificate taken from the wire or a deck, or the typed hex in the journal or the log.
 The row above stays as it is, unwalked.
 
+**Round 96 (a note to this walk, not a section of its own).** Against a Stagewatch 2.22 or later, step (3) reads the
+link's proof: the desk dials with `LINK` and sends no `Authorization` header (a capture on the control network shows
+none), the certificate is pinned with no Trust pressed and the link has no `legacy` flag, and STATE's
+`bus.stagewatch.link` reads `level` 1, `tls` `pinned`, `proof` `mutual` and `floor` `{tls:true, level:1, proof:"mutual"}`. Renewing the Stagewatch's certificate still reads
+CERTIFICATE CHANGED until ACCEPT. Then point the link at a Stagewatch before 2.22 on the same address (or turn its LINK
+off): the link is refused red ("… used to prove itself with PeerLink 1 over TLS; it now offers less — not linking")
+until FLOOR LOWER on the Nodes page, after which it is followed amber `legacy`. A window granted over this link (§22 step
+17) opens only to the pinned certificate. A fail adds: an `Authorization` header in the capture, a key in any file or
+line, a lesser link taken without FLOOR LOWER, or a granted page opened to another certificate. The row above stays as
+it is, unwalked.
+
 ## 28. A page's pass, the twin's secrets, the trust rules and a stuck Stagewatch on two machines (round 89)
 
 **Set up.** The show laptop as the main, with a pairing token and a bind address on the control network; a second
@@ -832,6 +866,14 @@ machine sent the secrets; a verb that ran from the rebound name or the unlisted 
 | Build | Date | Machines | Page kept, drawn, bundle clean | Standby WITHOUT, SEND SECRETS refused | Takeover black, back drawn | Stall: no time, two lines | Keyless, no key in clear | Deck paired, no token | Token seen in clear, NEW TOKEN | Rebound name refused | OSC by the list | Result |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | | | | | | | | | | | | | unwalked |
+
+**Round 96 (a note to this walk, not a section of its own).** On two machines, with a Stagewatch 2.22 or later linked
+by key to both desks, `docs/DRILL.md` scenario 23 is the takeover with a granted window: before the failure the main's
+*Twin windows* row names the window the standby lacks and the grant to ask for, the standby's names its own `NODES ASK
+WINDOW`; after `TWIN TAKEOVER` the window is black on the standby with those words until a grant of its own opens it,
+then ready-gated. The twin's `WINDOWS` word carries held forms and the node id only — the capture holds no window
+address on the twin's port. A fail adds: a window address on the twin's link, a placeholder or another window drawn
+where the window is black, or a row green while the standby lacks the grant. The row above stays as it is, unwalked.
 
 ## What a fail means
 

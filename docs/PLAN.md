@@ -15765,3 +15765,231 @@ grant's address as a new canary: it rides no log line, journal row, STATE, conte
 operator's `window grant` is Stagewatch's. The Eye's chain from a screen to the window it shows is round 99's. `CONTEXT POST`
 over a verified link, this desk accepting `LINK` and TLS on 9697 and node devices are rounds 97 to 100. The closing sentence's
 rig verb is `SCREEN n WINDOW`, whose journal row is read beside the tile it fills; 96.4 names whether it was read.
+
+**The units as they landed (read at the papers).** The table stands as the opening wrote it: 96.1 (`31d5056`), 96.2
+(`12cdffd`) and 96.3 (`b2dbb5b`) are committed and pushed, each on the unit before it, and 96.4 is these papers. No unit
+moved under R3: none of the three waited on an owner's answer or on another tree's unit that had not landed (SW22.1b and
+SW22.4 had, at `1958220` and `536e59b`), so the round is validated whole with nothing carried to round 97. One thing moved
+inside a unit rather than between them: 96.1's commit carries L105's fence (the held playlist's other order), which the
+opening gave it, beside P95.1. Sections 114.2 to 114.9 are written by 96.4.
+
+### 114.2 The Stagewatch link proves itself (96.1 — P95.1; Show Bus 1.3 §13.6, §13.7.1, §13.8.2, §13.9.3; P-legacy)
+
+**What landed** (`31d5056`), against Stagewatch 2.22's acceptor (its SW22.1a, SW22.1b; SW22.1c since).
+- **The dial.** A run whose key the binding lets go dials `/ws?node=<id>&t=patterns&cid=<id>&page=/patterns&can=pages&link=1`
+  (`StagewatchFrame.LinkQuery`; `&can=pages` is 96.2's) with **no `Authorization` header**: over TLS to whatever certificate
+  the Stagewatch shows, or plain to loopback alone. The offer is proved once, only to the id meant and over the certificate
+  shown, as the core decides; the one link message `{type:link, client:{t,id}, cnonce, kid, proof}` is Stagewatch's
+  `ParseLinkMessage` and `LinkAcceptor.Decide` byte for byte, `K` the SHA-256 of the key as `ApiKeys.HashOf` makes it. The
+  key never leaves this desk.
+- **Nothing before the verdict.** No frame, context read, ping, speaker call or proposal is taken before it; the verdict
+  counts only when the acceptor's proof verifies with `K` over the transcript. A reflected or replayed proof ends the
+  connection as a failed dial: nothing pinned, nothing floored.
+- **After a verified link.** `S` is made and every side call carries `ShowBus lid=…, s=…`, never the key, and only to the
+  pin or loopback (an `S` in clear from another machine ends its link at Stagewatch). The certificate is pinned as the
+  proof's (`PinTrust.Proof`), every later socket of the connection is held to that pin by its own handshake's fingerprint,
+  and a person's pin is never weakened by a proof's. The floor `{tls, level, proof}` is kept with the settings
+  (`Control.Stagewatch.Floors`, at most 64) under the typed address's `addr:` key and `node:<id>`, each with the node id it
+  was recorded for. A refusal on a live link (a revoked key, a moved binding) ends `S` at once; a second offer or a second
+  ok verdict is malformed and ends the connection; a refusal class outside 13.6.4's set is logged as the core read it; a
+  401 `relink` is acted on only by a socket that carries `S`.
+- **Older Stagewatches (level 0, P-legacy).** A `link=` socket whose first message is not the offer meets a floor first:
+  a floor refuses it red ("Hall A used to prove itself with PeerLink 1 over TLS; it now offers less — not linking") and the
+  dial after a person's FLOOR LOWER asks for `LINK` again. With no floor, the bearer redials at once where 13.6.8 lets it go
+  (a person's or a proof's pin, or loopback) through `PeerLinkMachine.Redial`, which counts no failure; otherwise the
+  socket reads the public view, the key held for Trust. The run then dials that Stagewatch at level 0, said amber
+  `legacy`; one upgraded during the run is followed at level 0 until the next run. An older Stagewatch costs one `LINK`
+  dial a run.
+- **FLOOR LOWER** takes every floor kept for the node, at every address a link verified it at, from the run and from the
+  settings, and leaves another Stagewatch's (`ShowState.LowerFloor` by keys and node ids). `PinsKey` reads a person's
+  pins alone, so a proof's pin restarts no run.
+- **A chosen deviation** (said here and in OPEN L108): a floored Stagewatch inside a refused key's hold is not dialled for
+  its public view, since a socket that proves nothing would offer less than the floor; the show loses that Stagewatch's
+  time for the hold whenever the socket drops, where 13.15.3 would keep a public viewer. No test holds it.
+- **L105's fence** rode the same commit: `VideoTransportAppTests.WhatWaitedUnderAHoldRunsWhenATickComesBetweenThePlayAndTheLeaving`,
+  the held playlist's other order, passing against the product unchanged.
+
+**The tests.** `PeerLinkWireTests.StagewatchLink` against the scripted peer as a 2.22 Stagewatch over TLS on another
+machine: S1 and S19 (the canaries now include `S`, both proofs and both nonces, made again from what crossed the wire,
+over every reader of this desk), S4 (a reflected verdict), S2 and S18 (refused; bound elsewhere), S17 (revoked on a live
+link), S7 (floored at this address and at another of the node; FLOOR LOWER takes both and leaves another node's), S10
+(the Stagewatch ends the link; linked again with a new `lid`, every side call after carrying the new session), S6
+(CERTIFICATE CHANGED after a proof's pin, nothing of this desk's reaching the new certificate), S13 and S12 at level 1;
+`StagewatchLinkCoreTests` (a proof's pin and the floors round-trip the serializer; FLOOR LOWER by node); the level-0
+tests, which now dial `LINK` first. Two mutation checks in the unit: FLOOR LOWER without the node ids fails S7; `S` in a
+log line fails S19. **Not reached:** the connection's certificate gate (the scripted peer shows one certificate per end;
+the core's CERTIFICATE CHANGED refusal backs it); S11 and S5 stay the level-0 tests'; S14 (receipts on `/ws`) — this link
+sends no commands on `/ws`, so the receipts reader's round takes it.
+
+### 114.3 A Stagewatch window granted to this desk, placed ready-gated, shown only from the air (96.2 — P95.2; Show Bus 1.3 §12)
+
+**What landed** (`12cdffd`).
+- **The grants, fail closed.** The hello's caps and the dial's `can=` say `pages` (`StagewatchGrants.Ability`). A `grants`
+  message is heard only on the key-verified link of the Stagewatch's own node — a link whose Stagewatch named no node (no
+  verified id, no key bound by id) takes none — and read whole or refused (`StagewatchGrants.TryParse`: the type, the
+  granting node, a revision from 1, a carrier of `tls`, `local`, `plain`, at most 64 rows, each a window id the held form
+  names, `page` or `draw`, a path only where 12.5 lets one ride). A revision is taken per link, only when higher (a new
+  link's first revision is taken). The grants are kept with the machine in `Control.Stagewatch.Grants`
+  (`{Sw, Window, Name, How, Base, Secret, Cannot, Link, Pin}`) — never the show, never a twin — and survive a dropped link
+  and a restart; only a received list that leaves a window out removes it. Each change is one journal row (origin
+  stagewatch, verb `Grants`, target windows: "granted to this desk: Lobby, …" or "no Stagewatch window is granted to this
+  desk now"), never an address. The answer is `grants-seen` in Stagewatch's own bytes, sent from the UI thread's
+  continuation so the receive loop never waits on the desk; rows past the 64-grant cap are said in its `cannot`. A
+  settings file's grants are read as a grants message could have given them (`StagewatchGrants.Sanitize`).
+- **The page.** A granted window's address is held as `stagewatch://<sw>/<window>`; `WebPasses` resolves it from the
+  grants alone, and the browser is sent the held form, never the address. The page opens at the very address the link
+  reached (a Stagewatch heard at this machine's own address is dialled and opened at 127.0.0.1), and over TLS only after
+  its server showed the certificate the link was proved over (`PinnedPageProbe` before each navigation, the browser's
+  remembered certificate answers cleared first; `ServerCertificateErrorDetected` applies `WindowCertificate.Decide`, any
+  other certificate, or any for a grant with no pin, cancelled). Until its shell says what the window shows (rev above 0,
+  nothing loading, its link `ok`) the page is withheld and draws black.
+- **One air.** `SCREEN n WINDOW <name>` puts a granted window on screen *n* alone, live, only when its page is ready
+  (`StagewatchGrants.Readiness`: mounted, not withheld, the shell assigned, nothing loading, its link up); otherwise it is
+  refused with nothing changed and the reason, steered to `SCREEN n PVW WINDOW <name>` then `SCREEN n TAKE`. The live verb
+  is measured as a take is (`TakeMeasure`): its result carries `Visibility` and `Effect`, and the second press on a screen
+  that already shows the window is refused ("Screen 2 already shows Stagewatch window 'Lobby' — nothing changed").
+  `PVW WINDOW` stages it on a target's PVW (EDIT SAFE opens by itself). The tile's TAKE, the wall's TAKE and CUT and every
+  scoped take refuse, whole and with the same words, while a taken target's PVW — or, for the wall, the programme's own
+  preview — holds a granted window not ready yet; a window the air already shows there is not the gate's to refuse. A draw
+  grant is never a page here (`NoDraw`); a name two Stagewatches grant is refused with each named `<node>/<window>`.
+- **Shown is the air's.** `StagewatchWindows.Rows()` reads where each window is from the air alone: on air (and the
+  screens, `PGM` for the programme), "in the preview — not on air", "outputs closed", or not shown.
+- **NODES ASK WINDOW <name>** posts `window grant <name> <this desk's id>` to the linked Stagewatch's own desk (a proposal
+  with no target id, 12.4) and answers `Requested` — a person there decides and the grant comes back on the link. A second
+  press while the ask waits asks nothing new; a window already granted is refused toward PVW WINDOW; a link that is off,
+  or a desk with no show network id, refuses with why.
+- **Readers.** STATE `bus.stagewatch.windows` (last in its row: `window`, `name`, `how`, `held`, `granted`, `cannot`,
+  `link`, `ready`, `why`, `shown`, `screens`, `staged`); the Run strip's chip (▣ `SW Lobby · ON AIR 2`, △ `PVW ONLY`, △
+  `OUTPUTS CLOSED`, `+N`) and its tip; the tile menus (IN THE PREVIEW ▸ *Stagewatch window*, TO AIR ▸ *Stagewatch window,
+  live*, whose entries are greyed with why while not ready or the tile is locked); the Stagewatch card's *Ask it for a window…*
+  and the Nodes page's ASK box and grant rows; the Eye's Stagewatch card words and the assistant's brief (each window, where
+  the air shows it, whether ready, and the two-press way); the Library's *Stagewatch windows* tiles under the held form;
+  cues; the module 3.22.0 (`screen_window`, `nodes_ask_window`, `stagewatch_windows`, the stage-then-TAKE preset; `lines.txt`
+  gains the three lines).
+- **The secrets fence.** `PrivateAddressFenceTests` puts a granted window on air: no token in STATE, CONTEXT, the Eye,
+  the journal, the log, the Super Check, the files beside the settings (the settings hold it under `Secret` alone),
+  `InputLabels`, the twin wire or a built bundle.
+
+**The tests.** `StagewatchGrantsTests` (Core: the message's every refusal, revisions, the cap, `Sanitize`, readiness, shown,
+places, the certificate's truth table, ambiguous names); `StagewatchWindowsAppTests` (refused at rev 0 with the PVW words
+and nothing changed; staged, then TAKE `Done` with `Visibility` and `Effect`; `SCREEN c WINDOW` live and refused again;
+STATE, the chip and the words from the air; the wall's and scoped takes gated as the tile's; the pinned page; the ask and
+its state; a link with no node taking no grants; grants outliving the link and a restart, a new link's rev 1 taken; a
+withdrawal journalled; a same-machine Stagewatch dialled at loopback); `PrivateAddressFenceTests`; `ShowBus12AppTests`,
+`ShowBusAppTests`, `WebAppTests`, `DeskMenuTests`, `ShowBusSpecTests`, `ShowBusTests`, `StagewatchVerbsTests`, `WebSourceTests`;
+the module's node tests. The unit's commit records no mutation check (REVIEW round 96).
+
+### 114.4 The twin's WINDOWS word and the standby's Super Check row (96.3 — P95.3)
+
+**What landed** (`b2dbb5b`). A grant belongs to the node it was granted to, and a standby is a node of its own; so a
+window granted to the main shows black on the standby after a takeover unless the standby holds a grant of its own, and
+the main must be able to say so before the failure.
+- **The word.** `TwinWord.Windows` (`WINDOWS`), standby to main, once right after the welcome and whenever it changes:
+  `{"node":"<Show Bus id>","held":["stagewatch://<sw>/<window>"]}` — held forms and ids only, never an address, path,
+  base or pin; read fail closed (an address, a non-grant or non-canonical form, a duplicate, a bad node id, more than 64),
+  an unreadable word counting as "has not said", never as "holds all", and logged once while it stays unreadable.
+- **The row.** `TwinWindows` (pure) reads the air — the programme, the frozen air under EDIT SAFE, a standby's mirrored AIR
+  record — and each screen's own picture. The Super Check's *Twin windows* row on both desks names each window on air a
+  takeover would show black and the grant to ask for (`Stagewatch → window grant lobby <the standby's id>`, and on a
+  standby its own `NODES ASK WINDOW lobby`); after a takeover it says the window is on air here and black, or not ready
+  with the browser's reason, and is green only when the window's readiness is Ready. The WATCHDOG tile (amber, never above a
+  silent main's red), the Eye's twin light, the glance (WINDOW BLACK ON TAKEOVER), the Machine line, the health words and
+  the assistant's brief through them, STATE `twin.windows` and TWIN STATUS `windows` read it, each field at the end of its
+  row. Grants stay in `Control`, which the twin never carries.
+- **DRILL scenario 23** — a takeover with a granted window and a kept page on air, quoting the standby's own sentence.
+
+**The tests.** `TwinWindowsTests` (Core: the word both ways, every refusal, the row's words and lights, WATCHDOG's ranking
+under a silent main), `TwinWindowsAppTests` (EDIT SAFE on the main, the standby's mirrored AIR against its SHOW both ways,
+after a takeover with the standby's own sandbox open, the Eye's twin light), `TwinServicePartsTests`. One mutation check in
+the unit: the main's store of the word and the standby's send broken fail both new App tests.
+
+### 114.5 Every reader, and what the round did not reach
+
+- **The desk** — the Nodes page (the link's floor and LOWER FLOOR, the grants, the ASK box), the tiles' menus, the Run
+  strip's chip, the Library, the Super Check's *Twin windows* row and WATCHDOG tile. **The right-click menus** — the tile's
+  two window drawers and the Stagewatch card's *Ask it for a window…*, the same actions the wire speaks (`DeskMenuTests`).
+- **STATE** — `bus.stagewatch.windows` (96.2), `twin.windows` (96.3), the link record's `level` 1, `proof` `mutual` and
+  `floor` `{tls, level:1, proof:"mutual"}` once a link proves itself (96.1). **The
+  wire** — `SCREEN n WINDOW`, `SCREEN n PVW WINDOW`, `PVW WINDOW`, `NODES ASK WINDOW`, TWIN STATUS `windows`
+  (`docs/REMOTE.md`, by these papers). **The deck** — module 3.22.0 (`docs/COMPANION.md`, by these papers). **The Eye and
+  the assistant** — the Stagewatch card's window words, the twin light, the brief.
+- **Not reached, said (OPEN L109).** Help has no topic or step for the three verbs; the context's `commands` list none of
+  them, so another app's assistant cannot propose them; the module reads no `twin.windows` of its own (a deck reads it only
+  where `twin_words`, the Machine line, names it); the Eye draws no edge from a screen to the window it shows (round 99,
+  L107); `STAGEWATCH FLOOR LOWER`'s refusal still says "no Stagewatch has to this desk yet" when no floor is kept, which a
+  lowered floor makes untrue.
+
+### 114.6 With AI offline
+
+Nothing needs a key or the internet beyond the Stagewatch the desk links to: the proof, the grants, the readiness, the
+twin's word and the Super Check row are this desk's own reading. The assistant's brief names each granted window and the
+two presses; an assistant proposes none of the three verbs (L109).
+
+### 114.7 The proof
+
+- **CI**, read at these papers: run 43199521821 on `d707925` (96.0) green — Core 1,607, Rendering 724, Devices 9, Audio 14,
+  Assistant 39, Audience 3, App 997. Run 43197976631 on `d34e67d` (round 95's papers), which the opening left running:
+  green, the same counts. Run 43218023981 on `31d5056` (96.1): the test job red — App 1,006 of 1,007, one failure,
+  `WebPassesAppTests.ABookThatCannotBeWrittenKeepsNothingAndTheAddressIsHeldUnkept`, `CarriesNoPass` at
+  `WebPassesAppTests.cs:35`: the PIN canary `4321` was found in the refusal's words because the run's temporary folder,
+  named in the words, was `…/patterns-webpasses-65f4321448e5…` — a canary of hex digits inside a random hex name. Not the
+  product's (the words carry no pass) and not 96.1's (the class was not touched since round 92.5); about one run in 1,700
+  (38 four-digit windows in the folder's 44 random hex digits, 1/65,536 each). Core 1,608, Rendering 724 and the four small
+  suites green; windows-smoke, lifecycle, rollback-script and companion-module green; portable-exe and release skipped. The
+  mend — a canary no hex can hold, as `PrivateAddressFenceTests`' `pz4321qk` — is **L110**, not made here. Run
+  43243094814 on `12cdffd` (96.2): every job green, release skipped — Core 1,633, Rendering 724, Devices 9, Audio 14,
+  Assistant 39, Audience 3, App 1,016. Run 43257298636 on `b2dbb5b` (96.3) was still running when these papers were
+  written; the next papers read it.
+- **Core:** `StagewatchLinkCoreTests`, `StagewatchGrantsTests`, `TwinWindowsTests`, `ShowBusSpecTests`, `ShowBusTests`,
+  `StagewatchVerbsTests`, `DeskMenuTests`, `ChangelogTests`. **Rendering:** `WebSourceTests`. **App:**
+  `PeerLinkWireTests.StagewatchLink`, `StagewatchWindowsAppTests`, `PrivateAddressFenceTests`, `TwinWindowsAppTests`,
+  `TwinServicePartsTests`, `ShowBus12AppTests`, `ShowBusAppTests`, `WebAppTests`, `VideoTransportAppTests`. **The
+  module:** 3.22.0, its node tests (`stagewatch_windows` from the STATE fixture), `lines.txt` with the three lines.
+- **Mutation checks:** two in 96.1 and one in 96.3, as their commits record; 96.2 records none, and these papers — written
+  with no build, beside a suite run in this tree — run none (REVIEW round 96).
+- **Measured:** nothing. The bounds are the contract's (four grants a window, `link.ws.in.bytes`, the first `hello.caps`
+  words of `can=`) and the design's (64 grants kept), each held by a deterministic test where it landed.
+- **At the close:** Core 1,652, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 1,018 (by six parts, summing to the suite's listed count) — 3,459 in all, each green with no skip; the module's npm ci, npm test (51), the lines.txt diff and npm run check green on the tree as committed. The units' own validates read the same counts.
+
+### 114.8 What the round did not do
+
+- **The walk** (`unwalked`). Two platform paths moved: WebView2 showing a grant (the pinned page, the observer under the
+  window's content-security policy, a withdrawn, revoked or restarted grant black) and the twin (a new word). Their rows are
+  QUALIFICATION §22's steps 17 and 18 and the notes under §27 and §28; none is filled. Step 17 needs a Stagewatch that can
+  grant: its SW22.5 (grants made at its desk) has landed since the opening, so the walk can now be run against a real one.
+- **No `LINK` acceptor here**, no TLS on 9697 and no receipts on `/ws` from this desk (S14): rounds 97 to 100.
+- **The level-0 fallback stays** for a Stagewatch before 2.22 (P-legacy) until Show Bus 1.4's default flip (L95, amended);
+  a floored Stagewatch inside a refused key's hold gets no public viewer (L108).
+- **No draw grant** is drawn here: this desk offers `pages`, not `window-draw`; a draw grant is said with why.
+- **The readers of L109** — Help, the context's commands, the module's own `twin.windows`, the Eye's screen-to-window edge.
+- **No tombstones** for a revoked or withdrawn window (the design's D15): the page goes black and its address stops
+  resolving; no measurement was taken.
+- **No measurement and no governor.**
+
+### 114.9 The ledger and the papers (96.4)
+
+- **OPEN.** Closed: L105 by 96.1 (the other order's case). Amended: L95 (narrowed to a Stagewatch before 2.22, the
+  fallback until 1.4's flip), L60 (the standby's own grant and the *Twin windows* row, 96.3; the secrets half stays L55's),
+  L61 (a grant bound to the main's id is now said before the failure on both desks; the accepted links and posted contexts
+  stay), L40 (the grants' `Secret` joins the plain-JSON class in the settings), L107 (the lease exists now — round 96's
+  grants — and the Eye's chain is round 99's). Added: L108 (the floored Stagewatch inside a hold gets no public viewer),
+  L109 (the readers round 96 did not reach), L110 (the hex canary in `WebPassesAppTests`). Read and kept: L10 (a granted
+  page is a WebView2 page, on the screenshot poll where the screencast is refused), L21 (23 drill scenarios, 0 filled), L50,
+  L66, L84, L94, L96. Sixty open, fifty closed.
+- **The walk.** Unwalked (§114.8): QUALIFICATION §22 steps 17 and 18, the §27 and §28 notes.
+- **The other trees, read at the papers.** Stagewatch's head is `53023da` (its SW22.10); since the opening its SW22.1c
+  (receipts and `final` on `/ws`), SW22.2 (windows in the context), SW22.5 (grants made at its desk), SW22.6 (the rig grants
+  and `grants.e2e.cjs`), SW22.7 to SW22.10 (the module, the doors, the copilot, MCP) have landed, so a real Stagewatch can
+  grant; the pair with this desk is its SW22.11 interop row, which these papers let it run. Its interop lane still pins this
+  tree at `d707925` (96.0). Mapper's head is `783319e1`. The contract's Body line is the same in both copies and
+  `tools/showbus/peerlink-peer.mjs` matches Stagewatch's byte for byte.
+- **The papers:** §114.1's closing paragraph and §114.2 to §114.9; REVIEW round 96; CHANGELOG (96.1 to 96.4, the count,
+  module 3.22.0); README (the ledger's round 96 entry, the show network's round line, the count); `docs/REMOTE.md` (`SCREEN n
+  WINDOW`, `PVW WINDOW`, `NODES ASK WINDOW`, `bus.stagewatch.windows`, the link's `LINK` dial and floors, FLOOR LOWER);
+  `docs/COMPANION.md` (round 96, module 3.22.0); `docs/QUALIFICATION.md` (§22 steps 17 and 18, the §27 and §28 notes);
+  `docs/DRILL.md` (scenario 23, landed by 96.3, read and unchanged); `docs/OPEN.md`; the tag table's row 95 (`d34e67d`).
+- **The rig's reading.** `SCREEN n WINDOW` is a verb an output shows. Its row is the journal's — `patterns.showlog.jsonl`,
+  verb `ScreenWindow`, the screen as its target, `Done` with "Stagewatch window 'Lobby' on Screen 2 alone — every other
+  screen stays.", `visibility` OutputsLive and `effect` Changed (a refusal: `Refused`, the reason and nothing changed) — read
+  beside that screen's tile and the Run strip's chip (▣ `SW Lobby · ON AIR 2`). It has not been read on a rig: the round is
+  unwalked.

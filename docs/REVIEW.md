@@ -4691,3 +4691,114 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   `patterns.metrics.csv`'s `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes`, read beside the Eye page with the show's apps
   linked, the rebuild's first measurement on a rig (§113.9).
 - Walk: none asked — no platform path the brief names is touched; the twin's protocol does not move.
+
+## Round 96 review — the Stagewatch link proves itself with LINK, a granted Stagewatch window shown only from the air, and the twin's WINDOWS word
+
+### 96.0 — the round opened
+
+- The plan's round 95 (its P95.0 to P95.4) is round 96 here, §114, under §110.1's key. The requester: the maintainer's
+  show-network ask, the plan's fifth train. Evidence class: a handed-in critique — the PeerLink profile and *windows for
+  peers* in Stagewatch's tree, with the plan's critique (its issue 13 puts 96.2 after 96.1). `docs/field/` holds only its
+  README; round 95's CI runs were read as the files (the run on 95.0 red once on the held-playlist case, L105).
+- Where Stagewatch's landed `/ws` `LINK` and grants differed from the plan's words was said at the opening: an empty
+  `can` before SW22.1c, D0 answered (a level-0 link may carry a grant), no real Stagewatch able to grant before its SW22.5,
+  and the design's stale names and lines. No measurement.
+
+### 96.1 — the Stagewatch link proves itself (P95.1)
+
+- **Done.** PLAN §114.2. The `link=1` dial with no `Authorization` header, the offer proved only to the id meant over the
+  certificate shown, nothing taken before a verdict whose proof verifies, `S` on side calls to the pin or loopback alone,
+  the certificate pinned by the proof, the floor kept per address and node, FLOOR LOWER by node, the level-0 fallback
+  (a floor refuses it; a bearer only where 13.6.8 lets one go; otherwise the public view), and L105's fence.
+- **Tests:** `PeerLinkWireTests.StagewatchLink` (S1, S19, S4, S2, S18, S17, S7, S10, S6, S13, S12), `StagewatchLinkCoreTests`,
+  the level-0 tests dialling `LINK` first, `VideoTransportAppTests` (L105).
+- **Mutation checks** — two, as the unit's commit records them: FLOOR LOWER without the node ids fails S7; `S` in a log line
+  fails S19.
+- **Left by the unit, answered here:** the floored Stagewatch inside a refused key's hold gets no public viewer, a chosen
+  deviation from 13.15.3 with no test (PLAN §114.8, OPEN L108); S14 is the receipts reader's round's (§114.8); the
+  connection's certificate gate is unreachable by the scripted peer and backed by the core's refusal.
+
+### 96.2 — a granted Stagewatch window, ready-gated, shown only from the air (P95.2)
+
+- **Done.** PLAN §114.3. `can=pages`; `grants` read fail closed per link revision on the Stagewatch node's own verified
+  link, kept in `Control.Stagewatch.Grants`, answered with `grants-seen`, journalled by window name; the held form resolved
+  from the grants alone; the page opened at the address the link reached and only to its pin; `SCREEN n WINDOW` live only
+  when ready, else `PVW WINDOW` then TAKE, and every take gated alike; "shown" from the air; `NODES ASK WINDOW` to the
+  Stagewatch's own desk; STATE, the chip, the menus, the Nodes page, the Eye's words, the brief, the Library and the module
+  3.22.0.
+- **Tests:** `StagewatchGrantsTests`, `StagewatchWindowsAppTests`, `PrivateAddressFenceTests` (a granted window on air),
+  the touched `ShowBus12AppTests`, `ShowBusAppTests`, `WebAppTests`, `DeskMenuTests`, `ShowBusSpecTests`, `ShowBusTests`,
+  `StagewatchVerbsTests`, `WebSourceTests`, the module's node tests.
+- **Mutation checks:** the unit's commit records none, and these papers run none: they are written with no build, beside
+  a suite run in this tree, so no source is edited and rebuilt here. Said, not hidden: 96.2's gates (the readiness gate,
+  the take gate, the per-link revision) are held by tests that no mutation has yet been shown to fail; the next round
+  that edits `ShowActions.Content.cs`, `ShowActions.Switcher.cs` or `StagewatchGrants.cs` runs one each.
+- **Left by the unit, answered here:** the readers not reached — Help, the context's `commands`, the Eye's edge from a
+  screen to its window (L109, L107).
+
+### 96.3 — the twin's WINDOWS word, the standby's Super Check row, DRILL scenario 23 (P95.3)
+
+- **Done.** PLAN §114.4. `TwinWord.Windows` (held forms and the node id only, read fail closed), `TwinWindows` reading the
+  air, the *Twin windows* row on both desks, the WATCHDOG tile below a silent main's red, the Eye's twin light, the glance,
+  the Machine line, the health words, STATE `twin.windows`, TWIN STATUS `windows`, DRILL scenario 23.
+- **Tests:** `TwinWindowsTests`, `TwinWindowsAppTests`, `TwinServicePartsTests`.
+- **Mutation check** — one, as the unit's commit records it: the main's store of the word and the standby's send broken
+  fail both new App tests.
+- **The review's ten items** were folded into the unit (its commit lists them); item 9's carried readers — the module
+  beyond `twin_words`, `docs/COMPANION.md`, the context commands — are answered here: COMPANION says what a deck reads of
+  the twin's windows, and the rest are L109.
+
+### 96.4 — the papers
+
+- §114.1's closing paragraph and §114.2 to §114.9; this section; the CHANGELOG entry completed; README (the ledger's round
+  96 entry, the show network's round line, the count); `docs/REMOTE.md` (the three window verbs, `bus.stagewatch.windows`,
+  the `LINK` dial, `S`, the proof's pin, the floors and FLOOR LOWER, the show network section's "not kept yet" list);
+  `docs/COMPANION.md` (round 96, 3.22.0); `docs/QUALIFICATION.md` (§22 steps 17 and 18 and the walk table's step count, the
+  §27 and §28 notes); `docs/OPEN.md`; the tag table's row 95 (`d34e67d`).
+- **Read again at the papers:** REMOTE still said the link "sends no `LINK` (round 96; L95)" and that FLOOR LOWER is "always"
+  refused at level 0, and listed `LINK` among what remains, with no word of the window verbs; README's last show-network
+  line was round 94's; COMPANION ended at 3.21.0; QUALIFICATION's walk stopped at step 16 with no granted window. Each now
+  says what the code does. §114.1's "no real Stagewatch can grant yet" was true at the opening and is not now (its SW22.5
+  and SW22.6 have landed), said in §114.9.
+- **Found by the papers, from CI:** run 43218023981 on 96.1 read one App test red, `WebPassesAppTests`'s
+  `ABookThatCannotBeWrittenKeepsNothingAndTheAddressIsHeldUnkept`: its PIN canary `4321` met the run's random hex folder
+  name in the refusal's words (`…patterns-webpasses-65f4321448e5…`). The product's words carry no pass; the canary is hex,
+  so about one run in 1,700 a hex name holds it. Not mended here (no build in this stage): **L110**, with the mend named —
+  a canary no hex can hold, as `PrivateAddressFenceTests`' `pz4321qk`.
+- Every unit of 96.1 to 96.3 is committed; none moved under R3.
+
+### The review's items, answered
+
+- **G10 (a Stagewatch window's address given to Patterns, never typed):** 96.2 — the grant on the verified link, the held
+  form in the show, the page opened only to its pin; the Eye's chain from screen to window is round 99's (L107).
+- **G08 (Stagewatch's Patterns link plain, a pairing token that can go in clear):** this round's half is the other
+  direction — this desk's link to Stagewatch now proves its key without sending it (96.1); the wire's own `LINK` and TLS on
+  9697, which end G08 from Stagewatch's side, are rounds 97 to 100.
+- **G43 (a pin confirmed on a frame any client gets — AGMessage's):** this desk's analogue is held by 96.1 — a certificate
+  is pinned by a proof only after the acceptor's proof verifies with the key (13.8.2), never on a frame, and a person's pin
+  is never weakened by a proof's.
+- **The link's floors (§13.9.3):** 96.1 — a floor per address and node, FLOOR LOWER by node; the level-0 fallback stays
+  for an older Stagewatch (L95, amended).
+- **D16 (the twin):** 96.3 — `WINDOWS`, the *Twin windows* row, DRILL 23; no grant's address rides the twin.
+- **Issue 13 (96.2 after 96.1):** kept.
+
+### The ledger's rows, answered
+
+- **Closed:** L105 (96.1).
+- **Amended:** L95, L60, L61, L40, L107.
+- **Added:** L108 (no public viewer for a floored Stagewatch inside a hold), L109 (the readers not reached), L110 (the hex
+  canary).
+- **Read and kept:** L10, L21, L50, L66, L84, L94, L96.
+- Closed rows: fifty; open: sixty.
+
+### The suites
+
+- Whole validate on the tree as committed: Core 1,652, Rendering 724, Devices 9, Audio 14, Assistant 39, Audience 3, App 1,018 (by six parts, summing to the suite's listed count) — 3,459 in all, each green with no skip; the module's npm ci, npm test (51), the lines.txt diff and npm run check green. One App test (MdnsAppTests, one-shot query on the shared mDNS port) failed once beside the other suites' processes and passed on three reruns alone and on the part's rerun; it reads a datagram another responder may take first.
+- CI: the runs on `d707925` (96.0, green), `d34e67d` (round 95's papers, green), `31d5056` (96.1, red on L110's canary
+  alone) and `12cdffd` (96.2, green, release skipped) are read in PLAN §114.7; the run on `b2dbb5b` (96.3) was still
+  running. These papers go out at the maintainer's next push.
+- The rig's reading: `SCREEN n WINDOW`'s journal row (`patterns.showlog.jsonl`, verb `ScreenWindow`, the screen as target,
+  `Done`, `visibility` OutputsLive, `effect` Changed), read beside that screen's tile and the Run strip's chip — not read on
+  a rig this round (§114.9).
+- Walk: unwalked — WebView2 showing a grant (`docs/QUALIFICATION.md` §22 step 17 and the §27 note) and the twin's
+  `WINDOWS` word (§22 step 18 and the §28 note); no row is filled.
