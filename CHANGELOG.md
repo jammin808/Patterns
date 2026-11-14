@@ -10,6 +10,18 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 97 — 2026-11-14 — a PlayMap node becomes a Show Bus node device, known by its kind words, paired by proof on its line wire, driven with receipts and drawn in the NETWORK band; and a test canary no hex can hold
+
+`round-97` · PLAN §115 · REVIEW round 97 · 3,459 tests · module 3.22.0 · evidence: a handed-in critique (patterns-playmap-side and gap G35, with the Eye critique's issue 17) and CI's file for L110; no field files and no rig report; no measurement this round · Walk: none asked (a TCP line link; no platform path)
+
+- **The round opens (97.0).** PLAN §115.1 names the round's number (the plan's round 96) and its unit table, 97.0 to 97.3 (97.1, the
+  mends unit for **L110**, is inserted); reads round 96's CI runs (the run on 96.1 red once on L110's hex canary alone, 96.0 and
+  96.2 to 96.4 green, 3,459 tests); reads PlayMap's line wire as it is at Mapper's head and says where it differs from the
+  plan's words (no `LINK` offered on 9941 yet, the greeting `STATE` in two orders under the owner's word that PlayMap holds it
+  until the proof, `CONTEXT` answered before pairing where Mapper's papers say it waits, the plan's cites moved); names the OPEN
+  rows it touches (L110 closed by 97.1; a new row, L111, for two App test runs hearing each other's mDNS and beacons, a row and
+  not a mend), the requester, the evidence class and the platform paths (none).
+
 ## Round 96 — 2026-11-12 — the Stagewatch link proves itself with LINK on its socket, a window Stagewatch grants to this desk is shown only from the air, and the twin tells the standby which grants it lacks
 
 `round-96` · PLAN §114 · REVIEW round 96 · 3,459 tests · module 3.22.0 · evidence: a handed-in critique (the PeerLink profile and windows for peers, with the plan's critique), no field files and no rig report; no measurement this round · Walk: unwalked (WebView2 showing a grant, the twin's WINDOWS word)

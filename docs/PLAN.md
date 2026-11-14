@@ -15993,3 +15993,119 @@ two presses; an assistant proposes none of the three verbs (L109).
   screen stays.", `visibility` OutputsLive and `effect` Changed (a refusal: `Refused`, the reason and nothing changed) — read
   beside that screen's tile and the Run strip's chip (▣ `SW Lobby · ON AIR 2`). It has not been read on a rig: the round is
   unwalked.
+
+## 115. Round 97 — a PlayMap node becomes a Show Bus node device: known by its kind words, paired by proof on its line wire, driven with receipts of their own and drawn in the NETWORK band; and a test canary no hex can hold
+
+### 115.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 96 — its units P96.0 to P96.2, the fifth train's second Patterns round —
+under the number §110.1's key gives it: round 97 here, §115, not the plan's §114. The plan is the cross-app plan of record
+(`docs/ecosystem/master-plan.md` in Stagewatch's tree). The units keep their order, with one inserted by this tree, and a
+dependency that names another Patterns unit of the plan reads one higher:
+
+| The plan's unit | Here | What it is | Depends on (here) |
+|---|---|---|---|
+| P96.0 | 97.0 | this opening: PLAN §115's first lines and the changelog's round 97 entry | 96.4's papers (`fb56b4e`) |
+| (inserted) | 97.1 | a mends unit: **L110**, a canary no hex can hold, and a sweep of the other suites' canaries a path can carry; no product change | 97.0 |
+| P96.1 | 97.2 | Show Bus node devices: PlayMap known (kind words), paired by proof on its line wire (`HELLO`, `AUTH-PROOF` on a 32-hex `NONCE`; `LINK` where a PlayMap offers it), driven with `@d<n>` receipts, its context kept per device, drawn as a cluster in the NETWORK band, the Nodes page's *Add as a device*, the brief | 97.0; 93.1 (the plan's P92.1, `6fb5b9a`, the PeerLink core); 95.1 (the plan's P94.1, `04e29e6`, the band) |
+| P96.2 | 97.3 | the papers (PLAN §115, REVIEW, CHANGELOG, README, REMOTE, OPEN) and round 96's tag row | 97.2 |
+
+The plan's check for this unit greps for `^## 114\. Round 96`; here it is `^## 115\. Round 97`. The plan's "Round 96 papers
+(PLAN §114)" is 97.3 and §115 here; the plan's next round (acceptors, P97) is round 98 and §116. R1 asks a round to open only
+after the previous round's papers: round 96's are `61cc822`, and `fb56b4e` is the correction of one sentence in them. Round 97
+waits on no other tree's unit: PlayMap's side of the pair (its `PeerLink` acceptor, `wp4-peerlink`) waits for its owner and is
+not asked for here (R3; below).
+
+**What the files said.** Nothing from the rig: `docs/field/` holds only its README, as at the last four openings. The files
+this opening reads are CI's, from round 96's pushes (GitHub's Actions list for this repository, read at this opening):
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 298, `d707925` (96.0) and 297, `d34e67d` (95.4) | Green, every job | The opening and round 95's papers held | Nothing |
+| 299, `31d5056` (96.1) — run 43218023981 | `test` red: App 1,006 of 1,007, one failure, `WebPassesAppTests.ABookThatCannotBeWrittenKeepsNothingAndTheAddressIsHeldUnkept` at `CarriesNoPass`; every other job green | The PIN canary `4321` was found in the refusal's words because the run's temporary folder, named in them, was `…/patterns-webpasses-65f4321448e5…`: hex digits inside a random hex name. The product's words carry no pass; about one run in 1,700 | **L110**, closed by 97.1: a canary no hex can hold, in every site of the class, and the same look at the other suites' canaries a path can carry |
+| 300, `12cdffd` (96.2) | Green, every job; `release` skipped | A granted window held on both runners | Nothing |
+| 301, `b2dbb5b` (96.3) and 302, `fb56b4e` (96.4, the round's last commit) | Green, every job (`test`, `lifecycle`, `windows-smoke`, `companion-module`, `rollback-script`, `portable-exe`); `release` skipped for no tag. Run 302's `test`: Core 1,652, Rendering 724, App 1,018 on the Ubuntu runner, the other suites as at the close (Devices 9, Audio 14, Assistant 39, Audience 3) — 3,459 | The whole round holds on both runners, L110 aside | Nothing from CI |
+| REVIEW round 96, "The suites" | One App test (`MdnsAppTests`, a one-shot query on the shared mDNS port) failed once while a second App test run was going on the same machine, and passed alone | Two App test runs on one machine hear each other's mDNS answers and beacons: the suite's ports are the machine's, not the process's | A row (**L111**, added by 97.3), not a mend: no measurement this round says what a per-run port set would cost, and removing the sharing is not a governor |
+
+**The other trees, read at this head (R6: every citation of the plan re-read).** Stagewatch's head is `1bae45f` (papers: the
+owner lifts the pause); its 2.22 units SW22.1a to SW22.10 have landed. Mapper's is `783319e1`. The contract's body is
+the same in the three trees (`Body SHA-256 9ca83889…`; the headers of Stagewatch's and this copy differ in their accounts
+of which scenarios each tree runs, which a copy's header does not follow) and `tools/showbus/peerlink-peer.mjs` matches
+Stagewatch's byte for byte. Where the head or the contract differs from the plan's words:
+- **PlayMap's line wire (TCP 9941), as it is.** `docs/WIRE.md` (§A connection's life) and `src/PlayMap.Net/Wire/WireSession.cs`:
+  a token node sends `NONCE <32 hex>` first to a peer that is neither loopback (when trusted) nor on its trusted list; `HELLO
+  <name>` answers `OK`; `AUTH-PROOF <hex>` is HMAC-SHA256 of the token over nonce + name, answered `OK paired`, a wrong one
+  `ERR wrong token — …` with a fresh `NONCE`, five wrong closing the connection; `SUBSCRIBE STATE|CONTEXT|PROJECT|OFF`
+  answers `OK subscribed …`; `PING <t1>` answers `OK PONG t1 t2 t3`; queries (STATE, CONTEXT) are open before pairing; a verb
+  is refused `ERR not paired — …` until it. The plan's flow (HELLO, proof, `SUBSCRIBE OFF`, `SUBSCRIBE CONTEXT`) is that
+  wire's. A trusted-address peer gets no `NONCE` at connect and may ask for one with the `NONCE` verb.
+- **The greeting `STATE`: two orders, one decided.** At this head the TCP wire sends `STATE {json}` right after `OK` to
+  `HELLO` (`WireSession.cs`, the `HELLO` arm), as the plan has it ("a STATE line that still arrives is dropped, counted").
+  The owner answered on 2026-11-14 (M-PMX, "PlayMap changes: hold the STATE until the proof") that PlayMap holds the greeting
+  until `OK paired`, as its web port's line channel already does (`_strict`); a fix batch in Mapper, `fix-wire-state-after-proof`,
+  may land beside this round and has not at this head (Mapper's log ends at `783319e1`). So 97.2's session reads a PlayMap
+  that says `STATE` right after `HELLO` (older) and one that says it only after `OK paired` (newer), and holds both with a
+  scripted peer of each order: a `STATE` before the proof is dropped and counted, never raised and never an error; a `STATE`
+  after it is dropped as well, because the device subscribes to the context and not to the state. `SUBSCRIBE OFF` ends the
+  pushes either way.
+- **`CONTEXT` before pairing.** Mapper's `docs/SHOWBUS-NODE.md` (§5 item 2) says 9941's `STATE` and `CONTEXT` wait for pairing
+  once Patterns' node devices pair by proof; `WIRE.md` still lists both as open queries and the code answers them. The
+  device sends `SUBSCRIBE CONTEXT` only after `OK paired` (or `OK open`), so it holds under either wording and gets the
+  context only from a link it proved.
+- **`LINK` is not offered by PlayMap's 9941 at this head.** The plan's "LINK when PlayMap offers it, else `AUTH-PROOF` on a
+  32-hex `NONCE`": PlayMap carries Show Bus 1.3's PeerLink core for the links it dials (Mapper `e306699f`), and its acceptor
+  (`LINK` on 9941, issued keys, TLS) is `wp4-peerlink`, which waits for its owner. 97.2 builds the `AUTH-PROOF` path and the
+  choice's seam (a PlayMap that offers `LINK` is dialled with it by round 98.5, the plan's P97.5, where node devices speak `LINK`), and says on the
+  Nodes page that the pairing is the token's, level 0, until then. The Eye marks it legacy (P-legacy) and not as a fault.
+- **The plan's cites, moved.** `ShowState.cs:2404-2413` (`DeviceProfile`) is `ShowState.cs:2598-2607` (`Lines`, `PjLink`,
+  `Disguise`, `Pixera`, `Osc`, `Companion`; `ShowBusNode` is appended after `Companion`); `DeviceProfiles.cs:167-190` holds
+  (`LinesSession` at `:167`, `ProfileSession.For` at `:35`); `ShowBusNetwork.cs:168-175` (the kind words) is
+  `ShowBusPeers.KindWords` at `:445` (a `playmap` falls to the default and reads "Playmap" until a row maps it);
+  `DeviceService.cs:769-790` holds (`SendFeedback` at `:769`, the `OPEN 1` announce at `:785`); `Eye.cs:773-820` is the
+  NETWORK band's cluster build (`Eye.cs:1075` adds a `ShowAppItem`; `EyeLayout.KindPlane`/`KindColumn` at `:205`/`:208`) — the
+  plan's "Video band" is the NETWORK band round 95 built; `StagewatchFollow.cs` `ShowBusView.Apps` is at `:678`. Mapper's
+  `FactLines.Keys` is `CommandRunner.cs:251-257` and holds seventeen words (`BLACKOUT`, `LIVE`, `DUCK`, `FROZEN`, `REVIEW`,
+  `LOOK`, `PROGRAM`, `STINGER`, `LOWERTHIRD`, `VOL`, `MUSICVOL`, `LOOKEDITED`, `ARMED`, `HOLD`, `CUE`, `DECK`, `STEP`);
+  `WIRE.md` item 6 is at `:101-106`, and the contract test copies the list with its source line. Each unit works from the
+  code at its head, not the plan's cite.
+
+**OPEN rows to touch.** The ledger (`docs/OPEN.md`) was read whole at this opening: sixty open, fifty closed.
+- **L110** (the hex canary in `WebPassesAppTests`) — closed by 97.1.
+- **L111** (new, added by 97.3): two App test runs on one machine hear each other's mDNS answers and beacons; the suite wants
+  a machine no other test run shares. What closes it: a measured cause for per-run port sets, or a CI and loop rule that says
+  so. Not a mend here.
+- **L95** (every keyed Stagewatch link reads `legacy` until both ends speak `LINK`) — read; the PlayMap device is a second
+  case of the same fallback (P-legacy), said in 97.3. **L21** (0 of 23 drill scenarios filled) and **L50** read, kept: a
+  node device is a TCP line link between two machines no rig has joined. **L40** (secrets in plain JSON beside the exe) —
+  touched: a device's pairing token is the device's `Secret`, kept as every device's is, in that class; it rides no log line,
+  journal row, STATE, context, Eye or support bundle (the private-address fence's neighbour, `DeviceProfileTests`' canary).
+  **L107** (nothing across apps in the NETWORK band) and **L109** (the readers round 96 did not reach) — read; 97.2's
+  readers (the brief, the context's commands) are chosen against L109's list and 97.3 says which it reached.
+- **G35** is the plan's gap the round answers: PlayMap paired, driven, followed and drawn from Patterns; the plan's G35
+  also lists the acceptor rounds that follow.
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains, and the
+owner's word of 2026-11-14, "Continue development". The evidence is **a handed-in critique** — *patterns-playmap-side*
+(its Round 92 and gap G35) with the Eye critique's issue 17 (the band adopts PlayMap), both in Stagewatch's tree — and
+**CI's file** for L110 (run 43218023981). No maintainer's list, rig report or show laptop's files stand behind it.
+
+**The round's platform paths.** None. A node device is a TCP line link on the devices lane: no display topology, hot-plug,
+audio endpoint, WebView2, process or watchdog, twin or registry path, and no CUT or TAKE is added. 97.3 asks no
+QUALIFICATION §22 step and adds no DRILL scenario; the pair with a real PlayMap is a rig fact the papers name as unread.
+
+**Measurement.** No measurement this round. The bounds 97.2 meets are the contract's (the first 32 `hello.caps` words, the
+context's 64 KB within the reader's bound, 13.12.3's outcomes for each command's receipt) and the design's (a device's kept
+context at most 512 KB, latest wins), each held by a deterministic test where it lands. No governor is added.
+
+**What the round does not do, said at its opening.** It does not ask PlayMap for anything: the early `STATE`, the `LINK`
+acceptor and issued keys are Mapper's batches (`fix-wire-state-after-proof`, `wp4-peerlink`), and this desk reads PlayMap as
+it is. It does not give a generic Lines device (third-party gear, PJLink, Disguise, Pixera, OSC) a proof: they keep their own
+protocols; proof applies only where the far end is a Show Bus node (G35). It does not accept `LINK` on 9697 or offer TLS
+there (round 98). It does not draw a line from a Patterns screen to a PlayMap output (L107; the Eye's chain is round 99's).
+The closing sentence's rig row is the device's own: the journal row or the receipt of a verb sent to a PlayMap, read beside
+the Nodes page's card for that device (`docs/PLAN.md` §115.9 names it from what 97.2 writes); until a PlayMap is on the bench
+it is `unwalked`.
+
+**The units as they will land.** 97.1 and 97.2 each commit on the unit before, validated whole for what each touches;
+97.3's papers depend only on units that wait on nothing outside the round. If 97.2 meets a Mapper change it needs, it moves
+under R3 and the papers say so. Sections 115.2 onward are written by 97.3.
