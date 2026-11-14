@@ -16290,3 +16290,161 @@ assistant proposes nothing a node device could not have been asked by a person t
 answer in time or a dropped link), and the words `PlayMap-Hall-B: PLAYLIST GO show #3 — accepted (applied — playing show #3)`
 — read beside the Nodes page's card for that PlayMap ("driven as a device", its record amber `legacy`) and the device's
 card on the Interactive page. It has not been read on a rig: no PlayMap is on the bench.
+
+## 116. Round 98 — the acceptor: TLS on the wire's port told from plain by its first byte, `LINK` and `LINK PROOF` with refusals that look alike, scoped `ptk_` app keys bound to one connector, the list of what this desk accepted, and receipts kept with a final answer for `CUE GO`
+
+### 116.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 97 — its units P97.0 to P97.6, the sixth train's Patterns round, "Acceptors, and
+every line connector by proof" — under the number §110.1's key gives it: round 98 here, §116, not the plan's §115. The plan is
+the cross-app plan of record (`docs/ecosystem/master-plan.md` in Stagewatch's tree). The units keep their order and none is
+inserted; each dependency that names another Patterns unit of the plan reads one higher:
+
+| The plan's unit | Here | What it is | Depends on (here) |
+|---|---|---|---|
+| P97.0 | 98.0 | this opening: PLAN §116's first lines and the changelog's round 98 entry | 97.3's papers (`f102d61`); the owner's P-scopes |
+| P97.1 | 98.1 | TLS on 9697 told from plain by the first byte (13.8.5): the desk's certificate, decks plain with the legacy proof, the hello's `tls` naming 9697; **L55**'s wire half | 98.0 |
+| P97.2 | 98.2 | `LINK` and `LINK PROOF` on 9697 (13.6.1 to 13.6.4 on the line): one proof a connection, unknown kids answered like known ones in constant time, a 10 s handshake and four unfinished per address, a wrong-proof table of its own, app links under a sub-cap inside `WireLimits`, Host and Origin before loopback is trusted; scenarios S1 to S3, S8, S9, S15, S16, S19, S20 | 98.1 |
+| P97.3 | 98.3 | app keys (13.5): `ptk_` keys each bound to one connector and scoped by P-scopes' map, kept sealed, `KEY MAKE`, `KEY BIND` and `KEY REVOKE` catalogued, journalled and never proposed, enrolment over TLS only, `NEW TOKEN` revokes the keys it enrolled, a token seen in clear marked on keys too; S17, S18, S21 | 98.2 |
+| P97.4 | 98.4 | the acceptor's list (13.16.5): the App links table on the Nodes page, STATE's `decks` rows with `level`, `t`, `id`, `verified` and `scope` appended, and the four decks readers made to drop a proved app | 98.3 |
+| P97.5 | 98.5 | receipts kept (13.12.4 to 13.12.6): a `final` answer for `CUE GO`, 256 ids for ten minutes with `repeat:true` and `@rq RECEIPTS`, `lateMs`; `stuck` not offered; node devices speak `LINK` once PlayMap offers it | 98.4; 97.2 (the plan's P96.1) |
+| P97.6 | 98.6 | the papers (PLAN §116, REVIEW, CHANGELOG, README, REMOTE, COMPANION, OPEN) and round 97's tag row | 98.5 |
+
+The plan's check for this unit greps for `^## 115\. Round 97`; here it is `^## 116\. Round 98`. R1 asks a round to open only
+after the previous round's papers: round 97's are `f102d61`. Stagewatch's SW23.1 (its `PlayoutLink` speaking `LINK` to this
+desk with an issued key) waits on this round's papers (98.6), and PlayMap's PM-10 on the same and on its owner's word (R3); this
+round asks neither of them for anything.
+
+**What the files said.** Nothing from the rig: `docs/field/` holds only its README, as at the last five openings. The files this
+opening reads are CI's, from round 97's pushes (GitHub's Actions list for this repository, read at this opening):
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 303, `7d0907c` (97.0), 304, `c265352` (97.1) and 305, `68737e1` (97.2) | `test` and `lifecycle` red at their Build step on the one error (CA1860, `ShowBus12AppTests.cs(1291,29)`); `windows-smoke`, `companion-module` and `rollback-script` green; `portable-exe` and `release` skipped | The runner's SDK moved under an unchanged tree (round 97's papers, §115.6): the build, not a suite, failed, so no Ubuntu suite ran for three runs | **L114** read, kept: an unpinned SDK is the maintainer's decision and nothing in this round takes it; each unit's own build here is on this machine's SDK, which does not report the rule, so the round's units are written to be quiet under the newer analyzers too (`Count` against 0 where a list is compared, not `Any()`) |
+| 306, `f102d61` (97.3, the round's last commit) | Green, every job (`test` about 22 minutes, `lifecycle`, `windows-smoke`, `companion-module`, `rollback-script`, `portable-exe`); `release` skipped for no tag | 97.3's one-line mend (`Count` to 0) and round 97's papers hold on both runners; the suites that did not run on runs 303 to 305 ran | Nothing; round 97 closed at 3,485 tests (the changelog's count) |
+
+`docs/OPEN.md` was read whole at this opening and read against the round: **L55**'s wire half is the round's first unit (below);
+**L112**'s readers a node device did not reach and **L113**'s two couplings are PlayMap-device rows, read and not touched here,
+except that L112's last clause (`LINK` on 9941) is 98.5's one condition; **L114** above; **L111** (two App runs on one machine)
+bites this round more than the last, because 98.1 to 98.3 add App tests that listen on 9697 and the loop's rule is one run at a
+time (the parts script, in the plan folder, runs one part at a time already).
+
+**The other trees, read at this head (R6: every citation of the plan re-read).** Stagewatch's head is `25fe41a` (papers: the
+resume guide after 2.22); its 2.22 is landed through SW22.12, and `/ws` speaks `LINK` as an acceptor (SW22.1a `22109d2`,
+SW22.1b `1958220`, SW22.1c `ceabf3d`). Mapper's head is `031c9a3d`. The contract is the one in this tree (`docs/SHOWBUS.md` 1.3
+final, held by `ShowBusSpecTests`, with `tools/showbus/peerlink-peer.mjs`). Where the head or the contract differs from the
+plan's words, the units work from these:
+- **Stagewatch's acceptor, as landed (the bytes 98.2 is to match).** `src/Timer.Core/LinkAcceptor.cs` is pure: `Offer` (the
+  first message a `link=` socket hears: `type`, `v`, `speaks`, `server{t,id}`, `snonce`, `bind`), `Decide` (one link message to a
+  `LinkDecision`: linked, with the acceptor's proof, the `lid` and a session credential, or refused with 13.6.4's class and
+  words) and `Verdict`; `LinkDecision.CountKid` names the kid of a key in force whose proof did not verify, the one refusal the
+  wrong-proof table counts; an unknown kid, a malformed message, a locked pair and a refusal before the proof never name one.
+  Its words are constants (`MalformedWords`, `VersionWords`, and `ProofsLocked`: "too many wrong proofs for this key from this
+  device — wait a minute"). The table is `WrongProofs` (`src/Timer.Remote/WrongGuesses.cs`), keyed `(address, kid)`, five wrong
+  proofs a minute locking that pair for the rest of the minute (`WebServer.WrongProofsPerMinute`), with a **reservation** taken
+  before a proof is checked and settled after it, so proofs checked together never pass the limit between them
+  (`WebServer.cs`, `Reserve` then `Settle`, and `Count` for a decision that names a kid). This desk's table differs on two
+  points the contract states and Stagewatch has no case for: Stagewatch holds no pairing code, so its table has no `code` arm,
+  and 13.5.6 counts a `code` per address, not per `(address, kid)`; and this desk's line wire already has a wrong-proof count of
+  the legacy proof's own, `WrongTokensBeforeClose = 5` a connection (`ControlService.cs:590`, used at `:467`), which stays as it
+  is, apart (13.5.6: the table "never locks out a PIN, … another key or a browser").
+- **This tree already holds the acceptor's pure half.** Round 93.1 put the whole of 13.6's arithmetic in Core for the connector
+  and, with it, what an acceptor reads: `PeerLink.ReadLinkLine` and `ReadLinkMessage` (`PeerLink.cs:237`, `:264`), `Transcript`,
+  `ClientProof`, `ServerProof`, `Lid`, `Session`, `EnrolKey`, `MayEnrol`, `Canon`, `CodeKey`, `KeyKey`, `Kid`, `Verify` (constant
+  time), `Speaks`, `VerdictClasses` and the constants (`Handshake` 10 s, `ReceiptDeadline` 3 s, `ReceiptFinal` 30 s,
+  `ReceiptsKeptFor` ten minutes). The acceptor's state (the keys and their bindings, the table, the unfinished count, the list)
+  is new and is what 98.2 to 98.4 write; the arithmetic is not written twice. `PeerLink.Features` (`:94`) names all five
+  features, `final`, `receipts`, `stuck`, `expire` and `enrol`: it is the vocabulary, not what this desk offers, and 98.5 offers
+  `final`, `receipts` and (over TLS, 98.3) `enrol` and neither of the others.
+- **`LINK` today.** A bare `LINK <offer> …` on 9697 is not a word this desk knows (the only `LINK` it knows is
+  `STAGEWATCH LINK <host>`, `StagewatchVerbs.cs:60`, its own verb, and the contract's `LINK` carries a count in its first word,
+  as Mapper's handshake set tells them apart, `WireSession.cs:471`); the line wire's handshake sets (`NONCE` at connect,
+  `HELLO`, `AUTH`, `AUTH-PROOF`) are `ControlService.cs`' pairing loop (the greeting at `:374`, the proofs from `:443`). The module's connect order is `HELLO` first
+  (`src/main.js:175`) and then the desk's `NONCE`, so it speaks first on the carrier as 13.8.5 asks of every connector.
+- **13.8.5 and the greeting: the one difference that moves behaviour.** The contract says an acceptor that sniffs "greets once that
+  byte has come", and a connection that sends none is closed at `peerlink.handshake.ms`. This desk's 9697 says `NONCE <32 hex>`
+  the moment a connection is accepted (`ControlService.cs:374`, before any byte), and the module and a peer that read it first
+  today rely on it for the legacy proof. 98.1 cannot keep both: it sniffs the first byte and greets after it, and its tests say
+  what a client that waits for the greeting before it speaks now meets (a close at ten seconds, with its words in the log once),
+  against the module's order, which speaks first and is unmoved. A deck that waits is not known to exist; the module's tests
+  and `docs/REMOTE.md` are read by 98.1 for any that does.
+- **TLS on the HTTP port is the model, not the wire's.** 9696 already takes TLS by the first byte with this install's
+  certificate (`ControlService.cs:1048`, `TlsSniff.IsTls`, `TlsCertificateService`, round 88); the certificate and its fingerprint
+  are `AppServices.TlsFingerprint`, which the hello's `tls` carries today (`BeaconService.cs:102`, "the certificate the web remote
+  serves"). The hello names one fingerprint, so "the hello's `tls` names 9697" is the same certificate on both doors and the
+  words that say which ports serve it (`ports`), not a second certificate. The private key is sealed to the Windows user with
+  DPAPI where it is available and a file only its owner reads elsewhere (`TlsCertificateService.cs`, the `Protection` said in
+  the Super Check); 98.3's keys are kept the same way, through one seam, and not in the show, the twin or a backup (13.5.4).
+- **Mapper's 9941, as it is (PlayMap's row, not this round's).** Its handshake set already names `LINK`'s two forms
+  (`WireSession.cs:471`) and its greeting `STATE` waits for the end of a dialler's handshake (`cb9be004`, `031c9a3d`), the owner's
+  decision of 2026-11-14 as round 97 recorded it. What is behind those words is the connector's half
+  (`src/PlayMap.Core/Bus/PeerLink.cs`, writing `LINK` and `LINK PROOF`); no acceptor answers them at this head, which is
+  `wp4-peerlink` and waits for its owner. So 98.5's node devices stay at level 0, and say so on the Nodes page and the card.
+- **The plan's cites, moved.** `ControlService.cs:541` (the legacy five-and-close) is `:590` (the constant) and `:467` (its
+  use); `WireLimits.cs:14-15` (64 in all, 16 per address) holds as `MaxClients` and `MaxClientsPerAddress`; the decks readers
+  are `CommandRouter.cs:580` (not `:558`), `MainViewModel.Poll.cs:388` (`CompanionWords.DecksLine`), `NodeHost.cs:373` (not
+  `:362`) and `ShowActions.Nav.cs:190`, with `AppServices.cs:2359` (`DeckSignature`) and `EyeService.cs:630` beside them, which
+  the plan does not list and 98.4 reads. The contract's `peerlink.*` and `receipts.*` numbers are `docs/SHOWBUS.md` §14
+  (`peerlink.handshake.ms` 10000, `peerlink.unpaired.per.address` 4, `peerlink.wrong.proofs.per.minute` 5,
+  `receipts.kept` 256, `receipts.kept.ms` 600000, `receipts.ask.max` 32, `link.inflight.max` 32). Each unit works from the code
+  at its head, not the plan's cite.
+
+**OPEN rows to touch.** The ledger had sixty open at round 97's close.
+- **L55** — its wire half is closed by 98.1 (a unit's commit names it; the row's twin half, "the twin's own TLS with the key-proved
+  pin", is not this round's and stays open under the same number, said so on the row by 98.6).
+- **L60** (the standby's secrets wait on L55) — read: it waits on the twin half and does not move.
+- **L53** (the token over plain HTTP) — read; closed already by round 88's HTTP half, its wire half is L55's.
+- **L95** (a keyed link reads `legacy` until both ends speak `LINK`) — touched from this side: once this desk offers `LINK`, a
+  Stagewatch 2.23 (SW23.1) can prove itself here; until then nothing changes for it. 98.6 says which links this reaches.
+- **L36** (the beacon's listeners bind every interface) — read; the wire and its TLS door honour the bind address as 9696 does
+  (the doctrine's "every listener honours the bind address or is named as an exemption"), and 98.1 holds that by a test.
+- New rows are added by 98.6 for what 98.1 to 98.5 meet and leave, never by this opening.
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains, and the
+owner's word of 2026-10-25 ("all recommended", `docs/ecosystem/owner-answers.md`). The evidence is **a handed-in critique** — the
+PeerLink profile, its Round PL for Patterns (TLS, `LINK`, keys, features) with the Eye critique's issues 8b and 13 — beside
+the contract and the landed Stagewatch acceptor above, which are the bytes to match. No maintainer's list, rig report or show
+laptop's files stand behind it.
+
+**The owner's answer the round rests on.** P-scopes, as recommended: a key has one scope on the ladder `follow` (state, context,
+subscriptions), `post` (and its own context, proposals and their results), `drive` (and the verbs the node lists for a playout
+desk: clip and playlist transport, `CUE GO` and `STANDBY`) and `operate` (every verb, as the operator, which only the pairing
+token or a control key is). The map onto this desk's verbs is 98.3's table, with the answer's floor written into it: no
+`OUTPUTS`, no `TAKE` or `CUT`, no `SCREEN` and no settings below `operate`. The doctrine's reading of that floor: a key never
+makes a take; what moves the air stays with a person's own credential.
+
+**The round's platform paths.** Two, both named so §27 and §28 of `docs/QUALIFICATION.md` can be asked for them by 98.6. TLS on
+the wire's port is a network path: a second machine opens `9697` over TLS and pins the fingerprint, which is the walk §27 step
+(1) and (3) already do for 9696, now with `nc`/`openssl s_client` and the module's connection; and the kept keys are a Windows
+seam (DPAPI, as the certificate's key is), whose sealed-or-not state must be read from the Super Check on a Windows desk. No
+display topology, hot-plug, audio endpoint, WebView2, process or watchdog, twin or registry path moves, and no `CUT` or `TAKE`
+verb is added; the round is `unwalked` until the QUALIFICATION rows 98.6 adds are filled on the rig, a fact in the papers and not
+a block.
+
+**Measurement.** No measurement this round. The bounds are the contract's and the wire's own, each held by a deterministic test
+where it lands: a ten-second handshake and four unfinished connections per address (injected clock, no sleep in `src/`), five
+wrong proofs a minute per `(address, kid)`, 64 connections in all and 16 per address with the app links' sub-cap inside them,
+256 receipts for ten minutes. No governor is added: the sub-cap and the table are the contract's numbers, not a ladder. The Super
+Check's record of the desk thread's stall distribution (the plan's LP-1) is what a later round reads before `stuck` or `expire`
+is offered, and neither is offered here.
+
+**What the round does not do, said at its opening.** It does not give a deck a `LINK` (13.18: the Companion module keeps the
+legacy proof until its own round adopts `LINK`; decks stay plain and are counted apart); it does not offer `stuck` or `expire`
+(no measurement of this desk's show writer); it does not enrol over a plain carrier (13.5.7), nor lower the pairing token's
+`operate` scope; it does not add a wire verb that takes or cuts (bare `TAKE` and `CUT` stay refused); it does not ask PlayMap
+or Stagewatch for anything (their acceptors and connectors are PM-10 and SW23.1); it does not pin the SDK (L114); and it does
+not seal the twin (L55's other half). The twin's link stays plain TCP after the key is proved, and the papers say so.
+
+**The closing sentence's rig row.** The round has verbs an output can show, in the sense of the standing brief: a connector that
+proves with `LINK` and runs a `CUE GO` is a take on the air by another app's hand. Its rows are the journal's, read beside the
+screen they touch: `KEY MAKE`'s row (who made which key for which connector, at what scope, never the key) and `LINK`'s row
+(the connector's `t:id`, the kid, the scope, the carrier and `tls` or `plain`, never a nonce, a proof or a session credential),
+each beside the Nodes page's *App links* table, which 98.4 draws, and a `CUE GO` that arrives with an issued key beside the
+Run strip's cue. 98.6 names the exact rows from what 98.2 to 98.5 write; until a Stagewatch 2.23 or a scripted peer is on the
+bench the reading is `unwalked`.
+
+**The units as they will land.** Each commits on the unit before, validated for what it touches (98.1 to 98.4: build, Core,
+Rendering and App; 98.3 and 98.4 also the module's four steps; 98.5 adds Devices); the App suite is run by parts, one at a
+time. 98.6's papers depend only on units that wait on nothing outside the round: none of 98.1 to 98.5 waits on Stagewatch's or
+PlayMap's work, and PlayMap's `LINK` on 9941 is not a dependency, only the reason 98.5's node-device half is "stays at level 0,
+and says so". Sections 116.2 onward are written by 98.6.

@@ -10,6 +10,20 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 98 — 2026-11-14 — the acceptor: TLS on the wire's port, LINK and LINK PROOF with refusals that look alike, scoped app keys, the list of what this desk accepted, and receipts kept
+
+`round-98` · PLAN §116 · REVIEW round 98 · 3,485 tests · module 3.22.0 · evidence: a handed-in critique (the PeerLink profile's Round PL for Patterns, with the Eye critique's issues 8b and 13) and CI's file for runs 303 to 306; no field files and no rig report; no measurement this round · Walk: unwalked (TLS on the wire's port and the kept keys' seal, to be asked by QUALIFICATION §27 and §28 rows)
+
+- **The round opens (98.0).** PLAN §116.1 names the round's number (the plan's round 97) and its unit table, 98.0 to 98.6, each
+  dependency under this tree's numbers (97.2 for the node devices); reads round 97's CI (runs 303 to 305 red at Build on CA1860
+  from the runner image's newer SDK, run 306 on `f102d61` green; **L114** read and kept); reads Stagewatch's `/ws` acceptor as
+  landed (`LinkAcceptor`, its wrong-proof table and its reservation) and this tree's own Core, which already holds the acceptor's
+  arithmetic; says where the head or the contract differs from the plan's words (the greeting that must wait for the first byte,
+  a `code` arm Stagewatch's table has no case for, PlayMap's `LINK` on 9941 named in its handshake set with no acceptor behind it,
+  the plan's cites moved); names the OPEN rows it touches (**L55**'s wire half closed by 98.1, **L55**'s twin half and **L60**
+  read, **L95** and **L36** touched), the requester, the evidence class, the owner's P-scopes, the platform paths (TLS on the
+  wire's port, DPAPI for kept keys) and no measurement.
+
 ## Round 97 — 2026-11-14 — a PlayMap node becomes a Show Bus node device, known by its kind words, paired by proof on its line wire, driven with receipts and drawn in the NETWORK band; and a test canary no hex can hold
 
 `round-97` · PLAN §115 · REVIEW round 97 · 3,485 tests · module 3.22.0 · evidence: a handed-in critique (patterns-playmap-side and gap G35, with the Eye critique's issue 17) and CI's file for L110; no field files and no rig report; no measurement this round · Walk: none asked (a TCP line link; no platform path)
