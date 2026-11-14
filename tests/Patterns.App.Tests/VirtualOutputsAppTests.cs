@@ -29,6 +29,9 @@ public class VirtualOutputsAppTests
         var fakes = ThreeScreens();
         b.Services.Screens.All.Clear();
         foreach (var s in fakes) b.Services.Screens.All.Add(s);
+        // The three are the machine's displays for every refresh that follows (a publish of the output section refreshes the
+        // list): the hot-plug watch reads them, never the headless display, so no screen of the rig is marked unplugged.
+        b.Services.Screens.Source = () => fakes;
         b.Vm.State.Output.Placements.Clear();
         b.Vm.ReconcilePlacements(fakes);
         foreach (var p in b.Vm.State.Output.Placements) p.Enabled = true;

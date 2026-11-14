@@ -19,9 +19,15 @@ public class PrivateAddressFenceTests
 {
     private const string Window = WindowAddressesTests.Window;
     private const string Token = WindowAddressesTests.Token;
-    private const string Pin = "https://x/feed?a=1&pin=4321";
 
-    private static readonly string[] Passes = { Token, "4321", "k2m4" };
+    /// <summary>
+    /// The PIN's value: one no journal row's time (seven digits of a second), GUID, hex or base32 name can hold by chance, as
+    /// the files read for it carry all of them.
+    /// </summary>
+    private const string PinValue = "pz4321qk";
+    private const string Pin = "https://x/feed?a=1&pin=" + PinValue;
+
+    private static readonly string[] Passes = { Token, PinValue, "k2m4" };
 
     private static void CarriesNoPass(string text, string where)
     {

@@ -14,7 +14,9 @@ public class WebPassMigrationTests
 {
     private static readonly DateTime T0 = new(2026, 10, 25, 9, 12, 0, DateTimeKind.Utc);
     private const string Window = WindowAddressesTests.Window;
-    private const string Pin = "https://x/feed?a=1&pin=4321";
+    /// <summary>The PIN's value: one no GUID (a look's, a cue's, a device's id in the show read for it) can hold by chance.</summary>
+    private const string PinValue = "pz4321qk";
+    private const string Pin = "https://x/feed?a=1&pin=" + PinValue;
 
     /// <summary>A book the test owns, keeping under ids it hands out in order.</summary>
     private sealed class Book
@@ -74,7 +76,7 @@ public class WebPassMigrationTests
 
         var file = JsonUtil.Serialize(state);
         Assert.DoesNotContain(WindowAddressesTests.Token, file, StringComparison.Ordinal);
-        Assert.DoesNotContain("4321", file, StringComparison.Ordinal);
+        Assert.DoesNotContain(PinValue, file, StringComparison.Ordinal);
         Assert.DoesNotContain("k2m4", file, StringComparison.Ordinal);
         Assert.Equal(new HashSet<string> { "aaaaaaaaaaaa", "bbbbbbbbbbbb", "cccccccccccc" }, WebPassMigration.KeptIdsIn(state));
 
@@ -130,7 +132,7 @@ public class WebPassMigrationTests
 
         var file = JsonUtil.Serialize(state);
         Assert.DoesNotContain(WindowAddressesTests.Token, file, StringComparison.Ordinal);
-        Assert.DoesNotContain("4321", file, StringComparison.Ordinal);
+        Assert.DoesNotContain(PinValue, file, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -190,7 +192,7 @@ public class WebPassMigrationTests
         // A held scheme written by hand over a pass is no held address: its unkept form, counted as one that shows black.
         var state = new ShowState();
         state.Pattern.Media.WebUrl = "kept://10.0.0.5:9924/w/" + WindowAddressesTests.Token;
-        state.Pattern.Layer1.WebUrl = "unkept://x/feed?pin=4321";
+        state.Pattern.Layer1.WebUrl = "unkept://x/feed?pin=" + PinValue;
         state.Pattern.Layer2.WebUrl = "KEPT://X/abcdefghijkl";                  // its own form, but for its case: rewritten, not counted
         state.InputLabels.Add(new InputLabelConfig { Key = "web:kept://10.0.0.5:9924/w/" + WindowAddressesTests.Token, Label = "Hall A" });
 
@@ -203,7 +205,7 @@ public class WebPassMigrationTests
         Assert.Equal("web:unkept://10.0.0.5:9924", state.InputLabels[0].Key);
         var file = JsonUtil.Serialize(state);
         Assert.DoesNotContain(WindowAddressesTests.Token, file, StringComparison.Ordinal);
-        Assert.DoesNotContain("4321", file, StringComparison.Ordinal);
+        Assert.DoesNotContain(PinValue, file, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -216,7 +218,7 @@ public class WebPassMigrationTests
         Assert.Equal("unkept://10.0.0.5:9924", state.Pattern.Media.WebUrl);
         Assert.Equal("unkept://x", state.Pattern.Layer1.WebUrl);
         var file = JsonUtil.Serialize(state);
-        Assert.DoesNotContain("4321", file, StringComparison.Ordinal);
+        Assert.DoesNotContain(PinValue, file, StringComparison.Ordinal);
         Assert.DoesNotContain("k2m4", file, StringComparison.Ordinal);
         Assert.Empty(WebPassMigration.KeptIdsIn(state));
     }

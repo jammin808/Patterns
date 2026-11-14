@@ -115,7 +115,15 @@ public sealed partial class PeerLinkWireTests
             link.Reconcile();
 
             PumpUntil(() => link.Key.Word == "key", 15000, link);
-            PumpUntil(() => Count(peer, "served") >= 2 && Count(peer, "upgrade") >= 3, 30000, link);
+            // The link relinks on its own the whole time, and each fresh connection reads proof none until the peer's frame answers
+            // it: so the record is sampled at every pump, and every sample is level 0 by the legacy proof or not yet proved.
+            var seen = new HashSet<(int Level, string Proof)>();
+            PumpUntil(() =>
+            {
+                var r = link.Record;
+                seen.Add((r.Level, r.Proof));
+                return Count(peer, "served") >= 2 && Count(peer, "upgrade") >= 3 && seen.Contains((0, "legacy"));
+            }, 30000, link);
             Assert.Equal(TimeSpan.Zero, link.KeyHeld);                                                // a relink holds nothing
             Assert.False(link.Key.Refused);
             // Round 96: the first dial asks for LINK and carries nothing; the peer, older than LINK, answers with a frame, and the
@@ -123,7 +131,7 @@ public sealed partial class PeerLinkWireTests
             var upgrades = peer.Events.Where(e => Str(e, "ev") == "upgrade").ToList();
             Assert.Equal(("none", "1"), (Str(upgrades[0], "authorization"), upgrades[0]["query"]!["link"]?.GetValue<string>()));
             Assert.All(upgrades.Skip(1), e => Assert.Equal(("bearer", (string?)null), (Str(e, "authorization"), e["query"]!["link"]?.GetValue<string>())));
-            Assert.Equal((0, "legacy"), (link.Record!.Level, link.Record.Proof));
+            Assert.Subset(new HashSet<(int Level, string Proof)> { (0, "none"), (0, "legacy") }, seen);
             Assert.All(peer.Events.Where(e => Str(e, "ev") == "served"), e => Assert.Equal(401, e["status"]!.GetValue<int>()));
 
             TestApp.FlushFiles(services);

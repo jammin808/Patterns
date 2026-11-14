@@ -23,6 +23,12 @@ public class StagewatchVerbsAppTests
 {
     private static readonly ActionOrigin Deck = new(OriginKind.Tcp, "", "10.0.0.12:51234");
 
+    /// <summary>
+    /// The hex a line types after ACCEPT, looked for in the journal: hex by the verb's grammar, so sixteen digits, which no id,
+    /// nonce or fingerprint group in the rows read for it repeats by chance (2^-64 a place).
+    /// </summary>
+    private const string TypedHex = "8e8bc45b1f0d7a93";
+
     private static JsonElement Row(AppServices services)
         => JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch");
 
@@ -134,9 +140,9 @@ public class StagewatchVerbsAppTests
 
             // TRUST and ACCEPT: a person's on the desk; the wire's words carry nothing and are refused, a pad cannot learn them.
             Assert.StartsWith("ERR " + StagewatchVerbs.DeskOnlyWords, Wire(router, "STAGEWATCH TRUST sha256:" + new string('a', 64)), StringComparison.Ordinal);
-            Assert.StartsWith("ERR " + StagewatchVerbs.DeskOnlyWords, Wire(router, "STAGEWATCH ACCEPT 8e8bc45b"), StringComparison.Ordinal);
+            Assert.StartsWith("ERR " + StagewatchVerbs.DeskOnlyWords, Wire(router, "STAGEWATCH ACCEPT " + TypedHex), StringComparison.Ordinal);
             Assert.Contains(StagewatchVerbs.DeskOnlyWords, Wire(router, "MIDI LEARN STAGEWATCH ACCEPT"), StringComparison.Ordinal);
-            Assert.DoesNotContain(services.Journal.Tail(300), e => e.Target.Contains("8e8bc45b", StringComparison.Ordinal) || e.Message.Contains("8e8bc45b", StringComparison.Ordinal));
+            Assert.DoesNotContain(services.Journal.Tail(300), e => e.Target.Contains(TypedHex, StringComparison.Ordinal) || e.Message.Contains(TypedHex, StringComparison.Ordinal));
 
             // An approval desk's approved line never repoints the link.
             var approved = Wire(router, "STAGEWATCH LINK OFF", new ActionOrigin(OriginKind.Tcp, StagewatchVerbs.ApprovalDesk));

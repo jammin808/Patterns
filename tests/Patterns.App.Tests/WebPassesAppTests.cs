@@ -26,13 +26,19 @@ public class WebPassesAppTests
 {
     private const string Token = "abcdefghijkmnpqrstuvwxyz23";
     private const string Window = "http://10.0.0.5:9924/w/" + Token;
-    private const string Pin = "https://x/feed?pin=4321";
+
+    /// <summary>
+    /// The PIN's value: one no hex or base32 name (a temporary folder, a GUID, a kept id), timestamp, port or measured number
+    /// can hold by chance, since the texts read for it carry the run's folder, ids and times.
+    /// </summary>
+    private const string PinValue = "pz4321qk";
+    private const string Pin = "https://x/feed?pin=" + PinValue;
 
     private static void CarriesNoPass(string? text, string where)
     {
         var t = text ?? "";
         Assert.False(t.Contains(Token, StringComparison.Ordinal), $"{where} carries the window's token:\n{t}");
-        Assert.False(t.Contains("4321", StringComparison.Ordinal), $"{where} carries the PIN:\n{t}");
+        Assert.False(t.Contains(PinValue, StringComparison.Ordinal), $"{where} carries the PIN:\n{t}");
     }
 
     private static string TempDir([System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
@@ -144,7 +150,9 @@ public class WebPassesAppTests
     [Fact]
     public void ABookThatCannotBeWrittenKeepsNothingAndTheAddressIsHeldUnkept()
     {
-        var dir = TempDir();
+        // The refusal names this folder, whose name holds 4321 on every run: the PIN is looked for in a form no folder,
+        // GUID, time or kept id can make, and the refusal is held to naming the folder so the check keeps its bite.
+        var dir = TempRun.Folder("patterns-webpasses-4321-").Path;
         try
         {
             Directory.CreateDirectory(Path.Combine(dir, WebPassBook.FileName));                  // the book's name taken by a folder: no write lands
@@ -158,6 +166,7 @@ public class WebPassesAppTests
             Assert.Equal(0, passes.Book.Count);                                                  // never kept for this run alone
             Assert.Single(said);
             Assert.Contains("could not be kept on this machine", said[0], StringComparison.Ordinal);
+            Assert.Contains("4321", said[0] + why, StringComparison.Ordinal);                  // the folder's digits are in the refusal
             CarriesNoPass(said[0] + why, "the refusal");
         }
         finally
@@ -176,7 +185,7 @@ public class WebPassesAppTests
             var passes = new WebPasses(dir) { Shows = () => new[] { show } };
             for (var i = 0; i < WebPassBook.Max; i++)
             {
-                show.Web.SavedUrls.Add(passes.Secure($"https://h{i.ToString(CultureInfo.InvariantCulture)}.local/feed?pin=4321"));
+                show.Web.SavedUrls.Add(passes.Secure($"https://h{i.ToString(CultureInfo.InvariantCulture)}.local/feed?pin={PinValue}"));
             }
             Assert.Equal(WebPassBook.Max, passes.Book.Count);
 
@@ -307,7 +316,7 @@ public class WebPassesAppTests
             var journal = new ShowLog(dir);
             var loaded = new ShowState();
             loaded.Pattern.Media.WebUrl = Window;
-            loaded.Web.Url = "hall-b.local/stage?view=4321";
+            loaded.Web.Url = "hall-b.local/stage?view=" + PinValue;
             var migrated = passes.MigrateShow(loaded, journal);
             Assert.Equal(2, migrated.Kept);
             var rows = journal.Tail(10);
@@ -486,7 +495,7 @@ public class WebPassesAppTests
 
             // A WEB OPEN onto another held address is followed there: that address is the one sent again when it moves.
             services.WebIn.Resolve = real;
-            var other = services.WebPasses.Secure("https://x/other?pin=4321");
+            var other = services.WebPasses.Secure("https://x/other?pin=" + PinValue);
             Dispatcher.UIThread.RunJobs();
             Assert.True(services.Actions.Execute(ShowActionKind.WebOpen, origin, "", other).Ok);
             services.WebIn.Reresolve();                                                         // it went there itself, resolving as it went
