@@ -16047,7 +16047,8 @@ Stagewatch's byte for byte. Where the head or the contract differs from the plan
   that says `STATE` right after `HELLO` (older) and one that says it only after `OK paired` (newer), and holds both with a
   scripted peer of each order: a `STATE` before the proof is dropped and counted, never raised and never an error; a `STATE`
   after it is dropped as well, because the device subscribes to the context and not to the state. `SUBSCRIBE OFF` ends the
-  pushes either way.
+  pushes either way. *(Corrected by 97.3: 97.2 takes a `STATE` that comes after `OK paired` — latest wins, within 512 KB —
+  since it comes on a link the device proved; only one before the proof is discarded and counted. §115.3.)*
 - **`CONTEXT` before pairing.** Mapper's `docs/SHOWBUS-NODE.md` (§5 item 2) says 9941's `STATE` and `CONTEXT` wait for pairing
   once Patterns' node devices pair by proof; `WIRE.md` still lists both as open queries and the code answers them. The
   device sends `SUBSCRIBE CONTEXT` only after `OK paired` (or `OK open`), so it holds under either wording and gets the
@@ -16109,3 +16110,183 @@ it is `unwalked`.
 **The units as they will land.** 97.1 and 97.2 each commit on the unit before, validated whole for what each touches;
 97.3's papers depend only on units that wait on nothing outside the round. If 97.2 meets a Mapper change it needs, it moves
 under R3 and the papers say so. Sections 115.2 onward are written by 97.3.
+
+### 115.2 A canary no hex can hold (97.1 — L110; no product change)
+
+**What landed** (`c265352`). CI's run on 96.1 (43218023981) read `WebPassesAppTests.ABookThatCannotBeWrittenKeepsNothingAndTheAddressIsHeldUnkept`
+red at `CarriesNoPass`: the refusal names the book's path, and the run's random hex folder held the PIN canary `4321`. The
+product treats a value under a pin or view key as private whatever its characters, so the canary could change without
+weakening any check.
+- **The class.** `WebPassesAppTests` takes `PinValue` `pz4321qk` at every PIN site: `p`, `z`, `q` and `k` rule out hex,
+  GUIDs and times, and the `1` rules out base32 kept ids and window tokens, so no generated text can hold it by chance. The
+  refusal test makes its folder as `TempRun.Folder("patterns-webpasses-4321-")`, so the old canary's digits are in the
+  refusal on every run, and it asserts that they are — the check fails if the path ever leaves the words. With `PinValue`
+  put back to `4321` the test failed every run.
+- **The sweep.** Core's `PrivateAddressFenceTests` and `WebPassMigrationTests` take the same `PinValue`: their texts carry
+  journal times (seven fractional digits) and the show's GUIDs, where `4321` could be found by chance about once in 900 to
+  2,500 checks. `StagewatchVerbsAppTests`' ACCEPT canary must stay hex (the verb's grammar) and goes from 8 to 16 hex digits.
+- **Two races the whole validate showed, mended at their cause.** `PeerLinkWireTests` (the Stagewatch key reaching the
+  scripted peer): the link relinks on 401 the whole time and each fresh connection reads proof `none` until the peer's
+  frame answers it, so the single read of the record failed about two runs in three on this machine; the record is now
+  sampled at every pump (each sample level 0, `legacy` or not yet proved, and `legacy` seen). `VirtualOutputsAppTests`: a
+  publish of the output section refreshed the screen list from the headless display and the hot-plug watch marked the fake
+  screen b unplugged; the rig now sets `Screens.Source` to its three fakes (a forced refresh failed every run without the
+  seam and passed with it).
+
+**The tests.** The six files the unit names; the unit's validate: build (0 warnings), Core 1,652, Rendering 724, App 1,018
+by parts (parts 3 and 4 rerun once each while another tree's interop lane held the CPU: `TwinAppTests`' standby takeover and
+`DeviceConfirmAppTests`' cue receipts timed out, passed alone three times each and on the part's rerun).
+
+### 115.3 A PlayMap node becomes a Show Bus node device (97.2 — P96.1; Show Bus 1.3 §13.6.3, §13.6.8, §13.12; G35)
+
+**What landed** (`68737e1`). Patterns drove PlayMap only through a plain Lines device with no proof, so the link worked only
+where PlayMap asked for no token or trusted this desk's address (G35). A **Show Bus node device**
+(`DeviceProfile.ShowBusNode`, appended after `Companion`; `ShowBusNodeSession`) drives PlayMap's line wire, TCP 9941, on the
+PeerLink core's level-0 rules (13.6.8):
+- **The handshake.** A connection opens with `@dh HELLO Patterns <desk>`; `AUTH-PROOF` answers only a `NONCE` of exactly 32
+  hex, over the nonce and that HELLO name, keyed by the device's Secret (the node's pairing token); with a Secret and no
+  `NONCE` it asks for one (`@dn NONCE`). Only after `OK paired` (or `OK open`) does it say `SUBSCRIBE OFF` and `SUBSCRIBE
+  CONTEXT`, take a context or a `STATE`, or send a fact.
+- **The greeting, both orders.** A `STATE` before the proof is discarded and counted (13.6.3), never taken and never a
+  fault; one after `OK paired` is taken (latest wins, within 512 KB — §115.1's "dropped as well" is corrected there). Why a
+  `STATE` was discarded is said only as far as it is known: after a `NONCE`, an older build; after `HELLO` with no `NONCE`, a
+  node that asks this address for no token or trusts it; before either, no reason.
+- **Commands and facts.** Every command carries `d<n>-<inst>` (13.12.1) and is read by 13.12.3; the show's facts go untagged
+  through the new `ProfileSession.EncodeFact`, only for PlayMap's 17 `FactLines` keys (BLACKOUT only 0/1), so no fact becomes
+  a refused verb, and `OPEN 1` never goes. A wrong token stops every send until the Secret is typed again: nothing retries
+  toward the node's five-wrong close.
+- **A proof belongs to its connection.** `TcpDeviceLink` raises `Moving` on its own thread before a new connection's stream
+  is published and when one ends; the session is up only while no connection moved since the one proved opened, so no
+  DEVICE line or fact is written on a connection before its HELLO and proof. A gone connection's late lines settle a
+  command's answer but are never read as the link's own; a link seen down clears the pairing and leaves its commands
+  unconfirmed.
+- **Attempts are not facts.** The node's 13.12.3 outcome rides `ProfileReply` and `DeviceReceipt` to the journal — applied
+  `Done`, accepted `Accepted` (not run yet), refused `Failed`, unconfirmed `Unconfirmed` (no answer in `receipt.final.ms`,
+  or the link dropped first: it may have run). An unconfirmed line is `DeviceRuntime.Unsure`: amber on the Eye's device
+  card, `UNCONFIRMED` in its history, STATE `devices[].unconfirmed`. Every other profile keeps its Done/Failed by yes or no.
+- **The record.** Level 0, carrier `line`, plain: live and amber `legacy` once paired (P-legacy, said "cannot prove itself
+  yet — an older build"), amber `open` when nothing was proved, refused after a stop, red when down.
+- **Known and drawn.** `ShowBusPeers.KindWords` maps `playmap` to PlayMap. `ShowBusView.Apps` folds a heard PlayMap with its
+  device only when the hello's address, its wire port and the proved context's id agree; a node app is "driven as a
+  device", never "linked" (`Linked` stays the Stagewatch link's). A heard PlayMap at whose address and wire port a device is
+  set names that device (`DeviceAt`), so its card offers the device, never a second *Add as a device…*. A device app no hello
+  names stays out of the published context's peers and STATE's `bus.apps`. The Eye draws the device's `Controls` edge,
+  counted and lit by the record, with no `Follows` edge, its cluster in the NETWORK band.
+
+**The tests.** `ShowBusNodeSessionTests` (Core, 18: the handshake, both greeting orders, nothing before the proof, the ids
+and 13.12.3, the facts and `OPEN 1`, a wrong token, the 32-hex rule and the ask, the kept context and a long line, the
+record, the profile and preset, the no-NONCE reason, a proof held to its connection, a line cut by a move, and the folding,
+the Eye's edge and the card's offer); `NodeDeviceTests` (Devices, 4: proof before any fact or command with a receipt each,
+nothing on a new connection before its HELLO while the desk's thread has not heard it came up, accepted is Accepted and
+silence Unconfirmed, any other box journalled by yes or no); `NodeDeviceAppTests` (App, 3, against a scripted PlayMap on TCP
+in each greeting order and with a wrong token); `PeerLinkWireTests.NodeDevice` (App, 1: AUTH-PROOF on the scripted peer's
+level-0 acceptor, what came before the proof discarded). `ShowBusSpecTests` moved with the kind words. The unit's commit
+records no mutation check.
+
+### 115.4 Every reader, and what the round did not reach
+
+- **The desk** — the Interactive page's *+ PLAYMAP (SHOW BUS NODE)* chip, the profile and its *Pairing token* box; the Nodes
+  card's **ADD AS DEVICE** button and its state words ("driven as a device", the record's words, the discarded line); the
+  device card's history (`UNCONFIRMED`). **The right-click menus** — the DEVICE group on the Nodes card and the Eye's app
+  card, the same press as the button (*Add as a device…*, or *Its device on the Interactive page* once one is set); on a
+  caller node the entry says "Devices are the desk's — add it there". The wire has no verb that adds a device.
+- **STATE** — `devices[].node` (level, pairing `auth-proof`/`open`/`none`, `up`, `stopped`, `words`, `contextId`,
+  `contextRev`, `stateDiscarded`, `stateTaken`, `discarded`, `discardedWhy`, `lastOutcome`, the record as `link`) and
+  `devices[].unconfirmed` at the device row's end; `bus.apps[].device` at its row's end. **The wire** — `DEVICE <name> <verb>`
+  carries a node's verbs; its `OK` is still "dispatched" and the receipt follows with the node's own outcome
+  (`docs/REMOTE.md`, by these papers). **The journal** — the `DeviceReceipt` row with `Done`, `Accepted`, `Failed` or
+  `Unconfirmed`. **The Eye** — the cluster, the `Controls` edge, the device card amber when unsure. **The assistant** — the
+  brief's line for a driven node: `DEVICE <word> <its verb>`, each answered by its own receipt, the desk's blackout and look
+  following as facts.
+- **Not reached, said (OPEN L112).** The Companion module and a deck read neither `devices[].node`, `devices[].unconfirmed`
+  nor `bus.apps[].device` (the module did not move); 13.12.4's "waiting for <node>'s answer" after `receipt.deadline.ms` is
+  not said (an answer is Accepted, Done or, at `receipt.final.ms`, Unconfirmed); Help has no topic for the profile; the
+  context this desk publishes lists no `DEVICE` row a peer could propose; the Super Check and the Run strip have no node
+  device row of their own; `LINK` on 9941 (PlayMap offers none yet) is round 98.5's (the plan's P97.5).
+
+### 115.5 With AI offline
+
+Nothing needs a key or the internet: the proof is the device's own Secret over the node's nonce, and the receipts, the
+record and the drawing are this desk's reading of its own link. The assistant's brief names the device's DEVICE word; an
+assistant proposes nothing a node device could not have been asked by a person through the same verb.
+
+### 115.6 The proof
+
+- **CI**, read at these papers (GitHub's Actions list for this repository). Run 303 (43630222400) on `7d0907c` (97.0) and run
+  304 (43638252733) on `c265352` (97.1): `test` and `lifecycle` red at their Build step, the same one error twice —
+  `tests/Patterns.App.Tests/ShowBus12AppTests.cs(1291,29): error CA1860: Prefer comparing 'Count' to 0 rather than using
+  'Any()'` — so no suite ran on the Ubuntu runner; `windows-smoke`, `companion-module` and `rollback-script` green;
+  `portable-exe` and `release` skipped. Run 305 (43646143356) on `68737e1` (97.2): `test` and `lifecycle` red at Build in the
+  same way on the same one error, `windows-smoke` (the suites that run there, the runtime check, the exe launched),
+  `companion-module` and `rollback-script` green, `portable-exe` and `release` skipped.
+  **The cause is the runner, not the round:** between run 302 (`fb56b4e`, green on 2026-11-12) and run 303 the source moved
+  only in `CHANGELOG.md` and `docs/PLAN.md`; the Ubuntu image moved from `ubuntu26/20261101.186` (the SDK 10.0.404
+  downloaded) to `ubuntu26/20261111.196` (10.0.404 already installed), and with no `global.json` the build takes the SDK set
+  under `/usr/share/dotnet` the image holds, whose code analysis now reads `IReadOnlyList<T>.Any()` as CA1860 — an error by
+  `.editorconfig`. This machine's SDK (10.0.115) does not report it, which is why every unit's own build was green. Which
+  SDK the image's build ran is not in the log. **Mended by 97.3**: the line compares `Count` to 0 (the analyzer's own
+  advice; the same test, the same wait); the cause — an unpinned SDK — is **L114**, not governed here.
+- **Core:** `ShowBusNodeSessionTests`, `ShowBusSpecTests`, `PrivateAddressFenceTests`, `WebPassMigrationTests`,
+  `ChangelogTests`, `DeskWordsFenceTests`. **Devices:** `NodeDeviceTests`. **App:** `NodeDeviceAppTests`,
+  `PeerLinkWireTests.NodeDevice`, `PeerLinkWireTests.Stagewatch`, `WebPassesAppTests`, `StagewatchVerbsAppTests`,
+  `VirtualOutputsAppTests`, `ShowBus12AppTests`. **The module:** unchanged at 3.22.0.
+- **Mutation checks:** 97.1's put `PinValue` back to `4321` (the refusal test red every run) and ran a forced refresh without
+  the screens seam (red every run); 97.2's commit records none, and these papers run none (no source of 97.2's is edited
+  here). Said, not hidden: the session's gates (nothing before the proof, a proof held to its connection, facts only for the
+  fact keys) are held by tests no mutation has yet been shown to fail; the next round that edits `ShowBusNodeSession.cs`
+  or `DeviceService.cs` runs one each.
+- **Measured:** nothing. The bounds are the contract's (13.12.3's outcomes, `receipt.final.ms` for a node's answer, a 32-hex
+  nonce) and the design's (a kept context or STATE at most 512 KB, latest wins; a line read whole up to 1 MiB, a longer one
+  skipped and counted), each held by a deterministic test where it landed. A node's context is parsed on the desk's thread;
+  no measurement this round says what that costs (L113).
+- **At the close:** Core 1,670, Rendering 724, Devices 13, Audio 14, Assistant 39, Audience 3, App 1,022 — 3,485 in all, as
+  97.2's validate read them (Core, Rendering, Devices, Assistant and App by parts) with Audio and Audience as at round 96's
+  close; the module's four steps as at 3.22.0. The close's whole validate (all seven suites and the module's four steps on
+  the tree as committed) is the committing stage's, and REVIEW round 97 records what it read.
+
+### 115.7 What the round did not do
+
+- **The walk: none asked.** No platform path moved (a TCP line link on the devices lane); no QUALIFICATION §22 step and no
+  DRILL scenario is added. The pair with a real PlayMap is a rig fact no bench has read (L21, L50 kept).
+- **No `LINK` on 9941 and no issued keys**: PlayMap's acceptor (`wp4-peerlink`) waits for its owner; a node device that meets
+  one is round 98.5's. Until then a paired node reads amber `legacy` (L95 amended).
+- **No proof for a generic Lines device** (third-party gear, PJLink, Disguise, Pixera, OSC): they keep their own protocols.
+- **The readers of L112** — the module and the deck, 13.12.4's waiting words, Help, the context's `DEVICE` row, the Super
+  Check and the Run strip.
+- **The fact keys are a hand copy** of Mapper's `FactLines.Keys` at `cb9be004`, held by `ShowBusNodeSessionTests` to its own
+  list and source line, with no check across the trees (L113: an interop-lane row is the place).
+- **No line from a Patterns screen to a PlayMap output** (L107; the Eye's chain is round 99's).
+- **No measurement and no governor.**
+
+### 115.8 The ledger and the papers (97.3)
+
+- **OPEN.** Closed: L110 by 97.1 (`c265352`). Amended: L95 (the PlayMap node device is a second case of the level-0
+  fallback, amber `legacy` until PlayMap offers `LINK`), L40 (a node device's pairing token is the device's Secret, in the same
+  plain-JSON class, and rides no log line, journal row, STATE, context, Eye or support bundle). Added: L111 (two App test
+  runs on one machine hear each other's mDNS answers and beacons — as §115.1 wrote it), L112 (the node device's readers not
+  reached), L113 (the fact keys' hand copy and the context parsed on the desk's thread), L114 (CI's SDK not pinned: the
+  image decides the analyzers). Read and kept: L21, L50, L107, L109. Sixty-three open, fifty-one closed.
+- **R3.** Every unit of 97.1 and 97.2 is committed; none moved. 97.3 carries one test line beyond the papers (§115.6), the
+  build CI's runners now refuse.
+- **The other trees, read at the papers.** Mapper's head is `031c9a3d`: since the opening `cb9be004` (a connection not paired
+  at HELLO hears its greeting `STATE` only after `OK paired`, on TCP as on the web port — the owner's "hold the STATE until
+  the proof") and `031c9a3d` (a connection paired at HELLO hears it only once a dialler's handshake behind it ends) have
+  landed. The second names this desk's session in its open lines: a dialler that waits for HELLO's `OK` before its
+  `NONCE` on a trusted address is greeted inside its handshake — 97.2 reads that greeting as discarded and counted with the
+  trusted words (§115.3), and the choice among Mapper's three options is its owner's. Stagewatch's head is `15f7fc4` (its
+  SW22.11, the interop lane at this tree's round 96). The contract's Body line is the same in the three copies and
+  `tools/showbus/peerlink-peer.mjs` matches Stagewatch's byte for byte.
+- **The papers:** §115.1's greeting sentence corrected and §115.2 to §115.9; REVIEW round 97; CHANGELOG (97.1 to 97.3, the
+  count); README (the ledger's round 97 entry, the show network's round line, the count); `docs/REMOTE.md` (`DEVICE` to a
+  node device, `devices[].node`, `devices[].unconfirmed`, `bus.apps[].device`, the show network's node device); `docs/OPEN.md`;
+  the tag table's row 96 (`fb56b4e`). `docs/COMPANION.md` and `docs/QUALIFICATION.md` do not move: the module did not, and
+  no platform path did.
+
+### 115.9 The rig's reading
+
+`DEVICE <name> <verb>` to a PlayMap is a verb an output can show (PlayMap's own). Its row is the journal's —
+`patterns.showlog.jsonl`, origin `device <name>`, verb `DeviceReceipt`, the device as its target, the outcome the node's own
+(`Done` for applied, `Accepted` for a line the node took and has not run, `Failed` for a refusal, `Unconfirmed` for no
+answer in time or a dropped link), and the words `PlayMap-Hall-B: PLAYLIST GO show #3 — accepted (applied — playing show #3)`
+— read beside the Nodes page's card for that PlayMap ("driven as a device", its record amber `legacy`) and the device's
+card on the Interactive page. It has not been read on a rig: no PlayMap is on the bench.

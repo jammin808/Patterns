@@ -4802,3 +4802,102 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   a rig this round (§114.9).
 - Walk: unwalked — WebView2 showing a grant (`docs/QUALIFICATION.md` §22 step 17 and the §27 note) and the twin's
   `WINDOWS` word (§22 step 18 and the §28 note); no row is filled.
+
+## Round 97 review — a PlayMap node driven as a Show Bus node device, paired by proof, with receipts of its own; a canary no hex can hold; and a build CI's runners began to refuse
+
+### 97.0 — the round opened
+
+- The plan's round 96 (its P96.0 to P96.2) is round 97 here, §115, with 97.1 inserted as the mends unit for L110. The
+  requester: the maintainer's show-network ask and the owner's "Continue development". Evidence class: a handed-in critique
+  — *patterns-playmap-side* (its Round 92 and gap G35) with the Eye critique's issue 17 — and CI's file for L110 (run
+  43218023981). `docs/field/` holds only its README; round 96's CI runs were read as the files.
+- PlayMap's line wire was read at Mapper's head and the differences from the plan's words said at the opening: no `LINK` on
+  9941 yet, the greeting `STATE` in two orders under the owner's word that PlayMap holds it until the proof, `CONTEXT`
+  answered before pairing, the plan's cites moved. No platform path; no measurement.
+
+### 97.1 — a canary no hex can hold (L110)
+
+- **Done.** PLAN §115.2. `PinValue` `pz4321qk` at every PIN site of `WebPassesAppTests`, the refusal test's folder carrying
+  the old digits on purpose and asserting them; the same canary in Core's `PrivateAddressFenceTests` and
+  `WebPassMigrationTests`; the ACCEPT canary at 16 hex digits. Two races the whole validate met, mended at their cause:
+  `PeerLinkWireTests`' record sampled at every pump, and `VirtualOutputsAppTests`' rig on `Screens.Source`.
+- **Mutation checks** — two, as the unit's commit records them: `PinValue` put back to `4321` fails the refusal test every
+  run; a forced refresh without the screens seam fails every run.
+- No product code changed.
+
+### 97.2 — Show Bus node devices (P96.1)
+
+- **Done.** PLAN §115.3. `DeviceProfile.ShowBusNode` and `ShowBusNodeSession`: HELLO, `AUTH-PROOF` only on a 32-hex `NONCE`
+  (or the `NONCE` asked for), `SUBSCRIBE OFF` and `SUBSCRIBE CONTEXT` only after `OK paired` or `OK open`; a `STATE` before
+  the proof discarded and counted with the reason as far as it is known, one after it taken; `d<n>-<inst>` ids read by
+  13.12.3 to the journal (`Done`, `Accepted`, `Failed`, `Unconfirmed`); facts untagged through `EncodeFact` for the 17 fact
+  keys, `OPEN 1` never; a wrong token stops every send; a proof held to its connection by `Moving`; the record level 0,
+  amber `legacy`. The readers: the kind words, the fold of a heard PlayMap with its device, *Add as a device…* (the Nodes
+  card's button and both menus), the Interactive page's chip and token box, the Eye's `Controls` edge and cluster, STATE's
+  three fields, the brief.
+- **Tests:** `ShowBusNodeSessionTests` (18), `NodeDeviceTests` (4), `NodeDeviceAppTests` (3),
+  `PeerLinkWireTests.NodeDevice` (1), `ShowBusSpecTests` moved.
+- **Mutation checks:** the unit's commit records none, and these papers run none. Said, not hidden: the session's gates are
+  held by tests no mutation has yet been shown to fail; the next round that edits `ShowBusNodeSession.cs` or
+  `DeviceService.cs` runs one each (PLAN §115.6).
+- **Left by the unit, answered here:** its "not done here" list — `LINK` on 9941 (round 98.5; L112), 13.12.4's waiting words,
+  the module and the deck (L112), the fact keys' hand copy and the context parsed on the desk's thread (L113), REMOTE's
+  fields (written by these papers), and §115.1's "a `STATE` after the proof is dropped as well" (corrected in place: it is
+  taken).
+
+### 97.3 — the papers
+
+- §115.1's greeting sentence corrected and §115.2 to §115.9; this section; the CHANGELOG entry completed; README (the
+  ledger's round 97 entry, the show network's round line, the count); `docs/REMOTE.md` (`DEVICE` to a node device and its
+  receipts, `devices[].node`, `devices[].unconfirmed`, `bus.apps[].device`, the show network's node device and what remains);
+  `docs/OPEN.md`; the tag table's row 96 (`fb56b4e`). `docs/COMPANION.md` and `docs/QUALIFICATION.md` do not move.
+- **Found by the papers, from CI.** Runs 303 (`7d0907c`, 97.0), 304 (`c265352`, 97.1) and 305 (`68737e1`, 97.2) read
+  `test` and `lifecycle` red at their Build step on one error, CA1860 at `ShowBus12AppTests.cs(1291,29)`
+  (`NodeContexts(…).Any()` on an `IReadOnlyList`): no suite ran on the Ubuntu runner for the round. Run 302 on `fb56b4e` was
+  green with the same line; the source between them moved only in two papers, while `ubuntu-latest` moved from image
+  `ubuntu26/20261101.186` to `ubuntu26/20261111.196`. With no `global.json` the build takes the image's SDK set, whose code
+  analysis now reports the line; this machine's SDK 10.0.115 does not, so every unit's own build read 0 warnings. **Mended
+  here** — the line compares `Count` to 0, the same wait in the same test — and the cause is **L114**, a decision for the
+  maintainer (a pinned SDK band or a pinned image), not taken here. The Windows job (`windows-smoke`) and the module's job
+  were green on all three runs.
+- **Read again at the papers:** REMOTE's `devices[…]` list named no node row and no unconfirmed line, its `bus` row no
+  `device`, and its show-network section no PlayMap device; README's last show-network line was round 96's and its count
+  3,459. Each now says what the code does.
+- Every unit of 97.1 and 97.2 is committed; none moved under R3.
+
+### The review's items, answered
+
+- **G35 (Patterns does not know PlayMap):** 97.2 — PlayMap known by its kind words, paired by proof on its line wire, driven
+  with receipts of its own, its context kept per device and drawn in the NETWORK band, *Add as a device…* on its card. What
+  G35 leaves to PlayMap (its `LINK` acceptor, `wp4-peerlink`; Mapper's doc claim) is PlayMap's, and round 98.5 is this
+  desk's half of `LINK`.
+- **D21 (the node session):** kept, with two departures said in §115.3: a `STATE` after the proof is taken, not dropped
+  (it comes on a proved link and latest wins), and `@d` tags are `d<n>-<inst>` with 13.12.1's instance.
+- **The owner's word of 2026-11-14 ("hold the STATE until the proof"):** PlayMap's to keep, and Mapper's `cb9be004` and
+  `031c9a3d` have landed it; this desk reads both the older and the newer order, and the open question `031c9a3d` names for
+  a dialler that waits for HELLO's `OK` on a trusted address is read here as a counted discard with the trusted words, the
+  choice its owner's.
+- **The Eye critique's issue 17 (the band adopts PlayMap):** 97.2 — the device's cluster in the NETWORK band, its `Controls`
+  edge lit by the record.
+
+### The ledger's rows, answered
+
+- **Closed:** L110 (97.1, `c265352`).
+- **Amended:** L95 (the node device a second case of the level-0 fallback), L40 (a node device's pairing token).
+- **Added:** L111 (two App test runs on one machine), L112 (the node device's readers not reached), L113 (the fact keys'
+  hand copy; the context parsed on the desk's thread), L114 (CI's SDK not pinned).
+- **Read and kept:** L21, L50, L107, L109.
+- Closed rows: fifty-one; open: sixty-three.
+
+### The suites
+
+- The units' own validates: 97.1 — Core 1,652, Rendering 724, App 1,018 by parts; 97.2 — Core 1,670, Rendering 724, Devices
+  13, Assistant 39, App 1,022 by parts (APP SUITE GREEN BY PARTS); Audio 14 and Audience 3 as at round 96's close — 3,485.
+  These papers' own runs: the build (0 warnings) and the tests that read the papers. The close's whole validate — all seven
+  suites and the module's four steps on the tree as committed — is the committing stage's and is recorded with its commit.
+- CI: runs 303 to 305 are read above and in PLAN §115.6; these papers go out at the maintainer's next push, the first run
+  that can build on the Ubuntu runner again.
+- The rig's reading: a `DEVICE` line's receipt to a PlayMap — `patterns.showlog.jsonl`, origin `device <name>`, verb
+  `DeviceReceipt`, the node's own outcome (`Done`, `Accepted`, `Failed`, `Unconfirmed`) and the line's words with the node's
+  answer — read beside the Nodes page's card for that PlayMap (PLAN §115.9). Not read on a rig: no PlayMap is on the bench.
+- Walk: none asked — a TCP line link on the devices lane; no platform path moved.

@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 97 — 2026-11-14 — a PlayMap node becomes a Show Bus node device, known by its kind words, paired by proof on its line wire, driven with receipts and drawn in the NETWORK band; and a test canary no hex can hold
 
-`round-97` · PLAN §115 · REVIEW round 97 · 3,459 tests · module 3.22.0 · evidence: a handed-in critique (patterns-playmap-side and gap G35, with the Eye critique's issue 17) and CI's file for L110; no field files and no rig report; no measurement this round · Walk: none asked (a TCP line link; no platform path)
+`round-97` · PLAN §115 · REVIEW round 97 · 3,485 tests · module 3.22.0 · evidence: a handed-in critique (patterns-playmap-side and gap G35, with the Eye critique's issue 17) and CI's file for L110; no field files and no rig report; no measurement this round · Walk: none asked (a TCP line link; no platform path)
 
 - **The round opens (97.0).** PLAN §115.1 names the round's number (the plan's round 96) and its unit table, 97.0 to 97.3 (97.1, the
   mends unit for **L110**, is inserted); reads round 96's CI runs (the run on 96.1 red once on L110's hex canary alone, 96.0 and
@@ -21,6 +21,28 @@ is the Bitfocus Companion module, where its version moved.
   until the proof, `CONTEXT` answered before pairing where Mapper's papers say it waits, the plan's cites moved); names the OPEN
   rows it touches (L110 closed by 97.1; a new row, L111, for two App test runs hearing each other's mDNS and beacons, a row and
   not a mend), the requester, the evidence class and the platform paths (none).
+- **A canary no hex can hold (97.1).** `WebPassesAppTests`' PIN canary is `pz4321qk` at every site, and its refusal test
+  now carries the old digits in its folder on purpose and asserts them; Core's `PrivateAddressFenceTests` and
+  `WebPassMigrationTests` take the same canary and the ACCEPT canary goes to 16 hex digits (**L110** closed). Two races the
+  whole validate met are mended at their cause: the Stagewatch key's record sampled at every pump, and the virtual outputs'
+  rig on its own screen source. No product code changed.
+- **A PlayMap node driven as a Show Bus node device (97.2).** The Interactive page's *+ PLAYMAP (SHOW BUS NODE)* profile, or
+  **ADD AS DEVICE** on a heard PlayMap's Nodes card (and its right-click, both menus), drives PlayMap's line wire (TCP 9941):
+  `HELLO`, then `AUTH-PROOF` with the node's pairing token over its 32-hex `NONCE`, and only after `OK paired` the
+  subscriptions, the context and the show's facts (untagged, PlayMap's 17 fact keys, never `OPEN 1`); a `STATE` before the
+  proof is discarded and counted, never taken, in either greeting order PlayMap sends; a wrong token stops every send. Each
+  `DEVICE` line carries its own id and its journal row says the node's outcome — `Done`, `Accepted` (not run yet), `Failed`
+  or `Unconfirmed` (no answer in time, or the link dropped: it may have run, amber everywhere). The node is known as
+  PlayMap, "driven as a device", its record level 0 and amber `legacy` (**L95** amended), drawn in the NETWORK band with
+  its `Controls` edge; STATE gains `devices[].node`, `devices[].unconfirmed` and `bus.apps[].device`; the brief names its
+  `DEVICE` word (gap G35).
+- **The papers (97.3).** PLAN §115 (and §115.1's greeting sentence corrected: a `STATE` after the proof is taken), REVIEW
+  round 97, README, `docs/REMOTE.md` (the node device, its receipts and STATE's three fields), OPEN (L110 closed; L95 and L40
+  amended; L111 to L114 added — L111 two App test runs on one machine, L112 the node device's readers not reached, L113
+  the fact keys' hand copy and the context's parse, L114 CI's unpinned SDK) and round 96's tag row. CI's runs on 97.0 to
+  97.2 read the Ubuntu build red on one analyzer error in a test line the source had not changed, after the runner image
+  moved; the line is mended here and the cause is L114. A `DEVICE` line's receipt in the journal, read beside the Nodes
+  page's card, is the rig's row; not read on a rig this round.
 
 ## Round 96 — 2026-11-12 — the Stagewatch link proves itself with LINK on its socket, a window Stagewatch grants to this desk is shown only from the air, and the twin tells the standby which grants it lacks
 
