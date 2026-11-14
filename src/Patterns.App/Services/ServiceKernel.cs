@@ -155,6 +155,9 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
 
     public NodesService Nodes { get; }
 
+    /// <summary>Round 97: the Show Bus node devices as the readers take them — the desk's device service sets it; none until then.</summary>
+    public Func<IReadOnlyList<ShowBusNodeSight>> NodeDevices { get; set; } = () => Array.Empty<ShowBusNodeSight>();
+
     /// <summary>Where every list is right now — never in the show, reset when one loads. Every role that shows a stack reads it: the desk's Run surface, a caller's, a timer's segment.</summary>
     public CueRuntime Cues { get; } = new();
 

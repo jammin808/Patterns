@@ -1121,6 +1121,7 @@ public static class Lists
         new(DeviceProfile.Pixera, "Pixera (JSON-RPC) — TIMELINE name PLAY, CUE timeline cue"),
         new(DeviceProfile.Osc, "OSC device — /address and its arguments (QLab, Resolume, TouchDesigner…)"),
         new(DeviceProfile.Companion, "Companion (its TCP API) — PAGE 3, PRESS 2/0/1, VAR name value: the desk drives the Stream Deck"),
+        new(DeviceProfile.ShowBusNode, "Show Bus node (PlayMap) — paired by proof, its verbs with their own receipts, its context on the Eye"),
     };
 
     /// <summary>The starter row sets, by name — what the page's picker offers.</summary>

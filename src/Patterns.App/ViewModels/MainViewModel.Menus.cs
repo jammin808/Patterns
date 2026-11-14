@@ -81,7 +81,7 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 return subject is EyeNode node ? EyeMenu(node, facts) : null;
             case "showapp":
                 return subject is ShowAppCard card
-                    ? new DeskMenuVm(DeskMenus.ShowApp(facts, new MenuShowApp(card.Id, card.KindLabel, card.Name, card.Line, card.Linked)), e => RunMenuEntry(e, card))
+                    ? new DeskMenuVm(DeskMenus.ShowApp(facts, MenuShowApp.Of(card)), e => RunMenuEntry(e, card))
                     : null;
             default:
                 return null;
@@ -210,6 +210,9 @@ public sealed partial class MainViewModel : IDeskMenuHost
                     case EyeMenuEdits.Open or EyeMenuEdits.Fold when subject is EyeNode card:     // the NETWORK band's view, the side card's same press
                         words = _services.Eye.Cluster(card.Id, entry.Edit == EyeMenuEdits.Open).Message;
                         RaiseEye();
+                        break;
+                    case { } add when add.StartsWith(DeskMenus.AddDeviceEdit, StringComparison.Ordinal):   // round 97: a heard PlayMap as a device
+                        words = AddShowBusDevice(add[DeskMenus.AddDeviceEdit.Length..]);
                         break;
                     case "preview.open":
                         IsSandboxActive = true;

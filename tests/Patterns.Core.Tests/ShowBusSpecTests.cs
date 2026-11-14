@@ -363,7 +363,7 @@ public sealed class ShowBusSpecTests
     }
 
     /// <summary>
-    /// §14's kinds as this desk names them — but two it does not name as the rows do yet — and its caps: every cap it says is a
+    /// §14's kinds as this desk names them — but one it does not name as the rows do yet — and its caps: every cap it says is a
     /// <c>cap</c> row for <c>patterns</c>, and the rows for <c>patterns</c> it does not say are the two whose parts it does not
     /// speak yet.
     /// </summary>
@@ -372,11 +372,12 @@ public sealed class ShowBusSpecTests
     {
         var kinds = Many("kind").ToDictionary(w => w[0], w => string.Join(' ', w.Skip(1)), StringComparer.Ordinal);
         Assert.True(kinds.ContainsKey(new ShowBusHello().Kind), "this desk's own kind is no kind row");
-        foreach (var t in new[] { "main", "patterns", "messenger" })
+        // Round 97: a PlayMap is named as its row names it, as it is drawn and driven as a node device.
+        foreach (var t in new[] { "main", "patterns", "playmap", "messenger" })
             Assert.Equal(kinds[t], ShowBusPeers.KindWords(t));
-        // Not kept yet: a Slides agent is named by this desk's own words for it, and a PlayMap by the reader's fallback for a
-        // kind it does not know. Checked both ways: a name made the row's moves its kind to the loop above.
-        foreach (var (t, today) in new[] { ("agent", "Slides agent"), ("playmap", "Playmap") })
+        // Not kept yet: a Slides agent is named by this desk's own words for it. Checked both ways: a name made the row's moves its
+        // kind to the loop above.
+        foreach (var (t, today) in new[] { ("agent", "Slides agent") })
         {
             Assert.Equal(today, ShowBusPeers.KindWords(t));
             Assert.NotEqual(kinds[t], today);

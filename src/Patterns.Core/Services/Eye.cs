@@ -228,6 +228,24 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     /// whether it is ready; "" with none. Never an address.
     /// </summary>
     public string Windows { get; init; } = "";
+
+    /// <summary>
+    /// Round 97: a Show Bus node this desk drives as a device (PlayMap) — the device's id on the Interactive page, and its name, which
+    /// the brief names as the way to drive it; "" for an app no device of this desk's links to.
+    /// </summary>
+    public string DeviceId { get; init; } = "";
+
+    /// <summary>Round 97: the device's name (<see cref="DeviceId"/>, or <see cref="DeviceAt"/>), "" for none.</summary>
+    public string Device { get; init; } = "";
+
+    /// <summary>
+    /// Round 97: a heard PlayMap no device folds into, but at whose address and wire port a node device of this desk's is set — that
+    /// device's id, so every reader offers it and never a second one; "" for none. Not a link: nothing is drawn from it to the app.
+    /// </summary>
+    public string DeviceAt { get; init; } = "";
+
+    /// <summary>Round 97: the words a node device's session counted before the proof — discarded, never taken (Show Bus 13.6.3); "" for none.</summary>
+    public string Discarded { get; init; } = "";
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -1005,7 +1023,7 @@ public sealed class EyeGraph
         // the linked — and one grey card for the rest; the card counted when the show needs the app, its link edge always.
         var heard = f.ShowApps.OrderBy(a => a.KindWords, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .Where(a => !ids.Contains("app:" + a.Id)).DistinctBy(a => a.Id, StringComparer.Ordinal).ToList();
-        var drawn = heard.OrderByDescending(a => a.Needed).ThenByDescending(a => a.Linked).Take(EyeLayout.MaxApps).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        var drawn = heard.OrderByDescending(a => a.Needed).ThenByDescending(ShowBusView.HoldsLink).Take(EyeLayout.MaxApps).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var named = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var app in heard)
         {
@@ -1022,7 +1040,7 @@ public sealed class EyeGraph
             var conflict = ShowBusView.ConflictAmber(app);
             // Show Bus 1.3 §13.16.4: a live link's record darker than the card — amber at level 0 — is the card's light too.
             var light = ShowBusView.CardLight(app);
-            var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
+            var state = ShowBusView.StateWord(app);
             var sub = stuck ? ShowBusView.StuckWords
                 : ShowBusView.KeyLineLeads(app) ? app.Key.Line
                 : conflict ? app.Conflict
@@ -1030,9 +1048,12 @@ public sealed class EyeGraph
             var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
             if (stuck) words.Add($"the link is live; it {ShowBusView.StuckWords}");
             if (app.Linked && app.Key.Line.Length > 0) words.Add("this desk's key: " + app.Key.Line);
-            if (app.Linked && app.Link is { } record) words.Add("the link: " + record.Steady);
+            if (ShowBusView.HoldsLink(app) && app.Link is { } record) words.Add("the link: " + record.Steady);
             if (app.Linked && app.Speaker.Length > 0) words.Add(app.Speaker);
             if (app.Linked && app.Windows.Length > 0) words.Add("windows it grants this desk: " + app.Windows);
+            if (app.DeviceId.Length > 0) words.Add($"driven as the device {app.Device} — DEVICE {ShowBusView.DeviceWord(app)} <its verb>");
+            else if (app.DeviceAt.Length > 0) words.Add($"this desk's device {app.Device} is set at its address — drawn as one with it once that link is proved and its context names this app");
+            if (app.Discarded.Length > 0) words.Add(app.Discarded);
             if (app.Conflict.Length > 0) words.Add(app.Conflict + " — " + ShowBusView.ConflictHoldWords);
             if (app.Words.Length > 0) words.Add(app.Words);
             if (ctx is not null)
@@ -1058,7 +1079,13 @@ public sealed class EyeGraph
             else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, app.State switch { ShowBusState.Live => CheckLight.Green, ShowBusState.Stale => CheckLight.Amber, _ => app.Needed ? CheckLight.Red : CheckLight.Amber },
                 app.State == ShowBusState.Live ? "linked" : state, counted: true);
             else if (conflict) Link(id, DeskId, EyeEdgeKind.Hears, CheckLight.Amber, "heard · " + ShowBusView.ConflictEdgeWords);
-            else Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state);
+            // A node device no hello names is not heard: its one edge is the device's.
+            else if (app.DeviceId.Length == 0 || app.Heard.Length > 0) Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state);
+            // Round 97: the device that drives a Show Bus node controls it — this desk's link to it, counted, lit and worded by the
+            // device link's own record (13.16.4), from the device's node (from the desk when the Eye draws no node for the device).
+            if (app.DeviceId.Length > 0 && app.Link is { } driven)
+                Link(ids.Contains("device:" + app.DeviceId) ? "device:" + app.DeviceId : DeskId, id, EyeEdgeKind.Controls, driven.LightValue,
+                    $"{driven.Mark} drives it — {driven.SteadyWords}", counted: true);
             if (ctx is null || app.State == ShowBusState.Gone) continue;
             named[id] = ctx.Items.Select(i => i.Id).Distinct(StringComparer.Ordinal).Count();
             // Its own things — at most a dozen, the reds and ambers first, so a busy app does not drown the picture — in the

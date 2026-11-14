@@ -81,6 +81,9 @@ public sealed record DeskFacts
     /// <summary>G34: the Stagewatch link as the menus read it — on, which Stagewatch it dials, the stage's follow, what waits for a person.</summary>
     public MenuStagewatch Stagewatch { get; init; } = MenuStagewatch.Off;
 
+    /// <summary>Round 97: the other show apps' cards as their menus read them — the Eye's card for an app reads the same entries.</summary>
+    public IReadOnlyList<MenuShowApp> ShowApps { get; init; } = Array.Empty<MenuShowApp>();
+
     /// <summary>
     /// The clip on air as the transport reads it — null with none, and on a node. THE CLIP's entries
     /// are disabled by the rule the wire refuses with (<see cref="VideoClock.WhyNot"/>), in its words.
@@ -323,4 +326,10 @@ public sealed record MenuStagewatch
 }
 
 /// <summary>Another show app's card on the Nodes page, as its menu reads it.</summary>
-public sealed record MenuShowApp(string Id, string KindLabel, string Name, string Line, bool Linked);
+/// <param name="AddAsDevice">Round 97: a heard PlayMap no device of this desk's drives yet — its menu offers <i>Add as a device…</i>.</param>
+/// <param name="DeviceId">Round 97: the device that drives it, "" for none — its menu opens it.</param>
+public sealed record MenuShowApp(string Id, string KindLabel, string Name, string Line, bool Linked, bool AddAsDevice = false, string DeviceId = "")
+{
+    /// <summary>The card's facts as its menu reads them.</summary>
+    public static MenuShowApp Of(ShowAppCard card) => new(card.Id, card.KindLabel, card.Name, card.Line, card.Linked, card.AddAsDevice, card.DeviceId);
+}

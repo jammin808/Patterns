@@ -39,6 +39,7 @@ public static class DeskMenuFacts
             AssistantReady = s.Assistant.HasKey,
             StagewatchTrust = StagewatchLinkActions.MenuFact(s.Kernel.Stagewatch, s.Nodes.ShowApps),
             Stagewatch = StagewatchLinkActions.MenuStagewatch(s.Kernel.Stagewatch, state.Control.Stagewatch, s.Nodes.ShowApps),
+            ShowApps = s.Nodes.ShowApps.Select(MenuShowApp.Of).ToList(),                    // round 97: the Eye's card reads the Nodes card's DEVICE entries
             LookOnAirId = onAir?.Id ?? "",
             LookOnAirName = onAir?.Name ?? "",
             LookEdited = s.LookTally.AirEdited(),

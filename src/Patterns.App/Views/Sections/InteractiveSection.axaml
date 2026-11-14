@@ -37,6 +37,8 @@
               ToolTip.Tip="Any box that speaks OSC over UDP — QLab, Resolume, TouchDesigner, a lighting desk: the words are the address and its arguments, /cue/1/start" />
       <Button Classes="chip" Content="+ COMPANION" Command="{Binding AddEndpointCommand}" CommandParameter="Companion" Margin="0,0,8,6"
               ToolTip.Tip="Bitfocus Companion's own TCP API (port 16759): PAGE 3 turns the Stream Deck to a page, PRESS 2/0/1 fires a button, VAR name value fills a custom variable — from a cue, the wire or the assistant, so the deck follows the show. A Companion heard on the network fills in its address" />
+      <Button Classes="chip" Content="+ PLAYMAP (SHOW BUS NODE)" Command="{Binding AddEndpointCommand}" CommandParameter="ShowBusNode" Margin="0,0,8,6"
+              ToolTip.Tip="A PlayMap node on its line wire (TCP 9941): it pairs by proof with its pairing token (type it in the Secret box), its verbs go as DEVICE lines with their own receipts, the show's facts follow, and its context is drawn on the Eye. A PlayMap heard on the show network can be added from its Nodes card with its address filled in" />
       <Button Classes="chip" Content="+ HTTP ENDPOINT" Command="{Binding AddEndpointCommand}" CommandParameter="Lines" Margin="0,0,8,6"
               ToolTip.Tip="A box with a web API — Companion's own, a Q-SYS core, a Crestron or Extron processor, an encoder: each line is a request (GET /api/play, POST /cue {&quot;n&quot;:3}); the answer's status comes back as a line" />
     </WrapPanel>
@@ -72,6 +74,11 @@
                            IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.PjLink}}" />
                 <TextBox Grid.Column="5" Text="{Binding Secret, Mode=TwoWay}" PasswordChar="•" Watermark="only if the projector asks (PJLink authentication)"
                          IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.PjLink}}" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Pairing token" VerticalAlignment="Center"
+                           IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.ShowBusNode}}" />
+                <TextBox Grid.Column="5" Text="{Binding Secret, Mode=TwoWay}" PasswordChar="•" Watermark="the node's pairing token (PlayMap: its Network drawer)"
+                         IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.ShowBusNode}}"
+                         ToolTip.Tip="Show Bus 13.6.8: it answers the node's NONCE with AUTH-PROOF and never crosses the wire itself. A wrong one stops every send until it is typed again — nothing retries toward the node's five-wrong close" />
                 <TextBlock Grid.Column="3" Classes="label" Text="Surface" VerticalAlignment="Center"
                            IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.Companion}}" />
                 <TextBox Grid.Column="5" Text="{Binding Surface, Mode=TwoWay}" Watermark="Companion's id for the Stream Deck (its Surfaces page) — what a bare PAGE turns"

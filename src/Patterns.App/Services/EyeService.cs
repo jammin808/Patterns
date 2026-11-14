@@ -621,7 +621,8 @@ public sealed class EyeService
         var devices = state.Interactive.Devices.Select(d =>
         {
             var open = _s.Devices.LinkFor(d.Id)?.IsOpen ?? false;
-            var light = !d.Enabled ? CheckLight.Grey : d.Runtime.Failing ? CheckLight.Red : open ? CheckLight.Green : CheckLight.Red;
+            // A line whose end nobody knows (Show Bus 13.12.3's unconfirmed: it may have run) is amber, never a failure's red.
+            var light = !d.Enabled ? CheckLight.Grey : d.Runtime.Failing ? CheckLight.Red : !open ? CheckLight.Red : d.Runtime.Unsure ? CheckLight.Amber : CheckLight.Green;
             return new EyeDevice(d.Id, d.Name, d.Profile.ToString(), DeviceAddress.Describe(d), d.Enabled, open, d.Status, light, d.Runtime.Words(now), d.InputScreen, Mapped: MidiBindings.Count(d));
         }).ToList();
 

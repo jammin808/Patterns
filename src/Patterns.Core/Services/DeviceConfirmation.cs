@@ -26,6 +26,7 @@ public static class DeviceConfirmation
                 {
                     DeviceProfile.PjLink or DeviceProfile.Pixera or DeviceProfile.Lines => ConfirmLevel.Observed,
                     DeviceProfile.Companion => ConfirmLevel.Accepted,    // +OK or -ERR to every line; nothing to ask after
+                    DeviceProfile.ShowBusNode => ConfirmLevel.Accepted,  // each command's own receipt (Show Bus 13.12.3)
                     _ => ConfirmLevel.Delivered,                    // OSC words over a stream: the socket took them, nobody answers
                 };
         }

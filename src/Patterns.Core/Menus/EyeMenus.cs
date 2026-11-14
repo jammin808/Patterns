@@ -125,6 +125,8 @@ public static class EyeMenus
             var stagewatch = d.Stagewatch.Heard.Contains(appId) || d.Stagewatch.LinkedId == appId;
             var name = n.Label.StartsWith(StagewatchLabel, StringComparison.Ordinal) ? n.Label[StagewatchLabel.Length..] : n.Label;
             if (DeskMenus.LinkGroup(d, appId, stagewatch, name) is { } link) groups.Add(link);
+            // Round 97: a Show Bus node's DEVICE group — the Nodes card's own entries.
+            if (d.ShowApps.FirstOrDefault(a => a.Id == appId) is { } app && DeskMenus.DeviceGroup(d, app) is { } device) groups.Add(device);
         }
         if (linked.Count > 0) groups.Add(new MenuGroup("LINKED TO", MenuTone.Tile, linked) { Note = "Each is a focus of its own." });
         if (go.Count > 0) groups.Add(new MenuGroup("GO TO", MenuTone.Go, go));

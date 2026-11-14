@@ -428,7 +428,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             StagewatchTrust = StagewatchLinkActions.MenuFact(_host.Kernel.Stagewatch, _host.Kernel.Nodes.ShowApps),
             Stagewatch = StagewatchLinkActions.MenuStagewatch(_host.Kernel.Stagewatch, _host.State.Control.Stagewatch, _host.Kernel.Nodes.ShowApps),
         };
-        return new DeskMenuVm(DeskMenus.ShowApp(facts, new MenuShowApp(card.Id, card.KindLabel, card.Name, card.Line, card.Linked)), e =>
+        return new DeskMenuVm(DeskMenus.ShowApp(facts, MenuShowApp.Of(card)), e =>
         {
             var said = e.Scope == MenuScope.Live && e.Action is { } action ? _host.Actions.Execute(action, ActionOrigin.Desk).Message
                 : e.Scope == MenuScope.Ask ? "The assistant lives on the desk — ask there."
@@ -462,6 +462,11 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     private RelayCommand<TwinService.PlanOffer>? _dismissPlan;
 
     public RelayCommand<TwinService.PlanOffer> DismissPlanCommand => _dismissPlan ??= new RelayCommand<TwinService.PlanOffer>(_ => { });
+
+    private RelayCommand<ShowAppCard>? _addAsDevice;
+
+    /// <summary>Round 97: devices are the desk's — a node's Nodes page says so.</summary>
+    public RelayCommand<ShowAppCard> AddAsDeviceCommand => _addAsDevice ??= new RelayCommand<ShowAppCard>(_ => StatusMessage = "Devices are the desk's — add it there.");
 
     private RelayCommand<NodeCard>? _linkNode;
 

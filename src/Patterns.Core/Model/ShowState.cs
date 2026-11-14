@@ -2604,6 +2604,11 @@ public enum DeviceProfile
     Osc,
     /// <summary>Bitfocus Companion's own TCP remote-control API: PAGE, PRESS, VAR — the desk driving the Stream Deck's pages and buttons.</summary>
     Companion,
+    /// <summary>
+    /// A Show Bus node's line wire (PlayMap on TCP 9941): paired by proof before anything is taken from it or sent to it as a fact,
+    /// each command tagged with its own request id and read by its own receipt, the node's context kept for the Eye and the brief.
+    /// </summary>
+    ShowBusNode,
 }
 
 /// <summary>The line break a device expects at the end of every line Patterns writes.</summary>

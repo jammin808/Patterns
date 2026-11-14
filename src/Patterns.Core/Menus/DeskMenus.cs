@@ -1042,6 +1042,7 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
     {
         var groups = new List<MenuGroup>();
         if (LinkGroup(d, app.Id, app.KindLabel == "Stagewatch", app.Name) is { } link) groups.Add(link);
+        if (DeviceGroup(d, app) is { } device) groups.Add(device);
         groups.Add(new MenuGroup("ASK", MenuTone.Ask, new[]
         {
             new MenuEntry("app.ask", "What is this?", MenuScope.Ask, MenuTone.Ask)
@@ -1053,6 +1054,41 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
         })
         { Note = "The assistant answers from the facts; the desk runs nothing." });
         return WithMidi(d, new DeskMenu("showapp", app.Id, $"{app.KindLabel} {app.Name}".Trim(), app.Line, app.Linked ? MenuTone.Tile : MenuTone.Plain, groups));
+    }
+
+    /// <summary>The desk edit that adds a heard Show Bus node as a device, after its app's id.</summary>
+    public const string AddDeviceEdit = "device.add:";
+
+    /// <summary>
+    /// Round 97: the DEVICE group of a Show Bus node's card, here and on the Eye — a heard PlayMap added as a device (on the
+    /// Interactive page, its address and wire port filled in, its Secret box waiting for the node's pairing token), or the device
+    /// that drives it opened there. Null for any other app. A desk's own press: the wire has no verb that adds a device.
+    /// </summary>
+    public static MenuGroup? DeviceGroup(DeskFacts d, MenuShowApp app)
+    {
+        if (app.KindLabel != "PlayMap") return null;
+        var entries = new List<MenuEntry>();
+        if (app.DeviceId.Length > 0)
+        {
+            entries.Add(new MenuEntry("device.open", "Its device on the Interactive page", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = "Where its pairing token, its link and each line's receipt are",
+                Route = new MenuRoute("Interactive", app.DeviceId),
+            });
+        }
+        else if (app.AddAsDevice)
+        {
+            entries.Add(new MenuEntry("device.add", "Add as a device…", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "A Show Bus node device on the Interactive page, its address and wire port filled in — type the node's pairing token in its Secret box (PlayMap: its Network drawer)",
+                Edit = AddDeviceEdit + app.Id,
+                Because = d.IsNode ? "Devices are the desk's — add it there" : "",
+            });
+        }
+        return entries.Count == 0 ? null : new MenuGroup("DEVICE", MenuTone.Tile, entries)
+        {
+            Note = "Its verbs go through the device, each with its own receipt; it pairs by its token before anything is taken from it.",
+        };
     }
 
     /// <summary>The trust waiting for the app with this id (a card's id, or an Eye node's after <c>app:</c>); null when none waits for it.</summary>

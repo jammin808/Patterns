@@ -448,6 +448,7 @@ public sealed class ShowBusPeers
         "agent" => "Slides agent",
         "patterns" => "Patterns",
         "messenger" => "AGMessage",
+        "playmap" => "PlayMap",
         _ => kind.Length > 0 ? char.ToUpperInvariant(kind[0]) + kind[1..] : "App",
     };
 

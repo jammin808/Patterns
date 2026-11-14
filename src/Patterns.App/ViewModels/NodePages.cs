@@ -57,6 +57,8 @@ public interface INodesPage
     RelayCommand<NodeCard> OpenNodePagesCommand { get; }
     /// <summary>Round 87: the other show apps heard on the show network (Stagewatch, AGMessage, Slides agents).</summary>
     ObservableCollection<ShowAppCard> ShowApps { get; }
+    /// <summary>Round 97: <i>Add as a device…</i> on a heard PlayMap's card — the card's right-click entry, the same press.</summary>
+    RelayCommand<ShowAppCard> AddAsDeviceCommand { get; }
     /// <summary>Round 87: how many apps are heard, and what the Stagewatch link is doing.</summary>
     string ShowBusLine { get; }
 

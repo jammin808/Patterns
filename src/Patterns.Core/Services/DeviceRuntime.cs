@@ -13,7 +13,8 @@ public sealed record DeviceRuntime(
     string LastReply = "", DateTime? LastReplyUtc = null,
     ConfirmLevel? LastConfirmed = null, DateTime? LastConfirmedUtc = null,
     string LastObserved = "", DateTime? LastObservedUtc = null,
-    string LastFailure = "", DateTime? LastFailureUtc = null)
+    string LastFailure = "", DateTime? LastFailureUtc = null,
+    string LastUnconfirmed = "", DateTime? LastUnconfirmedUtc = null)
 {
     /// <summary>A box nothing has been said to yet.</summary>
     public static readonly DeviceRuntime None = new();
@@ -36,13 +37,25 @@ public sealed record DeviceRuntime(
     /// <summary>A receipt failed — a no, a silence, a line that could not go, a port that would not open.</summary>
     public DeviceRuntime Failed(string words, DateTime utcNow) => this with { LastFailure = words, LastFailureUtc = utcNow };
 
+    /// <summary>
+    /// A line whose end nobody knows (Show Bus 13.12.3's unconfirmed: no answer in time, or the link dropped first) — it may have run, so
+    /// it is neither a failure nor a confirmation, and every reader draws it amber with its words.
+    /// </summary>
+    public DeviceRuntime Unconfirmed(string words, DateTime utcNow) => this with { LastUnconfirmed = words, LastUnconfirmedUtc = utcNow };
+
+    /// <summary>Whether the box's last word on a line was that nobody knows its end: an unconfirmed more recent than any reply, confirmation or failure.</summary>
+    public bool Unsure => LastUnconfirmedUtc is { } u
+        && (LastReplyUtc is not { } r || u > r)
+        && (LastConfirmedUtc is not { } c || u > c)
+        && (LastFailureUtc is not { } f || u > f);
+
     /// <summary>Whether the box's last word was a failure: one more recent than any reply or confirmation since.</summary>
     public bool Failing => LastFailureUtc is { } f
         && (LastReplyUtc is not { } r || f > r)
         && (LastConfirmedUtc is not { } c || f > c);
 
     /// <summary>Whether anything has happened to this box.</summary>
-    public bool Any => LastCommandUtc is not null || LastReplyUtc is not null || LastFailureUtc is not null;
+    public bool Any => LastCommandUtc is not null || LastReplyUtc is not null || LastFailureUtc is not null || LastUnconfirmedUtc is not null;
 
     /// <summary>
     /// "Last sent POWER ON (3 s ago) · reply POWR: OK — accepted (3 s ago) · observed INPT: 31
@@ -59,6 +72,7 @@ public sealed record DeviceRuntime(
         else if (LastConfirmed is { } alone && LastConfirmedUtc is { } at) parts.Add($"{DeviceConfirmation.Label(alone)} ({Age(utcNow - at)})");
         if (LastObservedUtc is { } o) parts.Add($"observed {LastObserved} ({Age(utcNow - o)})");
         if (LastFailureUtc is { } f) parts.Add($"{(Failing ? "FAILED" : "failed")} {LastFailure} ({Age(utcNow - f)})");
+        if (LastUnconfirmedUtc is { } u) parts.Add($"{(Unsure ? "UNCONFIRMED" : "unconfirmed")} {LastUnconfirmed} ({Age(utcNow - u)})");
         var line = string.Join(" · ", parts);
         return char.ToUpperInvariant(line[0]) + line[1..];
     }

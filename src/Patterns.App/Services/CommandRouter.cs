@@ -777,13 +777,15 @@ public sealed class CommandRouter : IRouter
     private object ShowBusRow()
     {
         var now = DateTime.UtcNow;
-        var apps = _services.ShowApps(now);
-        // ShowBusView.Peers keeps the apps' order, one row each: a row's conflict is its app's.
+        // The apps a hello or a link names (a node device no hello names is this desk's own device, read in its devices row); Peers
+        // keeps their order, one row each: a row's conflict is its app's.
+        var apps = ShowBusView.Published(_services.ShowApps(now));
         var rows = ShowBusView.Peers(apps);
         return new
         {
             heard = apps.Count(a => a.State == ShowBusState.Live),
-            apps = rows.Select((p, i) => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline, conflict = apps[i].Conflict.Length > 0 }).ToArray(),
+            // Round 97: the device that drives a node, at the row's end ("" for none).
+            apps = rows.Select((p, i) => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline, conflict = apps[i].Conflict.Length > 0, device = apps[i].Device }).ToArray(),
             stagewatch = StagewatchRow(apps),
             dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
         };

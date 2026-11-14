@@ -676,6 +676,107 @@ public static class StageFollow
 public static class ShowBusView
 {
     public static IReadOnlyList<EyeShowApp> Apps(IReadOnlyList<ShowBusPeer> peers, DateTime utcNow, StagewatchSight sight)
+        => Apps(peers, utcNow, sight, Array.Empty<ShowBusNodeSight>());
+
+    /// <summary>
+    /// Round 97: the apps, with each Show Bus node this desk drives as a device (PlayMap). A heard PlayMap and a device fold into one
+    /// app only when the hello's address and wire port are the device's and the context the device's proved link carries names the
+    /// hello's id: an address alone (another node at it, a forged hello) or an id alone (a context relayed from elsewhere) never makes
+    /// one app of two. A device that does not fold is an app of its own; the heard one stays heard, and names the device set at its
+    /// address and wire port (<see cref="EyeShowApp.DeviceAt"/>, the rule AddShowBusDevice refuses a second device by) so its card
+    /// offers that device, never <i>Add as a device…</i> beside it. A node's link is the device's record (level 0, legacy: P-legacy's
+    /// amber, not a fault), drawn as the device's link — <see cref="EyeShowApp.Linked"/> stays the Stagewatch link's alone — and its
+    /// context is shown only while that link is up.
+    /// </summary>
+    public static IReadOnlyList<EyeShowApp> Apps(IReadOnlyList<ShowBusPeer> peers, DateTime utcNow, StagewatchSight sight, IReadOnlyList<ShowBusNodeSight> nodes)
+    {
+        var apps = AppsOf(peers, utcNow, sight);
+        if (nodes.Count == 0) return apps;
+        var list = apps.ToList();
+        foreach (var n in nodes.Where(n => n.Enabled))
+        {
+            var heard = Folds(peers, list, n);
+            var app = NodeApp(n, heard >= 0 ? list[heard] : null);
+            if (heard >= 0) list[heard] = app;
+            else list.Add(app);
+        }
+        // A heard PlayMap that no device folds into, but at whose address and wire port a device is set: that device is its own.
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].KindWords != "PlayMap" || list[i].DeviceId.Length > 0) continue;
+            var peer = peers.FirstOrDefault(p => p.Kind == "playmap" && p.Id == list[i].Id);
+            if (peer is null) continue;
+            var at = nodes.FirstOrDefault(n => SetAt(n, peer));
+            if (at is not null) list[i] = list[i] with { DeviceAt = at.DeviceId, Device = at.DeviceName };
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Whether a node device is set at a heard PlayMap: its address one the hello came from and its port the hello's wire port (9941
+    /// when it names none). The rule a second device for the same PlayMap is refused by; folding asks for the proved context's id too.
+    /// </summary>
+    public static bool SetAt(ShowBusNodeSight n, ShowBusPeer p)
+        => n.Host.Length > 0 && p.HeardAt(n.Host) && n.Port == (p.Ports.Wire > 0 ? p.Ports.Wire : ShowBusNodeSession.WirePort);
+
+    /// <summary>
+    /// The apps another app may read of this desk (its context's peers, STATE's <c>bus.apps</c>): every one a hello or a link names. A
+    /// node device no hello names is this desk's own device, not a peer heard — its id is the device's — and is left out.
+    /// </summary>
+    public static IReadOnlyList<EyeShowApp> Published(IReadOnlyList<EyeShowApp> apps)
+        => apps.Where(a => a.DeviceId.Length == 0 || a.Heard.Length > 0).ToList();
+
+    /// <summary>
+    /// Whether this desk holds a link to the app whose record every reader draws: the Stagewatch link (<see cref="EyeShowApp.Linked"/>)
+    /// or a node device's (<see cref="EyeShowApp.DeviceId"/>).
+    /// </summary>
+    public static bool HoldsLink(EyeShowApp app) => app.Linked || app.DeviceId.Length > 0;
+
+    /// <summary>The state word every reader says of an app: gone quiet, quiet, linked (the Stagewatch link), driven (a node device), or heard.</summary>
+    public static string StateWord(EyeShowApp app, string heard = "heard") => app.State switch
+    {
+        ShowBusState.Gone => "gone quiet",
+        ShowBusState.Stale => "quiet",
+        _ => app.Linked ? "linked" : app.DeviceId.Length > 0 ? "driven as a device" : heard,
+    };
+
+    /// <summary>The word a DEVICE line names a node's device by: its name when it is one word, else its id (the verb's target is one word).</summary>
+    public static string DeviceWord(EyeShowApp app) => app.Device.Length > 0 && !app.Device.Any(char.IsWhiteSpace) ? app.Device : app.DeviceId;
+
+    /// <summary>The place of the heard PlayMap a node device folds into, or -1: its hello from the device's address at its wire port, and the device's proved context naming its id.</summary>
+    public static int Folds(IReadOnlyList<ShowBusPeer> peers, IReadOnlyList<EyeShowApp> apps, ShowBusNodeSight n)
+    {
+        if (!n.Up || n.ContextId.Length == 0) return -1;
+        var heard = peers.Where(p => p.Kind == "playmap" && p.Id == n.ContextId && p.HeardAt(n.Host)
+            && (p.Ports.Wire == n.Port || (p.Ports.Wire == 0 && n.Port == ShowBusNodeSession.WirePort))).ToList();
+        if (heard.Count != 1) return -1;
+        for (var i = 0; i < apps.Count; i++)
+            if (apps[i].Id == heard[0].Id && apps[i].KindWords == "PlayMap" && apps[i].DeviceId.Length == 0) return i;
+        return -1;
+    }
+
+    /// <summary>A node device as an app: folded over the heard one it agrees with, or one of its own (its id the device's, never one a hello says).</summary>
+    private static EyeShowApp NodeApp(ShowBusNodeSight n, EyeShowApp? heard)
+    {
+        var where = $"{n.Host}:{n.Port.ToString(CultureInfo.InvariantCulture)}";
+        var state = n.Up ? heard?.State ?? ShowBusState.Live : heard is { } h ? Worse(h.State, ShowBusState.Stale) : ShowBusState.Gone;
+        var context = n.Up && n.Context is { } kept ? Steady(kept.Context) : null;
+        var name = context?.Node.Name is { Length: > 0 } cn ? cn : heard?.Name is { Length: > 0 } hn ? hn : n.DeviceName;
+        var words = string.Join(" · ", new[] { where, "the device " + n.DeviceName, heard?.Words ?? "" }.Where(w => w.Length > 0).Distinct(StringComparer.Ordinal));
+        return new EyeShowApp(heard?.Id ?? "device-" + n.DeviceId, "PlayMap", name, state, false, words)
+        {
+            Context = context,
+            ContextRev = context is not null ? n.Context!.Rev : 0,
+            Conflict = heard?.Conflict ?? "",
+            Link = n.Record,
+            Heard = heard?.Heard ?? "",
+            DeviceId = n.DeviceId,
+            Device = n.DeviceName,
+            Discarded = n.DiscardedLine,
+        };
+    }
+
+    private static IReadOnlyList<EyeShowApp> AppsOf(IReadOnlyList<ShowBusPeer> peers, DateTime utcNow, StagewatchSight sight)
     {
         var apps = new List<EyeShowApp>();
         var linkedSeen = false;
@@ -734,7 +835,7 @@ public static class ShowBusView
     /// the edge's and the link's own readers'.
     /// </summary>
     public static CheckLight WithLink(EyeShowApp app, CheckLight own)
-        => app.Linked && app.Link is { IsLive: true } r ? ShowContext.Worst(new[] { own, r.LightValue }) : own;
+        => HoldsLink(app) && app.Link is { IsLive: true } r ? ShowContext.Worst(new[] { own, r.LightValue }) : own;
 
     /// <summary>
     /// The light an app's card is drawn with — the Eye's card and the Nodes page's card, and so the mark both draw beside it: gone
@@ -838,13 +939,13 @@ public static class ShowBusView
         Headline = KeyLineLeads(a) ? a.Key.Line
             : ConflictAmber(a) && !a.Stuck ? a.Conflict
             : a.Context?.Headline is { Length: > 0 } h ? h
-            : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : "heard on the show network")
+            : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : a.DeviceId.Length > 0 ? "driven as a device" : "heard on the show network")
             : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
         // §6, appended at the row's end: its hello's age; the carrier of a link LINK verified to it ("" at level 0); and what proves
         // the row's light and headline — the link's record for the one this desk links to, nothing beyond a hello for the rest.
         Heard = a.Heard,
-        Link = a.Linked && a.Link is { } r ? r.PeerRowLink : "",
-        Verified = a.Linked && a.Link is { } v ? v.PeerRowVerified : "",
+        Link = HoldsLink(a) && a.Link is { } r ? r.PeerRowLink : "",
+        Verified = HoldsLink(a) && a.Link is { } v ? v.PeerRowVerified : "",
     }).ToList();
 
     /// <summary>
@@ -882,13 +983,13 @@ public static class ShowBusView
         var lines = new List<string>();
         foreach (var a in apps)
         {
-            var state = a.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => a.Linked ? "linked" : "heard, not linked" };
+            var state = StateWord(a, "heard, not linked");
             var c = a.Context;
             // A stuck show: the link is live and amber, its counting things carry no time (the context says so, NoTime).
             if (a.Stuck && a.State == ShowBusState.Live && c is null) lines.Add($"{a.KindWords} {a.Name} — {state} — {StuckLight(null)}: {StuckWords}");
             else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {ShowContext.Word(WithLink(a, ShowContext.LightOf(KeyAmber(a) || ConflictAmber(a) ? StuckLight(c.Light) : c.Light)))}: {c.Headline}"));
             // Show Bus 1.3 §13.16.4: the link's record — its state, light, mark, words and flags — as every reader says it.
-            if (a.Linked && a.Link is { } link) lines.Add($"  the link: {link.State}, {link.Light} — {link.Said}");
+            if (HoldsLink(a) && a.Link is { } link) lines.Add($"  the link: {link.State}, {link.Light} — {link.Said}");
             // G34: the link's verbs, named as the operator's — the assistant suggests them in words and never proposes one.
             if (a.Linked && a.KindWords == "Stagewatch") lines.Add("  " + StagewatchVerbs.BriefWords);
             // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
@@ -897,6 +998,10 @@ public static class ShowBusView
             if (a.Linked && a.Speaker.Length > 0) lines.Add("  " + a.Speaker);
             // Show Bus 1.3 §2: two running nodes say its id.
             if (a.Conflict.Length > 0) lines.Add($"  {a.Conflict} — {ConflictHoldWords}");
+            // Round 97: a node this desk drives as a device — the way to drive it is the device's line, each with its own receipt.
+            if (a.DeviceId.Length > 0) lines.Add($"  driven as this desk's device '{a.Device}': DEVICE {DeviceWord(a)} <its verb> — each line answered by its own receipt; this desk's blackout and look follow on it as facts");
+            else if (a.DeviceAt.Length > 0) lines.Add($"  this desk's device '{a.Device}' is set at its address — not drawn as one with it until that device's link is proved and its context names this app");
+            if (a.Discarded.Length > 0) lines.Add("  " + a.Discarded);
             if (c is null || a.State == ShowBusState.Gone) continue;
             foreach (var i in c.Items.OrderByDescending(i => i.Light == "red").ThenByDescending(i => i.Light == "amber").Take(15))
                 lines.Add($"  · {i.Label} ({i.Kind}) — {i.Light}" + (i.State.Length > 0 ? ": " + i.State : ""));
@@ -936,19 +1041,29 @@ public static class ShowBusView
 public sealed record ShowAppCard(string Id, string KindLabel, string Name, string Line, string Hue, bool Linked, string Mark = "○")
 {
     /// <summary>What the page compares to know the card moved.</summary>
-    public string Key => $"{Id}:{KindLabel}:{Name}:{Line}:{Hue}:{Linked}:{Mark}";
+    public string Key => $"{Id}:{KindLabel}:{Name}:{Line}:{Hue}:{Linked}:{Mark}:{AddAsDevice}:{DeviceId}";
+
+    /// <summary>Round 97: a heard PlayMap no device of this desk's drives yet — the card offers <i>Add as a device…</i>.</summary>
+    public bool AddAsDevice { get; init; }
+
+    /// <summary>Round 97: the device that drives it ("" for none) — the card's menu opens it on the Interactive page.</summary>
+    public string DeviceId { get; init; } = "";
 
     public static ShowAppCard Of(EyeShowApp app)
     {
-        var state = app.State switch { ShowBusState.Gone => "gone quiet", ShowBusState.Stale => "quiet", _ => app.Linked ? "linked" : "heard" };
+        var state = ShowBusView.StateWord(app);
         var line = app.Stuck && app.State == ShowBusState.Live ? $"{state} · {ShowBusView.StuckWords}"
             : app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
         // Round 91: what it made of this desk's key — a refusal, a key that speaks for another desk, P-legacy's label.
         if (app.Linked && app.Key.Line.Length > 0) line += " · " + app.Key.Line;
         // Show Bus 1.3 §13.16.4: the link's record, its mark beside its words and flags — its steady face, so the card moves with the link's state, never once a second.
-        if (app.Linked && app.Link is { } link) line += " · link " + link.Steady;
+        if (ShowBusView.HoldsLink(app) && app.Link is { } link) line += " · link " + link.Steady;
         // Show Bus 1.3 §2: two running nodes say its id — both named, and what this desk does about it.
         if (app.Conflict.Length > 0) line += " · " + app.Conflict + " — " + ShowBusView.ConflictHoldWords;
+        // Round 97: the device that drives it, and what its link discarded before the proof (never a fault of the line).
+        if (app.DeviceId.Length > 0) line += $" · driven as the device {app.Device}";
+        else if (app.DeviceAt.Length > 0) line += $" · this desk's device {app.Device} is set at its address";
+        if (app.Discarded.Length > 0) line += " · " + app.Discarded;
         // The card's light is the Eye card's (CardLight): gone or a red its own context or a live link's record says, dark red; quiet,
         // stuck, this desk's key not taken, its id said by two machines, or an amber its context or record says, amber; else the
         // kind's own colour. Its mark is that light's shape, so the colour and the mark say one thing and neither is alone.
@@ -957,9 +1072,13 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         {
             CheckLight.Red => "#B03030",
             CheckLight.Amber => "#FFB020",
-            _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", _ => "#8A93A6" },
+            _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", "PlayMap" => "#F28FB8", _ => "#8A93A6" },
         };
-        return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked, EyeMarks.Glyph(light));
+        return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked, EyeMarks.Glyph(light))
+        {
+            AddAsDevice = app.KindWords == "PlayMap" && app.DeviceId.Length == 0 && app.DeviceAt.Length == 0 && app.State != ShowBusState.Gone,
+            DeviceId = app.DeviceId.Length > 0 ? app.DeviceId : app.DeviceAt,
+        };
     }
 
     /// <summary>

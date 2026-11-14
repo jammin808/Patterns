@@ -12,7 +12,9 @@ namespace Patterns.Core.Services;
 /// </summary>
 /// <param name="Ack">The reply answers a command this desk sent — the box said yes, or gave the value asked for.</param>
 /// <param name="AckKey">Which command it answers, when the profile can tell ("POWR"); "" for the oldest one waiting.</param>
-public sealed record ProfileReply(string Words, bool IsError, IReadOnlyList<byte[]> SendNext, bool Ack = false, string AckKey = "")
+/// <param name="Outcome">A Show Bus node's answer by Show Bus 13.12.3 — applied, accepted (taken, not run yet) or refused; null for every
+/// other profile, whose yes and no say all there is.</param>
+public sealed record ProfileReply(string Words, bool IsError, IReadOnlyList<byte[]> SendNext, bool Ack = false, string AckKey = "", LinkOutcome? Outcome = null)
 {
     public static ProfileReply Of(string words, bool isError = false) => new(words, isError, Array.Empty<byte[]>());
 
@@ -31,9 +33,13 @@ public sealed record ProfileReply(string Words, bool IsError, IReadOnlyList<byte
 /// </summary>
 public abstract class ProfileSession
 {
-    /// <summary>The session for a device, from its profile, its line ending and its password.</summary>
-    public static ProfileSession For(DeviceConfig d) => d.Profile switch
+    /// <summary>
+    /// The session for a device, from its profile, its line ending and its password. A Show Bus node's session also takes this desk's
+    /// name, which its HELLO and its proof carry, and this process's instance, which its request ids end in (Show Bus 13.12.1).
+    /// </summary>
+    public static ProfileSession For(DeviceConfig d, string deskName = "", string inst = "") => d.Profile switch
     {
+        DeviceProfile.ShowBusNode => new ShowBusNodeSession(d.Secret, deskName, inst, d.Name),
         DeviceProfile.PjLink => new PjLinkSession(d.Secret),
         DeviceProfile.Disguise => new DisguiseSession(),
         DeviceProfile.Pixera => new PixeraSession(),
@@ -46,6 +52,25 @@ public abstract class ProfileSession
 
     /// <summary>The frames for a command in words — none, with the reason, when the words are not this profile's.</summary>
     public abstract IReadOnlyList<byte[]> Encode(string words, out string problem);
+
+    /// <summary>
+    /// The frames for one of the show's facts (BLACKOUT 1, LOOK Keynote, the arrival's OPEN 1): as a command for every profile but
+    /// one that tells its facts apart from its commands. None, with no words, for a fact this profile does not carry.
+    /// </summary>
+    public virtual IReadOnlyList<byte[]> EncodeFact(string words, out string problem) => Encode(words, out problem);
+
+    /// <summary>Whether the show's facts may go to the box now: always, but for a profile that sends none before it has paired.</summary>
+    public virtual bool TakesFacts => true;
+
+    /// <summary>Whether a line from the box may be read as a command to the show (through its trigger rows): never for a node's own answers.</summary>
+    public virtual bool LinesAreCommands => true;
+
+    /// <summary>The frames a new connection opens with, written before anything else the session sends on it; none for most boxes.</summary>
+    public virtual IReadOnlyList<byte[]> OnOpened() => Array.Empty<byte[]>();
+
+    /// <summary>The receipt's words for a line the box did not answer within its timeout.</summary>
+    public virtual string Unanswered(TimeSpan timeout, ConfirmLevel reached, ConfirmLevel wanted)
+        => $"no answer in {timeout.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s ({DeviceConfirmation.Label(reached)}, not {DeviceConfirmation.Label(wanted)})";
 
     /// <summary>A frame from the device: its words, whether it is a fault, what to send next.</summary>
     public virtual ProfileReply OnReceived(string text) => ProfileReply.Of(text);
@@ -98,6 +123,7 @@ public static class DeviceProfiles
         DeviceProfile.Pixera => "Pixera (JSON-RPC)",
         DeviceProfile.Osc => "OSC device",
         DeviceProfile.Companion => "Companion (its TCP API)",
+        DeviceProfile.ShowBusNode => "Show Bus node (PlayMap)",
         _ => "Plain lines",
     };
 
@@ -109,6 +135,7 @@ public static class DeviceProfiles
         DeviceProfile.Pixera => "TIMELINE <name> PLAY · TIMELINE <name> PAUSE · TIMELINE <name> STOP · CUE <timeline> <cue> · API <method> [json params] · RAW {json-rpc}",
         DeviceProfile.Osc => "/address and its arguments — a whole number, a decimal, true/false, a word or \"quoted words\" — e.g. /cue/1/start · /layer/1/opacity 0.5",
         DeviceProfile.Companion => "PAGE <n> [surface] · PAGE UP / DOWN [surface] · PRESS <page/row/column> · DOWN / UP <page/row/column> · ROTATE LEFT / RIGHT <page/row/column> · STEP <page/row/column> <n> · TEXT <page/row/column> <words> · COLOR / BGCOLOR <page/row/column> <#hex> · VAR <name> <value> · GET <name> · RESCAN · RAW <Companion's own line>",
+        DeviceProfile.ShowBusNode => "the node's own verbs, each answered by its own receipt — PLAYLIST GO <name> · BLACKOUT ON · PING · STATUS; the show's facts (BLACKOUT 1, LOOK …) follow on their own once it is paired, and its context is drawn on the Eye",
         _ => "the line the device expects, as it is — RELAY 1 · SHOW 3 · GET /api/play (HTTP)",
     };
 
@@ -150,6 +177,18 @@ public static class DeviceProfiles
                 d.NetPort = CompanionModule.ApiPort;
                 d.TestText = "RESCAN";
                 d.Confirm = ConfirmLevel.Accepted;
+                break;
+            case DeviceProfile.ShowBusNode:
+                // PlayMap's line wire: its own verbs with their own receipts, the show's facts as it hears them, nothing it says run
+                // here as a command. A receipt is waited for as long as Show Bus 13.12.4 lets an answer come.
+                d.Name = "PlayMap" + suffix;
+                d.Link = DeviceLink.Tcp;
+                d.NetPort = ShowBusNodeSession.WirePort;
+                d.LineEnding = LineEnding.Lf;
+                d.TestText = "PING";
+                d.HearsShow = true;
+                d.Confirm = ConfirmLevel.Accepted;
+                d.ConfirmTimeoutMs = (int)PeerLink.ReceiptFinal.TotalMilliseconds;
                 break;
             default:
                 d.Name = "Endpoint" + suffix;

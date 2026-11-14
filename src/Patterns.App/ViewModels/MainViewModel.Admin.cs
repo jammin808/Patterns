@@ -52,6 +52,28 @@ public sealed partial class MainViewModel
             : $"{device.Name} added — type its address; its words: {device.Words}";
     }
 
+    /// <summary>
+    /// Round 97: a heard PlayMap added as a Show Bus node device — the Nodes card's and the Eye card's <i>Add as a device…</i>. Its
+    /// address is the one its hello came from and its port the wire port the hello names (9941 when it names none); never what a
+    /// hello says of its own host. Its Secret box waits for the node's pairing token: nothing is sent to it but HELLO until then.
+    /// </summary>
+    internal string AddShowBusDevice(string appId)
+    {
+        var heard = _services.Beacon.ShowBus.Snapshot(DateTime.UtcNow).FirstOrDefault(p => p.Id == appId && p.Kind == "playmap");
+        if (heard is null) return "That PlayMap is not heard on the show network now — add a Show Bus node device on the Interactive page and type its address.";
+        var taken = State.Interactive.Devices.FirstOrDefault(d => d.Profile == DeviceProfile.ShowBusNode && DeviceAddress.TryParseHost(d.Port, d.NetPort, out var h, out var p)
+            && heard.HeardAt(h) && p == (heard.Ports.Wire > 0 ? heard.Ports.Wire : ShowBusNodeSession.WirePort));
+        if (taken is not null) return $"{taken.Name} already drives that PlayMap — its card is on the Interactive page.";
+        var device = Core.Services.DeviceProfiles.Preset(DeviceProfile.ShowBusNode, State.Interactive.Devices.Count + 1);
+        // One word, so a DEVICE line on the wire, a cue and the assistant name it as the page does.
+        var word = new string(heard.Name.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-').ToArray()).Trim('-');
+        device.Name = word.Length > 0 ? "PlayMap-" + word : device.Name;
+        device.Port = heard.Address;
+        device.NetPort = heard.Ports.Wire > 0 ? heard.Ports.Wire : ShowBusNodeSession.WirePort;
+        BulkEdit(() => State.Interactive.Devices.Add(device));
+        return $"{device.Name} added as a Show Bus node device at {device.Port}:{device.NetPort.ToString(System.Globalization.CultureInfo.InvariantCulture)} — type the node's pairing token in its Secret box (PlayMap: its Network drawer); it pairs by proof before anything is taken from it.";
+    }
+
     private void AddDevice(DeviceLink link)
     {
         var n = State.Interactive.Devices.Count + 1;

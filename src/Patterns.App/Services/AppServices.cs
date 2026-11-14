@@ -248,6 +248,12 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     string IDeviceHost.ExecutionInHand => Actions.ExecutionInHand;
 
+    /// <summary>Round 97: the name a Show Bus node device's HELLO says after <c>Patterns</c>, and proves over: this machine's.</summary>
+    string IDeviceHost.NodeDeskName => Beacon.MachineName;
+
+    /// <summary>Round 97: this process's hello instance, which a node device's request ids end in (Show Bus 13.12.1).</summary>
+    string IDeviceHost.NodeInst => Beacon.Instance;
+
     ICueStackEvents? IOscHost.CueStackEvents => CueStack;
 
     private string _airLabel = "—";
@@ -649,9 +655,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Control = new ControlService(Kernel, this);
         Osc = new OscService(this);
         Devices = new DeviceService(this);
+        Kernel.NodeDevices = () => Devices.NodeSights;                                   // round 97: the Nodes page reads the node devices beside the hellos
         // A line to a box is journaled as dispatched when it goes; its receipt — what the box made
         // of it, or its silence — is journaled when it lands, so the log says what happened, not what was asked.
-        Devices.Receipt += r => Kernel.Journal.Record($"device {r.Device}", "DeviceReceipt", r.Device, r.Ok ? "Done" : "Failed", r.Line);
+        // A Show Bus node's by its 13.12.3 outcome: accepted is not run yet, unconfirmed may have run — neither said as Done or Failed.
+        Devices.Receipt += r => Kernel.Journal.Record($"device {r.Device}", "DeviceReceipt", r.Device, r.JournalOutcome, r.Line);
         Install = new InstallService(this);
         Updates = new UpdateService(Kernel, this) { NotNow = () => LivePolicy.Refusal(ShowActionKind.UpdateApply, CueStack?.Armed ?? false, OutputsLive) };
         Management = new ManagementService(Kernel, this, Updates);
@@ -959,7 +967,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var follows = State.Control.Stagewatch.FollowStage;
         var speaker = follows ? Stage?.SpeakerLine ?? "" : "";
         var windows = StagewatchWindows?.Words() ?? "";
-        return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink)
+        return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink, Devices.NodeSights)   // round 97: PlayMap nodes driven as devices
             // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
             .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
             // Where this desk's last speaker message went, on the Stagewatch the stage follows: the Eye's node and the assistant's facts read it.
@@ -981,7 +989,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         Eye.Refresh();
         var now = DateTime.UtcNow;
-        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowApps(now)),
+        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowBusView.Published(ShowApps(now))),
             Kernel.PeerLinks()).ToJson();
     }
 

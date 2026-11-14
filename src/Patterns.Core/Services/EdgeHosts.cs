@@ -33,6 +33,12 @@ public interface IDeviceHost : IShowHost
 
     /// <summary>The cue execution whose actions are running now, "" between cues.</summary>
     string ExecutionInHand { get; }
+
+    /// <summary>This desk's name, which a Show Bus node device says in its HELLO and proves over ("" for none).</summary>
+    string NodeDeskName => "";
+
+    /// <summary>This process's Show Bus instance (§2), which a node device's request ids end in ("" for none).</summary>
+    string NodeInst => "";
 }
 
 /// <summary>What the OSC port asks of the desk: the show and its moves, the wire's router, and the cue stack's own event once the stack exists.</summary>

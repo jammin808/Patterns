@@ -40,6 +40,18 @@ public interface IDeviceLink : IDisposable
     event Action<string>? LineReceived;
 }
 
+/// <summary>
+/// A link made of connections (TCP), on its own thread: <see cref="Moving"/> when a connection is about to be published and when one
+/// ends — synchronously, before anything can be written on the new one — and <see cref="Opened"/> once one is up, before any line it
+/// reads. So a session whose proof belongs to a connection (a Show Bus node's) stops sending the moment the connection moves, and
+/// hears the new one's start in order with its lines.
+/// </summary>
+public interface IConnectionLink
+{
+    event Action? Moving;
+    event Action? Opened;
+}
+
 /// <summary>How far one frame got on its link.</summary>
 public readonly record struct LinkDelivery(ConfirmLevel Reached, bool Ok, string Words)
 {
@@ -61,8 +73,24 @@ public readonly record struct LinkDelivery(ConfirmLevel Reached, bool Ok, string
 /// box's own words. Journaled when it lands, shown on the device's card, and waited for by the
 /// twin's wall switch.
 /// </summary>
-public sealed record DeviceReceipt(string Device, string Words, ConfirmLevel Wanted, ConfirmLevel Reached, bool Ok, string Answer, DateTime AtUtc, string Execution = "")
+/// <param name="Outcome">A Show Bus node's command by Show Bus 13.12.3 — applied, accepted (taken, not run yet), refused or unconfirmed
+/// (it may have run); null for every other profile.</param>
+public sealed record DeviceReceipt(string Device, string Words, ConfirmLevel Wanted, ConfirmLevel Reached, bool Ok, string Answer, DateTime AtUtc, string Execution = "",
+    LinkOutcome? Outcome = null)
 {
+    /// <summary>
+    /// The journal's outcome for the receipt: a node's by 13.12.3 — applied Done, accepted Accepted (not run yet), refused Failed,
+    /// unconfirmed Unconfirmed (it may have run) — and any other box's Done or Failed by its yes or no.
+    /// </summary>
+    public string JournalOutcome => Outcome switch
+    {
+        LinkOutcome.Applied => "Done",
+        LinkOutcome.Accepted => "Accepted",
+        LinkOutcome.Refused or LinkOutcome.NotSent => "Failed",
+        LinkOutcome.Unconfirmed => "Unconfirmed",
+        _ => Ok ? "Done" : "Failed",
+    };
+
     /// <summary>"Projector: POWER ON — accepted (POWR: OK)"; "Projector: INPUT HDMI 1 — rejected: INPT: out of parameter"; "Switcher: POST /route — no answer in 2 s (delivered, not accepted)".</summary>
     public string Line => Ok
         ? $"{Device}: {Words} — {DeviceConfirmation.Label(Reached)}{(Answer.Length > 0 ? $" ({Answer})" : "")}"
@@ -222,6 +250,11 @@ public sealed class DeviceService : IDisposable
         foreach (var open in _open.Values)
         {
             var live = open.Link.IsOpen;
+            if (!live && open.WasOpen && open.Session is ShowBusNodeSession dropped)
+            {
+                dropped.Dropped();                    // nothing is proved on a link that is down
+                Unconfirmed(open, dropped.DroppedWords);
+            }
             if (live && !open.WasOpen)
             {
                 open.Heard = null;
@@ -256,7 +289,7 @@ public sealed class DeviceService : IDisposable
             if (_open.ContainsKey(id)) continue;
             try
             {
-                var session = ProfileSession.For(d);
+                var session = ProfileSession.For(d, _services.NodeDeskName, _services.NodeInst);
                 var link = LinkFactory is { } make ? make(d) : Make(d, session);
                 if (link is null)
                 {
@@ -265,6 +298,14 @@ public sealed class DeviceService : IDisposable
                 }
                 var open = new Open { Config = d, Link = link, Key = KeyOf(d), Session = session };
                 link.LineReceived += line => OnLine(id, line);
+                if (link is IConnectionLink connections && session is ShowBusNodeSession node)
+                {
+                    // On the link's thread: the proof stops holding before the new connection can be written on, and the connection's
+                    // start reaches the desk's thread in order with its lines, carrying which connection it is.
+                    connections.Moving += () => node.LinkMoved();
+                    connections.Opened += () => OnLine(id, null, node.LinkGeneration);
+                }
+                else if (link is IConnectionLink plain) plain.Opened += () => OnLine(id, null);
                 _open[id] = open;
                 d.Status = link.Status;
                 Log.Info($"Device '{d.Name}' opening: {DeviceAddress.Describe(d)}");
@@ -282,6 +323,7 @@ public sealed class DeviceService : IDisposable
             else if (!d.Enabled) d.Status = "off";
             else if (_open.TryGetValue(d.Id, out var open)) d.Status = StatusLine(open);
         }
+        PublishNodes();
     }
 
     /// <summary>Refreshes the status words (the 1 s poll) and reconciles, so a device switched on or a link that dropped shows within a second — and asks a box that answers questions (a projector's POWER ?) how it is.</summary>
@@ -368,7 +410,46 @@ public sealed class DeviceService : IDisposable
             lastFailureUtc = d.Runtime.LastFailureUtc,
             failing = d.Runtime.Failing,
             history = d.Runtime.Words(DateTime.UtcNow),
+            // Round 97: a Show Bus node's link — its pairing, its record, what it discarded before the proof; null for any other device.
+            node = d.Profile == DeviceProfile.ShowBusNode ? _nodeSights.FirstOrDefault(n => n.DeviceId == d.Id)?.Row() : null,
+            // Round 97: the box's last word on a line was that nobody knows its end (Show Bus 13.12.3's unconfirmed) — amber, not a failure.
+            unconfirmed = d.Runtime.Unsure,
         }).ToList();
+    }
+
+    private volatile IReadOnlyList<ShowBusNodeSight> _nodeSights = Array.Empty<ShowBusNodeSight>();
+
+    /// <summary>
+    /// Round 97: every enabled Show Bus node device as the readers take it — the Nodes page, the Eye, STATE, the brief — an immutable
+    /// list replaced on the devices' thread whenever one moves, read from any thread.
+    /// </summary>
+    public IReadOnlyList<ShowBusNodeSight> NodeSights => _nodeSights;
+
+    private void PublishNodes()
+    {
+        var config = _services.State.Interactive;
+        var sights = new List<ShowBusNodeSight>();
+        foreach (var d in config.Devices)
+        {
+            if (d.Profile != DeviceProfile.ShowBusNode) continue;
+            var enabled = config.Enabled && d.Enabled;
+            DeviceAddress.TryParseHost(d.Port, d.NetPort, out var host, out var port);
+            var open = _open.TryGetValue(d.Id, out var o) ? o : null;
+            var session = open?.Session as ShowBusNodeSession ?? new ShowBusNodeSession(d.Secret, _services.NodeDeskName, _services.NodeInst, d.Name);
+            var connected = open is not null && open.Link.IsOpen && session.Connected;
+            sights.Add(new ShowBusNodeSight(d.Id, d.Name, host, port, enabled, connected, session.Paired, session.Open, session.Stopped, session.Context,
+                session.Record(enabled, connected, session.Context?.Context.Node.Id ?? ""), session.Words, session.StateDiscarded, session.StateTaken, session.Discarded, session.LastOutcome,
+                Proved: session.Up, DiscardedWhy: session.DiscardedWhy));
+        }
+        _nodeSights = sights;
+    }
+
+    /// <summary>13.12.3: a node's commands written on a connection that dropped before it answered them are unconfirmed — they may have run.</summary>
+    private void Unconfirmed(Open open, string words)
+    {
+        List<Pending> waiting;
+        lock (_pendings) waiting = _pendings.Where(p => ReferenceEquals(p.Open, open) && !p.Observing).ToList();
+        foreach (var p in waiting) Complete(p, p.Reached, false, words, LinkOutcome.Unconfirmed);
     }
 
     private static string KeyOf(DeviceConfig d) => $"{d.Link}|{d.Port}|{d.Baud}|{d.NetPort}|{d.LineEnding}|{d.Profile}|{d.Secret}";
@@ -420,12 +501,15 @@ public sealed class DeviceService : IDisposable
 
     private void WriteTo(Open open, string line) => WriteTo(open, line, out _);
 
+    /// <summary>One of the show's facts through the profile's own way of saying one; a fact the profile does not carry goes nowhere, quietly.</summary>
+    private void WriteFact(Open open, string line) => WriteTo(open, line, out _, fact: true);
+
     /// <summary>
     /// The words to the device through its profile — a board's line as it is, a projector's %1POWR 1,
     /// a media server's OSC or JSON-RPC. False, with the reason, when the words are not the
     /// profile's; a quiet write (the poll) leaves the counters alone.
     /// </summary>
-    private bool WriteTo(Open open, string line, out string problem, bool quiet = false, bool track = false, string execution = "")
+    private bool WriteTo(Open open, string line, out string problem, bool quiet = false, bool track = false, string execution = "", bool fact = false)
     {
         problem = "";
         // A surface that cannot read words can still light. A fact the show sends is turned into
@@ -446,9 +530,10 @@ public sealed class DeviceService : IDisposable
             return true;
         }
 
-        var frames = open.Session.Encode(line, out problem);
+        var frames = fact ? open.Session.EncodeFact(line, out problem) : open.Session.Encode(line, out problem);
         if (frames.Count == 0)
         {
+            if (fact && problem.Length == 0) return false;   // a fact this profile does not carry: nothing to say
             if (problem.Length == 0) problem = $"'{line}' could not be sent to {open.Config.Name}.";
             Log.Warn($"Device '{open.Config.Name}': {problem}");
             return false;
@@ -520,7 +605,8 @@ public sealed class DeviceService : IDisposable
             }
             // Else the box answers on its own time: the session reads the reply in Handle, and the timeout is the fence.
             await Task.Delay(timeout);
-            Complete(pending, pending.Reached, false, $"no answer in {timeout.TotalSeconds:0.#} s ({DeviceConfirmation.Label(pending.Reached)}, not {DeviceConfirmation.Label(pending.Wanted)})");
+            Complete(pending, pending.Reached, false, pending.Open.Session.Unanswered(timeout, pending.Reached, pending.Wanted),
+                pending.Open.Session is ShowBusNodeSession ? LinkOutcome.Unconfirmed : null);   // 13.12.3: no answer in time — it may have run
         }
         catch (Exception ex)
         {
@@ -563,19 +649,23 @@ public sealed class DeviceService : IDisposable
         }
         if (reply.IsError)
         {
-            Complete(pending, pending.Reached, false, $"rejected: {reply.Words}");
+            Complete(pending, pending.Reached, false, $"rejected: {reply.Words}", reply.Outcome);
             return;
         }
         if (!reply.Ack) return;
         pending.Reached = ConfirmLevel.Accepted;
         if (pending.Wanted == ConfirmLevel.Observed) Observe(pending);
-        else Complete(pending, ConfirmLevel.Accepted, true, reply.Words);
+        else Complete(pending, ConfirmLevel.Accepted, true, reply.Words, reply.Outcome);
     }
 
-    /// <summary>The receipt, once: off the list, to the event on the UI thread, onto the card.</summary>
-    private void Complete(Pending pending, ConfirmLevel reached, bool ok, string answer)
+    /// <summary>
+    /// The receipt, once: off the list, to the event on the UI thread, onto the card. A node's unconfirmed line (13.12.3: it may have
+    /// run) is neither a failure nor a yes: amber on the card and the Eye, never the health line's last box that said no.
+    /// </summary>
+    private void Complete(Pending pending, ConfirmLevel reached, bool ok, string answer, LinkOutcome? outcome = null)
     {
-        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow, pending.Execution);
+        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow, pending.Execution, outcome);
+        var unsure = outcome == LinkOutcome.Unconfirmed;
         lock (_pendings)
         {
             if (!_pendings.Remove(pending)) return;
@@ -587,12 +677,12 @@ public sealed class DeviceService : IDisposable
         {
             if (_disposed) return;
             if (!ok) Log.Warn($"Device '{receipt.Device}': {receipt.Line}");
-            if (!ok) LastFailed = receipt;
-            else if (LastFailed is { } failed && failed.Device == receipt.Device) LastFailed = null;   // the box that said no answers again
+            if (!ok && !unsure) LastFailed = receipt;
+            else if (ok && LastFailed is { } failed && failed.Device == receipt.Device) LastFailed = null;   // the box that said no answers again
             if (_open.TryGetValue(pending.Open.Config.Id, out var open)) open.Config.Status = StatusLine(open) + " · " + (ok ? DeviceConfirmation.Label(reached) : receipt.Answer);
             var config = open?.Config ?? pending.Open.Config;
-            config.Runtime = ok
-                ? config.Runtime.Confirmed(reached, receipt.Answer, receipt.AtUtc)
+            config.Runtime = ok ? config.Runtime.Confirmed(reached, receipt.Answer, receipt.AtUtc)
+                : unsure ? config.Runtime.Unconfirmed($"{receipt.Words} — {receipt.Answer}", receipt.AtUtc)
                 : config.Runtime.Failed($"{receipt.Words} — {receipt.Answer}", receipt.AtUtc);
             Receipt?.Invoke(receipt);
         });
@@ -636,7 +726,7 @@ public sealed class DeviceService : IDisposable
         _learning[deviceName.Trim()] = onLine;
     }
 
-    private readonly System.Collections.Concurrent.ConcurrentQueue<(string Id, string Line)> _inbound = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(string Id, string? Line, long Generation)> _inbound = new();
     private int _draining;
 
     /// <summary>
@@ -651,9 +741,11 @@ public sealed class DeviceService : IDisposable
     /// still runs in the very next dispatcher turn, and everything arriving behind it rides the
     /// same drain rather than queueing a turn each.
     /// </summary>
-    private void OnLine(string id, string line)
+    /// <param name="line">A line, or null for a connection that has just come up (its own start, in order with its lines).</param>
+    /// <param name="generation">For a connection that came up, which one it is (a Show Bus node's proof belongs to it); 0 otherwise.</param>
+    private void OnLine(string id, string? line, long generation = 0)
     {
-        _inbound.Enqueue((id, line));
+        _inbound.Enqueue((id, line, generation));
         if (Interlocked.Exchange(ref _draining, 1) != 0) return;
         Dispatch.Post(Drain);
     }
@@ -662,7 +754,11 @@ public sealed class DeviceService : IDisposable
     {
         try
         {
-            while (_inbound.TryDequeue(out var item)) Handle(item.Id, item.Line);
+            while (_inbound.TryDequeue(out var item))
+            {
+                if (item.Line is { } line) Handle(item.Id, line);
+                else Opened(item.Id, item.Generation);
+            }
         }
         finally
         {
@@ -673,11 +769,30 @@ public sealed class DeviceService : IDisposable
         }
     }
 
+    /// <summary>A connection came up: the session's opening words go first, and whatever a node's last connection had in flight is unconfirmed.</summary>
+    private void Opened(string id, long generation)
+    {
+        if (_disposed || !_open.TryGetValue(id, out var open)) return;
+        var node = open.Session as ShowBusNodeSession;
+        if (node is not null)
+        {
+            Unconfirmed(open, node.DroppedWords);
+            open.Heard = null;   // a new connection hears every fact again, once it has paired
+        }
+        foreach (var frame in node is not null ? node.OnOpenedAt(generation) : open.Session.OnOpened())
+        {
+            open.Link.WriteBytes(frame);
+            open.Out++;
+        }
+        PublishNodes();
+    }
+
     private void Handle(string id, string line)
     {
         {
             if (_disposed || !_open.TryGetValue(id, out var open)) return;
             open.In++;
+            var tookFacts = open.Session.TakesFacts;
             // What the box said, in the profile's words — and what it asks to send next (a media
             // server's handle found is the play that wanted it).
             var reply = open.Session.OnReceived(line);
@@ -697,6 +812,18 @@ public sealed class DeviceService : IDisposable
                 InputReported?.Invoke(new InputStatusReport(open.Config.Name, open.Config.InputScreen, received, line.Trim(), DateTime.UtcNow));
             }
             Acknowledge(open, reply, line);
+            if (open.Session is ShowBusNodeSession)
+            {
+                // Paired just now: every fact goes on the next feedback, the arrival's word with them.
+                if (!tookFacts && open.Session.TakesFacts)
+                {
+                    open.Heard = null;
+                    MarkChanged();
+                }
+                PublishNodes();
+            }
+            // A node's lines are its own answers, its context and its state: none is a command to the show.
+            if (!open.Session.LinesAreCommands) return;
 
             // A row waiting to be learned takes this line and nothing else happens: the operator is
             // pressing the pad to say which one it is, not asking the show to do anything.
@@ -769,7 +896,7 @@ public sealed class DeviceService : IDisposable
     private void SendFeedback()
     {
         if (_disposed) return;
-        var listeners = _open.Values.Where(o => o.Config.HearsShow).ToList();
+        var listeners = _open.Values.Where(o => o.Config.HearsShow && o.Session.TakesFacts).ToList();
         if (listeners.Count == 0) return;
         var facts = DeviceFeedback.Facts(_router.StateJson());
         foreach (var open in listeners)
@@ -782,10 +909,10 @@ public sealed class DeviceService : IDisposable
             if (open.AnnounceOpen)
             {
                 open.AnnounceOpen = false;
-                WriteTo(open, "OPEN 1");
+                WriteFact(open, "OPEN 1");
             }
             var changes = DeviceFeedback.Changes(facts, open.Heard);
-            foreach (var line in changes) WriteTo(open, line);
+            foreach (var line in changes) WriteFact(open, line);
             open.Heard = new Dictionary<string, string>(facts, StringComparer.Ordinal);
         }
     }
@@ -938,7 +1065,7 @@ public sealed class SerialDeviceLink : IDeviceLink
 }
 
 /// <summary>A device over TCP — a Raspberry Pi, an ESP32, a show controller: connected on a thread, reconnected after a drop.</summary>
-public sealed class TcpDeviceLink : IDeviceLink
+public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
 {
     private readonly string _host;
     private readonly int _port;
@@ -964,6 +1091,12 @@ public sealed class TcpDeviceLink : IDeviceLink
 
     public event Action<string>? LineReceived;
 
+    /// <summary>A connection is about to be published, or one ended: raised on the link's thread before the new one can be written on.</summary>
+    public event Action? Moving;
+
+    /// <summary>A connection came up, raised before any line it reads.</summary>
+    public event Action? Opened;
+
     public void Write(string framedLine) => WriteBytes(Encoding.UTF8.GetBytes(framedLine));
 
     public void WriteBytes(byte[] frame)
@@ -987,21 +1120,28 @@ public sealed class TcpDeviceLink : IDeviceLink
         while (!ct.IsCancellationRequested)
         {
             TcpClient? client = null;
+            var up = false;
             try
             {
                 client = new TcpClient { NoDelay = true };
                 using var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 connectTimeout.CancelAfter(5000);
                 await client.ConnectAsync(_host, _port, connectTimeout.Token);
+                up = true;
+                Moving?.Invoke();   // before the stream is published: nothing proved on the last connection is written on this one
                 _stream = client.GetStream();
                 _open = true;
                 _status = $"open ({_host}:{_port})";
-                var chunk = new byte[1024];
+                _buffer.Clear();   // nothing of the last connection's unfinished line belongs to this one
+                Opened?.Invoke();
+                var chunk = new byte[4096];
+                var chars = new char[Encoding.UTF8.GetMaxCharCount(chunk.Length)];
+                var decoder = Encoding.UTF8.GetDecoder();   // one per connection: a character split across two reads is decoded whole
                 while (!ct.IsCancellationRequested)
                 {
                     var read = await _stream.ReadAsync(chunk, ct);
                     if (read <= 0) break;   // the device hung up
-                    _buffer.Append(Encoding.UTF8.GetString(chunk, 0, read));
+                    _buffer.Append(chars, 0, decoder.GetChars(chunk, 0, read, chars, 0));
                     foreach (var line in _split(_buffer)) LineReceived?.Invoke(line);
                 }
                 _status = "closed by the device — reconnecting";
@@ -1015,6 +1155,7 @@ public sealed class TcpDeviceLink : IDeviceLink
                 _open = false;
                 _stream = null;
                 client?.Dispose();
+                if (up) Moving?.Invoke();   // the connection ended: what was proved on it holds no more
             }
             if (ct.IsCancellationRequested) break;
             try

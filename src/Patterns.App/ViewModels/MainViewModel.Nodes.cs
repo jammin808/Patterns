@@ -193,6 +193,15 @@ public sealed partial class MainViewModel
         }
     });
 
+    private RelayCommand<ShowAppCard>? _addAsDevice;
+
+    /// <summary>Round 97: a heard PlayMap as a Show Bus node device — the card's button and its right-click entry are one press.</summary>
+    public RelayCommand<ShowAppCard> AddAsDeviceCommand => _addAsDevice ??= new RelayCommand<ShowAppCard>(card =>
+    {
+        if (card is null) return;
+        StatusMessage = AddShowBusDevice(card.Id);
+    });
+
     private RelayCommand<NodeCard>? _linkNode;
 
     /// <summary>LINK: this caller node follows that desk — its address and link port onto the twin settings, and the link dials.</summary>

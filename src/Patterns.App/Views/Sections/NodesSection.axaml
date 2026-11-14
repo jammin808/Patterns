@@ -112,6 +112,9 @@
                 <Run Text="{Binding Name}" />
               </TextBlock>
               <TextBlock Classes="label" Text="{Binding Line}" TextWrapping="Wrap" />
+              <Button Content="ADD AS DEVICE" HorizontalAlignment="Left" Margin="0,4,0,0" IsVisible="{Binding AddAsDevice}"
+                      Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).AddAsDeviceCommand}" CommandParameter="{Binding}"
+                      ToolTip.Tip="A Show Bus node device on the Interactive page, its address and wire port from this hello — type the node's pairing token in its Secret box (PlayMap: its Network drawer). It pairs by proof before anything is taken from it; its verbs go as DEVICE lines, each with its own receipt. The card's right-click entry is the same press" />
             </StackPanel>
           </Border>
         </DataTemplate>
