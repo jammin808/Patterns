@@ -10,6 +10,20 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 99 — 2026-11-15 — the Eye sees the room: one card per app folded by proof of identity, each link an edge that says its source, the lights computed once, and the feed, the desk and the wire in step
+
+`round-99` · PLAN §117 · REVIEW round 99 · 3,663 tests · module 3.23.0 · evidence: a handed-in critique (the Eye design, `eye.md`, with its critique's issues 1 to 4, 8a, 9, 10, 12 and 18 to 20) and CI's file for runs 318 and 319; no field files and no rig report; no measurement
+
+- **The round opens (99.0).** PLAN §117.1 names the round's number (the plan's round 98) and its unit table, 99.0 to 99.6, each
+  dependency under this tree's numbers (93.3, 96.2, 97.2 and 98.4) and beside each what already stands and what is to build; reads
+  CI (run 318 on `da54d9e` green, run 319 on round 98's papers still running); finds nothing new in `docs/field/`; names the OPEN rows
+  it touches (**L61**, the takeover row 89.6 added; **L44**; **L122**; **L112** and **L113** read) and the rows 99.6 expects to add;
+  names the requester and the evidence class; and names the three reversals the round makes beside what rounds 95, 97 and 98
+  already put in the tree: a gone heard-only app is grey (red today, `CardLight`), a stuck show is an amber card with a green link
+  and counting things "?" (the card is amber since round 89; its link is drawn amber and its counting things red), and PlayMap sits
+  in the NETWORK band (a node device does since 97.2; a node the beacon lists is still a CONTROL card). No platform path and
+  no measurement.
+
 ## Round 98 — 2026-11-14 — the acceptor: TLS on the wire's port, LINK and LINK PROOF with refusals that look alike, scoped app keys, the list of what this desk accepted, and receipts kept
 
 `round-98` · PLAN §116 · REVIEW round 98 · 3,663 tests · module 3.23.0 · evidence: a handed-in critique (the PeerLink profile's Round PL for Patterns, with the Eye critique's issues 8b and 13), the owner's answer of 2026-11-14 (the SDK pin) and CI's file for runs 303 to 318 (308, 313, 314, 315 and 316 red, each on one App test, read and answered with what the reading did not prove); no field files and no rig report; one measurement (the shutdown test's memlog) · Walk: unwalked (TLS on the wire's port and the kept keys' seal, QUALIFICATION §27 and §28 notes)

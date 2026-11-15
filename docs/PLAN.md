@@ -16795,3 +16795,102 @@ as its target, the words "<t:id> from <address> linked by LINK — key (kid <kid
 nonce, a proof or K) — each read beside the Nodes page's APP LINKS table, whose row for that connector shows the same kid, scope
 and `tls`, and the Super Check's REMOTE *App links* row; a `CUE GO` with the key, beside the Run strip's cue and its `final`.
 Not read on a rig: no Stagewatch 2.23 or scripted peer is on the bench, so the reading is `unwalked`.
+
+## 117. Round 99 — the Eye sees the room: one app, one card, folded by proof of identity; each link an edge that says its source; the lights computed once for five readers; the feed, the desk's readers and the wire's readers in step
+
+### 117.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 98 — its units P98.0 to P98.6, the seventh train's first Patterns round, "The
+Eye sees the room: one id one node, links as edges" — under the number §110.1's key gives it: round 99 here, §117, not the
+plan's §116. The plan is the cross-app plan of record (`docs/ecosystem/master-plan.md` in Stagewatch's tree); the Eye's design
+and its critique are `docs/ecosystem/eye.md` and `plan-critique.md` beside it. The units keep their order and none is inserted;
+each dependency that names another Patterns unit of the plan reads one higher:
+
+| The plan's unit | Here | What it is | Depends on (here) | What already stands, and where it came from |
+|---|---|---|---|---|
+| P98.0 | 99.0 | this opening: PLAN §117's first lines and the changelog's round 99 entry | 98.7's papers (`2515017`) | — |
+| P98.1 | 99.1 | `EyeNetwork`: the fold by proof of identity (by `LINK` id; a level-0 device folds only when its address and context id agree; a level-0 deck never folds; a Patterns hello and its twin context fold into `node:<inst>`), each record carried verbatim, rows re-anchored, `@` ends, a source on every node and edge, the counting shown `?`, the bounds; `NodeContextBuilder`'s relay becomes a link item; `FromEye` with short ids and a canary | 99.0; 93.3 (`03d3a17`, the plan's P92.3); 96.2 (`12cdffd`, P95.2); 97.2 (`68737e1`, P96.1); Stagewatch's SW19.12 (landed) | the NETWORK band, the clusters, `MaxApps` 128, `MaxExpanded` 16, `ClusterThings` 12, sticky slots and the walk cached by revisions (95.1, 95.2: `EyeLayout`); one card per id by `DistinctBy` and the card a node device folds into through `EyeShowApp.DeviceId` (97.2); a link's record on its edge verbatim (93.3); an accepted link as the one edge between its app's card and this desk (98.4). **To build:** the fold itself as a type with tests, the other three folds, `@` ends, sources and claims, the relay as a link item, `FromEye`'s short ids; there is no `EyeNetwork` type in the tree |
+| P98.2 | 99.2 | one projection for lights: the highest source sets a light, lower sources add `i` notes; computed once in `ShowBusView.Network` for `Eye.Build`, the Stagewatch card (`Peers`), `ShowAppCard.Of`, `BriefLines` and `ShowBusRow`; the fence in `ShowBusTests` covers all five | 99.1 | `ShowBusView.CardLight` and `WithLink` are the light of the Eye's card and the Nodes card (91, 93.3); `Eye.Build` still lights each edge by its own `if` chain (`Eye.cs` from line 1075). **To build:** the single projection, the other three readers' use of it, the fence over five |
+| P98.3 | 99.3 | the feed: `AppServices.Apps` composes the bounded hello table, the Stagewatch link's record, context and revision, node devices, accepted links and the twin; any kind can be linked (today only `main`); the gather works by revisions | 99.2; 98.4 (`8c123a4`, P97.4) | the hello table, the Stagewatch link and node devices already reach `EyeFacts.ShowApps`; the acceptor's list reaches the Eye as `Eye.cs:122`'s facts (98.4). **To build:** the one composition, the kind gate lifted, the revision gather |
+| P98.4 | 99.4 | the desk's readers: the canvas (marks, claims in a dash of their own with a "says" glyph, edge hit-test), the side card's LINKS, `NetworkMenus` shared by the Eye's cards and edges, the Nodes card and the deck (Link again, Trust and Accept typed on the desk only, Lower floor, Accept new id, Release held fact, Make key, Let speak for, Revoke; never proposed), `EYE LENS NETWORK`, the beacon node following the needed rule | 99.3 | the NETWORK band's canvas and its lens words ("the NETWORK band is not a lens", 95.4); Link again, Trust, Lower floor, Release, ACCEPT on the Nodes card and its right-click (93.2, 93.4); Make key and Revoke on the APP LINKS table (98.3, 98.4). **To build:** the canvas marks and edge hit-test, the shared `NetworkMenus` so the Eye is in step, the lens |
+| P98.5 | 99.5 | the wire's readers: STATE `eye` and `bus.apps[]` appended; EYE JSON appends `band`, `app`, `source`, `mark`, `collapsed` and the link record (null in replay), `apps`, `linkLights`, `left`, `unplaced`; link fields go only to paired connections (ADR-016); the Companion module's `eye_network`, `eye_links_worst`, `eye_links`, `lines.txt` regenerated, its minor version | 99.4 | STATE's `eye` row and `bus.apps[]` exist (`apps`, `linksRed`, `linksAmber`, `network`; `bus.apps[].device` from 97.2); EYE JSON has the band and `left` words of 95.1. **To build:** the appended fields, the paired-only gate, the module's three variables and its minor |
+| P98.6 | 99.6 | the papers: PLAN §117 completed (naming the reversals), REVIEW round 99 (Walk: none asked), CHANGELOG, README, REMOTE, COMPANION, `docs/EYE.md` §7, OPEN, and round 98's tag row | 99.5 | — |
+
+The plan's check for this unit greps for `^## 116\. Round 98`; here it is `^## 117\. Round 99`. The plan's "Round 98 papers
+(PLAN §116)" is 99.6 and §117 here; the plan's next round (`CONTEXT POST`, P99.1) is round 100 and §118. R1 asks a round to
+open only after the previous round's papers: round 98's are `2515017` (98.7). Stagewatch's 2.24 and PlayMap's context rows (the
+train's other halves) wait on this round's papers and are not asked of them here; this round asks nothing of either.
+
+**What the files said.** Nothing new came in: `docs/field/` holds only its README, as at the last six openings (no rig
+report, no show laptop files). The files this opening reads are CI's, which Round 98's papers left to this one:
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 318 (43725341788), `da54d9e` (98.10, the round's last code unit) | Green, every job; started 14:37 UTC on 2026-11-15, finished 15:02 UTC | The acceptor's conformance table, §14's acceptor rows held to the code and the hello's cap held back by the table hold on both runners; round 98's last code unit is green | Nothing; round 98's REVIEW and CHANGELOG said this run was still running, and it is now read as green |
+| 319 (43728931758), `2515017` (98.7, round 98's papers) | In progress when this was written (started 15:16 UTC); its jobs not yet read | The papers commit changed no source; the run is the whole suite again on the papers' tree | Read at the next opening (round 100's, or 99.6's papers if it has ended by then); until then round 98's papers are held as pushed and not yet confirmed by a run of their own |
+
+**What the tree and the other trees say at this head.** The contract is the one in this tree (`docs/SHOWBUS.md` 1.3 final, held
+by `ShowBusSpecTests` with `tools/showbus/peerlink-peer.mjs`); §13.16 is the Eye's rows and §6 the kinds and `@` ends. Stagewatch's
+head is `8d3e564` (papers: Round 98.8 and PlayMap's ten-test mend landed); its `/ws` speaks `LINK` as an acceptor (2.22) and
+its `PlayoutLink` will dial this desk's acceptor in 2.23. Mapper's head is `2ae7ac7b`; its line wire says its greeting `STATE` only
+once a connection is paired, and offers no `LINK` yet (PM-10 waits on its owner), so a node device stays at level 0 and the
+fold below treats it as level 0. The plan's cites are re-read at each unit's head, not here.
+
+**OPEN rows to touch** (`docs/OPEN.md` was read whole; L116 to L124 are round 98's rows).
+- **L61** — the takeover row 89.6 added (a standby that is another Show Bus id does not inherit what other apps bound to the main's
+  id: a node key's binding, the contexts the main posted, the links accepted). Round 98 made the accepted links real and drew them
+  in the Eye (98.4); a takeover still drops them unsaid. This round draws what each desk holds (the accepted link is an edge of the
+  desk that accepted it) and 99.6 amends the row to say which half is now visible and which waits: the posted contexts are round
+  100's (`CONTEXT POST`), so the row stays open under its number until both are said or inherited.
+- **L44** (the problems queue has no memory) — read: more apps on the Eye make more reds and ambers walk the queue, and the design
+  (`eye.md`, "Amber during migration") names the crowd as a cost of the first weeks of the profile. The round does not add the
+  dismiss; 99.6 says what the NETWORK band adds to the queue and keeps the row.
+- **L122** (the acceptor's readers round 98 did not reach) — touched from the Eye's side by 99.3 and 99.5 (the Companion feedback
+  for app links and the context's acceptor item are named there); 99.6 says which of its clauses this round closed.
+- **L112** and **L113** (the node device's readers; the fact keys' hand copy) — read, PlayMap-device rows; the fold below is the Eye
+  reader for a device and the rest stays.
+- New rows are added by 99.6 for what 99.1 to 99.5 meet and leave, never by this opening. The rows the round expects to add: the
+  replay of link edges (the link record is null in a replayed Eye, 99.5), NDI across apps (an NDI source named by one app and
+  received by another is not an edge until a context says so), an AGMessage that posts nothing until round 100 and its own `CONTEXT
+  POST` unit (the Eye draws it as a heard app), and L61's amendment above.
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains, and the owner's
+word of 2026-10-25 ("all recommended", `docs/ecosystem/owner-answers.md`). The evidence is **a handed-in critique** — the Eye design
+(`eye.md`, EYE.2 to EYE.5) and its critique (issues 1 to 4, 8a, 9, 10, 12, 18 to 20 are this round's) — beside the code at this head.
+No maintainer's list, rig report or show laptop's files stand behind it. The owner's answers this round waits on: none.
+
+**The reversals the round makes** — three things the Eye draws today that it will draw otherwise, each beside what Rounds 95, 97
+and 98 already put in the tree, so the table says per unit what is to build and what already stands:
+
+| Reversal | Today, at this head | Already in the tree | To build, and in which unit |
+|---|---|---|---|
+| **A gone heard-only app is grey** (a gone app the show needs is red ✕; an acceptor's row is never red) | `ShowBusView.CardLight` lights `Gone` red whatever the show needs (`StagewatchFollow.cs:847`), and so does a node the beacon lists (`Eye.cs:1014`, `!n.Fresh` red); `ShowBusTests` asserts a heard-only Slides agent red (`app:66cc66cc`, line 797) | `EyeShowApp.Needed` and the "counted when the show needs the app" rule on the card (87, 95.1); the edge of a linked app already goes red only when needed (`Eye.cs:1081`) | The card's light and the beacon node's by the same rule, in the one projection (99.2); the test rewritten, never skipped, and the papers say why (13.16: a hello alone is never green and never a reason to call an absent app a fault) |
+| **A stuck show is an amber card, a green link and counting things "?"** | The card is the worse of its own light and amber (`StuckLight`, round 89), so it is amber already; but the link's edge is drawn amber ("linked · its show is stuck", `Eye.cs:1076`) and its counting things red with no time (`NoTime`) | The stuck beat, `Stuck`/`StuckLive`, the words and the amber card (89, 93.3) | The link green (it is live; the show's stall is the card's to say) and the counting things "? — no time shown" instead of red, in the projection and the feed (99.2, 99.3); the Stagewatch card, the Nodes card and the brief follow in the same unit |
+| **PlayMap sits in the NETWORK band** | A PlayMap node driven as a device is a `ShowApp` card in the band (97.2). A node the beacon lists, a PlayMap among them, is a `Node` card in CONTROL tier 2 (`Eye.cs:1017`), drawn beside the app card whenever the hello also names the same machine | The band, `KindWords` for PlayMap, the device's `Controls` edge and `bus.apps[].device` (95.1, 97.2); the Eye's fold of a node device into its app's card by `DeviceId` | One card per app whatever the doors that heard it: the beacon node (and the `patterns` hello that folds into `node:<inst>`) follows the same rule, the fold of 99.1 by proof, and the card is in the band (99.1; the beacon node follows the needed rule in 99.4) |
+
+**The round's platform paths.** None. The Eye is a reader of facts the desk already holds; no display topology, hot-plug, audio
+endpoint, WebView2, process or watchdog, twin or registry path moves, and no `CUT` or `TAKE` verb is added. The round is
+`unwalked` only in the sense that the QUALIFICATION rows for rounds 97 and 98 are still unfilled; 99.6 writes "Walk: none asked".
+
+**Measurement.** No measurement this round. The bounds the design names are counts, each held by a deterministic test where it lands
+(`SyntheticNetworkTests`, a fixed-seed xorshift over generated rooms): at most 128 apps and a grey "+N more"; at most 16 clusters
+open; at most 12 things and at most 8 forced chain ends per app; at most 256 relayed edges; no two rectangles overlapping; the same
+facts in the same order giving the same ids, rectangles and JSON; a slot never moving while its app stays; `left` counting exactly
+what was cut. Round 95's reading of the fit scale (0.35 against today's 0.28 on a 1920 by 1080 canvas) is the layout's and stands. No
+ladder or governor is added.
+
+**What the round does not do, said at its opening.** It does not post a context from another app (`CONTEXT POST`, round 100, with its
+flood test at the wire's cap); it does not lower a floor, pin or merge two ids from the Eye (the Eye never pins, never merges two ids
+and never colours a node green from a hello); it does not give a deck a `LINK`; it does not add a problems-queue dismiss (**L44**); it
+does not ask Stagewatch or PlayMap for anything (their half of the train is Stagewatch 2.24 and PlayMap's context rows, after this
+round's papers); it does not draw an NDI source across apps; and it adds no verb that takes or cuts.
+
+**The closing sentence's rig row.** The round has no verb an output can show: the Eye reads and draws, and the menus it shares with
+the Nodes page send lines that round 93 and 98 already journal (`STAGEWATCH LINK`, `KEY MAKE`). Its reading is a Super Check row, the
+existing *Show network links* line, read beside the Eye's NETWORK band on a desk with a Stagewatch linked and a PlayMap driven as a
+device; 99.6 names the exact line from what 99.1 to 99.5 write. No such room is on the bench, so the reading is `unwalked`.
+
+**The units as they will land.** Each commits on the unit before, validated for what it touches (99.1 to 99.3: build, Core, Rendering
+and App; 99.2 also Assistant; 99.4 and 99.5 also the module's four steps); the App suite is run by parts, one at a time. 99.6's papers
+depend only on units that wait on nothing outside the round: none of 99.1 to 99.5 waits on Stagewatch's or PlayMap's work. Sections
+117.2 onward are written by 99.6.
