@@ -7,19 +7,34 @@ namespace Patterns.Devices.Tests;
 
 /// <summary>
 /// A device link made of connections, as a test drives it: a connection moves (on the link's thread, before it can be written on),
-/// then says it came up, then the node's lines — or a test stops between the two, as the desk's thread may lag the link's.
+/// then says it came up, then the node's lines — or a test stops between the two, as the desk's thread may lag the link's. Like
+/// every link it raises nothing before <see cref="Start"/>: a raise before it is recorded in <see cref="Faults"/> and goes to nobody,
+/// as a real link's would have gone before its caller's handlers were on. What it does as it starts (<see cref="OnStart"/>) is the
+/// test's: a loopback connect may come up inside Start.
 /// </summary>
 public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
 {
     private readonly object _gate = new();
     private readonly List<string> _written = new();
+    private readonly List<string> _faults = new();
     public IReadOnlyList<string> Written { get { lock (_gate) return _written.ToList(); } }
+    public IReadOnlyList<string> Faults { get { lock (_gate) return _faults.ToList(); } }
     public bool Disposed { get; private set; }
-    public string Status => Disposed ? "closed" : "open (fake)";
-    public bool IsOpen => !Disposed;
+    public int Starts { get; private set; }
+    /// <summary>Whether each handler (lines, Moving, Opened) was on when the link was first started.</summary>
+    public (bool Lines, bool Moving, bool Opened) HandlersAtStart { get; private set; }
+    public Action<FakeConnectionLink>? OnStart { get; init; }
+    public string Status => Disposed ? "closed" : Starts == 0 ? "connecting…" : "open (fake)";
+    public bool IsOpen => !Disposed && Starts > 0;
     public event Action<string>? LineReceived;
     public event Action? Moving;
     public event Action? Opened;
+    public void Start()
+    {
+        if (Disposed || ++Starts > 1) return;
+        HandlersAtStart = (LineReceived is not null, Moving is not null, Opened is not null);
+        OnStart?.Invoke(this);
+    }
     public void Write(string framedLine)
     {
         lock (_gate) _written.Add(framedLine);
@@ -29,10 +44,26 @@ public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
         Move();
         Open();
     }
-    public void Move() => Moving?.Invoke();
-    public void Open() => Opened?.Invoke();
-    public void Say(string line) => LineReceived?.Invoke(line);
+    public void Move()
+    {
+        if (!Unstarted("Moving")) Moving?.Invoke();
+    }
+    public void Open()
+    {
+        if (!Unstarted("Opened")) Opened?.Invoke();
+    }
+    public void Say(string line)
+    {
+        if (!Unstarted("a line")) LineReceived?.Invoke(line);
+    }
     public void Dispose() => Disposed = true;
+
+    private bool Unstarted(string what)
+    {
+        if (Starts > 0) return false;
+        lock (_gate) _faults.Add(what + " raised before Start");
+        return true;
+    }
 }
 
 /// <summary>The desk as a node device sees it: a show, a router, this desk's name and this process's instance.</summary>
@@ -121,6 +152,263 @@ public class NodeDeviceTests
             Assert.Equal("@dh HELLO Patterns FOH\n", link.Written[^1]);
             Assert.False(devices.NodeSights.Single().Up);
             Assert.DoesNotContain(link.Written, w => w.Contains("K7QM", StringComparison.Ordinal));
+            Assert.Equal(1, link.Starts);
+            Assert.Empty(link.Faults);
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    /// <summary>A node device whose fake connects as it starts, the way a loopback connect may come up inside Start.</summary>
+    private static (FakeConnectionLink Link, DeviceConfig Device, DeviceService Devices) ConnectingInsideStart(Func<FakeConnectionLink> make)
+    {
+        var host = new NodeHost();
+        var device = DeviceProfiles.Preset(DeviceProfile.ShowBusNode, 1);
+        device.Port = "10.0.0.9";
+        device.Secret = "K7QM-3XWD-P9RA";
+        host.State.Interactive.Devices.Add(device);
+        host.State.Interactive.Enabled = true;
+        FakeConnectionLink? made = null;
+        var devices = new DeviceService(host) { LinkFactory = _ => made = make() };
+        devices.Reconcile();
+        return (made ?? throw new InvalidOperationException("the service made no link"), device, devices);
+    }
+
+    [Fact]
+    public void ALinkThatConnectsInsideItsStartIsHeardItsHelloGoesAndTheNodesNonceIsProved()
+    {
+        var (link, device, devices) = ConnectingInsideStart(() => new FakeConnectionLink { OnStart = l => l.Connect() });
+        try
+        {
+            Assert.Equal(new[] { "@dh HELLO Patterns FOH\n" }, link.Written);                      // the connection's start was heard
+            Assert.Equal(1, link.Starts);
+            Assert.Equal((true, true, true), link.HandlersAtStart);                                 // every handler on before the link ran
+            Assert.True(devices.NodeSights.Single().Connected);
+
+            link.Say("NONCE " + Nonce);
+            Assert.Equal(new[] { "@dh HELLO Patterns FOH\n", "@dp AUTH-PROOF " + PeerLink.LegacyProof(device.Secret, Nonce, "Patterns FOH") + "\n" }, link.Written);
+            Assert.Empty(link.Faults);
+
+            devices.Reconcile();                                                                    // the poll's pass: nothing starts twice
+            Assert.Equal(1, link.Starts);
+            Assert.Equal(2, link.Written.Count);
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    [Fact]
+    public void AConnectionThatComesUpInsideTheFactoryIsSaidToNobodyWhichIsWhyNoLinkStartsBeforeStart()
+    {
+        // The order a link kept before it had a Start: the connection up while the factory is still making it, before the service
+        // has a handler on it. Its start goes to nobody, so the node's HELLO is never written and nothing ever drives the node. The
+        // two faults, the empty Written and the sight not connected show the fake's own rule (it says nothing before Start); the
+        // service's half is the last two lines, Start once and after every handler. That a real link's constructor can no longer raise
+        // early is LinkStartTests' to hold.
+        var (link, _, devices) = ConnectingInsideStart(() =>
+        {
+            var early = new FakeConnectionLink();
+            early.Connect();
+            return early;
+        });
+        try
+        {
+            Assert.Equal(new[] { "Moving raised before Start", "Opened raised before Start" }, link.Faults);
+            Assert.Empty(link.Written);
+            Assert.False(devices.NodeSights.Single().Connected);
+            Assert.Equal(1, link.Starts);                                                           // started once, after its handlers
+            Assert.Equal((true, true, true), link.HandlersAtStart);
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    [Fact]
+    public void ALinkWhoseStartThrowsIsPutAwayAndTheNextPassMakesAFreshOne()
+    {
+        // A link made and then refused at its Start is out of the table and disposed — whatever its constructor took (a UDP socket)
+        // goes with it — and the device says it could not open; the next pass makes a new link rather than leaving one per second.
+        var made = new List<FakeConnectionLink>();
+        var (first, device, devices) = ConnectingInsideStart(() =>
+        {
+            var link = new FakeConnectionLink { OnStart = _ => throw new InvalidOperationException("the port is taken") };
+            made.Add(link);
+            return link;
+        });
+        try
+        {
+            Assert.True(first.Disposed);
+            Assert.Null(devices.LinkFor(device.Id));
+            Assert.Equal("could not open: the port is taken", device.Status);
+
+            devices.Reconcile();
+            Assert.Equal(2, made.Count);
+            Assert.True(made[1].Disposed);
+            Assert.Null(devices.LinkFor(device.Id));
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    [Fact]
+    public void ALinkThatFaultsBeforeItReachesTheTableIsStillDisposed()
+    {
+        // The fault comes while the service is still putting its handlers on, before the device is in its table: the link is
+        // disposed all the same, and never started.
+        var host = new NodeHost();
+        var device = new DeviceConfig { Name = "Board", Link = DeviceLink.Serial, Port = "COM9", Profile = DeviceProfile.Lines, SpeaksProtocol = false, HearsShow = false, EchoReplies = false };
+        host.State.Interactive.Devices.Add(device);
+        host.State.Interactive.Enabled = true;
+        var link = new RefusesHandlers();
+        var devices = new DeviceService(host) { LinkFactory = _ => link };
+        try
+        {
+            devices.Reconcile();
+            Assert.True(link.Disposed);
+            Assert.Equal(0, link.Starts);
+            Assert.Null(devices.LinkFor(device.Id));
+            Assert.Equal("could not open: no handler taken", device.Status);
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    /// <summary>A link that will not take a handler, so the service faults before the device is in its table.</summary>
+    private sealed class RefusesHandlers : IDeviceLink
+    {
+        public int Starts { get; private set; }
+        public bool Disposed { get; private set; }
+        public string Status => "open (fake)";
+        public bool IsOpen => !Disposed;
+        public event Action<string>? LineReceived
+        {
+            add => throw new InvalidOperationException("no handler taken");
+            remove => throw new InvalidOperationException("no handler taken");
+        }
+        public void Start() => Starts++;
+        public void Write(string framedLine)
+        {
+            // nothing is ever written: the link never opens
+        }
+        public void Dispose() => Disposed = true;
+    }
+
+    [Fact]
+    public void ALinkOfLinesThatSpeaksInsideItsStartIsHeard()
+    {
+        // Serial, UDP and MIDI raise lines and no connection: a board that speaks the moment its port opens is heard, because the
+        // service starts the link only once its handler is on.
+        var host = new NodeHost();
+        var device = new DeviceConfig { Name = "Board", Link = DeviceLink.Serial, Port = "COM9", Profile = DeviceProfile.Lines, SpeaksProtocol = false, HearsShow = false, EchoReplies = false };
+        host.State.Interactive.Devices.Add(device);
+        host.State.Interactive.Enabled = true;
+        var link = new LinesOnStart("READY");
+        var devices = new DeviceService(host) { LinkFactory = _ => link };
+        try
+        {
+            devices.Reconcile();
+            Assert.Equal(1, link.Starts);
+            Assert.Equal((1L, "READY"), (devices.Traffic(device.Id)!.Value.In, devices.Traffic(device.Id)!.Value.LastIn));
+            Assert.Equal("READY", device.Runtime.LastReply);
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    /// <summary>A link of lines that says its first as it starts, the way a board speaks the moment its port opens.</summary>
+    private sealed class LinesOnStart(string first) : IDeviceLink
+    {
+        public int Starts { get; private set; }
+        public string Status => "open (fake)";
+        public bool IsOpen => true;
+        public event Action<string>? LineReceived;
+        public void Start()
+        {
+            if (++Starts == 1) LineReceived?.Invoke(first);
+        }
+        public void Write(string framedLine)
+        {
+            // what the service writes is not this test's
+        }
+        public void Dispose()
+        {
+            // nothing held
+        }
+    }
+
+    [Fact]
+    public void AProjectorsGreetingHeardBeforeThePollSeesTheLinkOpenStillSignsTheFirstCommand()
+    {
+        // PJLink: the projector greets each connection with its seed, and the first command carries the digest of it. The greeting
+        // is read on the desk's thread in order with the connection's start; the poll's pass that first sees the link open comes
+        // later, and must not start the session over after the seed was taken.
+        var host = new NodeHost();
+        var device = DeviceProfiles.Preset(DeviceProfile.PjLink, 1);
+        device.Port = "10.0.0.20";
+        device.Secret = "JBMIAProjectorLink";
+        host.State.Interactive.Devices.Add(device);
+        host.State.Interactive.Enabled = true;
+        var link = new FakeConnectionLink();
+        var devices = new DeviceService(host) { LinkFactory = _ => link };
+        try
+        {
+            devices.Reconcile();
+            link.Connect();
+            link.Say("PJLINK 1 498e4a67");
+            devices.Reconcile();                                                                    // the late pass: open, and not open before
+            Assert.True(devices.Send(device.Name, "POWER ON").Ok);
+            Assert.Equal(PjLinkSession.Digest("498e4a67", device.Secret) + "%1POWR 1\r", link.Written[^1]);
+
+            link.Connect();                                                                         // a new connection, its own seed
+            link.Say("PJLINK 1 5d8409bc");
+            Assert.True(devices.Send(device.Name, "POWER OFF").Ok);
+            Assert.Equal(PjLinkSession.Digest("5d8409bc", device.Secret) + "%1POWR 0\r", link.Written[^1]);
+            Assert.Empty(link.Faults);
+        }
+        finally
+        {
+            devices.Dispose();
+        }
+    }
+
+    [Fact]
+    public void ALookUpOfAConnectionThatEndedIsForgottenWhenTheNextConnectionStartsHoweverSoonItComes()
+    {
+        // Pixera: a timeline is found by name and played by the handle its reply carries. The session starts over at each connection's
+        // own start, so a reply to the gone connection's look-up plays nothing, and a pass that comes later (a poll that runs late, or
+        // the next poll after a quick redial) can no longer wipe what the new connection has already sent or heard. Here the drop and
+        // the return both fall between two polls.
+        var host = new NodeHost();
+        var device = DeviceProfiles.Preset(DeviceProfile.Pixera, 1);
+        device.Port = "10.0.0.30";
+        host.State.Interactive.Devices.Add(device);
+        host.State.Interactive.Enabled = true;
+        var link = new FakeConnectionLink();
+        var devices = new DeviceService(host) { LinkFactory = _ => link };
+        try
+        {
+            devices.Reconcile();
+            link.Connect();
+            Assert.True(devices.Send(device.Name, "TIMELINE Show PLAY").Ok);
+            var sent = link.Written.Count;
+            Assert.Contains("getTimelineFromName", link.Written[^1], StringComparison.Ordinal);
+
+            link.Connect();                                                                         // dropped and back before the reply
+            link.Say("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":42}");
+            Assert.Equal(sent, link.Written.Count);                                                 // no play for a look-up the box no longer holds
+            Assert.Empty(link.Faults);
         }
         finally
         {

@@ -173,7 +173,13 @@ public class MidiSurfaceAppTests
         using var link = new MidiSurfaceLink("APC40");
         Assert.False(link.IsOpen);
         link.Write("LAMP 1 53 21");                            // never throws, wherever it is running
-        Assert.NotNull(link.Status);
+        link.Start();                                          // the first tick looks for the port and says what it found
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (link.Status == "opening…" && DateTime.UtcNow < deadline) Thread.Sleep(10);
+        Assert.Equal(
+            OperatingSystem.IsWindows() ? "no MIDI inputs on this machine — plug the surface in" : "MIDI surfaces are Windows only on this build.",
+            link.Status);
+        Assert.False(link.IsOpen);
     }
 
     /// <summary>

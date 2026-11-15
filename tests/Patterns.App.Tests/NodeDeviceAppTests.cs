@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -38,6 +39,25 @@ public class NodeDeviceAppTests
 
     private static string Send(CommandRouter router, string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
 
+    /// <summary>
+    /// What a wait for the node names when it runs out, so the failure says its class: the connection's start lost (the fake accepted
+    /// it, the link is open, nothing went out), the dial never completed (nothing accepted, the link still connecting), or a reader
+    /// starved (lines went out, the fake read none) — with the thread pool beside it, which a pool starved for the whole wait shows.
+    /// </summary>
+    private static string Seen(AppServices services, DeviceConfig device, FakePlayMap playmap)
+    {
+        var link = services.Devices.LinkFor(device.Id);
+        var sight = services.Devices.NodeSights.FirstOrDefault(n => n.DeviceId == device.Id);
+        var traffic = services.Devices.Traffic(device.Id);
+        var inv = CultureInfo.InvariantCulture;
+        return string.Join("; ",
+            string.Create(inv, $"the fake read [{string.Join(" | ", playmap.Read)}] on {playmap.Accepted} connection(s) accepted"),
+            link is null ? "the link not made" : string.Create(inv, $"the link '{link.Status}', open {link.IsOpen}"),
+            sight is null ? "no sight" : string.Create(inv, $"the sight '{sight.Words}', connected {sight.Connected}"),
+            traffic is { } t ? string.Create(inv, $"the device in {t.In} (last '{t.LastIn}'), out {t.Out} (last '{t.LastOut}')") : "the device has no link open",
+            string.Create(inv, $"the pool {ThreadPool.ThreadCount} threads, {ThreadPool.PendingWorkItemCount} items waiting"));
+    }
+
     [AvaloniaFact]
     public void AnOlderPlayMapThatGreetsBeforeTheProofIsPairedDrivenAndDrawnAndItsEarlyStateIsDiscarded() => Drive(stateAfterProof: false);
 
@@ -68,7 +88,7 @@ public class NodeDeviceAppTests
             vm.State.Interactive.Enabled = true;
             services.Devices.Reconcile();
 
-            Assert.True(WaitFor(() => services.Devices.NodeSights.Any(n => n.Up && n.Context is not null)), "paired, and its context taken: " + string.Join(" | ", playmap.Read));
+            Assert.True(WaitFor(() => services.Devices.NodeSights.Any(n => n.Up && n.Context is not null)), "paired, and its context taken: " + Seen(services, device, playmap));
             var sight = services.Devices.NodeSights.Single();
             Assert.Equal((stateAfterProof ? 0 : 1, stateAfterProof ? 1 : 0), (sight.StateDiscarded, sight.StateTaken));
             Assert.True(sight.Paired);
@@ -159,7 +179,7 @@ public class NodeDeviceAppTests
             vm.State.Interactive.Devices.Add(device);
             vm.State.Interactive.Enabled = true;
             services.Devices.Reconcile();
-            Assert.True(WaitFor(() => services.Devices.NodeSights.Any(n => n.Stopped)), "the wrong token stops it: " + string.Join(" | ", playmap.Read));
+            Assert.True(WaitFor(() => services.Devices.NodeSights.Any(n => n.Stopped)), "the wrong token stops it: " + Seen(services, device, playmap));
             var router = new CommandRouter(services);
             var refused = Send(router, $"DEVICE {device.Name} PLAYLIST GO show");
             Assert.StartsWith("ERR", refused);
@@ -194,6 +214,7 @@ public class NodeDeviceAppTests
         private readonly List<string> _errs = new();
         private readonly CancellationTokenSource _stop = new();
         private volatile bool _paired;
+        private int _accepted;
         private bool _factsAfterPaired = true;
 
         private static readonly HashSet<string> FactKeys = new(StringComparer.Ordinal)
@@ -212,6 +233,9 @@ public class NodeDeviceAppTests
         public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
 
         public bool Paired => _paired;
+
+        /// <summary>How many connections the fake has accepted.</summary>
+        public int Accepted => Volatile.Read(ref _accepted);
 
         public IReadOnlyList<string> Read { get { lock (_gate) return _read.ToList(); } }
 
@@ -239,6 +263,7 @@ public class NodeDeviceAppTests
                 {
                     return;
                 }
+                Interlocked.Increment(ref _accepted);
                 _ = Task.Run(() => ServeAsync(client), CancellationToken.None);
             }
         }

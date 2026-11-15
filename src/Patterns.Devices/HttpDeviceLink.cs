@@ -27,6 +27,12 @@ public sealed class HttpDeviceLink : IDeviceLink
         _status = $"ready ({_base})";
     }
 
+    /// <summary>Nothing of its own runs: each request is made when its line is written, and its answer comes back on that request.</summary>
+    public void Start()
+    {
+        // a request is the whole of this link's work, and none is made before a line is written
+    }
+
     public string Status => _status;
 
     public bool IsOpen => !_disposed;

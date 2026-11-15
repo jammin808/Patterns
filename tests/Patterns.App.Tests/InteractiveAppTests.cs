@@ -12,16 +12,25 @@ using Xunit;
 
 namespace Patterns.App.Tests;
 
-/// <summary>A wire that records what Patterns writes and lets the test speak as the device.</summary>
+/// <summary>
+/// A wire that records what Patterns writes and lets the test speak as the device. Like every link it raises nothing before it is
+/// started: a line said before <see cref="Start"/> is a fault of the test or of the service, and throws.
+/// </summary>
 public sealed class FakeDeviceLink : IDeviceLink
 {
     public List<string> Written { get; } = new();
     public bool Disposed { get; private set; }
+    public int Starts { get; private set; }
     public string Status => Disposed ? "closed" : "open (fake)";
     public bool IsOpen => !Disposed;
     public event Action<string>? LineReceived;
+    public void Start() => Starts++;
     public void Write(string framedLine) => Written.Add(framedLine);
-    public void Say(string line) => LineReceived?.Invoke(line);
+    public void Say(string line)
+    {
+        if (Starts == 0) throw new InvalidOperationException($"'{line}' said before the link was started: a link raises nothing before Start");
+        LineReceived?.Invoke(line);
+    }
     public void Dispose() => Disposed = true;
 }
 

@@ -75,7 +75,10 @@ public abstract class ProfileSession
     /// <summary>A frame from the device: its words, whether it is a fault, what to send next.</summary>
     public virtual ProfileReply OnReceived(string text) => ProfileReply.Of(text);
 
-    /// <summary>A fresh connection: whatever the last one knew (a seed, a handle) starts over.</summary>
+    /// <summary>
+    /// A fresh connection: whatever the last one knew (a seed, a handle) starts over. On a link made of connections it is called at
+    /// each one's start, before any line of it reaches <see cref="OnReceived"/>; on any other link, when the poll first sees it open.
+    /// </summary>
     public virtual void OnConnected() { }
 
     /// <summary>Whole frames out of a byte stream so far, the unfinished tail left in the buffer; lines unless the box frames otherwise.</summary>

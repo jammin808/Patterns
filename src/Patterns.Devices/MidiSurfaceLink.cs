@@ -65,7 +65,16 @@ public sealed class MidiSurfaceLink : IDeviceLink
     public MidiSurfaceLink(string portName)
     {
         _wanted = (portName ?? "").Trim();
-        _sampler = new System.Threading.Timer(_ => Tick(), null, MidiCoalescer.SampleMs, MidiCoalescer.SampleMs);
+        _sampler = new System.Threading.Timer(_ => Tick(), null, Timeout.Infinite, Timeout.Infinite);   // nothing ticks before Start
+    }
+
+    private int _started;
+
+    /// <summary>Starts the sample tick, once — it opens the port and reads the surface: a press the moment it opens reaches the handlers attached before.</summary>
+    public void Start()
+    {
+        if (_disposed || Interlocked.Exchange(ref _started, 1) != 0) return;
+        _sampler.Change(MidiCoalescer.SampleMs, MidiCoalescer.SampleMs);
     }
 
     public string Status => _status;

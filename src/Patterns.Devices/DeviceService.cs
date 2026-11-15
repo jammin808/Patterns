@@ -10,10 +10,17 @@ namespace Patterns.Devices;
 
 /// <summary>
 /// One device's wire: lines out, lines in (on any thread), a status word. Serial, TCP and UDP
-/// links implement it; tests stand in with a fake.
+/// links implement it; tests stand in with a fake. A link raises nothing — a line, a connection's
+/// move or its start — before <see cref="Start"/>: its constructor dials, opens and reads nothing.
 /// </summary>
 public interface IDeviceLink : IDisposable
 {
+    /// <summary>
+    /// Starts the link's own work — its dialling, its port, its reading — once; a second call does nothing, and a link disposed
+    /// before it starts nothing. Its caller attaches every handler first, so the first connection and its first line are heard.
+    /// </summary>
+    void Start();
+
     /// <summary>"open", "connecting…", "closed: …" — what the page shows.</summary>
     string Status { get; }
 
@@ -44,7 +51,8 @@ public interface IDeviceLink : IDisposable
 /// A link made of connections (TCP), on its own thread: <see cref="Moving"/> when a connection is about to be published and when one
 /// ends — synchronously, before anything can be written on the new one — and <see cref="Opened"/> once one is up, before any line it
 /// reads. So a session whose proof belongs to a connection (a Show Bus node's) stops sending the moment the connection moves, and
-/// hears the new one's start in order with its lines.
+/// hears the new one's start in order with its lines. Neither is raised before <see cref="IDeviceLink.Start"/>: a connection that
+/// came up before its caller's handlers were on would say its start to nobody, and it is said once a connection, never again.
 /// </summary>
 public interface IConnectionLink
 {
@@ -220,6 +228,10 @@ public sealed class DeviceService : IDisposable
 
     public IDeviceLink? LinkFor(string deviceId) => _open.TryGetValue(deviceId, out var o) ? o.Link : null;
 
+    /// <summary>A device's lines in and out on its link, and the last of each as its profile read them; null for a device with no link open.</summary>
+    public (long In, long Out, string LastIn, string LastOut)? Traffic(string deviceId) =>
+        _open.TryGetValue(deviceId, out var o) ? (o.In, o.Out, o.LastIn, o.LastOut) : null;
+
     /// <summary>"COM3, COM7" — the serial ports this machine has right now, for the page.</summary>
     public static string SerialPortsText()
     {
@@ -259,7 +271,9 @@ public sealed class DeviceService : IDisposable
             {
                 open.Heard = null;
                 open.AnnounceOpen = true;
-                open.Session.OnConnected();
+                // A link made of connections starts its session over at each connection's own start, in order with its lines
+                // (Opened): this pass runs later, after a greeting (a projector's seed) may already have been heard and taken.
+                if (open.Link is not IConnectionLink) open.Session.OnConnected();
                 open.NextPollUtc = DateTime.UtcNow.AddSeconds(1);   // a projector is asked how it is a moment after it answers
                 MarkChanged();
             }
@@ -287,6 +301,7 @@ public sealed class DeviceService : IDisposable
         foreach (var (id, d) in wanted)
         {
             if (_open.ContainsKey(id)) continue;
+            IDeviceLink? made = null;
             try
             {
                 var session = ProfileSession.For(d, _services.NodeDeskName, _services.NodeInst);
@@ -296,6 +311,7 @@ public sealed class DeviceService : IDisposable
                     d.Status = DeviceAddress.Describe(d);
                     continue;
                 }
+                made = link;
                 var open = new Open { Config = d, Link = link, Key = KeyOf(d), Session = session };
                 link.LineReceived += line => OnLine(id, line);
                 if (link is IConnectionLink connections && session is ShowBusNodeSession node)
@@ -307,11 +323,17 @@ public sealed class DeviceService : IDisposable
                 }
                 else if (link is IConnectionLink plain) plain.Opened += () => OnLine(id, null);
                 _open[id] = open;
-                d.Status = link.Status;
                 Log.Info($"Device '{d.Name}' opening: {DeviceAddress.Describe(d)}");
+                // Only now, every handler on and the device in the table: a connection that comes up inside Start (a loopback
+                // connect may) says its start to the session, which writes its opening words.
+                link.Start();
+                d.Status = link.Status;
             }
             catch (Exception ex)
             {
+                // A link made but not started — or one whose Start threw — is neither left in the table, half made, nor left holding
+                // what its constructor took (a UDP socket); it is put away quietly, and the one line said of it is that it could not open.
+                if (made is not null) Discard(id, made, d.Name);
                 d.Status = "could not open: " + ex.Message;
                 d.Runtime = d.Runtime.Failed("could not open: " + ex.Message, DateTime.UtcNow);
                 Log.Warn($"Device '{d.Name}' could not open.", ex);
@@ -480,6 +502,20 @@ public sealed class DeviceService : IDisposable
                 return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var host, out var tcpPort) ? new TcpDeviceLink(host, tcpPort, session.Split) : null;
             default:
                 return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var uhost, out var uport) ? new UdpDeviceLink(uhost, uport, session.Decode) : null;
+        }
+    }
+
+    /// <summary>A link that never opened: out of the table if it got there, and disposed, without a "closed" line for a device never open.</summary>
+    private void Discard(string id, IDeviceLink link, string name)
+    {
+        if (_open.TryGetValue(id, out var o) && ReferenceEquals(o.Link, link)) _open.Remove(id);
+        try
+        {
+            link.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Device '{name}' close issue.", ex);
         }
     }
 
@@ -773,6 +809,7 @@ public sealed class DeviceService : IDisposable
     private void Opened(string id, long generation)
     {
         if (_disposed || !_open.TryGetValue(id, out var open)) return;
+        open.Session.OnConnected();   // before any line of this connection reaches the session: what the last one knew starts over
         var node = open.Session as ShowBusNodeSession;
         if (node is not null)
         {
@@ -950,11 +987,19 @@ public sealed class SerialDeviceLink : IDeviceLink
     private SerialPort? _serial;
     private volatile string _status = "opening…";
     private volatile bool _open;
+    private volatile bool _disposed;
+    private int _started;
 
     public SerialDeviceLink(string port, int baud)
     {
         _port = port;
         _baud = baud;
+    }
+
+    /// <summary>Opens the port on the link's thread and reads it, once: a board that speaks the moment its port opens is heard.</summary>
+    public void Start()
+    {
+        if (_disposed || Interlocked.Exchange(ref _started, 1) != 0) return;
         _ = Task.Run(LoopAsync, _cts.Token);
     }
 
@@ -1051,6 +1096,7 @@ public sealed class SerialDeviceLink : IDeviceLink
 
     public void Dispose()
     {
+        _disposed = true;
         _cts.Cancel();
         try
         {
@@ -1075,6 +1121,8 @@ public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
     private NetworkStream? _stream;
     private volatile string _status = "connecting…";
     private volatile bool _open;
+    private volatile bool _disposed;
+    private int _started;
 
     /// <param name="split">How the byte stream is cut into frames — lines unless the box frames otherwise (Pixera's 0xPX).</param>
     public TcpDeviceLink(string host, int port, Func<StringBuilder, IReadOnlyList<string>>? split = null)
@@ -1082,6 +1130,12 @@ public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
         _host = host;
         _port = port;
         _split = split ?? DeviceLines.Split;
+    }
+
+    /// <summary>Starts dialling, once, on the link's thread: every connection's <see cref="Moving"/> and <see cref="Opened"/> reach the handlers attached before.</summary>
+    public void Start()
+    {
+        if (_disposed || Interlocked.Exchange(ref _started, 1) != 0) return;
         _ = Task.Run(LoopAsync, _cts.Token);
     }
 
@@ -1172,6 +1226,7 @@ public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
 
     public void Dispose()
     {
+        _disposed = true;
         _cts.Cancel();
         try
         {
@@ -1194,7 +1249,10 @@ public sealed class UdpDeviceLink : IDeviceLink
     private readonly int _port;
     private readonly Func<byte[], string?> _decode;
     private readonly CancellationTokenSource _cts = new();
+    private readonly string _openWords;
     private volatile string _status;
+    private volatile bool _disposed;
+    private int _started;
 
     /// <param name="decode">A datagram as text — OSC decoded to its address and arguments; null for one that is not the box's.</param>
     public UdpDeviceLink(string host, int port, Func<byte[], string?>? decode = null)
@@ -1202,9 +1260,18 @@ public sealed class UdpDeviceLink : IDeviceLink
         _host = host;
         _port = port;
         _decode = decode ?? (bytes => Encoding.UTF8.GetString(bytes));
-        _udp = new UdpClient(AddressFamily.InterNetwork);
+        // Bound at once, to any address and a port of the machine's choosing — the one a first send would take: the socket can be
+        // read from its start, so a reader begun before the first send waits for a datagram instead of failing on an unbound socket.
+        _udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
         _to = IPAddress.TryParse(host, out var ip) ? new IPEndPoint(ip, port) : null;
-        _status = $"open ({host}:{port}, UDP)";
+        _openWords = $"open ({host}:{port}, UDP)";
+        _status = _openWords;
+    }
+
+    /// <summary>Starts reading the socket, once: an answer to the first datagram, or one that came before, reaches the handlers attached before.</summary>
+    public void Start()
+    {
+        if (_disposed || Interlocked.Exchange(ref _started, 1) != 0) return;
         _ = Task.Run(ReceiveAsync, _cts.Token);
     }
 
@@ -1249,6 +1316,7 @@ public sealed class UdpDeviceLink : IDeviceLink
             try
             {
                 var result = await _udp.ReceiveAsync(ct);
+                if (_status.StartsWith("receive issue", StringComparison.Ordinal)) _status = _openWords;   // read again: the issue is over
                 var text = _decode(result.Buffer);
                 if (text is null) continue;
                 buffer.Append(text);
@@ -1276,6 +1344,7 @@ public sealed class UdpDeviceLink : IDeviceLink
 
     public void Dispose()
     {
+        _disposed = true;
         _cts.Cancel();
         try
         {

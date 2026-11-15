@@ -213,7 +213,7 @@ public sealed class ShowBusNodeSession : ProfileSession
     /// <summary>A fresh connection: nothing proved on it yet. A stop for a wrong token outlives it — the Secret must be typed again.</summary>
     public override void OnConnected()
     {
-        // The connection's own start is OnOpened, in order with its lines; the reconcile's late notice of it changes nothing here.
+        // Called at each connection's start, just before OnOpenedAt, which is where a node's connection starts over: nothing more here.
     }
 
     /// <summary>
