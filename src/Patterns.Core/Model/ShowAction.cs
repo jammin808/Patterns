@@ -456,7 +456,7 @@ public enum ShowActionKind
     /// </summary>
     /// <summary>RIG SAVE [note] (round 65.9): the rig of the moment saved as the commissioned one — the machine, the displays and their EDIDs, the contracts, the audio, the network, the clock; every boot compares against it. Value = the note.</summary>
     RigSaveKnownGood,
-    /// <summary>The God's Eye (round 66) — the operator's own view of the whole show: EYE FOCUS &lt;words&gt; (Value: an id, "screen 2", a label), EYE NEXT / EYE PREV (the problems queue), EYE LENS &lt;all|video|control|audio|room|problems&gt; (Value), EYE RESET. Desk-only: a running order never moves what the desk is looking at.</summary>
+    /// <summary>The God's Eye (round 66) — the operator's own view of the whole show: EYE FOCUS &lt;words&gt; (Value: an id, "screen 2", a label), EYE NEXT / EYE PREV (the problems queue), EYE LENS &lt;all|video|control|audio|room|problems|network&gt; (Value), EYE RESET. Desk-only: a running order never moves what the desk is looking at.</summary>
     EyeFocus,
     EyeNext,
     EyePrev,
@@ -583,6 +583,13 @@ public enum ShowActionKind
     /// connection ends; the key it stood on stays in force (revoking it is the wall). The operator's alone, on the desk.
     /// </summary>
     AppLinkClose,
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.6's <i>Accept new id</i>: the Stagewatch link bound to the node that answered LINK in its place (Value = that
+    /// node's id, the one the person was shown beside the press), with no pin and no floor of the old node's. The desk's alone, and a
+    /// person's: no wire verb, deck, cue, peer or assistant reaches it.
+    /// </summary>
+    StagewatchAcceptId,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

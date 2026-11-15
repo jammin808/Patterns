@@ -746,7 +746,7 @@ public static class ShowBusView
                 continue;
             }
             if (open is null) continue;
-            list.Add(new EyeShowApp(rows.Key, ShowBusPeers.KindWords(open.T), open.Label, ShowBusState.Live, false, open.Address) { Accepted = mine });
+            list.Add(new EyeShowApp(rows.Key, ShowBusPeers.KindWords(open.T), open.Label, ShowBusState.Live, false, open.Address) { Accepted = mine, Kind = open.T });
         }
         return list;
     }
@@ -840,6 +840,7 @@ public static class ShowBusView
         var words = string.Join(" · ", new[] { where, "the device " + n.DeviceName, heard?.Words ?? "" }.Where(w => w.Length > 0).Distinct(StringComparer.Ordinal));
         return new EyeShowApp(heard?.Id ?? "device-" + n.DeviceId, "PlayMap", name, state, false, words)
         {
+            Kind = "playmap",
             Context = context,
             ContextRev = context is not null ? n.Context!.Rev : 0,
             Conflict = heard?.Conflict ?? "",
@@ -870,6 +871,7 @@ public static class ShowBusView
             var stuck = linked && sight.Stuck && state == ShowBusState.Live;
             apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, state, linked, words)
             {
+                Kind = p.Kind,
                 Context = linked ? Steady(sight.Context) : null,
                 ContextRev = linked && sight.Context is not null ? sight.ContextRev : 0,       // the Eye's hash reads this, never the context
                 Stuck = stuck,
@@ -894,6 +896,7 @@ public static class ShowBusView
                 Stuck = stuck,
                 Key = sight.Key,
                 Link = sight.Link,                                                                  // no hello names it: §6's heard stays empty
+                Kind = EyeNetwork.Proved(sight.Link) && sight.Link!.PeerT is { Length: > 0 } pt ? pt : "main",
             });
         }
         return apps;
@@ -1312,6 +1315,9 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
     /// <summary>Round 97: the device that drives it ("" for none) — the card's menu opens it on the Interactive page.</summary>
     public string DeviceId { get; init; } = "";
 
+    /// <summary>Its hello's kind (§8), "" for an app known by no kind word (a twin node's card) — the connector a key made for it is bound to.</summary>
+    public string Kind { get; init; } = "";
+
     public static ShowAppCard Of(EyeShowApp app) => Of(ShowBusView.Light(app));
 
     /// <summary>One app's card from the show network's one projection (<see cref="ShowBusView.Network"/>): its light, mark and words.</summary>
@@ -1345,6 +1351,7 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         {
             AddAsDevice = app.KindWords == "PlayMap" && app.DeviceId.Length == 0 && app.DeviceAt.Length == 0 && app.State != ShowBusState.Gone,
             DeviceId = app.DeviceId.Length > 0 ? app.DeviceId : app.DeviceAt,
+            Kind = app.Kind.Length > 0 ? app.Kind : ShowBusPeers.KindOf(app.KindWords),               // the hello's kind; the words read back only where none came
         };
     }
 

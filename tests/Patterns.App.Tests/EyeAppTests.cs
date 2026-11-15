@@ -128,10 +128,13 @@ public class EyeAppTests
             Assert.Contains(vm.EyeLenses, c => c.Word == "audio" && c.IsCurrent);
             Assert.StartsWith("ERR", Send(router, "EYE LENS bogus"));
             Assert.Equal(EyeLens.Audio, services.Eye.Lens);
-            var network = Send(router, "EYE LENS network");                                  // a band, not a lens: refused, and the refusal says where its things are
-            Assert.StartsWith("ERR", network);
-            Assert.Contains("the NETWORK band is not a lens", network);
-            Assert.Equal(EyeLens.Audio, services.Eye.Lens);
+            // Round 99.4: NETWORK is a lens — every app card, its links and the desk — on the wire and on the page's chips alike.
+            Assert.StartsWith("OK", Send(router, "EYE LENS network"));
+            Assert.Equal(EyeLens.Network, services.Eye.Lens);
+            Assert.Contains(vm.EyeLenses, c => c.Word == "network" && c.IsCurrent);
+            Assert.True(services.Eye.Shown.Visible(services.Eye.Shown.Find(EyeGraph.DeskId)!, EyeLens.Network));
+            Assert.Contains("problems or network", Send(router, "EYE LENS bogus"));
+            Assert.StartsWith("OK", Send(router, "EYE LENS audio"));
             Assert.StartsWith("ERR", Send(router, "EYE FOCUS nothing of that name"));
             Assert.StartsWith("OK", Send(router, "EYE RESET"));
             Assert.Null(services.Eye.FocusId);

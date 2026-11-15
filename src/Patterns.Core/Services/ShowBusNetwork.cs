@@ -452,6 +452,17 @@ public sealed class ShowBusPeers
         _ => kind.Length > 0 ? char.ToUpperInvariant(kind[0]) + kind[1..] : "App",
     };
 
+    /// <summary>The §8 kind a kind's words name (<see cref="KindWords"/> read back): "Stagewatch" is <c>main</c>; "" for words no kind is said by.</summary>
+    public static string KindOf(string words) => words switch
+    {
+        "Stagewatch" => "main",
+        "Slides agent" => "agent",
+        "Patterns" => "patterns",
+        "AGMessage" => "messenger",
+        "PlayMap" => "playmap",
+        _ => "",
+    };
+
     private static string Str(JsonElement r, string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "").Trim() : "";
 
     private static int Int(JsonElement r, string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) && i is > 0 and <= 65535 ? i : 0;

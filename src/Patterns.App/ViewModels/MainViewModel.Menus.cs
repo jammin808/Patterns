@@ -78,7 +78,13 @@ public sealed partial class MainViewModel : IDeskMenuHost
             case "transport":
                 return new DeskMenuVm(DeskMenus.Transport(facts), e => RunMenuEntry(e, null));   // round 73: GO, HOLD, BLACKOUT, STOP ALL — learnable like everything else
             case "eye":
-                return subject is EyeNode node ? EyeMenu(node, facts) : null;
+                // A thing opens its own menu; a link (hit after the things, the Eye design's D13) opens the link's, its app's verbs in it.
+                return subject switch
+                {
+                    EyeNode node => EyeMenu(node, facts),
+                    EyeEdge edge => new DeskMenuVm(EyeMenus.ForEdge(facts, _services.Eye.Shown, edge), e => RunMenuEntry(e, edge)),
+                    _ => null,
+                };
             case "showapp":
                 return subject is ShowAppCard card
                     ? new DeskMenuVm(DeskMenus.ShowApp(facts, MenuShowApp.Of(card)), e => RunMenuEntry(e, card))
@@ -321,7 +327,8 @@ public sealed partial class MainViewModel : IDeskMenuHost
             }
             case "Nodes":
                 // Show Bus 1.3 §13.5.2: a key row's "speak for another connector" opens the BIND boxes with that key in them.
-                if (item.Length > 0) AppKeys.Pick(item);
+                if (item.StartsWith(NetworkMenus.MakeRoute, StringComparison.Ordinal)) AppKeys.MakeFor = item[NetworkMenus.MakeRoute.Length..];   // Make a key for this app…
+                else if (item.Length > 0) AppKeys.Pick(item);
                 break;
             case "Lower thirds":
             {

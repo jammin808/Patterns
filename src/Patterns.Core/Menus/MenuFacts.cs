@@ -326,6 +326,12 @@ public sealed record MenuStagewatch
     public bool Floor { get; init; }
     public string BindTarget { get; init; } = "";
     public string BindName { get; init; } = "";
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.6: the id of the node that answered LINK in the linked Stagewatch's place — the link refused as another id
+    /// and waits for a person's <i>Accept new id</i>; "" while none does.
+    /// </summary>
+    public string OtherId { get; init; } = "";
 }
 
 /// <summary>
@@ -357,5 +363,8 @@ public sealed record MenuAppLink(string Lid, string Client, string Label, string
 public sealed record MenuShowApp(string Id, string KindLabel, string Name, string Line, bool Linked, bool AddAsDevice = false, string DeviceId = "")
 {
     /// <summary>The card's facts as its menu reads them.</summary>
-    public static MenuShowApp Of(ShowAppCard card) => new(card.Id, card.KindLabel, card.Name, card.Line, card.Linked, card.AddAsDevice, card.DeviceId);
+    public static MenuShowApp Of(ShowAppCard card) => new(card.Id, card.KindLabel, card.Name, card.Line, card.Linked, card.AddAsDevice, card.DeviceId) { Kind = card.Kind };
+
+    /// <summary>Its hello's kind (§8: <c>main</c>, <c>playmap</c>…), "" where none is known — what a key made for it is bound to, with its id.</summary>
+    public string Kind { get; init; } = "";
 }

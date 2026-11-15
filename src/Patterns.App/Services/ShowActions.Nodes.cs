@@ -100,7 +100,8 @@ public static class StagewatchLinkActions
     /// <summary>The kinds this layer runs.</summary>
     public static bool IsLinkVerb(ShowActionKind kind) => kind is ShowActionKind.StagewatchTrust or ShowActionKind.StagewatchLinkSet
         or ShowActionKind.StagewatchLinkAgain or ShowActionKind.StagewatchFollow or ShowActionKind.StagewatchAccept
-        or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease or ShowActionKind.StagewatchKeyBind;
+        or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease or ShowActionKind.StagewatchKeyBind
+        or ShowActionKind.StagewatchAcceptId;
 
     /// <summary>An approved line from an approval desk (another app's assistant, approved there): the link is never its to change.</summary>
     public static bool FromApprovalDesk(ActionOrigin origin) => origin.Kind == OriginKind.Tcp && origin.Name == StagewatchVerbs.ApprovalDesk;
@@ -120,6 +121,11 @@ public static class StagewatchLinkActions
                 if (origin.Kind != OriginKind.Desk) return ActionResult.Refused(DeskOnlyWords + " — refused from " + origin.Label + ".");
                 var (accepted, acceptWords) = link.AcceptCertificate(a.Value);
                 return accepted ? ActionResult.Done(acceptWords) : ActionResult.Refused(acceptWords);
+            case ShowActionKind.StagewatchAcceptId:
+                // Show Bus 1.3 §13.16.6: a person's trust decision beside the id that answered — never a line's, a peer's or an assistant's.
+                if (origin.Kind != OriginKind.Desk) return ActionResult.Refused(StagewatchVerbs.AcceptIdWords + " — refused from " + origin.Label + ".");
+                var (took, tookWords) = link.AcceptNewId(a.Value);
+                return took ? ActionResult.Done(tookWords) : ActionResult.Refused(tookWords);
             case ShowActionKind.StagewatchKeyBind:
                 if (origin.Kind != OriginKind.Desk) return ActionResult.Refused(StagewatchVerbs.KeyWords + " — refused from " + origin.Label + ".");
                 var (bound, bindWords) = link.BindKey(a.Value);
@@ -303,6 +309,7 @@ public static class StagewatchLinkActions
             Floor = link.HasFloor,
             BindTarget = link.KeyBindTarget,
             BindName = link.KeyBindName,
+            OtherId = link.OtherId,
         };
     }
 }

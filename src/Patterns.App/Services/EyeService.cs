@@ -47,6 +47,9 @@ public sealed class EyeService
 
     public EyeLens Lens { get; private set; } = EyeLens.All;
 
+    /// <summary>The other show apps as the last gather read them — the side card's LINKS list reads each one's records from here.</summary>
+    public IReadOnlyList<EyeShowApp> Apps { get; private set; } = Array.Empty<EyeShowApp>();
+
     /// <summary>The picture or the view moved — on the UI thread, where every verb runs.</summary>
     public event Action? Changed;
 
@@ -82,6 +85,7 @@ public sealed class EyeService
             Log.Warn("The Eye could not read the desk.", ex);
             return false;
         }
+        Apps = facts.ShowApps;                                                              // the side card's LINKS read the records as they are now
         var hash = facts.Key();
         if (hash == _hash) return false;
         _hash = hash;
@@ -180,7 +184,7 @@ public sealed class EyeService
     {
         var lens = EyeGraph.ParseLens(word);
         // A lens reads each thing's plane, never the band it is drawn in: NETWORK is a band, so the refusal says where its things are.
-        if (lens is null) return ActionResult.Refused($"No lens called '{word.Trim()}' — all, video, control, audio, room or problems; the NETWORK band is not a lens, its things are on their own planes' lenses.");
+        if (lens is null) return ActionResult.Refused($"No lens called '{word.Trim()}' — all, video, control, audio, room, problems or network (every app card, its links and the desk).");
         Lens = lens.Value;
         Moved();
         return ActionResult.Done($"Eye lens: {Lens.ToString().ToLowerInvariant()}.");

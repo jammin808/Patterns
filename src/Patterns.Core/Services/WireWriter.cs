@@ -28,7 +28,7 @@ public static class WireWriter
         ShowActionKind.ListGo, ShowActionKind.ListBack, ShowActionKind.ListReset, ShowActionKind.CueFire,
         // A person's trust decision, beside the fingerprint on this desk: the wire has no word that pins a certificate, accepts a
         // changed one, or chooses where the Stagewatch key goes.
-        ShowActionKind.StagewatchTrust, ShowActionKind.StagewatchAccept, ShowActionKind.StagewatchKeyBind,
+        ShowActionKind.StagewatchTrust, ShowActionKind.StagewatchAccept, ShowActionKind.StagewatchKeyBind, ShowActionKind.StagewatchAcceptId,
         // The app keys are the operator's on the Nodes page (Show Bus 1.3 §13.5): a recording deck never hears one made, bound or revoked.
         ShowActionKind.AppKeyMake, ShowActionKind.AppKeyBind, ShowActionKind.AppKeyRevoke,
         // Closing another app's link is the operator's on the Nodes page (Show Bus 1.3 §13.16.6): no deck records it as a line.

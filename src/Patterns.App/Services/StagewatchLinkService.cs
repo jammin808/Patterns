@@ -840,6 +840,48 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// <summary>The name of the Stagewatch the key is held back from by its binding; "" when none.</summary>
     public string KeyBindName => Volatile.Read(ref _bindOffer)?.Name ?? "";
 
+    /// <summary>
+    /// Show Bus 1.3 §13.16.6: the id of the node that answered LINK in the Stagewatch's place — the link refused as another id, waiting
+    /// for a person's <i>Accept new id</i>; "" while none waits.
+    /// </summary>
+    public string OtherId
+    {
+        get
+        {
+            lock (_core) return _run.Core?.Machine.OtherId ?? "";
+        }
+    }
+
+    /// <summary>
+    /// <i>Accept new id</i> on the desk (UI thread) — Show Bus 1.3 §13.16.6: the link binds to the node that answered in its place, with
+    /// no pin and no floor of the old node's, and dials it on its next beat. The key held for the old node is never proved or sent to
+    /// it (13.4.3): the link reads its public view. <paramref name="id"/> is the id the person was shown beside
+    /// the press; it is taken only while it is the one waiting — compared and taken in one step, so a node that changed since the words
+    /// were drawn is never bound in its place. Refused, with the reason, while nothing answers in its place. Returns whether it bound,
+    /// and the words for the strip.
+    /// </summary>
+    public (bool Done, string Words) AcceptNewId(string id)
+    {
+        var shown = (id ?? "").Trim();
+        string name;
+        bool keyHeld;
+        lock (_core)
+        {
+            if (_run.Core is not { } core || core.Machine.OtherId is not { } other)
+                return (false, "Nothing else answers in the Stagewatch's place — the link is to the node it dials; nothing to accept.");
+            if (!string.Equals(other, shown, StringComparison.Ordinal))
+                return (false, $"The node answering now is {other}, not {(shown.Length > 0 ? shown : "the one")} pressed for — look again on its own screen.");
+            if (!core.Machine.AcceptNewId()) return (false, "The link no longer waits for a new id — nothing changed.");
+            name = PendingName;
+            keyHeld = core.Machine.KeyHeldBack is not null;
+        }
+        SayChange();
+        UiThread.Post(_changed);
+        var keyWords = keyHeld ? "; this desk's key stays with the node it was held for and is never proved to it — its public view is read" : "";
+        Log.Info($"Stagewatch link: the node {shown} that answered in {name}'s place accepted by a person on this desk — the link is to it from now, with no pin or floor of the old node's{keyWords}.");
+        return (true, $"Accepted {shown} as the node {name}'s link is to — it dials it now, with no pin or floor of the old node's{keyWords}.");
+    }
+
     /// <summary>The record's words for a key its binding holds back from the Stagewatch the link dials: where it is bound, and the press that moves it.</summary>
     public static string HeldBackWords(string keyFor)
         => (keyFor == StagewatchKeyFor.None ? "this desk's key is bound to no Stagewatch" : $"this desk's key is bound to {StagewatchKeyFor.Words(keyFor)}")
@@ -1493,7 +1535,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         var pin = saved is { Trust: not PinTrust.First } ? saved.Fingerprint : "";            // a person's (or a proof's) pin: TLS or nothing, and the key over it
         var first = saved is { Trust: PinTrust.First } ? saved.Fingerprint : "";              // the desk's pin at first use: compared, never trusted
         LinkPin? corePin;
-        lock (_core) corePin = core.Machine.Pin;
+        bool coreHolds;
+        lock (_core) (corePin, coreHolds) = (core.Machine.Pin, core.Machine.KeyHeldBack is not null);
         // 13.8.2: a pin a proof made on this run is the core's before the settings keep it: it binds this dial as any pin does.
         if (pin.Length == 0 && corePin is { Trust: not PinTrust.First } made)
         {
@@ -1504,7 +1547,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         // G34: the key goes only to the Stagewatch it is bound to; to any other the link reads the public view, and the desk offers to
         // bind it to this one (BIND KEY), a person's press.
         var bound = StagewatchKeyFor.Goes(run.KeyFor, target.PinKey, target.TypedKey);
-        var key = isPublic || !bound ? "" : apiKey;
+        // 13.4.3: a key the core holds back from the node it now links (one a person accepted in another's place) rides no dial of it.
+        var key = isPublic || !bound || coreHolds ? "" : apiKey;
         // Round 96 (13.6.5): the key is proved with LINK, never sent, to any Stagewatch that may hear it — over TLS to whatever
         // certificate it shows, the proof bound to that one, or plain to loopback — unless this run found it older than LINK.
         var linkQuery = key.Length > 0 && !core.Level0 ? StagewatchFrame.LinkQuery(SelfId) : null;

@@ -111,6 +111,7 @@ public class StagewatchVerbsTests
         Assert.Contains("never rides a line", StagewatchVerbs.KeyWords, StringComparison.Ordinal);
         Assert.Contains("never proposed", StagewatchVerbs.BriefWords, StringComparison.Ordinal);
         Assert.Contains("STAGEWATCH LINK", StagewatchVerbs.BriefWords, StringComparison.Ordinal);
+        Assert.Contains("Accept new id only on the desk", StagewatchVerbs.BriefWords, StringComparison.Ordinal);   // a person's, never proposed
         Assert.Contains("§13.17", StagewatchVerbs.NothingHeldWords, StringComparison.Ordinal);
         Assert.Contains("§13.9.3", StagewatchVerbs.NoFloorWords, StringComparison.Ordinal);
     }
@@ -225,7 +226,7 @@ public class StagewatchVerbsTests
         var trust = new MenuTrust("a1b2c3d4", "Hall A", Pending);
         var menu = DeskMenus.ShowApp(Desk(linked, trust), new MenuShowApp("a1b2c3d4", "Stagewatch", "Hall A", "linked", true));
         var group = Assert.Single(menu.Groups, g => g.Heading == "LINK");
-        Assert.Equal(new[] { "link.off", "link.follow", "link.again", "link.release", "link.trust", "link.accept", "link.ask.window", "link.floor", "link.bind" }, group.Entries.Select(e => e.Id));
+        Assert.Equal(new[] { "link.off", "link.follow", "link.again", "link.release", "link.trust", "link.accept", "link.ask.window", "link.floor", "link.bind", "link.newid" }, group.Entries.Select(e => e.Id));
         Assert.Equal("STAGEWATCH LINK OFF", menu.Find("link.off")!.Wire);
         Assert.Equal(new ShowAction(ShowActionKind.StagewatchLinkSet, "", "OFF"), menu.Find("link.off")!.Action);
         Assert.Equal("STAGEWATCH FOLLOW OFF", menu.Find("link.follow")!.Wire);
@@ -257,7 +258,7 @@ public class StagewatchVerbsTests
 
         // Follow off: the entry offers it back on. No floor, no pending, no binding held back: those entries are not offered.
         var plain = DeskMenus.ShowApp(Desk(linked with { Follow = false, Floor = false, Pending = "", BindTarget = "" }), new MenuShowApp("a1b2c3d4", "Stagewatch", "Hall A", "linked", true));
-        Assert.Equal(new[] { "link.off", "link.follow", "link.again", "link.release", "link.ask.window" }, plain.Groups.Single(g => g.Heading == "LINK").Entries.Select(e => e.Id));
+        Assert.Equal(new[] { "link.off", "link.follow", "link.again", "link.release", "link.ask.window", "link.newid" }, plain.Groups.Single(g => g.Heading == "LINK").Entries.Select(e => e.Id));
         // Round 96 (Show Bus 1.3 §12.4): asking it for a window opens the Nodes page, where the name is typed; the deck's line takes it where the * is.
         var ask = plain.Find("link.ask.window")!;
         Assert.Equal((MenuScope.Go, "Nodes", "NODES ASK WINDOW *", true), (ask.Scope, ask.Route!.Page, ask.Wire, ask.TakesText));

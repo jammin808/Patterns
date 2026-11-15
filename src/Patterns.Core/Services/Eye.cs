@@ -12,7 +12,8 @@ public enum EyePlane
     Room,
     /// <summary>
     /// The band the other apps are drawn on, above CONTROL — a layout band only (<see cref="EyeNode.Band"/>): no thing's
-    /// <see cref="EyeNode.Plane"/> is NETWORK, so a lens never reads it.
+    /// <see cref="EyeNode.Plane"/> is NETWORK. The NETWORK lens (<see cref="EyeLens.Network"/>) reads kinds, not this band: every
+    /// app card, every link between them and the desk.
     /// </summary>
     Network,
 }
@@ -61,7 +62,7 @@ public enum EyeEdgeKind
     Sends,
 }
 
-/// <summary>A lens over the picture: everything, one band with the desk, or the problems and what they touch.</summary>
+/// <summary>A lens over the picture: everything, one band with the desk, the problems and what they touch, or the show network.</summary>
 public enum EyeLens
 {
     All,
@@ -70,6 +71,8 @@ public enum EyeLens
     Audio,
     Room,
     Problems,
+    /// <summary>The show network: every app card and every other Patterns node (<see cref="EyeGraph.IsNetworkCard"/>), the desk, and every link between them.</summary>
+    Network,
 }
 
 // ---- the facts the desk hands in ------------------------------------------------------------
@@ -185,6 +188,12 @@ public sealed class EyeFacts
 /// </summary>
 public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBusState State, bool Linked, string Words)
 {
+    /// <summary>
+    /// Its §8 kind as its hello or the link that proved it says it (<c>main</c>, <c>playmap</c>, <c>messenger</c>…), "" where neither
+    /// does — what a key made for it is bound to beside its id, read from the hello and never back from <see cref="KindWords"/>.
+    /// </summary>
+    public string Kind { get; init; } = "";
+
     /// <summary>
     /// Its context as this desk shows it (its moment left out). Left out of the Eye's hash: <see cref="ContextRev"/> stands for it
     /// there, so the once-a-second tick never serialises another app's context to learn whether it moved (the Eye design's D9) —
@@ -380,6 +389,13 @@ public sealed record EyeNodeHeard(string Instance, string Kind, string Name, boo
     /// <c>@&lt;that id&gt;</c> is placed on it.
     /// </summary>
     public string ShowBusId { get; init; } = "";
+
+    /// <summary>
+    /// The show needs this node (Show Bus 1.3 §13.1 for this desk: a link it follows, an enabled node device, a window grant on the
+    /// air). Only then is a node gone quiet red; otherwise a node the beacon stopped hearing is grey — a hello or a beacon alone is
+    /// never green and never a reason to call an absent node a fault (13.16).
+    /// </summary>
+    public bool Needed { get; init; }
 }
 
 public sealed record EyeRoom(string Code, int Phones, string Words, CheckLight Light);
@@ -716,8 +732,12 @@ public sealed class EyeGraph
         EyeLens.Control => OnPlane(n, EyePlane.Control),
         EyeLens.Audio => OnPlane(n, EyePlane.Audio),
         EyeLens.Room => OnPlane(n, EyePlane.Room),
+        EyeLens.Network => n.Kind == EyeKind.Desk || IsNetworkCard(n),
         _ => true,
     };
+
+    /// <summary>A card of the show network: another app's (<see cref="EyeKind.ShowApp"/>) or another Patterns node's (<see cref="EyeKind.Node"/>) — what the NETWORK lens shows beside the desk.</summary>
+    public static bool IsNetworkCard(EyeNode n) => n.Kind is EyeKind.ShowApp or EyeKind.Node;
 
     private bool OnPlane(EyeNode n, EyePlane plane)
         => n.Plane == plane || n.Kind == EyeKind.Desk || (n.Kind == EyeKind.ShowApp && _clusterPlanes.TryGetValue(n.Id, out var planes) && planes.Contains(plane));
@@ -731,6 +751,7 @@ public sealed class EyeGraph
         "audio" or "sound" => EyeLens.Audio,
         "room" or "audience" => EyeLens.Room,
         "problems" or "problem" or "wrong" => EyeLens.Problems,
+        "network" or "apps" or "links" => EyeLens.Network,
         _ => null,
     };
 
@@ -1102,10 +1123,11 @@ public sealed class EyeGraph
                 continue;
             }
             if (n.ShowBusId.Length > 0) cardOfId.TryAdd(n.ShowBusId, id);                        // no twin context names it: its hello is all that does
-            var light = !n.Fresh ? CheckLight.Red : n.Linked ? CheckLight.Green : CheckLight.Grey;
-            var sub = !n.Fresh ? "gone quiet" : n.Linked ? "linked" + (n.Words.Length > 0 ? " · " + n.Words : "") : "heard" + (n.Words.Length > 0 ? " · " + n.Words : "");
+            // Gone quiet is red only when the show needs the node (13.1); a node it does not need is grey, a gap and no fault.
+            var light = !n.Fresh ? (n.Needed ? CheckLight.Red : CheckLight.Grey) : n.Linked ? CheckLight.Green : CheckLight.Grey;
+            var sub = !n.Fresh ? (n.Needed ? "gone quiet" : "not heard any more · not needed by the show") : n.Linked ? "linked" + (n.Words.Length > 0 ? " · " + n.Words : "") : "heard" + (n.Words.Length > 0 ? " · " + n.Words : "");
             var kind = n.Kind.Length > 0 ? char.ToUpperInvariant(n.Kind[0]) + n.Kind[1..].ToLowerInvariant() : "Node";
-            Add(new EyeNode(id, EyeKind.Node, EyePlane.Control, 2, $"{kind} {n.Name}".Trim(), sub, light) { Words = new[] { kind + " node", n.Words }.Where(w => w.Length > 0).ToList(), Route = new MenuRoute("Nodes"), Origin = EyeOrigin.Heard });
+            Add(new EyeNode(id, EyeKind.Node, EyePlane.Control, 2, $"{kind} {n.Name}".Trim(), sub, light) { Words = new[] { kind + " node", n.Words }.Where(w => w.Length > 0).ToList(), Route = new MenuRoute("Nodes"), Origin = n.Linked ? EyeOrigin.Link : EyeOrigin.Heard });   // linked, it is known by its link, not only its hello
             if (n.Linked) Link(id, DeskId, EyeEdgeKind.Follows, light, n.Fresh ? "linked" : "gone quiet", origin: EyeOrigin.Link);
             else Link(id, DeskId, EyeEdgeKind.Hears, light, n.Fresh ? "heard on the beacon" : "gone quiet", origin: EyeOrigin.Heard);
         }

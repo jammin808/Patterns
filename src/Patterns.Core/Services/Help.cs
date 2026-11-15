@@ -223,7 +223,7 @@ public static class HelpTopics
                 "On a deck: the Companion module's Eye page — the headline key lit by the worst light, NEXT / PREV PROBLEM, a LENS key per lens, RESET — and EYE FOCUS screen 2 from any controller on the wire.",
                 "After a bad moment press REPLAY: the same picture relit from the journal and the metrics file at an instant — drag the scrub bar or step 30 s to see which screen took what, which cue failed and how the machine was doing then; the rail stays on now; NOW puts the picture of now back.",
             },
-            "EYE · EYE FOCUS <screen n | label | id> · EYE NEXT · EYE PREV · EYE LENS <all|video|control|audio|room|problems> · EYE RESET · EYE REPLAY <ON|OFF|time> · EYE AT <time>",
+            "EYE · EYE FOCUS <screen n | label | id> · EYE NEXT · EYE PREV · EYE LENS <all|video|control|audio|room|problems|network> · EYE RESET · EYE REPLAY <ON|OFF|time> · EYE AT <time>",
             new[] { "Eye", "Run", "Screens", "Remote" },
             new[] { "god's eye", "gods eye", "eye", "overview", "picture of the show", "topology", "map", "graph", "what is connected", "what is attached", "what feeds", "what drives", "links", "dependencies", "worst", "headline", "problems", "next problem", "red", "amber", "focus", "lens", "zoom", "pan", "bands", "network band", "clusters", "cluster", "fold", "other apps", "marks", "contacts", "hive", "situational awareness", "single pane", "one picture", "companion eye", "eye focus", "replay", "what happened", "scrub", "record", "history of the picture" }),
         new HelpTopic("right-click-menus", HelpGroup.RunningTheShow,

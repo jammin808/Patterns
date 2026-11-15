@@ -76,7 +76,7 @@ public static class EyeMenus
                 var verb = $"{EyeMarks.Glyph(edge.Mark)} " + (edge.From == n.Id ? $"{verbWord(edge)} it" : $"{verbWord(edge)} this");
                 linked.Add(new MenuEntry(ContactId(c.Id, k), c.Label, MenuScope.Live, ToneOf(c.Light))
                 {
-                    Detail = string.Join(" · ", new[] { verb, EyeMarks.Unmarked(edge.Words, edge.Mark), c.Sub }.Where(w => w.Length > 0)),
+                    Detail = string.Join(" · ", new[] { verb, EyeMarks.Unmarked(edge.Words, edge.Mark), EyeMarks.SourceWords(edge), c.Sub }.Where(w => w.Length > 0)),
                     Wire = "EYE FOCUS " + c.Id,
                     Action = new ShowAction(ShowActionKind.EyeFocus, "", c.Id),
                 });
@@ -118,20 +118,8 @@ public static class EyeMenus
         {
             new("EYE", MenuTone.Tile, eye) { Note = "Moves what the desk is looking at, never the show." },
         };
-        // G34, Show Bus 1.3 §13.16.6: a Stagewatch's LINK group — the Nodes card's own, its verbs and a person's presses, the same actions.
-        if (n.Kind == EyeKind.ShowApp && n.Id.StartsWith("app:", StringComparison.Ordinal))
-        {
-            var appId = n.Id[4..];
-            var stagewatch = d.Stagewatch.Heard.Contains(appId) || d.Stagewatch.LinkedId == appId;
-            var name = n.Label.StartsWith(StagewatchLabel, StringComparison.Ordinal) ? n.Label[StagewatchLabel.Length..] : n.Label;
-            if (DeskMenus.LinkGroup(d, appId, stagewatch, name) is { } link) groups.Add(link);
-            // Round 97: a Show Bus node's DEVICE group — the Nodes card's own entries.
-            if (d.ShowApps.FirstOrDefault(a => a.Id == appId) is { } app && DeskMenus.DeviceGroup(d, app) is { } device) groups.Add(device);
-            // Show Bus 1.3 §13.16.6: each open link this desk accepted from that app — its Nodes row's own entries (close it, revoke its
-            // key), the same actions, under a heading of their own beside the link this desk holds to it.
-            foreach (var accepted in d.AppLinks.Where(l => !l.Ended && l.Id == appId))
-                groups.AddRange(DeskMenus.AppLink(d, accepted).Groups.Select(g => g with { Heading = "ITS LINK TO THIS DESK" }));
-        }
+        // Show Bus 1.3 §13.16.6: an app's card carries the show network's verbs for it — the Nodes card's own groups, one builder.
+        if (AppOf(n) is { } appId) groups.AddRange(Network(d, n, appId));
         if (linked.Count > 0) groups.Add(new MenuGroup("LINKED TO", MenuTone.Tile, linked) { Note = "Each is a focus of its own." });
         if (go.Count > 0) groups.Add(new MenuGroup("GO TO", MenuTone.Go, go));
         groups.Add(new MenuGroup("ASK", MenuTone.Ask, ask) { Note = "The assistant answers from the facts; the desk runs nothing." });
@@ -151,6 +139,91 @@ public static class EyeMenus
             EyeEdgeKind.Serves => "serves",
             _ => "sends to",
         };
+    }
+
+    /// <summary>The show network id of an app's card on the Eye (<c>app:&lt;id&gt;</c>), or null for any other thing.</summary>
+    public static string? AppOf(EyeNode n)
+        => n.Kind == EyeKind.ShowApp && n.Id.StartsWith("app:", StringComparison.Ordinal) && n.Id.Length > 4 ? n.Id[4..] : null;
+
+    /// <summary>The show network's verbs for the app a card stands for (<see cref="NetworkMenus.Groups(DeskFacts, string, string, string)"/>).</summary>
+    private static IReadOnlyList<MenuGroup> Network(DeskFacts d, EyeNode card, string appId)
+    {
+        var name = card.Label.StartsWith(StagewatchLabel, StringComparison.Ordinal) ? card.Label[StagewatchLabel.Length..] : card.Label;
+        var kind = card.Label.StartsWith(StagewatchLabel, StringComparison.Ordinal) ? "Stagewatch" : "";
+        return NetworkMenus.Groups(d, appId, kind, name);
+    }
+
+    /// <summary>The desk menu's subject for a link: its two ends, its verb and its lane among the links of that pair.</summary>
+    public static string EdgeSubject(EyeGraph g, EyeEdge e)
+    {
+        var k = g.EdgesBetween(e.From, e.To).Where(x => x.From == e.From && x.Kind == e.Kind).ToList().IndexOf(e);
+        return $"{e.From}>{e.Verb}>{e.To}" + (k > 0 ? "#" + (k + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : "");
+    }
+
+    /// <summary>
+    /// The menu of one link of the Eye (the Eye design's D13: an edge hit on click and right-click): FOCUS on either end and the whole
+    /// picture; a link between this desk and an app's card carries that app's show network verbs — the card's own groups, the same
+    /// actions — and a claim (one app's words about another node) carries none, since a claim drives nothing; ASK with the link's facts.
+    /// </summary>
+    public static DeskMenu ForEdge(DeskFacts d, EyeGraph g, EyeEdge e)
+    {
+        var from = g.Find(e.From);
+        var to = g.Find(e.To);
+        var fromLabel = from?.Label ?? e.From;
+        var toLabel = to?.Label ?? e.To;
+        var source = EyeMarks.SourceWords(e);
+        var words = EyeMarks.Unmarked(e.Words, e.Mark);
+        var eye = new List<MenuEntry>
+        {
+            new("eye.edge.from", "Focus on " + fromLabel, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "The camera on the end it leaves from and what that links to",
+                Wire = "EYE FOCUS " + e.From,
+                Action = new ShowAction(ShowActionKind.EyeFocus, "", e.From),
+            },
+            new("eye.edge.to", "Focus on " + toLabel, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "The camera on the end it lands on and what that links to",
+                Wire = "EYE FOCUS " + e.To,
+                Action = new ShowAction(ShowActionKind.EyeFocus, "", e.To),
+            },
+            new("eye.reset", "The whole picture", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "Every band, nothing dimmed, the view you had before the focus",
+                Wire = "EYE RESET",
+                Action = new ShowAction(ShowActionKind.EyeReset),
+            },
+        };
+        var groups = new List<MenuGroup>
+        {
+            new("EYE", MenuTone.Tile, eye)
+            {
+                Note = EyeMarks.IsClaim(e)
+                    ? $"A claim of {(e.Claim.Length > 0 ? e.Claim : "another app")}'s: it drives nothing and lights neither end. The view moves, never the show."
+                    : "Moves what the desk is looking at, never the show.",
+            },
+        };
+        // The app at the far end of a link this desk holds, accepts or hears: its card's own verbs. A claim carries none.
+        if (!EyeMarks.IsClaim(e))
+        {
+            var card = e.From == EyeGraph.DeskId ? to : e.To == EyeGraph.DeskId ? from : null;
+            if (card is not null && AppOf(card) is { } appId) groups.AddRange(Network(d, card, appId));
+        }
+        var question = $"On the God's Eye, the link '{fromLabel}' {e.Verb} '{toLabel}' ({EyeGraph.Light(e.Light)}) reads: {(words.Length > 0 ? words : "no words")}."
+                       + (source.Length > 0 ? $" Its source: {source}." : "")
+                       + " What does it mean, and what does it need from me now? Answer from these facts, and say unknown where they are silent.";
+        groups.Add(new MenuGroup("ASK", MenuTone.Ask, new[]
+        {
+            new MenuEntry("eye.edge.ask", "What is this link?", MenuScope.Ask, MenuTone.Ask)
+            {
+                Detail = "The link, its words and where it comes from, in the question",
+                Question = question,
+                Because = d.AssistantReady ? "" : NeedKey,
+            },
+        })
+        { Note = "The assistant answers from the facts; the desk runs nothing." });
+        var subtitle = string.Join(" · ", new[] { $"{EyeMarks.Glyph(e.Mark)} {e.Verb}", words, source }.Where(w => w.Length > 0));
+        return DeskMenus.WithMidi(d, new DeskMenu("eyeedge", EdgeSubject(g, e), $"{fromLabel} → {toLabel}", subtitle, ToneOf(e.Light), groups));
     }
 
     /// <summary>The LINKED TO entry for the <paramref name="index"/>-th link (0-based) between the menu's thing and <paramref name="contact"/>: one id per link.</summary>

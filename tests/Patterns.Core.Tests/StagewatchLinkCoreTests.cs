@@ -604,6 +604,48 @@ public sealed class StagewatchLinkCoreTests
         Assert.False(StagewatchKey.Unknown.Amber);
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.4.3 and §13.16.6: a node that answers LINK as another id is refused, nothing proved to it, and waits for a
+    /// person's <i>Accept new id</i>; the press binds the link to that id with no pin or floor of the old node's, and the key held for
+    /// the old node stays with it — held back, never proved to the id accepted in its place, so the next dial reads its public view.
+    /// </summary>
+    [Fact]
+    public void AcceptNewIdBindsTheNodeThatAnsweredAndNeverProvesTheOldNodesKeyToIt()
+    {
+        long t = 0;
+        var m = new PeerLinkMachine(Settings(local: true), null, t, () => 0.5);
+        Assert.False(m.AcceptNewId());                                                            // nothing answered in its place
+        Assert.Null(m.OtherId);
+
+        t += m.DialIn(t) ?? throw new InvalidOperationException("no dial is due");
+        Assert.NotNull(m.Dial(t));
+        m.NoTls(t);
+        m.LinkOffered(t, new LinkOffer(PeerLink.Version, "main", "swdesk02", new string('0', 32), "plain"));
+        Assert.Equal(LinkState.Refused, m.State(t));
+        Assert.Equal("swdesk02", m.OtherId);
+        Assert.DoesNotContain(m.Drain(), w => w.Credential == "proof");                          // nothing proved to the id it did not mean
+        Assert.Null(m.KeyHeldBack);
+
+        Assert.True(m.AcceptNewId());
+        Assert.Equal("swdesk02", m.NodeId);
+        Assert.Null(m.OtherId);
+        Assert.NotEqual(LinkState.Refused, m.State(t));
+        Assert.Equal(PeerLinkMachine.KeyHeldForWords("swdesk01", "swdesk02"), m.KeyHeldBack);
+        Assert.False(m.AcceptNewId());                                                            // a second press changes nothing
+
+        // The next dial, as the accepted node offers LINK: no proof with the old node's key, the public view read keyless.
+        m.Closed(t + 1);
+        t += 1;
+        t += m.DialIn(t) ?? throw new InvalidOperationException("no dial is due after the accept");
+        Assert.NotNull(m.Dial(t));
+        m.NoTls(t);
+        m.LinkOffered(t, new LinkOffer(PeerLink.Version, "main", "swdesk02", new string('0', 32), "plain"));
+        m.Frame(t);
+        Assert.DoesNotContain(m.Drain(), w => w.Credential is "proof" or "bearer");
+        Assert.Contains("keyless", m.Flags(t));
+        Assert.Contains(PeerLinkMachine.KeyHeldForWords("swdesk01", "swdesk02"), m.Record(t).Words, StringComparison.Ordinal);
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------------------
 
     private static LinkSettings Settings(bool local)

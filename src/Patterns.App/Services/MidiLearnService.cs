@@ -82,6 +82,7 @@ public sealed class MidiLearnService
             // Round 75: a bound line sits in the show file in clear, and the show file travels (the twin, a stick, a bundle).
             return ActionResult.Refused("An admin verb (UPDATE APPLY, RESTART) carries the passcode — not a line to bind. The admin verbs stay on the desk and the Remote page.");
         }
+        if (parsed.Action.Kind is ShowActionKind.StagewatchAcceptId) return ActionResult.Refused(StagewatchVerbs.AcceptIdWords + " — not a line to bind.");
         if (parsed.Action.Kind is ShowActionKind.StagewatchTrust or ShowActionKind.StagewatchAccept or ShowActionKind.StagewatchKeyBind)
         {
             // G34: a person's choice beside the fingerprint on this desk, and the key typed there — no pad presses either.

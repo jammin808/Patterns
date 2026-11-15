@@ -98,6 +98,7 @@ EYE FOCUS screen 1
 EYE LENS all
 EYE LENS audio
 EYE LENS control
+EYE LENS network
 EYE LENS problems
 EYE LENS room
 EYE LENS video

@@ -245,3 +245,40 @@ public static class EyeNetwork
         return words.Contains(":\\", StringComparison.Ordinal) || words.Contains("\\\\", StringComparison.Ordinal) || words.Contains("file:", StringComparison.OrdinalIgnoreCase);
     }
 }
+
+/// <summary>One link of an app as the Eye's side card lists it under LINKS: its light and mark, whose link it is, its words, its flags and its clock.</summary>
+public sealed record EyeLinkRow(CheckLight Light, string Mark, string Title, string Words, string Flags, string Clock);
+
+/// <summary>
+/// The side card's LINKS for an app's card (the Eye design's §7): each link between this desk and the app, from its own record — the
+/// link this desk holds (or drives it by, as a device), then each link the app's connector made to this desk's wire — never a link
+/// another app's context claims. The words are the record's steady words; the clock is the record's, as read at the gather.
+/// </summary>
+public static class EyeLinks
+{
+    public static IReadOnlyList<EyeLinkRow> Of(EyeShowApp app)
+    {
+        var rows = new List<EyeLinkRow>();
+        if (app.Link is { IsOn: true } r)
+        {
+            var title = app.DeviceId.Length > 0 ? $"this desk drives it as the device {app.Device}" : "this desk's link to it";
+            rows.Add(new EyeLinkRow(r.LightValue, r.Mark, title, $"{r.SteadyWords} · {r.Carrier} · level {r.Level.ToString(CultureInfo.InvariantCulture)}" + (r.Tls.Length > 0 ? " · TLS " + r.Tls : ""),
+                string.Join(" · ", r.FlagLines), ClockWords(r.Clock)));
+        }
+        foreach (var a in app.Accepted)
+        {
+            rows.Add(new EyeLinkRow(a.Light, a.Mark, a.Ended ? "its link to this desk — ended" : "its link to this desk",
+                $"{a.ProofWords} · scope {a.Scope}" + (a.Ended ? "" : " · " + a.Words), string.Join(", ", a.Flags), ""));
+        }
+        return rows;
+    }
+
+    /// <summary>A record's clock in words: "clock +12 ms ±3 · 5 samples", "… · apart" when the clocks are apart, or that none is known.</summary>
+    public static string ClockWords(LinkRecordClock c)
+    {
+        if (c.OffsetMs is not { } offset) return "clock not known";
+        var words = "clock " + offset.ToString("+0;-0;0", CultureInfo.InvariantCulture) + " ms" + (c.ErrMs is { } err ? " ±" + err.ToString(CultureInfo.InvariantCulture) : "")
+                    + " · " + c.Samples.ToString(CultureInfo.InvariantCulture) + " samples";
+        return c.Apart ? words + " · apart" : words;
+    }
+}

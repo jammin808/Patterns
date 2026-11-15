@@ -94,7 +94,9 @@ public class EyeTests
         Assert.Contains("not paired", g.Find("deck:Stage deck@10.0.0.6")!.Sub);
         Assert.Null(g.Find("companion:FOH-PC"));                                        // heard and connected: one thing, the deck
         Assert.Equal(CheckLight.Grey, g.Find("companion:Spare-PC")!.Light);             // heard, not connected
-        Assert.Equal(CheckLight.Red, g.Find("node:i2")!.Light);                         // a node that stopped being heard
+        // A node that stopped being heard and the show does not need: grey, a gap and no fault (Show Bus 1.3 §13.16 — a hello or a
+        // beacon alone never makes an absent node a fault); red only when needed (NetworkMenusTests holds both).
+        Assert.Equal(CheckLight.Grey, g.Find("node:i2")!.Light);
         Assert.Equal(CheckLight.Green, g.Find("node:i1")!.Light);
         Assert.Equal("Standby STANDBY-PC", g.Find("twin")!.Label);
         Assert.Equal(CheckLight.Red, g.Find("aout:ndi:out1")!.Light);                   // a lane with an error

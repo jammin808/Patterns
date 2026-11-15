@@ -17,6 +17,9 @@ public static class StagewatchVerbs
     /// <summary>What the wire, a deck and the assistant hear for TRUST and ACCEPT.</summary>
     public const string DeskOnlyWords = "TRUST and ACCEPT are a person's choice on the desk, beside the fingerprint";
 
+    /// <summary>What every surface but the desk hears for <i>Accept new id</i>: a person's choice on the desk, beside the id that answered.</summary>
+    public const string AcceptIdWords = "Accept new id is a person's choice on the desk, beside the id that answered in the Stagewatch's place";
+
     /// <summary>What every surface but the Nodes page hears for the key.</summary>
     public const string KeyWords = "The Stagewatch key is typed on the Nodes page only — it never rides a line";
 
@@ -40,7 +43,7 @@ public static class StagewatchVerbs
     /// key-bearing link or the speaker's timer is a trust decision, as a certificate is — so the assistant names them in words and
     /// proposes none.
     /// </summary>
-    public const string BriefWords = "the link's verbs are the operator's, never proposed: STAGEWATCH LINK ON|OFF|AUTO|AGAIN|<host:port>|id:<id> and STAGEWATCH FOLLOW ON|OFF on a deck, the wire or the Nodes card's menu; TRUST and ACCEPT only on the desk, beside the fingerprint";
+    public const string BriefWords = "the link's verbs are the operator's, never proposed: STAGEWATCH LINK ON|OFF|AUTO|AGAIN|<host:port>|id:<id> and STAGEWATCH FOLLOW ON|OFF on a deck, the wire or the Nodes card's menu; TRUST and ACCEPT only on the desk, beside the fingerprint; Accept new id only on the desk, beside the id that answered in its place";
 
     /// <summary>
     /// The words after STAGEWATCH as a line of the wire, or null when they are none (the wire answers it unknown, never a default):

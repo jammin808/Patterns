@@ -111,9 +111,45 @@ public sealed class StagewatchBoxes : Observable
     /// <summary>STAGEWATCH RELEASE — refused with its reason while nothing is held, which here is always.</summary>
     public RelayCommand ReleaseCommand => _release ??= new RelayCommand(() => Press(new ShowAction(ShowActionKind.StagewatchRelease)));
 
-    /// <summary>On the page's tick: whether a floor is recorded, said when it moved.</summary>
+    private string _otherShown = "";
+
+    /// <summary>
+    /// The id that answered LINK in the Stagewatch's place, as the last look saw it — what ACCEPT NEW ID binds the link to, drawn beside
+    /// the button so the press is the one the person read (Show Bus 1.3 §13.16.6); "" while none waits.
+    /// </summary>
+    public string OtherId => _otherShown;
+
+    /// <summary>Accept new id is offered while a node answers in the Stagewatch's place.</summary>
+    public bool HasOtherId => _otherShown.Length > 0;
+
+    /// <summary>The words beside ACCEPT NEW ID: which id answers, and what the press does.</summary>
+    public string OtherIdWords => _otherShown.Length > 0
+        ? $"Something else answers in the Stagewatch's place, as {_otherShown} — compare it on its own screen first; accepting links to it with no pin or floor of the old node's, and this desk's key stays with the node it was held for"
+        : "";
+
+    private RelayCommand? _acceptNewId;
+
+    /// <summary>
+    /// Accept new id — the Nodes card's right-click entry and the Eye's: a person's press on this desk, bound to the id drawn beside
+    /// it (one that changed since is refused with the reason), never a line's.
+    /// </summary>
+    public RelayCommand AcceptNewIdCommand => _acceptNewId ??= new RelayCommand(() =>
+    {
+        Press(new ShowAction(ShowActionKind.StagewatchAcceptId, "", _otherShown));
+        Look();
+    });
+
+    /// <summary>On the page's tick: whether a floor is recorded and which id answers in the Stagewatch's place, said when either moved.</summary>
     public void Look()
     {
+        var other = _link.OtherId;
+        if (!string.Equals(other, _otherShown, StringComparison.Ordinal))
+        {
+            _otherShown = other;
+            Raise(nameof(OtherId));
+            Raise(nameof(HasOtherId));
+            Raise(nameof(OtherIdWords));
+        }
         var floor = _link.HasFloor;
         if (floor == _floorShown) return;
         _floorShown = floor;

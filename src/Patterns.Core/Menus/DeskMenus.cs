@@ -1040,9 +1040,8 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
     /// </summary>
     public static DeskMenu ShowApp(DeskFacts d, MenuShowApp app)
     {
-        var groups = new List<MenuGroup>();
-        if (LinkGroup(d, app.Id, app.KindLabel == "Stagewatch", app.Name) is { } link) groups.Add(link);
-        if (DeviceGroup(d, app) is { } device) groups.Add(device);
+        // The show network's verbs for the app, the one builder the Eye's card and edge read too (Show Bus 1.3 §13.16.6).
+        var groups = new List<MenuGroup>(NetworkMenus.Groups(d, app));
         groups.Add(new MenuGroup("ASK", MenuTone.Ask, new[]
         {
             new MenuEntry("app.ask", "What is this?", MenuScope.Ask, MenuTone.Ask)
@@ -1137,6 +1136,16 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
             {
                 Detail = "It proved the pairing token: NEW TOKEN on the Remote page ends it and every link and deck paired by the token",
                 Because = "A link the pairing token proved has no key of its own to revoke",
+            });
+        }
+        if (link.KeyKid.Length > 0)
+        {
+            // Show Bus 1.3 §13.16.6's Let this key speak for…: the key's own row's entry, its connector typed on the Nodes page.
+            entries.Add(new MenuEntry("link.speakfor", "Let its key speak for another connector…", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = $"Key {link.KeyKid} into the BIND boxes on the Nodes page — type the kind:id it speaks for; this link ends, and only that connector may link with it",
+                Route = new MenuRoute("Nodes", link.KeyKid),
+                Because = d.IsNode ? "App keys are the desk's — bind it there" : "",
             });
         }
         var groups = new List<MenuGroup>
@@ -1292,10 +1301,22 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
                 Action = new ShowAction(ShowActionKind.StagewatchKeyBind, "", sw.BindTarget),
             });
         }
+        if (linked)
+        {
+            // Show Bus 1.3 §13.16.6's Accept new id: the node that answered in its place, a person's on this desk beside its id — no line.
+            entries.Add(new MenuEntry("link.newid", sw.OtherId.Length > 0 ? $"Accept new id {sw.OtherId}" : "Accept new id", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = sw.OtherId.Length > 0
+                    ? $"Something else answers in {who}'s place, as {sw.OtherId} — link to it from now, with no pin or floor of {who}'s; compare it on its own screen first"
+                    : $"When another node answers in {who}'s place, the link waits here for a person to take it",
+                Action = new ShowAction(ShowActionKind.StagewatchAcceptId, "", sw.OtherId),
+                Because = sw.OtherId.Length > 0 ? "" : $"Nothing else answers in {who}'s place — the link is to the node it dials",
+            });
+        }
         if (entries.Count == 0) return null;
         return new MenuGroup("LINK", MenuTone.Tile, entries)
         {
-            Note = "The link's verbs are the operator's: never proposed by the assistant. Trust, Accept and the key are a person's on this desk, beside the fingerprint — never on the wire or a deck.",
+            Note = "The link's verbs are the operator's: never proposed by the assistant. Trust, Accept, Accept new id and the key are a person's on this desk — never on the wire or a deck.",
         };
     }
 

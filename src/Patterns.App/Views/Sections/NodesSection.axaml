@@ -246,6 +246,11 @@
       <Button Content="RELEASE" Command="{Binding LinkBoxes.ReleaseCommand}" IsEnabled="False" ToolTip.ShowOnDisabled="True"
               ToolTip.Tip="{Binding LinkBoxes.ReleaseWords}" />
     </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding LinkBoxes.HasOtherId}" Margin="0,4,0,0">
+      <TextBlock Text="{Binding LinkBoxes.OtherIdWords}" Foreground="#FFB020" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
+      <Button Content="ACCEPT NEW ID" Command="{Binding LinkBoxes.AcceptNewIdCommand}"
+              ToolTip.Tip="Show Bus 1.3 §13.16.6: link to the node that answered in the Stagewatch's place, the id drawn here — a person's choice on this desk, never on the wire, a deck or the assistant. The card's right-click entry and the Eye's are the same press" />
+    </StackPanel>
     <CheckBox Content="The stage timer follows the Stagewatch (one room, one timer)" IsChecked="{Binding LinkBoxes.Follow}"
               IsVisible="{Binding State.Control.Stagewatch.Enabled}"
               ToolTip.Tip="The stage and timer pages show the Stagewatch's time and colours while it answers; quiet, the time is held back; gone, this desk's own countdown runs. Pause and add-time are the Stagewatch's then. The same verb as STAGEWATCH FOLLOW ON|OFF on a deck or the wire, one journal row; the link's light is red only while the stage follows it" />

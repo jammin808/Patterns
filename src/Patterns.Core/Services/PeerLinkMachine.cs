@@ -831,13 +831,24 @@ public sealed class PeerLinkMachine
         return true;
     }
 
+    /// <summary>The id of the node that answered LINK in this link's place while the link is refused as another id; null otherwise.</summary>
+    public string? OtherId => _refused == "other-id" ? _other?.Id : null;
+
+    /// <summary>Why the key is held back from this link's node, or null while it may be proved there (or none is set).</summary>
+    public string? KeyHeldBack => _s.KeyHeldBack;
+
     /// <summary>
     /// The operator's <i>Accept new id</i> (13.4.3): the record binds to the id and kind that answered LINK in its place, with
-    /// no pin and no floor of the old node's. False, and nothing changed, unless the link is refused as another id.
+    /// no pin and no floor of the old node's. The key held for the node the link meant stays with that node: it is held back from
+    /// the id accepted in its place and never proved or sent toward it, so the link reads that node's public view. False, and
+    /// nothing changed, unless the link is refused as another id.
     /// </summary>
     public bool AcceptNewId()
     {
         if (_refused != "other-id" || _other is not { } other) return false;
+        var meant = NodeId;
+        if (_s.Key is not null && _s.KeyHeldBack is null)
+            _s = _s with { KeyHeldBack = KeyHeldForWords(meant, other.Id) };
         _boundId = other.Id;
         _boundT = other.T;
         _pin = null;
@@ -847,6 +858,10 @@ public sealed class PeerLinkMachine
         _refused = null;
         return true;
     }
+
+    /// <summary>The record's words for a key held for one node and kept from the id accepted in its place (13.4.3).</summary>
+    public static string KeyHeldForWords(string? meant, string accepted)
+        => $"this desk's key is held for {(meant is { Length: > 0 } m ? "the node " + m : "the node the link meant")} and is never proved to {accepted}, accepted in its place";
 
     /// <summary>The operator's <i>Lower floor</i>, one press (13.9.3): the floor is gone, and a floor's refusal with it.</summary>
     public void LowerFloor()

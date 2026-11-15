@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
+using Patterns.Core.Menus;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Views.Controls;
@@ -21,7 +22,10 @@ namespace Patterns.App.Views.Controls;
 /// nor a link whose segment misses the view; the focus's walk is the Eye's, kept per revision and
 /// focus. Every light carries its mark in its geometry (✓ disc, △ triangle, ✕ cross, ■ square,
 /// ○ ring, i) at every scale; links that join the same two things are drawn side by side, each with
-/// its own mark at its midpoint.
+/// its own mark at its midpoint. A claim — one app's words about another node — is drawn dotted with
+/// the says glyph beside its mark, a grey link dashed, a fact solid; a thing known only by a hello
+/// has a hollow ring round its dot. A link is hit-tested after the things (6 px from its segment):
+/// a click selects it and a right-click opens its menu.
 /// </summary>
 public sealed class EyeCanvas : Control
 {
@@ -40,7 +44,12 @@ public sealed class EyeCanvas : Control
     private readonly Dictionary<string, double> _emphasis = new(StringComparer.Ordinal);
     private readonly Dictionary<(string Text, int Size, bool Bold), FormattedText> _texts = new();
     private readonly Dictionary<(string Hex, int Alpha), IBrush> _brushes = new();
-    private readonly Dictionary<(string Hex, int Alpha, bool Dashed), IPen> _pens = new();
+    private readonly Dictionary<(string Hex, int Alpha, int Dash), IPen> _pens = new();
+
+    /// <summary>A pen's line: solid for a fact, dashed for a grey link, dotted for a claim.</summary>
+    private const int Solid = 0, Dashed = 1, Dotted = 2;
+
+    private static readonly DashStyle ClaimDash = new(new double[] { 0.5, 2.5 }, 0);
 
     private MainViewModel? _vm;
     private EyeService? _eye;
@@ -60,7 +69,7 @@ public sealed class EyeCanvas : Control
         ClipToBounds = true;
         Focusable = true;
         Menus.SetKind(this, "eye");
-        Menus.SetSubjectAt(this, p => NodeAt(p));
+        Menus.SetSubjectAt(this, p => (object?)NodeAt(p) ?? EdgeAt(p));                     // the things first, then a link within reach
         _anim = DeskTimers.Make(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render);
         _anim.Tick += (_, _) => Animate();
     }
@@ -74,6 +83,12 @@ public sealed class EyeCanvas : Control
     public int EdgesCulled { get; private set; }
 
     public int MarksDrawn { get; private set; }
+
+    /// <summary>The last render's claims drawn — dotted, each with the says glyph beside its mark.</summary>
+    public int ClaimsDrawn { get; private set; }
+
+    /// <summary>The last render's things drawn with a hollow ring: known only by a hello.</summary>
+    public int HollowDrawn { get; private set; }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -184,6 +199,8 @@ public sealed class EyeCanvas : Control
         EdgesDrawn = 0;
         EdgesCulled = 0;
         MarksDrawn = 0;
+        ClaimsDrawn = 0;
+        HollowDrawn = 0;
 
         foreach (var band in p.Bands)
         {
@@ -221,8 +238,7 @@ public sealed class EyeCanvas : Control
             // Links joining the same two things sit side by side, centred on the line between them, each with its own mark; the
             // lane is the picture's, reckoned once per rebuild.
             var (index, count) = g.Lane(i);
-            var (sx1, sy1, sx2, sy2) = Ends(ra, rb);
-            var (x1, y1, x2, y2) = EyeGeometry.Shift(sx1, sy1, sx2, sy2, EyeGeometry.Offset(index, count));
+            var (x1, y1, x2, y2) = EyeGeometry.Segment(ra, rb, index, count);                   // the hit-test reads the same segment
             if (!EyeGeometry.Meets(x1, y1, x2, y2, seen))
             {
                 EdgesCulled++;
@@ -233,11 +249,21 @@ public sealed class EyeCanvas : Control
             var from = _camera.WorldToView(x1, y1);
             var to = _camera.WorldToView(x2, y2);
             var hue = EyeService.Hue(e.Light);
-            var pen = Pen(hue, (int)Math.Round(alpha * 200), e.Light == CheckLight.Grey, Math.Max(1, 1.5 * scale));
+            var claim = EyeMarks.IsClaim(e);
+            var pen = Pen(hue, (int)Math.Round(alpha * 200), claim ? Dotted : e.Light == CheckLight.Grey ? Dashed : Solid, Math.Max(1, 1.5 * scale));
             ctx.DrawLine(pen, new Point(from.X, from.Y), new Point(to.X, to.Y));
             var radius = Math.Max(1.5, 3 * scale);
             ctx.DrawEllipse(Brush(hue, (int)Math.Round(alpha * 230)), null, new Point(to.X, to.Y), radius, radius);   // where it lands
-            DrawMark(ctx, e.Mark, new Point((from.X + to.X) / 2, (from.Y + to.Y) / 2), Math.Max(2.5, 4 * scale), hue, (int)Math.Round(alpha * 255));
+            var mid = new Point((from.X + to.X) / 2, (from.Y + to.Y) / 2);
+            var markR = Math.Max(2.5, 4 * scale);
+            DrawMark(ctx, e.Mark, mid, markR, hue, (int)Math.Round(alpha * 255));
+            if (claim)
+            {
+                // The says glyph beside the mark: a claim is told from a fact by a shape as well as by its dots.
+                var says = Text(EyeMarks.SaysGlyph, Math.Clamp(11 * scale, 7, 18), true, Brush(hue, (int)Math.Round(alpha * 255)));
+                ctx.DrawText(says, new Point(mid.X + markR + 2, mid.Y - says.Height / 2));
+                ClaimsDrawn++;
+            }
         }
 
         var selected = _vm?.EyeSelectedId ?? "";
@@ -251,11 +277,19 @@ public sealed class EyeCanvas : Control
             var alpha = Emphasis(n.Id, hops);
             var hue = EyeService.Hue(n.Light);
             var radius = 8 * scale;
-            ctx.DrawRectangle(Brush("#181B22", (int)Math.Round(alpha * 255)), Pen(hue, (int)Math.Round(alpha * (n.IsProblem ? 220 : 120)), false, Math.Max(1, 1.2 * scale)), new RoundedRect(r, radius));
+            ctx.DrawRectangle(Brush("#181B22", (int)Math.Round(alpha * 255)), Pen(hue, (int)Math.Round(alpha * (n.IsProblem ? 220 : 120)), Solid, Math.Max(1, 1.2 * scale)), new RoundedRect(r, radius));
             if (n.Id == selected) ctx.DrawRectangle(null, Selected, new RoundedRect(r.Inflate(2), radius + 2));
             else if (n.Id == _hover) ctx.DrawRectangle(null, Hovered, new RoundedRect(r.Inflate(1), radius + 1));
             // The dot is the light's mark, in its geometry, at every scale: below the label scale it is all there is of a thing.
-            DrawMark(ctx, n.Mark, new Point(r.X + 14 * scale, r.Y + r.Height / 2), Math.Max(2.5, 5 * scale), hue, (int)Math.Round(alpha * 255));
+            var dot = new Point(r.X + 14 * scale, r.Y + r.Height / 2);
+            DrawMark(ctx, n.Mark, dot, Math.Max(2.5, 5 * scale), hue, (int)Math.Round(alpha * 255));
+            if (n.Origin == EyeOrigin.Heard)
+            {
+                // Known only by a hello: a hollow ring round the dot, whatever its mark (the Eye design's D4).
+                var ring = Math.Max(4, 7.5 * scale);
+                ctx.DrawEllipse(null, Pen(hue, (int)Math.Round(alpha * 200), Solid, Math.Max(1, 1.2 * scale)), dot, ring, ring);
+                HollowDrawn++;
+            }
             if (scale < EyeLayout.LabelScale) continue;
             var textX = r.X + 26 * scale;
             var maxW = Math.Max(10, r.Width - 34 * scale);
@@ -285,7 +319,7 @@ public sealed class EyeCanvas : Control
     private void DrawMark(DrawingContext ctx, EyeMark mark, Point c, double r, string hex, int alpha)
     {
         var fill = Brush(hex, alpha);
-        var stroke = Pen(hex, alpha, false, Math.Max(1.2, r * 0.45));
+        var stroke = Pen(hex, alpha, Solid, Math.Max(1.2, r * 0.45));
         switch (mark)
         {
             case EyeMark.Ok:
@@ -316,18 +350,10 @@ public sealed class EyeCanvas : Control
                 ctx.DrawLine(stroke, new Point(c.X, c.Y - r * 0.15), new Point(c.X, c.Y + r));
                 break;
             default:
-                ctx.DrawEllipse(null, Pen(hex, alpha, false, Math.Max(1, r * 0.35)), c, r * 0.85, r * 0.85);
+                ctx.DrawEllipse(null, Pen(hex, alpha, Solid, Math.Max(1, r * 0.35)), c, r * 0.85, r * 0.85);
                 break;
         }
         MarksDrawn++;
-    }
-
-    /// <summary>The line between two things leaves the right edge and lands on the left edge when the target is to the right; otherwise centre to centre.</summary>
-    private static (double X1, double Y1, double X2, double Y2) Ends(EyeRect a, EyeRect b)
-    {
-        if (a.Right <= b.X) return (a.Right, a.CenterY, b.X, b.CenterY);
-        if (b.Right <= a.X) return (a.X, a.CenterY, b.Right, b.CenterY);
-        return (a.CenterX, a.Bottom <= b.Y ? a.Bottom : a.Y, b.CenterX, a.Bottom <= b.Y ? b.Y : b.Bottom);
     }
 
     private static Rect ToRect(EyeRect r) => new(r.X, r.Y, Math.Max(0, r.W), Math.Max(0, r.H));
@@ -367,12 +393,12 @@ public sealed class EyeCanvas : Control
         return b;
     }
 
-    private IPen Pen(string hex, int alpha, bool dashed, double thickness)
+    private IPen Pen(string hex, int alpha, int dash, double thickness)
     {
         alpha = Math.Clamp(alpha, 0, 255);
-        var key = (hex, alpha * 100 + (int)Math.Round(thickness * 10), dashed);
+        var key = (hex, alpha * 100 + (int)Math.Round(thickness * 10), dash);
         if (_pens.TryGetValue(key, out var pen)) return pen;
-        pen = new Pen(Brush(hex, alpha), thickness, dashed ? DashStyle.Dash : null);
+        pen = new Pen(Brush(hex, alpha), thickness, dash switch { Dashed => DashStyle.Dash, Dotted => ClaimDash, _ => null }) { LineCap = dash == Dotted ? PenLineCap.Round : PenLineCap.Flat };
         if (_pens.Count > 400) _pens.Clear();
         _pens[key] = pen;
         return pen;
@@ -415,6 +441,19 @@ public sealed class EyeCanvas : Control
     }
 
     // ---- the pointer and the keys ------------------------------------------------------------
+
+    /// <summary>
+    /// The link within <see cref="EyeGeometry.EdgeReach"/> view pixels of a view point, or null — the nearest drawn segment, both its
+    /// ends on the lens; the caller asks for a thing first.
+    /// </summary>
+    public EyeEdge? EdgeAt(Point view)
+    {
+        if (_eye is null) return null;
+        var (wx, wy) = _camera.ViewToWorld(view.X, view.Y);
+        var g = _eye.Shown;
+        var at = EyeGeometry.EdgeAt(g, _eye.Placement, _eye.Lens, wx, wy, EyeGeometry.EdgeReach / Math.Max(_camera.Scale, 1e-6));
+        return at < 0 ? null : g.Edges[at];
+    }
 
     /// <summary>The thing under a view point, or null.</summary>
     public EyeNode? NodeAt(Point view)
@@ -490,8 +529,19 @@ public sealed class EyeCanvas : Control
             _dragging = false;
             return;
         }
-        var node = NodeAt(e.GetPosition(this));
-        if (_vm is not null) _vm.EyeSelectedId = node?.Id ?? "";
+        var at = e.GetPosition(this);
+        var node = NodeAt(at);
+        if (_vm is not null)
+        {
+            // A thing first; else the link within reach of the click; else nothing selected.
+            if (node is not null) _vm.EyeSelectedId = node.Id;
+            else if (EdgeAt(at) is { } edge && _eye is not null) _vm.EyeSelectedEdgeId = EyeMenus.EdgeSubject(_eye.Shown, edge);
+            else
+            {
+                _vm.EyeSelectedId = "";
+                _vm.EyeSelectedEdgeId = "";
+            }
+        }
         InvalidateVisual();
     }
 

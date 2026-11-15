@@ -186,6 +186,7 @@ export function buildActions(ctx) {
 			options: [{ type: 'dropdown', id: 'lens', label: 'Lens', default: 'all', choices: [
 				{ id: 'all', label: 'ALL — every band' }, { id: 'video', label: 'VIDEO — sources, screens, displays, NDI' }, { id: 'control', label: 'CONTROL — decks, devices, nodes, the stack' },
 				{ id: 'audio', label: 'AUDIO — sources, outputs, routes' }, { id: 'room', label: 'ROOM — the audience and the stream' }, { id: 'problems', label: 'PROBLEMS — what is red or amber, and its neighbours' },
+				{ id: 'network', label: 'NETWORK — every app card, its links and the desk' },
 			] }],
 			callback: (a) => send(`EYE LENS ${a.options.lens}`),
 		},

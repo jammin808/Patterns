@@ -63,6 +63,32 @@ public static class EyeMarks
         var glyph = Glyph(mark);
         return words.StartsWith(glyph + " ", StringComparison.Ordinal) ? words[(glyph.Length + 1)..] : words;
     }
+
+    /// <summary>
+    /// The glyph a claim carries beside its mark — a link one app's context draws to another node's things or says of a third — so a
+    /// claim is told from a fact by a shape as well as by its dash, at every scale where marks are drawn (the Eye design's D4).
+    /// </summary>
+    public const string SaysGlyph = "❝";
+
+    /// <summary>
+    /// Where a link comes from, as a row says it beside its verb: "" for this desk's own and a link's record (the verb and words say
+    /// it), "&lt;app&gt; says" for a claim, "told by &lt;app&gt;" for a thing's own context row, and "heard only" for a hello.
+    /// </summary>
+    public static string SourceWords(EyeEdge e) => e.Claim.Length > 0 ? $"{SaysGlyph} {e.Claim} says"
+        : IsClaim(e) ? $"{SaysGlyph} another app says (relayed)"
+        : e.Origin switch
+        {
+            EyeOrigin.Told => "told by its app",
+            EyeOrigin.Heard => "heard only",
+            _ => "",
+        };
+
+    /// <summary>
+    /// Whether a link is a claim — one app's word about things that are not its own, named (<see cref="EyeEdge.Claim"/>) or relayed
+    /// through another — and so drawn dotted with <see cref="SaysGlyph"/>, said with it on the side card and carrying no verb: the one
+    /// rule the canvas, the card and the menus read.
+    /// </summary>
+    public static bool IsClaim(EyeEdge e) => e.Claim.Length > 0 || e.Origin == EyeOrigin.Relayed;
 }
 
 /// <summary>
@@ -96,6 +122,71 @@ public static class EyeGeometry
         var nx = -dy / length * offset;
         var ny = dx / length * offset;
         return (x1 + nx, y1 + ny, x2 + nx, y2 + ny);
+    }
+
+    /// <summary>
+    /// Where a link between two things is drawn before any lane's offset: from the right edge to the left edge when one is wholly to
+    /// the other's side, else centre to centre between the facing top and bottom edges. The canvas draws it and the hit-test reads it,
+    /// so a click lands on the segment the eye sees.
+    /// </summary>
+    public static (double X1, double Y1, double X2, double Y2) Ends(EyeRect a, EyeRect b)
+    {
+        if (a.Right <= b.X) return (a.Right, a.CenterY, b.X, b.CenterY);
+        if (b.Right <= a.X) return (a.X, a.CenterY, b.Right, b.CenterY);
+        return (a.CenterX, a.Bottom <= b.Y ? a.Bottom : a.Y, b.CenterX, a.Bottom <= b.Y ? b.Y : b.Bottom);
+    }
+
+    /// <summary>The <paramref name="index"/>-th of <paramref name="count"/> links between two things, as drawn: <see cref="Ends"/> set off its lane.</summary>
+    public static (double X1, double Y1, double X2, double Y2) Segment(EyeRect a, EyeRect b, int index, int count)
+    {
+        var (x1, y1, x2, y2) = Ends(a, b);
+        return Shift(x1, y1, x2, y2, Offset(index, count));
+    }
+
+    /// <summary>The distance from a point to a segment (to its nearer end where the point lies past one).</summary>
+    public static double Distance(double px, double py, double x1, double y1, double x2, double y2)
+    {
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        var length2 = dx * dx + dy * dy;
+        var t = length2 < 1e-12 ? 0 : Math.Clamp(((px - x1) * dx + (py - y1) * dy) / length2, 0, 1);
+        var cx = x1 + t * dx - px;
+        var cy = y1 + t * dy - py;
+        return Math.Sqrt(cx * cx + cy * cy);
+    }
+
+    /// <summary>How near, in view pixels, a click must land to a link's segment to name it (the Eye design's 6 px), after the things.</summary>
+    public const double EdgeReach = 6;
+
+    /// <summary>
+    /// The link a point names, by its index in <see cref="EyeGraph.Edges"/>, or -1: the nearest drawn segment within
+    /// <paramref name="reach"/> world units of (<paramref name="wx"/>, <paramref name="wy"/>), among the links whose two ends are on
+    /// <paramref name="lens"/> and placed. A thing under the point is the caller's to prefer: the hit-test runs after the things. Of
+    /// two segments equally near, the first in the picture's order wins, so the same picture names the same link.
+    /// </summary>
+    public static int EdgeAt(EyeGraph g, EyePlacement p, EyeLens lens, double wx, double wy, double reach)
+    {
+        var best = -1;
+        var bestD = double.PositiveInfinity;
+        for (var i = 0; i < g.Edges.Count; i++)
+        {
+            var e = g.Edges[i];
+            var a = g.Find(e.From);
+            var b = g.Find(e.To);
+            if (a is null || b is null || !g.Visible(a, lens) || !g.Visible(b, lens)) continue;
+            var ra = p.Of(a.Id);
+            var rb = p.Of(b.Id);
+            if (ra.IsEmpty || rb.IsEmpty) continue;
+            var (index, count) = g.Lane(i);
+            var (x1, y1, x2, y2) = Segment(ra, rb, index, count);
+            var d = Distance(wx, wy, x1, y1, x2, y2);
+            if (d <= reach && d < bestD)
+            {
+                best = i;
+                bestD = d;
+            }
+        }
+        return best;
     }
 
     /// <summary>

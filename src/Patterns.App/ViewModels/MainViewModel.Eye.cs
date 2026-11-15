@@ -14,6 +14,14 @@ public sealed record EyeLensChip(string Label, string Word, bool IsCurrent);
 /// </summary>
 public sealed record EyeContactRow(string Id, string Label, string Sub, string Verb, string Hue, string Mark = "○");
 
+/// <summary>One link of the selected app as the side card's LINKS list shows it: its mark in its colour, whose link it is, its words, its flags and its clock.</summary>
+public sealed record EyeLinkView(string Mark, string Hue, string Title, string Words, string Flags, string Clock)
+{
+    public bool HasFlags => Flags.Length > 0;
+
+    public bool HasClock => Clock.Length > 0;
+}
+
 /// <summary>The EYE foot of the rail and the God's Eye page (round 66): the picture's words, the selection, its contacts, the lenses, the verbs.</summary>
 public sealed partial class MainViewModel
 {
@@ -65,6 +73,7 @@ public sealed partial class MainViewModel
             var next = value ?? "";
             if (_eyeSelectedId == next) return;
             _eyeSelectedId = next;
+            if (next.Length > 0) _eyeSelectedEdge = "";                                       // a thing or a link is selected, never both
             RaiseEyeSelection();
         }
     }
@@ -120,11 +129,88 @@ public sealed partial class MainViewModel
                 foreach (var edge in g.EdgesBetween(n.Id, id))
                 {
                     var words = EyeMarks.Unmarked(edge.Words, edge.Mark);                          // the mark said once, first
-                    var verb = $"{EyeMarks.Glyph(edge.Mark)} " + (edge.From == n.Id ? $"→ {edge.Verb}" : $"← {edge.Verb}") + (words.Length > 0 ? " · " + words : "");
+                    var source = EyeMarks.SourceWords(edge);                                         // a claim says whose words it is, as the menu does
+                    var verb = $"{EyeMarks.Glyph(edge.Mark)} " + (edge.From == n.Id ? $"→ {edge.Verb}" : $"← {edge.Verb}") + (words.Length > 0 ? " · " + words : "") + (source.Length > 0 ? " · " + source : "");
                     rows.Add(new EyeContactRow(c.Id, c.Label, c.Sub, verb, EyeService.Hue(c.Light), EyeMarks.Glyph(c.Mark)));
                 }
             }
             return rows;
+        }
+    }
+
+    /// <summary>
+    /// The side card's LINKS on an app's card: each link between this desk and the app from its own record (the link this desk holds or
+    /// drives it by, each link its connector made to this desk's wire), with its flags and its clock; empty for any other thing, and
+    /// while a replay is open — the records are of now, and the picture is of then. Read live on the desk's tick: the clock and the
+    /// samples move without moving the picture's hash (<see cref="PollEye"/>).
+    /// </summary>
+    public IReadOnlyList<EyeLinkView> EyeLinks
+    {
+        get
+        {
+            if (EyeReplaying || EyeSelected is not { Kind: EyeKind.ShowApp } n || n.App.Length == 0) return Array.Empty<EyeLinkView>();
+            var app = _services.Eye.Apps.FirstOrDefault(a => a.Id == n.App);
+            return app is null ? Array.Empty<EyeLinkView>()
+                : Patterns.Core.Services.EyeLinks.Of(app).Select(r => new EyeLinkView(r.Mark, EyeService.Hue(r.Light), r.Title, r.Words, r.Flags, r.Clock)).ToList();
+        }
+    }
+
+    public bool HasEyeLinks => EyeLinks.Count > 0;
+
+    // ---- a link selected (a click on its segment, after the things) ----------------------------
+
+    private string _eyeSelectedEdge = "";
+
+    /// <summary>The link selected on the picture, by its menu subject (<see cref="EyeMenus.EdgeSubject"/>); "" for none.</summary>
+    public string EyeSelectedEdgeId
+    {
+        get => _eyeSelectedEdge;
+        set
+        {
+            var next = value ?? "";
+            if (_eyeSelectedEdge == next) return;
+            _eyeSelectedEdge = next;
+            if (next.Length > 0) _eyeSelectedId = "";
+            RaiseEyeSelection();
+        }
+    }
+
+    public EyeEdge? EyeSelectedEdge
+    {
+        get
+        {
+            if (_eyeSelectedEdge.Length == 0) return null;
+            var g = _services.Eye.Shown;
+            return g.Edges.FirstOrDefault(e => EyeMenus.EdgeSubject(g, e) == _eyeSelectedEdge);
+        }
+    }
+
+    public bool HasEyeEdgeSelection => EyeSelectedEdge is not null;
+
+    /// <summary>Neither a thing nor a link is selected: the side card says how to pick one.</summary>
+    public bool EyeNothingSelected => !HasEyeSelection && !HasEyeEdgeSelection;
+
+    public string EyeEdgeTitle => EyeSelectedEdge is { } e ? $"{_services.Eye.Shown.Find(e.From)?.Label ?? e.From} → {_services.Eye.Shown.Find(e.To)?.Label ?? e.To}" : "";
+
+    public string EyeEdgeMark => EyeSelectedEdge is { } e ? EyeMarks.Glyph(e.Mark) : "";
+
+    public string EyeEdgeHue => EyeSelectedEdge is { } e ? EyeService.Hue(e.Light) : "#4A505E";
+
+    public string EyeEdgeWords => EyeSelectedEdge is { } e ? $"{e.Verb} · {EyeMarks.Unmarked(e.Words, e.Mark)}".TrimEnd(' ', '·') : "";
+
+    /// <summary>Where the link comes from, in words: this desk's own, a link's record, a thing's own context, a claim ("❝ PlayMap Stage left says"), or a hello alone.</summary>
+    public string EyeEdgeSource => EyeSelectedEdge is { } e ? (EyeMarks.SourceWords(e) is { Length: > 0 } s ? s : e.Origin == EyeOrigin.Link ? "a link's own record" : "this desk's own") : "";
+
+    /// <summary>The two ends of the selected link, as contact rows — select one to read it.</summary>
+    public IReadOnlyList<EyeContactRow> EyeEdgeEnds
+    {
+        get
+        {
+            if (EyeSelectedEdge is not { } e) return Array.Empty<EyeContactRow>();
+            var g = _services.Eye.Shown;
+            return new[] { (e.From, "leaves from"), (e.To, "lands on") }
+                .Select(x => (Node: g.Find(x.Item1), Words: x.Item2)).Where(x => x.Node is not null)
+                .Select(x => new EyeContactRow(x.Node!.Id, x.Node.Label, x.Node.Sub, x.Words, EyeService.Hue(x.Node.Light), EyeMarks.Glyph(x.Node.Mark))).ToList();
         }
     }
 
@@ -256,9 +342,30 @@ public sealed partial class MainViewModel
     {
         if (!_services.IsDesk) return;
         _services.Eye.Refresh();
-        if (_services.Eye.Rev == _eyeSeen) return;
+        if (_services.Eye.Rev == _eyeSeen)
+        {
+            RaiseEyeLinksIfMoved();
+            return;
+        }
         RaiseEye();
     }
+
+    private string _eyeLinksSeen = "";
+
+    /// <summary>
+    /// The side card's LINKS raised when their words moved though the picture did not — a link's clock, its samples, its flags — so
+    /// the rows never stand minutes old as current; compared as words, a few rows at most, and nothing rebuilt.
+    /// </summary>
+    private void RaiseEyeLinksIfMoved()
+    {
+        var words = EyeLinksWords();
+        if (string.Equals(words, _eyeLinksSeen, StringComparison.Ordinal)) return;
+        _eyeLinksSeen = words;
+        Raise(nameof(EyeLinks));
+        Raise(nameof(HasEyeLinks));
+    }
+
+    private string EyeLinksWords() => string.Join("\n", EyeLinks.Select(r => $"{r.Mark}|{r.Hue}|{r.Title}|{r.Words}|{r.Flags}|{r.Clock}"));
 
     private void RaiseEye()
     {
@@ -280,6 +387,7 @@ public sealed partial class MainViewModel
         Raise(nameof(EyeReplayText));
         Raise(nameof(HasEyeReplayRows));
         if (_eyeSelectedId.Length > 0 && _services.Eye.Shown.Find(_eyeSelectedId) is null) _eyeSelectedId = "";   // the selected thing left the picture
+        if (_eyeSelectedEdge.Length > 0 && EyeSelectedEdge is null) _eyeSelectedEdge = "";                        // the selected link left it
         RaiseEyeSelection();
     }
 
@@ -299,6 +407,19 @@ public sealed partial class MainViewModel
         Raise(nameof(EyeContacts));
         Raise(nameof(EyeCanCluster));
         Raise(nameof(EyeClusterWords));
+        _eyeLinksSeen = EyeLinksWords();
+        Raise(nameof(EyeLinks));
+        Raise(nameof(HasEyeLinks));
+        Raise(nameof(EyeSelectedEdgeId));
+        Raise(nameof(EyeSelectedEdge));
+        Raise(nameof(HasEyeEdgeSelection));
+        Raise(nameof(EyeEdgeTitle));
+        Raise(nameof(EyeEdgeMark));
+        Raise(nameof(EyeEdgeHue));
+        Raise(nameof(EyeEdgeWords));
+        Raise(nameof(EyeEdgeSource));
+        Raise(nameof(EyeEdgeEnds));
+        Raise(nameof(EyeNothingSelected));
     }
 
     private static string KindWord(EyeKind kind) => kind switch
