@@ -99,7 +99,7 @@ public sealed class BeaconService : IDisposable, IBeaconIdentity
             Web = c.Enabled ? c.HttpPort : 0,
             Wire = c.Enabled ? c.TcpPort : 0,
             Ports = new ShowBusPorts { Http = c.Enabled ? c.HttpPort : 0, Wire = c.Enabled ? c.TcpPort : 0, Osc = c.Enabled && c.OscEnabled ? c.OscPort : 0, Https = c.Enabled && _services.TlsFingerprint.Length > 0 ? c.HttpPort : 0 },
-            Tls = _services.TlsFingerprint is { Length: > 0 } fp ? fp : null,                    // round 88: the certificate the web remote serves, so another app can pin it
+            Tls = _services.TlsFingerprint is { Length: > 0 } fp ? fp : null,                    // the certificate the web remote and the wire serve (each tells TLS by the first byte, Show Bus 1.3 §13.8.5), so another app can pin it
             Clock = ClockPing.Ms(ShowClock.UtcNow),
             Role = NodeKinds.Wire(_services.Profile),
         };

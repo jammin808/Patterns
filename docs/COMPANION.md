@@ -583,7 +583,8 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
   accepted turns `stagewatch_light` amber and leads `stagewatch_headline` ("KEY REFUSED — …", "key not accepted for
   this desk — …"). A desk before round 91 has no such field, and the variable reads empty.
 - **The desk shows its state only to a paired connection** (the desk's ADR-016, the maintainer's scope A). A desk with a
-  token says `NONCE <hex>` as a connection's first line and no `STATE` — no greeting, no push, no `ACTION` feed — until
+  token says `NONCE <hex>` as a connection's first line, once the connection has spoken (round 98: the desk says nothing
+  before a connection's first byte, and the module speaks first with its HELLO), and no `STATE` — no greeting, no push, no `ACTION` feed — until
   its proof is answered `OK paired`; the greeting `STATE` is the line after that answer. Before pairing it answers the
   handshake and five reads only — `NAV`, `MENU`, `CUE LIST`, the arcade's and the room's status, `ASSISTANT` — and
   `STATUS`, `EYE`, `CONTEXT` and every other read answer `ERR not paired — this desk shows its state only to a paired
@@ -639,7 +640,8 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 
 ## Round 87 — pairing by proof, and the show network (module 3.18.0)
 
-- **The token never crosses the network.** A desk with a pairing token says `NONCE <hex>` right after its greeting;
+- **The token never crosses the network.** A desk with a pairing token says `NONCE <hex>` right after its greeting (round 98: once the connection has
+  spoken — the module's HELLO comes first);
   with the **Pairing token** field filled the module answers `AUTH-PROOF <hex>` — HMAC-SHA256 with the token (no
   dashes or spaces, upper case) as the key over the nonce and this connection's label (the HELLO name) — and the desk
   answers `OK paired`. A desk before round 87 says no nonce: plain `AUTH <token>` follows after a second and a half,

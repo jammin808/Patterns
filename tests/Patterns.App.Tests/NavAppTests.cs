@@ -402,6 +402,7 @@ public class NavAppTests
             _tcp.Connect(IPAddress.Loopback, port);
             _tcp.ReceiveTimeout = 8000;
             _stream = _tcp.GetStream();
+            _stream.Write("\n"u8);                                           // Show Bus 1.3 §13.8.5: a connector speaks first — a blank line, which the wire ignores — and the desk greets once that byte has come.
             _reader = new StreamReader(_stream, Encoding.UTF8);
             var greeting = TestApp.Pump(Task.Run(() => _reader.ReadLine())) ?? "";
             Assert.StartsWith(paired ? "STATE {" : "NONCE ", greeting, StringComparison.Ordinal);

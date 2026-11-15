@@ -47,7 +47,7 @@ public sealed class NodesService
             var link = _s.Link.LinkPort;
             return $"{kind} {_s.Beacon.MachineName} — instance {_s.Beacon.Instance}"
                    + (link > 0 ? $" · callers may link on port {link}" : " · not linking callers")
-                   + (s.Control.Enabled ? $" · pages on port {s.Control.HttpPort}" : "")
+                   + (s.Control.Enabled ? $" · pages on port {s.Control.HttpPort} · {_s.WireTlsLine}" : "")   // Show Bus 1.3 §13.8.5: the wire's TLS
                    + ShowAppCard.IdLine(_s.ShowBusId, _s.ShowBusIdKept);                   // round 91: the id a Stagewatch key speaks for
         }
     }

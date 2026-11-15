@@ -1902,6 +1902,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             // and whether it is ready (Show Bus 1.3 §12) — never its address.
             ShowNetwork = ShowBusView.BriefLines(ShowApps(DateTime.UtcNow))
                 .Concat(s.StagewatchWindows.Rows().Select(r => "Stagewatch window granted to this desk: " + StagewatchWindows.RowWords(r) + $" — SCREEN n PVW WINDOW {r.Name}, then SCREEN n TAKE; SCREEN n WINDOW {r.Name} only once it is ready."))
+                // Show Bus 1.3 §13.8.5: whether this desk's wire serves TLS, so the brief says what a link to it from another machine rides on.
+                .Concat(Kernel.WireTlsLine is { Length: > 0 } wire ? new[] { "This desk's " + wire + "." } : Array.Empty<string>())
                 .ToList(),
         };
     }

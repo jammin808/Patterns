@@ -172,3 +172,99 @@ public static class TlsSniff
 
     public const string UseHttps = "This desk requires HTTPS on the network — open https:// (the /tls page says how to trust its certificate).";
 }
+
+/// <summary>What a connection's first byte on a line wire opens (Show Bus 1.3 §13.8.5).</summary>
+public enum WireOpening
+{
+    /// <summary>A line: printable ASCII or a line's whitespace — a deck's HELLO, a link's PING, a blank line.</summary>
+    Plain,
+
+    /// <summary>0x16, a TLS handshake record: the connection is served TLS with the desk's certificate, or closed unanswered.</summary>
+    Tls,
+
+    /// <summary>Any other byte — another TLS record, an SSLv2 hello, binary: closed unanswered, never read as a line.</summary>
+    Neither,
+}
+
+/// <summary>
+/// Show Bus 1.3 §13.8.5: the wire's port tells TLS from plain by a connection's first byte, as the web remote's does (§10), with the
+/// same certificate — the one the hello's <c>tls</c> names. A connector speaks first on every carrier, so the desk says nothing on a
+/// connection — no NONCE, no STATE, no refusal — until its first byte has come: a TLS client is never answered in clear, a plain
+/// connection is never upgraded (no later byte turns it into TLS), and one that sends nothing is closed at
+/// <see cref="PeerLink.Handshake"/>. A byte that opens neither, a TLS handshake when the desk has no certificate, and a handshake
+/// that does not complete are closed with nothing written. Decks stay plain with the legacy proof (§13.18).
+/// </summary>
+public static class WireTls
+{
+    /// <summary>What <paramref name="first"/> opens: 0x16 TLS, printable ASCII or tab, CR, LF a line, anything else neither.</summary>
+    public static WireOpening Opening(byte first)
+        => first == TlsSniff.HandshakeRecord ? WireOpening.Tls
+            : first is (byte)'\t' or (byte)'\n' or (byte)'\r' or (>= 0x20 and < 0x7F) ? WireOpening.Plain
+            : WireOpening.Neither;
+
+    /// <summary>The log's words for a connection that sent no byte within <paramref name="seconds"/>.</summary>
+    public static string SilentWords(string address, double seconds)
+        => $"Wire: {address} sent nothing within {seconds.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} s — a connector speaks first on this port (its HELLO, or its TLS handshake: Show Bus 1.3 §13.8.5); closed unanswered.";
+
+    /// <summary>The log's words for a first byte that opens neither a line nor a TLS handshake.</summary>
+    public static string NeitherWords(string address, byte first)
+        => $"Wire: {address} opened with byte 0x{first.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)}, which starts neither a line nor a TLS handshake — closed unanswered.";
+
+    /// <summary>The log's words for a TLS handshake this desk cannot answer: it has no certificate.</summary>
+    public static string NoCertificateWords(string address, string problem)
+        => $"Wire: {address} opened a TLS handshake and this desk has no certificate ({(problem.Length > 0 ? problem : "none made yet")}) — closed unanswered.";
+
+    /// <summary>The log's words for a TLS handshake that did not complete.</summary>
+    public static string HandshakeFailedWords(string address, string why)
+        => $"Wire: a TLS handshake from {address} did not complete ({why}) — closed unanswered; a client that has not pinned or trusted this desk's certificate yet does that.";
+
+    /// <summary>
+    /// The one line every reader says of the wire's TLS (the Nodes page, STATE's control row, the assistant's facts): on
+    /// <paramref name="port"/>, TLS by the first byte with the certificate <paramref name="fingerprint"/> names, or plain only and
+    /// why; the connections each way since start, and the ones closed unanswered.
+    /// </summary>
+    public static string Line(int port, string fingerprint, string problem, long overTls, long plain, long unanswered)
+    {
+        var counts = $"{overTls.ToString(System.Globalization.CultureInfo.InvariantCulture)} over TLS, {plain.ToString(System.Globalization.CultureInfo.InvariantCulture)} plain since start"
+                     + (unanswered > 0 ? $", {unanswered.ToString(System.Globalization.CultureInfo.InvariantCulture)} closed unanswered" : "");
+        return Said(port, fingerprint, problem, counts);
+    }
+
+    /// <summary>
+    /// <see cref="Line"/> without the counts — what STATE's <c>control.wire</c> says, which moves only when the certificate or the
+    /// port does, so a connection (a probe, a scan) never changes STATE and the repeated push is still skipped.
+    /// </summary>
+    public static string Words(int port, string fingerprint, string problem) => Said(port, fingerprint, problem, null);
+
+    private static string Said(int port, string fingerprint, string problem, string? counts)
+    {
+        var p = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var between = counts is null ? "" : $" · {counts}";
+        return TlsFingerprint.IsValid(fingerprint)
+            ? $"wire {p}: TLS or plain, told by the first byte — certificate {TlsFingerprint.Short(fingerprint)}, the web remote's and the hello's{between} · decks stay plain with their proof"
+            : $"wire {p}: plain only — {(problem.Length > 0 ? problem : "no certificate yet")}; a TLS client is closed unanswered{between}";
+    }
+}
+
+/// <summary>
+/// The wire's doors counted since start (Show Bus 1.3 §13.8.5): connections served TLS, connections served plain, and connections
+/// closed unanswered. Thread-safe: each connection's own task counts it once, when its first byte has decided what it is.
+/// </summary>
+public sealed class WireDoorCounts
+{
+    private long _overTls;
+    private long _plain;
+    private long _unanswered;
+
+    public long OverTls => Interlocked.Read(ref _overTls);
+
+    public long Plain => Interlocked.Read(ref _plain);
+
+    public long Unanswered => Interlocked.Read(ref _unanswered);
+
+    public void CountTls() => Interlocked.Increment(ref _overTls);
+
+    public void CountPlain() => Interlocked.Increment(ref _plain);
+
+    public void CountUnanswered() => Interlocked.Increment(ref _unanswered);
+}

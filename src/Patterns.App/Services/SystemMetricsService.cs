@@ -708,6 +708,12 @@ public sealed class SystemMetricsService : IDisposable
             WireReadsRefused = _services.Control.UnpairedReadsRefused,                                 // round 91 (ADR-016): reads refused to an unpaired connection
             WireReadRefusedLast = _services.Control.LastUnpairedRead,
             TokenSeenInClear = _services.Kernel.TokenSeenInClear.For(state.Control.Token),             // round 89: the token arrived unencrypted from these machines
+            WirePort = state.Control.Enabled ? state.Control.TcpPort : 0,                               // Show Bus 1.3 §13.8.5: the wire's TLS, told by the first byte
+            WireTlsFingerprint = state.Control.Enabled ? _services.Kernel.Tls.Fingerprint : "",
+            WireTlsProblem = state.Control.Enabled ? _services.Kernel.Tls.Problem : "",
+            WireOverTls = _services.Kernel.WireDoors.OverTls,
+            WirePlain = _services.Kernel.WireDoors.Plain,
+            WireUnanswered = _services.Kernel.WireDoors.Unanswered,
             ShowNetworkLinks = new[] { _services.Kernel.Stagewatch.Record },                          // Show Bus 1.3 §13.16.4: the link's record, read once
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,

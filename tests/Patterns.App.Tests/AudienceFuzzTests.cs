@@ -263,6 +263,7 @@ public class AudienceFuzzTests
             tcp.Connect(IPAddress.Loopback, port);
             tcp.ReceiveTimeout = waitMs;
             using var s = tcp.GetStream();
+            s.Write("\n"u8);                                                // Show Bus 1.3 §13.8.5: a connector speaks first — a blank line, which the wire ignores — and the desk greets once that byte has come.
             var reader = new StreamReader(s, Encoding.UTF8);
             lines.Add(reader.ReadLine() ?? "");                                                 // the greeting
             s.Write(bytes);

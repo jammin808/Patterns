@@ -89,6 +89,7 @@ public class WireLimitsAppTests
     {
         var client = new TcpClient();
         Wait(client.ConnectAsync(IPAddress.Loopback, port));
+        client.GetStream().Write("\n"u8);                                   // Show Bus 1.3 §13.8.5: a connector speaks first — here a blank line, which the wire ignores — and the desk greets once that byte has come.
         return new Wire(client);
     }
 

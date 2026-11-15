@@ -737,6 +737,7 @@ public class SpotifyAppTests
             using var client = new TcpClient();
             Pump(client.ConnectAsync(IPAddress.Loopback, b.Vm.State.Control.TcpPort));
             using var stream = client.GetStream();
+            stream.Write("\n"u8);                                           // Show Bus 1.3 §13.8.5: a connector speaks first — a blank line, which the wire ignores — and the desk greets once that byte has come.
             using var reader = new StreamReader(stream, Encoding.UTF8);
             Assert.StartsWith("STATE {", Pump(reader.ReadLineAsync()));
 

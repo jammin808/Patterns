@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Net.Security;
 using Patterns.Devices;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
@@ -335,11 +337,19 @@ public sealed partial class ControlService : IDisposable
         if (!_wireLedger.TryAdmit(address, limits.MaxClients, limits.MaxClientsPerAddress))
         {
             // The ceiling: said in the wire's own words and the door closed, so a Companion reconnecting in a loop reads why.
+            // Show Bus 1.3 §13.8.5: the words are a line, said only to a connection whose first byte opened one within
+            // BusyFirstByteWait — a TLS client is never answered in clear, and one that says nothing hears nothing. At most
+            // BusyPeeksMost such waits are held at once, so the sockets over the ceiling stay bounded however fast they arrive:
+            // one beyond them is closed at once, with nothing written.
             SaidBusy("Wire", address, _wireLedger.Open);
+            var waiting = Interlocked.Increment(ref _busyPeeks) <= BusyPeeksMost;
             try
             {
                 using var stream = client.GetStream();
-                await WriteLine(stream, ControlProtocol.Err(limits.BusyWords(_wireLedger.From(address))), ct);
+                using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                wait.CancelAfter(BusyFirstByteWait);
+                if (waiting && await PeekFirstByteAsync(client, wait.Token, ct) is { } first && WireTls.Opening(first) == WireOpening.Plain)
+                    await WriteLine(stream, ControlProtocol.Err(limits.BusyWords(_wireLedger.From(address))), ct);
             }
             catch (Exception)
             {
@@ -347,15 +357,36 @@ public sealed partial class ControlService : IDisposable
             }
             finally
             {
+                Interlocked.Decrement(ref _busyPeeks);
                 client.Dispose();
             }
             return;
         }
         client.NoDelay = true;
+        var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+        // Show Bus 1.3 §13.8.5: nothing is said before the connection's first byte, which says whether it is read as lines on the
+        // socket or as lines inside TLS with this install's certificate; one closed unanswered never reaches the loop below.
+        Stream? wire;
+        try
+        {
+            wire = await OpenWireAsync(client, limits, address, ct);
+        }
+        catch (Exception ex)
+        {
+            // Gone before its first byte is routine; anything else is a fault of the door's and leaves its trace. Either way the
+            // connection is closed unanswered and its place under the ceiling given back.
+            if (!(Faults.IsIoEnd(ex) || ex is OperationCanceledException or ObjectDisposedException)) WireFault(ex, "TCP");
+            wire = null;
+        }
+        if (wire is null)
+        {
+            client.Dispose();
+            _wireLedger.Release(address);
+            return;
+        }
+        var overTls = wire is SslStream;
         // Round 65: one writer per peer. Replies and STATE pushes go through the peer's queue and
         // its one writer task, so nothing this handler says is ever interleaved with a push.
-        var wire = client.GetStream();
-        var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
         var peer = new WirePeer(wire, client) { Loopback = loopback };   // its Presented: the token it proved, matched again on every verb, read and push
         lock (_gate)
         {
@@ -449,8 +480,9 @@ public sealed partial class ControlService : IDisposable
                     else if (!proof && !(loopback && PlainAuthOnLoopback))
                     {
                         // Refused as before; and the token itself, sent plain from another machine, crossed the network
-                        // unencrypted (round 89): marked — rotate it: NEW TOKEN. A wrong one is no secret of this desk's.
-                        if (PairingToken.Matches(token, cmd.Text)) SeenInClear(client, "wire");
+                        // unencrypted (round 89): marked — rotate it: NEW TOKEN. A wrong one is no secret of this desk's. Inside
+                        // TLS (Show Bus 1.3 §13.8.5) it did not cross in clear, so it is refused and not marked.
+                        if (!overTls && PairingToken.Matches(token, cmd.Text)) SeenInClear(client, "wire");
                         Reply(ControlProtocol.Err(WireProof.UseProof));
                     }
                     else if (proof ? WireProof.Verify(token, nonce, helloName, cmd.Text) : PairingToken.Matches(token, cmd.Text))
@@ -566,6 +598,78 @@ public sealed partial class ControlService : IDisposable
             peer.Dispose();
             _wireLedger.Release(address);
         }
+    }
+
+    /// <summary>
+    /// How long a connection over the wire's ceiling is given to say its first byte before it is closed: one that opens a line
+    /// reads the busy words, any other nothing (Show Bus 1.3 §13.8.5). A connector speaks first at once, so this is short.
+    /// </summary>
+    public static readonly TimeSpan BusyFirstByteWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// The most connections over the wire's ceiling held at once waiting for their first byte; one beyond them is closed at once
+    /// with nothing written, so a flood over the ceiling holds at most this many sockets, each for at most <see cref="BusyFirstByteWait"/>.
+    /// </summary>
+    public const int BusyPeeksMost = 8;
+
+    private int _busyPeeks;
+
+    /// <summary>
+    /// Show Bus 1.3 §13.8.5: the wire's door. The connection's first byte, waited for within <see cref="WireLimits.FirstByteSeconds"/>
+    /// and not taken, says what it is: a line is read on the socket itself (a deck with its legacy proof, a link, a probe), 0x16 is
+    /// served TLS with this install's certificate — the web remote's, the one the hello's <c>tls</c> names — and the TLS handshake
+    /// must end within the same seconds. Null when the connection is closed unanswered: nothing within the seconds, a byte that
+    /// opens neither, a handshake this desk has no certificate for or one that did not complete. Nothing is ever written before
+    /// that byte, so a TLS client never reads a line in clear and a plain connection never becomes TLS; each closed one is
+    /// counted and said in the log once a minute an address, never answered.
+    /// </summary>
+    private async Task<Stream?> OpenWireAsync(TcpClient client, WireLimits limits, string address, CancellationToken ct)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(TimeSpan.FromSeconds(limits.FirstByteSeconds));
+        var doors = _kernel.WireDoors;
+        var first = await PeekFirstByteAsync(client, deadline.Token, ct);
+        if (first is not { } b)
+        {
+            if (!ct.IsCancellationRequested && deadline.IsCancellationRequested) Unanswered(doors, "wire-silent:" + address, WireTls.SilentWords(address, limits.FirstByteSeconds));
+            return null;                                                                       // closed before a byte, or silent past the seconds
+        }
+        switch (WireTls.Opening(b))
+        {
+            case WireOpening.Plain:
+                doors.CountPlain();
+                return client.GetStream();
+            case WireOpening.Neither:
+                Unanswered(doors, "wire-neither:" + address, WireTls.NeitherWords(address, b));
+                return null;
+        }
+        if (_kernel.Tls.Certificate is not { } certificate)
+        {
+            Unanswered(doors, "wire-nocert:" + address, WireTls.NoCertificateWords(address, _kernel.Tls.Problem));
+            return null;
+        }
+        var tls = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
+        try
+        {
+            await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate, ClientCertificateRequired = false }, deadline.Token);
+        }
+        catch (Exception ex)
+        {
+            // Any handshake that did not end — a client that has not trusted the certificate, bytes that are not a handshake, the
+            // seconds run out — closes the connection unanswered; nothing of it is a fault of the desk's.
+            await tls.DisposeAsync();
+            if (!ct.IsCancellationRequested) Unanswered(doors, "wire-tls:" + address, WireTls.HandshakeFailedWords(address, ex is OperationCanceledException ? $"not done within {limits.FirstByteSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s" : ex.Message));
+            return null;
+        }
+        doors.CountTls();
+        return tls;
+    }
+
+    /// <summary>A wire connection closed unanswered: counted, and said in the log once a minute for each address and cause.</summary>
+    private void Unanswered(WireDoorCounts doors, string key, string words)
+    {
+        doors.CountUnanswered();
+        if (_busySaid.Allow(key, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow)) Log.Info(words);
     }
 
     /// <summary>How long a last word (an ERR before a close) is given to reach the peer.</summary>
@@ -1043,7 +1147,12 @@ public sealed partial class ControlService : IDisposable
             // stay plain. The audience port stays plain HTTP: a room of phones cannot be asked to trust a certificate.
             if (!audience)
             {
-                var first = await PeekFirstByteAsync(client, limits, ct);
+                byte? first;
+                using (var quiet = CancellationTokenSource.CreateLinkedTokenSource(ct))
+                {
+                    quiet.CancelAfter(TimeSpan.FromSeconds(limits.HeadSeconds));
+                    first = await PeekFirstByteAsync(client, quiet.Token, ct);
+                }
                 if (first is null) return;
                 if (TlsSniff.IsTls(first.Value))
                 {
@@ -1572,20 +1681,22 @@ public sealed partial class ControlService : IDisposable
     /// <summary>Round 88: web remote connections that came in over TLS since start (the Super Check's TLS row).</summary>
     public long TlsConnections => Interlocked.Read(ref _tlsConnections);
 
-    /// <summary>The connection's first byte without taking it (TLS or not decides how it is read); null when nothing came in time.</summary>
-    private static async Task<byte?> PeekFirstByteAsync(TcpClient client, HttpLimits limits, CancellationToken ct)
+    /// <summary>
+    /// The one first-byte reader of both doors that tell TLS from plain (the web remote's and the wire's): the connection's first
+    /// byte without taking it, within <paramref name="wait"/>; null when it closed before one, or none came before the wait ran out —
+    /// a connection that said nothing, closed as a quiet head is (<paramref name="ct"/> is the desk's own stop).
+    /// </summary>
+    private static async Task<byte?> PeekFirstByteAsync(TcpClient client, CancellationToken wait, CancellationToken ct)
     {
-        using var timed = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timed.CancelAfter(TimeSpan.FromSeconds(limits.HeadSeconds));
         var one = new byte[1];
         try
         {
-            var n = await client.Client.ReceiveAsync(one.AsMemory(), SocketFlags.Peek, timed.Token);
+            var n = await client.Client.ReceiveAsync(one.AsMemory(), SocketFlags.Peek, wait);
             return n == 1 ? one[0] : null;
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return null;                                                                       // a connection that said nothing: closed, as a quiet head is
+            return null;
         }
     }
 

@@ -154,6 +154,7 @@ public class MdnsAppTests
             using var client = new TcpClient();
             client.Connect(IPAddress.Loopback, wire);
             using var stream = client.GetStream();
+            stream.Write("\n"u8);                                           // Show Bus 1.3 §13.8.5: a connector speaks first — a blank line, which the wire ignores — and the desk greets once that byte has come.
             var reader = new StreamReader(stream, Encoding.UTF8);
             // The wire answers on the UI thread, which is this thread: every read pumps the dispatcher while it waits.
             string Reply()

@@ -104,6 +104,18 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// </summary>
     public TokenClearSightings TokenSeenInClear { get; }
 
+    /// <summary>Show Bus 1.3 §13.8.5: the wire's doors since start — served TLS, served plain, closed unanswered (the control service counts them).</summary>
+    public WireDoorCounts WireDoors { get; } = new();
+
+    /// <summary>
+    /// Show Bus 1.3 §13.8.5: the one line the readers say of the wire's TLS — the Nodes page, the assistant's facts (STATE's control
+    /// row says it without the counts, <see cref="WireTls.Words"/>): on the wire's port, TLS by the first byte with this install's certificate (the hello's <c>tls</c>), or plain only and
+    /// why; "" while remote control is off.
+    /// </summary>
+    public string WireTlsLine => State.Control.Enabled
+        ? WireTls.Line(State.Control.TcpPort, Tls.Fingerprint, Tls.Problem, WireDoors.OverTls, WireDoors.Plain, WireDoors.Unanswered)
+        : "";
+
     /// <summary>Round 89: the words for this process's token seen in clear — "" when it has not been, or no token is set.</summary>
     public string TokenClearWords => TokenClearSightings.Words(TokenSeenInClear.For(State.Control.Token)) is { Length: > 0 } w ? "Pairing token " + w + " (Remote page, TRUST)" : "";
 

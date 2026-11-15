@@ -85,6 +85,7 @@ public class RemoteTrustTests
         {
             Pump(_client.ConnectAsync(IPAddress.Loopback, port));
             _stream = _client.GetStream();
+            _stream.Write("\n"u8);                                          // Show Bus 1.3 §13.8.5: a connector speaks first — here a blank line, which the wire ignores — and the desk greets once that byte has come.
             _reader = new StreamReader(_stream, Encoding.UTF8);
             var first = Pump(_reader.ReadLineAsync());
             if (paired)

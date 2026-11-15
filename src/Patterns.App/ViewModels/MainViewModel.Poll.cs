@@ -364,14 +364,19 @@ public sealed partial class MainViewModel
 
     private string _tlsText = "";
 
-    /// <summary>Round 88: the Remote page's HTTPS line — the certificate's fingerprint, how its key is kept, and the connections that used it.</summary>
+    /// <summary>Round 88: the Remote page's HTTPS line — the certificate's fingerprint, how its key is kept, and the connections that used it, the wire's among them (Show Bus 1.3 §13.8.5).</summary>
     public string TlsText { get => _tlsText; private set => Set(ref _tlsText, value); }
 
     private string TlsLine()
     {
         var tls = _services.Kernel.Tls;
         if (tls.Fingerprint.Length == 0) return "HTTPS: off — " + (tls.Problem.Length > 0 ? tls.Problem : "no certificate yet.");
-        return $"HTTPS on the same port as the web remote · certificate {TlsFingerprint.Short(tls.Fingerprint)} ({tls.Protection}) · {_services.Control.TlsConnections} connection(s) over TLS since start · /tls says how to trust it";
+        // Show Bus 1.3 §13.8.5: the wire's port serves the same certificate — said only while the wire listens (remote control on,
+        // its bind an address), as the Super Check's Wire TLS row is.
+        var wire = _services.Kernel.WireDoors;
+        var wireListens = State.Control.Enabled && _services.Control.BindProblem.Length == 0;
+        return $"HTTPS on the same port as the web remote · certificate {TlsFingerprint.Short(tls.Fingerprint)} ({tls.Protection}) · {_services.Control.TlsConnections} connection(s) over TLS since start · /tls says how to trust it"
+               + (wireListens ? $" · the wire on port {State.Control.TcpPort} too, TLS or plain by the first byte: {wire.OverTls} over TLS, {wire.Plain} plain" : "");
     }
 
     private string _companionText = "";

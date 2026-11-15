@@ -147,6 +147,7 @@ public class BenchHostTests
             _client.Connect(IPAddress.Loopback, port);
             _stream = _client.GetStream();
             _stream.ReadTimeout = 20_000;
+            _stream.Write("\n"u8);                                          // Show Bus 1.3 §13.8.5: a connector speaks first — here a blank line, which the wire ignores — and the desk greets once that byte has come.
             _reader = new StreamReader(_stream, Encoding.UTF8);
             var line = _reader.ReadLine();
             Assert.NotNull(line);

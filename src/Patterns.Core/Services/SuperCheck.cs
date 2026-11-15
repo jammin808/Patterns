@@ -267,6 +267,22 @@ public sealed class CheckFacts
     public IReadOnlyList<ClearSighting> TokenSeenInClear { get; init; } = Array.Empty<ClearSighting>();
 
     /// <summary>
+    /// Show Bus 1.3 §13.8.5: the wire's port, which tells TLS from plain by a connection's first byte; 0 leaves the "Wire TLS" row
+    /// out (a facts set that names no wire).
+    /// </summary>
+    public int WirePort { get; init; }
+    /// <summary>The certificate the wire serves to a TLS client ("sha256:…", the web remote's and the hello's); "" when there is none.</summary>
+    public string WireTlsFingerprint { get; init; } = "";
+    /// <summary>Why there is no certificate, when there is none.</summary>
+    public string WireTlsProblem { get; init; } = "";
+    /// <summary>Wire connections served TLS since start.</summary>
+    public long WireOverTls { get; init; }
+    /// <summary>Wire connections that opened with a line, served plain, since start.</summary>
+    public long WirePlain { get; init; }
+    /// <summary>Wire connections closed with nothing written since start: no first byte in time, a byte that opens neither, a TLS handshake not answered or not completed.</summary>
+    public long WireUnanswered { get; init; }
+
+    /// <summary>
     /// Show Bus 1.3 §13.16.4: the record of each PeerLink this desk holds as connector — its Stagewatch link — as the link published
     /// it when the facts were gathered; the "Show network links" row takes them and derives no link fact of its own.
     /// </summary>
@@ -1090,6 +1106,23 @@ public static class SuperCheck
         }
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.8.5: whether the wire serves TLS — told from plain by the first byte, with the certificate the hello names —
+    /// or plain only, and why. Amber without a certificate: a link from another machine then runs plain (§13.3.3).
+    /// </summary>
+    private static CheckRow WireTlsRow(CheckFacts f)
+    {
+        var port = f.WirePort.ToString(CultureInfo.InvariantCulture);
+        var counts = $"{f.WireOverTls.ToString(CultureInfo.InvariantCulture)} connection(s) over TLS and {f.WirePlain.ToString(CultureInfo.InvariantCulture)} plain since start"
+                     + (f.WireUnanswered > 0 ? $"; {f.WireUnanswered.ToString(CultureInfo.InvariantCulture)} closed unanswered (patterns.log says why, once a minute an address)" : "");
+        const string rule = "a connector speaks first — its HELLO or its TLS handshake — and nothing is said before that byte: a TLS client is never answered in clear, a plain connection is never upgraded, one that sends nothing is closed unanswered; decks stay plain with their proof (AUTH-PROOF) until the module speaks LINK";
+        return TlsFingerprint.IsValid(f.WireTlsFingerprint)
+            ? new CheckRow("REMOTE", "Wire TLS", CheckLight.Green, $"port {port} · TLS or plain by the first byte · certificate {TlsFingerprint.Short(f.WireTlsFingerprint)}",
+                $"the web remote's certificate, the one the hello's tls names; {counts}; {rule}")
+            : new CheckRow("REMOTE", "Wire TLS", CheckLight.Amber, $"port {port} · plain only — no certificate",
+                $"FIX: {(f.WireTlsProblem.Length > 0 ? f.WireTlsProblem : "no certificate yet")} — a link from another machine runs plain and a TLS client is closed unanswered until the desk has one (patterns.tls.json beside the settings; restart the desk to make it); {counts}");
+    }
+
     private static void Remote(CheckFacts f, List<CheckRow> rows)
     {
         if (!f.RemoteEnabled)
@@ -1139,6 +1172,7 @@ public static class SuperCheck
                     $"FIX: a reader without the pairing token asked for the show's state — the last: {f.WireReadRefusedLast}; a deck or a link of yours whose token field is empty or old reads nothing until the token is typed into it (Remote page, TRUST), and a machine that is not yours learned nothing. patterns.log names each address once, at most {ControlProtocol.UnpairedReadsNamedMost} addresses; {rule}")
                 : new CheckRow("REMOTE", "Wire reads", CheckLight.Green, "paired connections only", rule));
         }
+        if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0) rows.Add(WireTlsRow(f));
         if (f.WireFaults > 0)
         {
             // Round 83: a fault behind the wire is answered ERR on the line and logged; the row says it happened, so the log is read.

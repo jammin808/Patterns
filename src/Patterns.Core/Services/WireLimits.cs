@@ -8,14 +8,18 @@ namespace Patterns.Core.Services;
 /// that opened a socket and forgot it — and the door says so once and closes, with the show
 /// untouched. The audience port has budgets of its own (<see cref="Play.AudienceBudget"/>);
 /// these are the trusted side's, and they are ceilings on connections, never on lines: a
-/// Companion that sits idle for an hour between presses is never cut.
+/// Companion that sits idle for an hour between presses is never cut — once it has spoken: a
+/// connection whose first byte has not come within <see cref="FirstByteSeconds"/> is closed
+/// unanswered (Show Bus 1.3 §13.8.5, <c>peerlink.handshake.ms</c>), and that bound covers a TLS
+/// handshake's end too.
 /// </summary>
 public sealed record WireLimits(
     int MaxClients = 64,
     int MaxClientsPerAddress = 16,
     double LineSeconds = 10,
     int MaxHttpClients = 256,
-    int MaxHttpClientsPerAddress = 64)
+    int MaxHttpClientsPerAddress = 64,
+    double FirstByteSeconds = 10)
 {
     public static readonly WireLimits Default = new();
 

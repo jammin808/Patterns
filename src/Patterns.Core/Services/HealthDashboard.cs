@@ -223,7 +223,9 @@ public static class HealthDashboard
     /// <summary>
     /// Round 89: the pairing token seen in clear from another machine turns the tile amber, as the Super Check's REMOTE row
     /// does, until the token changes. Round 91 (ADR-016): so does a read the wire refused to a connection that had not
-    /// paired, as the row "Wire reads" does — a deck or a link of the operator's without the token reads nothing.
+    /// paired, as the row "Wire reads" does — a deck or a link of the operator's without the token reads nothing. Show Bus 1.3
+    /// §13.8.5: a wire that can serve no TLS (no certificate) is amber too, as the row "Wire TLS" is; a green tile names the wire's
+    /// TLS beside the address.
     /// </summary>
     private static DashboardTile Remote(CheckFacts f)
         => !f.RemoteEnabled
@@ -233,7 +235,11 @@ public static class HealthDashboard
                 : f.RemoteToken && f.WireReadsRefused > 0
                     ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "reads refused",
                         $"{f.WireReadsRefused} unpaired read{(f.WireReadsRefused == 1 ? "" : "s")} refused — the last: {f.WireReadRefusedLast}; a deck or a link of yours needs the pairing token (Remote page, TRUST)")
-                    : new DashboardTile("remote", "REMOTE", CheckLight.Green, "on", f.RemoteUrl.Length > 0 ? f.RemoteUrl : "the phone, Companion, OSC");
+                    : f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && !TlsFingerprint.IsValid(f.WireTlsFingerprint)
+                        ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "wire plain only",
+                            $"no certificate, so the wire's port {f.WirePort.ToString(System.Globalization.CultureInfo.InvariantCulture)} serves no TLS — {(f.WireTlsProblem.Length > 0 ? f.WireTlsProblem : "none made yet")} (the Super Check's Wire TLS row)")
+                        : new DashboardTile("remote", "REMOTE", CheckLight.Green, "on", (f.RemoteUrl.Length > 0 ? f.RemoteUrl : "the phone, Companion, OSC")
+                            + (f.WirePort > 0 && TlsFingerprint.IsValid(f.WireTlsFingerprint) ? $" · wire {f.WirePort.ToString(System.Globalization.CultureInfo.InvariantCulture)} TLS or plain by the first byte" : ""));
 
     private static DashboardTile Watchdog(CheckFacts f)
     {

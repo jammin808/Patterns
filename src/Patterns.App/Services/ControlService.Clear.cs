@@ -22,6 +22,24 @@ public sealed partial class ControlService
         UiThread.Post(ArmPush);                                                                // STATE's control row moved: the decks hear it
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.8.5: STATE's <c>control.wire</c> — the wire's TLS as every reader says it, without the counts since start
+    /// (the Super Check, the Nodes page and the brief carry those): STATE moves only when the certificate or the port does, so a
+    /// connection, a probe or a scan never defeats the repeated push's skip.
+    /// </summary>
+    private object WireRow()
+    {
+        var fingerprint = _kernel.Tls.Fingerprint;
+        var control = _kernel.State.Control;
+        return new
+        {
+            port = control.TcpPort,
+            tls = TlsFingerprint.IsValid(fingerprint),
+            fingerprint,
+            words = control.Enabled ? WireTls.Words(control.TcpPort, fingerprint, _kernel.Tls.Problem) : "",
+        };
+    }
+
     /// <summary>Round 89: STATE's control row — the machines the token set now arrived from in clear, and the words; empty with none.</summary>
     internal object ControlRow()
     {
@@ -37,6 +55,9 @@ public sealed partial class ControlService
                 count = c.Count,
             }).ToArray(),
             words = TokenClearSightings.Words(seen),
+            // Show Bus 1.3 §13.8.5: whether the wire's port serves TLS (told from plain by the first byte, with the certificate the
+            // hello's tls names) and its words — appended at the end.
+            wire = WireRow(),
         };
     }
 }

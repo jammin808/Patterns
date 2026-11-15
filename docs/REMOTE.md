@@ -14,8 +14,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
   every command answers `OK`, `OK <json>` or `ERR <reason>`; a line that makes the desk fault
   behind the wire is answered `ERR the desk faulted on this line (<type>) — fault #n, logged` and
-  the connection stays, the fault in `patterns.log` (round 83). On connect — and on every
-  change — the server pushes `STATE <json>` so controllers can show live feedback; on a desk
+  the connection stays, the fault in `patterns.log` (round 83). A connection speaks first (round 98, Show Bus 1.3
+  §13.8.5: its `HELLO`, any line, or its TLS handshake — the first byte says which, below); once that byte has come —
+  and on every change — the server pushes `STATE <json>` so controllers can show live feedback; on a desk
   with a pairing token, only once the connection has paired (round 91, the Trust paragraph). Each
   connection has one writer on the desk's side (round 65): replies come back in the order the
   lines were sent, `STATE` pushes are latest-wins behind them — a slow deck gets the newest
@@ -46,7 +47,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 > phone, run, stage, pad, admin and multiview pages ask for it once and keep it in the browser, as a
 > header for their calls and as the cookie `patterns-token` for their pictures). On the wire the
 > desk shows its state only to a paired connection (round 91, ADR-016, the maintainer's scope A): a
-> connection with the token to prove hears `NONCE <hex>` as its first line and no `STATE` — no
+> connection with the token to prove hears `NONCE <hex>` as its first line (once it has spoken, round 98) and no `STATE` — no
 > greeting, no push, no `ACTION` feed — until its proof is answered `OK paired`, and the greeting
 > `STATE` is the line after that answer; every push asks again. When the token changes (NEW TOKEN,
 > the TRUST field typed, a token set on an open desk) a connection that had paired hears
@@ -262,7 +263,7 @@ while it trusts it, answer everything as before.
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
 | `AUTH <token>` | Presents the show's pairing token (Remote page, TRUST): `OK paired`, `ERR wrong token …`, or `OK open …` on a desk that asks for none. Five wrong tokens close the connection; a mutating verb before it answers `ERR not paired …`, and (round 91, ADR-016) so does a read of the show — `STATUS`, `EYE`, `CONTEXT` and every read but `NAV`, `MENU`, `CUE LIST`, the arcade's and the room's status and `ASSISTANT`. A connection that pairs hears the greeting `STATE` as the line after `OK paired`. Round 87: from the desk's own machine only — another machine answers `ERR plain AUTH is for this machine only …` and proves the token with `AUTH-PROOF` |
 | `AUTH-PROOF <hex>` | Round 87: proves the token without sending it — `hex` = lowercase hex of HMAC-SHA256(key = the token as compared, upper case without dashes or spaces; message = the connection's nonce followed by its `HELLO` name, "" before a HELLO). `OK paired`, `ERR wrong token` (counted with AUTH's five), `OK open …` on a desk that asks for none. A nonce answers one proof, right or wrong: after a wrong one the desk says a fresh `NONCE <hex>` line |
-| `NONCE` | Round 87: `OK <hex>` — a fresh nonce for this connection's next `AUTH-PROOF`. A desk with a token also says `NONCE <hex>` unasked as the first line of every connection that has the token to prove, and no `STATE` until it is proved (round 91, ADR-016); a connection paired from the start — an open desk, the desk's own machine while it trusts it — is greeted with `STATE` and hears no nonce |
+| `NONCE` | Round 87: `OK <hex>` — a fresh nonce for this connection's next `AUTH-PROOF`. A desk with a token also says `NONCE <hex>` unasked as the first line of every connection that has the token to prove, once the connection has spoken (round 98: nothing is said before its first byte), and no `STATE` until it is proved (round 91, ADR-016); a connection paired from the start — an open desk, the desk's own machine while it trusts it — is greeted with `STATE` and hears no nonce |
 | `CONTEXT` | Round 87: `OK <json>` — this desk in Show Bus 1.1's shared context shape (`docs/SHOWBUS.md` §6): `v`, `node` (`t` patterns, `id` this install's, `name`), `at`, `light` (the worst of the desk's own things), `headline` (the Eye's), `items` and `links` (the Eye's nodes and edges — another app's things are left out, that app says them), `recent` (the journal's last twenty rows in words), `commands` (the verbs a peer or an assistant may propose, each with `risk` low, review or high, in Show Bus §6's notation; round 91 appends nineteen to the fourteen: `APPLY <proposal>` at review — only this desk's own assistant proposal, below — then `VIDEO STOP` at high, `EYE NEXT\|PREV\|RESET` and `EYE LENS` at low, `CUE STANDBY` and the staged verbs `PVW LOOK\|PRESET\|PATTERN`, `PVW PROGRAM\|RESET` and the same on `SCREEN <n> PVW` at review, `SCREEN <n> TAKE\|CUT` at high and ahead of the staged `SCREEN` rows, the Library forms `LIBRARY`, `PVW LIBRARY` and `SCREEN <n> PVW LIBRARY` at high — a brand kit's tile puts its colours on the show itself, on air while EDIT SAFE is closed — and the web page's actions in six rows at high — its slide, player and display actions in three, and its keys, clicks and reload; never `WEB OPEN` or `WEB TYPE`. Every verb is at most 80 characters. Read by Show Bus 1.3's whole-form rule, a staged line reads review; a Stagewatch that still rates a line by a row's leading literal words (to 2.20) reads it high, and every `SCREEN` line high, never lower than the air it changes — `docs/OPEN.md` L71) and `peers` (the other show apps heard, one hop). Round 93 (§6 P2, 13.16.4): the Stagewatch link is the first item, `link:stagewatch` of kind `link` in its record's light and words (the key's scope, "not proved" at level 0), with its one `links` row `{"from":"link:stagewatch","to":"@<id>","kind":"follows"}` while the record names an id, and each `peers` row appends `heard`, `link` and `verified`, which claim a proof only while the link is live. No token, no key. `GET /api/context` on the web, with the token as `/api/state` wants it; on the wire, on a desk with a token, to a paired connection only (round 91, ADR-016) |
 | `@<id> <line>` | Round 87 (Show Bus 1.1 §3): any line may carry a request id (1–32 of letters, digits, `-`, `_`); every answer to it names the id after its first word — `OK @a1 …`, `ERR @a1 …` — so a sender matches an answer to the line it sent. A line starting `@` with an id that is not one is refused unrun. `/api/cmd` takes the same prefix in its body and gives the id back as `"id"` |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes; on a desk with a token, to a paired connection only — an unpaired one hears `ERR not paired — this desk shows its state only to a paired connection …` (round 91, ADR-016) |
@@ -710,8 +711,26 @@ What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in on
   `ports.https` (the same port). `GET /tls` — the fingerprint and how to trust the certificate on each kind of device;
   `GET /tls.cer` — the certificate (DER, no key). **Require HTTPS** (Remote page, `Control.RequireHttps`, off by
   default): plain HTTP from another machine answers `403` with the way to `https://`; this machine may stay plain.
-  Exempt: the audience port (plain HTTP; phones cannot be asked to trust a certificate), the wire and the twin link
-  (L55).
+  Exempt: the audience port (plain HTTP; phones cannot be asked to trust a certificate) and the twin link (L55's twin
+  half). The wire takes TLS too since round 98 (below).
+- **TLS on the wire (round 98, Show Bus 1.3 §13.8.5).** The wire's port reads the connection's first byte the same way,
+  with the same certificate — the one the hello's `tls` names: `0x16` is served TLS and the lines run inside it; a line
+  (printable ASCII, tab, CR or LF) is read plain as before, and a deck stays plain with its proof (`AUTH-PROOF`); any
+  other byte is closed with nothing written — stricter than the contract's "anything but `0x16` is plain", so an SSLv2
+  hello or a TLS alert is never read as a line, and so is a client that writes a UTF-8 byte-order mark (`EF BB BF`)
+  before its first line (a .NET `StreamWriter` made with `Encoding.UTF8` does): make it with `new UTF8Encoding(false)`.
+  Nothing is said before that byte — no `NONCE`, no `STATE`, no `ERR busy` — so a TLS client never reads a line in
+  clear and a plain connection is never upgraded; a connection that sends nothing within 10 s (`peerlink.handshake.ms`),
+  and a TLS handshake that does not end within them, are closed unanswered and named in `patterns.log` once a minute an
+  address. A client that waits for the greeting before it speaks is closed so: the module, Stagewatch's link and
+  PlayMap's link speak first. Over the connection ceiling the busy words go only to a connection whose first byte opened
+  a line within 2 s, and at most 8 such waits are held at once — one beyond them is closed at once with nothing written.
+  Plain `AUTH` inside TLS is refused as on a plain line (it is this machine's only) and is not marked as seen in clear.
+  Readers: STATE `control.wire` (appended at the end of the `control` row: `port`, `tls`, `fingerprint`, `words` — no
+  counts, so a connection never changes STATE and the repeated push is still skipped), the Super Check's REMOTE row
+  `Wire TLS` (amber with no certificate, with the connections over TLS, plain and closed unanswered since start) and the
+  REMOTE tile, the Nodes page's own card and the assistant's facts (with the counts), and the Remote page's HTTPS line
+  while the wire listens.
 - **The Stagewatch link over TLS.** The link dials `wss://`/`https://` to a Stagewatch on another machine (and to one at
   loopback whose hello names a certificate, or whose certificate is pinned), pinning per Stagewatch (`node:<id>`, or
   `addr:<host>:<port>` for a typed address). Round 93 (Show Bus 1.3 §13.6.8): a Stagewatch older than LINK cannot prove

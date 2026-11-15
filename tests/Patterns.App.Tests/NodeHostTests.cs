@@ -60,6 +60,7 @@ public class NodeHostTests
             tcp.Connect(IPAddress.Loopback, port);
             tcp.ReceiveTimeout = 8000;
             using var s = tcp.GetStream();
+            s.Write("\n"u8);                                                // Show Bus 1.3 §13.8.5: a connector speaks first — a blank line, which the wire ignores — and the desk greets once that byte has come.
             var reader = new StreamReader(s, Encoding.UTF8);
             var greeting = reader.ReadLine() ?? "";
             s.Write(Encoding.UTF8.GetBytes(line + "\n"));
