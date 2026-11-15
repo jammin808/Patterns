@@ -35,6 +35,18 @@ public sealed record WireLimits(
 {
     public static readonly WireLimits Default = new();
 
+    /// <summary>
+    /// Show Bus §14 <c>link.command.bytes</c> (13.14): the most bytes a line the wire reads may run to — a command is a few dozen, a
+    /// plan or a show file a few thousand; a longer one is answered <c>ERR … — closed</c> and its connection closed.
+    /// </summary>
+    public const int CommandBytes = 64 * 1024;
+
+    /// <summary>
+    /// Show Bus §14 <c>link.replies.max</c> (13.14): the most replies one connection may have waiting to be written, beside its one
+    /// pending STATE; one more and the connection is cut as not reading its answers.
+    /// </summary>
+    public const int RepliesWaiting = 256;
+
     /// <summary>The line a refused Companion connection reads before the door closes — which ceiling, and what to do.</summary>
     public string BusyWords(int fromAddress) => fromAddress >= MaxClientsPerAddress
         ? $"busy — {MaxClientsPerAddress} connections already open from this address; close one first"

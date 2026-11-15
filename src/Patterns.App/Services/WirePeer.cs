@@ -17,8 +17,8 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class WirePeer : IDisposable
 {
-    /// <summary>The most replies a peer may have waiting; past it the peer is closed as too slow.</summary>
-    public const int MaxQueuedReplies = 256;
+    /// <summary>The most replies a peer may have waiting; past it the peer is closed as too slow (§14 <c>link.replies.max</c>).</summary>
+    public const int MaxQueuedReplies = WireLimits.RepliesWaiting;
 
     /// <summary>How long one line may take to be written before the peer is closed as dead. Settable for the tests.</summary>
     public static TimeSpan WriteDeadline { get; set; } = TimeSpan.FromSeconds(10);

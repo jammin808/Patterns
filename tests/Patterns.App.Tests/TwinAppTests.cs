@@ -1278,6 +1278,7 @@ public class TwinAppTests
             var journal = Path.Combine(b.Dir, ShowLog.FileName);
             if (File.Exists(journal)) Assert.DoesNotContain(first, File.ReadAllText(journal), StringComparison.Ordinal);
             Assert.DoesNotContain(first, new CommandRouter(services).StateJson(), StringComparison.Ordinal);
+            Assert.DoesNotContain(first, new CommandRouter(services).ContextJson(), StringComparison.Ordinal);
             Assert.DoesNotContain(first, services.Twin.StatusJson(), StringComparison.Ordinal);
             Assert.DoesNotContain(first, vm.StatusMessage, StringComparison.Ordinal);
 

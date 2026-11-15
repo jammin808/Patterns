@@ -87,6 +87,16 @@ public static class LinkAcceptor
     /// <summary>Show Bus §14 <c>peerlink.unpaired.per.address</c>: connections from one address that have not finished LINK (13.6.3).</summary>
     public const int UnfinishedPerAddress = 4;
 
+    /// <summary>
+    /// The features this wire offers in a verdict's <c>can</c> (13.6.6), in §14's order: <c>final</c> on a desk, whose cue history
+    /// says what a <c>CUE GO</c> came to (13.12.4); <c>receipts</c> everywhere (13.12.6); <c>enrol</c> inside TLS on a desk (13.5.7).
+    /// Never <c>stuck</c> or <c>expire</c>: neither is offered before this desk's show writer has a measured stall (the Super
+    /// Check's "Desk thread" row records the distribution a later round reads, LP-1) — and 13.20's S12 (emitting) holds no
+    /// <c>PONG … STUCK</c> test until it is.
+    /// </summary>
+    public static IReadOnlyList<string> Can(bool desk, bool overTls)
+        => desk ? (overTls ? new[] { "final", "receipts", "enrol" } : new[] { "final", "receipts" }) : new[] { "receipts" };
+
     public const string AskWords = "LINK <offer> <t> <id> <cnonce> <kid>";
     public const string OneLinkWords = "one LINK a connection";
     public const string ProofBeforeAskWords = "LINK PROOF answers this desk's offer — send LINK first";

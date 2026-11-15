@@ -17,7 +17,7 @@ namespace Patterns.Core.Tests;
 /// hello's liveness and redial, the wire's legacy proof, the one <see cref="LinkClock"/> — and every other row is counted as the
 /// PeerLink core's, which <c>PeerLinkVectorsTests</c> runs whole. Nothing here reads another tree.
 /// </summary>
-public sealed class ShowBusSpecTests
+public sealed partial class ShowBusSpecTests
 {
     /// <summary>
     /// The body's SHA-256 the master's header prints (Stagewatch's <c>docs/SHOWBUS.md</c>, Show Bus 1.3 final). A new master is
@@ -59,6 +59,9 @@ public sealed class ShowBusSpecTests
 
         /// <summary>A most interval or a deadline: the code's wait, or its bound on one, is the row's number or less.</summary>
         WaitsAtMost,
+
+        /// <summary>A least a maker gives (a <c>.min</c> row of what it makes): the code makes the row's number or more.</summary>
+        MakesAtLeast,
     }
 
     /// <summary>
@@ -143,6 +146,15 @@ public sealed class ShowBusSpecTests
         ("report.retry.max.ms", Relation.Same, () => Ms(OwedReports.RetryMost)),
         ("report.retry.for.ms", Relation.Same, () => Ms(OwedReports.RetryFor)),
         ("log.repeat.summary.ms", Relation.Same, () => Ms(PeerLink.RepeatSummary)),
+        // The acceptor on the wire (13.5, 13.6.3, 13.14): the keys it makes, its unfinished LINKs and wrong proofs, and the wire's
+        // own two bounds a link's lines live under. The ones kept in a second place are held there too (below).
+        ("peerlink.key.bits.min", Relation.MakesAtLeast, () => AppKeys.KeyBits),
+        ("peerlink.unpaired.per.address", Relation.Same, () => LinkAcceptor.UnfinishedPerAddress),
+        ("peerlink.wrong.proofs.per.minute", Relation.Same, () => LinkAcceptor.WrongProofsPerMinute),
+        ("link.replies.max", Relation.Same, () => WireLimits.RepliesWaiting),
+        ("link.command.bytes", Relation.Same, () => WireLimits.CommandBytes),
+        // §12's window address as this desk reads a grant's path (/w/ and the token): its length; the alphabet is held by what it does.
+        ("window.token.chars", Relation.Same, () => WindowAddresses.WindowTokenLength),
     ];
 
     /// <summary>The rows held by what this desk's code does rather than a number of it, each by a test below that names it.</summary>
@@ -156,6 +168,7 @@ public sealed class ShowBusSpecTests
         "context.peers",               // TheContextsThisDeskReadsAndSendsKeepSection6sSizes
         "context.bytes",               // TheContextsThisDeskReadsAndSendsKeepSection6sSizes (the reader)
         "proposal.line.chars",         // TheContextsThisDeskReadsAndSendsKeepSection6sSizes (this desk's own proposal line)
+        "window.token.alphabet",       // TheNumbersThisDesksCoreKeepsAreTheBlocks (the alphabet a grant's path is read in)
     ];
 
     /// <summary>
@@ -179,28 +192,20 @@ public sealed class ShowBusSpecTests
     /// <summary>Rows of what this desk does not do yet, or of another node's part.</summary>
     private static readonly Dictionary<string, string> NotThisDesks = new(StringComparer.Ordinal)
     {
-        ["window.token.chars"] = Windows,
-        ["window.token.alphabet"] = Windows,
         ["window.max"] = Windows,
         ["view.wrong.per.minute"] = Windows,
         ["window.grants"] = Windows,
         ["context.kept.ms"] = "a node that takes CONTEXT POST keeps one this long; this desk takes none yet (§8.2)",
         ["proposal.undelivered.ms"] = "the approval desk's (§11): Stagewatch keeps the queue; this desk proposes and collects",
         ["proposal.result.ms"] = "the approval desk's (§11): Stagewatch keeps the queue; this desk proposes and collects",
-        ["peerlink.key.bits.min"] = Acceptor,
-        ["peerlink.unpaired.per.address"] = Acceptor,
-        ["peerlink.wrong.proofs.per.minute"] = Acceptor,
         ["peerlink.hold.disconnect.ms"] = "the connector's hold after an acceptor operator's disconnect, which no verdict or message of 1.3 names: not scheduled",
-        ["link.replies.max"] = Acceptor,
-        ["link.command.bytes"] = Acceptor,
         ["show.stuck.min.ms"] = Stuck,
         ["show.stuck.max.ms"] = Stuck,
         ["cmd.expire.max.ms"] = Stuck,
     };
 
-    private const string Windows = "§12's windows: this desk holds no granted window yet";
-    private const string Acceptor = "a LINK acceptor's: this desk accepts no LINK before round 98 (the plan's 97), and its wire offers none";
-    private const string Stuck = "13.12.7's stuck and expire: this desk's wire offers neither until its show thread's stall is measured (the Super Check's Desk thread row records it, LP-1)";
+    private const string Windows = "§12's window maker's (its windows, their grants and its view-pass count): this desk makes no window; since round 96 it opens the pages a Stagewatch grants it";
+    private const string Stuck = "13.10.5's stuck and 13.12.5's expire: this desk's verdict offers neither until its show thread's stall is measured (the Super Check's Desk thread row records it, LP-1)";
 
     /// <summary>
     /// §2's words this desk does not keep yet (docs/OPEN.md L73), as the copy says them: checked both ways, the words still the
@@ -331,7 +336,7 @@ public sealed class ShowBusSpecTests
             var holds = how switch
             {
                 Relation.Same => got == want,
-                Relation.TakesAtLeast or Relation.WaitsAtLeast => got >= want,
+                Relation.TakesAtLeast or Relation.WaitsAtLeast or Relation.MakesAtLeast => got >= want,
                 _ => got <= want,
             };
             Assert.True(holds, string.Create(CultureInfo.InvariantCulture, $"{row}: the code keeps {got}, the block says {want} ({how})"));
@@ -346,6 +351,15 @@ public sealed class ShowBusSpecTests
         // The core's label and its features are the block's words (§14.1, 13.1).
         Assert.True(Number("peerlink.label") == PeerLink.Label, "the core's label is not §14's peerlink.label");
         Assert.Equal(Many("peerlink.feature").Select(w => w[0]), PeerLink.Features);
+
+        // The acceptor's numbers kept in a second place, held there too: the wire's limits take the unfinished LINKs' number for both
+        // of 13.6.3's ledgers; a key the desk makes carries its bits as 32 symbols of five, in the shape LINK takes; and the alphabet a
+        // granted window's path is read in is §12's.
+        Assert.Equal(Whole("peerlink.unpaired.per.address"), WireLimits.Default.UnfinishedPerAddress);
+        var made = AppKeys.NewKey();
+        Assert.True(LinkAcceptor.IsKeyShape(made), "a key this desk makes is not of the shape LINK takes");
+        Assert.True((made.Length - AppKeys.Prefix.Length) * 5 >= Whole("peerlink.key.bits.min"), "a key this desk makes carries fewer than §14's peerlink.key.bits.min bits");
+        Assert.True(Number("window.token.alphabet") == WindowAddresses.WindowAlphabet, "the alphabet a granted window's path is read in is not §14's window.token.alphabet");
     }
 
     /// <summary>§2: the hello this desk says names only §14's doors, and its reader takes a datagram of <c>hello.read.bytes</c> and keeps the first <c>hello.caps</c> caps.</summary>
@@ -388,8 +402,11 @@ public sealed class ShowBusSpecTests
         var ours = Many("cap").Where(w => w.Skip(1).Contains("patterns")).Select(w => w[0]).ToHashSet(StringComparer.Ordinal);
         Assert.All(ShowBusHello.Capabilities, c => Assert.True(ours.Contains(c) && ShowBusPeers.IsCap(c), $"'{c}' is no cap row for patterns of §2's shape"));
         Assert.True(ShowBusHello.Capabilities.Length <= Whole("hello.caps"));
-        // Not said yet: peerlink (this desk's wire offers no LINK). Round 96 says pages: it opens a page a Stagewatch grants it (§12).
-        Assert.Equal(new[] { "peerlink" }, ours.Except(ShowBusHello.Capabilities).OrderBy(c => c, StringComparer.Ordinal));
+        // Not said yet: peerlink. 13.20 lets a node say the cap, and offer LINK, only once its tree passes every scenario of each role
+        // and carrier it plays, and it does not yet: TheCapWaitsForEveryScenarioThisDeskOwes names which, and the cap follows that
+        // table. The wire offers LINK on 9697 since round 98 all the same — a departure the table's summary names, with what ends it. Round 96 says pages: it opens a page a Stagewatch grants it (§12).
+        string[] unsaid = EveryScenarioKept() ? [] : ["peerlink"];
+        Assert.Equal(unsaid, ours.Except(ShowBusHello.Capabilities).OrderBy(c => c, StringComparer.Ordinal));
         Assert.Contains(StagewatchGrants.Ability, ShowBusHello.Capabilities);
         Assert.DoesNotContain(Many("reserved"), w => w.Skip(1).Contains("patterns"));
     }

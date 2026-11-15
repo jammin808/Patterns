@@ -10,7 +10,9 @@ using Xunit;
 namespace Patterns.App.Tests;
 
 /// <summary>
-/// Show Bus 1.3 §13.12.4–13.12.6 at this desk's wire, the scripted peer dialling it as Stagewatch would and reading every answer by
+/// Show Bus 1.3 §13.12.4–13.12.6 at this desk's wire — S14 for the features its verdict offers, the acceptor's half (applied,
+/// accepted then final, refused, a repeated id answered from the record and run once, RECEIPTS with this desk's inst) — the scripted
+/// peer dialling it as Stagewatch would and reading every answer by
 /// 13.12.3 as a connector does: the verdict names <c>final</c> and <c>receipts</c> and never <c>stuck</c> or <c>expire</c>; a CUE GO a
 /// box still owes its receipt is answered Requested, then <c>OK @id final …</c> once the box said yes and the row is Done — never
 /// from the send; an id the record holds runs nothing again, answered accepted while it runs and with its final receipt after, a
@@ -112,6 +114,46 @@ public sealed partial class PeerLinkWireTests
         using var deck = TestApp.Pump(Lines.Dial(desk.Port, tls: false));
         TestApp.Pump(deck.Send("@rq1 RECEIPTS " + go).ContinueWith(_ => true, TaskScheduler.Default));
         Assert.Equal("ERR @rq1 " + AcceptorReceipts.NotLinkedWords, TestApp.Pump(deck.NextMatching(l => l.StartsWith("ERR @rq1", StringComparison.Ordinal))));
+    }
+
+    /// <summary>
+    /// S14's RECEIPTS with the same inst and a new one, the acceptor's half (13.12.6): after a relink the connector's ids are answered
+    /// from the record kept for it, with the inst it linked to before; a desk started again is another inst and holds none of them, so
+    /// it answers each "unknown" under its own inst — which tells the connector that "unknown" says nothing of whether it ran.
+    /// </summary>
+    [AvaloniaFact]
+    public void ARelinkReadsItsKeptReceiptsUnderTheSameInstAndADeskStartedAgainAnswersUnknownUnderItsOwn()
+    {
+        using var files = new KitFiles();
+        string before;
+        using (var desk = new AcceptorDesk())
+        {
+            var code = files.Write("code", desk.Token);
+            var (first, _) = Dialled(desk, DialDesk(desk, tls: false, code, "code"));
+            ReadOn(desk, first, l => l.StartsWith("STATE {", StringComparison.Ordinal));
+            Send(desk, first, "@s1-11aa22bb BLACKOUT ON");
+            Assert.Equal("OK @s1-11aa22bb", Line(desk, first, l => l.StartsWith("OK @s1-11aa22bb", StringComparison.Ordinal)));
+            TestApp.Pump(desk.Peer.Ask(new JsonObject { ["do"] = "close", ["conn"] = first }));
+            PumpWhile(() => desk.Control.AppLinks > 0, 5000);
+
+            // The relink: a new connection, the same connector, the same desk.
+            var (second, _) = Dialled(desk, DialDesk(desk, tls: false, code, "code"));
+            Send(desk, second, "@rq1 RECEIPTS s1-11aa22bb s2-11aa22bb");
+            var answer = JsonNode.Parse(Line(desk, second, l => l.StartsWith("OK @rq1 ", StringComparison.Ordinal))["OK @rq1 ".Length..])!.AsObject();
+            before = desk.Services.Kernel.Beacon.Instance;
+            Assert.Equal(before, answer["inst"]!.GetValue<string>());
+            Assert.Equal((true, "applied"), (answer["receipts"]!["s1-11aa22bb"]!["ok"]!.GetValue<bool>(), answer["receipts"]!["s1-11aa22bb"]!["stage"]!.GetValue<string>()));
+            Assert.Equal("unknown", answer["receipts"]!["s2-11aa22bb"]!.GetValue<string>());
+        }
+
+        // Started again: another inst, and nothing of the last one's record.
+        using var again = new AcceptorDesk();
+        var (conn, _) = Dialled(again, DialDesk(again, tls: false, files.Write("again", again.Token), "code"));
+        Send(again, conn, "@rq1 RECEIPTS s1-11aa22bb");
+        var fresh = JsonNode.Parse(Line(again, conn, l => l.StartsWith("OK @rq1 ", StringComparison.Ordinal))["OK @rq1 ".Length..])!.AsObject();
+        Assert.Equal(again.Services.Kernel.Beacon.Instance, fresh["inst"]!.GetValue<string>());
+        Assert.NotEqual(before, fresh["inst"]!.GetValue<string>());
+        Assert.Equal("unknown", fresh["receipts"]!["s1-11aa22bb"]!.GetValue<string>());
     }
 
     [AvaloniaFact]

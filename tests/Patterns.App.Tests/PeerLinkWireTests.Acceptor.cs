@@ -17,7 +17,8 @@ namespace Patterns.App.Tests;
 /// Show Bus 1.3 §13.6.1–13.6.4 at this desk's own wire, 9697: the scripted peer dials the desk as Stagewatch would and the desk is
 /// the acceptor, on real sockets from loopback with this machine's trust off (and restored in finally). The pairing token is proved
 /// as a code; a key reaches the desk only as the test plants it, since this build mints none. S1 both ways, plain and over TLS
-/// against the desk's certificate; S2 and S3 in one set of words, the unknown kid never counted; S8 and S9; 13.5.6's table per
+/// against the desk's certificate, with S12's emitting half (a pong that never says STUCK, since the verdict lists no stuck); S2 and
+/// S3 in one set of words, the unknown kid never counted; S8 and S9; 13.5.6's table per
 /// (address, kid) beside the legacy proof; S15's bounds; S16's unpaired flood, the handshake's seconds and the app links' sub-cap;
 /// S19's canaries in every reader; S20's loopback that LINK never trusts.
 /// </summary>
@@ -173,7 +174,13 @@ public sealed partial class PeerLinkWireTests
         ReadOn(desk, plain, l => l == "OK @s1-11aa22bb");
         PumpWhile(() => !desk.Services.State.Blackout, 5000);
         Send(desk, plain, "@p1 PING 123456");
-        Assert.StartsWith("OK @p1 PONG 123456 ", Str(ReadOn(desk, plain, l => l.StartsWith("OK @p1", StringComparison.Ordinal)), "line"), StringComparison.Ordinal);
+        var pong = Str(ReadOn(desk, plain, l => l.StartsWith("OK @p1", StringComparison.Ordinal)), "line")!;
+        Assert.StartsWith("OK @p1 PONG 123456 ", pong, StringComparison.Ordinal);
+        // S12, emitting (13.10.5): this desk lists no stuck (its §8.2 row: no measured stall), so its pong is t1, t2 and t3 and never a
+        // fifth word: STUCK is said only on a link whose verdict lists the feature.
+        Assert.Equal(6, pong.Split(' ').Length);
+        Assert.DoesNotContain("STUCK", pong, StringComparison.Ordinal);
+        Assert.DoesNotContain(linked["can"]!.AsArray(), n => n!.GetValue<string>() == "stuck");
 
         // S1 over TLS, pinned: the offer's bind is the desk's own certificate, a planted key proves, and its verb runs at operate.
         var (overTls, keyed) = Dialled(desk, DialDesk(desk, tls: true, files.Write("key", key), "key"));
@@ -436,8 +443,9 @@ public sealed partial class PeerLinkWireTests
         using var files = new KitFiles();
         using var desk = new AcceptorDesk();
         var code = files.Write("code", desk.Token);
-        Assert.Equal(65536, ControlService.WireLineBytes);                                        // link.command.bytes
-        Assert.Equal(256, WirePeer.MaxQueuedReplies);                                             // link.replies.max
+        // The wire's two bounds are Core's numbers, which ShowBusSpecTests holds to §14's link.command.bytes and link.replies.max.
+        Assert.Equal(WireLimits.CommandBytes, ControlService.WireLineBytes);
+        Assert.Equal(WireLimits.RepliesWaiting, WirePeer.MaxQueuedReplies);
 
         // S15 on a link: the wire's own bounds (round 65's writer, its line ceiling), held for a connection that finished LINK — a
         // regression leg, since a link is a wire connection like any other once it has its verdict. A slow reader — linked, then

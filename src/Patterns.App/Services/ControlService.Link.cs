@@ -401,7 +401,7 @@ public sealed partial class ControlService
         if (decision.EnrolK is not null && enrolled is null) Log.Warn($"Wire: {client} proved the pairing token over TLS and enrolled no key — this desk keeps {AppKeys.MaxKeys} app keys at most; revoke one on the Nodes page.");
         // 13.6.4's order: the verdict is queued before the connection hears anything as a link, so no push can be written ahead of
         // it; this handler is the only reader of the connection's lines, so no verb comes in between.
-        Reply(ControlProtocol.Ok(LinkAcceptor.Verdict(credential, proof, lid, LinkCan(_kernel.IsDesk, overTls), _kernel.Beacon.Instance, (int)ShowBusLiveness.Beat.TotalMilliseconds, enrolled?.Kid)));
+        Reply(ControlProtocol.Ok(LinkAcceptor.Verdict(credential, proof, lid, LinkAcceptor.Can(_kernel.IsDesk, overTls), _kernel.Beacon.Instance, (int)ShowBusLiveness.Beat.TotalMilliseconds, enrolled?.Kid)));
         if (credential.Verified == "code") peer.Presented = token;          // the token this proof was checked against: a new one cuts this link
         peer.Link = standing;
         // 13.5.5: a key revoked or bound elsewhere, or a token replaced, after this line's credentials were read and before the link
@@ -436,15 +436,6 @@ public sealed partial class ControlService
         if (link.Verified == "link" && !string.Equals(now, token, StringComparison.Ordinal)) return AppKeyStore.ReplacedWords;
         return _kernel.AppKeys.Keys.Any(k => k.Kid == link.Kid) ? AppKeyStore.MovedWords : AppKeyStore.RevokedWords;
     }
-
-    /// <summary>
-    /// The features this wire uses on a link (13.6.6), in §14's order: <c>final</c> on a desk, whose cue history says what a
-    /// <c>CUE GO</c> came to (13.12.4); <c>receipts</c> everywhere (13.12.6); <c>enrol</c> inside TLS on a desk (13.5.7). Never
-    /// <c>stuck</c> or <c>expire</c>: neither is offered before this desk's show writer has a measured stall (the Super Check's
-    /// "Desk thread" row records the distribution a later round reads, LP-1).
-    /// </summary>
-    private static IReadOnlyList<string> LinkCan(bool desk, bool overTls)
-        => desk ? (overTls ? new[] { "final", "receipts", "enrol" } : new[] { "final", "receipts" }) : new[] { "receipts" };
 
     // Show Bus 1.3 §13.12.6: the receipts of each verified connector's last ids, and the clock their ages run on.
     private readonly AcceptorReceipts _receipts = new();

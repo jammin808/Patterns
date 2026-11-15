@@ -808,15 +808,28 @@ legacy proof as the wire checks it, and the clock the twin and the Stagewatch li
 93); `PeerLinkVectorsTests` runs all 109 vectors against the core (round 93), and every row this desk does not keep is
 named there with what it does today. The copy's §8.2 row is the master's words for Patterns as they were written: of
 what it lists as not kept yet, round 91 ended the first four (the wire's state before pairing, the link that named no
-node, the 64 commands, the hello and certificates of 1.2); LINK, TLS on the wire, app keys and receipts, and `CONTEXT
-POST` remain.
+node, the 64 commands, the hello and certificates of 1.2), and round 98 the next four (LINK, TLS on the wire, app keys,
+`final` and `receipts`), which the master's row still lists until its next copy; `CONTEXT POST` remains.
 What else this desk does not keep yet is named in `ShowBusSpecTests` with what it does (each a row of `docs/OPEN.md`;
 round 93 kept 13.11 on the clock, the link's pings on their own timer and 13.12.9's resends, closing L83, L84 and L87):
 - its own context's per-field sizes and trimming (§6; L85);
 - the names §14 gives a Slides agent and PlayMap (L86), and §2's words for a full table (L73);
-- `LINK` as an acceptor: since round 96 the Stagewatch link is a `LINK` connector to a Stagewatch that offers it (2.22
-  on), at level 0 only to an older one (L95), and the wire and the web remote accept no `LINK` (round 98) — a `LINK`
-  acceptor's rows are "not this desk's part yet";
+- cap `peerlink` in the hello, and the `LINK` offer before it is earned: since round 96 the Stagewatch link is a `LINK`
+  connector to a Stagewatch that offers it (2.22 on), at level 0 only to an older one (L95), and since round 98 the wire on
+  9697 accepts `LINK` and `LINK PROOF`, plain and over TLS, with app keys and `final` and `receipts` — the acceptor's §14
+  numbers (`peerlink.key.bits.min`, `peerlink.unpaired.per.address`, `peerlink.wrong.proofs.per.minute`,
+  `link.replies.max`, `link.command.bytes`) held to its code. 13.20 says, whole: "A node sends cap `peerlink`, and offers
+  LINK, only when its tree passes the block below and the scripted peer's scenarios for every carrier it uses, in each role
+  it plays. Its §8 row lists anything it does not keep yet, and what ends it." `ShowBusSpecTests`' conformance table names
+  each scenario of each role by its test, the cap follows it, and round 98.10 left the cap unsaid for the scenarios it does
+  not run whole yet: a node device's line link sends no `LINK` and no `PING` and dials plain (below), so most of a verified
+  line link's scenarios do not run on that connector; the Stagewatch link's S1 and S14 read a command's outcome only on
+  its side calls, against the suite's stand-in; and the acceptor's S15 cut past `link.replies.max` is held on the wire's
+  writer, not over the scripted peer's socket. The offer does not follow the table yet: the wire on 9697 offers `LINK`
+  while those rows are not kept — a departure from 13.20's first sentence, which the master's §8 row for Patterns does not
+  list yet, and which ends when the table's last row not kept is run. A connector reads the
+  cap as a hint to try `LINK` first (13.4.2); a 2.22's connector to this desk speaks no `LINK` at all (its SW23.1), so
+  the cap left out costs it nothing;
 - `LINK` to a PlayMap: a Show Bus node device (round 97, below) pairs by `AUTH-PROOF` at level 0, amber `legacy`, because
   PlayMap's line wire answers no `LINK` yet (Mapper's wp4-peerlink has not landed); round 98.5 keeps it there whatever a node
   offers — it sends a node device no `LINK` — and every reader says level 0 and why, the seam LINK comes through named in the

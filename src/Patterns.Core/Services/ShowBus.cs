@@ -34,7 +34,10 @@ public sealed record ShowBusHello
     /// <summary>
     /// What this machine can do for another app — the verbs and rows a caller may rely on. Round 87 adds Show Bus 1.1's
     /// words (docs/SHOWBUS.md §2): video, the Eye, a context any app's assistant can read, receipts and the clock exchange.
-    /// Show Bus 1.3 §12 adds <c>pages</c>: this desk opens a page a Stagewatch grants it in a browser of its own.
+    /// Show Bus 1.3 §12 adds <c>pages</c>: this desk opens a page a Stagewatch grants it in a browser of its own. Cap <c>peerlink</c>
+    /// is said only while this tree runs every 13.20 scenario of each role and carrier it plays — ShowBusSpecTests' conformance
+    /// table holds the cap to it — and is not said while any is not kept. 13.20 holds the LINK offer to the same condition; the wire
+    /// on 9697 accepts LINK ahead of it, a departure that table names and that ends when its last row not kept is run.
     /// </summary>
     public static readonly string[] Capabilities = { "video", "video.clock", "video.end", "video.seek", "video.transport", "state", "eye", "context", "receipts", "clock", StagewatchGrants.Ability };
 

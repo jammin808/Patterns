@@ -999,8 +999,8 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
-    /// <summary>The most bytes a line on the wire may run to: a command is a few dozen, a plan or a show file a few thousand.</summary>
-    public const int WireLineBytes = 64 * 1024;
+    /// <summary>The most bytes a line on the wire may run to: a command is a few dozen, a plan or a show file a few thousand (§14 <c>link.command.bytes</c>).</summary>
+    public const int WireLineBytes = WireLimits.CommandBytes;
 
     /// <summary>A node's front door on its control port: what it is, its pages, and where the desk finds it — the desk's remote page is the desk's.</summary>
     private string NodePage()
