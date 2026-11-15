@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 98 — 2026-11-14 — the acceptor: TLS on the wire's port, LINK and LINK PROOF with refusals that look alike, scoped app keys, the list of what this desk accepted, and receipts kept
 
-`round-98` · PLAN §116 · REVIEW round 98 · 3,485 tests · module 3.22.0 · evidence: a handed-in critique (the PeerLink profile's Round PL for Patterns, with the Eye critique's issues 8b and 13) and CI's file for runs 303 to 306; no field files and no rig report; no measurement this round · Walk: unwalked (TLS on the wire's port and the kept keys' seal, to be asked by QUALIFICATION §27 and §28 rows)
+`round-98` · PLAN §116 · REVIEW round 98 · 3,663 tests · module 3.23.0 · evidence: a handed-in critique (the PeerLink profile's Round PL for Patterns, with the Eye critique's issues 8b and 13), the owner's answer of 2026-11-14 (the SDK pin) and CI's file for runs 303 to 318 (308, 313, 314, 315 and 316 red, each on one App test, read and answered with what the reading did not prove); no field files and no rig report; one measurement (the shutdown test's memlog) · Walk: unwalked (TLS on the wire's port and the kept keys' seal, QUALIFICATION §27 and §28 notes)
 
 - **The round opens (98.0).** PLAN §116.1 names the round's number (the plan's round 97) and its unit table, 98.0 to 98.6, each
   dependency under this tree's numbers (97.2 for the node devices); reads round 97's CI (runs 303 to 305 red at Build on CA1860
@@ -23,6 +23,45 @@ is the Bitfocus Companion module, where its version moved.
   the plan's cites moved); names the OPEN rows it touches (**L55**'s wire half closed by 98.1, **L55**'s twin half and **L60**
   read, **L95** and **L36** touched), the requester, the evidence class, the owner's P-scopes, the platform paths (TLS on the
   wire's port, DPAPI for kept keys) and no measurement.
+- **TLS on the wire's port (98.1).** 9697 serves TLS with the desk's own certificate (the one the hello names), told from
+  plain by the connection's first byte; nothing is said before that byte, so the greeting `NONCE` comes once a connection has
+  spoken; any other byte, silence or a handshake that does not end within 10 s is closed with nothing written; decks stay
+  plain with their proof. STATE `control.wire`, the Super Check's *Wire TLS* row, the tile, the Nodes card and the facts say
+  it. **L55**'s wire half closed; the twin's TLS and the module's dial stay under it.
+- **The SDK pin (98.6).** `global.json` pins 10.0.115 with `latestPatch`, CI installs from it and `SdkPinTests` holds it
+  (**L114** closed, CI's run 309 green on it). The maintainer's PC needs a 10.0.1xx SDK at 10.0.115 or above.
+- **`LINK` and `LINK PROOF` on 9697 (98.2).** The line wire accepts PeerLink: one proof a connection, unknown kids answered
+  like known ones in constant time, a wrong-proof table per address and kid, four unfinished links an address, a ten-second
+  handshake, app links under a sub-cap of the wire's ceilings; one `Link` journal row per verdict.
+- **The start's fault names its listener (98.8).** A control start that fails says which listener, which port and which
+  address, on the status, the log, a red Super Check row and the tile; one desk's test ports come from one pick. CI's run
+  308 is read, its cause not proved (L116; L120 the readers it did not reach).
+- **App keys (98.3).** `KEY MAKE`, `KEY BIND` and `KEY REVOKE` on the Nodes page and its menus alone: `ptk_` keys bound to one
+  connector, scoped `follow`, `post`, `drive` or `operate` (no key below `operate` takes, cuts or touches outputs or
+  settings), shown once, sealed by DPAPI; enrolment from the token over TLS only; NEW TOKEN revokes what it enrolled; a key
+  seen in clear opens nothing and is marked.
+- **The acceptor's list (98.4).** The Nodes page's APP LINKS table with CLOSE and REVOKE KEY (and its right-click), STATE's
+  `decks` rows with `level`, `t`, `id`, `verified` and `scope` appended, app links dropped from every deck reader; the Eye's
+  edge, the Super Check's *App links* row and the tile; module 3.23.0's `desk_app_links`. CLOSE rides the `refused` class
+  (**L115**).
+- **Receipts kept (98.5).** 256 receipts for ten minutes per connector, `@rq RECEIPTS`, a `final` answer for `CUE GO` that is
+  the cue's settled outcome, `lateMs` past a second, the Super Check's *Desk thread* row; `stuck` not offered; node devices
+  stay at level 0 and say why.
+- **A device link raises nothing before `Start` (98.9).** The node device's lost HELLO (CI's run 313) mended at the link: a
+  connection that came up before the service's handlers were on said its start to nobody. A candidate for run 313, not proved
+  (L117).
+- **What each injected failure left undone, released (98.11).** The shutdown test leaves no desk alive (**L80** closed, its
+  memlog at nought); closed desks open nothing; the dashboard test names a port's holder. CI's run 314 read, not proved (L118).
+- **The doors' accepts off the desk's thread (98.12).** A stalled desk no longer pauses the wire's, the web's, the audience's
+  or the twin's accepts — a fence over four doors; the flood test is timed from the desk's own accept. Runs 315 and 316 read,
+  their cause not proved (L119).
+- **The acceptor's conformance close (98.10).** §14's acceptor rows held to the code; 13.20's scenarios listed per role against
+  their tests; the hello's `peerlink` cap held back while three rows are not kept, the `LINK` offer ahead of them named as a
+  departure (L123).
+- **The papers (98.7).** PLAN §116 (the table completed: the papers are 98.7, 98.6 being the SDK pin), REVIEW round 98, README,
+  REMOTE (`LINK` and `LINK PROOF`, `CUE GO`'s final), COMPANION, ADR-016, QUALIFICATION §27 and §28, OPEN (L114 and L80 closed,
+  L55's wire half; L116 to L124 added) and round 97's tag row. `KEY MAKE`'s and `LINK`'s journal rows, read beside the Nodes
+  page's APP LINKS table, are the rig's rows; not read on a rig this round.
 
 ## Round 97 — 2026-11-14 — a PlayMap node becomes a Show Bus node device, known by its kind words, paired by proof on its line wire, driven with receipts and drawn in the NETWORK band; and a test canary no hex can hold
 

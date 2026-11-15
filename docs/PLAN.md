@@ -16308,7 +16308,13 @@ inserted; each dependency that names another Patterns unit of the plan reads one
 | P97.3 | 98.3 | app keys (13.5): `ptk_` keys each bound to one connector and scoped by P-scopes' map, kept sealed, `KEY MAKE`, `KEY BIND` and `KEY REVOKE` catalogued, journalled and never proposed, enrolment over TLS only, `NEW TOKEN` revokes the keys it enrolled, a token seen in clear marked on keys too; S17, S18, S21 | 98.2 |
 | P97.4 | 98.4 | the acceptor's list (13.16.5): the App links table on the Nodes page, STATE's `decks` rows with `level`, `t`, `id`, `verified` and `scope` appended, and the four decks readers made to drop a proved app | 98.3 |
 | P97.5 | 98.5 | receipts kept (13.12.4 to 13.12.6): a `final` answer for `CUE GO`, 256 ids for ten minutes with `repeat:true` and `@rq RECEIPTS`, `lateMs`; `stuck` not offered; node devices speak `LINK` once PlayMap offers it | 98.4; 97.2 (the plan's P96.1) |
-| P97.6 | 98.6 | the papers (PLAN §116, REVIEW, CHANGELOG, README, REMOTE, COMPANION, OPEN) and round 97's tag row | 98.5 |
+| P97.6 | 98.7 | the papers (PLAN §116, REVIEW, CHANGELOG, README, REMOTE, COMPANION, OPEN) and round 97's tag row — 98.6 at this opening; 98.7 since the SDK pin took 98.6 (§116.2) | 98.5 and every unit inserted below |
+| — | 98.6 | inserted: the SDK pin (`global.json`; **L114**), the owner's answer of 2026-11-14, committed between 98.1 and 98.2 | 98.1 |
+| — | 98.8 | inserted: the control start's failure names its listener and port; one desk's test ports distinct by construction (CI run 308) | 98.2 |
+| — | 98.9 | inserted: a connection link dials only once its handlers are attached — the node device's lost HELLO (CI run 313) | 98.5 |
+| — | 98.10 | inserted: the acceptor's conformance close — §14's acceptor rows held to the code, 13.20's scenarios listed against their tests, the hello's `peerlink` cap sent or held back with the reason | 98.12 |
+| — | 98.11 | inserted: the shutdown test releases what each injected failure left undone (**L80**), and the test desks' ports (CI run 314) | 98.9 |
+| — | 98.12 | inserted: the acceptor flood test's bound counted scheduling ahead of the desk's accept (CI run 315); the accept loops' context decided with a fence | 98.11 |
 
 The plan's check for this unit greps for `^## 115\. Round 97`; here it is `^## 116\. Round 98`. R1 asks a round to open only
 after the previous round's papers: round 97's are `f102d61`. Stagewatch's SW23.1 (its `PlayoutLink` speaking `LINK` to this
@@ -16448,3 +16454,344 @@ Rendering and App; 98.3 and 98.4 also the module's four steps; 98.5 adds Devices
 time. 98.6's papers depend only on units that wait on nothing outside the round: none of 98.1 to 98.5 waits on Stagewatch's or
 PlayMap's work, and PlayMap's `LINK` on 9941 is not a dependency, only the reason 98.5's node-device half is "stays at level 0,
 and says so". Sections 116.2 onward are written by 98.6.
+
+### 116.2 The table completed, and the units as they landed (98.7)
+
+**The papers are 98.7, not 98.6.** The opening's table had the papers as 98.6. The round then inserted 98.6, the SDK pin
+(the owner's answer of 2026-11-14, `latestPatch`; committed between 98.1 and 98.2), so the papers are 98.7; where §116.1
+says 98.6 for the papers, read 98.7. Round 98.2's commit body (`b49a0e8`) calls the papers 98.6's for the same reason:
+they are 98.7's. Five more units were inserted as the round met CI's runs and the conformance block, each with its
+evidence class. The table above lists them; in the order they were committed:
+
+| Unit | Commit | What it is | Evidence | CI's run on its push |
+|---|---|---|---|---|
+| 98.0 | `b42cc32` | the opening (§116.1) | the plan and CI's file for runs 303 to 306 | 307 (43652967253): green |
+| 98.1 | `0dbff3e` | TLS on 9697, told from plain by the first byte (§116.3) | the plan (Round PL) | 308 (43661718756): `test` red — `PlayAppTests.TheHubRunsARoomForThePhonesTheHostAndTheWall`, 98.8's subject; every other job green |
+| 98.6 | `9e2333d` | the tree builds on the SDK `global.json` names (§116.4; **L114**) | the owner's answer of 2026-11-14 and CI's runs 303 to 305 | 309 (43666475257): green, every job |
+| 98.2 | `b49a0e8` | `LINK` and `LINK PROOF` on 9697 (§116.5) | the plan and Stagewatch's landed acceptor | 310 (43672919033): green |
+| 98.8 | `b326280` | the start's failure names its listener and port; one desk's test ports distinct by construction (§116.6) | one CI run (308), its cause not proved | 311 (43677841049): green |
+| 98.3 | `2d2a9c2` | app keys (§116.7) | the plan and the owner's P-scopes | 312 (43684501281): green |
+| 98.4 | `8c123a4` | the acceptor's list (§116.8) | the plan | 313 (43689916916): `test` red — `NodeDeviceAppTests.AWrongTokenStopsTheDeviceAndNoFactOrCommandEverReachesTheNode`, 98.9's subject |
+| 98.5 | `2735001` | receipts kept, a final answer for `CUE GO`, `lateMs`; node devices at level 0 (§116.9) | the plan | 314 (43697936997): `test` red — `AdminTests.TheDashboardReadsTheMachineAtAGlanceAndMovesWithTheNumbers`, 98.11's subject |
+| 98.9 | `efc0481` | a device link raises nothing before `Start`: the node device's lost HELLO (§116.10) | CI run 313, one bench sighting, the code, a probe | 315 (43705053793): `test` red — the acceptor flood test, 98.12's subject |
+| 98.11 | `7c8b39e` | the shutdown test releases what each injected failure left undone; the test desks' ports (§116.11; **L80**) | CI run 314 read, a defect of the suite 98.8's honest REMOTE tile made visible; the memlog | 316 (43711822911): `test` red — the acceptor flood test again, before 98.12 was pushed |
+| 98.12 | `30137dc` | the doors' accepts off the desk's thread; the flood timed from the desk's own accept (§116.12) | CI run 315, a defect of the test; a fence | 317 (43718740781): green, every job (App 1,063) |
+| 98.10 | `da54d9e` | the acceptor's conformance close (§116.13) | the contract's §13.20 and §14 read against the code | 318 (43725341788): running when these papers were written — its reading is REVIEW round 98's |
+
+Every red run above failed one test of the App suite on the Ubuntu runner (`test`); `lifecycle`, `windows-smoke`,
+`companion-module` and `rollback-script` were green on all of them, and `portable-exe` ran only after a green `test`. No
+build failed: the pin (98.6) held the analyzers on every run from 309.
+
+**R3.** Every unit of 98.1 to 98.5 is committed; none moved. The inserted units waited on nothing outside the round.
+
+### 116.3 TLS on the wire's port (98.1 — Show Bus 1.3 §13.8.5; L55's wire half)
+
+**What landed** (`0dbff3e`). The wire's port serves TLS on the port it already uses, with the desk's own certificate (the web
+remote's, the one the hello's `tls` names), told from plain by the connection's first byte, peeked within
+`WireLimits.FirstByteSeconds` (10 s, `peerlink.handshake.ms`): `0x16` is TLS, a line's byte (printable ASCII, tab, CR, LF) is
+plain, anything else — and silence, a handshake with no certificate or one that does not end — is closed with nothing
+written, counted, and named in the log once a minute an address. Nothing is said before that byte: §116.1's one behaviour
+change, the greeting `NONCE` now follows the connection's first byte. No plain connection is upgraded and no TLS client reads
+a line in clear; plain `AUTH` inside TLS is refused as on a plain line and not marked as seen in clear. Over the ceiling the
+busy words go only to a connection whose first byte opened a line within 2 s, and at most 8 such waits are held at once. The
+web remote's door and the wire's share one first-byte reader. Decks stay plain with their legacy proof. Stricter than the
+contract's "anything but `0x16` is plain": an SSLv2 hello, a TLS alert or a UTF-8 byte-order mark before the first line is
+never read as a line (REMOTE names the BOM and its fix).
+
+**Readers.** STATE `control.wire` (`port`, `tls`, `fingerprint`, `words`, at the end of the `control` row; no counts, so a
+connection never moves STATE); the Super Check's REMOTE row *Wire TLS*, the REMOTE tile, the Nodes page's own card and the
+assistant's facts, with the counts since start; the Remote page's HTTPS line, only while the wire listens. The hello's shape
+is unchanged (§14 has no TLS port word for a line wire). Thirteen App test helpers that read the greeting before speaking now
+send a blank line first.
+
+**Tests.** Core `WireTlsTests` (the first-byte table over all 256 values, the handshake's time, the words, STATE's count-free
+words, the counters, the row and the tile); App `WireTlsAppTests` on the real port with `TrustLoopback` and
+`PlainAuthOnLoopback` off and restored in `finally` (a TLS client sees the hello's certificate, pairs by `AUTH-PROOF` inside
+TLS and runs `BLACKOUT ON` beside a plain deck; neither-bytes, silence, a broken and a stopped handshake each closed with
+nothing in clear within the bound; over the ceiling; the bind address honoured). Mutations: an unbounded busy wait, and the
+handshake on the desk's stop token, each failed a test.
+
+### 116.4 The SDK pin (98.6 — L114)
+
+**What landed** (`9e2333d`). `global.json` at the root pins the bench's SDK, 10.0.115, `rollForward` `latestPatch`, no
+previews, so the SDK's analyzers come from the pinned patch's feature band (10.0.1xx) wherever the tree builds; a machine with
+only an older patch, another band or another major is refused by `dotnet` with words that name `global.json`. CI's four
+`actions/setup-dotnet` steps (`test`, `lifecycle`, `portable-exe`, `windows-smoke`) install from `global-json-file` and name no
+version; setup-dotnet installs the band's newest patch. `SdkPinTests` (Core) holds the pin, every step, no `dotnet-version` and
+no `dotnet-install` line, and the band words in README and `docs/ANALYSIS.md`; every mutation its commit lists failed it. README's build
+paragraph and the `Directory.Build.props` comment, which claimed an older SDK builds the tree, now say only CI installs from
+`global.json`. CI's run 309 on it was green, every job, and every later run built on the band: **L114 closed**.
+
+**What it asks of others** (L121). The maintainer's PC needs a 10.0.1xx SDK at 10.0.115 or above before `dotnet build` or
+`build/publish-win-x64*.cmd` runs there (the SDK a current Visual Studio carries is a later band and is refused) — a
+requirement, not an observed fact. Stagewatch's interop lane builds `tools/Patterns.Bench` from inside this tree and installs
+`10.0.x`; it must install this tree's band before its Patterns pin moves past this commit. An owner suggestion for the agent brief's
+loop, not made here: "global.json pins the SDK (10.0.1xx at the pinned patch or above); a build elsewhere is refused".
+
+### 116.5 `LINK` and `LINK PROOF` on 9697 (98.2 — Show Bus 1.3 §13.6.1 to §13.6.4; S1 to S3, S8, S9, S15, S16, S19, S20)
+
+**What landed** (`b49a0e8`). `LINK` joins the words open before pairing (`ControlProtocol.OpenKinds`, ADR-016 amended): one ask
+and one proof a connection, a fresh `snonce` per offer, the bind taken from the certificate this connection's TLS showed
+(`tls:sha256:…`) or `plain`. The verdict `OK paired {"v","verified","scope","proof","lid","level","can","inst","beatMs"}` and
+the refusals `ERR LINK <class> — <words>` match the contract's line vectors and Stagewatch's `LinkAcceptor`. Core's
+`LinkAcceptor` is pure, on PeerLink's transcript, MACs, `lid` and fixed-time `Verify`: an unknown kid is checked against a
+random K with the same work and refused in the same words, never counted; the lock is asked for every kid before its proof, so
+the work a proof is given does not say whether its kid is held. `WrongProofTable` counts per `(address, kid)`, five a minute,
+a proof reserving its place before it is checked, apart from the legacy proof's five-and-close (kept as it was), the web's and
+the decks'; this desk's table has the `code` arm Stagewatch's has no case for. In App (`ControlService.Link.cs`): every refused
+proof is the connection's last word; the verdict is queued before the connection is marked as a link, and the whole STATE
+follows it; the token is read once for the line; the deadline and the proof race on one atomic phase; a key's link is held,
+verb by verb, to the lower of its scope now and the scope it linked at. **Bounds:** at most four LINKs without a verdict per
+address (`peerlink.unpaired.per.address`), each closed at the handshake's ten seconds; silent connections bounded by the same
+number in a ledger of their own, so four LINKs waiting never shut the port to a deck from the same machine; app links under a
+sub-cap (16 on the port, 4 an address) inside the wire's 64 and 16, answered busy past it. **Journal:** one `Remote`/`Link` row
+and one log line per verdict (the connector's `t:id`, the kid, the scope, `line tls` or `line plain`, the `lid`; never a nonce,
+a proof or K), one `Remote`/`LinkLocked` row when a pair locks.
+
+**Tests.** `LinkAcceptorTests` (the line vectors, refusals, unknown kid, lock, shapes, the table, the numbers) and
+`PeerLinkWireTests.Acceptor` against the scripted peer on real sockets with `TrustLoopback` false and restored in `finally`.
+The unit's commit records no mutation check.
+
+### 116.6 The start's fault names its listener; one desk's test ports apart (98.8 — CI run 308)
+
+**What landed** (`b326280`). Run 308's `PlayAppTests` ran out its 15 s wait for the audience listener with nothing to read: the
+status said only "Remote control failed to start: <socket message>". `ControlService.Reconcile` now records which of its three
+listeners it opens (the wire, the web remote, the audience), its port and its bind, and a throw builds one
+`ListenerFault(Listener, Port, Bind, Message)` whose words the status, the first `Log.Error` and the warning once a minute say
+(`StartFault`, `StartFailed` is `StartFault is not null`). The Remote line says "Remote: closed — <words>"; the TLS line no
+longer names the wire's port; Core's `CheckFacts.RemoteStartProblem` gives a red REMOTE *Remote control* row (and leaves out
+*Wire TLS* and *Wire reads*, which describe a wire that is not listening); the tile is red. In the tests, `TestPorts.Distinct(n)`
+opens n probes on `IPAddress.Any`, the address the desk binds, and holds them until all are picked, so one desk's ports are
+distinct; `TestListeners.Up` waits on a listener by the desk's own facts and fails at once, with the status and the ports, on a
+start's fault. A choice, said: the guard fails rather than riding out a port held for a few seconds, which the desk's 5 s retry
+would recover from. `ShowBusAppTests`' `FakeStagewatch` stays a single pick (L77).
+
+**Evidence and what it did not prove.** One CI run; its cause is not proved, and the unit claims neither hazard it removed was
+it (**L116**). The readers it did not reach — STATE, the Eye, the assistant, four address readers, and `AUDIENCE ON` answering
+Done before the port opened — are **L120**. **Tests:** `ListenerStartFaultTests` (one case per listener; the words, the row, the
+tile, one ERROR line; the ports let go and all three open) and Core's `BindAddressTests`; a mutation naming the audience
+listener as the web remote failed one App case.
+
+### 116.7 App keys (98.3 — Show Bus 1.3 §13.5; S17, S18, S21; the owner's P-scopes)
+
+**What landed** (`2d2a9c2`). `KEY MAKE` mints `ptk_` and 32 symbols (160 bits from the CSPRNG), shown once on the Nodes page
+(APP KEYS) and kept only as its K, each bound to one connector (`kind:id`); `KEY BIND` moves or rescopes a key, `KEY REVOKE`
+removes one, and revoking, moving or lowering a key ends its live link at once in 13.5.5's words. The three are catalogued
+(`ActionSpec`, desk-only), journalled, unsayable by the writer and refused from every origin but the desk (a departure from
+13.16.6 like TRUST and ACCEPT, L94 amended). **Scopes** (`AppKeyScopes`): `follow` and `post` every read and `RECORD`;
+`drive` adds `VIDEO`, `CUE GO`, `CUE STANDBY`, `SECTION` and `STAGE MESSAGE`; `operate` the rest. Every `RemoteCommandKind`
+is named on one side or the other (a fence), so a kind the wire gains later waits for `operate`; drive reaches the air only
+through the operator's own content, and no key below `operate` reaches `OUTPUTS`, `TAKE`, `CUT`, `SCREEN` or a setting.
+**At rest:** sealed to the Windows user by DPAPI (`SecretSeal`, the seam now shared with the TLS key) in
+`patterns.appkeys.json`; elsewhere an owner-only file; where the seal is required and refuses, nothing is written in plain (the
+keys hold for the run, the older file goes, the Super Check's *App keys* row is amber with why). Never in the show, a backup,
+the support bundle, the twin or STATE (which lists kids, bindings, scopes and marks at the end of the `control` row). The
+Linux at-rest form of the token's sightings (a keyed hash beside its salt, round 89's) is unchanged. **Enrolment:** the pairing
+token proved over TLS to a desk enrols a key at `follow` (`"enrolled"`, `can` `["enrol"]`); over plain never, and never on a
+node. NEW TOKEN revokes the enrolled keys and ends their links and the code's; a desk started under a token its kept keys were
+not enrolled from revokes them at start, with one journal row. **Seen in clear:** a `ptk_` key in plain `AUTH` or in
+`X-Patterns-Token` over plain HTTP opens nothing and is marked on its row, in STATE and on the Super Check, amber, with one
+`KeySeenInClear` row, never the key.
+
+**Not reached, for these papers:** the context and the Eye (the Eye reached by 98.4), the Health dashboard's REMOTE tile
+(reached by 98.4), a per-kind enrolment scope (**L122**); `AppKeys.MaxKeys` 64 is a list bound with no measurement (**L122**).
+**Tests:** `AppKeysTests`, `CompanionModuleContractTests.TheModuleSaysNoKeyVerb`, `PeerLinkWireTests.Keys` (over real sockets,
+`TrustLoopback` off), `NodesAppKeysTests`. No mutation check recorded.
+
+### 116.8 The acceptor's list (98.4 — Show Bus 1.3 §13.16.5)
+
+**What landed** (`8c123a4`). Every link `LINK` verified is listed apart from the decks: the Nodes page's APP LINKS table (CLOSE
+and REVOKE KEY on each row and its right-click menu, the last minute's refusals with their counts), STATE's `decks` rows, the
+Remote page's strip, the Run strip's glance, the assistant's facts, the Super Check's REMOTE *App links* row and the Health
+dashboard's REMOTE tile. `ControlService.Decks` leaves out every connection `LINK` verified, so the four decks readers drop proved
+apps at once (CommandRouter's and NodeHost's STATE `decks`, Poll's `DecksLine`, `nav.decks`), with the Eye's deck nodes and the
+count in `DeckSignature`. **STATE `decks`**: each deck appends `level` 0, `t` "", `id` "", `verified` "" and `scope`
+`operate`/`none`; each app link is a row at `level` 1 with its connector's `t` and `id`, `verified` `key`/`link`/`code`, its scope
+now, then `tls`, `kid`, `light`, `mark`, `words` and `ended` — every new field at the end of its row; no key, K, proof or nonce.
+Ended links stay grey for `peer.forget.ms`; refusals are counted per address, connector, kid and class for a minute; both lists
+are bounded at 32 (no measurement, **L122**). **CLOSE** (`APP LINK CLOSE`) is the desk's alone, answers Requested, is observed
+when the connection ends; it rides the `refused` class because the line has no disconnect word (**L115**, said on the tooltip,
+the menu and the words). **The Eye** draws an accepted link as the one edge between its app's card and the desk, `K` what the
+connector did on it. **The module** 3.23.0: `desk_decks` takes level 0 rows only, `desk_app_links` names each app link.
+
+**Not reached:** the context's acceptor items and peers rows, a Companion feedback for app links (**L122**). **Tests** with its
+review folded in; module `npm ci`, 51 tests, `lines.txt` unchanged, `npm run check`. No mutation check recorded.
+
+### 116.9 Receipts kept, a final answer for `CUE GO`, `lateMs` (98.5 — Show Bus 1.3 §13.12.4 to §13.12.6)
+
+**What landed** (`2735001`). A LINK verdict's `can` is `["final","receipts"]` on a desk (and `enrol` over TLS) and
+`["receipts"]` on a node, never `stuck` or `expire` (no stall measurement). **Receipts kept** (`AcceptorReceipts` on Core's
+`ReceiptBook`): per verified connector, 256 ids of 13.12.1's shape for ten minutes, 64 connectors, the one heard from longest ago
+dropped first; a held id runs nothing again (accepted while it runs, its kept receipt with `"repeat":true` after); reads are
+answered afresh. `@rq RECEIPTS <ids>` is answered for a link's own ids with this desk's `inst`, refused on a connection `LINK`
+did not verify, with no id, more than 32 or a non-id. **`CUE GO` final:** a link's GO answered Requested is followed by one
+`OK @id final {…}` once its cue-history row settles — the row's outcome, never the send — within 30 s and while the connection
+is open, the record alone after; `ERR @id final` only when nothing ran; a cue that failed late or part-way ran, so its final is
+applied with words naming what failed, and a connector never reads a cue on the air as one to fire again. **`lateMs`:** a
+command with an id the desk's thread took more than 1,000 ms after its read says so (the last field of an `OK {…}`), in its
+kept receipt, one `LateCommand` journal row and one log line, read and ran on one monotonic clock. **LP-1:** `DeskStall`
+records every wire command's read-to-ran wait in fixed buckets; the Super Check's REMOTE *Desk thread* row says it. It governs
+nothing. **Node devices:** Mapper offers no acceptor, so a node device is sent no `LINK`, stays level 0 and says why
+(`ShowBusNodeSession.Level` is the seam; `LevelWords`). **Left for these papers:** `ShowBusSpecTests`' acceptor reason and the
+hello's `peerlink` cap — answered by 98.10 (§116.13). **Tests** with its review folded in; Devices 13. No mutation check
+recorded.
+
+### 116.10 A device link raises nothing before `Start` (98.9 — CI run 313)
+
+**What landed** (`efc0481`). `IDeviceLink` gains `Start()`, and a link raises nothing before it; the TCP, serial and UDP links
+no longer start their loops in their constructors, MIDI's timer is armed by `Start`, and `DeviceService.Reconcile` starts a
+link only after `LineReceived`, `Moving` and `Opened` are attached and the device is in its table. Before this a TCP link's
+first connection could be published and opened before the handlers were on, its `Opened` went to nobody, and the node's HELLO
+was never written. A link that will not open is put away whole; a UDP link is bound at construction so its reader waits rather
+than failing; PJLink and Pixera start their session over at the connection's own start (a serial link still at the poll's
+pass, **L124**). No status word, STATE field, verb or menu changed.
+
+**Evidence and what it did not prove.** CI run 313, one bench sighting, the code and a probe: a mutation that starts the link
+before its handlers makes the App test's words read "1 connection accepted; the link open; the sight connecting; out 0". It is
+a candidate for run 313's failure, not proved its cause — a pool starved for the whole 8 s is the other reading, and the new
+words decide between them at the next sighting (**L117**). **Tests:** Devices 24 (from 13), `LinkStartTests`; seven mutations
+each failed a test. Its validate's App part 2 failed once on 98.2's flood test (the fifth closed at 4.8 s against 2.5 s; it
+fails at `2735001` too on this bench) and was green rerun whole: not root-caused (**L119**, §116.12).
+
+### 116.11 What each injected failure left undone, released (98.11 — CI run 314; L80)
+
+**What landed** (`7c8b39e`). Run 314's dashboard test read "Attention needed — REMOTE": 98.8's honest REMOTE tile made visible a
+defect of the suite — `ShutdownPhaseTests` injected a failure into each shutdown step and left each desk holding what that step
+should have let go (the listeners on the default ports, its timers), so any later desk on those ports failed its start.
+`AppServices.ShutdownReleases` names every step's release (frozen; the steps that hold nothing pinned by words); the test seam
+`ReleaseWhatTheInjectedFailureLeftUndone` runs the skipped release once the test's assertions are made; each iteration boots on
+picked ports in its own folder and asserts its timers stopped and its six listener ports bind. Closed desks open nothing
+(`Reconcile`, `RetryListeners`, `NodeHost.OnStateChanged` guarded, each proved by a test that fails without its guard); desks
+other App tests left on 9697 are closed; the dashboard test fails with the start fault's words, the ports and the port's
+holder (`PortHolder`, from `/proc`).
+
+**Evidence and what it did not prove.** Measured: the test's 39 boots read `leaked_desks=0` on every memlog line, against 0
+climbing to 16 before — **L80 closed**. Not proved: that run 314's failure was this leak (**L118**). Worker threads and other
+timers are not observed by the fence.
+
+### 116.12 The flood test's bound and the accept loops (98.12 — CI run 315)
+
+**What landed** (`30137dc`). Runs 315 and 316 read the acceptor flood test red with every connection late by the same 3.3 s and
+3.7 s: the test's bound counted scheduling ahead of the desk's accept — a defect of the test. The wire, web remote and audience
+doors share `ControlService.AcceptLoop`, which `Reconcile` starts on the desk's thread, and each accept continued there, so a
+stalled desk paused every accept; the await now carries `ConfigureAwait(false)`, and the twin's loop (opened from `Reconcile`
+too) the same. Handlers go through `ControlService.HandOff` (`PreferFairness`, the shared queue, oldest first), so a burst
+reaches the ledgers in arrival order. The flood test dials its connections one after another on one task and holds each close
+to its own dial while the pool has workers to give; `SilentPlaces` is §14's number written in the test, apart from the product's
+constant.
+
+**The accept loops' context: decided with a fence.** `EveryDoorClosesASilentConnectionAtItsSecondsWhileTheDesksThreadIsHeld`
+covers four doors (wire, web remote, audience, the twin at its JOIN's 5 s), blocking the desk's thread on the reads' wait
+handle; with the twin's `ConfigureAwait` removed it failed (the twin not shut at 10,001 ms while the others shut at about 1 s).
+
+**What it did not prove.** Run 315's own cause is still not proved; the failure words now name each dial, connect and close and
+the pool's state (**L119**). Run 317 on it was green.
+
+### 116.13 The acceptor's conformance close (98.10 — Show Bus 1.3 §13.20 and §14)
+
+**What landed** (`da54d9e`). The five acceptor rows of §14 leave "not this desk's part" and are held where they live:
+`peerlink.key.bits.min` by `AppKeys.KeyBits`, `peerlink.unpaired.per.address` and `peerlink.wrong.proofs.per.minute` by
+`LinkAcceptor`, `link.command.bytes` and `link.replies.max` by two new Core constants in `WireLimits` that the App's own are now
+defined from (values unchanged). `ShowBusSpecTests.Conformance.cs` lists every scenario each role asks — acceptor on line,
+connector on ws, connector on line to a node device, the twin — each run by named tests, not kept with what ends it, or not
+asked only where 13.20 makes it conditional; the hello's cap is said if and only if no row is not kept.
+
+**Which of the two happened: the cap is held back, with the reason.** It is not said today, for three rows not kept: a node
+device's line link (no `LINK`, no `PING`, plain), the Stagewatch link's S1 and S14 (a command's outcome read only on its side
+calls, against the suite's stand-in), and the acceptor's S15 cut past `link.replies.max` (held on the wire's writer, not over the
+peer's socket). The wire on 9697 still offers `LINK` ahead of conformance — a departure from 13.20's first sentence, named in
+the table's summary, `ShowBus.Capabilities`' comment and REMOTE (**L123**). A connector reads the cap as a hint, and
+Stagewatch 2.22's connector to this desk sends no `LINK`, so leaving it out costs it nothing. No verb, STATE field or hello
+word moved. Two fence mutations each failed the table's facts.
+
+### 116.14 Every reader, and what the round did not reach
+
+- **The desk.** The Nodes page: APP KEYS (make, bind, revoke, shown once, seen in clear), APP LINKS (each link, CLOSE, REVOKE
+  KEY, the refusals), its own card's TLS counts; the Remote page's HTTPS line, its strip (app links apart from decks), the Remote line
+  "closed — <words>" on a start's fault. **The right-click menus**, in step with the buttons: each key row's *Let this key speak
+  for <node>* and *Revoke key*, each app link row's *Close* and *Revoke key*, and the Eye's app card's ITS LINK TO THIS DESK.
+- **The Run strip** — its glance counts app links apart from decks.
+- **STATE** — `control.wire`, the app keys' kids, bindings, scopes and marks at the end of `control`, the `decks` rows' new
+  fields at the end of each row; nothing of the start's fault (L120).
+- **The Eye** — the accepted link as one edge to its app's card; no node for the control listeners (L120).
+- **The wire** — the TLS door, `LINK`/`LINK PROOF`, the verdict's `can`, `@rq RECEIPTS`, `CUE GO`'s `final`, `lateMs`; `KEY`
+  verbs refused off the desk. **The journal** — `Remote`/`Link`, `LinkLocked`, `KeySeenInClear`, `KeyLinksEnded`,
+  `LateCommand`, the action layer's `AppKeyMake`, `AppKeyBind`, `AppKeyRevoke` and `AppLinkClose`.
+- **The Super Check** — REMOTE's *Wire TLS*, *App keys*, *App links*, *Desk thread* and the red *Remote control* on a start's
+  fault; the REMOTE tile with each.
+- **The deck** — module 3.23.0's `desk_decks` (level 0 only) and `desk_app_links`; no feedback for app links and no TLS dial
+  (L122, L55).
+- **The assistant** — its facts carry the TLS counts and the app links; it proposes no `KEY` verb; it reads no control
+  status (L120).
+- **Not reached, said:** the context's acceptor items and peers rows (L122); the readers of 98.8's fault (L120); the cap
+  `peerlink` (L123).
+
+### 116.15 With AI offline
+
+Nothing needs a key or the internet: the proofs are this desk's own token and keys over the connection's nonce, the
+certificate is this install's, and the receipts and the lists are this desk's reading of its own wire. The assistant reads
+the app links and the counts; it proposes no key verb.
+
+### 116.16 The proof
+
+- **CI** (§116.2, GitHub's Actions list for this repository): 307, 309 to 312 and 317 green; 308, 313, 314, 315 and 316 red, each
+  on one App test, read and answered by 98.8, 98.9, 98.11 and 98.12 with what each did not prove (L116 to L119); 318 on
+  `da54d9e` running at these papers.
+- **The units' own validates:** 98.1 — Core 1,696, Rendering 724, App 1,026 by parts; 98.6 — Core 1,701, App 1,026; 98.2 —
+  Core 1,712, App 1,033; 98.8 — Core 1,713, App 1,037; 98.3 — Core 1,764, App 1,046, the module's four steps (51 tests); 98.4 —
+  Core 1,771, App 1,047, the module; 98.5 — Core 1,792, Devices 13, App 1,053; 98.9 — Devices 24, Core 1,792, App 1,053; 98.11
+  — App 1,061; 98.12 — App 1,063; 98.10 — Core 1,795, Rendering 724, App 1,064 (APP SUITE GREEN BY PARTS each).
+- **At the close:** Core 1,795, Rendering 724, Devices 24, Audio 14, Assistant 39, Audience 3, App 1,064 — 3,663 in all (98.10's
+  validate for Core, Rendering and App; these papers' runs for the four small suites, as CI's run 317 read them); the module
+  3.23.0, 51 tests. The close's whole validate (all seven suites and the module's four steps on the tree as committed) is the
+  committing stage's, and REVIEW round 98 records what it read.
+- **Mutation checks:** 98.1 two, 98.6 one for each rule its fence holds, 98.8 one, 98.9 seven, 98.11 each guard's test, 98.12 one, 98.10 two; 98.2, 98.3,
+  98.4 and 98.5 record none, and these papers run none (no source is edited here). Said, not hidden: the acceptor's gates
+  (one proof a connection, the lock before the proof, the scope floor, the key verbs desk-only) are held by tests no mutation
+  has yet been shown to fail; the next round that edits `ControlService.Link.cs` or `AppKeys.cs` runs one each.
+- **Measured:** 98.11's memlog (`leaked_desks` 0 on every line) and 98.9's probe. The bounds are the contract's and the wire's,
+  each held by a deterministic test; the list bounds (32, 64 keys) have no measurement (L122). No governor is added.
+
+### 116.17 What the round did not do
+
+- **The walk: unwalked.** Two platform paths moved: TLS on the wire's port (a network path) and the kept keys' seal (DPAPI, a
+  Windows seam). QUALIFICATION §27 and §28 carry a round 98 note each, their rows unwalked.
+- **No `LINK` for a deck**, and no TLS dial in the module (L55's module half, its own round); decks stay plain with the legacy
+  proof and are counted apart.
+- **No `stuck` or `expire`** (LP-1 records the distribution a later round reads); no enrolment over plain; the token's `operate`
+  scope not lowered; no wire verb that takes or cuts.
+- **Nothing asked of PlayMap or Stagewatch;** their halves (PM-10, SW23.1) are theirs. No connector proves `LINK` to this desk
+  yet but the scripted peer. Stagewatch's interop lane must follow 98.1 and 98.6 before its pin moves (L121).
+- **The twin is not sealed** (L55's twin half, L60 waits on it); **the cap `peerlink` is not said** (L123).
+- **The context's acceptor rows, a deck feedback for app links, a per-kind enrolment scope** (L122); **98.8's other readers**
+  (L120).
+
+### 116.18 The ledger and the papers (98.7)
+
+- **OPEN.** Closed: L114 by 98.6 (`9e2333d`, CI's run 309 green on it), L80 by 98.11 (`7c8b39e`, measured). L55's wire half
+  closed by 98.1 (`0dbff3e`); the row stays open for the twin's TLS and the module's dial. Amended: L77 (98.8's picks, this one
+  left single), L81 (read: neither sighting recurred on runs 307 to 317), L94 (the key verbs depart alike), L95 (the acceptor's
+  reach), L111 (98.8's ports within a run), L112 (98.5's seam). Added: L116 (run 308), L117 (run 313), L118 (run 314), L119 (the
+  flood test's timing: runs 315, 316 and the bench), L120 (98.8's readers not reached and `AUDIENCE ON`'s Done), L121 (the trees
+  beside this one and the PC: the SDK pin and the first byte), L122 (the acceptor's readers not reached and the list bounds),
+  L123 (13.20: the cap held back, the offer ahead of conformance), L124 (a serial PJLink or Pixera session's start). Read and
+  kept: L36 (the wire and its TLS honour the bind, held by 98.1's test; the beacon's exemption stands), L60, L113, L115; L53
+  read, closed already (§116.1).
+  Seventy-one open, fifty-three closed.
+- **The papers:** §116.1's table completed and §116.2 to §116.19; REVIEW round 98; CHANGELOG (98.1 to 98.12, the count); README
+  (the ledger's round 98 entry, the show network's round line, the wire's ceilings with its first-byte door, the count);
+  `docs/REMOTE.md` (`LINK` and `LINK PROOF` in the verb table; `CUE GO`'s `final` and `lateMs`; the start's fault; the rest was
+  written by the units); `docs/COMPANION.md` (decks keep the legacy proof; the module's TLS dial deferred; no app-link feedback
+  yet); `docs/ADR.md` (ADR-016: `LINK` and `LINK PROOF` join the handshake set); `docs/QUALIFICATION.md` (§27 and §28 notes);
+  `docs/OPEN.md`; the tag table's row 97 (`f102d61`).
+
+### 116.19 The rig's reading
+
+The round's verbs an output can show are a connector's `LINK` and the `CUE GO` it runs with an issued key, and the operator's
+`KEY MAKE`. Their rows are the journal's (`patterns.showlog.jsonl`): `KEY MAKE` — origin the desk, verb `AppKeyMake`, the
+connector as its target, `Done`, the words "Key <kid> made for <connector>, scope <scope> — shown once on this desk's Nodes page;
+give it to that connector and nobody else." (never the key); and `LINK` — origin `Remote`, verb `Link`, the connector's `t:id`
+as its target, the words "<t:id> from <address> linked by LINK — key (kid <kid>), scope <scope>, line tls, lid <lid>" (never a
+nonce, a proof or K) — each read beside the Nodes page's APP LINKS table, whose row for that connector shows the same kid, scope
+and `tls`, and the Super Check's REMOTE *App links* row; a `CUE GO` with the key, beside the Run strip's cue and its `final`.
+Not read on a rig: no Stagewatch 2.23 or scripted peer is on the bench, so the reading is `unwalked`.

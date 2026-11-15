@@ -336,7 +336,8 @@ and silent it would sit on its last STATE as if it were live, where a reconnecti
 greeted. The Remote page's and the Eye's deck rows read each deck's pairing from its connection
 against the token as it is now. What a connection may ask before it pairs is an
 allow-list (`ControlProtocol.OpenBeforePairing`): the maintainer's scope A, read against this wire's
-grammar — the handshake (`HELLO`, `AUTH`, `AUTH-PROOF`, `NONCE`, `PING`) and five queries left open
+grammar — the handshake (`HELLO`, `AUTH`, `AUTH-PROOF`, `NONCE`, `PING`, and since round 98.2 Show Bus 1.3's `LINK` and
+`LINK PROOF`, whose verdict pairs the connection at its key's scope) and five queries left open
 by name: `NAV` (its read: `NAV`, `NAV STATUS|PAGES|RAILS`), `MENU`, `CUE LIST`, the arcade's road
 (`ARCADE STATUS|GAMES|SCORES`, `PLAY STATUS|RESULTS|QUEUE`, `AUDIENCE STATUS`) and `ASSISTANT`
 (`ASK`, `MODERATE`). Every other read — `STATUS` (the STATE payload), `EYE` and `EYE AT`, `CONTEXT`,

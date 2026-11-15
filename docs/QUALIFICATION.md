@@ -834,6 +834,16 @@ until FLOOR LOWER on the Nodes page, after which it is followed amber `legacy`. 
 line, a lesser link taken without FLOOR LOWER, or a granted page opened to another certificate. The row above stays as
 it is, unwalked.
 
+**Round 98 (a note to this walk, not a section of its own).** The wire's port takes TLS too (Show Bus 1.3 §13.8.5). From the
+tablet's machine (or any second machine), `openssl s_client -connect <desk>:9697` completes a handshake and shows the desk's
+certificate, its SHA-256 the fingerprint the Remote page and `/tls` show; nothing is written before the handshake, and the
+Super Check's REMOTE *Wire TLS* row counts the connection over TLS. Inside it, `HELLO walk` then `AUTH-PROOF` against the
+`NONCE` pairs as on a plain line, and plain `AUTH <token>` is refused ("this machine only") and not marked as seen in clear.
+`nc <desk> 9697` with no line sent is closed after 10 s with nothing written; a Companion deck on the same desk keeps
+working plain. A capture of the TLS connection shows no line in clear. A fail adds: a line before the first byte, the TLS
+connection's lines readable in the capture, a certificate other than the hello's, or a deck that stopped pairing. The row
+above stays as it is, unwalked.
+
 ## 28. A page's pass, the twin's secrets, the trust rules and a stuck Stagewatch on two machines (round 89)
 
 **Set up.** The show laptop as the main, with a pairing token and a bind address on the control network; a second
@@ -874,6 +884,17 @@ WINDOW`; after `TWIN TAKEOVER` the window is black on the standby with those wor
 then ready-gated. The twin's `WINDOWS` word carries held forms and the node id only — the capture holds no window
 address on the twin's port. A fail adds: a window address on the twin's link, a placeholder or another window drawn
 where the window is black, or a row green while the standby lacks the grant. The row above stays as it is, unwalked.
+
+**Round 98 (a note to this walk, not a section of its own).** On the main (Windows): make a key on the Nodes page (APP KEYS,
+*Make key for…*, `main:<a Stagewatch's id>`, scope `drive`): the key shows once, and the Super Check's REMOTE *App keys* row
+reads green, sealed to this Windows user; `patterns.appkeys.json` in the settings folder holds no `ptk_` text (open it in a text
+editor) and the support bundle holds no such file; the journal's `AppKeyMake` row names the connector, the kid and the scope,
+never the key. Copy the folder to another Windows user and start there: no key is in force, `patterns.log` says "App keys:
+patterns.appkeys.json could not be opened by this Windows user or read — no app key is in force …", the file is set aside
+as `.unreadable`, and nothing is written in plain. Send that key as plain `AUTH <key>` from the second machine: nothing opens, the key's row on
+the Nodes page and the Super Check are amber "seen in clear", one journal row. Revoke it: the row leaves. A fail adds: the key
+in the file, the bundle, the journal or the log; a sealed key readable by the other user; a key in clear that opened anything.
+The row above stays as it is, unwalked.
 
 ## What a fail means
 

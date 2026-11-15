@@ -558,6 +558,11 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
   menus. The module sends none of them and `test/lines.txt` holds none; from a deck each is refused (`ERR KEY MAKE, KEY
   BIND and KEY REVOKE are this desk's operator's, on its Nodes page …`). A deck itself keeps the legacy proof
   (AUTH-PROOF) until its own round adopts `LINK`; it needs no app key.
+- **What round 98 leaves to the module's own round** (the desk's `docs/OPEN.md` L55 and L122). The desk's wire port takes TLS
+  as well as plain lines, told apart by the connection's first byte (Show Bus 1.3 §13.8.5); the module dials it plain, as
+  before, speaking first with its HELLO, and proves the token with `AUTH-PROOF` — its TLS dial, with a pin per desk, is
+  deferred to a module round of its own, and so is `LINK`. A deck is counted apart from the app links the desk accepted, which
+  `desk_app_links` names; no feedback lights a button on an app link yet.
 - **After the upgrade.** A desk that pinned a Stagewatch's certificate before round 93 reads that pin `first` until a
   person presses Trust on the desk; meanwhile `stagewatch_link_flags` names `first` and `keyless`, and every keyed link
   reads `legacy` and amber until both ends speak `LINK` (round 96).
