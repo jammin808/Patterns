@@ -83,6 +83,29 @@ public sealed class WirePeer : IDisposable
 
     private bool _lastSaid;
 
+    /// <summary>
+    /// The peer has been told its last word (<see cref="SayLast"/>) and is closing: nothing it sends after that runs, since nothing it
+    /// would be answered with is taken.
+    /// </summary>
+    public bool LastSaid
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lastSaid;
+            }
+        }
+    }
+
+    private int _drove;
+
+    /// <summary>Show Bus 1.3 §6 P2's K: a connection proved by LINK ran one of this desk's verbs (not a read) — it controls, not only follows.</summary>
+    public bool Drove => Volatile.Read(ref _drove) != 0;
+
+    /// <summary>Marks that a verb of this desk's ran from this connection.</summary>
+    public void MarkDrove() => Volatile.Write(ref _drove, 1);
+
     /// <summary>Lines written so far — replies and states.</summary>
     public long Written => Interlocked.Read(ref _written);
 

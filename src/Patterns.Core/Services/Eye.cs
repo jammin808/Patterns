@@ -119,6 +119,8 @@ public sealed class EyeFacts
     public IReadOnlyList<EyeSource> Sources { get; init; } = Array.Empty<EyeSource>();
     public IReadOnlyList<EyeDevice> Devices { get; init; } = Array.Empty<EyeDevice>();
     public IReadOnlyList<EyeDeck> Decks { get; init; } = Array.Empty<EyeDeck>();
+    /// <summary>Show Bus 1.3 §13.16.5: the acceptor's list — the app links this desk's wire accepted that LINK verified, never decks.</summary>
+    public IReadOnlyList<AppLinkRow> AppLinks { get; init; } = Array.Empty<AppLinkRow>();
     public IReadOnlyList<EyeCompanion> Companions { get; init; } = Array.Empty<EyeCompanion>();
     /// <summary>Open TCP control connections beyond the decks that said HELLO.</summary>
     public int WireClients { get; init; }
@@ -1129,6 +1131,35 @@ public sealed class EyeGraph
                 Counted = false,
                 Info = true,
             });
+        }
+
+        // Show Bus 1.3 §13.16.5 and §6 P2: a link this desk's wire accepted by LINK is an edge, never a thing — the one edge between the
+        // connector's card (app:<its id>) and this desk, lit, marked and worded by the acceptor's list, so an app heard on the bus and
+        // linked by LINK is drawn and counted once. LINK proved the id (level 1), so a connector no hello has named gets its card here,
+        // counted only through the edge. The edge is counted while the link stands, folded into the card as one thing; once ended it is
+        // grey and counted by nothing. K is what the connector did on the link: controls once it ran one of this desk's verbs, else follows.
+        foreach (var r in f.AppLinks.Where(r => r.Id.Length > 0))
+        {
+            var card = "app:" + r.Id;
+            if (!ids.Contains(card))
+            {
+                if (r.Ended) continue;                                                  // an ended link with no card: the Nodes page lists it
+                var kindWords = ShowBusPeers.KindWords(r.T);
+                Add(new EyeNode(card, EyeKind.ShowApp, EyePlane.Control, 2, r.Name.Length > 0 ? $"{kindWords} {r.Name}" : AppKeys.ConnectorWords(r.Client),
+                    $"linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}", r.Light)
+                {
+                    Words = new[] { $"{kindWords} — linked to this desk's wire by LINK, not heard on the show network", r.Words },
+                    Route = new MenuRoute("Nodes", r.Lid),
+                    Band = EyePlane.Network,
+                    App = r.Id,
+                    Counted = false,
+                });
+            }
+            var drove = r.Drove ? EyeEdgeKind.Controls : EyeEdgeKind.Follows;
+            var words = r.Ended
+                ? $"{r.Mark} its link to this desk ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
+                : $"{r.Mark} linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}" + (r.Flags.Count > 0 ? " · " + string.Join(", ", r.Flags) : "") + (r.Recording ? " · recording the desk's actions" : "");
+            Link(card, DeskId, drove, r.Light, words, counted: !r.Ended);
         }
 
         // Sound: sources, outputs, the routes between them.

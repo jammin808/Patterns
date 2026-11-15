@@ -234,6 +234,7 @@ export function variableDefinitions() {
 		desk_selection: 'The desk — the thing selected on its page, in words, or empty',
 		desk_where: 'The desk — where it is, in one line',
 		desk_decks: "The decks — each deck's name and where its navigator is",
+		desk_app_links: 'The app links — other apps linked to the desk by LINK (Show Bus 1.3), each with its mark, what proved it and its scope; never counted as decks',
 		last_action: 'The last action the desk did while this connection was recording, as the line that reproduces it',
 		nav_level: 'Navigator — rails, pages, page, menu or drawer',
 		nav_rail: 'Navigator — the rail on the keys',

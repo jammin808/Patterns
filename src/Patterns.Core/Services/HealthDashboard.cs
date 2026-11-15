@@ -238,6 +238,8 @@ public static class HealthDashboard
                 : f.RemoteToken && f.WireReadsRefused > 0
                     ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "reads refused",
                         $"{f.WireReadsRefused} unpaired read{(f.WireReadsRefused == 1 ? "" : "s")} refused — the last: {f.WireReadRefusedLast}; a deck or a link of yours needs the pairing token (Remote page, TRUST)")
+                    : AcceptorWords.Worst(f.AppLinks) == CheckLight.Amber
+                        ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "app link amber", AcceptorWords.Line(f.AppLinks) + " (Nodes page, APP LINKS)")
                     : f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && !TlsFingerprint.IsValid(f.WireTlsFingerprint)
                         ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "wire plain only",
                             $"no certificate, so the wire's port {f.WirePort.ToString(System.Globalization.CultureInfo.InvariantCulture)} serves no TLS — {(f.WireTlsProblem.Length > 0 ? f.WireTlsProblem : "none made yet")} (the Super Check's Wire TLS row)")

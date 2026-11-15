@@ -31,6 +31,8 @@ public static class WireWriter
         ShowActionKind.StagewatchTrust, ShowActionKind.StagewatchAccept, ShowActionKind.StagewatchKeyBind,
         // The app keys are the operator's on the Nodes page (Show Bus 1.3 §13.5): a recording deck never hears one made, bound or revoked.
         ShowActionKind.AppKeyMake, ShowActionKind.AppKeyBind, ShowActionKind.AppKeyRevoke,
+        // Closing another app's link is the operator's on the Nodes page (Show Bus 1.3 §13.16.6): no deck records it as a line.
+        ShowActionKind.AppLinkClose,
     };
 
     public static string Line(ShowAction a)

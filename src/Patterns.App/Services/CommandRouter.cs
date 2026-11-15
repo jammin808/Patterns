@@ -580,7 +580,7 @@ public sealed class CommandRouter : IRouter
             show = s.Name,
             rev = Rev?.Invoke() ?? 0,
             version = AppVersion.Current,                                  // this build, so a deck can say which desk it is on
-            decks = _services.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address, where = d.Where, recording = d.Recording }).ToArray(),   // every deck that said HELLO; round 74: where its navigator is
+            decks = _services.Control.DeckRows(),                         // every deck that said HELLO (round 74: where its navigator is), then the app links LINK verified (Show Bus 1.3 §13.16.5: level, t, id, verified, scope appended)
             airLabel = _services.AirLabel,
             cuestack = CueStackJson(),
             blackout = s.Blackout,

@@ -150,6 +150,39 @@
                 ToolTip.Tip="KEY BIND: the key speaks for that connector at that scope from now on; moved, or lowered, its live link ends at once" />
       </StackPanel>
     </StackPanel>
+    <!-- Show Bus 1.3 §13.16.5: the acceptor's list — every link this wire accepted that LINK verified, never a deck; CLOSE and REVOKE KEY the operator's. -->
+    <StackPanel Spacing="4" Margin="0,8,0,4" IsVisible="{Binding AppLinks.HasRows}">
+      <TextBlock Classes="h2" Text="APP LINKS" />
+      <TextBlock Classes="hint" TextWrapping="Wrap"
+                 Text="The other apps linked to this desk's wire by LINK (Show Bus 1.3 §13.16.5) — each proved the pairing token or an app key, both ends checked. A deck that paired the older way is on the Remote page's COMPANION strip, never here. ✓ green: proved; △ amber: proved but plain from another machine, or its key was seen in clear; ○ grey: ended, kept a minute." />
+      <ItemsControl ItemsSource="{Binding AppLinks.Rows}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AppLinkTableRow">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8" BorderBrush="{Binding Hue}" BorderThickness="1" ctl:Menus.Kind="applink"
+                    ToolTip.Tip="✓ a link LINK proved; △ amber while it is plain from another machine or its key was seen in clear; ○ ended. Right-click: close it, or revoke the key it stands on — the same presses as the buttons, the operator's alone">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Foreground="{Binding Hue}" TextWrapping="Wrap" VerticalAlignment="Center">
+                  <Run Text="{Binding Mark}" />
+                  <Run Text=" " />
+                  <Run Text="{Binding Words}" />
+                </TextBlock>
+                <Button Grid.Column="1" Classes="mini" Content="CLOSE" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="{Binding CanClose}"
+                        Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).AppLinks.CloseCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="Close this link: it hears that this desk's operator closed it, runs nothing more and ends; its key stays in force, so it may link again. A Stagewatch shows its key refused and waits a minute before it links again — Show Bus 1.3's line has no word for an operator's close" />
+                <Button Grid.Column="2" Classes="mini" Content="REVOKE KEY" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="{Binding CanRevoke}"
+                        Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).AppLinks.RevokeKeyCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="KEY REVOKE for the key this link stands on: this link and every other that uses it are refused at once (Show Bus 1.3 §13.5.5)" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+    <TextBlock Text="{Binding AppLinks.RefusalWords}" Foreground="#FFB020" TextWrapping="Wrap" Margin="0,2,0,4" IsVisible="{Binding AppLinks.HasRefusals}"
+               ToolTip.Tip="LINK refusals on this desk's wire in the last minute, each with its count — the connector named is what it claimed; a refusal proved nothing" />
     <ItemsControl ItemsSource="{Binding ShowApps}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>

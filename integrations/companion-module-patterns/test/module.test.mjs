@@ -807,7 +807,12 @@ test('round 74 — the Navigator on the deck: every line matched to its reply, N
 	assert.equal(v.desk_rail, 'PLAN')
 	assert.equal(v.desk_settings, 'SELECTED CUE · 01.020 Keynote')
 	assert.equal(v.desk_back, 'Panel')
-	assert.equal(v.desk_decks, 'FOH deck — PLAN › Cues')
+	assert.equal(v.desk_decks, 'FOH deck — PLAN › Cues') // the app link at level 1 in the same rows is never a deck
+	assert.equal(v.desk_app_links, 'Stagewatch Hall A ✓ key drive')
+	// An app link that ended, and rows from a desk before the field, read as before: no level is a deck, an ended link is no app link.
+	const older = variableValues({ ...sampleState(), decks: [{ name: 'Old deck', where: '' }, { name: 'Gone', level: 1, ended: true, mark: '○', verified: 'key', scope: 'follow' }] })
+	assert.equal(older.desk_decks, 'Old deck')
+	assert.equal(older.desk_app_links, '')
 	assert.equal(v.audio_level, '100')
 	assert.equal(askFeedback(b, 'nav_page_is', { page: 'cues' }), true)
 	assert.equal(askFeedback(b, 'nav_rail_is', { rail: 'PLAN' }), true)

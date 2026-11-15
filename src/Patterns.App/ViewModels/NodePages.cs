@@ -99,6 +99,8 @@ public interface INodesPage
     string TokenClearWords { get; }
     /// <summary>Show Bus 1.3 §13.5: the app keys a connector proves itself with on this desk's wire, and KEY MAKE, KEY BIND and KEY REVOKE.</summary>
     AppKeysPanel AppKeys { get; }
+    /// <summary>Show Bus 1.3 §13.16.5: the links this process's wire accepted that LINK verified, and CLOSE and REVOKE KEY on each.</summary>
+    AppLinksPanel AppLinks { get; }
 }
 
 /// <summary>What the Run surface asks of the view model it lives in: a line for the status strip, and the editor a row's OPEN IN EDITOR goes to.</summary>

@@ -718,6 +718,7 @@ public sealed class SystemMetricsService : IDisposable
             AppKeys = _services.Kernel.AppKeys.InForce(state.Control.Token),                          // Show Bus 1.3 §13.5: kids, bindings, scopes, marks — never a key
             AppKeysProtection = _services.Kernel.AppKeys.Protection,
             AppKeysProblem = _services.Kernel.AppKeys.Problem,
+            AppLinks = _services.Control.AppLinkList,                                                 // Show Bus 1.3 §13.16.5: the acceptor's list, never decks
             ShowNetworkLinks = new[] { _services.Kernel.Stagewatch.Record },                          // Show Bus 1.3 §13.16.4: the link's record, read once
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,

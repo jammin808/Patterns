@@ -573,7 +573,30 @@
       "module": "3.14.0",
       "address": "10.0.0.5",
       "where": "PLAN \u203a Cues",
-      "recording": false
+      "recording": false,
+      "level": 0,
+      "t": "",
+      "id": "",
+      "verified": "",
+      "scope": "operate"
+    },
+    {
+      "name": "Stagewatch Hall A",
+      "module": "",
+      "address": "10.0.0.7",
+      "where": "",
+      "recording": false,
+      "level": 1,
+      "t": "main",
+      "id": "3f9c2a1b7d0e",
+      "verified": "key",
+      "scope": "drive",
+      "tls": true,
+      "kid": "e63c317763b1454f",
+      "light": "green",
+      "mark": "\u2713",
+      "words": "Stagewatch Hall A (Stagewatch 3f9c2a1b7d0e, 10.0.0.7) \u00b7 key e63c317763b1454f \u00b7 scope drive \u00b7 line over TLS \u00b7 since 20:14:03 UTC",
+      "ended": false
     }
   ],
   "nav": {

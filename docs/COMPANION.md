@@ -450,6 +450,10 @@ levels), `nav_slot_drawer`, `nav_slot_disabled` (dimmed, the reason in its detai
 `$(patterns:desk_page)`, `desk_rail`, `desk_settings`, `desk_back`, `desk_selection`,
 `desk_where`, `desk_decks` — from STATE's `nav` row, and the deck tells the desk where it is
 (`NAV DECK PLAN › Looks`), so the Remote page and the Eye read it.
+Module 3.23.0 (round 98, Show Bus 1.3 §13.16.5): `desk_decks` names the decks alone — STATE's `decks` rows at `level` 0 —
+so an app linked to the desk by `LINK` (a Stagewatch with an app key) is never a deck on a button, and `desk_app_links` names
+each app link with its mark, what proved it (`key` or `token`) and its scope. Closing a link and revoking its key are the
+operator's on the desk's Nodes page (APP LINKS, its buttons and right-click menu): the module sends neither.
 
 **The recorder.** Press RECORD in Companion's action recorder: the module sends `RECORD ON`, and
 every action the operator does on the desk itself comes back as `ACTION <line>` — the wire line

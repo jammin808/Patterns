@@ -61,6 +61,17 @@ public sealed partial class MainViewModel
             return result;
         });
 
+    private AppLinksPanel? _appLinks;
+
+    /// <summary>Show Bus 1.3 §13.16.5: the App links table — the links this desk's wire accepted by LINK, and CLOSE and REVOKE KEY from the desk.</summary>
+    public AppLinksPanel AppLinks => _appLinks ??= new AppLinksPanel(() => _services.Control.AppLinkList, () => _services.Control.LinkRefusals,
+        a =>
+        {
+            var result = Report(_services.Actions.Execute(a, ActionOrigin.Desk));
+            StatusMessage = result.Message;
+            return result;
+        }, () => _services.Control.LinkRefusalsUncounted, acts: _services.IsDesk);
+
     private RelayCommand? _askWindow;
     private string _askWindowName = "";
 
@@ -165,6 +176,7 @@ public sealed partial class MainViewModel
         _services.Stage.Follow();                                                  // a message a Stagewatch accepted and no frame names reads unconfirmed on the clock (13.12.4)
         LinkBoxes.Look();
         AppKeys.Look();                                                            // a key enrolled, used, revoked or seen in clear since the last tick
+        AppLinks.Look();                                                           // a link that stood, ended or was refused since the last tick
         var link = _services.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
         var (bind, bindName) = (link.KeyBindTarget, link.KeyBindName);

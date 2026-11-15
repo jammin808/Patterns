@@ -89,7 +89,7 @@ public sealed class MidiLearnService
                 ? StagewatchVerbs.KeyWords + " — not a line to bind."
                 : StagewatchVerbs.DeskOnlyWords + " — not a line to bind.");
         }
-        if (parsed.Action.Kind is ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind or ShowActionKind.AppKeyRevoke)
+        if (parsed.Action.Kind is ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind or ShowActionKind.AppKeyRevoke or ShowActionKind.AppLinkClose)
             return ActionResult.Refused(KeyVerbs.DeskOnlyWords + " — not a line to bind.");   // Show Bus 1.3 §13.5: the operator's on the Nodes page
         if (!HasSurface) return ActionResult.Refused("No MIDI control surface in the show — add one on the Interactive page (+ MIDI CONTROL SURFACE) first.");
         if (!SurfaceOpen) return ActionResult.Refused("No MIDI surface is open — switch the Interactive area on and check the surface's port on the Interactive page.");

@@ -370,7 +370,7 @@ public sealed class NodeRouter : IRouter
             show = s.Name,
             rev = Rev?.Invoke() ?? 0,
             version = AppVersion.Current,
-            decks = _host.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address }).ToArray(),
+            decks = _host.Control.DeckRows(),                          // the desk's rows (Show Bus 1.3 §13.16.5): the decks, then the app links LINK verified
             nodes = _host.Kernel.Nodes.Rows(),
             twin = _host.Twin?.DeckBlock(),
             stage = _host.Stage?.Block(),
@@ -890,7 +890,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
 
     public VideoReading? VideoOnAir() => null;
 
-    public string DeckSignature() => $"{Kernel.Nodes.Rev}|{Twin?.Phase}|{Stage?.DeckSignature()}|{Control.Decks.Count}";
+    public string DeckSignature() => $"{Kernel.Nodes.Rev}|{Twin?.Phase}|{Stage?.DeckSignature()}|{Control.Decks.Count}|{AcceptorWords.Signature(Control.AppLinkList)}";
 
     public IReadOnlyList<PreRoll.State> PreRollStates(IReadOnlyList<MediaLocator.WantedInput> wants) => Array.Empty<PreRoll.State>();
 

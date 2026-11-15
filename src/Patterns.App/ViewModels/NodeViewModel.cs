@@ -136,6 +136,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     public void Poll()
     {
         LinkBoxes.Look();
+        AppLinks.Look();                                                           // a code's link that stood or ended since the last tick
         var link = _host.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
         var (bind, bindName) = (link.KeyBindTarget, link.KeyBindName);
@@ -351,6 +352,12 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>Show Bus 1.3 §13.5: a node accepts no app link, so its box is not drawn; its presses are refused as the desk's alone.</summary>
     public AppKeysPanel AppKeys => _appKeys ??= new AppKeysPanel(_host.Kernel.AppKeys, () => State.Control.Token,
         _ => ActionResult.Refused("App keys are the desk's — a node accepts no app link."));
+
+    private AppLinksPanel? _appLinks;
+
+    /// <summary>Show Bus 1.3 §13.16.5: the links a code proved on this node's wire are listed; closing one is the desk's, refused here.</summary>
+    public AppLinksPanel AppLinks => _appLinks ??= new AppLinksPanel(() => _host.Control.AppLinkList, () => _host.Control.LinkRefusals,
+        _ => ActionResult.Refused("App links are the desk's to close — a node lists them only."), () => _host.Control.LinkRefusalsUncounted, acts: false);
 
     private RelayCommand? _acceptCertificate;
     private string _acceptHex = "";

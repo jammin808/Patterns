@@ -461,6 +461,7 @@ public static class ActionSpec
         ShowActionKind.AppKeyMake => "App key — make a key for one connector, shown once",
         ShowActionKind.AppKeyBind => "App key — let a key speak for a connector, at a scope",
         ShowActionKind.AppKeyRevoke => "App key — revoke a key; its live links end",
+        ShowActionKind.AppLinkClose => "App link — close one link this desk accepted; its key stays in force",
         _ => kind.ToString(),
     };
 
@@ -567,6 +568,8 @@ public static class ActionSpec
             => "the operator's own link to a Stagewatch — the desk, its menus, the wire and a deck set it (Show Bus 1.3 §13.16.6); a running order or an assistant never repoints a key-bearing link or the speaker's timer",
         ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind or ShowActionKind.AppKeyRevoke
             => "a person's trust decision on this desk's Nodes page (Show Bus 1.3 §13.5) — a running order, a deck, the wire, a peer or an assistant never makes, binds or revokes an app key",
+        ShowActionKind.AppLinkClose
+            => "a person's act on one link this desk accepted, from its Nodes page (Show Bus 1.3 §13.16.6) — a running order, a deck, the wire, a peer or an assistant never closes another app's link",
         ShowActionKind.NodesAskWindow => "a request to another machine's operator (Show Bus 1.3 §12.4) — the desk, its menus, the wire and a deck ask; a running order never asks a Stagewatch for a window by itself",
         _ => null,
     };

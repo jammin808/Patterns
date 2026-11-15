@@ -392,7 +392,9 @@ public sealed partial class MainViewModel
         return string.Join("\n",
             CompanionWords.AnnounceLine(State.Control.Enabled, State.Control.Announce, mdns.Status, instance),
             CompanionWords.DecksLine(_services.Control.Decks),
-            CompanionWords.HeardLine(mdns.Companions));
+            CompanionWords.HeardLine(mdns.Companions))
+            // Show Bus 1.3 §13.16.5: the app links LINK verified are named apart from the decks, never counted among them.
+            + (AcceptorWords.Line(_services.Control.AppLinkList) is { Length: > 0 } links ? "\n" + links + " (Nodes page, APP LINKS)" : "");
     }
 
     private void PollDesk()

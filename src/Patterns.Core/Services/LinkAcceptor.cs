@@ -45,9 +45,20 @@ public sealed record LinkDecision(bool Ok, string? Class, string Words, int Retr
 
 /// <summary>
 /// What a connection that finished LINK stands on (13.6.6): the connector's <c>t:id</c> the proof covered, the kid it proved, how
-/// it is verified, its scope, the link's id (not a secret) and whether the connection is inside TLS. Nothing here is a secret.
+/// it is verified, its scope, the link's id (not a secret) and whether the connection is inside TLS — and, for the acceptor's list
+/// (13.16.5), the name its hello gave, the address it dialled from and when the link stood. Nothing here is a secret.
 /// </summary>
-public sealed record LinkStanding(string Client, string Kid, string Verified, string Scope, string Lid, bool Tls);
+public sealed record LinkStanding(string Client, string Kid, string Verified, string Scope, string Lid, bool Tls)
+{
+    /// <summary>The name the connection's HELLO gave before its LINK; "" when it said none.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>The address the connection came from, as every per-address record keeps it.</summary>
+    public string Address { get; init; } = "";
+
+    /// <summary>When the verdict was given.</summary>
+    public DateTime SinceUtc { get; init; }
+}
 
 /// <summary>
 /// The line wire's acceptor of PeerLink (Show Bus 1.3 §13.6.1–13.6.4), pure: the answer a <c>LINK</c> ask hears, the decision a

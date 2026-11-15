@@ -83,6 +83,11 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 return subject is ShowAppCard card
                     ? new DeskMenuVm(DeskMenus.ShowApp(facts, MenuShowApp.Of(card)), e => RunMenuEntry(e, card))
                     : null;
+            case "applink":
+                // Show Bus 1.3 §13.16.6: an app link's row — CLOSE and REVOKE KEY, the row's own buttons' actions.
+                return subject is AppLinkTableRow link
+                    ? new DeskMenuVm(DeskMenus.AppLink(facts, link.Menu), e => RunMenuEntry(e, link))
+                    : null;
             case "appkey":
                 // Show Bus 1.3 §13.16.6: a key row's Revoke, its scope and its binding, the row's own buttons' actions.
                 return subject is AppKeyRow row

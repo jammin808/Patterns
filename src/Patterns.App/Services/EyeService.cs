@@ -627,6 +627,7 @@ public sealed class EyeService
         }).ToList();
 
         var token = state.Control.Token;
+        var appLinks = _s.Control.AppLinkList;                                                           // Show Bus 1.3 §13.16.5: never decks
         var decks = _s.Control.Decks.Select(d => new EyeDeck(d.Name, d.Module, d.Address, d.Paired || !PairingToken.Needed(token)) { Where = d.Where, Recording = d.Recording }).ToList();   // round 74: where each deck's navigator is
         var companions = _s.Kernel.Mdns.Companions
             .Select(c => new EyeCompanion(c.Host.Length > 0 ? c.Host : c.Instance, c.Address?.ToString() ?? "", !c.Expired(now), c.Txt.TryGetValue("version", out var v) ? v : ""))
@@ -735,8 +736,9 @@ public sealed class EyeService
             Sources = sources,
             Devices = devices,
             Decks = decks,
+            AppLinks = appLinks,
             Companions = companions,
-            WireClients = Math.Max(0, _s.Control.WireConnections - decks.Count),
+            WireClients = Math.Max(0, _s.Control.WireConnections - decks.Count - appLinks.Count(r => !r.Ended)),
             WebClients = _s.Control.HttpConnections,
             Osc = state.Control.OscEnabled ? new EyeOsc(state.Control.OscPort, _s.Osc.StatusLine, state.Control.Bind, PairingToken.Needed(state.Control.Token), OscGate.Read(state.Control.OscAllow)) : null,   // round 79: the bind decides its light; round 87: pairing gates its verbs
             Twin = twin,

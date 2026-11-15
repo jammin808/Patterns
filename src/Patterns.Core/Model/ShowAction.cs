@@ -577,6 +577,12 @@ public enum ShowActionKind
 
     /// <summary>Show Bus 1.3 §13.5.5: the key (Target = its kid) revoked; every live link that used it is refused at once.</summary>
     AppKeyRevoke,
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.5–6: one app link this desk accepted (Target = its lid) closed by the operator — its last line says so and the
+    /// connection ends; the key it stood on stays in force (revoking it is the wall). The operator's alone, on the desk.
+    /// </summary>
+    AppLinkClose,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

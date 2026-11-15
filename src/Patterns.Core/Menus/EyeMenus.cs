@@ -127,6 +127,10 @@ public static class EyeMenus
             if (DeskMenus.LinkGroup(d, appId, stagewatch, name) is { } link) groups.Add(link);
             // Round 97: a Show Bus node's DEVICE group — the Nodes card's own entries.
             if (d.ShowApps.FirstOrDefault(a => a.Id == appId) is { } app && DeskMenus.DeviceGroup(d, app) is { } device) groups.Add(device);
+            // Show Bus 1.3 §13.16.6: each open link this desk accepted from that app — its Nodes row's own entries (close it, revoke its
+            // key), the same actions, under a heading of their own beside the link this desk holds to it.
+            foreach (var accepted in d.AppLinks.Where(l => !l.Ended && l.Id == appId))
+                groups.AddRange(DeskMenus.AppLink(d, accepted).Groups.Select(g => g with { Heading = "ITS LINK TO THIS DESK" }));
         }
         if (linked.Count > 0) groups.Add(new MenuGroup("LINKED TO", MenuTone.Tile, linked) { Note = "Each is a focus of its own." });
         if (go.Count > 0) groups.Add(new MenuGroup("GO TO", MenuTone.Go, go));

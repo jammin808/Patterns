@@ -295,6 +295,9 @@ public sealed class CheckFacts
     /// <summary>"" while the keys are kept as <see cref="AppKeysProtection"/> says; otherwise why they are not (the seal refused them: this run only).</summary>
     public string AppKeysProblem { get; init; } = "";
 
+    /// <summary>Show Bus 1.3 §13.16.5: the acceptor's list — the app links this wire accepted that LINK verified, open or ended this minute.</summary>
+    public IReadOnlyList<AppLinkRow> AppLinks { get; init; } = Array.Empty<AppLinkRow>();
+
     /// <summary>
     /// Show Bus 1.3 §13.16.4: the record of each PeerLink this desk holds as connector — its Stagewatch link — as the link published
     /// it when the facts were gathered; the "Show network links" row takes them and derives no link fact of its own.
@@ -1152,6 +1155,21 @@ public static class SuperCheck
             : new CheckRow("REMOTE", "App keys", CheckLight.Green, Services.AppKeys.Summary(f.AppKeys), $"{kept}; {rule}");
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.16.5: the app links this desk's wire accepted by LINK — never decks — each with its light: amber while one is
+    /// plain from another machine (proved, not private) or its key was seen in clear; grey ones have ended. The round's row for the
+    /// acceptor's list and its CLOSE, read beside the Nodes page's APP LINKS table.
+    /// </summary>
+    private static CheckRow AppLinksRow(CheckFacts f)
+    {
+        const string rule = "each proved by LINK with the pairing token or an app key, both ends checked; listed on the Nodes page (APP LINKS) apart from the decks, which pair the older way; CLOSE and REVOKE KEY there are the operator's, never on the wire or proposed";
+        var value = AcceptorWords.Line(f.AppLinks);
+        var amber = f.AppLinks.Where(r => !r.Ended && r.Light == CheckLight.Amber).ToList();
+        if (amber.Count == 0) return new CheckRow("REMOTE", "App links", CheckLight.Green, value, rule);
+        var fixes = amber.Select(r => r.Label + (r.Plain ? ": plain from another machine — link it over TLS (the wire serves it on the same port)" : "") + (r.ClearSeen ? ": its key was seen in clear — REVOKE KEY, then KEY MAKE" : ""));
+        return new CheckRow("REMOTE", "App links", CheckLight.Amber, value, $"FIX: {string.Join("; ", fixes)}; {rule}");
+    }
+
     private static void Remote(CheckFacts f, List<CheckRow> rows)
     {
         if (!f.RemoteEnabled)
@@ -1211,6 +1229,7 @@ public static class SuperCheck
         }
         if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(WireTlsRow(f));
         if (f.WirePort > 0 && f.AppKeys.Count > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(AppKeysRow(f));
+        if (f.WirePort > 0 && f.AppLinks.Count > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(AppLinksRow(f));
         if (f.WireFaults > 0)
         {
             // Round 83: a fault behind the wire is answered ERR on the line and logged; the row says it happened, so the log is read.

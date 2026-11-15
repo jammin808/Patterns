@@ -84,6 +84,9 @@ public sealed record DeskFacts
     /// <summary>Round 97: the other show apps' cards as their menus read them — the Eye's card for an app reads the same entries.</summary>
     public IReadOnlyList<MenuShowApp> ShowApps { get; init; } = Array.Empty<MenuShowApp>();
 
+    /// <summary>Show Bus 1.3 §13.16.5: the app links this desk accepted, so the Eye's node of one reads the Nodes page row's own entries.</summary>
+    public IReadOnlyList<MenuAppLink> AppLinks { get; init; } = Array.Empty<MenuAppLink>();
+
     /// <summary>
     /// The clip on air as the transport reads it — null with none, and on a node. THE CLIP's entries
     /// are disabled by the rule the wire refuses with (<see cref="VideoClock.WhyNot"/>), in its words.
@@ -333,6 +336,19 @@ public sealed record MenuAppKey(string Kid, string Bound, string Scope, string M
 {
     /// <summary>The row's facts from the kept key.</summary>
     public static MenuAppKey Of(AppKey key) => new(key.Kid, key.Bound, key.Scope, key.Made, key.ClearSeen is not null);
+}
+
+/// <summary>
+/// Show Bus 1.3 §13.16.5: one app link this desk accepted, as its row's menu reads it — its lid, its connector and name, what proved
+/// it, the kid a revoke reaches ("" for a code's link), its scope and light, and whether it has ended. Never a key or a proof.
+/// </summary>
+public sealed record MenuAppLink(string Lid, string Client, string Label, string Verified, string KeyKid, string Scope, string Mark, bool Ended)
+{
+    /// <summary>The row's facts from the acceptor's list.</summary>
+    public static MenuAppLink Of(AppLinkRow row) => new(row.Lid, row.Client, row.Label, row.Verified, row.KeyKid, row.Scope, row.Mark, row.Ended);
+
+    /// <summary>The connector's node id (the part of its <c>t:id</c> after the colon): its card on the Eye is <c>app:&lt;Id&gt;</c>.</summary>
+    public string Id => Client.IndexOf(':', StringComparison.Ordinal) is var at and > 0 ? Client[(at + 1)..] : "";
 }
 
 /// <summary>Another show app's card on the Nodes page, as its menu reads it.</summary>

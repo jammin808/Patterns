@@ -465,6 +465,9 @@ public sealed partial class ControlService : IDisposable
                     break;
                 }
                 if (line is null) break;
+                // A connection told its last word (a CLOSE, a revoked key, a new token) is closing: what it sends after it runs nothing,
+                // whatever its key still reaches, since no answer to it is taken — the close stands from the press, not from the flush.
+                if (peer.LastSaid) continue;
                 if (line.Trim().Length == 0) continue;
                 if (ControlProtocol.IsHttpRequestLine(line))
                 {
@@ -586,6 +589,12 @@ public sealed partial class ControlService : IDisposable
                         Reply(ControlProtocol.Err(ControlProtocol.NotPaired));
                         continue;
                     }
+                    if (BelowScope(token, peer, cmd))
+                    {
+                        // Show Bus 1.3 §13.5.3: NAV DECK is operate's on §8.2's map — an app link below it is refused in its scope's words.
+                        Reply(ControlProtocol.Err(LinkAcceptor.ScopeWords(ScopeNow(token, peer.Link!), _kernel.Beacon.MachineName)));
+                        continue;
+                    }
                     // Round 74: the deck's own facts — where its navigator is, whether it is recording a button —
                     // kept per connection by the port (nothing runs); STATE's decks row and the Eye's deck node read them.
                     var recording = cmd.Kind == RemoteCommandKind.Record && cmd.Text == "ON";
@@ -629,6 +638,8 @@ public sealed partial class ControlService : IDisposable
                     Reply(ControlProtocol.Err(LinkAcceptor.ScopeWords(ScopeNow(token, peer.Link!), _kernel.Beacon.MachineName)));
                     continue;
                 }
+                if (peer.LastSaid) continue;                                            // told its last word while this line was read
+                if (peer.Link is not null && cmd.Kind == RemoteCommandKind.Action) peer.MarkDrove();
                 string response;
                 try
                 {
@@ -648,17 +659,21 @@ public sealed partial class ControlService : IDisposable
         }
         finally
         {
+            string? endWords;
             lock (_gate)
             {
                 _peers.Remove(peer);
                 _decks.Remove(peer);
                 _recording.Remove(peer);
+                _linkEnds.Remove(peer, out endWords);
             }
             peer.Dispose();
             GiveUnfinished(link, address);
             if (link.AppLink) _appLinks.Release(address);
             link.Dispose();
             _wireLedger.Release(address);
+            // The list's grey row is read after every slot is given back, so a fault reading it (at shutdown) holds no slot.
+            if (peer.Link is { } ended) LinkEnded(peer, ended, endWords);
         }
     }
 
@@ -861,7 +876,7 @@ public sealed partial class ControlService : IDisposable
 
     /// <summary>
     /// The decks that said HELLO and are still connected — name, module version, address — for the Remote page, STATE and
-    /// the Eye. Each one's <see cref="WireDeck.Paired"/> is read from its connection against the token as it is now, so a
+    /// the Eye; a connection LINK verified is on <see cref="AppLinkList"/> instead. Each one's <see cref="WireDeck.Paired"/> is read from its connection against the token as it is now, so a
     /// token that changes under a deck turns its node amber at once, never a flag left from its proof.
     /// </summary>
     public IReadOnlyList<WireDeck> Decks
@@ -871,7 +886,9 @@ public sealed partial class ControlService : IDisposable
             var token = _kernel.State.Control.Token;
             lock (_gate)
             {
-                return _decks.Select(d => d.Value with { Paired = Hears(token, d.Key) }).OrderBy(d => d.SinceUtc).ToList();
+                // Show Bus 1.3 §13.16.5: a connection LINK verified is an app link on the acceptor's list, never a deck, whatever its
+                // HELLO said — no reader counts it or draws it as one.
+                return _decks.Where(d => d.Key.Link is null).Select(d => d.Value with { Paired = Hears(token, d.Key) }).OrderBy(d => d.SinceUtc).ToList();
             }
         }
     }
@@ -1022,7 +1039,11 @@ public sealed partial class ControlService : IDisposable
         {
             cut = _peers.Where(p => p.Greeted && !Hears(token, p)).ToList();
             greet = _peers.Where(p => !p.Greeted && Hears(token, p)).ToList();
-            foreach (var peer in cut) _recording.Remove(peer);
+            foreach (var peer in cut)
+            {
+                _recording.Remove(peer);
+                if (peer.Link is not null) _linkEnds[peer] = AppKeyStore.ReplacedWords;   // the acceptor's list says why it went grey
+            }
         }
         foreach (var peer in cut)
         {

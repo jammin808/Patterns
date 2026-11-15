@@ -1105,6 +1105,52 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
         return new DeskMenu("appkey", key.Kid, "App key " + key.Kid, subtitle, MenuTone.Tile, groups);
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.16.5–6: one app link this desk accepted, from its row on the Nodes page (and its node on the Eye) — close it, or
+    /// revoke the key it stands on, in step with the row's own CLOSE and REVOKE KEY. Each entry is the operator's own action from the
+    /// desk, with no wire line: refused from a deck, the wire, a peer, a running order and the assistant, which proposes neither. A code's
+    /// link has no key to revoke (a new pairing token ends it, on the Remote page); a link that has ended has nothing left to close.
+    /// </summary>
+    public static DeskMenu AppLink(DeskFacts d, MenuAppLink link)
+    {
+        var entries = new List<MenuEntry>
+        {
+            new("link.close", "Close this link", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = $"{link.Label} hears that this desk's operator closed it, runs nothing more and the connection ends; the key stays in force, so it may link again — {AcceptorWords.ClosedSeenAs}",
+                Action = new ShowAction(ShowActionKind.AppLinkClose, link.Lid),
+                Because = link.Ended ? "This link has ended already" : d.IsNode ? "App links are the desk's — close it there" : "",
+            },
+        };
+        if (link.KeyKid.Length > 0)
+        {
+            entries.Add(new MenuEntry("link.revoke", "Revoke its key " + link.KeyKid, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = $"{link.Label} can no longer link with it; this link and any other that uses it are refused at once",
+                Action = new ShowAction(ShowActionKind.AppKeyRevoke, link.KeyKid),
+                Because = d.IsNode ? "App keys are the desk's — revoke it there" : "",
+            });
+        }
+        else
+        {
+            entries.Add(new MenuEntry("link.revoke", "Revoke its key", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "It proved the pairing token: NEW TOKEN on the Remote page ends it and every link and deck paired by the token",
+                Because = "A link the pairing token proved has no key of its own to revoke",
+            });
+        }
+        var groups = new List<MenuGroup>
+        {
+            new("LINK", MenuTone.Tile, entries)
+            {
+                Note = "The operator's on this desk: never on the wire or a deck, never proposed by the assistant.",
+            },
+        };
+        var subtitle = $"{AppKeys.ConnectorWords(link.Client)} · {(link.Verified == "code" ? "the pairing token" : "key " + link.KeyKid)} · scope {link.Scope} · {link.Mark}"
+                       + (link.Ended ? " · ended" : "");
+        return new DeskMenu("applink", link.Lid, "App link " + link.Label, subtitle, MenuTone.Tile, groups);
+    }
+
     /// <summary>What a scope reaches on this desk, as the menu says it (§8.2's map, <see cref="AppKeyScopes"/>).</summary>
     public static string ScopeReach(string scope) => scope switch
     {

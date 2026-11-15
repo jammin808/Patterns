@@ -13,7 +13,28 @@ public sealed partial class ShowActions
     private ActionResult? RunNodes(ShowAction a, ActionOrigin origin)
     {
         if (StagewatchLinkActions.IsLinkVerb(a.Kind)) return StagewatchLinkActions.Run(_s.Kernel.Stagewatch, _s.State.Control.Stagewatch, a, origin);
+        if (a.Kind == ShowActionKind.AppLinkClose) return CloseAppLink(a, origin);
         return AppKeyActions.IsKeyVerb(a.Kind) ? AppKeyActions.Run(_s.Kernel.AppKeys, _s.IsDesk, a, origin) : null;
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.6: CLOSE on an app link's row (and its right-click entry): the operator's alone, on the desk; the link hears
+    /// why as its last line, runs nothing from the press on, and ends, its key in force. Requested, not Done: the close is observed when
+    /// the connection ends and the row goes grey (one log line). A lid no open link has, or one already closing, is refused with the
+    /// reason, so a stale or second press changes nothing.
+    /// </summary>
+    private ActionResult CloseAppLink(ShowAction a, ActionOrigin origin)
+    {
+        if (origin.Kind != OriginKind.Desk) return ActionResult.Refused("Closing another app's link is this desk's operator's, on its Nodes page — refused from " + origin.Label + ".");
+        if (!_s.IsDesk) return ActionResult.Refused("App links are the desk's — close it there.");
+        var (outcome, label) = _s.Control.CloseLink(a.Target);
+        return outcome switch
+        {
+            ControlService.CloseOutcome.Told => ActionResult.Requested(
+                $"{label}'s link is closing — it was told this desk's operator closed it and runs nothing more; its row goes grey once the connection ends. Its key stays in force (REVOKE KEY is the wall); {AcceptorWords.ClosedSeenAs}."),
+            ControlService.CloseOutcome.Closing => ActionResult.Refused($"{label}'s link is closing already — it was told its last word and runs nothing more."),
+            _ => ActionResult.Refused($"No open app link has lid {a.Target} — it has ended already, or never stood."),
+        };
     }
 }
 

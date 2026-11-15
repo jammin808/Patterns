@@ -1907,6 +1907,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 // Show Bus 1.3 §13.5: the app keys a connector proves itself with here — each kid, its connector, scope and marks, never a
                 // key — and that their verbs are the operator's, never proposed.
                 .Concat(AppKeyBriefLines())
+                // Show Bus 1.3 §13.16.5: the app links this desk's wire accepted by LINK — never counted as decks — and that closing one
+                // is the operator's, never proposed.
+                .Concat(AppLinkBriefLines())
                 .ToList(),
         };
     }
@@ -1918,6 +1921,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (keys.Count == 0) return Array.Empty<string>();
         return keys.Take(16).Select(k => "App key " + AppKeys.Words(k) + ".")
             .Append("This desk's " + Kernel.AppKeysLine + "; " + KeyVerbs.BriefWords + ".")
+            .ToList();
+    }
+
+    /// <summary>Show Bus 1.3 §13.16.5: the brief's lines of the acceptor's list — one an app link, then the rule; nothing with none.</summary>
+    private IReadOnlyList<string> AppLinkBriefLines()
+    {
+        var rows = Control.AppLinkList;
+        if (rows.Count == 0) return Array.Empty<string>();
+        return rows.Take(16).Select(r => "App link " + r.Mark + " " + r.Words + ".")
+            .Append("The app links are other apps' proved links to this desk's wire, not decks; closing one (CLOSE) or revoking its key is the operator's on the Nodes page — never proposed, never on the wire or a deck.")
             .ToList();
     }
 
@@ -2034,6 +2047,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             if (Outputs.IsLive) parts.Add(ShowLock.Locked ? "LOCK ON" : "LOCK OFF");
             var link = Kernel.LinkGlance;                                                    // Show Bus 1.3 §13.16.4: the Stagewatch link's record on the Run strip
             if (link.Length > 0) parts.Add(link);
+            var accepted = AcceptorWords.Glance(Control.AppLinkList);                        // Show Bus 1.3 §13.16.5: the app links this wire accepted, never decks
+            if (accepted.Length > 0) parts.Add(accepted);
             var speaker = Stage?.SpeakerGlance ?? "";                                        // a speaker's message Stagewatch refused, did not confirm or never got, still waiting here
             if (speaker.Length > 0) parts.Add(speaker);
             return string.Join(" · ", parts);
@@ -2371,7 +2386,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// by the desk, the Run strip, the remotes and OSC, so every surface counts the same seconds.
     /// </summary>
     /// <summary>What a deck's keys read that no publish carries: the nodes heard, the twin's phase and holder, the stage's waiting messages, the decks connected.</summary>
-    public string DeckSignature() => $"{Nodes.Rev}|{Twin.Phase}|{Twin.Holder}|{Stage.DeckSignature()}|{Control.Decks.Count}";
+    public string DeckSignature() => $"{Nodes.Rev}|{Twin.Phase}|{Twin.Holder}|{Stage.DeckSignature()}|{Control.Decks.Count}|{AcceptorWords.Signature(Control.AppLinkList)}";
 
     public VideoReading? VideoOnAir()
     {

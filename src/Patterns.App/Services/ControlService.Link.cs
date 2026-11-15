@@ -30,6 +30,150 @@ public sealed partial class ControlService
     /// <summary>How many connections finished LINK and are open right now.</summary>
     public int AppLinks => _appLinks.Open;
 
+    // Show Bus 1.3 §13.16.5: the links that ended (grey for peer.forget.ms) and the refusals of the last minute, beside the open links.
+    private readonly AcceptorList _acceptor = new();
+
+    // Why a link that is ending ends, set by what ends it (a key revoked, the operator's CLOSE) before its connection closes.
+    private readonly Dictionary<WirePeer, string> _linkEnds = new();
+
+    /// <summary>The acceptor's list's clock: wall time, settable for the tests, which step it past peer.forget.ms.</summary>
+    public Func<DateTime> AcceptorNow { get; set; } = () => DateTime.UtcNow;
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.5: the acceptor's list — every link this wire accepted that LINK verified and that stands now, each at the
+    /// scope it stands at now and marked when its key (or the token, for a code's link) was seen in clear, then each that ended within
+    /// peer.forget.ms, grey. Never a deck: a connection proved by the legacy proof is on <see cref="Decks"/>, and one here is not.
+    /// </summary>
+    public IReadOnlyList<AppLinkRow> AppLinkList
+    {
+        get
+        {
+            var token = _kernel.State.Control.Token;
+            List<(WirePeer Peer, LinkStanding Link, string Where, bool Recording)> open;
+            lock (_gate)
+            {
+                // A link records and says where its navigator is as a deck does (RECORD is follow's, NAV DECK operate's): its row says so.
+                open = _peers.Where(p => p.Link is not null && !p.Closed)
+                    .Select(p => (p, p.Link!, _decks.TryGetValue(p, out var d) ? d.Where : "", _recording.ContainsKey(p))).ToList();
+            }
+            var now = AcceptorNow();
+            return open.Select(o => RowOf(token, o.Peer, o.Link) with { Where = o.Where, Recording = o.Recording }).OrderBy(r => r.SinceUtc)
+                .Concat(_acceptor.EndedRows(now))
+                .ToList();
+        }
+    }
+
+    /// <summary>Show Bus 1.3 §13.16.5: the LINK refusals of the last minute, each with its words and its count.</summary>
+    public IReadOnlyList<AppLinkRefusal> LinkRefusals => _acceptor.Refusals(AcceptorNow());
+
+    /// <summary>The LINK refusals the list's bound left out of its rows this run, counted: the Nodes page says how many beside the rows.</summary>
+    public long LinkRefusalsUncounted => _acceptor.RefusalsUncounted;
+
+    /// <summary>
+    /// STATE's <c>decks</c> rows, on the desk and on a node alike (Show Bus 1.3 §13.16.5): every deck that said HELLO — level 0, no
+    /// <c>t</c> or <c>id</c>, <c>verified</c> empty (the legacy proof is not LINK), scope <c>operate</c> while it is paired and
+    /// <c>none</c> while it is not — then the acceptor's list, one row per app link LINK verified (level 1, its connector's
+    /// <c>t</c> and <c>id</c>, <c>key</c>, <c>link</c> or <c>code</c>, its scope now) with its TLS, kid, light, mark, words and
+    /// whether it ended appended. The fields after <c>recording</c> are appended at the end of the row, so a reader that matches the
+    /// older row's fields still does; a reader that counts decks takes the rows at level 0 only.
+    /// </summary>
+    internal object[] DeckRows()
+    {
+        var decks = Decks.Select(d => (object)new
+        {
+            name = d.Name, module = d.Module, address = d.Address, where = d.Where, recording = d.Recording,
+            level = 0, t = "", id = "", verified = "", scope = d.Paired ? "operate" : "none",
+        });
+        var links = AppLinkList.Select(r => (object)new
+        {
+            name = r.Label, module = "", address = r.Address, where = r.Where, recording = r.Recording,
+            level = r.Level, t = r.T, id = r.Id, verified = r.Verified, scope = r.Scope,
+            tls = r.Tls, kid = r.Kid, light = LinkRecord.LightWord(r.Light), mark = r.Mark, words = r.Words, ended = r.Ended,
+        });
+        return decks.Concat(links).ToArray();
+    }
+
+    /// <summary>One link's row as the list draws it, from what it stands on now.</summary>
+    private AppLinkRow RowOf(string token, WirePeer peer, LinkStanding link)
+    {
+        var clear = link.Verified == "code"
+            ? _kernel.TokenClearWords.Length > 0
+            : _kernel.AppKeys.Keys.FirstOrDefault(k => k.Kid == link.Kid)?.ClearSeen is not null;
+        var scope = link.Verified == "code" ? link.Scope : KeyOf(token, link) is null ? "none" : ScopeNow(token, link);
+        return new AppLinkRow(link.Lid, link.Client, link.Name, link.Address, peer.Loopback, link.Tls, link.Verified, link.Kid, scope, link.SinceUtc) { ClearSeen = clear, Drove = peer.Drove };
+    }
+
+    /// <summary>
+    /// A link that stood has ended: kept on the list grey, with why — what ended it said so before the close, else the connection
+    /// itself ended. One log line; the journal's rows are the act's that ended it (a revoke, a CLOSE, a new token).
+    /// </summary>
+    private void LinkEnded(WirePeer peer, LinkStanding link, string? why)
+    {
+        var words = why ?? (peer.ClosedBecause.Length > 0 ? peer.ClosedBecause : "the connection ended");
+        try
+        {
+            _acceptor.Ended(RowOf(_kernel.State.Control.Token, peer, link) with { Scope = link.Scope }, AcceptorNow(), words);
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException or IOException)
+        {
+            // The key store or the kernel went first (a desk shutting down): the link has ended all the same; only its grey row is lost.
+            Log.Warn($"Wire: the link of {link.Client} (lid {link.Lid}) ended and its row on the acceptor's list could not be read — {ex.Message}.");
+        }
+        Log.Info($"Wire: the link of {link.Client} from {link.Address} (lid {link.Lid}) ended — {words}.");
+        UiThread.Post(ArmPush);
+    }
+
+    /// <summary>
+    /// How long a closed link's connection is held open after its last word is written, before the desk closes it: zero on a desk. A
+    /// test widens it to send lines into a closing link and see that none runs.
+    /// </summary>
+    public TimeSpan CloseLinger { get; set; } = TimeSpan.Zero;
+
+    /// <summary>What <see cref="CloseLink"/> found: the link's label once it is told, or why nothing was closed.</summary>
+    public enum CloseOutcome
+    {
+        /// <summary>No open link has that lid: it ended already, or never stood.</summary>
+        NoLink,
+
+        /// <summary>The link was told its last word already (a CLOSE, a revoke, a new token) and is closing.</summary>
+        Closing,
+
+        /// <summary>The link was told this desk's operator closed it; its connection ends once that line is written.</summary>
+        Told,
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.6: the operator closes one app link (the Nodes page's CLOSE, its right-click entry): its last line says this
+    /// desk's operator closed it, in the refused class so its connector holds before it dials again (docs/OPEN.md L115: the line has no
+    /// disconnect word), and the connection ends. From the press nothing the link sends runs (<see cref="WirePeer.LastSaid"/>). The key
+    /// it stood on stays in force — revoking it is the wall. The outcome, and the link's label when it was told.
+    /// </summary>
+    public (CloseOutcome Outcome, string Label) CloseLink(string lid)
+    {
+        WirePeer? peer;
+        lock (_gate)
+        {
+            peer = _peers.FirstOrDefault(p => p.Link is { } l && l.Lid == lid && !p.Closed);
+            if (peer is null) return (CloseOutcome.NoLink, "");
+            var closingLink = peer.Link!;
+            var closingLabel = closingLink.Name.Length > 0 ? closingLink.Name : AppKeys.ConnectorWords(closingLink.Client);
+            if (_linkEnds.ContainsKey(peer) || peer.LastSaid) return (CloseOutcome.Closing, closingLabel);
+            _linkEnds[peer] = "closed by this desk's operator";
+            _recording.Remove(peer);
+        }
+        var link = peer.Link!;
+        var label = link.Name.Length > 0 ? link.Name : AppKeys.ConnectorWords(link.Client);
+        peer.SayLast(ControlProtocol.Err(LinkAcceptor.Refusal("refused", AcceptorWords.ClosedWords(_kernel.Beacon.MachineName))));
+        var linger = CloseLinger;
+        _ = Task.Run(async () =>
+        {
+            await peer.FlushAsync(LastWordWait);
+            if (linger > TimeSpan.Zero) await Task.Delay(linger, CancellationToken.None);
+            peer.Dispose();
+        }, CancellationToken.None);   // a told link is never left open, whatever the listeners do
+        return (CloseOutcome.Told, label);
+    }
+
     /// <summary>The (address, kid) pairs the wrong-proof table holds right now: a bounded count, never a proof or a kid.</summary>
     public int WrongProofPairs => _wrongProofs.Pairs;
 
@@ -242,10 +386,14 @@ public sealed partial class ControlService
         {
             if (_busySaid.Allow("link-busy:" + address, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
                 Log.Info($"Wire: {client} from {address} proved its LINK with the app links' sub-cap full ({_appLinks.Open} open) — refused busy; the decks keep the rest of the port. Said once a minute for this address.");
+            _acceptor.Refused(address, client, credential.Kid, "busy", limits.AppLinksBusyWords(_appLinks.From(address)), AcceptorNow());
             return await Last("busy", limits.AppLinksBusyWords(_appLinks.From(address)));
         }
         step.AppLink = true;
-        var standing = new LinkStanding(client, credential.Kid, credential.Verified, credential.Scope, lid, overTls);
+        var standing = new LinkStanding(client, credential.Kid, credential.Verified, credential.Scope, lid, overTls)
+        {
+            Name = helloName, Address = address, SinceUtc = AcceptorNow(),
+        };
         // 13.5.7: a code proved over TLS enrols a key for this connector (the one enrolled before for it gives way); none past the bound.
         var enrolment = decision.EnrolK is { } enrolK ? _kernel.AppKeys.Enrol(enrolK, client, helloName, token, DateTime.UtcNow) : null;
         var enrolled = enrolment?.Key;
@@ -260,6 +408,10 @@ public sealed partial class ControlService
         if (StaleLink(token, standing) is { } stale)
         {
             if (credential.Verified == "code") RevokeEnrolled(_kernel.State.Control.Token);
+            // Refused, not ended: the link never stood for anything, so it is one refusal on the list and no grey row beside it.
+            peer.Link = null;
+            lock (_gate) _linkEnds.Remove(peer);
+            _acceptor.Refused(address, client, credential.Kid, "refused", stale, AcceptorNow());
             await LastWordAsync(peer, ControlProtocol.Err(LinkAcceptor.Refusal("refused", stale)));
             return true;
         }
@@ -298,7 +450,11 @@ public sealed partial class ControlService
         lock (_gate)
         {
             cut = _peers.Where(p => p.Link is { Verified: "key" or "link" } l && kids.Contains(l.Kid)).ToList();
-            foreach (var peer in cut) _recording.Remove(peer);
+            foreach (var peer in cut)
+            {
+                _recording.Remove(peer);
+                _linkEnds[peer] = words;
+            }
         }
         foreach (var peer in cut)
         {
@@ -400,6 +556,7 @@ public sealed partial class ControlService
     private void LinkRefused(string address, string client, string kid, LinkDecision decision)
     {
         var cls = decision.Class ?? "refused";
+        _acceptor.Refused(address, client, kid, cls, decision.Words, AcceptorNow());   // counted on the Nodes page's list this minute; no push
         if (_busySaid.Allow("link-" + cls + ":" + address, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
             Log.Info($"Wire: a LINK from {address} as {client} for kid {kid} refused {cls} — {decision.Words}. Said once a minute for this address.");
         if (decision.CountKid is { } counted && _wrongProofs.LockedFor(address, counted, LinkNowMs()) > 0

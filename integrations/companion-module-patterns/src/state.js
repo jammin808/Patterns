@@ -156,7 +156,9 @@ export function variableValues(s) {
 		desk_back: s.nav?.back ?? '',
 		desk_selection: s.nav?.selection ?? '',
 		desk_where: s.nav?.words ?? '',
-		desk_decks: (s.decks ?? []).map((d) => (d.where ? `${d.name} — ${d.where}` : d.name)).join(' · '),
+		// Show Bus 1.3 §13.16.5: STATE's decks rows carry the app links LINK verified too, at level 1 — never counted as a deck.
+		desk_decks: (s.decks ?? []).filter((d) => (d.level ?? 0) === 0).map((d) => (d.where ? `${d.name} — ${d.where}` : d.name)).join(' · '),
+		desk_app_links: (s.decks ?? []).filter((d) => (d.level ?? 0) >= 1 && !d.ended).map((d) => `${d.name} ${d.mark ?? ''} ${d.verified === 'code' ? 'token' : 'key'} ${d.scope ?? ''}`.replace(/\s+/g, ' ').trim()).join(' · '),
 		look_state: (s.airLook ?? '') === '' ? 'off' : s.lookEdited ? 'EDITED' : 'LIVE',
 		look_screens_off: String(s.lookScreensOff ?? 0),
 		stream_status: s.stream?.status ?? '',
