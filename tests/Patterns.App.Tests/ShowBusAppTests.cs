@@ -758,7 +758,7 @@ public class ShowBusAppTests
             services.Eye.Refresh();
             Assert.Contains(services.Eye.Graph.Nodes, n => n.Kind == Patterns.Core.Services.EyeKind.ShowApp && n.Sub.StartsWith("Keynote", StringComparison.Ordinal));
             Assert.Contains(services.Eye.Graph.Nodes, n => n.Kind == Patterns.Core.Services.EyeKind.ShowAppItem && n.Label == "Lighting");
-            Assert.Contains(ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)), l => l.Contains("Lighting (department) — amber", StringComparison.Ordinal));
+            Assert.Contains(ShowBusView.BriefLines(services.Apps(DateTime.UtcNow)), l => l.Contains("Lighting (department) — amber", StringComparison.Ordinal));
             using (var state = JsonDocument.Parse(services.Router.StateJson()))
             {
                 var sw = state.RootElement.GetProperty("bus").GetProperty("stagewatch");
@@ -774,6 +774,54 @@ public class ShowBusAppTests
             Dispatcher.UIThread.RunJobs();
             services.Kernel.Stagewatch.Reconcile();
             Assert.Equal("", services.Stage.Following);
+        }
+        finally
+        {
+            vm.State.Control.Stagewatch.Enabled = false;
+            services.Kernel.Stagewatch.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The Eye's gather works by revisions (the Eye design's EYE.3): a still link and a still desk rebuild nothing tick after tick —
+    /// not even with an amber Super Check row whose reading runs on (a test desk's tick is slow), which the Eye says without its number —
+    /// and the apps' revision stands.
+    /// </summary>
+    [AvaloniaFact]
+    public void ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame);
+        try
+        {
+            Link(vm, services, stagewatch);
+            PumpUntil(() => services.Kernel.Stagewatch.Sight.Context is not null);
+            PumpUntil(() => stagewatch.Pings > 0);
+            services.Eye.Refresh();
+            var builds = services.Eye.Cost.Total;
+            var rev = services.AppsRev;
+            var before = services.Eye.Graph;
+            Assert.True(rev > 0);
+            Assert.Contains(services.Apps(DateTime.UtcNow), a => ShowBusView.LinkedApp(a) && a.KindWords == "Stagewatch");
+            var ticks = 0;
+            var deadline = Environment.TickCount64 + 3000;
+            while (Environment.TickCount64 < deadline)
+            {
+                Thread.Sleep(100);
+                Dispatcher.UIThread.RunJobs();
+                services.Eye.Refresh();
+                ticks++;
+            }
+            // What moved, if anything did: the first thing whose words, line or light the rebuild changed — so a failure names its cause.
+            var moved = services.Eye.Graph.Nodes.FirstOrDefault(n => before.Find(n.Id) is not { } was || was.Sub != n.Sub || was.Light != n.Light || !was.Words.SequenceEqual(n.Words));
+            var words = moved is null ? "nothing drawn moved" : $"{moved.Id}: {moved.Sub} · {string.Join(" | ", moved.Words.Except(before.Find(moved.Id)?.Words ?? Array.Empty<string>()))}";
+            Assert.True(builds == services.Eye.Cost.Total, $"{services.Eye.Cost.Total - builds} rebuilds in {ticks} ticks of a still link — {words}");
+            Assert.True(rev == services.AppsRev, $"the apps' revision moved {services.AppsRev - rev} times in {ticks} ticks — {words}");
+            // The gather handed the hash the revision it took with the apps, in the apps' place.
+            Assert.Equal(services.AppsRev, services.Eye.AppsRev);
         }
         finally
         {
@@ -897,7 +945,7 @@ public class ShowBusAppTests
             var nodesCard = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
             Assert.Equal("#FFB020", nodesCard.Hue);
             Assert.Contains(ShowBusView.StuckWords, nodesCard.Line);
-            var brief = ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow));
+            var brief = ShowBusView.BriefLines(services.Apps(DateTime.UtcNow));
             Assert.Contains(brief, l => l.Contains("— linked — amber: says its show is stuck — no time shown", StringComparison.Ordinal));
             Assert.Contains(brief, l => l.Contains("Keynote — Ana (timer) — red: " + ShowBusView.NoTimeWords, StringComparison.Ordinal));   // "?" and red: the show follows it
 
@@ -1124,7 +1172,7 @@ public class ShowBusAppTests
             Assert.Contains("\"heard\":\"live\",\"link\":\"\",\"verified\":\"none\"}", services.ContextJson(), StringComparison.Ordinal);   // appended at the row's end
 
             // The assistant's facts and the Super Check say the same record.
-            var brief = ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow));
+            var brief = ShowBusView.BriefLines(services.Apps(DateTime.UtcNow));
             Assert.Contains(brief, l => l.StartsWith("  the link: live, amber — △ ", StringComparison.Ordinal) && l.Contains("level 0", StringComparison.Ordinal));
             var check = Assert.Single(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r2 => r2.Item == "Show network links");
             Assert.Equal((CheckLight.Amber, "Stagewatch Hall C △ live"), (check.Light, check.Value));
@@ -1337,7 +1385,7 @@ public class ShowBusAppTests
             Assert.Equal((CheckLight.Red, $"✕ {held.SteadyWords}"), (edge.Light, edge.Words));
             var peers = ShowContext.Parse(services.ContextJson())!.Peers;
             Assert.Contains(peers, p => p.Kind == "main" && p.Light == "red" && p.Headline == refused);
-            Assert.Contains("  this desk's key: " + refused, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
+            Assert.Contains("  this desk's key: " + refused, ShowBusView.BriefLines(services.Apps(DateTime.UtcNow)));
             Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost — " + refused + "; this desk's keyed calls wait 60 s."));
             Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));                                         // the words are Stagewatch's, never the key
 
@@ -2046,7 +2094,7 @@ public class ShowBusAppTests
             Assert.Equal(CheckLight.Amber, node.Light);
             Assert.StartsWith("Keynote", node.Sub, StringComparison.Ordinal);                        // the label is no fault: its headline stays
             Assert.Contains("this desk's key: " + StagewatchKey.LegacyWords, node.Words);
-            Assert.Contains("  this desk's key: " + StagewatchKey.LegacyWords, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
+            Assert.Contains("  this desk's key: " + StagewatchKey.LegacyWords, ShowBusView.BriefLines(services.Apps(DateTime.UtcNow)));
             Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost — " + StagewatchKey.LegacyWords + "."));
 
             // Its HTTP answers are the evidence: a keyed call refused (401) refuses the key, held, and what a held key
@@ -2132,7 +2180,7 @@ public class ShowBusAppTests
             PumpUntil(() => LogLines(b.Dir, "Show network: " + words) == 1);
             // The context any app's assistant reads, and the Eye.
             Assert.Contains(words, services.ContextJson(), StringComparison.Ordinal);
-            Assert.Contains(services.ShowApps(DateTime.UtcNow), a => a.Conflict == words);
+            Assert.Contains(services.Apps(DateTime.UtcNow), a => a.Conflict == words);
 
             // A flood while the link is held: the id it is held off is needed, so its entry and its mark stay whatever is
             // heard, and the link still dials nothing — a flood cannot wipe the mark and let the next hello be dialled.
@@ -2267,7 +2315,7 @@ public class ShowBusAppTests
             Assert.DoesNotContain("cccccc", services.Kernel.Stagewatch.TlsWords, StringComparison.Ordinal);   // never the hello's certificate
             Assert.Equal(0, LogLines(b.Dir, "the hello heard for A"));
             // Every reader: the forged app is only heard; the link is drawn as an app of its own.
-            var apps = services.ShowApps(DateTime.UtcNow);
+            var apps = services.Apps(DateTime.UtcNow);
             Assert.False(apps.Single(a => a.Id == "e1110001").Linked);
             var linked = Assert.Single(apps, a => a.Linked);
             Assert.NotEqual("e1110001", linked.Id);
@@ -2327,7 +2375,7 @@ public class ShowBusAppTests
             Assert.Equal(("amber", true), (row.GetProperty("light").GetString(), row.GetProperty("conflict").GetBoolean()));
             var sw = bus.GetProperty("stagewatch");
             Assert.Equal(("live", "amber", words, ""), (sw.GetProperty("state").GetString(), sw.GetProperty("light").GetString(), sw.GetProperty("headline").GetString(), sw.GetProperty("held").GetString()));
-            var app = services.ShowApps(DateTime.UtcNow).Single(a => a.Id == "a1b2c3d4");
+            var app = services.Apps(DateTime.UtcNow).Single(a => a.Id == "a1b2c3d4");
             Assert.True(app.Linked);
             Assert.True(ShowBusView.ConflictAmber(app));
         }

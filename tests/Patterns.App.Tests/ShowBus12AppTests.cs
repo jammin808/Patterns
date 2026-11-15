@@ -478,7 +478,7 @@ public class ShowBus12AppTests
             link.Reconcile();
             PumpUntil(() => { Hear(services, port, fpB); return link.PendingFingerprint == fpB; });
             Assert.StartsWith("CERTIFICATE CHANGED", link.TlsWords);
-            Assert.Contains(services.ShowApps(DateTime.UtcNow), a => a.Words.StartsWith("CERTIFICATE CHANGED", StringComparison.Ordinal));
+            Assert.Contains(services.Apps(DateTime.UtcNow), a => a.Words.StartsWith("CERTIFICATE CHANGED", StringComparison.Ordinal));
             var looked = sw.Accepted;
             PumpFor(3000);
             Assert.Equal(looked, sw.Accepted);
@@ -1282,7 +1282,7 @@ public class ShowBus12AppTests
             Assert.DoesNotContain(own.Links, l => l.From == "link:stagewatch" || l.From == NodeContextBuilder.RelayItem || l.To == NodeContextBuilder.RelayItem);
             Assert.DoesNotContain("STAGEWATCH", t.GlanceWords, StringComparison.Ordinal);
             PumpUntil(() => d.Twin.NodeContexts(DateTime.UtcNow).Count > 0, 20000);
-            Assert.Contains(d.ShowApps(DateTime.UtcNow), a => a.KindWords == "Patterns node" && a.Context is { } c && c.Items.Any(i => i.Id == "stage"));
+            Assert.Contains(d.Apps(DateTime.UtcNow), a => a.KindWords == "Patterns node" && a.Context is { } c && c.Items.Any(i => i.Id == "stage"));
             d.Eye.Refresh();
             Assert.Contains(d.Eye.Graph.Nodes, n => n.Kind == EyeKind.ShowApp && n.Label.Length > 0 && n.Sub.Contains("stage timer node", StringComparison.Ordinal));
 

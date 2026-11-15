@@ -94,8 +94,16 @@ public sealed class EyeFacts
 
     /// <summary>Round 80: the master rate as the show runs it (MasterRate.Words) — "" when the desk does not say.</summary>
     public string MasterRate { get; init; } = "";
-    /// <summary>The super-check's rows that are not green, as words.</summary>
+    /// <summary>The super-check's rows that are not green, as words (<see cref="AttentionWords"/>).</summary>
     public IReadOnlyList<string> Attention { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// A Super Check row that asks for attention, as the Eye's desk says it: its item, its light's mark (the shape beside the colour the
+    /// node is drawn in) and its note — never the reading it measures, which the Super Check and the Machine page read live, so a reading
+    /// that moves by the tick moves no picture, with a note or without one.
+    /// </summary>
+    public static string AttentionWords(CheckRow row)
+        => $"{row.Item}: {LinkRecord.MarkOf(row.Light)}" + (row.Note.Length > 0 ? " " + row.Note : "");
     /// <summary>Round 67.6: what the next TAKE alone arrives by, in words; "" for the show's own.</summary>
     public string NextTake { get; init; } = "";
     /// <summary>Round 67.8: the wall's take scope as the picker labels it ("every screen", "the focused screen", "the ticked screens"); "" on a node.</summary>
@@ -137,8 +145,23 @@ public sealed class EyeFacts
     public IReadOnlyList<EyeAudioRoute> AudioRoutes { get; init; } = Array.Empty<EyeAudioRoute>();
     public EyeStack? Stack { get; init; }
     public EyeAssistant? Assistant { get; init; }
-    /// <summary>Round 87: the other show apps heard on the show network's hello (UDP 9928), with what each one's context says when this desk reads it.</summary>
+    /// <summary>
+    /// Round 87: the other show apps heard on the show network's hello (UDP 9928), with what each one's context says when this desk
+    /// reads it — the desk's one composition (<see cref="ShowBusView.Compose"/>). Left out of the hash wherever <see cref="AppsRev"/>
+    /// stands for it.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public IReadOnlyList<EyeShowApp> ShowApps { get; init; } = Array.Empty<EyeShowApp>();
+
+    /// <summary>
+    /// The apps' revision as the desk's composition kept it (<see cref="ShowBusAppsRevision"/>): it moves when what any app's steady
+    /// projection says moves, and the hash reads it in the apps' place; 0 for apps handed in with no revision, which
+    /// <see cref="ShowAppsUnrevised"/> then stands for.
+    /// </summary>
+    public long AppsRev { get; init; }
+
+    /// <summary>What the hash reads of apps handed in with no revision (built by hand): the apps themselves; null whenever a revision stands for them.</summary>
+    public IReadOnlyList<EyeShowApp>? ShowAppsUnrevised => AppsRev != 0 ? null : ShowApps;
 
     /// <summary>
     /// This desk's own Show Bus id: another app's end <c>@&lt;it&gt;</c> is this desk, and <c>@&lt;it&gt;/&lt;item&gt;</c> the thing of
@@ -260,6 +283,14 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     /// never who: a deck's words name the app heard at its address, and nothing folds by an address alone.
     /// </summary>
     public IReadOnlyList<string> Addresses { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Show Bus 1.3 §13.16.5: the links this desk's wire accepted that LINK verified to this app's id — open, or ended within
+    /// <c>peer.forget.ms</c> — whatever its kind (<see cref="ShowBusView.Accept"/>). An open one is a link this desk holds
+    /// (<see cref="ShowBusView.HoldsLink"/>): LINK proved the id, so it says the app is there where no link this desk dials does.
+    /// Steady rows: the hash reads them as they are.
+    /// </summary>
+    public IReadOnlyList<AppLinkRow> Accepted { get; init; } = Array.Empty<AppLinkRow>();
 }
 
 /// <summary>A display Windows shows, or one the show plans and has not plugged in, or one that went missing.</summary>
@@ -1122,7 +1153,9 @@ public sealed class EyeGraph
             var light = lit.Light;
             var state = lit.StateWord();
             var sub = lit.Headline.Length > 0 ? lit.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
-            var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
+            // An app known only by the links this desk's wire accepted (LINK proved its id; no hello names it, no link of this desk's dials it).
+            var acceptedOnly = app.Heard.Length == 0 && ShowBusView.AcceptedLeads(app);
+            var words = new List<string> { acceptedOnly ? $"{app.KindWords} — linked to this desk's wire by LINK, not heard on the show network" : $"{app.KindWords} on the show network — {state}" };
             if (beacons.TryGetValue(id, out var beacon))
                 words.Add($"heard on the beacon as {beacon.Kind} {beacon.Name}" + (beacon.ShowBusId.Length > 0 ? $" · its hello says id {beacon.ShowBusId}" : "") + (beacon.Fresh ? "" : " · gone quiet"));
             if (helloDiffers)
@@ -1132,6 +1165,7 @@ public sealed class EyeGraph
             if (ShowBusView.HoldsLink(app) && app.Link is { } record) words.Add("the link: " + record.Steady);
             if (app.Linked && app.Speaker.Length > 0) words.Add(app.Speaker);
             if (app.Linked && app.Windows.Length > 0) words.Add("windows it grants this desk: " + app.Windows);
+            foreach (var r in app.Accepted) words.Add(ShowBusView.AcceptedWords(r) + (r.Ended ? "" : " — " + r.Words));
             if (app.DeviceId.Length > 0) words.Add($"driven as the device {app.Device} — DEVICE {ShowBusView.DeviceWord(app)} <its verb>");
             else if (app.DeviceAt.Length > 0) words.Add($"this desk's device {app.Device} is set at its address — drawn as one with it once that link is proved and its context names this app");
             if (app.Discarded.Length > 0) words.Add(app.Discarded);
@@ -1146,7 +1180,7 @@ public sealed class EyeGraph
             Add(new EyeNode(id, EyeKind.ShowApp, EyePlane.Control, 2, $"{app.KindWords} {app.Name}".Trim(), sub, light)
             {
                 Words = words,
-                Route = new MenuRoute("Nodes"),
+                Route = acceptedOnly ? new MenuRoute("Nodes", ShowBusView.OpenAccepted(app)!.Lid) : new MenuRoute("Nodes"),
                 Band = EyePlane.Network,
                 App = app.Id,
                 Counted = app.Needed,
@@ -1162,8 +1196,9 @@ public sealed class EyeGraph
             else if (app.Linked) Link(id, DeskId, EyeEdgeKind.Follows, app.State switch { ShowBusState.Live => CheckLight.Green, ShowBusState.Stale => CheckLight.Amber, _ => app.Needed ? CheckLight.Red : CheckLight.Amber },
                 app.State == ShowBusState.Live ? "linked" : state, counted: true, origin: EyeOrigin.Link);
             else if (conflict) Link(id, DeskId, EyeEdgeKind.Hears, CheckLight.Amber, "heard · " + ShowBusView.ConflictEdgeWords, origin: EyeOrigin.Heard);
-            // A node device no hello names is not heard: its one edge is the device's.
-            else if (app.DeviceId.Length == 0 || app.Heard.Length > 0) Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state, origin: EyeOrigin.Heard);
+            // A node device no hello names is not heard: its one edge is the device's. An open link its wire accepted of its kind is the
+            // one edge to the desk whether or not a hello names it (the acceptor's, drawn below), its hello's age the card's i note.
+            else if (!ShowBusView.Accepts(app) && (app.Heard.Length > 0 || (app.DeviceId.Length == 0 && app.Accepted.Count == 0))) Link(id, DeskId, EyeEdgeKind.Hears, light, app.State == ShowBusState.Live ? "heard on the show network" : state, origin: EyeOrigin.Heard);
             // Round 97: the device that drives a Show Bus node controls it — this desk's link to it, counted, lit and worded by the
             // device link's own record (13.16.4), from the device's node (from the desk when the Eye draws no node for the device).
             if (app.DeviceId.Length > 0 && app.Link is { } driven)
@@ -1212,6 +1247,8 @@ public sealed class EyeGraph
             told.Add((app, id, ctx, itemIds, edgeItems));
         }
         var more = heard.Count - drawn.Count;
+        // The apps counted on the more card: drawn by nothing else, a link of theirs included.
+        var undrawn = heard.Where(a => !drawn.Contains(a.Id)).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         if (more > 0)
         {
             Add(new EyeNode(MoreId, EyeKind.ShowApp, EyePlane.Control, 2, $"+{more} more app{(more == 1 ? "" : "s")} heard", $"the Eye draws {EyeLayout.MaxApps} apps — the Nodes page lists every one", CheckLight.Grey)
@@ -1229,7 +1266,7 @@ public sealed class EyeGraph
         // linked by LINK is drawn and counted once. LINK proved the id (level 1), so a connector no hello has named gets its card here,
         // counted only through the edge. The edge is counted while the link stands, folded into the card as one thing; once ended it is
         // grey and counted by nothing. K is what the connector did on the link: controls once it ran one of this desk's verbs, else follows.
-        foreach (var r in f.AppLinks.Where(r => r.Id.Length > 0))
+        foreach (var r in f.AppLinks.Where(r => r.Id.Length > 0 && !undrawn.Contains(r.Id)))
         {
             var card = EyeNetwork.CardOf(r.Id);
             if (!ids.Contains(card))

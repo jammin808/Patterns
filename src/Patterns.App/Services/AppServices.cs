@@ -665,7 +665,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Updates = new UpdateService(Kernel, this) { NotNow = () => LivePolicy.Refusal(ShowActionKind.UpdateApply, CueStack?.Armed ?? false, OutputsLive) };
         Management = new ManagementService(Kernel, this, Updates);
         Twin = new TwinService(Kernel, this);
-        Kernel.ShowApps = ShowApps;                                                      // the Nodes page's cards from the apps every reader takes
+        Kernel.ShowApps = Apps;                                                      // the Nodes page's cards from the apps every reader takes
         Kernel.Link = Twin;
         ShowLock = new ShowLockService(this);
         Calibration = new CalibrationService(this);
@@ -960,27 +960,54 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>What the audience is seeing: the frozen program while the sandbox is open, else the live state.</summary>
     public ShowState AirState => Sandbox.ProgramState ?? State;
 
-    /// <summary>Round 87: the other show apps as this desk shows them — the Eye's CONTROL plane, the Nodes page, the context's peers.</summary>
-    public IReadOnlyList<EyeShowApp> ShowApps(DateTime utcNow)
+    /// <summary>
+    /// The show network's apps as every reader takes them — the Eye, the Nodes page, STATE's <c>bus.apps</c>, the context's peers and
+    /// the assistant's brief — composed once from what this desk holds (<see cref="ShowBusView.Compose"/>: the hello table, the
+    /// Stagewatch link's record, context and revision, the node devices, the acceptor's list and the twin's nodes), with what the desk
+    /// alone knows of the link's app said on it. Revisioned only where a reader keys on it (<see cref="AppsWithRev"/>).
+    /// </summary>
+    public IReadOnlyList<EyeShowApp> Apps(DateTime utcNow)
     {
         var refused = Kernel.Stagewatch.PendingFingerprint.Length > 0;
         var whose = Kernel.Stagewatch.PendingPinKey;
-        bool Refused(EyeShowApp a) => refused && a.KindWords == "Stagewatch" && (whose.StartsWith("node:", StringComparison.Ordinal) ? a.Id == whose[5..] : a.Linked);
+        bool Refused(EyeShowApp a) => refused && (whose.StartsWith("node:", StringComparison.Ordinal) ? !a.Id.StartsWith("node:", StringComparison.Ordinal) && a.Id == whose[5..] : ShowBusView.LinkedApp(a));
         var follows = State.Control.Stagewatch.FollowStage;
         var speaker = follows ? Stage?.SpeakerLine ?? "" : "";
         var windows = StagewatchWindows?.Words() ?? "";
-        return ShowBusView.Apps(Beacon.ShowBus.Snapshot(utcNow), utcNow, Kernel.Stagewatch.SightWithLink, Devices.NodeSights)   // round 97: PlayMap nodes driven as devices
-            // Round 88: a Stagewatch whose certificate changed says so on its card, until ACCEPT on the Nodes page.
+        var feed = new ShowBusFeed(Beacon.ShowBus.Snapshot(utcNow), Kernel.Stagewatch.SightWithLink)
+        {
+            Devices = Devices.NodeSights,                                                // round 97: PlayMap nodes driven as devices
+            Accepted = Control.AppLinkList,                                              // Show Bus 1.3 §13.16.5: the links LINK verified on this desk's wire
+            Twin = Twin.NodeContexts(utcNow),                                            // round 88: the desk's own nodes, each from its own context (L52)
+        };
+        var apps = ShowBusView.Compose(feed, utcNow)
+            // Round 88: the app whose certificate changed says so on its card, until ACCEPT on the Nodes page.
             .Select(a => Refused(a) ? a with { State = ShowBusState.Gone, Words = "CERTIFICATE CHANGED — refused until accepted on the Nodes page" } : a)
-            // Where this desk's last speaker message went, on the Stagewatch the stage follows: the Eye's node and the assistant's facts read it.
-            .Select(a => a.Linked && a.KindWords == "Stagewatch" && speaker.Length > 0 ? a with { Speaker = speaker } : a)
-            // (profile 13.1): the Stagewatch the stage follows is one the show needs — the Eye counts its card on the rail.
-            .Select(a => a.Linked && a.KindWords == "Stagewatch" && follows ? a with { Needed = true } : a)
+            // Where this desk's last speaker message went, on the app the stage follows: the Eye's node and the assistant's facts read it.
+            .Select(a => ShowBusView.LinkedApp(a) && speaker.Length > 0 ? a with { Speaker = speaker } : a)
+            // (profile 13.1): the app the stage follows is one the show needs — the Eye counts its card on the rail.
+            .Select(a => ShowBusView.LinkedApp(a) && follows ? a with { Needed = true } : a)
             // Round 96 (Show Bus 1.3 §12): the windows it grants this desk, where the air shows each — the Eye's node and the brief read it.
-            .Select(a => a.Linked && a.KindWords == "Stagewatch" && windows.Length > 0 ? a with { Windows = windows } : a)
-            .Concat(ShowBusView.Nodes(Twin.NodeContexts(utcNow), utcNow))                // round 88: the desk's own nodes, each from its own context (L52)
+            .Select(a => ShowBusView.LinkedApp(a) && windows.Length > 0 ? a with { Windows = windows } : a)
             .ToList();
+        return apps;
     }
+
+    /// <summary>
+    /// The apps (<see cref="Apps"/>) with the revision this composition stands at, taken together (<see cref="ShowBusAppsRevision.Take"/>),
+    /// so a reader that keys on the revision (the Eye's gather) never pairs it with another composition. The revision's face is worked
+    /// out here alone: the other readers take the apps and never pay for it.
+    /// </summary>
+    public (IReadOnlyList<EyeShowApp> Apps, long Rev) AppsWithRev(DateTime utcNow) => _apps.Take(Apps(utcNow));
+
+    /// <summary>
+    /// The apps' revision the last <see cref="AppsWithRev"/> stood at (<see cref="ShowBusAppsRevision"/>): it moves when a composition says
+    /// something the last did not — never on a tick that moved only what runs on (a record's counts, a hello's age within its state, a
+    /// context under its revision).
+    /// </summary>
+    public long AppsRev => _apps.Rev;
+
+    private readonly ShowBusAppsRevision _apps = new();
 
     /// <summary>
     /// Round 87 (Show Bus 1.1 §6): this desk in the shared context shape (UI thread) — the Eye's picture, the journal's
@@ -991,7 +1018,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         Eye.Refresh();
         var now = DateTime.UtcNow;
-        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowBusView.Published(ShowApps(now))),
+        return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowBusView.Published(Apps(now))),
             Kernel.PeerLinks(), Control.AppLinkList).ToJson();                                             // §6 P2: the links it holds, and those it accepted by LINK
     }
 
@@ -1902,7 +1929,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Eye = EyeLinesForBrief(),
             // Round 87: the other show apps, a linked Stagewatch's own words; round 96: each window it grants this desk, where the air shows it
             // and whether it is ready (Show Bus 1.3 §12) — never its address.
-            ShowNetwork = ShowBusView.BriefLines(ShowApps(DateTime.UtcNow))
+            ShowNetwork = ShowBusView.BriefLines(Apps(DateTime.UtcNow))
                 .Concat(s.StagewatchWindows.Rows().Select(r => "Stagewatch window granted to this desk: " + StagewatchWindows.RowWords(r) + $" — SCREEN n PVW WINDOW {r.Name}, then SCREEN n TAKE; SCREEN n WINDOW {r.Name} only once it is ready."))
                 // Show Bus 1.3 §13.8.5: whether this desk's wire serves TLS, so the brief says what a link to it from another machine rides on.
                 .Concat(Kernel.WireTlsLine is { Length: > 0 } wire ? new[] { "This desk's " + wire + "." } : Array.Empty<string>())
@@ -2016,12 +2043,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             health.Add(Switches.Describe());
             health.Add(CueStack.GoClock.Describe());
             health.Add(FrameBudgets.Describe(ShowClock.Seconds));
-            var report = SuperCheck.Run(Metrics.GatherFacts());
-            foreach (var row in report.Rows)
-            {
-                if (row.Light is not (CheckLight.Amber or CheckLight.Red)) continue;      // grey is unknown, not a warning
+            foreach (var row in AttentionRows())
                 attention.Add($"{row.Item}: {row.Value}{(row.Note.Length > 0 ? " — " + row.Note : "")}");
-            }
         }
         catch (Exception ex)
         {
@@ -2029,6 +2052,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         }
         return (health, attention);
     }
+
+    /// <summary>The Super Check's rows that ask for attention now, amber or red (grey is unknown, not a warning), run afresh.</summary>
+    public IReadOnlyList<CheckRow> AttentionRows()
+        => SuperCheck.Run(Metrics.GatherFacts()).Rows.Where(r => r.Light is CheckLight.Amber or CheckLight.Red).ToList();
 
 
     /// <summary>The outputs are open: the beacon's LIVE, the twin's hold.</summary>

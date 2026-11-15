@@ -152,7 +152,7 @@ public class NodeDeviceAppTests
             Assert.DoesNotContain(services.Eye.Graph.Edges, e => e.From == "app:pm-hallb1" && e.Kind == EyeEdgeKind.Follows);   // never drawn as the Stagewatch link
 
             // The brief: the app, its link at level 0, the way to drive it.
-            var brief = ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow));
+            var brief = ShowBusView.BriefLines(services.Apps(DateTime.UtcNow));
             Assert.Contains(brief, l => l.StartsWith("PlayMap Hall B — driven as a device — amber: output 2 dark", StringComparison.Ordinal));
             Assert.Contains(brief, l => l.Contains($"DEVICE {device.Name} <its verb>", StringComparison.Ordinal));
             Assert.DoesNotContain(playmap.Read, l => l.Contains(Token, StringComparison.Ordinal) || l.Contains(Token.Replace("-", "", StringComparison.Ordinal), StringComparison.Ordinal));

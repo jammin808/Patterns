@@ -183,7 +183,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     public Func<IReadOnlyList<ShowBusNodeSight>> NodeDevices { get; set; } = () => Array.Empty<ShowBusNodeSight>();
 
     /// <summary>
-    /// The show network's apps as every reader takes them — the desk's services set it (AppServices.ShowApps: what the show needs, a
+    /// The show network's apps as every reader takes them — the desk's services set it (AppServices.Apps: what the show needs, a
     /// changed certificate, the speaker, the windows), so the Nodes page lights its cards from the same apps the Eye, STATE, the context
     /// and the brief do; null until then.
     /// </summary>

@@ -713,6 +713,85 @@ public static class ShowBusView
     }
 
     /// <summary>
+    /// The show network as this desk holds it, composed once for every reader (the Eye design's EYE.3 feed): the bounded hello table,
+    /// the Stagewatch link's record, context and revision, the Show Bus nodes driven as devices, the links this desk's wire accepted by
+    /// LINK, and this desk's own nodes over the twin — in that order, each folded by evidence of identity alone. Pure.
+    /// </summary>
+    public static IReadOnlyList<EyeShowApp> Compose(ShowBusFeed feed, DateTime utcNow)
+        => Accept(Apps(feed.Peers, utcNow, feed.Sight, feed.Devices), feed.Accepted).Concat(Nodes(feed.Twin, utcNow)).ToList();
+
+    /// <summary>
+    /// The links this desk's wire accepted that LINK verified, onto the apps (Show Bus 1.3 §13.16.5): LINK proved the connector's t:id,
+    /// so its rows are the app's that says that id — a Stagewatch's playout link, a PlayMap, an AGMessage — and an id no other source
+    /// names is an app of its own, of the kind LINK proved, while one of its links is open (an ended link no source names is the Nodes
+    /// page's to list). A source that says the id under another kind is another claim: the rows are kept on it and said as an i note
+    /// (<see cref="Light"/>), and never say it is there. Precedence: a link this desk dials (the Stagewatch link, a device) says whether
+    /// the app is there; with none, an open accepted link of its kind does — the app is there, its hello's age kept in
+    /// <see cref="EyeShowApp.Heard"/> and said beside it.
+    /// </summary>
+    public static IReadOnlyList<EyeShowApp> Accept(IReadOnlyList<EyeShowApp> apps, IReadOnlyList<AppLinkRow> accepted)
+    {
+        if (accepted.Count == 0) return apps;
+        var list = apps.ToList();
+        foreach (var rows in accepted.Where(r => EyeNetwork.IsId(r.Id)).GroupBy(r => r.Id, StringComparer.Ordinal))
+        {
+            var mine = rows.ToList();
+            var open = mine.FirstOrDefault(r => !r.Ended);
+            var at = list.FindIndex(a => a.Id == rows.Key);
+            if (at >= 0)
+            {
+                var a = list[at];
+                var there = open is not null && SameKind(a, open) && !a.Linked && a.DeviceId.Length == 0;
+                list[at] = a with { Accepted = mine, State = there ? ShowBusState.Live : a.State };
+                continue;
+            }
+            if (open is null) continue;
+            list.Add(new EyeShowApp(rows.Key, ShowBusPeers.KindWords(open.T), open.Label, ShowBusState.Live, false, open.Address) { Accepted = mine });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Whether one of the links this desk's wire accepted from the app is open (<see cref="EyeShowApp.Accepted"/>), proved of the app's
+    /// own kind — a row LINK proved under another kind is the i note <see cref="KindNote"/>, never a link this desk holds to this app.
+    /// </summary>
+    public static bool Accepts(EyeShowApp app) => OpenAccepted(app) is not null;
+
+    /// <summary>The first open link this desk's wire accepted from the app, of the app's own kind; null with none.</summary>
+    public static AppLinkRow? OpenAccepted(EyeShowApp app) => app.Accepted.FirstOrDefault(r => !r.Ended && SameKind(app, r));
+
+    /// <summary>Whether a row LINK proved is of the kind the app is drawn as (its t, said as every reader says a kind).</summary>
+    private static bool SameKind(EyeShowApp app, AppLinkRow r) => string.Equals(app.KindWords, ShowBusPeers.KindWords(r.T), StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether an accepted link is what says the app is there: one is open, of its kind, and this desk dials no link of its own to it
+    /// (the Stagewatch link, a device), whose record would decide.
+    /// </summary>
+    public static bool AcceptedLeads(EyeShowApp app) => Accepts(app) && !app.Linked && app.DeviceId.Length == 0;
+
+    /// <summary>
+    /// Whether the hello says the app is there now (STATE's <c>bus.heard</c>, the deck's <c>showbus_heard</c>): live, and not live only
+    /// by a link its wire accepted — an app no hello names, or whose hello is quiet, is linked to this desk, not heard. A link this desk
+    /// dials says its app's state as before.
+    /// </summary>
+    public static bool HeardLive(EyeShowApp app) => app.State == ShowBusState.Live && (!AcceptedLeads(app) || app.Heard == "live");
+
+    /// <summary>
+    /// The app the Stagewatch link this desk dials is to, whatever kind LINK proved it is — never one of this desk's own nodes, which
+    /// the twin links (their cards are <c>node:&lt;instance&gt;</c>).
+    /// </summary>
+    public static bool LinkedApp(EyeShowApp app) => app.Linked && !app.Id.StartsWith("node:", StringComparison.Ordinal);
+
+    /// <summary>
+    /// One accepted link in the words every reader says it in (13.16.5): its mark, what proved it, its scope and its flags; once
+    /// ended, when and why. Never a key, a proof or a nonce.
+    /// </summary>
+    public static string AcceptedWords(AppLinkRow r)
+        => r.Ended
+            ? $"{r.Mark} its link to this desk by LINK ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
+            : $"{r.Mark} linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}" + (r.Flags.Count > 0 ? " · " + string.Join(", ", r.Flags) : "");
+
+    /// <summary>
     /// Whether a node device is set at a heard PlayMap: its address one the hello came from and its port the hello's wire port (9941
     /// when it names none). The rule a second device for the same PlayMap is refused by; folding asks for the proved context's id too.
     /// </summary>
@@ -727,18 +806,25 @@ public static class ShowBusView
         => apps.Where(a => a.DeviceId.Length == 0 || a.Heard.Length > 0).ToList();
 
     /// <summary>
-    /// Whether this desk holds a link to the app whose record every reader draws: the Stagewatch link (<see cref="EyeShowApp.Linked"/>)
-    /// or a node device's (<see cref="EyeShowApp.DeviceId"/>).
+    /// Whether this desk holds a link to the app: the Stagewatch link (<see cref="EyeShowApp.Linked"/>), a node device's
+    /// (<see cref="EyeShowApp.DeviceId"/>) — the two whose record every reader draws — or an open link its wire accepted by LINK
+    /// (<see cref="Accepts"/>), whose row every reader draws.
     /// </summary>
-    public static bool HoldsLink(EyeShowApp app) => app.Linked || app.DeviceId.Length > 0;
+    public static bool HoldsLink(EyeShowApp app) => app.Linked || app.DeviceId.Length > 0 || Accepts(app);
 
-    /// <summary>The state word every reader says of an app: gone quiet, quiet, linked (the Stagewatch link), driven (a node device), or heard.</summary>
+    /// <summary>
+    /// The state word every reader says of an app: gone quiet, quiet, linked (the Stagewatch link), driven (a node device), linked by
+    /// LINK (a link its wire accepted), or heard.
+    /// </summary>
     public static string StateWord(EyeShowApp app, string heard = "heard") => app.State switch
     {
         ShowBusState.Gone => "gone quiet",
         ShowBusState.Stale => "quiet",
-        _ => app.Linked ? "linked" : app.DeviceId.Length > 0 ? "driven as a device" : heard,
+        _ => app.Linked ? "linked" : app.DeviceId.Length > 0 ? "driven as a device" : Accepts(app) ? AcceptedWord : heard,
     };
+
+    /// <summary>The state word of an app this desk's wire accepted a link from by LINK, with no link of this desk's own dialled to it.</summary>
+    public const string AcceptedWord = "linked by LINK";
 
     /// <summary>The word a DEVICE line names a node's device by: its name when it is one word, else its id (the verb's target is one word).</summary>
     public static string DeviceWord(EyeShowApp app) => app.Device.Length > 0 && !app.Device.Any(char.IsWhiteSpace) ? app.Device : app.DeviceId;
@@ -794,12 +880,14 @@ public static class ShowBusView
                 Addresses = p.Addresses.Count > 0 ? p.Addresses : p.Address.Length > 0 ? new[] { p.Address } : Array.Empty<string>(),   // where its hellos came from: a deck's words name them, never fold by them
             });
         }
-        // A Stagewatch reached by a typed address that never said hello (another subnet, a loopback-only hello) is still drawn.
+        // An app reached by a typed address that never said hello (another subnet, a loopback-only hello) is still drawn: a
+        // Stagewatch, or the kind LINK proved the link's peer is.
         if (!linkedSeen && sight.Address.Length > 0)
         {
             var id = sight.Context?.Node.Id is { Length: > 0 } cid ? cid : "stagewatch";
             var stuck = sight.StuckLive;
-            apps.Add(new EyeShowApp(id, "Stagewatch", sight.Context?.Node.Name is { Length: > 0 } n ? n : sight.Name, sight.State, true, sight.Address)
+            var kind = EyeNetwork.Proved(sight.Link) && sight.Link!.PeerT is { Length: > 0 } t ? ShowBusPeers.KindWords(t) : "Stagewatch";
+            apps.Add(new EyeShowApp(id, kind, sight.Context?.Node.Name is { Length: > 0 } n ? n : sight.Name, sight.State, true, sight.Address)
             {
                 Context = Steady(sight.Context),
                 ContextRev = sight.Context is not null ? sight.ContextRev : 0,
@@ -853,6 +941,10 @@ public static class ShowBusView
     {
         var notes = new List<string>(1);
         var record = HoldsLink(a) ? a.Link : null;
+        // An accepted link's amber where a link this desk dials says whether the app is there: its own edge's and an i note, never the card's.
+        if (!AcceptedLeads(a) && a.Accepted.FirstOrDefault(r => !r.Ended && r.Light == CheckLight.Amber) is { } beside)
+            notes.Add($"i its link to this desk by LINK is {beside.Mark} amber — {AmberWords(beside)}");
+        if (KindNote(a) is { Length: > 0 } kind) notes.Add(kind);
         var shown = Shown(a);
         if (record is { IsOn: true, IsLive: false })
         {
@@ -872,10 +964,10 @@ public static class ShowBusView
             return new AppLight(a, away, "", "", notes, shown);
         }
         var light = shown is not null ? ShowContext.LightOf(shown.Light) : HoldsLink(a) ? CheckLight.Green : CheckLight.Grey;
-        var caution = a.Stuck || KeyAmber(a) || ConflictAmber(a) || (record is { IsLive: true } r && r.LightValue == CheckLight.Amber);
+        var caution = a.Stuck || KeyAmber(a) || ConflictAmber(a) || (record is { IsLive: true } r && r.LightValue == CheckLight.Amber) || AcceptedAmber(a);
         if (caution && light is CheckLight.Green or CheckLight.Grey) light = CheckLight.Amber;
         var own = a.Stuck ? StuckWords : shown?.Headline ?? "";
-        var headline = a.Stuck ? StuckWords : KeyLineLeads(a) ? a.Key.Line : ConflictAmber(a) ? a.Conflict : own;
+        var headline = a.Stuck ? StuckWords : KeyLineLeads(a) ? a.Key.Line : ConflictAmber(a) ? a.Conflict : AcceptedAmber(a) ? AcceptedHeadline(a) : own;
         return new AppLight(a, light, headline, own, notes, shown);
     }
 
@@ -973,7 +1065,33 @@ public static class ShowBusView
     /// An app whose id two machines say while this desk holds a link LINK verified to that id (<see cref="EyeNetwork.Proved"/>): the
     /// proof says which of the two this desk is linked to, so the conflict is information — an i note in the words — and never amber.
     /// </summary>
-    public static bool ConflictNoted(EyeShowApp app) => app.Conflict.Length > 0 && HoldsLink(app) && EyeNetwork.Proved(app.Link) && app.Link!.PeerId == app.Id;
+    public static bool ConflictNoted(EyeShowApp app)
+        => app.Conflict.Length > 0 && HoldsLink(app) && ((EyeNetwork.Proved(app.Link) && app.Link!.PeerId == app.Id) || Accepts(app));
+
+    /// <summary>
+    /// An open accepted link that is amber (13.16.5: plain from another machine, or its key seen in clear) where it is what says the app
+    /// is there (<see cref="AcceptedLeads"/>) — a caution amber over the app's green or grey, never over a red, and never red itself: an
+    /// acceptor does not redial. Beside a link this desk dials it is that edge's own light and an i note (<see cref="Light"/>).
+    /// </summary>
+    public static bool AcceptedAmber(EyeShowApp app) => AcceptedLeads(app) && app.Accepted.Any(r => !r.Ended && SameKind(app, r) && r.Light == CheckLight.Amber);
+
+    /// <summary>What an amber accepted link says in the app's headline: what makes it amber, as the other cautions say theirs.</summary>
+    private static string AcceptedHeadline(EyeShowApp app)
+        => AcceptedWord + " — " + AmberWords(app.Accepted.First(r => !r.Ended && SameKind(app, r) && r.Light == CheckLight.Amber));
+
+    /// <summary>What makes an accepted link amber (13.16.5), in its row's words: plain from another machine, or its key seen in clear.</summary>
+    public static string AmberWords(AppLinkRow r)
+        => r.ClearSeen ? (r.Verified == "code" ? "the pairing token" : "its key") + " was seen in clear — replace it"
+            : r.Plain ? "proved, not private — from another machine with no TLS" : "";
+
+    /// <summary>
+    /// The i note of a row LINK proved for the app's id under another kind than the app is drawn as: two claims for one id, both named,
+    /// neither taken for the other; "" with none.
+    /// </summary>
+    public static string KindNote(EyeShowApp app)
+        => app.Accepted.FirstOrDefault(r => !SameKind(app, r)) is { } other
+            ? $"i LINK proved {ShowBusPeers.KindWords(other.T)} {other.Id} on this desk's wire; this app is drawn as {app.KindWords} — the link's row is not taken for it"
+            : "";
 
     /// <summary>What every reader adds to a conflict's words: what this desk does about it (Show Bus 1.3 §2, 13.15.3).</summary>
     public const string ConflictHoldWords = "no new link to it until they stop taking turns for a minute";
@@ -1050,13 +1168,14 @@ public static class ShowBusView
             // Round 91: a key refused or not speaking for this desk, on a live link, is what this desk can say of it now: said in place of the headline.
             // Show Bus 1.3 §2: so is an id two running nodes say, while it is live; a link this desk holds that is not live says its record's words.
             Headline = lit.Headline.Length > 0 ? lit.Headline
-                : lit.There ? (a.Linked ? "linked" : a.DeviceId.Length > 0 ? "driven as a device" : "heard on the show network")
+                : lit.There ? (a.Linked ? "linked" : a.DeviceId.Length > 0 ? "driven as a device" : Accepts(a) ? AcceptedWord : "heard on the show network")
                 : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
             // §6, appended at the row's end: its hello's age; the carrier of a link LINK verified to it ("" at level 0); and what proves
             // the row's light and headline — the link's record for the one this desk links to, nothing beyond a hello for the rest.
             Heard = a.Heard,
-            Link = HoldsLink(a) && a.Link is { } r ? r.PeerRowLink : "",
-            Verified = HoldsLink(a) && a.Link is { } v ? v.PeerRowVerified : "",
+            // A link its wire accepted proved the connector's id by LINK (level 1): the line carrier, and what proved it.
+            Link = HoldsLink(a) && a.Link is { } r ? r.PeerRowLink : OpenAccepted(a) is not null ? "line" : "",
+            Verified = HoldsLink(a) && a.Link is { } v ? v.PeerRowVerified : OpenAccepted(a) is { } accepted ? accepted.Verified == "code" ? "operator" : "key" : "",
         };
     }
 
@@ -1088,7 +1207,9 @@ public static class ShowBusView
             // Show Bus 1.3 §13.16.4: the link's record — its state, light, mark, words and flags — as every reader says it.
             if (HoldsLink(a) && a.Link is { } link) lines.Add($"  the link: {link.State}, {link.Light} — {link.Said}");
             // G34: the link's verbs, named as the operator's — the assistant suggests them in words and never proposes one.
-            if (a.Linked && a.KindWords == "Stagewatch") lines.Add("  " + StagewatchVerbs.BriefWords);
+            if (LinkedApp(a)) lines.Add("  " + StagewatchVerbs.BriefWords);
+            // Show Bus 1.3 §13.16.5: each link its wire accepted from the app by LINK, in the acceptor's words.
+            foreach (var r in a.Accepted) lines.Add("  " + AcceptedWords(r));
             // Round 91: what it made of this desk's key, in its own words (a refusal, a key that speaks for another desk, P-legacy's label).
             if (a.Linked && a.Key.Line.Length > 0) lines.Add($"  this desk's key: {a.Key.Line}");
             // Where this desk's last speaker message went — through this Stagewatch, or on this desk's displays alone — and what came of it.
@@ -1203,6 +1324,8 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         if (app.Linked && app.Key.Line.Length > 0) line += " · " + app.Key.Line;
         // Show Bus 1.3 §13.16.4: the link's record, its mark beside its words and flags — its steady face, so the card moves with the link's state, never once a second.
         if (ShowBusView.HoldsLink(app) && app.Link is { } link) line += " · link " + link.Steady;
+        // Show Bus 1.3 §13.16.5: each link this desk's wire accepted from it by LINK, its mark beside its words.
+        foreach (var r in app.Accepted) line += " · " + ShowBusView.AcceptedWords(r);
         // Show Bus 1.3 §2: two running nodes say its id — both named, and what this desk does about it.
         if (app.Conflict.Length > 0) line += " · " + ShowBusView.ConflictWords(app);
         // Round 97: the device that drives it, and what its link discarded before the proof (never a fault of the line).

@@ -69,14 +69,20 @@ public static class EyeNetwork
     public static bool Proved(LinkRecord? record) => record is { Level: >= 1, Proof: "mutual", PeerId.Length: > 0 };
 
     /// <summary>
-    /// The heard Stagewatch a link is to, or null. By the link's proof first: a record LINK verified names the id, and a hello that
-    /// says that id is the app, wherever it was heard from. Without a proof, a hello from the link's address at one of its doors —
-    /// and of two there, the one the link's own context names; never an address alone where two answer.
+    /// The heard app a link is to, or null. By the link's proof first: a record LINK verified names the t:id, and a hello that says
+    /// that id under that kind is the app, of any kind but this desk's own and wherever it was heard from (a hello saying the id under
+    /// another kind is another claim, never folded onto the link). Without a proof, a Stagewatch's hello from the link's address at one
+    /// of its doors (the doors the link dials are a Stagewatch's) — and of two there, the one the link's own context names; never an
+    /// address alone where two answer.
     /// </summary>
     public static string? LinkedId(IReadOnlyList<ShowBusPeer> peers, StagewatchSight sight)
     {
         if (sight.Address.Length == 0) return null;
-        if (Proved(sight.Link) && peers.Any(p => p.Kind == "main" && p.Id == sight.Link!.PeerId)) return sight.Link!.PeerId;
+        if (Proved(sight.Link))
+        {
+            var t = sight.Link!.PeerT is { Length: > 0 } said ? said : "main";
+            if (t != "patterns" && peers.Any(p => p.Kind == t && p.Id == sight.Link.PeerId)) return sight.Link.PeerId;
+        }
         var heard = peers.Where(p => p.Kind == "main" && LinkedTo(sight, p)).Select(p => p.Id).Distinct(StringComparer.Ordinal).ToList();
         if (heard.Count == 1) return heard[0];
         return sight.Context?.Node.Id is { Length: > 0 } verified && heard.Contains(verified, StringComparer.Ordinal) ? verified : null;

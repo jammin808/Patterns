@@ -580,9 +580,9 @@ public class StageSpeakerAppTests
             Assert.Equal("Wrap up", page.GetProperty("pendingSpeaker").GetProperty("text").GetString());   // it keeps its meaning: this desk's message waiting for its ACK
 
             // The Eye's Stagewatch node and the assistant's facts say where it went.
-            var app = Assert.Single(services.ShowApps(DateTime.UtcNow), a => a.Linked && a.KindWords == "Stagewatch");
+            var app = Assert.Single(services.Apps(DateTime.UtcNow), a => a.Linked && a.KindWords == "Stagewatch");
             Assert.Equal($"the speaker's message 'Wrap up' is on Stagewatch {Name}'s speaker screen (message 1), waiting for its ACK", app.Speaker);
-            Assert.Contains("  " + app.Speaker, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
+            Assert.Contains("  " + app.Speaker, ShowBusView.BriefLines(services.Apps(DateTime.UtcNow)));
             services.Eye.Refresh();
             Assert.Contains(services.Eye.Graph.Nodes, n => n.Kind == EyeKind.ShowApp && n.Words.Contains(app.Speaker));
             Assert.DoesNotContain("SPEAKER MESSAGE", services.GlanceWords, StringComparison.Ordinal);
@@ -631,7 +631,7 @@ public class StageSpeakerAppTests
             var everything = string.Join("\n", services.Journal.Tail(500).Select(e => $"{e.Origin}|{e.Kind}|{e.Target}|{e.Outcome}|{e.Message}"))
                              + File.ReadAllText(Path.Combine(b.Dir, "patterns.log"))
                              + new CommandRouter(services).StateJson() + stage.StatusJson() + services.ContextJson() + services.GlanceWords + vm.StatusMessage
-                             + string.Join("\n", ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
+                             + string.Join("\n", ShowBusView.BriefLines(services.Apps(DateTime.UtcNow)));
             Assert.DoesNotContain(Key, everything, StringComparison.Ordinal);
             Assert.DoesNotContain("swk_", everything, StringComparison.Ordinal);
         }
@@ -735,7 +735,7 @@ public class StageSpeakerAppTests
             Assert.Equal(("desk", "refused", "", "Wrap up"), Speaker(b));
             Assert.Equal((refused.Id, "desk", true), (Page(b).GetProperty("speakerShown").GetProperty("id").GetString(), Page(b).GetProperty("speakerShown").GetProperty("from").GetString(), Page(b).GetProperty("speakerShown").GetProperty("ack").GetBoolean()));
             Assert.Contains("SPEAKER MESSAGE △ REFUSED BY STAGEWATCH", services.GlanceWords, StringComparison.Ordinal);
-            Assert.Contains("refused the speaker's message 'Wrap up' (The stage is locked by the showcaller.)", services.ShowApps(DateTime.UtcNow).Single(a => a.Linked).Speaker, StringComparison.Ordinal);
+            Assert.Contains("refused the speaker's message 'Wrap up' (The stage is locked by the showcaller.)", services.Apps(DateTime.UtcNow).Single(a => a.Linked).Speaker, StringComparison.Ordinal);
             // Its ACK on this desk's display is this desk's own, as ever.
             Assert.True(services.Actions.Execute(new ShowAction(ShowActionKind.StageAck, "", refused.Id), ActionOrigin.Desk).Ok);
             Assert.Equal(("desk", "seen"), (Speaker(b).From, Speaker(b).Ack));

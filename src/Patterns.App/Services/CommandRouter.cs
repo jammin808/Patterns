@@ -136,7 +136,7 @@ public sealed class CommandRouter : IRouter
             case RemoteCommandKind.NodesStatus:
                 return ControlProtocol.Ok(_services.Nodes.StatusJson());
             case RemoteCommandKind.StagewatchStatus:
-                return ControlProtocol.Ok(JsonSerializer.Serialize(StagewatchRow(_services.ShowApps(DateTime.UtcNow))));   // G34: STATE's bus.stagewatch row, one projection
+                return ControlProtocol.Ok(JsonSerializer.Serialize(StagewatchRow(_services.Apps(DateTime.UtcNow))));   // G34: STATE's bus.stagewatch row, one projection
             case RemoteCommandKind.StageStatus:
                 return ControlProtocol.Ok(_services.Stage.StatusJson());
             case RemoteCommandKind.ArcadeStatus:
@@ -804,11 +804,11 @@ public sealed class CommandRouter : IRouter
         var now = DateTime.UtcNow;
         // The apps a hello or a link names (a node device no hello names is this desk's own device, read in its devices row); Peers
         // keeps their order, one row each: a row's conflict is its app's.
-        var apps = ShowBusView.Published(_services.ShowApps(now));
+        var apps = ShowBusView.Published(_services.Apps(now));
         var rows = ShowBusView.StateRows(apps);                                          // the show network's one projection of lights
         return new
         {
-            heard = apps.Count(a => a.State == ShowBusState.Live),
+            heard = apps.Count(ShowBusView.HeardLive),                                   // heard, never an app live only by a link this desk's wire accepted
             // Round 97: the device that drives a node, at the row's end ("" for none).
             apps = rows.Select(r => new { kind = r.Kind, id = r.Id, name = r.Name, light = r.Light, headline = r.Headline, conflict = r.Conflict, device = r.Device }).ToArray(),
             stagewatch = StagewatchRow(apps),
@@ -828,7 +828,7 @@ public sealed class CommandRouter : IRouter
         var link = _services.Kernel.Stagewatch;
         var config = _services.State.Control.Stagewatch;
         var sight = link.Sight;
-        var linked = apps.FirstOrDefault(a => a.Linked && a.KindWords == "Stagewatch");      // the link's own card, never one of this desk's nodes
+        var linked = apps.FirstOrDefault(ShowBusView.LinkedApp);                              // the link's own card, whatever kind LINK proved it is, never one of this desk's nodes
         // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
         var stuck = sight.StuckLive;
         // Show Bus 1.3 §2, 13.15.3: the link held off an id two running nodes say, with nothing live linked — amber, and the

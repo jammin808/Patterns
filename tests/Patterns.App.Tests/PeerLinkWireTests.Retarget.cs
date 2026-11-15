@@ -82,7 +82,7 @@ public sealed partial class PeerLinkWireTests
             var row = JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("bus").GetProperty("stagewatch");
             Assert.Equal(record.Words, row.GetProperty("link").GetProperty("words").GetString());
             Assert.Equal(StagewatchId, row.GetProperty("link").GetProperty("peer").GetProperty("id").GetString());
-            var linked = Assert.Single(services.ShowApps(DateTime.UtcNow), a => a.Linked);
+            var linked = Assert.Single(services.Apps(DateTime.UtcNow), a => a.Linked);
             Assert.Equal(StagewatchId, linked.Id);
             var said = $"Hall A (Stagewatch {StagewatchId}) is heard at 127.0.0.1:{port.ToString(CultureInfo.InvariantCulture)} — dialling it again as that Stagewatch.";
             Assert.Single(services.Journal.Tail(500), e => e.Kind == "StagewatchLink" && e.Outcome == "retarget" && e.Message == said);

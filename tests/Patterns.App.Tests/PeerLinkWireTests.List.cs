@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
@@ -30,6 +31,17 @@ public sealed partial class PeerLinkWireTests
         using var doc = JsonDocument.Parse(new CommandRouter(desk.Services).StateJson());
         return doc.RootElement.GetProperty("decks").EnumerateArray().Select(e => e.Clone()).ToArray();
     }
+
+    /// <summary>STATE's <c>bus.heard</c>: how many other show apps the desk hears on the show network.</summary>
+    private static int BusHeard(AcceptorDesk desk)
+    {
+        using var doc = JsonDocument.Parse(new CommandRouter(desk.Services).StateJson());
+        return doc.RootElement.GetProperty("bus").GetProperty("heard").GetInt32();
+    }
+
+    /// <summary>The apps other than the linked Stagewatch whose hello this desk hears now (another desk's beacon on this machine, say).</summary>
+    private static int HeardElsewhere(AcceptorDesk desk)
+        => ShowBusView.Published(desk.Services.Apps(DateTime.UtcNow)).Count(a => a.Id != StagewatchId && ShowBusView.HeardLive(a));
 
     [AvaloniaFact]
     public void AnAppLinkIsOnTheAcceptorsListAndInStateAtLevelOneNeverADeckAndTheOperatorClosesItFromItsRow()
@@ -72,6 +84,53 @@ public sealed partial class PeerLinkWireTests
         var facts = desk.Services.GatherFacts().ShowNetwork;
         Assert.Contains(facts, l => l.StartsWith("App link ✓ Stagewatch (Stagewatch " + StagewatchId, StringComparison.Ordinal));
         Assert.Contains(facts, l => l.Contains("never proposed", StringComparison.Ordinal) && l.Contains("CLOSE", StringComparison.Ordinal));
+
+        // The feed: LINK proved the connector's id, so it is an app every reader takes — no hello names it here — its
+        // link the acceptor's row: the composition, STATE's bus.apps, the Nodes card, the brief, and the Eye's one card with one edge.
+        var app = Assert.Single(desk.Services.Apps(DateTime.UtcNow), a => a.Id == StagewatchId);
+        Assert.Equal(("Stagewatch", ShowBusState.Live, "", false), (app.KindWords, app.State, app.Heard, app.Linked));
+        Assert.Equal(link.Lid, Assert.Single(app.Accepted).Lid);
+        Assert.True(ShowBusView.HoldsLink(app));
+        using (var state = JsonDocument.Parse(new CommandRouter(desk.Services).StateJson()))
+        {
+            var busApp = Assert.Single(state.RootElement.GetProperty("bus").GetProperty("apps").EnumerateArray(), r => r.GetProperty("id").GetString() == StagewatchId);
+            Assert.Equal(("main", "green", ShowBusView.AcceptedWord), (busApp.GetProperty("kind").GetString(), busApp.GetProperty("light").GetString(), busApp.GetProperty("headline").GetString()));
+        }
+        Assert.Contains(facts, l => l.StartsWith("Stagewatch Stagewatch — " + ShowBusView.AcceptedWord + " — green", StringComparison.Ordinal));
+        desk.Services.Eye.Refresh();
+        var card = Assert.Single(desk.Services.Eye.Graph.Nodes, n => n.Id == "app:" + StagewatchId);
+        Assert.Equal((EyeOrigin.Link, CheckLight.Green, link.Lid), (card.Origin, card.Light, card.Route!.Item));
+        var edge = Assert.Single(desk.Services.Eye.Graph.Edges, e => e.From == card.Id);
+        Assert.Equal((EyeGraph.DeskId, EyeOrigin.Link), (edge.To, edge.Origin));
+        // Heard means its hello is heard: STATE's bus.heard counts no app live only by a link this desk's wire accepted.
+        Assert.Equal(HeardElsewhere(desk), BusHeard(desk));
+
+        // Its hello heard as well: still one card and one edge to the desk — the link's, never a green "heard" edge beside it — and
+        // counted heard now. A still desk holding the link and hearing the hello rebuilds nothing, tick after tick, and the apps'
+        // revision the gather hands the hash in the apps' place stands.
+        var hello = new JsonObject
+        {
+            ["t"] = "main", ["v"] = 1, ["proto"] = 3, ["id"] = StagewatchId, ["inst"] = "0a1b2c3d", ["name"] = "Hall A", ["host"] = "STAGE-PC",
+            ["ports"] = new JsonObject { ["http"] = 9924, ["ws"] = 9924 }, ["caps"] = new JsonArray("context"),
+        };
+        desk.Services.Kernel.Beacon.ShowBus.Hear(Encoding.UTF8.GetBytes(hello.ToJsonString()), "127.0.0.1", DateTime.UtcNow, "not-this-desk");
+        Assert.Equal("live", Assert.Single(desk.Services.Apps(DateTime.UtcNow), a => a.Id == StagewatchId).Heard);
+        desk.Services.Eye.Refresh();
+        var heardEdge = Assert.Single(desk.Services.Eye.Graph.Edges, e => e.From == card.Id);
+        Assert.Equal((EyeGraph.DeskId, EyeOrigin.Link), (heardEdge.To, heardEdge.Origin));
+        Assert.StartsWith("✓ linked to this desk by LINK", heardEdge.Words, StringComparison.Ordinal);
+        Assert.Equal(HeardElsewhere(desk) + 1, BusHeard(desk));
+        var builds = desk.Services.Eye.Cost.Total;
+        var rev = desk.Services.Eye.AppsRev;
+        Assert.True(rev > 0 && rev == desk.Services.AppsRev, $"the gather read revision {rev}; the desk's apps stand at {desk.Services.AppsRev}");
+        for (var tick = 0; tick < 10; tick++)
+        {
+            Thread.Sleep(100);
+            Dispatcher.UIThread.RunJobs();
+            desk.Services.Eye.Refresh();
+        }
+        Assert.True(builds == desk.Services.Eye.Cost.Total, $"{desk.Services.Eye.Cost.Total - builds} rebuilds in 10 ticks of a still link and hello; the apps' revision {rev} → {desk.Services.Eye.AppsRev}");
+        Assert.Equal(rev, desk.Services.Eye.AppsRev);
 
         // CLOSE is the desk operator's: refused from a deck, the wire and a running order, and the link stands.
         foreach (var origin in new[] { new ActionOrigin(OriginKind.Companion, "FOH deck"), new ActionOrigin(OriginKind.Tcp, "Stagewatch"), ActionOrigin.Schedule })

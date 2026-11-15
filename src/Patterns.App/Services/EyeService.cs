@@ -22,6 +22,9 @@ public sealed class EyeService
     /// <summary>Tests only: the other show apps the Eye draws, in place of what the desk hears and links.</summary>
     public Func<IReadOnlyList<EyeShowApp>>? AppsOverride { get; set; }
 
+    /// <summary>The apps' revision the last gather handed the hash in the apps' place (<see cref="AppServices.AppsWithRev"/>); 0 for apps handed in by a test.</summary>
+    public long AppsRev { get; private set; }
+
     // The NETWORK band's view — the operator's opened and folded clusters, each app's sticky slot, the page's canvas.
     private readonly List<string> _opened = new();
     private readonly HashSet<string> _folded = new(StringComparer.Ordinal);
@@ -550,7 +553,7 @@ public sealed class EyeService
         var now = DateTime.UtcNow;
         var all = _s.Screens.All;
         var report = _s.Metrics.LastReport;
-        var (_, attention) = _s.DeskHealthWords();
+        var attention = AttentionNow();
 
         var displays = all.Where(i => !i.IsVirtual)
             .Select(i => new EyeDisplay(i.Id, i.Label, i.Bounds.Width, i.Bounds.Height, i.Hz, i.IsPrimary, i.IsPlanned, i.IsMissing)).ToList();
@@ -710,6 +713,11 @@ public sealed class EyeService
         var stack = new EyeStack(cues.Armed, standby is null ? "" : $"{standby.Number} {standby.Name}".Trim(), standby?.Id ?? "", last is null ? "" : $"{last.Number} {last.Name}".Trim(),
             runtime.Hold, runtime.Executing, "", cues.Armed ? (runtime.Hold ? CheckLight.Amber : CheckLight.Green) : CheckLight.Grey);
 
+        // The show network's apps, composed once by the desk and kept by revision (AppServices.Apps); apps handed in by a test carry none.
+        var overridden = AppsOverride?.Invoke();
+        var (shown, appsRev) = overridden is not null ? (overridden, 0L) : _s.AppsWithRev(now);
+        AppsRev = appsRev;
+
         var hasKey = _s.Kernel.Assistant.HasKey;
         // Round 67.8: the wall's take plan — the desk's picker on a desk, every armed screen on a node with no picker.
         var takeScope = _s.TakeScopeWords?.Invoke();
@@ -755,9 +763,24 @@ public sealed class EyeService
             AudioRoutes = audioRoutes,
             Stack = stack,
             Assistant = new EyeAssistant(hasKey, hasKey ? "ready" : ""),
-            ShowApps = AppsOverride?.Invoke() ?? _s.ShowApps(DateTime.UtcNow),                                                     // round 87: the other show apps, and a linked Stagewatch's things
+            ShowApps = shown,                                                                                                        // round 87: the other show apps, and a linked Stagewatch's things
+            AppsRev = appsRev,                                                                                                       // the hash reads the apps by their revision
             ShowBusId = _s.Kernel.ShowBusId,                                                                                         // another app's @<this desk> is the desk
         };
+    }
+
+    /// <summary>The Super Check's rows that ask for attention, in the Eye's steady words (<see cref="EyeFacts.AttentionWords"/>); none when it cannot be read.</summary>
+    private IReadOnlyList<string> AttentionNow()
+    {
+        try
+        {
+            return _s.AttentionRows().Select(EyeFacts.AttentionWords).ToList();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The Eye could not read the desk's health.", ex);
+            return Array.Empty<string>();
+        }
     }
 
     /// <summary>The input keys a picture draws from: its layers' sources, the arcade's own picture.</summary>
