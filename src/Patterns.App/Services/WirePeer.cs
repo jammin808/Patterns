@@ -1,4 +1,5 @@
 using System.Text;
+using Patterns.Core.Services;
 
 namespace Patterns.App.Services;
 
@@ -58,6 +59,18 @@ public sealed class WirePeer : IDisposable
     {
         get => Volatile.Read(ref _presented);
         set => Volatile.Write(ref _presented, value ?? "");
+    }
+
+    private LinkStanding? _link;
+
+    /// <summary>
+    /// Show Bus 1.3 §13.6: what this connection proved by LINK — the connector's <c>t:id</c>, the kid, how it is verified, its scope,
+    /// the lid — or null until its verdict. Its handler writes it once, at the verdict; every push and verb reads it.
+    /// </summary>
+    public LinkStanding? Link
+    {
+        get => Volatile.Read(ref _link);
+        set => Volatile.Write(ref _link, value);
     }
 
     private int _greeted;

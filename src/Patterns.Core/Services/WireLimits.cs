@@ -11,7 +11,15 @@ namespace Patterns.Core.Services;
 /// Companion that sits idle for an hour between presses is never cut — once it has spoken: a
 /// connection whose first byte has not come within <see cref="FirstByteSeconds"/> is closed
 /// unanswered (Show Bus 1.3 §13.8.5, <c>peerlink.handshake.ms</c>), and that bound covers a TLS
-/// handshake's end too.
+/// handshake's end too. Show Bus 1.3 §13.6.3 inside these ceilings: at most
+/// <see cref="UnfinishedPerAddress"/> connections from one address whose LINK has no verdict yet,
+/// each closed once its LINK has gone <see cref="HandshakeSeconds"/> without one, and at most as
+/// many again that have said nothing yet — two ledgers, so four LINKs waiting for their proofs
+/// never shut the port to a deck that connects from the same machine, and a silent flood never
+/// holds more than four sockets of an address; and the app links that finished LINK
+/// held under a sub-cap of their own, <see cref="MaxAppLinks"/> in all and
+/// <see cref="MaxAppLinksPerAddress"/> from one address, so the decks always keep the rest of
+/// the port's slots.
 /// </summary>
 public sealed record WireLimits(
     int MaxClients = 64,
@@ -19,7 +27,11 @@ public sealed record WireLimits(
     double LineSeconds = 10,
     int MaxHttpClients = 256,
     int MaxHttpClientsPerAddress = 64,
-    double FirstByteSeconds = 10)
+    double FirstByteSeconds = 10,
+    int MaxAppLinks = 16,
+    int MaxAppLinksPerAddress = 4,
+    int UnfinishedPerAddress = LinkAcceptor.UnfinishedPerAddress,
+    double HandshakeSeconds = 10)
 {
     public static readonly WireLimits Default = new();
 
@@ -27,6 +39,11 @@ public sealed record WireLimits(
     public string BusyWords(int fromAddress) => fromAddress >= MaxClientsPerAddress
         ? $"busy — {MaxClientsPerAddress} connections already open from this address; close one first"
         : $"busy — {MaxClients} connections already open on this port; close one first";
+
+    /// <summary>13.6.4's <c>busy</c> words for a LINK whose proof verified with the app links' sub-cap full: which bound, and that the decks keep theirs.</summary>
+    public string AppLinksBusyWords(int fromAddress) => fromAddress >= MaxAppLinksPerAddress
+        ? $"{MaxAppLinksPerAddress} app links already open from this address — the rest of the port is the decks'; close one first"
+        : $"{MaxAppLinks} app links already open on this port — the rest of the port is the decks'; close one first";
 
     /// <summary>The words for a line that started and did not end within its seconds.</summary>
     public string SlowLineWords() => $"a line that did not end within {LineSeconds:0.#} s";

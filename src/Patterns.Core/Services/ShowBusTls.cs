@@ -13,7 +13,7 @@ public static class TlsFingerprint
 {
     public const string Prefix = "sha256:";
 
-    public static string Of(X509Certificate2 certificate) => Prefix + Convert.ToHexString(SHA256.HashData(certificate.RawData)).ToLowerInvariant();
+    public static string Of(X509Certificate certificate) => Prefix + Convert.ToHexString(SHA256.HashData(certificate.GetRawCertData())).ToLowerInvariant();
 
     /// <summary>"sha256:" and 64 lowercase hex characters.</summary>
     public static bool IsValid(string? fingerprint)

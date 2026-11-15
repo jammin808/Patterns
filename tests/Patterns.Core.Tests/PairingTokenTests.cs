@@ -157,7 +157,7 @@ public class PairingTokenTests
         {
             RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.AuthProof, RemoteCommandKind.Nonce, RemoteCommandKind.Ping,
             RemoteCommandKind.NavStatus, RemoteCommandKind.Menu, RemoteCommandKind.CueList, RemoteCommandKind.ArcadeStatus,
-            RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.Unknown,
+            RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.Unknown, RemoteCommandKind.Link,
         };
         var refusedReads = new[]
         {

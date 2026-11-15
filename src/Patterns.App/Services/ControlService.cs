@@ -110,7 +110,7 @@ public sealed partial class ControlService : IDisposable
             var token = _kernel.State.Control.Token;
             lock (_gate)
             {
-                listening = _peers.Exists(p => Paired(token, p.Presented, p.Loopback));     // ADR-016: an unpaired connection hears no push
+                listening = _peers.Exists(p => Hears(token, p));     // ADR-016: an unpaired connection hears no push
             }
             listening |= Volatile.Read(ref _longPollers) > 0 || _services.Osc is { FeedbackEndpoint: not null };
             if (!listening) return;
@@ -364,6 +364,16 @@ public sealed partial class ControlService : IDisposable
         }
         client.NoDelay = true;
         var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+        // Show Bus 1.3 §13.8.5 and §13.6.3: a connection that has said nothing yet holds one of its address's few silent places until
+        // its first byte — a ledger apart from the LINKs waiting for their proofs, so neither shuts out a deck; one beyond them is
+        // closed at once with nothing written.
+        if (!TakeSilent(address, limits))
+        {
+            Unanswered(_kernel.WireDoors, "wire-unfinished:" + address, $"Wire: {address} holds {limits.UnfinishedPerAddress} connections that have said nothing yet — one more closed unanswered (Show Bus 1.3 §13.6.3, §13.8.5). Said once a minute for this address.");
+            client.Dispose();
+            _wireLedger.Release(address);
+            return;
+        }
         // Show Bus 1.3 §13.8.5: nothing is said before the connection's first byte, which says whether it is read as lines on the
         // socket or as lines inside TLS with this install's certificate; one closed unanswered never reaches the loop below.
         Stream? wire;
@@ -377,6 +387,10 @@ public sealed partial class ControlService : IDisposable
             // connection is closed unanswered and its place under the ceiling given back.
             if (!(Faults.IsIoEnd(ex) || ex is OperationCanceledException or ObjectDisposedException)) WireFault(ex, "TCP");
             wire = null;
+        }
+        finally
+        {
+            GiveSilent(address);
         }
         if (wire is null)
         {
@@ -392,6 +406,7 @@ public sealed partial class ControlService : IDisposable
         {
             _peers.Add(peer);
         }
+        var link = new LinkStep { Bind = BindOf(wire) };
         try
         {
             var reader = new BoundedLineReader(wire, WireLineBytes) { LineSeconds = limits.LineSeconds };
@@ -468,6 +483,13 @@ public sealed partial class ControlService : IDisposable
                     Reply(ControlProtocol.Ok(nonce));
                     continue;
                 }
+                if (cmd.Kind == RemoteCommandKind.Link)
+                {
+                    // Show Bus 1.3 §13.6.4: LINK and LINK PROOF, open before pairing and answered by the port; a refused proof ends the
+                    // connection. The legacy proof's count below is its own and LINK's table is apart from it (13.5.6).
+                    if (await LinkLineAsync(peer, link, rid, body, address, overTls, limits)) break;
+                    continue;
+                }
                 if (cmd.Kind is RemoteCommandKind.Auth or RemoteCommandKind.AuthProof)
                 {
                     // The connection proves the show's pairing token: the port answers, the router never sees it.
@@ -509,7 +531,7 @@ public sealed partial class ControlService : IDisposable
                     {
                         // A nonce is used once, right or wrong: the next proof answers a fresh one.
                         nonce = WireProof.NewNonce();
-                        if (!Paired(token, peer.Presented, loopback)) peer.Say("NONCE " + nonce);
+                        if (!Hears(token, peer)) peer.Say("NONCE " + nonce);
                     }
                     continue;
                 }
@@ -527,7 +549,7 @@ public sealed partial class ControlService : IDisposable
                 }
                 if (cmd.Kind is RemoteCommandKind.NavDeck or RemoteCommandKind.Record)
                 {
-                    if (!Paired(token, peer.Presented, loopback))
+                    if (!Hears(token, peer))
                     {
                         // Round 75: the action feed and the deck's whereabouts are a connection's standing, not a
                         // question — an unpaired connection hears what the operator does no more than it moves the show.
@@ -553,7 +575,7 @@ public sealed partial class ControlService : IDisposable
                     ArmPush();
                     continue;
                 }
-                if (!ControlProtocol.OpenBeforePairing(cmd) && !Paired(token, peer.Presented, loopback))
+                if (!ControlProtocol.OpenBeforePairing(cmd) && !Hears(token, peer))
                 {
                     // A line the allow-list does not name, from a connection that has not paired: refused in the wire's words,
                     // nothing run. A read (ADR-016) is told the desk shows its state only to a paired connection, counted, and
@@ -568,6 +590,12 @@ public sealed partial class ControlService : IDisposable
                     {
                         Reply(ControlProtocol.Err(ControlProtocol.NotPaired));
                     }
+                    continue;
+                }
+                if (BelowScope(token, peer, cmd))
+                {
+                    // Show Bus 1.3 §13.5.3: the acceptor enforces a key's scope; a refusal names it and where it is raised.
+                    Reply(ControlProtocol.Err(LinkAcceptor.ScopeWords(ScopeNow(peer.Link!), _kernel.Beacon.MachineName)));
                     continue;
                 }
                 string response;
@@ -596,6 +624,9 @@ public sealed partial class ControlService : IDisposable
                 _recording.Remove(peer);
             }
             peer.Dispose();
+            GiveUnfinished(link, address);
+            if (link.AppLink) _appLinks.Release(address);
+            link.Dispose();
             _wireLedger.Release(address);
         }
     }
@@ -809,7 +840,7 @@ public sealed partial class ControlService : IDisposable
             var token = _kernel.State.Control.Token;
             lock (_gate)
             {
-                return _decks.Select(d => d.Value with { Paired = Paired(token, d.Key.Presented, d.Key.Loopback) }).OrderBy(d => d.SinceUtc).ToList();
+                return _decks.Select(d => d.Value with { Paired = Hears(token, d.Key) }).OrderBy(d => d.SinceUtc).ToList();
             }
         }
     }
@@ -922,7 +953,7 @@ public sealed partial class ControlService : IDisposable
         }
         foreach (var peer in peers)
         {
-            if (Paired(token, peer.Presented, peer.Loopback)) peer.Push(line);
+            if (Hears(token, peer)) peer.Push(line);
         }
     }
 
@@ -938,7 +969,7 @@ public sealed partial class ControlService : IDisposable
     {
         if (peer.Greeted) return;
         var json = await _router.StateJsonAsync();
-        if (Paired(_kernel.State.Control.Token, peer.Presented, peer.Loopback) && peer.TryGreet()) peer.Say("STATE " + json);
+        if (Hears(_kernel.State.Control.Token, peer) && peer.TryGreet()) peer.Say("STATE " + json);
     }
 
     /// <summary>
@@ -956,8 +987,8 @@ public sealed partial class ControlService : IDisposable
         List<WirePeer> greet;
         lock (_gate)
         {
-            cut = _peers.Where(p => p.Greeted && !Paired(token, p.Presented, p.Loopback)).ToList();
-            greet = _peers.Where(p => !p.Greeted && Paired(token, p.Presented, p.Loopback)).ToList();
+            cut = _peers.Where(p => p.Greeted && !Hears(token, p)).ToList();
+            greet = _peers.Where(p => !p.Greeted && Hears(token, p)).ToList();
             foreach (var peer in cut) _recording.Remove(peer);
         }
         foreach (var peer in cut)

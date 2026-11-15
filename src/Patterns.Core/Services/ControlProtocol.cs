@@ -74,6 +74,12 @@ public enum RemoteCommandKind
     /// link's record, <c>follow</c>, <c>pending</c> and <c>keyFor</c> — as JSON. The key is no field of it.
     /// </summary>
     StagewatchStatus,
+    /// <summary>
+    /// Show Bus 1.3 §13.6.4: <c>LINK &lt;offer&gt; &lt;t&gt; &lt;id&gt; &lt;cnonce&gt; &lt;kid&gt;</c> and <c>LINK PROOF &lt;64 hex&gt;</c> — a connector
+    /// proving a key or the pairing token as a code, mutually and bound to the certificate this connection shows. Answered by the
+    /// wire's port, which holds the connection's one proof; nothing runs. Text is the line after its verb.
+    /// </summary>
+    Link,
 }
 
 /// <summary>
@@ -301,6 +307,8 @@ public static class ControlProtocol
             case "STOPALL": return Act(ShowActionKind.StopAll);
             case "HELLO": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.Hello, arg);
             case "AUTH": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.Auth, arg);
+            // Show Bus 1.3 §13.6.4: the port reads the line whole (PeerLink.ReadLinkLine), so a word it does not know refuses it there.
+            case "LINK": return Query(RemoteCommandKind.Link, arg);
 
             // The caller's stack: GO through the gate (the standby id the sender saw fences a stale
             // press), the standby moved or set, HOLD, ARM (a remote arms only when the Remote page
@@ -1505,7 +1513,7 @@ public static class ControlProtocol
 
     /// <summary>
     /// ADR-016 (round 91, scope A): what a wire connection may ask before it pairs, by name — the handshake (HELLO, AUTH,
-    /// AUTH-PROOF, NONCE, PING) and the five reads the maintainer left open: NAV's read, MENU, CUE LIST, the arcade's road
+    /// AUTH-PROOF, NONCE, PING, and Show Bus 1.3's LINK and LINK PROOF) and the five reads the maintainer left open: NAV's read, MENU, CUE LIST, the arcade's road
     /// (ARCADE and PLAY status, which a desk asks of every arcade node it hears, unpaired) and ASSISTANT (a hub's
     /// moderation ask of a desk). An unknown line is on it only to earn its own "unknown command" answer. Every other
     /// kind — STATUS, EYE, CONTEXT and every other read, every verb, RECORD and NAV DECK — waits for the pairing; a kind
@@ -1519,7 +1527,7 @@ public static class ControlProtocol
         RemoteCommandKind.Hello, RemoteCommandKind.Auth, RemoteCommandKind.AuthProof, RemoteCommandKind.Nonce, RemoteCommandKind.Ping,
         RemoteCommandKind.NavStatus, RemoteCommandKind.Menu, RemoteCommandKind.CueList,
         RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk,
-        RemoteCommandKind.Unknown,
+        RemoteCommandKind.Unknown, RemoteCommandKind.Link,
     };
 
     /// <summary>
@@ -1595,7 +1603,7 @@ public static class ControlProtocol
     };
 
     /// <summary>ADR-016: what the wire answers before pairing, in the readers' words — the Super Check's row and the log line name it.</summary>
-    public const string OpenBeforePairingWords = "the handshake, NAV, MENU, CUE LIST, the arcade's and the room's status and ASSISTANT";
+    public const string OpenBeforePairingWords = "the handshake (LINK and LINK PROOF among it), NAV, MENU, CUE LIST, the arcade's and the room's status and ASSISTANT";
 
     /// <summary>
     /// Round 89: the web remote's answer when a request was this machine's or carried the pages' cookie, and its Host

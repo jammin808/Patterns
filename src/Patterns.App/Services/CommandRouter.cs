@@ -92,6 +92,9 @@ public sealed class CommandRouter : IRouter
             case RemoteCommandKind.Nonce:
                 // Round 87: pairing is a connection's, and only the wire has connections — the web sends X-Patterns-Token on each request.
                 return ControlProtocol.Err("AUTH, AUTH-PROOF and NONCE are the wire's (TCP); the web sends X-Patterns-Token with each request");
+            case RemoteCommandKind.Link:
+                // Show Bus 1.3 §13.6.4: a PeerLink proves itself on a connection — the wire's (TCP), whose port holds its one proof.
+                return ControlProtocol.Err("the PeerLink handshake is the wire's (TCP); the web sends X-Patterns-Token with each request");
             case RemoteCommandKind.Context:
                 return ControlProtocol.Ok(ContextJson());
             case RemoteCommandKind.Status:
