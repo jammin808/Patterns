@@ -789,6 +789,18 @@ public sealed class PeerLinkMachine
     }
 
     /// <summary>
+    /// Why a connection that reads the public view keeps reading it where the connector knows more than the key's binding says — a
+    /// typed address whose node is heard there, whose own dial would be refused now (its key's hold, a certificate changed against its
+    /// pin): the record's public-view words say this in place of the held-back words, whose way out (binding the key to the address)
+    /// would be the wrong one. Null: the words are the connection's own again. The words are the connection's up now and end with it
+    /// (none is kept while no connection is up), so a later connection on this machine says its own. Nothing of the connection, a hold
+    /// or a pin moves.
+    /// </summary>
+    public void PublicBecause(string? words) => _publicBecause = _phase == Phase.Idle ? null : words;
+
+    private string? _publicBecause;
+
+    /// <summary>
     /// The show's need of the link changed (13.1: the operator followed the peer, or stopped following it): from now the light is red
     /// only while the show needs the link (13.16.1–2). Nothing of the connection, the redial count, a hold or a pin moves.
     /// </summary>
@@ -1434,6 +1446,7 @@ public sealed class PeerLinkMachine
         _everClosed = true;
         _closedAt = now.Mono;
         _c = null;
+        _publicBecause = null;
         _pings.Clear();
         if (_refused is not null) return;
         if (!failed)
@@ -1560,6 +1573,7 @@ public sealed class PeerLinkMachine
     private string KeylessWords(Connection c)
     {
         var name = _s.Name;
+        if (_publicBecause is { } because) return name + " · public view — " + because;
         if (_s.Key is null) return name + " · public view";
         if (_s.KeyHeldBack is { } why) return name + " · public view — " + why;
         if (!c.Tls && !_s.Local) return name + " offers no TLS — the key stays on this machine";

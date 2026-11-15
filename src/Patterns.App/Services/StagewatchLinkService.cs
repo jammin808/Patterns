@@ -96,6 +96,13 @@ namespace Patterns.App.Services;
 /// a message still on its way is written only if that message reached the Stagewatch, and the queue is one connection's: the
 /// next connection sends none of it late.
 /// </para>
+/// <para>
+/// A typed address is looked at again while a connection to it lives: the one rule that names its node (<see cref="StagewatchAt"/>) is
+/// read by the dial and by the evaluator alike, and a connection whose target is the bare address — dialled while no hello named it —
+/// is ended once, through the core's own redial, as soon as a hello from that address and port names one node there, so the next dial
+/// names the node as any hello-named dial does. The key goes to it only as that dial lets it. Where the node's own dial would be
+/// refused now, the address's public view is kept and its record says why (<see cref="LookAgain"/>).
+/// </para>
 /// </summary>
 public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 {
@@ -201,6 +208,26 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
         /// <summary>The connection up now, for the evaluator; null between connections.</summary>
         public volatile Connection? Live;
+
+        /// <summary>The certificates this run started under, by pin key (the settings' at its Reconcile): read by the dial and by the evaluator's look again.</summary>
+        public IReadOnlyDictionary<string, CertificatePin> Pins = new Dictionary<string, CertificatePin>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// The node the evaluator's look again ended an address connection to dial as (<see cref="LookAgain"/>), until that node's own dial
+        /// either verified (cleared) or was refused (moved to <see cref="BackedOff"/>); null with none. Written by the evaluator, read and
+        /// cleared by the link task.
+        /// </summary>
+        public volatile NodeAt? Moved;
+
+        /// <summary>
+        /// A node whose dial, made because a look again named it at the typed address, was refused: while that node's process
+        /// (<see cref="NodeAt.Inst"/>) is heard there the address is dialled as itself and its public view read — the room's time stays
+        /// on the wall rather than wait for a person — and nothing looks again for it. A hello of another process of that id ends it.
+        /// </summary>
+        public volatile NodeAt? BackedOff;
+
+        /// <summary>The last words a kept public view was said with on this run (the evaluator's alone): a hello that comes and goes says them once.</summary>
+        public string KeptSaid = "";
 
         /// <summary>The kid of the key this run holds (13.5.1) — the name its holds are kept by, never the key or a hash of it; null with no key.</summary>
         public string? Kid;
@@ -338,7 +365,29 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
 
         /// <summary>The certificate the key was put to over TLS — a person's pin, or the proof's once LINK verified ("" over a local link).</summary>
         public volatile string Pin = "";
+
+        /// <summary>The certificate (sha256:…) the connection's upgrade was shown over TLS; "" over plain.</summary>
+        public string Shown { get; init; } = "";
+
+        /// <summary>
+        /// A typed address's connection the evaluator ended once to dial again as the node heard there (the evaluator's alone): at most
+        /// one such end for each address connection.
+        /// </summary>
+        public bool Retargeted;
+
+        /// <summary>
+        /// Why this address connection keeps the public view though its node is heard there ("" while it does not, the evaluator's
+        /// alone): the words the record says in place of the held-back words, and whether the changed certificate offered for ACCEPT
+        /// is this connection's offer.
+        /// </summary>
+        public volatile string Stays = "";
+
+        /// <summary>The pin key of the changed certificate this connection offered for ACCEPT while it stays ("" when it offered none).</summary>
+        public string StaysOffered = "";
     }
+
+    /// <summary>A node a typed address named: its pin key, its id, the process its hello came from, and the core's word when its dial was refused.</summary>
+    private sealed record NodeAt(string Key, string Id, string Inst, string Refused = "");
 
     /// <summary>13.9.3: a floor this run keeps, with the node id the link that recorded it verified (empty when it named none).</summary>
     private sealed record KeptFloor(LinkFloor Floor, string Node);
@@ -857,9 +906,11 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     {
         var c = _config();
         if (!c.Enabled) return (false, "The Stagewatch link is off — STAGEWATCH LINK ON (or the Nodes page) first.");
+        var run = _run;
+        if (_pendingFingerprint.Length > 0 && run.Live is { StaysOffered.Length: > 0 } staying)
+            return (false, $"{staying.Stays} — the address's public view is read meanwhile; LINK AGAIN does not lift a changed certificate: ACCEPT it on the desk (at least 8 hex typed) to dial it as that Stagewatch.");
         if (_pendingFingerprint.Length > 0)
             return (false, $"The Stagewatch's certificate changed to {TlsFingerprint.Short(_pendingFingerprint)} — nothing is dialled until a person accepts it on the desk (ACCEPT, at least 8 hex typed).");
-        var run = _run;
         var mono = MonoMs();
         var wall = WallMs();
         bool runHeld;
@@ -900,7 +951,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     public ShowBusPeer? HeardStagewatch(string id)
     {
         var now = DateTime.UtcNow;
-        return _peers(now).FirstOrDefault(p => p.Kind == "main" && p.Id == id && p.StateAt(now) == ShowBusState.Live && p.Address.Length > 0 && (p.Ports.Ws > 0 || p.Ports.Http > 0));
+        return StagewatchAt.Dialable(_peers(now), now).FirstOrDefault(p => p.Id == id);
     }
 
     /// <summary>A floor a verified link recorded for the Stagewatch the link dials (13.9.3); never at level 0, where nothing verifies.</summary>
@@ -1006,6 +1057,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         var apiKey = c.ApiKey;
         var pins = new Dictionary<string, CertificatePin>(StringComparer.Ordinal);
         foreach (var p in c.Pins) pins[p.Key] = p;
+        run.Pins = pins;
         var ct = _cts.Token;
         _status = StageFollow.ParseId(host) is { } wanted ? $"Stagewatch link: listening for Stagewatch {wanted} on the show network…"
             : host.Length > 0 ? $"Stagewatch link: dialling {host}…" : "Stagewatch link: listening for a Stagewatch on the show network…";
@@ -1041,7 +1093,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         Holds.KeyIs(run.Kid, WallMs());                                                     // 13.15.3: a hold of another key, or one that ended, is over
         while (!ct.IsCancellationRequested)
         {
-            var target = Resolve(typedHost, pins, last, out var conflict);
+            var target = Resolve(run, typedHost, pins, last, out var conflict);
             if (target is null)
             {
                 var wait = ShowBusLiveness.Redial(finding++, Jitter());
@@ -1092,12 +1144,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             var core = CoreFor(run, target, pins);
             long? dueIn;
             var refusal = "";
+            var stopped = false;
             lock (_core)
             {
                 var now = Now();
                 dueIn = core.Machine.DialIn(now);
                 if (dueIn is null) refusal = core.Machine.Refusal(now);
+                stopped = dueIn is null && core.Machine.State(now) == LinkState.Refused;
             }
+            if (stopped && BackOff(run, target, refusal)) continue;
             if (dueIn is null)
             {
                 // CERTIFICATE CHANGED: nothing of this desk's goes to it until a person accepts the new one (13.8.3). Any other
@@ -1128,6 +1183,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             }
             if (floored)
             {
+                if (BackOff(run, target, "floor")) continue;
                 await Delay(PeerLink.CheckEvery, ct);
                 continue;
             }
@@ -1166,6 +1222,30 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 _status = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Stagewatch link: {target.Name} — this desk's key is held {Math.Ceiling(held.TotalSeconds):0} s more; its public view is read without it meanwhile.");
             UiThread.Post(_changed);
         }
+    }
+
+    /// <summary>
+    /// A dial of the node a look again moved the link to (<see cref="Run.Moved"/>) that is refused — the acceptor at the address
+    /// answered as another id, a floor it does not meet, a certificate changed against the node's pin — or that a floor stops before it
+    /// is made: the link goes back to the typed address as itself and reads its public view while that node's process is heard there
+    /// (<see cref="Run.BackedOff"/>), rather than wait for a person with the room's time off the wall. Said in one log line and one
+    /// journal row. False, and nothing moves, for any other target or refusal.
+    /// </summary>
+    private bool BackOff(Run run, Target target, string refusal)
+    {
+        if (run.Moved is not { } moved || moved.Key != target.PinKey) return false;
+        run.Moved = null;
+        var why = refusal.Length > 0 ? refusal : "refused";
+        run.BackedOff = moved with { Refused = why };
+        var at = target.TypedKey.StartsWith("addr:", StringComparison.Ordinal) ? target.TypedKey[5..] : $"{target.Host}:{target.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        var words = $"{target.Name} (Stagewatch {moved.Id}) refused the dial as that Stagewatch ({why}) — the link reads {at} as itself again, its public view, while that Stagewatch process is heard there.";
+        Volatile.Write(ref run.Redial, "");
+        _status = "Stagewatch link: " + words;
+        Log.Info("Stagewatch link: " + words);
+        Journal?.Record("Show network", "StagewatchLink", $"Stagewatch link ({moved.Id})", "back", words);
+        SayChange();
+        UiThread.Post(_changed);
+        return true;
     }
 
     /// <summary>
@@ -1293,13 +1373,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// at the address the table keeps for it while that address is still heard, so a node heard on two addresses is not
     /// dialled on each in turn. An id two running nodes say gets no new link while the mark stands: null, with
     /// <paramref name="conflict"/> saying which — and the link holds rather than moving to another Stagewatch, unless it is
-    /// one this desk pinned. Over TLS or not is the dial's to decide (the pin and the probe), never this.
+    /// one this desk pinned. Over TLS or not is the dial's to decide (the pin and the probe), never this. A node a look again named at
+    /// the typed address whose dial was then refused names it no more while that node's process is heard there
+    /// (<see cref="Run.BackedOff"/>): the address is dialled as itself.
     /// </summary>
-    private Target? Resolve(string typed, IReadOnlyDictionary<string, CertificatePin> pins, string last, out ShowBusConflict? conflict)
+    private Target? Resolve(Run run, string typed, IReadOnlyDictionary<string, CertificatePin> pins, string last, out ShowBusConflict? conflict)
     {
         conflict = null;
         var now = DateTime.UtcNow;
-        var live = _peers(now).Where(p => p.Kind == "main" && p.StateAt(now) == ShowBusState.Live && p.Address.Length > 0 && (p.Ports.Ws > 0 || p.Ports.Http > 0)).ToList();
+        var live = StagewatchAt.Dialable(_peers(now), now);
         bool Pinned(ShowBusPeer p) => pins.ContainsKey("node:" + p.Id);
         // G34: a heard Stagewatch by its show network id — dialled wherever its hello is heard, held while two machines say it.
         if (StageFollow.ParseId(typed) is { } wanted)
@@ -1315,18 +1397,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         if (typed.Length > 0)
         {
             if (StageFollow.ParseAddress(typed) is not { } t) return null;
-            var heard = live.Where(p => p.HeardAt(t.Host) && (p.Ports.Http == t.Port || p.Ports.Ws == t.Port || p.Ports.Https == t.Port)).ToList();
-            var named = heard.Count == 1 ? heard[0] : heard.Where(Pinned).ToList() is { Count: 1 } pinned ? pinned[0] : null;
-            if (named?.Conflict is { } held)
-            {
-                conflict = held;
-                return null;
-            }
+            // The one rule the evaluator's look again at a live address connection reads too (StagewatchAt).
+            var named = StagewatchAt.Named(live, t.Host, t.Port, id => pins.ContainsKey("node:" + id), out conflict);
+            if (conflict is not null) return null;
             var typedKey = StagewatchKeyFor.Address(t.Host, t.Port);
-            if (named is not null) return Of(named, t.Host, t.Port) with { TypedKey = typedKey };
+            if (named is not null && run.BackedOff is { } back && back.Id == named.Id && back.Inst != named.Instance) run.BackedOff = null;   // another process of it: heard anew
+            if (named is not null && !BackedOff(run, named)) return Of(named, t.Host, t.Port) with { TypedKey = typedKey };
             return new Target(t.Host, t.Port, t.Host, typedKey, "", false, false) { TypedKey = typedKey };
         }
-        var peer = live.FirstOrDefault(p => last.Length > 0 && p.Id == last) ?? live.FirstOrDefault(Pinned) ?? live.FirstOrDefault();
+        var peer = live.FirstOrDefault(p => last.Length > 0 && p.Id == last) ?? live.FirstOrDefault(Pinned) ?? (live.Count > 0 ? live[0] : null);
         if (peer?.Conflict is { } marked)
         {
             peer = live.FirstOrDefault(p => p.Conflict is null && Pinned(p));
@@ -1343,6 +1422,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             => new(host, p.OffersTls && p.Ports.Https > 0 ? p.Ports.Https : port, p.Name.Length > 0 ? p.Name : p.Host, "node:" + p.Id, p.Tls, true,
                 p.Caps.Contains(DeskProposals.Cap, StringComparer.Ordinal), p.Instance);
     }
+
+    /// <summary>Whether <paramref name="node"/>'s process is the one whose dial from the typed address this run saw refused.</summary>
+    private static bool BackedOff(Run run, ShowBusPeer node) => run.BackedOff is { } back && back.Id == node.Id && back.Inst == node.Instance;
 
     /// <summary>
     /// The note for a pinned Stagewatch whose hello says otherwise (13.4.2): the pin alone decides, so the link dials TLS
@@ -1580,7 +1662,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         using var http = new HttpClient(handler, disposeHandler: false) { Timeout = StagewatchFrame.SideCallWithin, MaxResponseContentBufferSize = SideAnswerMost };
         var baseUri = Address(target, tls, socket: false);
         using var sendGate = new SemaphoreSlim(1, 1);
-        var connection = new Connection(run, core, target, tls, keyed, isPublic, withheld, apiKey, ws, sendGate, link, certs) { Proved = keyed, At = address, Pin = tls && pinned ? pin : "" };
+        var connection = new Connection(run, core, target, tls, keyed, isPublic, withheld, apiKey, ws, sendGate, link, certs) { Proved = keyed, At = address, Pin = tls && pinned ? pin : "", Shown = tls ? presented : "" };
         run.Live = connection;
         // The speaker's lane is this connection's from the instant it is the run's: a call asked before the lane's task has
         // started waits for it there, never refused for a lane not yet running. What was asked of the connection before and
@@ -2088,10 +2170,131 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 c.Socket.Abort();
                 continue;
             }
-            if (keeps) continue;
+            if (keeps)
+            {
+                LookAgain(run, c);
+                continue;
+            }
             Volatile.Write(ref run.Redial, c.Ending.Length > 0 ? c.Ending : $"{c.Target.Name} — this desk's key is presented again on a fresh link.");
             c.Socket.Abort();
         }
+    }
+
+    /// <summary>
+    /// The evaluator's look again at who is at a live typed address (Show Bus 1.3 §2, 13.4.3). A run that dialled the address while no
+    /// hello named it — a Stagewatch that opens its web port before its first hello is heard, after a restart — took the address as its
+    /// own record, and nothing else would look again while the connection lives. On each beat, while the connection's target is the
+    /// address itself and it holds this desk's key back, the one rule its dial reads (<see cref="StagewatchAt"/>) is read again: once it
+    /// names a node there — live, heard from that address on that port, or the one pinned of several; never an id in conflict — and the
+    /// node's own dial would carry the key and prove it with LINK to that id (<see cref="StagewatchAt.ProvesThere"/>), the connection is
+    /// ended once, through the core's own redial (no failure counted; the redial's count, wait and holds go on in the node's core,
+    /// 13.15.2), and the next dial names the node as any hello-named dial does. A keyless or public-only link is never moved: the address
+    /// stays its own record until a verified link names the acceptor's id, so a hello alone names nothing. A connection that carries
+    /// the key there is never ended for it. Where the node's own dial would be refused now (its key's hold, a certificate changed against
+    /// its pin, a dial of it from here this run saw refused) the address's public view is kept, the room's time on the wall, and the
+    /// record says why in place of BIND KEY, which would bind the key to the address.
+    /// </summary>
+    private void LookAgain(Run run, Connection c)
+    {
+        var target = c.Target;
+        if (c.Retargeted || target.TypedKey.Length == 0 || target.PinKey != target.TypedKey) return;    // found, named by id or by a hello: never re-resolved
+        var utc = DateTime.UtcNow;
+        var pins = run.Pins;
+        var dialable = StagewatchAt.Dialable(_peers(utc), utc);
+        var node = StagewatchAt.Retarget(target.PinKey, target.TypedKey, c.Retargeted, dialable, target.Host, target.Port, id => pins.ContainsKey("node:" + id));
+        var nodeKey = node is null ? "" : "node:" + node.Id;
+        var local = c.At is { } at && IsLocal(at.IsIPv4MappedToIPv6 ? at.MapToIPv4() : at);
+        if (node is null || !StagewatchAt.ProvesThere(c.Keyed, run.Kid is not null && c.Secret.Length > 0, run.KeyFor, nodeKey, target.TypedKey, c.Core.Level0, c.Tls || local))
+        {
+            StaysNoMore(c);
+            return;
+        }
+        var heldMs = 0L;
+        if (run.Kid is { } kid)
+        {
+            var wall = WallMs();
+            var mono = MonoMs();
+            if (Holds.For(nodeKey, kid, wall) is { } hold) heldMs = Math.Max(hold.UntilWallMs, hold.BusyUntilWallMs) - wall;
+            lock (run.Gate) heldMs = Math.Max(heldMs, Math.Max(run.HeldUntilMs, run.BusyUntilMs) - mono);
+        }
+        var nodePin = pins.TryGetValue(nodeKey, out var p) && p.Trust != PinTrust.First ? p.Fingerprint : "";
+        var named = node.Name.Length > 0 ? node.Name : node.Host;
+        var refused = BackedOff(run, node) ? run.BackedOff!.Refused : "";
+        if (StagewatchAt.Stays(nodePin, c.Shown, heldMs, refused) is { } why)
+        {
+            Stay(c, node, named, nodeKey, why, offer: refused.Length == 0 && heldMs <= 0 && TlsFingerprint.IsValid(nodePin) && TlsFingerprint.IsValid(c.Shown));
+            return;
+        }
+        c.Retargeted = true;
+        run.Moved = new NodeAt(nodeKey, node.Id, node.Instance);
+        var words = $"{named} (Stagewatch {node.Id}) is heard at {target.Host}:{target.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)} — dialling it again as that Stagewatch.";
+        lock (_core)
+        {
+            c.Core.Machine.PublicBecause(null);
+            c.Core.Machine.Redial(Now());
+        }
+        LetOfferGo(c);
+        Volatile.Write(ref run.Redial, words);
+        Log.Info("Stagewatch link: " + words);
+        Journal?.Record("Show network", "StagewatchLink", $"Stagewatch link ({node.Id})", "retarget", words);
+        c.Socket.Abort();
+    }
+
+    /// <summary>
+    /// The address's public view is kept though its node is heard there, the node's own dial refused now: the record says why, the key
+    /// is offered for binding to no address in its place (BIND KEY there would send it to the address, not the node), and a certificate
+    /// changed against the node's pin waits for a person's ACCEPT as a refused dial would leave it. The record moves at each change of
+    /// why; the log line and the journal row are said once a run for each why, so a hello that comes and goes at the liveness edge says
+    /// them once.
+    /// </summary>
+    private void Stay(Connection c, ShowBusPeer node, string named, string nodeKey, string why, bool offer)
+    {
+        var words = $"{named} (Stagewatch {node.Id}) is heard at this address, but {why}";
+        if (string.Equals(c.Stays, words, StringComparison.Ordinal)) return;
+        c.Stays = words;
+        lock (_core) c.Core.Machine.PublicBecause(words);
+        Volatile.Write(ref _bindOffer, null);
+        if (offer)
+        {
+            LetOfferGo(c);
+            _pendingFingerprint = c.Shown;
+            _pendingPinKey = nodeKey;
+            _tlsWords = CertificatePins.Words(PinVerdict.Changed, "Stagewatch " + named, c.Shown);
+            c.StaysOffered = nodeKey;
+        }
+        else LetOfferGo(c);
+        if (!string.Equals(c.Run.KeptSaid, words, StringComparison.Ordinal))
+        {
+            c.Run.KeptSaid = words;
+            Log.Info("Stagewatch link: " + words + "; its public view is read at the address meanwhile.");
+            Journal?.Record("Show network", "StagewatchLink", $"Stagewatch link ({node.Id})", "kept", words);
+        }
+        SayChange();
+        UiThread.Post(_changed);
+    }
+
+    /// <summary>No node is heard at the address any more (or none whose dial would prove the key): the connection's own words and offers are back.</summary>
+    private void StaysNoMore(Connection c)
+    {
+        if (c.Stays.Length == 0) return;
+        c.Stays = "";
+        lock (_core) c.Core.Machine.PublicBecause(null);
+        LetOfferGo(c);
+        var bound = StagewatchKeyFor.Goes(c.Run.KeyFor, c.Target.PinKey, c.Target.TypedKey);
+        if (c.Secret.Length > 0 && !bound) Volatile.Write(ref _bindOffer, new BindOffer(c.Target.PinKey, c.Target.Name, c.Run.KeyFor));
+        SayChange();
+        UiThread.Post(_changed);
+    }
+
+    /// <summary>The changed certificate this connection offered for its node is no longer waiting: it was that connection's to offer, and is still the one waiting.</summary>
+    private void LetOfferGo(Connection c)
+    {
+        var offered = c.StaysOffered;
+        c.StaysOffered = "";
+        if (offered.Length == 0 || !string.Equals(_pendingPinKey, offered, StringComparison.Ordinal)) return;
+        _pendingFingerprint = "";
+        _pendingPinKey = "";
+        _tlsWords = "";
     }
 
     /// <summary>The evaluator's ping after a gap of its own: through the connection's one writer, which may have closed meanwhile.</summary>
@@ -2222,6 +2425,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         if (!c.Keyed)
         {
             if (c.Secret.Length == 0) return "the link holds no node key";
+            if (c.Stays is { Length: > 0 } stays) return stays;                       // the address's public view kept, and why: the record's words
             if (c.Link && !c.Withheld) return c.Run.Key.Refused ? "this desk's key is refused there" : "this link did not prove this desk's key";
             if (c.Withheld) return "the key waits for Trust — compare the fingerprint on the Nodes page and press Trust";
             if (c.Public) return "this desk's key is held there";
@@ -3462,6 +3666,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             c.Core.FirstSaved = "";
             _tlsWords = $"Stagewatch {target.Name}'s certificate {TlsFingerprint.Short(fp)} is pinned by its proof";
         }
+        if (c.Run.Moved is { } moved && moved.Key == target.PinKey) c.Run.Moved = null;    // the node a look again moved the link to proved itself
         var keys = new List<string> { target.PinKey };
         if (nodeId is not null && "node:" + nodeId != target.PinKey) keys.Add("node:" + nodeId);
         UiThread.Post(() =>

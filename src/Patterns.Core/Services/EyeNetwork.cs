@@ -88,7 +88,7 @@ public static class EyeNetwork
         var colon = sight.Address.LastIndexOf(':');
         var host = colon > 0 ? sight.Address[..colon].Trim('[', ']') : sight.Address;
         var port = colon > 0 && int.TryParse(sight.Address[(colon + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 0;
-        return p.HeardAt(host) && (port == 0 || port == p.Ports.Http || port == p.Ports.Ws || port == p.Ports.Https);
+        return port == 0 ? p.HeardAt(host) : StagewatchAt.Speaks(p, host, port);
     }
 
     /// <summary>

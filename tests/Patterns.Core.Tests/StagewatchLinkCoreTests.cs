@@ -535,6 +535,27 @@ public sealed class StagewatchLinkCoreTests
     }
 
     /// <summary>
+    /// The connector's own words for why a public view is kept (<see cref="PeerLinkMachine.PublicBecause"/>) stand in for the held-back
+    /// words while the connection they were said for is up, and end with it: the next connection on the same machine says its own, and
+    /// none is taken while no connection is up.
+    /// </summary>
+    [Fact]
+    public void WhyAPublicViewIsKeptEndsWithItsConnection()
+    {
+        const string held = "this desk's key is bound to Stagewatch a1b2c3d4 and is not sent here; BIND KEY on the Nodes page sends it here";
+        const string because = "Hall A (Stagewatch a1b2c3d4) is heard at this address, but this desk's key is held for it";
+        var m = new PeerLinkMachine(Settings(local: true) with { KeyHeldBack = held }, null, 0, () => 0.5);
+        long t = 0;
+        Up(m, ref t);
+        m.PublicBecause(because);
+        Assert.Equal("Hall A · public view — " + because, m.Record(t).Words);
+        m.Closed(t);
+        m.PublicBecause(because);                                                                // nothing is up: nothing taken
+        Up(m, ref t);
+        Assert.Equal("Hall A · public view — " + held, m.Record(t).Words);
+    }
+
+    /// <summary>
     /// 13.1, 13.16.1–2: the show's need moves only the light — a link down is red while the show needs it and amber once it does not —
     /// and the redial count, the wait and the state stay as they were.
     /// </summary>
