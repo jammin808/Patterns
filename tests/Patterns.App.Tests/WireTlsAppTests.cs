@@ -8,6 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.Core.Services;
+using Patterns.Core.Model;
 using Xunit;
 
 namespace Patterns.App.Tests;
@@ -304,23 +305,24 @@ public class WireTlsAppTests
             Assert.Equal(ControlProtocol.Err(services.Control.WireLimits.BusyWords(1)) + "\n", busy);
 
             // A flood of silent connections over the ceiling: at most BusyPeeksMost wait for a first byte, each for at most the busy
-            // wait; every one beyond them is closed at once. None hears a word.
+            // wait; every one beyond them is closed at once. None hears a word. Timed from the desk's own accept: each close is compared
+            // with the others and with its own dial, never with a clock started before the connects, which the test's scheduling moves.
             var flood = ControlService.BusyPeeksMost + 4;
             var closes = Pump(Task.Run(async () =>
             {
-                var clients = new List<TcpClient>();
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var clients = new List<(TcpClient Client, long DialMs)>();
                 try
                 {
-                    var opened = Environment.TickCount64;
                     for (var i = 0; i < flood; i++)
                     {
                         var c = new TcpClient();
-                        c.Connect(IPAddress.Loopback, port);
-                        clients.Add(c);
+                        clients.Add((c, clock.ElapsedMilliseconds));
+                        await c.ConnectAsync(IPAddress.Loopback, port);
                     }
                     // Each read awaited on its own, so each close is timed as it happens, not behind the one before it, and no pool
                     // thread is held blocking while the desk's own handlers wait for one.
-                    async Task<(int Heard, long Ms)> Read(TcpClient c)
+                    async Task<(int Heard, bool Shut, long DialMs, long EndMs)> Read((TcpClient Client, long DialMs) c)
                     {
                         var heard = 0;
                         var chunk = new byte[256];
@@ -328,28 +330,110 @@ public class WireTlsAppTests
                         try
                         {
                             int n;
-                            while ((n = await c.GetStream().ReadAsync(chunk, stop.Token)) > 0) heard += n;
+                            while ((n = await c.Client.GetStream().ReadAsync(chunk, stop.Token)) > 0) heard += n;
                         }
                         catch (IOException)
                         {
                             // a reset is the door closed too
                         }
-                        return (heard, Environment.TickCount64 - opened);
+                        catch (OperationCanceledException)
+                        {
+                            return (heard, false, c.DialMs, clock.ElapsedMilliseconds);
+                        }
+                        return (heard, true, c.DialMs, clock.ElapsedMilliseconds);
                     }
                     var reads = clients.Select(Read).ToArray();
                     return await Task.WhenAll(reads);
                 }
                 finally
                 {
-                    foreach (var c in clients) c.Dispose();
+                    foreach (var c in clients) c.Client.Dispose();
                 }
             }), 20000);
-            Assert.All(closes, c => Assert.Equal(0, c.Heard));
-            Assert.All(closes, c => Assert.InRange(c.Ms, 0, (long)ControlService.BusyFirstByteWait.TotalMilliseconds + 4000));
-            // The ones within the bound waited; the ones beyond it were closed at once, before any wait within it could have ended.
-            var waited = (long)ControlService.BusyFirstByteWait.TotalMilliseconds - 500;
-            Assert.Contains(closes, c => c.Ms >= waited);
-            Assert.True(closes.Count(c => c.Ms < waited) >= flood - ControlService.BusyPeeksMost, "the ones beyond the bound are closed at once");
+            var said = string.Join("; ", closes.Select(c => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"dialled {c.DialMs} ms, ended {c.EndMs} ms, heard {c.Heard}{(c.Shut ? "" : ", not shut")}")))
+                + string.Create(System.Globalization.CultureInfo.InvariantCulture, $"; the pool {ThreadPool.ThreadCount} threads, {ThreadPool.PendingWorkItemCount} items waiting");
+            Assert.True(closes.All(c => c.Shut && c.Heard == 0), "each shut by the desk with nothing written: " + said);
+            // The ones within the bound waited the busy wait from their own dial; the ones beyond it were closed at once, at least a
+            // second ahead of the earliest that waited — before any wait within it could have ended — and no wait ran past its bound.
+            var wait = (long)ControlService.BusyFirstByteWait.TotalMilliseconds;
+            var waited = closes.Where(c => c.EndMs - c.DialMs >= wait - 50).ToArray();
+            var atOnce = closes.Where(c => c.EndMs - c.DialMs < wait - 50).ToArray();
+            Assert.True(waited.Length is >= 1 and <= ControlService.BusyPeeksMost, "at most the bound's number waited, and some did: " + said);
+            Assert.True(atOnce.Length >= flood - ControlService.BusyPeeksMost, "the ones beyond the bound are closed at once: " + said);
+            Assert.True(atOnce.Max(c => c.EndMs) <= waited.Min(c => c.EndMs) - 1000, "the ones beyond closed at least a second ahead of the earliest that waited: " + said);
+            Assert.True(waited.Max(c => c.EndMs) - atOnce.Min(c => c.EndMs) <= wait + 2000, "no wait ran past the busy wait: " + said);
+        }
+        finally
+        {
+            ControlService.TrustLoopback = trusted;
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The four doors' accepts are owed by the doors, not by the desk's thread: with that thread held — the test waits on it without a
+    /// pass of the dispatcher — a silent connection to the wire, the web remote, the audience port and the twin's port is still accepted
+    /// and closed at its door's own seconds (the twin's at its JOIN's wait), with nothing written. An accept that waited for a pass of the
+    /// desk's thread would leave each open until the reads' own bound.
+    /// </summary>
+    [AvaloniaFact]
+    public void EveryDoorClosesASilentConnectionAtItsSecondsWhileTheDesksThreadIsHeld()
+    {
+        var b = TestApp.Boot();
+        var (services, vm, _) = b;
+        var trusted = ControlService.TrustLoopback;
+        ControlService.TrustLoopback = false;
+        try
+        {
+            var ports = TestPorts.Distinct(4);
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort, vm.State.Control.AudiencePort, vm.State.Twin.Port) = (ports[0], ports[1], ports[2], ports[3]);
+            vm.State.Control.AudienceEnabled = true;
+            vm.State.Control.Token = Token;
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Control.Listening && services.Control.AudienceListening, services.Control.Status);
+            Assert.True(services.Twin.Phase == TwinPhase.Listening, services.Twin.Status);
+            const double seconds = 1;
+            const double joinSeconds = 5;   // the twin's JOIN wait (TwinService.HandleStandby)
+            services.Control.WireLimits = new WireLimits(FirstByteSeconds: seconds);
+            services.Control.ControlLimits = HttpLimits.Control with { HeadSeconds = seconds };
+            services.Control.AudienceLimits = HttpLimits.Audience with { HeadSeconds = seconds };
+            var doors = new[]
+            {
+                (Door: "wire", Port: vm.State.Control.TcpPort, Seconds: seconds), (Door: "web remote", Port: vm.State.Control.HttpPort, Seconds: seconds),
+                (Door: "audience", Port: vm.State.Control.AudiencePort, Seconds: seconds), (Door: "twin", Port: vm.State.Twin.Port, Seconds: joinSeconds),
+            };
+
+            var reads = Task.Run(async () => await Task.WhenAll(doors.Select(async door =>
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                using var client = new TcpClient();
+                await client.ConnectAsync(IPAddress.Loopback, door.Port);
+                var heard = 0;
+                var chunk = new byte[256];
+                using var bound = new CancellationTokenSource(TimeSpan.FromSeconds(door.Seconds + 5));
+                try
+                {
+                    int n;
+                    while ((n = await client.GetStream().ReadAsync(chunk, bound.Token)) > 0) heard += n;
+                }
+                catch (IOException)
+                {
+                    // a reset is the door closed too
+                }
+                catch (OperationCanceledException)
+                {
+                    return (door.Door, door.Seconds, Ms: clock.ElapsedMilliseconds, Heard: heard, Shut: false);
+                }
+                return (door.Door, door.Seconds, Ms: clock.ElapsedMilliseconds, Heard: heard, Shut: true);
+            })));
+            // The desk's thread held: blocked here on the reads with no pass of the dispatcher, as a long job on it would hold it.
+            Assert.True(((IAsyncResult)reads).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(joinSeconds + 8)), "the reads end within their own bound");
+            var ends = reads.GetAwaiter().GetResult();
+            var said = string.Join("; ", ends.Select(e => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{e.Door}: {(e.Shut ? "shut" : "not shut")} at {e.Ms} ms, heard {e.Heard}")));
+            Assert.True(ends.All(e => e.Shut && e.Heard == 0), "every door shut its silent connection with nothing written, the desk's thread held: " + said);
+            Assert.True(ends.All(e => e.Ms >= (long)(e.Seconds * 1000) - 50 && e.Ms <= (long)(e.Seconds * 1000) + 2500), "each at its door's own seconds: " + said);
         }
         finally
         {

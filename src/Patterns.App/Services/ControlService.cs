@@ -333,14 +333,21 @@ public sealed partial class ControlService : IDisposable
     /// <summary>Round 85: why the audience listener is closed — its bind is not an address — or "" while it binds (or it is off).</summary>
     public string AudienceBindProblem { get; private set; } = "";
 
+    /// <summary>
+    /// A door's accepts, off the desk's thread: Reconcile starts the loop there, and an accept that continued on that thread would wait
+    /// for a pass of it before its connection reached its handler — a stalled desk would pause every accept, and with it a busy answer,
+    /// a refusal and the first byte's wait, which are the door's to keep. Each connection is handed to its handler on the pool; what the
+    /// handler then needs of the desk it asks for itself, and the handlers start in the order the connections were accepted
+    /// (<see cref="HandOff"/>).
+    /// </summary>
     private static async Task AcceptLoop(TcpListener listener, Func<TcpClient, CancellationToken, Task> handler, CancellationToken ct)
     {
         try
         {
             while (!ct.IsCancellationRequested)
             {
-                var client = await listener.AcceptTcpClientAsync(ct);
-                _ = Task.Run(() => handler(client, ct), ct);
+                var client = await listener.AcceptTcpClientAsync(ct).ConfigureAwait(false);
+                _ = HandOff(() => handler(client, ct), ct);
             }
         }
         catch (OperationCanceledException)
@@ -356,6 +363,15 @@ public sealed partial class ControlService : IDisposable
             Log.Warn("Control accept loop ended.", ex);
         }
     }
+
+    /// <summary>
+    /// An accepted connection handed to its handler on the pool's shared queue, oldest first: an accept loop runs on a pool worker, where a
+    /// plain <see cref="Task.Run(Func{Task}, CancellationToken)"/> would queue to that worker's own queue, which it takes newest first, so
+    /// a burst of accepts would reach its handlers — and the places an address's ledgers admit — in reverse order of arrival. Queued
+    /// fairly, the connection beyond the places is the one that came last.
+    /// </summary>
+    internal static Task HandOff(Func<Task> handler, CancellationToken ct) =>
+        Task.Factory.StartNew(handler, ct, TaskCreationOptions.PreferFairness | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
 
     // ---- TCP line protocol (Companion) --------------------------------------
 

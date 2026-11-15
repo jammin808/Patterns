@@ -353,28 +353,10 @@ public sealed partial class PeerLinkWireTests
         var code = files.Write("code", desk.Token);
         desk.Control.WireLimits = new WireLimits(FirstByteSeconds: 4, MaxAppLinksPerAddress: 1);
 
-        // S16: five connections that say nothing; four hold their places to the first byte's seconds, one is closed at once.
-        var clock = Stopwatch.StartNew();
-        var flood = Enumerable.Range(0, 5).Select(_ => Task.Run(() =>
-        {
-            using var c = new TcpClient();
-            c.Connect(IPAddress.Loopback, desk.Port);
-            c.ReceiveTimeout = 9000;
-            var n = 0;
-            try
-            {
-                n = c.GetStream().Read(new byte[16], 0, 16);
-            }
-            catch (IOException)
-            {
-                // a reset is the door closed too
-            }
-            return (Bytes: n, Ms: clock.ElapsedMilliseconds);
-        })).ToArray();
-        var ended = flood.Select(t => TestApp.Pump(t)).ToList();
-        Assert.All(ended, e => Assert.Equal(0, e.Bytes));                                        // nothing written to any of them
-        Assert.Single(ended, e => e.Ms < 2500);                                                   // the fifth, at once
-        Assert.Equal(4, ended.Count(e => e.Ms >= 3500));                                          // the four, at the first byte's seconds
+        // S16: five connections that say nothing; four hold their places to the first byte's seconds, one is closed at once — timed from
+        // the desk's own accept: the five dialled on one task and read with awaited reads, the closes compared with each other and with
+        // each one's dial, so neither the test's workers nor a pass of the desk's thread it pumps can move the verdict.
+        HeldFromTheDesksOwnAccept(Flood(desk.Port, SilentPlaces + 1), firstByteSeconds: 4);
 
         // 13.6.3: four LINKs with no proof hold their address's places: a connection that spoke before them and asks LINK now is
         // refused busy and closed — at most four unfinished. Their places are apart from the silent ones, so a deck from the same

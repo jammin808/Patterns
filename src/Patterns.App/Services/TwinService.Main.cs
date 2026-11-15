@@ -293,14 +293,19 @@ public sealed partial class TwinService
         Log.Info($"Twin: the standby {s.Name} left.");
     }
 
+    /// <summary>
+    /// The twin's accepts, off the desk's thread as the control doors' are: the listener is opened from Reconcile on that thread, and an
+    /// accept that continued there would wait for a pass of it — a stalled desk would pause every JOIN and hold a silent caller past
+    /// the JOIN's own wait. Each caller is handed to <see cref="HandleStandby"/> in the order it was accepted.
+    /// </summary>
     private async Task AcceptLoop(TcpListener listener, CancellationToken ct)
     {
         try
         {
             while (!ct.IsCancellationRequested)
             {
-                var client = await listener.AcceptTcpClientAsync(ct);
-                _ = Task.Run(() => HandleStandby(client, ct), ct);
+                var client = await listener.AcceptTcpClientAsync(ct).ConfigureAwait(false);
+                _ = ControlService.HandOff(() => HandleStandby(client, ct), ct);
             }
         }
         catch (OperationCanceledException)
