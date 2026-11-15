@@ -1079,8 +1079,10 @@ public sealed class EyeGraph
             else Link(id, DeskId, EyeEdgeKind.Hears, light, n.Fresh ? "heard on the beacon" : "gone quiet", origin: EyeOrigin.Heard);
         }
 
-        // Round 87: the other show apps, and the things a linked one's context names. Heard and not linked is grey (as a
-        // node heard on the beacon); stale amber; gone red; linked with a context, the context's own light and headline.
+        // Round 87: the other show apps, and the things a linked one's context names, each card lit by the show network's one
+        // projection (ShowBusView.Light: precedence, never the worst — the link this desk holds says whether the app is there, its
+        // hello only where no link is held; heard only is grey, amber and red only when the show needs the app; while it is there,
+        // its context's own light and headline, the cautions amber over a green or a grey; a lower source an i note).
         // Each on the NETWORK band in a cluster of its own, at most EyeLayout.MaxApps of them — the needed first, then
         // the linked — and one grey card for the rest; the card counted when the show needs the app, its link edge always.
         var heard = apps.OrderBy(a => a.KindWords, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
@@ -1088,10 +1090,14 @@ public sealed class EyeGraph
         var drawn = heard.OrderByDescending(a => a.Needed).ThenByDescending(ShowBusView.HoldsLink).Take(EyeLayout.MaxApps).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var named = new Dictionary<string, int>(StringComparer.Ordinal);
         var told = new List<(EyeShowApp App, string Card, ShowContext Ctx, HashSet<string> Items, HashSet<string> Edges)>();
+        // The show network's lights, computed once for every reader (ShowBusView.Network): the card's light, mark, headline and notes.
+        var lights = new Dictionary<string, AppLight>(StringComparer.Ordinal);
+        foreach (var lit in ShowBusView.Network(heard.Where(a => drawn.Contains(a.Id)).ToList())) lights.TryAdd(lit.App.Id, lit);
         foreach (var app in heard)
         {
             var id = EyeNetwork.CardOf(app.Id);
             if (!drawn.Contains(app.Id)) continue;
+            var lit = lights[app.Id];
             var twinNode = app.Id.StartsWith("node:", StringComparison.Ordinal);
             if (!twinNode) cardOfId[app.Id] = id;
             // A twin node is named by its context's id, which comes over the twin link; its hello's id only where the two agree (or the
@@ -1102,9 +1108,9 @@ public sealed class EyeGraph
             var helloSays = twinNode && beacons.TryGetValue(id, out var heardAs) ? heardAs.ShowBusId : "";
             var helloDiffers = helloSays.Length > 0 && nodeSaid.Length > 0 && helloSays != nodeSaid;
             if (helloSays.Length > 0 && !helloDiffers) cardOfId.TryAdd(helloSays, id);
-            var ctx = app.Context;
-            // Round 89: a stuck show (profile 13.10.5, 13.16.1): the card the worse of its own light and amber, never red
-            // for the stall alone; the link live and amber; its counting things red with no time (the context says so).
+            var ctx = lit.Context;
+            // Round 89: a stuck show (profile 13.10.5, 13.16.1): the card amber over its own green, never red for the stall
+            // alone; the link amber, as its record says; its counting things "?" with no time (the projection's context says so).
             var stuck = app.Stuck && app.State == ShowBusState.Live;
             // Round 91: this desk's key refused, speaking for no node of this desk's, or read by P-legacy's fallback: amber
             // while the link is live, never red for the key alone; a fault said on the card itself while the link is live.
@@ -1112,13 +1118,10 @@ public sealed class EyeGraph
             // Show Bus 1.3 §2: two running nodes say its id — amber while it is live, both machines named; never red for that alone,
             // and only an i note while a link LINK verified to that id says which of the two this desk is linked to.
             var conflict = ShowBusView.ConflictAmber(app);
-            // Show Bus 1.3 §13.16.4: a live link's record darker than the card — amber at level 0 — is the card's light too.
-            var light = ShowBusView.CardLight(app);
-            var state = ShowBusView.StateWord(app);
-            var sub = stuck ? ShowBusView.StuckWords
-                : ShowBusView.KeyLineLeads(app) ? app.Key.Line
-                : conflict ? app.Conflict
-                : ctx is not null && app.State == ShowBusState.Live && ctx.Headline.Length > 0 ? ctx.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
+            // The projection's light (precedence, never the worst of the sources): a live link's record amber over the card's green.
+            var light = lit.Light;
+            var state = lit.StateWord();
+            var sub = lit.Headline.Length > 0 ? lit.Headline : state + (app.Words.Length > 0 ? " · " + app.Words : "");
             var words = new List<string> { $"{app.KindWords} on the show network — {state}" };
             if (beacons.TryGetValue(id, out var beacon))
                 words.Add($"heard on the beacon as {beacon.Kind} {beacon.Name}" + (beacon.ShowBusId.Length > 0 ? $" · its hello says id {beacon.ShowBusId}" : "") + (beacon.Fresh ? "" : " · gone quiet"));
@@ -1134,6 +1137,7 @@ public sealed class EyeGraph
             if (app.Discarded.Length > 0) words.Add(app.Discarded);
             if (app.Conflict.Length > 0) words.Add(ShowBusView.ConflictWords(app));
             if (app.Words.Length > 0) words.Add(app.Words);
+            words.AddRange(lit.Notes);
             if (ctx is not null)
             {
                 foreach (var r in ctx.Recent.TakeLast(3)) words.Add(r.Text);
@@ -1186,18 +1190,18 @@ public sealed class EyeGraph
                 .OrderByDescending(x => ShowContext.LightOf(x.Item.Light) == CheckLight.Red).ThenByDescending(x => ShowContext.LightOf(x.Item.Light) == CheckLight.Amber)
                 .ThenByDescending(x => forced.Contains(x.Item.Id))
                 .Take(EyeLayout.ClusterThings).OrderBy(x => x.At).Select(x => x.Item).ToList();
-            // A link this desk holds that has gone quiet: its things are kept, but no count it last said is current (13.10.6).
-            var quiet = ShowBusView.HoldsLink(app) && app.State == ShowBusState.Stale;
+            // A link this desk holds that is not live: its things are kept, but nothing it last said is current (13.10.6) — the
+            // projection's context says so of its counting things, and each other thing says it is as it last said.
+            var notCurrent = ShowBusView.LinkNotCurrent(app);
             var itemIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var shown in items)
+            foreach (var item in items)
             {
-                var item = quiet ? EyeNetwork.Counting(shown, "its link is quiet — no count is current", app.Needed) : shown;
                 var itemId = $"{id}:{item.Id}";
                 if (!itemIds.Add(item.Id) || ids.Contains(itemId)) continue;
                 var itemLight = ShowContext.LightOf(item.Light);
                 Add(new EyeNode(itemId, EyeKind.ShowAppItem, EyeLayout.KindPlane(item.Kind), EyeLayout.KindColumn(item.Kind), item.Label.Length > 0 ? item.Label : item.Id, item.State, itemLight)
                 {
-                    Words = new[] { $"{app.KindWords} {app.Name}: {item.Kind}", item.State, quiet && !ShowBusView.IsCounting(item.Kind) ? "as it last said — its link is quiet" : "" }.Where(w => w.Length > 0).ToList(),
+                    Words = new[] { $"{app.KindWords} {app.Name}: {item.Kind}", item.State, notCurrent.Length > 0 && !ShowBusView.IsCounting(item.Kind) ? "as it last said — " + notCurrent : "" }.Where(w => w.Length > 0).ToList(),
                     Route = new MenuRoute("Nodes"),
                     Band = EyePlane.Network,
                     App = app.Id,
@@ -1311,6 +1315,7 @@ public sealed class EyeGraph
             pairs.Add((from, to));
             pairs.Add((to, from));
         }
+        var saidOn = new HashSet<int>();                                                                // the record edges a far end's word follows already
         foreach (var (app, card, ctx, itemIds, edgeItems) in told)
         {
             var says = $"{app.KindWords} {app.Name}".Trim();
@@ -1336,6 +1341,15 @@ public sealed class EyeGraph
                 if (target == DeskId && deskEndOf.TryGetValue(card, out var deskEnd))
                 {
                     far[item] = deskEnd;
+                    // Precedence: the record sets the edge's light and mark; the other end's own word for the same link follows it, an
+                    // i note where it says otherwise (Show Bus 1.3 §13.16.4) — the two ends of one link are the only two words it shows.
+                    var at = edges.FindIndex(e => e.Origin == EyeOrigin.Link && ((e.From == card && e.To == deskEnd) || (e.From == deskEnd && e.To == card)));
+                    if (at >= 0 && saidOn.Add(at))                                                          // one far-end word per edge
+                    {
+                        var other = $"{says} says: {(said.State.Length > 0 ? said.State : said.Label)}";
+                        var differs = ShowContext.LightOf(said.Light) != edges[at].Light;
+                        edges[at] = edges[at] with { Words = edges[at].Words + " · " + (differs ? "i " : "") + other };
+                    }
                     continue;
                 }
                 if (crossApp >= EyeNetwork.MaxCrossApp)

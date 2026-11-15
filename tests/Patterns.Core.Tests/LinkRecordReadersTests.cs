@@ -145,14 +145,15 @@ public sealed class LinkRecordReadersTests
         var edge = graph.Edges.Single(e => e.From == node.Id && e.To == EyeGraph.DeskId);
         Assert.Equal((EyeEdgeKind.Follows, CheckLight.Amber, "△ " + r.Words), (edge.Kind, edge.Light, edge.Words));
 
-        // A link held by a refused key while the show needs it: the edge red from the record; the card no worse than amber — the
-        // record is not live, so the app's own light stands, and the hold is the link's to say.
+        // A link held by a refused key while the show needs it: the edge red from the record, and the card with it — the record is not
+        // live, so nothing the app last said is current and the link, the higher source, says what can be known of it (the Eye design's D5).
         m.KeyRefused(now, "key", 60_000);
         var held = m.Record(new LinkNow(40, Wall + 40));
         Assert.Equal(("held", "red", "✕"), (held.State, held.Light, held.Mark));
         var heldGraph = EyeGraph.Build(new EyeFacts { MachineName = "FOH", ShowApps = new[] { Linked(held, Context("green")) } });
         var heldNode = heldGraph.Nodes.Single(n => n.Kind == EyeKind.ShowApp);
-        Assert.Equal(CheckLight.Green, heldNode.Light);
+        Assert.Equal(CheckLight.Red, heldNode.Light);
+        Assert.StartsWith("Hall A held", heldNode.Sub, StringComparison.Ordinal);                  // its record's words lead the card
         Assert.Equal((CheckLight.Red, "✕ Hall A held — key"), heldGraph.Edges.Where(e => e.From == heldNode.Id).Select(e => (e.Light, e.Words)).Single());
     }
 

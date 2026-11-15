@@ -885,7 +885,7 @@ public class ShowBusAppTests
             Assert.Equal(new[] { "stuck", "carrier", "key", "held", "link", "follow", "pending", "keyFor", "windows" }, row.EnumerateObject().Select(p => p.Name).TakeLast(9));   // stuck appended, the carrier after it, then the key (round 91), the hold (Show Bus 1.3 §2), the link's record (§13.16.3), G34's follow, pending and keyFor, and the windows granted this desk (§12.4)
             Assert.Equal("plain", row.GetProperty("carrier").GetString());                              // this machine's Stagewatch, the key over plain ws
 
-            // The Eye: the card amber, the link live and amber, its timer red with no time; the Nodes card; the brief.
+            // The Eye: the card amber, the link live and amber, its timer "?" with no time, red as the show follows it; the Nodes card; the brief.
             services.Eye.Refresh();
             var card = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
             Assert.Equal((CheckLight.Amber, ShowBusView.StuckWords), (card.Light, card.Sub));
@@ -899,7 +899,7 @@ public class ShowBusAppTests
             Assert.Contains(ShowBusView.StuckWords, nodesCard.Line);
             var brief = ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow));
             Assert.Contains(brief, l => l.Contains("— linked — amber: says its show is stuck — no time shown", StringComparison.Ordinal));
-            Assert.Contains(brief, l => l.Contains("Keynote — Ana (timer) — red: no time shown", StringComparison.Ordinal));
+            Assert.Contains(brief, l => l.Contains("Keynote — Ana (timer) — red: " + ShowBusView.NoTimeWords, StringComparison.Ordinal));   // "?" and red: the show follows it
 
             // Its context answers again beside the stall: what it says now is taken, and its timer still shows no time.
             stagewatch.LightingState = "GO: LX 13";
@@ -1315,11 +1315,13 @@ public class ShowBusAppTests
 
             // Every reader: STATE, the Nodes card and its line, the Eye, the context this desk posts, the assistant's facts.
             var row = StagewatchRow(services);
-            Assert.Equal(("refused", "amber", "live"), (row.GetProperty("key").GetString(), row.GetProperty("light").GetString(), row.GetProperty("state").GetString()));
+            // The hold is the link's state and its record the higher source: red while the show follows it (13.16.1's held), in every
+            // reader alike — no longer amber for the key alone beside a red edge (the one projection, ShowBusView.Light).
+            Assert.Equal(("refused", "red", "live"), (row.GetProperty("key").GetString(), row.GetProperty("light").GetString(), row.GetProperty("state").GetString()));
             Assert.Contains(refused, row.GetProperty("words").GetString(), StringComparison.Ordinal);
             services.Nodes.Poll();
             var card = Assert.Single(services.Nodes.ShowApps, c => c.Linked);
-            Assert.Equal("#FFB020", card.Hue);
+            Assert.Equal(("#B03030", "✕"), (card.Hue, card.Mark));
             Assert.Contains(" · " + refused + " · link ", card.Line, StringComparison.Ordinal);
             // Show Bus 1.3 §13.16.1: the refused key's hold is the link's state — held, red while the show follows it — and the card,
             // the edge and STATE's link say it from the record.
@@ -1330,11 +1332,11 @@ public class ShowBusAppTests
             Assert.Contains(refused, services.Nodes.ShowBusLine, StringComparison.Ordinal);
             services.Eye.Refresh();
             var node = services.Eye.Graph.Nodes.Single(n => n.Kind == EyeKind.ShowApp && n.Label.StartsWith("Stagewatch", StringComparison.Ordinal));
-            Assert.Equal((CheckLight.Amber, refused), (node.Light, node.Sub));
+            Assert.Equal((CheckLight.Red, refused), (node.Light, node.Sub));                         // the key's line leads, the record's light
             var edge = services.Eye.Graph.Edges.Single(e => e.From == node.Id && e.To == EyeGraph.DeskId);
             Assert.Equal((CheckLight.Red, $"✕ {held.SteadyWords}"), (edge.Light, edge.Words));
             var peers = ShowContext.Parse(services.ContextJson())!.Peers;
-            Assert.Contains(peers, p => p.Kind == "main" && p.Light == "amber" && p.Headline == refused);
+            Assert.Contains(peers, p => p.Kind == "main" && p.Light == "red" && p.Headline == refused);
             Assert.Contains("  this desk's key: " + refused, ShowBusView.BriefLines(services.ShowApps(DateTime.UtcNow)));
             Assert.Equal(1, Logged(b.Dir, "Stagewatch link: localhost — " + refused + "; this desk's keyed calls wait 60 s."));
             Assert.Equal(0, LogLines(b.Dir, "swk_testkey"));                                         // the words are Stagewatch's, never the key

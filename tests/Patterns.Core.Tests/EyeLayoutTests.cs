@@ -350,7 +350,7 @@ public class EyeLayoutTests
         Assert.Equal(2, unneeded.Things);                                                           // the desk and the link this desk holds
         Assert.Equal((0, 1), (unneeded.Red, unneeded.Amber));
         Assert.Equal(unneeded.Things, unneeded.Red + unneeded.Amber + unneeded.Green + unneeded.Grey);
-        Assert.Equal(CheckLight.Red, unneeded.Find("app:a1b2c3d4")!.Light);
+        Assert.Equal(CheckLight.Amber, unneeded.Find("app:a1b2c3d4")!.Light);                       // the card as its link: gone, not needed (13.16.1's down)
         var needed = EyeGraph.Build(Only(facts.ShowApps[1] with { State = ShowBusState.Gone }));
         Assert.Equal(CheckLight.Red, needed.WorstLight);
 

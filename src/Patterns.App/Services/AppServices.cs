@@ -665,6 +665,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Updates = new UpdateService(Kernel, this) { NotNow = () => LivePolicy.Refusal(ShowActionKind.UpdateApply, CueStack?.Armed ?? false, OutputsLive) };
         Management = new ManagementService(Kernel, this, Updates);
         Twin = new TwinService(Kernel, this);
+        Kernel.ShowApps = ShowApps;                                                      // the Nodes page's cards from the apps every reader takes
         Kernel.Link = Twin;
         ShowLock = new ShowLockService(this);
         Calibration = new CalibrationService(this);

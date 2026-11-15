@@ -747,7 +747,8 @@ public static class ShowBusView
     private static EyeShowApp NodeApp(ShowBusNodeSight n, EyeShowApp? heard)
     {
         var where = $"{n.Host}:{n.Port.ToString(CultureInfo.InvariantCulture)}";
-        var state = n.Up ? heard?.State ?? ShowBusState.Live : heard is { } h ? Worse(h.State, ShowBusState.Stale) : ShowBusState.Gone;
+        // Precedence: the device's link, while it is up, says the node is there whatever its hello says (the hello's age stays in Heard).
+        var state = n.Up ? ShowBusState.Live : heard is { } h ? Worse(h.State, ShowBusState.Stale) : ShowBusState.Gone;
         var context = n.Up && n.Context is { } kept ? Steady(kept.Context) : null;
         var name = context?.Node.Name is { Length: > 0 } cn ? cn : heard?.Name is { Length: > 0 } hn ? hn : n.DeviceName;
         var words = string.Join(" · ", new[] { where, "the device " + n.DeviceName, heard?.Words ?? "" }.Where(w => w.Length > 0).Distinct(StringComparer.Ordinal));
@@ -777,11 +778,13 @@ public static class ShowBusView
             var addresses = p.Addresses.Count > 0 ? string.Join(", ", p.Addresses) : p.Address;
             var words = string.Join(" · ", new[] { p.Host.Length > 0 && p.Host != p.Name ? p.Host : "", addresses, p.Caps.Count > 0 ? string.Join(", ", p.Caps.Take(6)) : "" }.Where(w => w.Length > 0));
             var heard = p.StateAt(utcNow);
-            var state = linked ? Worse(heard, sight.State) : heard;
+            // Precedence, never the worse of the two: the link this desk holds says whether the app is there; its hello, a lower
+            // source, is kept in Heard and said beside it as an i note where the two disagree (ShowBusView.Light).
+            var state = linked ? sight.State : heard;
             var stuck = linked && sight.Stuck && state == ShowBusState.Live;
             apps.Add(new EyeShowApp(p.Id, p.KindWords, p.Name.Length > 0 ? p.Name : p.Host, state, linked, words)
             {
-                Context = linked ? Shown(sight.Context, stuck) : null,
+                Context = linked ? Steady(sight.Context) : null,
                 ContextRev = linked && sight.Context is not null ? sight.ContextRev : 0,       // the Eye's hash reads this, never the context
                 Stuck = stuck,
                 Key = linked ? sight.Key : StagewatchKey.Unknown,                                   // round 91: the linked one's verdict on this desk's key
@@ -798,7 +801,7 @@ public static class ShowBusView
             var stuck = sight.StuckLive;
             apps.Add(new EyeShowApp(id, "Stagewatch", sight.Context?.Node.Name is { Length: > 0 } n ? n : sight.Name, sight.State, true, sight.Address)
             {
-                Context = Shown(sight.Context, stuck),
+                Context = Steady(sight.Context),
                 ContextRev = sight.Context is not null ? sight.ContextRev : 0,
                 Stuck = stuck,
                 Key = sight.Key,
@@ -817,27 +820,132 @@ public static class ShowBusView
     };
 
     /// <summary>
-    /// Show Bus 1.3 §13.16.4: the light a reader draws for an app — <paramref name="own"/>, what it draws of the app itself — no
-    /// better than its link's record while that link is live, so the record's amber (level 0's <c>legacy</c>, a key held back, a
-    /// clock apart) reaches the Eye's card, the Nodes card, the context's peers, STATE and the assistant's facts alike, and no
-    /// reader derives a link light of its own. A link that is not live says so through the app's own state; its record's light is
-    /// the edge's and the link's own readers'.
+    /// Show Bus 1.3 §13.16.4 and 13.16.5: a live link's record as a caution on what an app says of itself — its amber (level 0's
+    /// <c>legacy</c>, a key held back, a clock apart) over a green or a grey, never over a red, so no reader derives a link light of its
+    /// own. A link that is not live is not a caution: it says what can be known of the app (<see cref="Light"/>).
     /// </summary>
     public static CheckLight WithLink(EyeShowApp app, CheckLight own)
         => HoldsLink(app) && app.Link is { IsLive: true } r ? ShowContext.Worst(new[] { own, r.LightValue }) : own;
 
+    /// <summary>The light an app's card is drawn with — the projection's (<see cref="Light"/>), which every reader takes.</summary>
+    public static CheckLight CardLight(EyeShowApp app) => Light(app).Light;
+
     /// <summary>
-    /// The light an app's card is drawn with — the Eye's card and the Nodes page's card, and so the mark both draw beside it: gone
-    /// red, quiet amber; a stuck show, this desk's key not taken or its id said by two machines the worse of its own light and amber;
-    /// else its context's light, green linked with none, grey heard; no better than a live link's record (<see cref="WithLink"/>).
+    /// The show network's lights, computed once for every reader — the Eye's cards (<see cref="EyeGraph.Build"/>), the context's
+    /// peers rows (<see cref="Peers"/>), the Nodes page's cards (<see cref="ShowAppCard.Of(AppLight)"/>), the assistant's brief
+    /// (<see cref="BriefLines"/>) and STATE's <c>bus.apps</c> (<see cref="StateRows"/>): one <see cref="AppLight"/> per app, one app
+    /// per id (<see cref="EyeNetwork.Fold"/>, the Eye's fold, so where one id reaches the readers twice every reader draws it once), in
+    /// the order of each id's first sighting.
     /// </summary>
-    public static CheckLight CardLight(EyeShowApp app) => WithLink(app, app.State switch
+    public static IReadOnlyList<AppLight> Network(IReadOnlyList<EyeShowApp> apps) => EyeNetwork.Fold(apps).Select(Light).ToList();
+
+    /// <summary>
+    /// One app's light by precedence (the Eye design's D4 and D5; PeerLink profile 13.16.1): the highest source that knows a fact sets
+    /// it, and a lower one that says otherwise adds an i note, never a worse light. Whether the app is there is the link's to say
+    /// where this desk holds one — its record, or for a link with no record of its own its state — and its hello's only where no
+    /// link is held. While it is not there: a link's record its own light and words (stale amber; down, held and refused red only when
+    /// the show needs it); a link with no record quiet amber and gone red when needed, else amber; a hello alone quiet and gone grey,
+    /// amber and red when the show needs the app. A hello alone is never green. While it is there: what its context says of itself,
+    /// else green for a link and grey for a hello; then the cautions, each amber over a green or a grey and never over a red — its
+    /// show stuck, this desk's key not taken, its id said by two machines, a live record's own amber (<see cref="WithLink"/>).
+    /// </summary>
+    public static AppLight Light(EyeShowApp a)
     {
-        ShowBusState.Gone => CheckLight.Red,
-        ShowBusState.Stale => CheckLight.Amber,
-        _ when (app.Stuck && app.State == ShowBusState.Live) || KeyAmber(app) || ConflictAmber(app) => ShowContext.LightOf(StuckLight(app.Context?.Light)),
-        _ => app.Context is { } ctx ? ShowContext.LightOf(ctx.Light) : app.Linked ? CheckLight.Green : CheckLight.Grey,
-    });
+        var notes = new List<string>(1);
+        var record = HoldsLink(a) ? a.Link : null;
+        var shown = Shown(a);
+        if (record is { IsOn: true, IsLive: false })
+        {
+            if (a.Heard == "live") notes.Add($"i its hello is heard on the show network — the link to it is {record.State}");
+            // This desk's key refused on a link the hold keeps from being live: the key's own line says why, the record's light stands.
+            return new AppLight(a, record.LightValue, KeyLineLeads(a) ? a.Key.Line : record.SteadyWords, "", notes, shown);
+        }
+        var state = record is { IsLive: true } ? ShowBusState.Live : a.State;
+        if (state == ShowBusState.Live && HoldsLink(a) && a.Heard is "stale" or "gone")
+            notes.Add($"i its hello is {(a.Heard == "gone" ? "not heard" : "quiet")} on the show network — the link to it is live");
+        if (state != ShowBusState.Live)
+        {
+            var held = HoldsLink(a);
+            var away = state == ShowBusState.Stale
+                ? held || a.Needed ? CheckLight.Amber : CheckLight.Grey
+                : a.Needed ? CheckLight.Red : held ? CheckLight.Amber : CheckLight.Grey;
+            return new AppLight(a, away, "", "", notes, shown);
+        }
+        var light = shown is not null ? ShowContext.LightOf(shown.Light) : HoldsLink(a) ? CheckLight.Green : CheckLight.Grey;
+        var caution = a.Stuck || KeyAmber(a) || ConflictAmber(a) || (record is { IsLive: true } r && r.LightValue == CheckLight.Amber);
+        if (caution && light is CheckLight.Green or CheckLight.Grey) light = CheckLight.Amber;
+        var own = a.Stuck ? StuckWords : shown?.Headline ?? "";
+        var headline = a.Stuck ? StuckWords : KeyLineLeads(a) ? a.Key.Line : ConflictAmber(a) ? a.Conflict : own;
+        return new AppLight(a, light, headline, own, notes, shown);
+    }
+
+    /// <summary>
+    /// An app's context as every reader shows it: a stuck show's — on a live link — no better than amber, its headline the stall's
+    /// words and its counting things "? — no time shown" (<see cref="NoTime"/>); the counting things of a link this desk holds that is
+    /// not live (<see cref="LinkNotCurrent"/>) "? — its link is quiet — no count is current", or the record's own state in place of
+    /// quiet; else as it came. The same context in, the same context out.
+    /// </summary>
+    private static ShowContext? Shown(EyeShowApp a)
+    {
+        if (a.Context is not { } c) return null;
+        if (a.Stuck && a.State == ShowBusState.Live) return NoTime(c);
+        var why = LinkNotCurrent(a);
+        if (why.Length > 0)
+            return c with { Items = c.Items.Select(i => EyeNetwork.Counting(i, why + NoCountWords, a.Needed)).ToList() };
+        return c;
+    }
+
+    /// <summary>
+    /// Why nothing a link this desk holds last carried is current (PeerLink profile 13.10.6) — "its link is quiet", or the record's own
+    /// state ("its link is held", "its link is down"…) — or "" while it is. Precedence: the link's record, while it is on, decides; a
+    /// link with no record of its own is not current while it is quiet.
+    /// </summary>
+    public static string LinkNotCurrent(EyeShowApp a)
+    {
+        if (!HoldsLink(a)) return "";
+        if (a.Link is { IsOn: true } r) return r.IsLive ? "" : r.State == "stale" ? "its link is quiet" : "its link is " + r.State;
+        return a.State == ShowBusState.Stale ? "its link is quiet" : "";
+    }
+
+    /// <summary>What a counting thing of a link that is not live says after why (<see cref="LinkNotCurrent"/>).</summary>
+    public const string NoCountWords = " — no count is current";
+
+    /// <summary>What a counting thing of an app whose link has gone quiet says after its "?" (PeerLink profile 13.10.6).</summary>
+    public const string QuietWords = "its link is quiet" + NoCountWords;
+
+    /// <summary>
+    /// STATE's <c>bus.apps</c> rows: each app as the context's peers row says it (<see cref="Peers"/>, one projection), then whether its
+    /// id is said by two machines and the device that drives it — the fields appended at the row's end.
+    /// </summary>
+    public static IReadOnlyList<ShowBusAppRow> StateRows(IReadOnlyList<EyeShowApp> apps) => Network(apps).Select(lit =>
+    {
+        var p = PeerOf(lit);
+        return new ShowBusAppRow(p.Kind, p.Id, p.Name, p.Light, p.Headline, lit.App.Conflict.Length > 0, lit.App.Device);
+    }).ToList();
+
+    /// <summary>
+    /// STATE's <c>bus.stagewatch.light</c>: the light of the app the Stagewatch link is to, as every reader draws it (<see cref="Light"/>);
+    /// amber over a green or a grey while the link is held off an id two machines say (<paramref name="heldLeads"/>); grey with none.
+    /// </summary>
+    public static string StagewatchLight(EyeShowApp? linked, bool heldLeads)
+    {
+        if (linked is null) return heldLeads ? "amber" : "grey";
+        var light = Light(linked).Light;
+        return ShowContext.Word(heldLeads && light is CheckLight.Green or CheckLight.Grey ? CheckLight.Amber : light);
+    }
+
+    /// <summary>
+    /// STATE's <c>bus.stagewatch.headline</c>: the headline every one-headline reader says of the app the Stagewatch link is to
+    /// (<see cref="Light"/> — a stuck show, this desk's key refused, an id two machines say, else what it says of itself while it is
+    /// there, else its record's words), so the row and its <c>bus.apps</c> row never say two things and no count from a link that is
+    /// not live is said as current (13.10.6); <paramref name="held"/>'s words while the link is held off an id two machines say and
+    /// the app is not there (<paramref name="heldLeads"/>); "" with none.
+    /// </summary>
+    public static string StagewatchHeadline(EyeShowApp? linked, bool heldLeads, string held)
+    {
+        var lit = linked is null ? null : Light(linked);
+        return heldLeads && lit is not { There: true } ? held : lit?.Headline ?? "";
+    }
 
     /// <summary>
     /// Round 91: a linked app whose verdict on this desk's key is amber (refused, speaking for no node of this desk's, or
@@ -883,8 +991,11 @@ public static class ShowBusView
     /// <summary>What every reader says of a linked app whose show is stuck (PeerLink profile 13.16.1).</summary>
     public const string StuckWords = "says its show is stuck — no time shown";
 
+    /// <summary>Why a counting thing of a stuck app shows no time: what it says after its "?" (PeerLink profile 13.10.6).</summary>
+    public const string NoTimeReason = "no time shown — its show is stuck";
+
     /// <summary>What a counting thing of a stuck app says in place of its time.</summary>
-    public const string NoTimeWords = "no time shown — its show is stuck";
+    public const string NoTimeWords = "? — " + NoTimeReason;
 
     /// <summary>
     /// The things whose words are a count that runs on with the show — a timer, a schedule, a playlist, a chase, a
@@ -896,18 +1007,18 @@ public static class ShowBusView
     public static string StuckLight(string? light) => ShowContext.Word(ShowContext.Worst(new[] { ShowContext.LightOf(light), CheckLight.Amber }));
 
     /// <summary>
-    /// A linked app's context as every reader shows it while its show is stuck: its light no better than amber, its
-    /// headline the stall's words (a headline holds a count), and each counting thing red with no time. Its other things
-    /// keep their own words and lights. The same context in, the same context out, so the Eye rebuilds only on a change.
+    /// A linked app's context as every reader shows it while its show is stuck: its light no better than amber, its headline the
+    /// stall's words (a headline holds a count), and each counting thing "? — no time shown" (13.10.6) and red ✕ whatever the show
+    /// needs — the stuck row of 13.16.1 ("every value from it ✕") and §6's P5, which the stuck node's own context says too
+    /// (<see cref="EyeNetwork.Counting"/>). Its other things keep their own words and lights. The same context in, the same context
+    /// out, so a reader may apply it again.
     /// </summary>
     public static ShowContext NoTime(ShowContext c) => c with
     {
         Light = StuckLight(c.Light),
         Headline = StuckWords,
-        Items = c.Items.Select(i => IsCounting(i.Kind) ? i with { Light = "red", State = NoTimeWords } : i).ToList(),
+        Items = c.Items.Select(i => EyeNetwork.Counting(i, NoTimeReason, needed: true)).ToList(),
     };
-
-    private static ShowContext? Shown(ShowContext? context, bool stuck) => Steady(context) is { } c && stuck ? NoTime(c) : Steady(context);
 
     /// <summary>
     /// Round 88 (closes L52): this desk's own nodes — timers, callers, the arcade — as the Eye draws them from the context
@@ -924,48 +1035,56 @@ public static class ShowBusView
             })
             .ToList();
 
-    /// <summary>The context's peers row: each app with its light and headline (its own context's when this desk reads it), never its peers.</summary>
-    public static IReadOnlyList<ShowContextPeer> Peers(IReadOnlyList<EyeShowApp> apps) => apps.Select(a => new ShowContextPeer
+    /// <summary>The context's peers row: each app with its light and headline (the projection's, <see cref="Network"/>), never its peers.</summary>
+    public static IReadOnlyList<ShowContextPeer> Peers(IReadOnlyList<EyeShowApp> apps) => Network(apps).Select(PeerOf).ToList();
+
+    private static ShowContextPeer PeerOf(AppLight lit)
     {
-        Kind = a.KindWords switch { "Stagewatch" => "main", "AGMessage" => "messenger", "Slides agent" => "agent", "Patterns node" => "patterns", _ => a.KindWords.ToLowerInvariant() },
-        Id = a.KindWords == "Patterns node" && a.Context?.Node.Id is { Length: > 0 } nodeId ? nodeId : a.Id,          // a node's §2 id is its context's, never this desk's card
-        Name = a.Name,
-        Light = ShowContext.Word(WithLink(a, ShowContext.LightOf(a.State switch
+        var a = lit.App;
+        return new ShowContextPeer
         {
-            ShowBusState.Gone => "red",
-            ShowBusState.Stale => "amber",
-            _ when a.Stuck || KeyAmber(a) || ConflictAmber(a) => StuckLight(a.Context?.Light),
-            _ => a.Context?.Light ?? "grey",
-        }))),
-        // Round 91: a key refused or not speaking for this desk, on a live link, is what this desk can say of it now: said in place of the headline.
-        // Show Bus 1.3 §2: so is an id two running nodes say, while it is live.
-        Headline = KeyLineLeads(a) ? a.Key.Line
-            : ConflictAmber(a) && !a.Stuck ? a.Conflict
-            : a.Context?.Headline is { Length: > 0 } h ? h
-            : a.State == ShowBusState.Live ? (a.Stuck ? StuckWords : a.Linked ? "linked" : a.DeviceId.Length > 0 ? "driven as a device" : "heard on the show network")
-            : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
-        // §6, appended at the row's end: its hello's age; the carrier of a link LINK verified to it ("" at level 0); and what proves
-        // the row's light and headline — the link's record for the one this desk links to, nothing beyond a hello for the rest.
-        Heard = a.Heard,
-        Link = HoldsLink(a) && a.Link is { } r ? r.PeerRowLink : "",
-        Verified = HoldsLink(a) && a.Link is { } v ? v.PeerRowVerified : "",
-    }).ToList();
+            Kind = a.KindWords switch { "Stagewatch" => "main", "AGMessage" => "messenger", "Slides agent" => "agent", "Patterns node" => "patterns", _ => a.KindWords.ToLowerInvariant() },
+            Id = a.KindWords == "Patterns node" && a.Context?.Node.Id is { Length: > 0 } nodeId ? nodeId : a.Id,          // a node's §2 id is its context's, never this desk's card
+            Name = a.Name,
+            Light = lit.Word,
+            // Round 91: a key refused or not speaking for this desk, on a live link, is what this desk can say of it now: said in place of the headline.
+            // Show Bus 1.3 §2: so is an id two running nodes say, while it is live; a link this desk holds that is not live says its record's words.
+            Headline = lit.Headline.Length > 0 ? lit.Headline
+                : lit.There ? (a.Linked ? "linked" : a.DeviceId.Length > 0 ? "driven as a device" : "heard on the show network")
+                : a.State == ShowBusState.Stale ? "quiet" : "gone quiet",
+            // §6, appended at the row's end: its hello's age; the carrier of a link LINK verified to it ("" at level 0); and what proves
+            // the row's light and headline — the link's record for the one this desk links to, nothing beyond a hello for the rest.
+            Heard = a.Heard,
+            Link = HoldsLink(a) && a.Link is { } r ? r.PeerRowLink : "",
+            Verified = HoldsLink(a) && a.Link is { } v ? v.PeerRowVerified : "",
+        };
+    }
+
+    /// <summary>The most apps the brief says in full — the needed first, then those this desk holds a link to; the rest are counted.</summary>
+    public const int BriefApps = 16;
+
+    /// <summary>The most lines the brief's show network takes, its count of what it left out after them.</summary>
+    public const int BriefMaxLines = 240;
 
     /// <summary>
-    /// The show network for the assistant's brief, in words: each app with its state, light and headline, and for the
-    /// one this desk reads, its own things (the reds and ambers first), its last lines, what may be proposed to it and
-    /// the apps it hears. The same evidence the Eye draws — unknown stays unknown.
+    /// The show network for the assistant's brief, in words, bounded: the apps the show needs first, then those this desk holds a link
+    /// to, then those only heard — at most <see cref="BriefApps"/> in full, the rest counted by kind and light in one line. Each with its
+    /// state, light and headline as every reader says them (<see cref="Network"/>), what this desk knows of it (its link's record, this
+    /// desk's key, the device that drives it, a lower source's i note), then what it says of itself grouped under "&lt;app&gt; says:" —
+    /// its things (the reds and ambers first), its last lines, what may be proposed to it and the apps it hears — never more than
+    /// <see cref="BriefMaxLines"/> lines. The same evidence the Eye draws — unknown stays unknown.
     /// </summary>
     public static IReadOnlyList<string> BriefLines(IReadOnlyList<EyeShowApp> apps)
     {
+        var lights = Network(apps).Select((l, at) => (Lit: l, At: at))
+            .OrderByDescending(x => x.Lit.App.Needed).ThenByDescending(x => HoldsLink(x.Lit.App)).ThenBy(x => x.At).Select(x => x.Lit).ToList();
         var lines = new List<string>();
-        foreach (var a in apps)
+        foreach (var lit in lights.Take(BriefApps))
         {
-            var state = StateWord(a, "heard, not linked");
-            var c = a.Context;
-            // A stuck show: the link is live and amber, its counting things carry no time (the context says so, NoTime).
-            if (a.Stuck && a.State == ShowBusState.Live && c is null) lines.Add($"{a.KindWords} {a.Name} — {state} — {StuckLight(null)}: {StuckWords}");
-            else lines.Add($"{a.KindWords} {a.Name} — {state}" + (c is null ? "" : $" — {ShowContext.Word(WithLink(a, ShowContext.LightOf(KeyAmber(a) || ConflictAmber(a) ? StuckLight(c.Light) : c.Light)))}: {c.Headline}"));
+            var a = lit.App;
+            var state = lit.StateWord("heard, not linked");
+            var c = lit.Context;
+            lines.Add($"{a.KindWords} {a.Name} — {state} — {lit.Word}" + (lit.Own.Length > 0 ? ": " + lit.Own : ""));
             // Show Bus 1.3 §13.16.4: the link's record — its state, light, mark, words and flags — as every reader says it.
             if (HoldsLink(a) && a.Link is { } link) lines.Add($"  the link: {link.State}, {link.Light} — {link.Said}");
             // G34: the link's verbs, named as the operator's — the assistant suggests them in words and never proposes one.
@@ -980,14 +1099,31 @@ public static class ShowBusView
             if (a.DeviceId.Length > 0) lines.Add($"  driven as this desk's device '{a.Device}': DEVICE {DeviceWord(a)} <its verb> — each line answered by its own receipt; this desk's blackout and look follow on it as facts");
             else if (a.DeviceAt.Length > 0) lines.Add($"  this desk's device '{a.Device}' is set at its address — not drawn as one with it until that device's link is proved and its context names this app");
             if (a.Discarded.Length > 0) lines.Add("  " + a.Discarded);
-            if (c is null || a.State == ShowBusState.Gone) continue;
+            foreach (var note in lit.Notes) lines.Add("  " + note);
+            if (c is null || a.State == ShowBusState.Gone || (HoldsLink(a) && a.Link is { IsOn: true, State: "down" or "held" or "refused" })) continue;
+            // What it says of itself: its claims, grouped under its name (the Eye design's D4).
+            lines.Add($"  {a.KindWords} {a.Name} says:");
             foreach (var i in c.Items.OrderByDescending(i => i.Light == "red").ThenByDescending(i => i.Light == "amber").Take(15))
                 lines.Add($"  · {i.Label} ({i.Kind}) — {i.Light}" + (i.State.Length > 0 ? ": " + i.State : ""));
             foreach (var r in c.Recent.TakeLast(5)) lines.Add($"  recent: {r.Text}");
             if (c.Commands.Count > 0 || c.CommandsDropped > 0) lines.Add("  may be proposed to it: " + BriefCommandsLine(c));
             foreach (var p in c.Peers.Take(6)) lines.Add($"  it hears {ShowBusPeers.KindWords(p.Kind)} {p.Name} — {p.Light}" + (p.Headline.Length > 0 ? ": " + p.Headline : ""));
         }
-        return lines;
+        var rest = lights.Skip(BriefApps).ToList();
+        var tail = new List<string>(1);                                                       // the counted apps: never cut by the bound
+        if (rest.Count > 0)
+        {
+            var kinds = string.Join(", ", rest.GroupBy(l => l.App.KindWords, StringComparer.Ordinal).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => string.Create(CultureInfo.InvariantCulture, $"{g.Count()} {g.Key}")));
+            var lit = string.Join(", ", rest.GroupBy(l => l.Light).OrderByDescending(g => g.Key == CheckLight.Red).ThenByDescending(g => g.Key == CheckLight.Amber).ThenBy(g => g.Key)
+                .Select(g => string.Create(CultureInfo.InvariantCulture, $"{g.Count()} {ShowContext.Word(g.Key)}")));
+            tail.Add(string.Create(CultureInfo.InvariantCulture, $"{rest.Count} more {(rest.Count == 1 ? "app" : "apps")} on the show network, not said here: {kinds} — {lit}; the Nodes page and EYE list every one"));
+        }
+        if (lines.Count + tail.Count <= BriefMaxLines) return lines.Concat(tail).ToList();
+        // The bound keeps the count of the apps not said and the count of the lines cut: the apps' own lines give way to both.
+        var keep = BriefMaxLines - tail.Count - 1;
+        var cut = lines.Count - keep;
+        return lines.Take(keep).Concat(tail).Append(string.Create(CultureInfo.InvariantCulture, $"… {cut} more {(cut == 1 ? "line" : "lines")} of the show network left out here — the Nodes page and EYE say every app")).ToList();
     }
 
     /// <summary>The most of a peer's verbs the assistant's brief lists (Show Bus 1.3 §6: a view may show fewer, and says how many it left out).</summary>
@@ -1015,6 +1151,34 @@ public static class ShowBusView
     private static ShowBusState Worse(ShowBusState a, ShowBusState b) => (ShowBusState)Math.Max((int)a, (int)b);
 }
 
+/// <summary>
+/// One app's light as the show network's one projection says it (<see cref="ShowBusView.Light"/>), read by every reader: the light
+/// and its mark, the headline a one-line reader says (a stuck show, this desk's key refused, an id two machines say, else what the
+/// app says of itself, else a link's record words while it is not live), the app's own headline as shown, the i notes lower sources
+/// add, and its context as every reader shows it.
+/// </summary>
+public sealed record AppLight(EyeShowApp App, CheckLight Light, string Headline, string Own, IReadOnlyList<string> Notes, ShowContext? Context)
+{
+    /// <summary>The light's shape beside its colour: ✓ △ ✕ ○.</summary>
+    public string Mark => EyeMarks.Glyph(Light);
+
+    /// <summary>The light's word as the context's peers row and STATE write it.</summary>
+    public string Word => ShowContext.Word(Light);
+
+    /// <summary>Whether the app is there now: its link this desk holds live, or, with none, its hello live.</summary>
+    public bool There => ShowBusView.HoldsLink(App) && App.Link is { IsOn: true } record ? record.IsLive : App.State == ShowBusState.Live;
+
+    /// <summary>
+    /// The state word every reader says beside the light: a link this desk holds whose record is on and not live says the record's
+    /// state — "link held", "link down", "link quiet" — for the record leads; else <see cref="ShowBusView.StateWord"/>.
+    /// </summary>
+    public string StateWord(string heard = "heard")
+        => ShowBusView.HoldsLink(App) && App.Link is { IsOn: true, IsLive: false } r ? "link " + (r.State == "stale" ? "quiet" : r.State) : ShowBusView.StateWord(App, heard);
+}
+
+/// <summary>One row of STATE's <c>bus.apps</c>: its peers row's fields, then the conflict and the device appended at its end.</summary>
+public sealed record ShowBusAppRow(string Kind, string Id, string Name, string Light, string Headline, bool Conflict, string Device);
+
 /// <summary>Round 87: one other show app on the Nodes page — its kind in its colour, its name, and a line of what it is doing.</summary>
 public sealed record ShowAppCard(string Id, string KindLabel, string Name, string Line, string Hue, bool Linked, string Mark = "○")
 {
@@ -1027,11 +1191,14 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
     /// <summary>Round 97: the device that drives it ("" for none) — the card's menu opens it on the Interactive page.</summary>
     public string DeviceId { get; init; } = "";
 
-    public static ShowAppCard Of(EyeShowApp app)
+    public static ShowAppCard Of(EyeShowApp app) => Of(ShowBusView.Light(app));
+
+    /// <summary>One app's card from the show network's one projection (<see cref="ShowBusView.Network"/>): its light, mark and words.</summary>
+    public static ShowAppCard Of(AppLight lit)
     {
-        var state = ShowBusView.StateWord(app);
-        var line = app.Stuck && app.State == ShowBusState.Live ? $"{state} · {ShowBusView.StuckWords}"
-            : app.Context is { Headline.Length: > 0 } c && app.State == ShowBusState.Live ? $"{state} · {c.Headline}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
+        var app = lit.App;
+        var state = lit.StateWord();
+        var line = lit.Own.Length > 0 && lit.There ? $"{state} · {lit.Own}" : state + (app.Words.Length > 0 ? " · " + app.Words : "");
         // Round 91: what it made of this desk's key — a refusal, a key that speaks for another desk, P-legacy's label.
         if (app.Linked && app.Key.Line.Length > 0) line += " · " + app.Key.Line;
         // Show Bus 1.3 §13.16.4: the link's record, its mark beside its words and flags — its steady face, so the card moves with the link's state, never once a second.
@@ -1042,17 +1209,16 @@ public sealed record ShowAppCard(string Id, string KindLabel, string Name, strin
         if (app.DeviceId.Length > 0) line += $" · driven as the device {app.Device}";
         else if (app.DeviceAt.Length > 0) line += $" · this desk's device {app.Device} is set at its address";
         if (app.Discarded.Length > 0) line += " · " + app.Discarded;
-        // The card's light is the Eye card's (CardLight): gone or a red its own context or a live link's record says, dark red; quiet,
-        // stuck, this desk's key not taken, its id said by two machines, or an amber its context or record says, amber; else the
-        // kind's own colour. Its mark is that light's shape, so the colour and the mark say one thing and neither is alone.
-        var light = ShowBusView.CardLight(app);
-        var hue = light switch
+        foreach (var note in lit.Notes) line += " · " + note;
+        // The card's light is the projection's, the Eye card's: red dark red, amber amber, else the kind's own colour. Its mark is that
+        // light's shape, so the colour and the mark say one thing and neither is alone.
+        var hue = lit.Light switch
         {
             CheckLight.Red => "#B03030",
             CheckLight.Amber => "#FFB020",
             _ => app.KindWords switch { "Stagewatch" => "#35E0D0", "AGMessage" => "#B98CFF", "Slides agent" => "#5FD0FF", "PlayMap" => "#F28FB8", _ => "#8A93A6" },
         };
-        return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked, EyeMarks.Glyph(light))
+        return new ShowAppCard(app.Id, app.KindWords, app.Name, line, hue, app.Linked, lit.Mark)
         {
             AddAsDevice = app.KindWords == "PlayMap" && app.DeviceId.Length == 0 && app.DeviceAt.Length == 0 && app.State != ShowBusState.Gone,
             DeviceId = app.DeviceId.Length > 0 ? app.DeviceId : app.DeviceAt,

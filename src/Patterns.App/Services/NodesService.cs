@@ -85,8 +85,11 @@ public sealed class NodesService
         table.Need(new[] { _s.Stagewatch.NodeId }.Concat(_s.State.Control.Stagewatch.Pins.Select(p => p.Key).Where(k => k.StartsWith("node:", StringComparison.Ordinal)).Select(k => k[5..])));
         var peers = table.Snapshot(now);
         SayHelloTable(peers, table.Dropped, now);
-        var apps = ShowBusView.Apps(peers, now, _s.Stagewatch.SightWithLink, _s.NodeDevices());   // round 97: PlayMap nodes driven as devices
-        var cards = apps.Select(ShowAppCard.Of).ToList();
+        // The apps every other reader takes (what the show needs, a changed certificate, the speaker, the windows), so one projection
+        // lights the cards as it lights the Eye, STATE, the context and the brief; this desk's own nodes are its node table's, not cards.
+        var apps = (_s.ShowApps?.Invoke(now) ?? ShowBusView.Apps(peers, now, _s.Stagewatch.SightWithLink, _s.NodeDevices()))   // round 97: PlayMap nodes driven as devices
+            .Where(a => !a.Id.StartsWith("node:", StringComparison.Ordinal)).ToList();
+        var cards = ShowBusView.Network(apps).Select(ShowAppCard.Of).ToList();                     // the show network's one projection of lights
         var link = _s.Stagewatch;
         var extra = string.Join(" ", new[] { link.TlsWords, link.ApprovalWords }.Where(w => w.Length > 0).Select(w => w.EndsWith('.') ? w : w + "."));
         var line = ShowAppCard.NetworkLine(cards.Count, _s.Beacon.HearingShowBus, link.Status, table.Dropped) + (extra.Length > 0 ? " " + extra : "");   // round 88: TLS and the approval desk

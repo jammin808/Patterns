@@ -805,12 +805,12 @@ public sealed class CommandRouter : IRouter
         // The apps a hello or a link names (a node device no hello names is this desk's own device, read in its devices row); Peers
         // keeps their order, one row each: a row's conflict is its app's.
         var apps = ShowBusView.Published(_services.ShowApps(now));
-        var rows = ShowBusView.Peers(apps);
+        var rows = ShowBusView.StateRows(apps);                                          // the show network's one projection of lights
         return new
         {
             heard = apps.Count(a => a.State == ShowBusState.Live),
             // Round 97: the device that drives a node, at the row's end ("" for none).
-            apps = rows.Select((p, i) => new { kind = p.Kind, id = p.Id, name = p.Name, light = p.Light, headline = p.Headline, conflict = apps[i].Conflict.Length > 0, device = apps[i].Device }).ToArray(),
+            apps = rows.Select(r => new { kind = r.Kind, id = r.Id, name = r.Name, light = r.Light, headline = r.Headline, conflict = r.Conflict, device = r.Device }).ToArray(),
             stagewatch = StagewatchRow(apps),
             dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
         };
@@ -831,9 +831,6 @@ public sealed class CommandRouter : IRouter
         var linked = apps.FirstOrDefault(a => a.Linked && a.KindWords == "Stagewatch");      // the link's own card, never one of this desk's nodes
         // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
         var stuck = sight.StuckLive;
-        // Round 91: this desk's key refused or not speaking for it, or read by P-legacy's fallback — amber while live, as every reader shows it.
-        // Show Bus 1.3 §2: so is an id two running nodes say.
-        var amber = linked is not null && (ShowBusView.KeyAmber(linked) || ShowBusView.ConflictAmber(linked));
         // Show Bus 1.3 §2, 13.15.3: the link held off an id two running nodes say, with nothing live linked — amber, and the
         // words naming both machines in the headline, so a deck that reads only the light and the headline sees the hold.
         var held = link.Held;
@@ -846,12 +843,13 @@ public sealed class CommandRouter : IRouter
             following = _services.Stage.Following.Length > 0,
             title = sight.Frame?.Title ?? "",
             text = sight.State == ShowBusState.Live && sight.Frame is { Live: true } frame ? frame.Text : "",
-            // Show Bus 1.3 §13.16.4: a live link's record darker than this — amber at level 0 — is the row's light too.
-            light = Folded(linked, stuck || amber ? ShowBusView.StuckLight(linked?.Context?.Light) : heldLeads ? "amber" : linked?.Context?.Light ?? "grey"),
-            // Round 91: a key refused or speaking for no node of this desk's, on a live link, leads — as the apps row says it.
-            headline = stuck ? ShowBusView.StuckWords : linked is not null && ShowBusView.KeyLineLeads(linked) ? linked.Key.Line
-                : linked is not null && ShowBusView.ConflictAmber(linked) ? linked.Conflict
-                : heldLeads ? held : linked?.Context?.Headline ?? "",
+            // The light every reader draws for the linked app (ShowBusView.Light: its record's when the link is not live, amber over green
+            // at level 0), amber over green while the link is held off an id two machines say.
+            light = ShowBusView.StagewatchLight(linked, heldLeads),
+            // The headline every one-headline reader says of the linked app (ShowBusView.Light, as its bus.apps row says it): a stuck
+            // show, this desk's key refused, an id two machines say, its own while it is there, its record's words while the link is not
+            // live — never a count from a link that is not live (13.10.6); the hold's words while the link is held off an id.
+            headline = ShowBusView.StagewatchHeadline(linked, heldLeads, held),
             clock = link.ClockOffset is { } o ? LinkClock.Note(o, "its") : "",
             words = link.Status,
             stuck,                                                                   // round 89: appended at the row's end
@@ -871,9 +869,6 @@ public sealed class CommandRouter : IRouter
             }).ToArray(),
         };
     }
-
-    /// <summary>The linked app's light as every reader draws it: no better than its link's record while the link is live (Show Bus 1.3 §13.16.4).</summary>
-    private static string Folded(EyeShowApp? linked, string light) => linked is null ? light : ShowContext.Word(ShowBusView.WithLink(linked, ShowContext.LightOf(light)));
 
     /// <summary>The weather chip for remotes: on air, the view, the place, the line the desk reads, the figure alone, the source and the status.</summary>
     private object WeatherRow()

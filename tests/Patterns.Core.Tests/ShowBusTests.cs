@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -786,15 +787,22 @@ public class ShowBusTests
         var sw = graph.Nodes.Single(n => n.Id == "app:a1b2c3d4");
         Assert.Equal(EyeKind.ShowApp, sw.Kind);
         Assert.Equal(EyePlane.Control, sw.Plane);
+        Assert.Equal(EyePlane.Network, sw.Band);                                                 // drawn in the NETWORK band
         Assert.Equal(CheckLight.Amber, sw.Light);                                                // the context's own light
         Assert.Equal("Keynote — Ana · 12:30 left · Lighting standing by", sw.Sub);
         Assert.Contains(sw.Words, w => w.Contains("hears AGMessage AGM", StringComparison.Ordinal));
         Assert.Equal(CheckLight.Amber, graph.Nodes.Single(n => n.Id == "app:a1b2c3d4:cue:lighting").Light);
         Assert.Contains(graph.Edges, e => e.From == "app:a1b2c3d4:timer" && e.To == "app:a1b2c3d4:cue:lighting" && e.Kind == EyeEdgeKind.Drives);
         Assert.Contains(graph.Edges, e => e.From == "app:a1b2c3d4" && e.To == EyeGraph.DeskId && e.Kind == EyeEdgeKind.Follows);
+        // Heard only (Show Bus 1.3 §13.16: a hello alone is never green, and never a reason to call an absent app a fault): live grey,
+        // quiet grey, gone grey — amber and red only for an app the show needs.
         Assert.Equal(CheckLight.Grey, graph.Nodes.Single(n => n.Id == "app:77aa77aa").Light);
-        Assert.Equal(CheckLight.Amber, graph.Nodes.Single(n => n.Id == "app:55bb55bb").Light);
-        Assert.Equal(CheckLight.Red, graph.Nodes.Single(n => n.Id == "app:66cc66cc").Light);
+        Assert.Equal(CheckLight.Grey, graph.Nodes.Single(n => n.Id == "app:55bb55bb").Light);
+        Assert.Equal(CheckLight.Grey, graph.Nodes.Single(n => n.Id == "app:66cc66cc").Light);
+        var needed = Graph(new EyeShowApp("55bb55bb", "Slides agent", "Lectern", ShowBusState.Stale, false, "") { Needed = true },
+            new EyeShowApp("66cc66cc", "Slides agent", "Side", ShowBusState.Gone, false, "") { Needed = true });
+        Assert.Equal(CheckLight.Amber, needed.Nodes.Single(n => n.Id == "app:55bb55bb").Light);
+        Assert.Equal(CheckLight.Red, needed.Nodes.Single(n => n.Id == "app:66cc66cc").Light);
         Assert.Contains(graph.Lines(), l => l.Contains("Hall A", StringComparison.Ordinal));
     }
 
@@ -818,10 +826,12 @@ public class ShowBusTests
 
         var brief = ShowBusView.BriefLines(apps);
         Assert.Contains("Stagewatch Hall A — linked — amber: Keynote — Ana · 12:30 left · Lighting standing by", brief);
+        Assert.Contains("  Stagewatch Hall A says:", brief);                                     // what it says of itself, grouped as its claim
+        Assert.True(brief.ToList().IndexOf("  Stagewatch Hall A says:") < brief.ToList().IndexOf("  · Lighting (department) — amber: standing by: LX 12"));
         Assert.Contains("  · Lighting (department) — amber: standing by: LX 12", brief);
         Assert.Contains("  may be proposed to it: signal go all (high)", brief);
         Assert.Contains("  it hears AGMessage AGM — green: 12 in the room", brief);
-        Assert.Contains("AGMessage AGM — heard, not linked", brief);
+        Assert.Contains("AGMessage AGM — heard, not linked — grey", brief);                       // a hello alone: its light said, grey
 
         var card = ShowAppCard.Of(apps[0]);
         Assert.Equal(("#FFB020", "△"), (card.Hue, card.Mark));                                 // its context says amber: the card wears it, colour and mark alike
@@ -833,6 +843,105 @@ public class ShowBusTests
         var typed = ShowBusView.Apps(Array.Empty<ShowBusPeer>(), Now, sight);
         Assert.Equal("a1b2c3d4", typed.Single().Id);
         Assert.True(typed.Single().Linked);
+
+        // The fence: the five readers — the Eye's card, the context's peers row, the Nodes page's card, the assistant's brief and STATE's
+        // bus.apps row — say one light and one mark for each case, from the one projection (ShowBusView.Network).
+        static LinkRecord Record(string state, string light, string words)
+            => new("main", "a1b2c3d4", "Hall A", "ws", 1, "pinned", "03e9b152", "mutual", "52f6a0b1c2d3e4f5", "post", state, state == "refused" ? "certificate" : state == "held" ? "key" : "", "live",
+                Array.Empty<string>(), light, LinkRecord.MarkOf(ShowContext.LightOf(light)), words, 0, 0, 0, null, new LinkRecordClock(null, null, null, 0, false), new LinkCounts(0, 0, 0, 0, 0, 0), null);
+        var linked = new EyeShowApp("a1b2c3d4", "Stagewatch", "Hall A", ShowBusState.Live, true, "10.0.0.9:9924") { Context = StagewatchContext(), Heard = "live" };
+        var cases = new (string Case, EyeShowApp App, CheckLight Light)[]
+        {
+            ("gone, heard only", new EyeShowApp("66cc66cc", "Slides agent", "Side", ShowBusState.Gone, false, "") { Heard = "gone" }, CheckLight.Grey),
+            ("gone, needed", new EyeShowApp("66cc66cc", "Slides agent", "Side", ShowBusState.Gone, false, "") { Heard = "gone", Needed = true }, CheckLight.Red),
+            ("stuck", linked with { Stuck = true, Context = StagewatchContext("green") }, CheckLight.Amber),
+            ("held, needed", linked with { Link = Record("held", "red", "Hall A refused this desk's key (revoked) — next try 20:15:05"), Needed = true }, CheckLight.Red),
+            ("held", linked with { Link = Record("held", "amber", "Hall A refused this desk's key (revoked) — next try 20:15:05") }, CheckLight.Amber),
+            ("certificate changed, needed", linked with { State = ShowBusState.Gone, Link = Record("refused", "red", "CERTIFICATE CHANGED: Hall A now shows ab12 … — nothing sent; accept it on the Nodes page"), Needed = true }, CheckLight.Red),
+            ("certificate changed", linked with { State = ShowBusState.Gone, Link = Record("refused", "amber", "CERTIFICATE CHANGED: Hall A now shows ab12 … — nothing sent; accept it on the Nodes page") }, CheckLight.Amber),
+            // A green context and a green live record: only precedence passes it green (the worse of hello and link is red or amber).
+            ("live, linked, its hello gone", linked with { Heard = "gone", Context = StagewatchContext("green"), Link = Record("live", "green", "Hall A · pinned 03e9 b152 · PeerLink 1") }, CheckLight.Green),
+            // The record decides while the link is not live, though the sight it rides on still says live.
+            ("record stale, sight live", linked with { Link = Record("stale", "amber", "Hall A quiet for 8 s") }, CheckLight.Amber),
+        };
+        foreach (var (name, app, light) in cases)
+        {
+            var one = new[] { app };
+            var lit = Assert.Single(ShowBusView.Network(one));
+            Assert.True(light == lit.Light, $"{name}: the projection says {lit.Light}");
+            var mark = EyeMarks.Glyph(light);
+            var node = Graph(app).Nodes.Single(n => n.Id == "app:" + app.Id);
+            Assert.True((light, EyeMarks.Of(light)) == (node.Light, node.Mark), $"{name}: the Eye's card {node.Light} {node.Mark}");
+            var row = Assert.Single(ShowBusView.Peers(one));
+            Assert.True(ShowContext.Word(light) == row.Light, $"{name}: the peers row {row.Light}");
+            var nodesCard = ShowAppCard.Of(app);
+            Assert.True(mark == nodesCard.Mark, $"{name}: the Nodes card {nodesCard.Mark}");
+            Assert.True(light switch { CheckLight.Red => nodesCard.Hue == "#B03030", CheckLight.Amber => nodesCard.Hue == "#FFB020", _ => nodesCard.Hue is not ("#B03030" or "#FFB020") }, $"{name}: the Nodes card's hue {nodesCard.Hue}");
+            var first = ShowBusView.BriefLines(one)[0];
+            Assert.True(first.Contains($" — {ShowContext.Word(light)}", StringComparison.Ordinal), $"{name}: the brief says {first}");
+            var state = Assert.Single(ShowBusView.StateRows(one));
+            Assert.True(ShowContext.Word(light) == state.Light, $"{name}: STATE's bus.apps row {state.Light}");
+        }
+        // STATE's bus.stagewatch headline is the bus.apps row's, and no count from a link that is not live is said as current (13.10.6).
+        foreach (var (name, app, _) in cases.Where(c => c.App.Linked))
+        {
+            var rowHeadline = ShowBusView.StateRows(new[] { app })[0].Headline;
+            var headline = ShowBusView.StagewatchHeadline(app, heldLeads: false, held: "");
+            Assert.True(headline.Length == 0 || headline == rowHeadline, $"{name}: bus.stagewatch says '{headline}', bus.apps '{rowHeadline}'");
+            if (!ShowBusView.Light(app).There) Assert.True(!headline.Contains("left", StringComparison.Ordinal), $"{name}: a count said as current: {headline}");
+        }
+        Assert.Equal("two machines say a1b2c3d4", ShowBusView.StagewatchHeadline(cases[3].App, heldLeads: true, held: "two machines say a1b2c3d4"));
+        Assert.Equal("", ShowBusView.StagewatchHeadline(null, heldLeads: false, held: ""));
+        // A record that is not live beside a sight still live: the record decides, its things are not current, its state word leads.
+        var staleRecord = ShowBusView.Light(cases[^1].App);
+        Assert.False(staleRecord.There);
+        Assert.Equal(ShowBusView.QuietWords, staleRecord.Context!.Items.Single(i => i.Id == "timer").State[4..]);
+        Assert.StartsWith("Stagewatch Hall A — link quiet — amber", ShowBusView.BriefLines(new[] { cases[^1].App })[0], StringComparison.Ordinal);
+        Assert.StartsWith("link quiet · ", ShowAppCard.Of(cases[^1].App).Line, StringComparison.Ordinal);
+        // Precedence, never the worse: a live link this desk holds says the app is there though its hello has gone, and the hello adds an i note.
+        var hello = ShowBusView.Light(cases[^2].App);
+        Assert.Contains(hello.Notes, n => n.StartsWith("i its hello is not heard", StringComparison.Ordinal));
+        Assert.Contains(hello.Notes.Single(), Graph(cases[^2].App).Nodes.Single(n => n.Id == "app:a1b2c3d4").Words);
+        Assert.EndsWith(hello.Notes.Single(), ShowAppCard.Of(cases[^2].App).Line, StringComparison.Ordinal);
+        Assert.Contains("  " + hello.Notes.Single(), ShowBusView.BriefLines(new[] { cases[^2].App }));
+        // A link this desk holds that is not live: its record's words lead every one-headline reader, its things are not current.
+        var refused = cases[5].App;
+        Assert.StartsWith("CERTIFICATE CHANGED", ShowBusView.Peers(new[] { refused })[0].Headline, StringComparison.Ordinal);
+        Assert.StartsWith("CERTIFICATE CHANGED", Graph(refused).Nodes.Single(n => n.Id == "app:a1b2c3d4").Sub, StringComparison.Ordinal);
+        Assert.DoesNotContain(Graph(refused).Nodes, n => n.Id == "app:a1b2c3d4:timer");
+        Assert.DoesNotContain(ShowBusView.BriefLines(new[] { refused }), l => l.Contains("Keynote — Ana (timer)", StringComparison.Ordinal));
+        // STATE's bus.stagewatch light is the same projection's.
+        Assert.Equal("red", ShowBusView.StagewatchLight(refused, heldLeads: false));
+        Assert.Equal("amber", ShowBusView.StagewatchLight(cases[2].App, heldLeads: false));
+        Assert.Equal(("grey", "amber"), (ShowBusView.StagewatchLight(null, false), ShowBusView.StagewatchLight(null, true)));
+    }
+
+    [Fact]
+    public void TheBriefIsBoundedTheNeededFirstAndTheRestCounted()
+    {
+        var apps = Enumerable.Range(0, 160).Select(i => new EyeShowApp(string.Create(CultureInfo.InvariantCulture, $"app{i:000}xx"), i % 2 == 0 ? "Slides agent" : "AGMessage", $"Room {i}", ShowBusState.Live, false, "")
+        {
+            Context = StagewatchContext() with { Recent = Enumerable.Range(0, 20).Select(r => new ShowContextLine { At = r, Text = $"line {r}" }).ToList() },
+        }).ToList();
+        apps[150] = apps[150] with { Needed = true, State = ShowBusState.Gone };
+        apps[151] = new EyeShowApp("a1b2c3d4", "Stagewatch", "Hall A", ShowBusState.Live, true, "") { Context = StagewatchContext() };
+        var brief = ShowBusView.BriefLines(apps);
+        Assert.InRange(brief.Count, 1, ShowBusView.BriefMaxLines);
+        Assert.StartsWith("Slides agent Room 150 — gone quiet — red", brief[0], StringComparison.Ordinal);                  // the needed first
+        Assert.Contains(brief, l => l.StartsWith("Stagewatch Hall A — linked — amber", StringComparison.Ordinal));        // then the linked
+        var said = brief.Count(l => !l.StartsWith(' ') && l.Contains(" — ", StringComparison.Ordinal) && !l.StartsWith('1') && !l.StartsWith('…'));
+        Assert.Equal(ShowBusView.BriefApps, said);
+        Assert.Contains(brief, l => l.StartsWith("144 more apps on the show network, not said here: 72 AGMessage, 72 Slides agent — 144 amber", StringComparison.Ordinal));
+        Assert.DoesNotContain(brief, l => l.Contains("line 0", StringComparison.Ordinal));                                // its last lines only
+
+        // However much each app says, the brief keeps its bound and says what it cut.
+        var loud = apps.Select(a => a with { Needed = true, Context = (a.Context ?? StagewatchContext()) with { Peers = Enumerable.Range(0, 40).Select(p => new ShowContextPeer { Kind = "agent", Id = $"peer{p:00}x", Name = $"P{p}", Light = "green" }).ToList() } }).ToList();
+        var bounded = ShowBusView.BriefLines(loud);
+        Assert.Equal(ShowBusView.BriefMaxLines, bounded.Count);
+        Assert.StartsWith("… ", bounded[^1], StringComparison.Ordinal);
+        Assert.StartsWith("144 more apps on the show network, not said here: ", bounded[^2], StringComparison.Ordinal);   // the bound never cuts the count
+        Assert.Contains(" — 1 red, 143 amber;", bounded[^2], StringComparison.Ordinal);                                 // which of them are red and amber
+        Assert.EndsWith("left out here — the Nodes page and EYE say every app", bounded[^1], StringComparison.Ordinal);
     }
 
     // ---- the Stagewatch the stage timer follows ---------------------------------------------------
@@ -884,31 +993,38 @@ public class ShowBusTests
         Assert.Equal(StageTimerPhase.Idle, StageFollow.Time(sight.Frame!, sight.FrameAtSeconds, 101).Phase);
         Assert.Equal("following Stagewatch Hall A — it says its show is stuck; the time is not shown", StageFollow.Words(sight));
 
-        // The projection: the link live, its context no better than amber, its counting things with no time.
+        // The projection (ShowBusView.Light, which every reader takes): the link live, the context as shown no better than amber, its
+        // counting things "? — no time shown" (13.10.6) and red ✕ whether or not the show needs the app (13.16.1's stuck row, §6 P5).
+        // The app's own facts keep its context as it came — the projection shows it, never rewrites it.
         var app = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight));
         Assert.True(app.Stuck);
         Assert.Equal(ShowBusState.Live, app.State);
-        Assert.Equal("amber", app.Context!.Light);                                                   // the worse of its own green and amber
-        Assert.Equal(ShowBusView.StuckWords, app.Context.Headline);                                  // a headline holds a count: not shown
-        var timer = app.Context.Items.Single(i => i.Id == "timer");
+        Assert.Equal("green", app.Context!.Light);
+        var shown = ShowBusView.Light(app).Context!;
+        Assert.Equal("amber", shown.Light);                                                          // the worse of its own green and amber
+        Assert.Equal(ShowBusView.StuckWords, shown.Headline);                                        // a headline holds a count: not shown
+        var timer = shown.Items.Single(i => i.Id == "timer");
+        Assert.False(app.Needed);
         Assert.Equal(("red", ShowBusView.NoTimeWords), (timer.Light, timer.State));
-        var lighting = app.Context.Items.Single(i => i.Id == "cue:lighting");
+        Assert.StartsWith("? — ", ShowBusView.NoTimeWords, StringComparison.Ordinal);
+        Assert.Equal(("red", ShowBusView.NoTimeWords), ShowBusView.Light(app with { Needed = true }).Context!.Items.Where(i => i.Id == "timer").Select(i => (i.Light, i.State)).Single());
+        var lighting = shown.Items.Single(i => i.Id == "cue:lighting");
         Assert.Equal(("amber", "standing by: LX 12"), (lighting.Light, lighting.State));              // its other things keep their words
-        Assert.Equal(app.Context.ToJson(), ShowBusView.Apps(peers.Snapshot(Now), Now, sight).Single().Context!.ToJson());   // the same in, the same out: no rebuild
+        Assert.Equal(shown.ToJson(), ShowBusView.Light(ShowBusView.Apps(peers.Snapshot(Now), Now, sight).Single()).Context!.ToJson());   // the same in, the same out: no rebuild
 
         // The context's peers row, the brief, the Nodes card and the Eye give one verdict.
         var row = Assert.Single(ShowBusView.Peers(new[] { app }));
         Assert.Equal(("amber", ShowBusView.StuckWords), (row.Light, row.Headline));
         var brief = ShowBusView.BriefLines(new[] { app });
         Assert.Contains("Stagewatch Hall A — linked — amber: says its show is stuck — no time shown", brief);
-        Assert.Contains("  · Keynote — Ana (timer) — red: no time shown — its show is stuck", brief);
+        Assert.Contains("  · Keynote — Ana (timer) — red: ? — no time shown — its show is stuck", brief);
         var card = ShowAppCard.Of(app);
         Assert.Equal(("#FFB020", "linked · says its show is stuck — no time shown"), (card.Hue, card.Line));
         var graph = Graph(app);
         var node = graph.Nodes.Single(n => n.Id == "app:a1b2c3d4");
         Assert.Equal((CheckLight.Amber, ShowBusView.StuckWords), (node.Light, node.Sub));
         var edge = graph.Edges.Single(e => e.From == "app:a1b2c3d4" && e.To == EyeGraph.DeskId);
-        Assert.Equal((EyeEdgeKind.Follows, CheckLight.Amber), (edge.Kind, edge.Light));                // the link: live, amber
+        Assert.Equal((EyeEdgeKind.Follows, CheckLight.Amber), (edge.Kind, edge.Light));                // the link: live, amber (13.16.1's stuck)
         var count = graph.Nodes.Single(n => n.Id == "app:a1b2c3d4:timer");
         Assert.Equal((CheckLight.Red, ShowBusView.NoTimeWords), (count.Light, count.Sub));
 
@@ -928,7 +1044,7 @@ public class ShowBusTests
         // A typed address that never said hello carries the same verdict.
         var typed = Assert.Single(ShowBusView.Apps(Array.Empty<ShowBusPeer>(), Now, sight));
         Assert.True(typed.Stuck);
-        Assert.Equal("amber", typed.Context!.Light);
+        Assert.Equal("amber", ShowBusView.Light(typed).Context!.Light);
 
         // The link gone quiet says that instead; the stuck mark adds nothing to a link that is not live.
         var stale = Assert.Single(ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { State = ShowBusState.Stale }));
@@ -973,6 +1089,7 @@ public class ShowBusTests
         Assert.Equal("red", ShowBusView.StuckLight("red"));
         var once = ShowBusView.NoTime(StagewatchContext("green"));
         Assert.Equal(once.ToJson(), ShowBusView.NoTime(once).ToJson());                              // idempotent: a reader may apply it again
+        Assert.Equal("red", once.Items.Single(i => i.Id == "timer").Light);                          // a stuck show's counts red ✕ (13.16.1, §6 P5)
         Assert.Equal(StagewatchContext("green").Links.Single().Light, once.Links.Single().Light);     // the links between its things keep their lights
     }
 
@@ -1394,8 +1511,9 @@ public class ShowBusTests
 
         Assert.True(ShowBusView.KeyLineLeads(app));
 
-        // A link gone quiet, or gone, says that — in every reader with one headline; the key's words stay on the card's line.
-        foreach (var (state, light, sub) in new[] { (ShowBusState.Stale, "amber", "quiet"), (ShowBusState.Gone, "red", "gone quiet") })
+        // A link gone quiet, or gone, says that — in every reader with one headline; the key's words stay on the card's line. Gone is
+        // amber here, red only when the show needs the link (PeerLink profile 13.16.1's down; ShowBusView.Light) — the needed leg below.
+        foreach (var (state, light, sub) in new[] { (ShowBusState.Stale, "amber", "quiet"), (ShowBusState.Gone, "amber", "gone quiet") })
         {
             var off = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { State = state }).Single(a => a.Linked);
             Assert.False(ShowBusView.KeyAmber(off));
@@ -1408,6 +1526,9 @@ public class ShowBusTests
             Assert.DoesNotContain("KEY REFUSED", offNode.Sub, StringComparison.Ordinal);
             Assert.EndsWith(line, ShowAppCard.Of(off).Line, StringComparison.Ordinal);
         }
+        var goneNeeded = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { State = ShowBusState.Gone }).Single(a => a.Linked) with { Needed = true };
+        Assert.Equal("red", ShowBusView.Peers(new[] { goneNeeded })[0].Light);
+        Assert.Equal(CheckLight.Red, Graph(goneNeeded).Nodes.Single(n => n.Id == "app:a1b2c3d4").Light);
 
         // A stuck show says so first; the key's line is still the context's and the card's detail.
         var stuckApp = ShowBusView.Apps(peers.Snapshot(Now), Now, sight with { Stuck = true }).Single(a => a.Linked);

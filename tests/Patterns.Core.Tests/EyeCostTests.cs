@@ -261,7 +261,8 @@ public sealed class EyeCostTests
         Assert.Equal(EyeMarks.Glyph(ShowBusView.CardLight(app)), ShowAppCard.Of(app).Mark);
         Assert.Equal(EyeGraph.Build(Facts(app)).Find("app:" + Id)!.Mark, EyeMarks.Of(ShowBusView.CardLight(app)));
         Assert.Equal("○", ShowAppCard.Of(new EyeShowApp("e5f6a7b8", "AGMessage", "Messenger", ShowBusState.Live, false, "")).Mark);
-        Assert.Equal("✕", ShowAppCard.Of(new EyeShowApp("e5f6a7b8", "AGMessage", "Messenger", ShowBusState.Gone, false, "")).Mark);
+        Assert.Equal("○", ShowAppCard.Of(new EyeShowApp("e5f6a7b8", "AGMessage", "Messenger", ShowBusState.Gone, false, "")).Mark);   // heard only and gone: grey (13.16)
+        Assert.Equal("✕", ShowAppCard.Of(new EyeShowApp("e5f6a7b8", "AGMessage", "Messenger", ShowBusState.Gone, false, "") { Needed = true }).Mark);
 
         // A linked, live app whose own context says red over a healthy link (no record of its own: the follow link is lit by its
         // state, live green): both cards red, mark and colour alike.

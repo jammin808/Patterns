@@ -219,6 +219,13 @@ public class EyeNetworkTests
         var g = EyeGraph.Build(new EyeFacts { ShowBusId = Desk, ShowApps = new[] { driven } });
         var only = Assert.Single(g.Edges, e => Between(e, EyeGraph.DeskId));
         Assert.Equal((EyeOrigin.Link, CheckLight.Amber), (only.Origin, only.Light));            // the record's light, verbatim, never the told green
+        // Precedence: the record sets the light and mark; the far end's own word for the same link follows, an i note where it differs.
+        Assert.EndsWith(" · i PlayMap Stage left says: Patterns FOH · scope drive", only.Words, StringComparison.Ordinal);
+        var agreeing = EyeGraph.Build(new EyeFacts { ShowBusId = Desk, ShowApps = new[] { driven with { Link = Record(PlayMap, 0, light: "green", words: "PlayMap Stage left · live") } } });
+        var same = Assert.Single(agreeing.Edges, e => Between(e, EyeGraph.DeskId));
+        Assert.Equal(CheckLight.Green, same.Light);
+        Assert.EndsWith(" · PlayMap Stage left says: Patterns FOH · scope drive", same.Words, StringComparison.Ordinal);
+        Assert.DoesNotContain(" · i ", same.Words, StringComparison.Ordinal);
 
         // As the live desk draws it: the node device is a node of this desk's, and the record's edge runs from it. PlayMap's own item for
         // that link is still the same link — one edge between the card and this desk's side, the record's; the item's rows re-anchor there.
