@@ -218,4 +218,51 @@ public class NodeHostTests
             }
         }
     }
+
+    /// <summary>
+    /// A node whose start failed — its wire's port and its beacon's held — shut down, and then edited: the edit's publish on a
+    /// closed node reopens nothing. Before, its state-change handler asked the control service and the beacon to bind again, and
+    /// the beacon's listener opened on a node nobody would close.
+    /// </summary>
+    [AvaloniaFact]
+    public void AClosedNodeWhoseStartFailedReopensNothingWhenItIsEditedAfterItsClose()
+    {
+        using var dir = TempRun.Folder("patterns-node-");
+        var (wire, http, audience) = TestPorts.Three();
+        var beaconPort = TestPorts.DistinctUdp(1)[0];
+        var s = SettingsStore.Fresh();
+        s.Control.Enabled = true;
+        s.Control.TcpPort = wire;
+        s.Control.HttpPort = http;
+        s.Control.AudiencePort = audience;
+        s.Twin.AcceptCallers = false;
+        s.Watchdog.BeaconListenPort = beaconPort;
+        s.Watchdog.BeaconPort = beaconPort;
+        File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
+        var heldWire = new TcpListener(IPAddress.Any, wire);
+        var heldBeacon = new UdpClient(new IPEndPoint(IPAddress.Any, beaconPort));
+        NodeHost? host = null;
+        try
+        {
+            heldWire.Start();
+            host = NodeHost.Build(NodeKind.Timer, new SettingsStore(dir));
+            host.Start();
+            Assert.True(host.Control.StartFailed, host.Control.Status);
+            Assert.True(host.Kernel.Beacon.BindFailed, host.Kernel.Beacon.Status);
+            host.Shutdown();
+            heldWire.Dispose();
+            heldBeacon.Dispose();
+            host.BulkEdit(() => host.State.Name = "edited after the close");
+            Assert.False(host.Control.Listening);
+            using var wireAgain = new TcpListener(IPAddress.Any, wire);
+            wireAgain.Start();                                                                   // the wire's port is free
+            using var beaconAgain = new UdpClient(new IPEndPoint(IPAddress.Any, beaconPort));    // and the beacon's
+        }
+        finally
+        {
+            heldWire.Dispose();
+            heldBeacon.Dispose();
+            host?.Shutdown();
+        }
+    }
 }

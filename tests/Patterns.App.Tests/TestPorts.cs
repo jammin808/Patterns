@@ -30,6 +30,25 @@ internal static class TestPorts
     }
 
     /// <summary>
+    /// <paramref name="count"/> free UDP ports (OSC's, the beacon's), distinct by construction as <see cref="Distinct"/>'s are: each
+    /// probe is a datagram socket bound on the any address, held until the last is picked.
+    /// </summary>
+    public static int[] DistinctUdp(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
+        var probes = new List<UdpClient>(count);
+        try
+        {
+            for (var i = 0; i < count; i++) probes.Add(new UdpClient(new IPEndPoint(IPAddress.Any, 0)));
+            return probes.Select(p => ((IPEndPoint)p.Client.LocalEndPoint!).Port).ToArray();
+        }
+        finally
+        {
+            foreach (var probe in probes) probe.Dispose();
+        }
+    }
+
+    /// <summary>
     /// <paramref name="count"/> free ports, distinct by construction: each probe is opened on the any address and stays open
     /// until the last is picked, so the operating system cannot hand one number out twice; then every probe is closed.
     /// </summary>

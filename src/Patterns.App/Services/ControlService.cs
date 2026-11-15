@@ -218,6 +218,7 @@ public sealed partial class ControlService : IDisposable
     /// <summary>Starts/stops/rebinds the listeners to match the config (UI thread).</summary>
     public void Reconcile()
     {
+        if (_disposed) return;   // a closed service opens no listener: one opened after Dispose would hold its port for the process's life
         HookStack();
         var cfg = _kernel.State.Control;
         var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}@{cfg.Bind}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";

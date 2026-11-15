@@ -220,6 +220,7 @@ public class ShowBusAppTests
             vm.State.Control.Token = "";
             services.State.Blackout = false;
             Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 
@@ -383,16 +384,34 @@ public class ShowBusAppTests
             ControlService.TrustLoopback = trusted;
             vm.State.Control.Token = "";
             Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 
     [AvaloniaFact]
     public void ADeskIsPairedFromItsFirstRunAndAnExistingSettingsFileKeepsItsChoice()
     {
+        // What it holds: a first run (no settings file) is given a pairing token, and a settings file that names none keeps
+        // the operator's choice of none. Both desks take the default ports (a first run has no file to name others in), so
+        // each closes before the next boots: two open at once would fail the second's start, and every later default desk's.
         var fresh = TestApp.Boot();
-        Assert.Matches("^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$", fresh.Vm.State.Control.Token);
+        try
+        {
+            Assert.Matches("^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$", fresh.Vm.State.Control.Token);
+        }
+        finally
+        {
+            fresh.Dispose();
+        }
         var kept = TestApp.Boot(prepare: dir => File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), "{}"));
-        Assert.Equal("", kept.Vm.State.Control.Token);
+        try
+        {
+            Assert.Equal("", kept.Vm.State.Control.Token);
+        }
+        finally
+        {
+            kept.Dispose();
+        }
     }
 
     /// <summary>
@@ -761,6 +780,7 @@ public class ShowBusAppTests
             vm.State.Control.Stagewatch.Enabled = false;
             services.Kernel.Stagewatch.Reconcile();
             Dispatcher.UIThread.RunJobs();
+            b.Dispose();
         }
     }
 

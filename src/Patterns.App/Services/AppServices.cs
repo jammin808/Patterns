@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Patterns.Audience;
 using Patterns.Assistant;
 using Patterns.Devices;
@@ -2312,8 +2313,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         return ContentTargets.IsCanvasKey(resolved) ? resolved : rig.TargetOf(resolved);
     }
 
-    /// <summary>How often a listener that could not bind is asked again.</summary>
-    public static readonly TimeSpan ListenerRetry = TimeSpan.FromSeconds(5);
+    /// <summary>How often a listener that could not bind is asked again. Tests: set to nought to ask at once, and put back.</summary>
+    public static TimeSpan ListenerRetry { get; set; } = TimeSpan.FromSeconds(5);
 
     private DateTime _listenersRetriedUtc;
 
@@ -2325,6 +2326,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// </summary>
     public void RetryListeners()
     {
+        if (_shutDown) return;   // a closed desk asks for no port: a listener opened after Shutdown has nobody to close it
         if (!Control.StartFailed && !Twin.BindFailed && !Beacon.BindFailed) return;
         var now = DateTime.UtcNow;
         if (now - _listenersRetriedUtc < ListenerRetry) return;
@@ -2606,6 +2608,78 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Tests: the step named here throws instead of running — the proof that every step after it still runs.</summary>
     public static string? FailShutdownStep { get; set; }
 
+    /// <summary>What <see cref="ShutdownReleases"/> says of a step that lets something go: the step's own action is its release.</summary>
+    public const string ReleasedByItsOwnStep = "the step itself";
+
+    /// <summary>
+    /// Every shutdown step by name, and what the step lets go: <see cref="ReleasedByItsOwnStep"/> for a step that closes,
+    /// stops or disposes something the desk holds (a socket, a timer, a worker, a handle), or the words that say why the step
+    /// holds nothing to let go. A test that injects a failure into a step (<see cref="FailShutdownStep"/>) runs, once its
+    /// assertions are made, the release the injected failure left undone (<see cref="ReleaseWhatTheInjectedFailureLeftUndone"/>),
+    /// so a desk it closed holds no port and runs no timer after it. One entry per step <see cref="Shutdown"/> can take: a step
+    /// without one fails <c>ShutdownPhaseTests</c>. Frozen: nothing changes it at run time.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> ShutdownReleases = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["outputs"] = ReleasedByItsOwnStep,
+        ["calibration"] = ReleasedByItsOwnStep,
+        ["stream"] = ReleasedByItsOwnStep,
+        ["ndi"] = ReleasedByItsOwnStep,
+        ["stingers"] = ReleasedByItsOwnStep,
+        ["spotify"] = ReleasedByItsOwnStep,
+        ["play"] = ReleasedByItsOwnStep,
+        ["arcade in"] = ReleasedByItsOwnStep,
+        ["arcade"] = ReleasedByItsOwnStep,
+        ["twin"] = ReleasedByItsOwnStep,
+        ["control"] = ReleasedByItsOwnStep,
+        ["osc"] = ReleasedByItsOwnStep,
+        ["devices"] = ReleasedByItsOwnStep,
+        ["management"] = ReleasedByItsOwnStep,
+        ["beacon"] = ReleasedByItsOwnStep,
+        ["mdns"] = ReleasedByItsOwnStep,
+        ["show lock"] = ReleasedByItsOwnStep,
+        ["ndi in"] = ReleasedByItsOwnStep,
+        ["web video"] = ReleasedByItsOwnStep,
+        ["web in"] = ReleasedByItsOwnStep,
+        ["audio graph"] = ReleasedByItsOwnStep,
+        ["deck in"] = ReleasedByItsOwnStep,
+        ["audio"] = ReleasedByItsOwnStep,
+        ["audio player"] = ReleasedByItsOwnStep,
+        ["audio endpoints"] = ReleasedByItsOwnStep,
+        ["playlist"] = ReleasedByItsOwnStep,
+        ["feeds"] = ReleasedByItsOwnStep,
+        ["weather"] = ReleasedByItsOwnStep,
+        ["video"] = ReleasedByItsOwnStep,
+        ["thumbnails"] = ReleasedByItsOwnStep,
+        ["metrics"] = ReleasedByItsOwnStep,
+        ["analyser"] = ReleasedByItsOwnStep,
+        ["tail"] = ReleasedByItsOwnStep,
+        ["quality profile"] = "a write of where the ladder settled: it holds no socket, timer or handle",
+        ["final save"] = "a write of the show: the save left undone is what the kept recovery record stands for, and a late one would land after the steps that judged it",
+        ["recovery cleared"] = "a record removed from the folder: it holds no socket, timer or handle",
+        ["recovery kept"] = "a marker written to the folder: it holds no socket, timer or handle",
+        ["ownership"] = ReleasedByItsOwnStep,
+        ["instance mutex"] = ReleasedByItsOwnStep,
+    }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    /// <summary>The step a test's injected failure skipped and the action it skipped: kept only while <see cref="FailShutdownStep"/> named one.</summary>
+    private (string Step, Action Action)? _skippedByInjection;
+
+    /// <summary>
+    /// Tests: runs the release the step named by <see cref="FailShutdownStep"/> left undone at the last shutdown — the step's
+    /// own action, which the injected failure ran in place of — or says why that step needs none (<see cref="ShutdownReleases"/>).
+    /// Once: a second call finds nothing skipped. Throws for a step the table does not name.
+    /// </summary>
+    public string ReleaseWhatTheInjectedFailureLeftUndone()
+    {
+        if (_skippedByInjection is not { } skipped) return "nothing was skipped";
+        _skippedByInjection = null;
+        if (!ShutdownReleases.TryGetValue(skipped.Step, out var release)) throw new InvalidOperationException($"the shutdown step '{skipped.Step}' names no release in AppServices.ShutdownReleases");
+        if (!string.Equals(release, ReleasedByItsOwnStep, StringComparison.Ordinal)) return $"{skipped.Step} needs none: {release}";
+        skipped.Action();
+        return $"released: {skipped.Step}";
+    }
+
     /// <summary>How long the exit waits for the final save to reach the disk before it goes on without it (round 65).</summary>
     public static TimeSpan ExitSaveWait { get; set; } = TimeSpan.FromSeconds(10);
 
@@ -2702,7 +2776,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         try
         {
-            if (string.Equals(FailShutdownStep, what, StringComparison.Ordinal)) throw new InvalidOperationException("injected by a test");
+            if (string.Equals(FailShutdownStep, what, StringComparison.Ordinal))
+            {
+                _skippedByInjection = (what, step);   // the test runs it once its assertions are made: the desk it closed keeps nothing open
+                throw new InvalidOperationException("injected by a test");
+            }
             step();
             Record(phase, what, "ran");
         }

@@ -630,6 +630,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
 
     private void OnStateChanged()
     {
+        if (_shutDown) return;   // a closed node publishes nothing and reopens nothing Shutdown closed (the wire, the beacon, mDNS)
         if (_bulkDepth > 0 || _deskDepth > 0) return;
         // The publish is what tells the link which sections moved: a caller's edit travels from here.
         Kernel.Bus.Publish(State, StateWatch);

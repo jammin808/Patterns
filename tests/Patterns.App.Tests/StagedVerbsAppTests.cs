@@ -102,7 +102,7 @@ public class StagedVerbsAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 
@@ -143,7 +143,7 @@ public class StagedVerbsAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 
@@ -193,7 +193,7 @@ public class StagedVerbsAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 
@@ -216,7 +216,7 @@ public class StagedVerbsAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 }

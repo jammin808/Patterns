@@ -148,7 +148,7 @@ public class DeskMenuAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 
@@ -205,7 +205,7 @@ public class DeskMenuAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 
@@ -263,7 +263,7 @@ public class DeskMenuAppTests
         }
         finally
         {
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 
@@ -383,7 +383,7 @@ public class DeskMenuAppTests
         finally
         {
             window?.Close();
-            b.Window.Close();
+            b.Dispose();                                                     // its ports go with it: the next test of this file boots on the same ones
         }
     }
 }

@@ -268,7 +268,12 @@ public class AdminTests
             Assert.Equal(CheckLight.Green, cpu.Light);
             Assert.Equal("closed", vm.DashboardTiles.Single(t => t.Id == "outputs").Value);   // no output window on the headless desk
             Assert.Equal("mains", vm.DashboardTiles.Single(t => t.Id == "power").Value);
-            Assert.Equal("All clear", vm.DashboardHeadline);
+            // The REMOTE tile is red while the control start's fault stands: a port held by something else names it here,
+            // with the ports this desk asked for and who holds the one that faulted, before the headline says only "REMOTE".
+            if (services.Control.StartFault is { } fault)
+                Assert.Fail($"the desk's control start failed: {fault.Words} ({TestListeners.Asked(vm.State.Control)}); port {fault.Port} is held by {PortHolder.Of(fault.Port)}");
+            var notGreen = vm.DashboardTiles.Where(t => t.Light != CheckLight.Green).Select(t => $"{t.Title} = {t.Value} ({t.Light}: {t.Detail})");
+            Assert.True(vm.DashboardHeadline == "All clear", $"the headline is '{vm.DashboardHeadline}'; the tiles not green: {string.Join("; ", notGreen)}");
             Assert.Contains("closed", vm.DashboardDetail);
 
             // The same tile objects, updated in place as the numbers move: a battery and a pinned CPU.

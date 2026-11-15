@@ -124,4 +124,34 @@ public class ListenerStartFaultTests
             booted.Dispose();
         }
     }
+
+    /// <summary>
+    /// The holder the dashboard test names when a desk's start faulted: a port this host listens on reads as this test host, a
+    /// port nobody listens on as nobody, and a machine without /proc says it cannot tell.
+    /// </summary>
+    [Fact]
+    public void ThePortHolderNamesThisTestHostForAPortItListensOnAndNobodyForAPortLetGo()
+    {
+        var port = TestPorts.Free();
+        var listener = new TcpListener(IPAddress.Any, port);
+        try
+        {
+            listener.Start();
+            var held = PortHolder.Of(port);
+            if (File.Exists("/proc/net/tcp")) Assert.Equal($"this test host (pid {Environment.ProcessId})", held);
+            else Assert.StartsWith("not known", held);
+        }
+        finally
+        {
+            listener.Dispose();
+        }
+        var free = PortHolder.Of(port);
+        if (File.Exists("/proc/net/tcp"))
+        {
+            // Let go, the port is not this host's; another process on the machine may take it in the gap, which reads as that process.
+            Assert.NotEqual($"this test host (pid {Environment.ProcessId})", free);
+            Assert.True(free == "nobody listens on it" || free.StartsWith("pid ", StringComparison.Ordinal) || free.StartsWith("not known", StringComparison.Ordinal), free);
+        }
+        else Assert.StartsWith("not known", free);
+    }
 }
