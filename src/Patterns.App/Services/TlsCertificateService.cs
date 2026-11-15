@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Patterns.Core.Services;
@@ -77,7 +76,7 @@ public sealed class TlsCertificateService : IDisposable
             var r = doc.RootElement;
             var protection = r.TryGetProperty("protection", out var p) ? p.GetString() ?? "" : "";
             var data = r.TryGetProperty("pkcs12", out var d) ? Convert.FromBase64String(d.GetString() ?? "") : Array.Empty<byte>();
-            var raw = protection == "dpapi-user" ? Dpapi.Unprotect(data) : data;
+            var raw = protection == "dpapi-user" ? SecretSeal.Unseal(data) : data;
             if (raw is null || raw.Length == 0) return null;
             Protection = protection == "dpapi-user" ? "the key sealed to this Windows user (DPAPI)" : "the key in a file only its owner reads — not sealed";
             return TlsIdentity.Import(raw);
@@ -91,7 +90,7 @@ public sealed class TlsCertificateService : IDisposable
 
     private void Write(byte[] pkcs12)
     {
-        var sealedBytes = Dpapi.Protect(pkcs12);
+        var sealedBytes = SecretSeal.Seal(pkcs12, "Patterns TLS");
         var protection = sealedBytes is null ? "owner-only-file" : "dpapi-user";
         Protection = sealedBytes is null ? "the key in a file only its owner reads — not sealed" : "the key sealed to this Windows user (DPAPI)";
         var json = JsonSerializer.Serialize(new { v = 1, protection, pkcs12 = Convert.ToBase64String(sealedBytes ?? pkcs12) });
@@ -141,53 +140,4 @@ public sealed class TlsCertificateService : IDisposable
     }
 
     public void Dispose() => _certificate?.Dispose();
-
-    /// <summary>DPAPI, this Windows user's scope; null off Windows (the caller keeps the bytes unsealed and says so).</summary>
-    private static class Dpapi
-    {
-        public static byte[]? Protect(byte[] data) => OperatingSystem.IsWindows() ? Run(data, protect: true) : null;
-
-        public static byte[]? Unprotect(byte[] data) => OperatingSystem.IsWindows() ? Run(data, protect: false) : null;
-
-        private static byte[]? Run(byte[] data, bool protect)
-        {
-            var input = new DataBlob { cbData = data.Length, pbData = Marshal.AllocHGlobal(data.Length) };
-            var output = default(DataBlob);
-            try
-            {
-                Marshal.Copy(data, 0, input.pbData, data.Length);
-                var ok = protect
-                    ? CryptProtectData(ref input, "Patterns TLS", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0x1 /* UI forbidden */, ref output)
-                    : CryptUnprotectData(ref input, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0x1, ref output);
-                if (!ok) return null;
-                var bytes = new byte[output.cbData];
-                Marshal.Copy(output.pbData, bytes, 0, output.cbData);
-                return bytes;
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(input.pbData);
-                if (output.pbData != IntPtr.Zero) LocalFree(output.pbData);
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct DataBlob
-        {
-            public int cbData;
-            public IntPtr pbData;
-        }
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern bool CryptProtectData(ref DataBlob dataIn, string description, IntPtr entropy, IntPtr reserved, IntPtr prompt, int flags, ref DataBlob dataOut);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern bool CryptUnprotectData(ref DataBlob dataIn, IntPtr description, IntPtr entropy, IntPtr reserved, IntPtr prompt, int flags, ref DataBlob dataOut);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr LocalFree(IntPtr mem);
-    }
 }

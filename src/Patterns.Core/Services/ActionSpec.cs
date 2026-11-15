@@ -159,6 +159,7 @@ public static class ActionSpec
         ShowActionKind.StagewatchLinkSet or ShowActionKind.StagewatchAccept or ShowActionKind.StagewatchKeyBind => (TargetKind.None, ValueKind.Text),
         ShowActionKind.StagewatchFollow => (TargetKind.None, ValueKind.Switch),
         ShowActionKind.StagewatchLinkAgain or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease => (TargetKind.None, ValueKind.None),
+        ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageScroll => (TargetKind.None, ValueKind.Switch),
         ShowActionKind.ClockFormat => (TargetKind.None, ValueKind.Hours),
@@ -457,6 +458,9 @@ public static class ActionSpec
         ShowActionKind.ScreenWindow => "Screen — a window Stagewatch granted, on it alone, once its page is ready",
         ShowActionKind.ScreenStageWindow => "Preview — a window Stagewatch granted, staged on a screen's PVW",
         ShowActionKind.NodesAskWindow => "Stagewatch link — ask the Stagewatch for a window, for this desk",
+        ShowActionKind.AppKeyMake => "App key — make a key for one connector, shown once",
+        ShowActionKind.AppKeyBind => "App key — let a key speak for a connector, at a scope",
+        ShowActionKind.AppKeyRevoke => "App key — revoke a key; its live links end",
         _ => kind.ToString(),
     };
 
@@ -561,6 +565,8 @@ public static class ActionSpec
         ShowActionKind.StagewatchKeyBind => "the key is typed on this desk and goes only to the Stagewatch a person bound it to — a running order, a deck, the wire or an assistant never chooses where it goes",
         ShowActionKind.StagewatchLinkSet or ShowActionKind.StagewatchLinkAgain or ShowActionKind.StagewatchFollow or ShowActionKind.StagewatchFloorLower or ShowActionKind.StagewatchRelease
             => "the operator's own link to a Stagewatch — the desk, its menus, the wire and a deck set it (Show Bus 1.3 §13.16.6); a running order or an assistant never repoints a key-bearing link or the speaker's timer",
+        ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind or ShowActionKind.AppKeyRevoke
+            => "a person's trust decision on this desk's Nodes page (Show Bus 1.3 §13.5) — a running order, a deck, the wire, a peer or an assistant never makes, binds or revokes an app key",
         ShowActionKind.NodesAskWindow => "a request to another machine's operator (Show Bus 1.3 §12.4) — the desk, its menus, the wire and a deck ask; a running order never asks a Stagewatch for a window by itself",
         _ => null,
     };

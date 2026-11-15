@@ -95,6 +95,61 @@
     <TextBlock Text="{Binding TokenClearWords, StringFormat='△ {0}'}" Foreground="#FFB020" TextWrapping="Wrap" Margin="0,2,0,0"
                IsVisible="{Binding TokenClearWords, Converter={StaticResource NotEmpty}}"
                ToolTip.Tip="A remote on that machine sent this desk's pairing token unencrypted — the web remote over plain http://, an older Companion module (before 3.18.0, or 3.18.0 when the desk's NONCE came late), or another app's plain header. Anyone on that network may hold it now. NEW TOKEN on the Remote page (TRUST) rotates it; pair those remotes again over https:// or by proof" />
+    <!-- Show Bus 1.3 §13.5: the app keys a connector proves itself with on this desk's wire — KEY MAKE, KEY BIND, KEY REVOKE, the desk's alone. -->
+    <StackPanel Spacing="4" Margin="0,8,0,4" IsVisible="{Binding IsDesk}">
+      <TextBlock Classes="h2" Text="APP KEYS" />
+      <TextBlock Classes="hint" TextWrapping="Wrap"
+                 Text="A key for one other app's link to this desk (Show Bus 1.3 §13.5): it proves LINK on the wire's port, speaks for that app alone and runs only what its scope reaches — follow and post read, drive adds VIDEO, CUE GO and STANDBY, SECTION and STAGE MESSAGE, operate runs everything. A Stagewatch that proves the pairing token over TLS enrols a key of its own here, at follow. Revoking a key ends its link at once." />
+      <TextBlock Classes="hint" Text="{Binding AppKeys.Protection}" TextWrapping="Wrap" />
+      <ItemsControl ItemsSource="{Binding AppKeys.Rows}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AppKeyRow">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8" BorderBrush="{Binding Hue}" BorderThickness="1" ctl:Menus.Kind="appkey"
+                    ToolTip.Tip="✓ a key in force; △ amber once it arrived in clear from another machine — revoke it and make a new one. Right-click: revoke, its scope, or another connector — the same presses as the buttons, the operator's alone">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Foreground="{Binding Hue}" TextWrapping="Wrap" VerticalAlignment="Center">
+                  <Run Text="{Binding Mark}" />
+                  <Run Text=" " />
+                  <Run Text="{Binding Words}" />
+                </TextBlock>
+                <Button Grid.Column="1" Classes="mini" Content="BIND…" Margin="8,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).AppKeys.PickBindCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="KEY BIND: let this key speak for another connector, or at another scope — typed below" />
+                <Button Grid.Column="2" Classes="mini" Content="REVOKE" Margin="8,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).AppKeys.RevokeCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="KEY REVOKE: the key stops at once — a link that uses it now is refused and closed (Show Bus 1.3 §13.5.5)" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox Text="{Binding AppKeys.MakeFor}" Watermark="kind:id — main:3f9c2a1b7d0e for a Stagewatch, as its hello names it" MinWidth="300"
+                 ToolTip.Tip="The one connector the key speaks for: its kind and its show network id (the card above names both). The key is refused for any other" />
+        <ComboBox ItemsSource="{Binding AppKeys.Scopes}" SelectedItem="{Binding AppKeys.MakeScope}" MinWidth="110"
+                  ToolTip.Tip="follow and post: reads; drive: and the playout desk's verbs; operate: everything, as the operator — no OUTPUTS, TAKE or CUT, SCREEN or setting below it" />
+        <Button Content="MAKE KEY" Command="{Binding AppKeys.MakeCommand}"
+                ToolTip.Tip="KEY MAKE: a new ptk_ key, 160 random bits, shown here once and kept nowhere but as its hash — never on the wire, a deck or the assistant" />
+      </StackPanel>
+      <StackPanel Spacing="4" IsVisible="{Binding AppKeys.HasShown}">
+        <TextBox IsReadOnly="True" Text="{Binding AppKeys.Shown}" FontFamily="Consolas,Menlo,monospace" MinWidth="360" HorizontalAlignment="Left"
+                 ToolTip.Tip="Select and copy it into that app now. HIDE forgets it: it is never shown again" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="{Binding AppKeys.ShownWords, StringFormat='△ {0}'}" Foreground="#FFB020" TextWrapping="Wrap" MaxWidth="560" VerticalAlignment="Center" />
+          <Button Content="HIDE" Command="{Binding AppKeys.HideShownCommand}" />
+        </StackPanel>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding AppKeys.BindKid, Converter={StaticResource NotEmpty}}">
+        <TextBlock Classes="label" Text="{Binding AppKeys.BindKid, StringFormat='Key {0} speaks for'}" VerticalAlignment="Center" />
+        <TextBox Text="{Binding AppKeys.BindFor}" Watermark="kind:id" MinWidth="220" />
+        <ComboBox ItemsSource="{Binding AppKeys.Scopes}" SelectedItem="{Binding AppKeys.BindScope}" MinWidth="110" />
+        <Button Content="BIND" Command="{Binding AppKeys.BindCommand}"
+                ToolTip.Tip="KEY BIND: the key speaks for that connector at that scope from now on; moved, or lowered, its live link ends at once" />
+      </StackPanel>
+    </StackPanel>
     <ItemsControl ItemsSource="{Binding ShowApps}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>

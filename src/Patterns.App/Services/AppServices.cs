@@ -1904,8 +1904,21 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 .Concat(s.StagewatchWindows.Rows().Select(r => "Stagewatch window granted to this desk: " + StagewatchWindows.RowWords(r) + $" — SCREEN n PVW WINDOW {r.Name}, then SCREEN n TAKE; SCREEN n WINDOW {r.Name} only once it is ready."))
                 // Show Bus 1.3 §13.8.5: whether this desk's wire serves TLS, so the brief says what a link to it from another machine rides on.
                 .Concat(Kernel.WireTlsLine is { Length: > 0 } wire ? new[] { "This desk's " + wire + "." } : Array.Empty<string>())
+                // Show Bus 1.3 §13.5: the app keys a connector proves itself with here — each kid, its connector, scope and marks, never a
+                // key — and that their verbs are the operator's, never proposed.
+                .Concat(AppKeyBriefLines())
                 .ToList(),
         };
+    }
+
+    /// <summary>Show Bus 1.3 §13.5: the brief's lines of the app keys in force — one a key, then the rule; nothing with none.</summary>
+    private IReadOnlyList<string> AppKeyBriefLines()
+    {
+        var keys = Kernel.AppKeys.InForce(State.Control.Token);
+        if (keys.Count == 0) return Array.Empty<string>();
+        return keys.Take(16).Select(k => "App key " + AppKeys.Words(k) + ".")
+            .Append("This desk's " + Kernel.AppKeysLine + "; " + KeyVerbs.BriefWords + ".")
+            .ToList();
     }
 
     /// <summary>The commissioning flow's lines for the brief; nothing when the desk cannot read them.</summary>

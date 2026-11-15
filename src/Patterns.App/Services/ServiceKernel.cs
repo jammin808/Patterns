@@ -104,6 +104,18 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
     /// </summary>
     public TokenClearSightings TokenSeenInClear { get; }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.5: the app keys a connector proves LINK with on this desk's wire — issued on the Nodes page or enrolled from the
+    /// pairing token over TLS — kept sealed beside the TLS key, never in the show, the twin or STATE (which names each key's kid alone).
+    /// </summary>
+    public AppKeyStore AppKeys { get; }
+
+    /// <summary>
+    /// Show Bus 1.3 §13.5: the app keys in one line for the Nodes page and the assistant's facts — how many, how made, how kept, which
+    /// were seen in clear; "" with none.
+    /// </summary>
+    public string AppKeysLine => Patterns.Core.Services.AppKeys.Summary(AppKeys.InForce(State.Control.Token)) is { Length: > 0 } w ? w + ", " + AppKeys.Protection : "";
+
     /// <summary>Show Bus 1.3 §13.8.5: the wire's doors since start — served TLS, served plain, closed unanswered (the control service counts them).</summary>
     public WireDoorCounts WireDoors { get; } = new();
 
@@ -267,6 +279,7 @@ public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost, IAssist
         Beacon = new BeaconService(this);
         Tls = new TlsCertificateService(Store.BaseDirectory, Beacon.MachineName);
         TokenSeenInClear = new TokenClearSightings(Store.BaseDirectory);   // round 89: before the control service, which notes into it
+        AppKeys = new AppKeyStore(Store.BaseDirectory);                     // Show Bus 1.3 §13.5: before the control service, which proves LINK against it
         // Round 87: the link to a Stagewatch — off until the Nodes page turns it on; the nodes' poll reconciles it each second.
         Stagewatch = new StagewatchLinkService(() => State.Control.Stagewatch, now => Beacon.ShowBus.Snapshot(now), () => StagewatchChanged?.Invoke())
         {

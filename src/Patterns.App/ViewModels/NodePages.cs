@@ -97,6 +97,8 @@ public interface INodesPage
     RelayCommand TrustCertificateCommand { get; }
     /// <summary>Round 89: the pairing token was seen in clear from another machine — the words, amber; "" when it was not.</summary>
     string TokenClearWords { get; }
+    /// <summary>Show Bus 1.3 §13.5: the app keys a connector proves itself with on this desk's wire, and KEY MAKE, KEY BIND and KEY REVOKE.</summary>
+    AppKeysPanel AppKeys { get; }
 }
 
 /// <summary>What the Run surface asks of the view model it lives in: a line for the status strip, and the editor a row's OPEN IN EDITOR goes to.</summary>

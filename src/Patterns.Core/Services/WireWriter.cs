@@ -29,6 +29,8 @@ public static class WireWriter
         // A person's trust decision, beside the fingerprint on this desk: the wire has no word that pins a certificate, accepts a
         // changed one, or chooses where the Stagewatch key goes.
         ShowActionKind.StagewatchTrust, ShowActionKind.StagewatchAccept, ShowActionKind.StagewatchKeyBind,
+        // The app keys are the operator's on the Nodes page (Show Bus 1.3 §13.5): a recording deck never hears one made, bound or revoked.
+        ShowActionKind.AppKeyMake, ShowActionKind.AppKeyBind, ShowActionKind.AppKeyRevoke,
     };
 
     public static string Line(ShowAction a)

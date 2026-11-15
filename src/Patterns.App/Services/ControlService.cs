@@ -79,6 +79,11 @@ public sealed partial class ControlService : IDisposable
         _clockTimer.Start();
 
         _kernel.State.Control.PropertyChanged += ControlChanged;
+        // Show Bus 1.3 §13.5.5: a key revoked, re-bound or lowered, or the keys a new code revokes, end their live links at once.
+        _kernel.AppKeys.LinksEnd += KeysEnded;
+        _kernel.AppKeys.Changed += KeysChanged;
+        // 13.5.5 across a restart: the keys enrolled from a token that is not this one go now, before any LINK is answered.
+        RevokeEnrolled(_kernel.State.Control.Token, atStart: true);
     }
 
     private void ControlChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -508,7 +513,7 @@ public sealed partial class ControlService : IDisposable
                 {
                     // Show Bus 1.3 §13.6.4: LINK and LINK PROOF, open before pairing and answered by the port; a refused proof ends the
                     // connection. The legacy proof's count below is its own and LINK's table is apart from it (13.5.6).
-                    if (await LinkLineAsync(peer, link, rid, body, address, overTls, limits)) break;
+                    if (await LinkLineAsync(peer, link, rid, body, address, overTls, limits, helloName)) break;
                     continue;
                 }
                 if (cmd.Kind is RemoteCommandKind.Auth or RemoteCommandKind.AuthProof)
@@ -518,6 +523,8 @@ public sealed partial class ControlService : IDisposable
                     var proof = cmd.Kind == RemoteCommandKind.AuthProof;
                     if (!PairingToken.Needed(token))
                     {
+                        // Show Bus 1.3 §13.6.9: an app key sent plain to an open desk crossed in clear all the same — marked, as below.
+                        if (!proof && !overTls && !(loopback && PlainAuthOnLoopback) && _kernel.AppKeys.OfPresented(cmd.Text) is { } openKey) KeySeenInClear(client, openKey, "wire");
                         Reply(ControlProtocol.Ok("open — this desk asks for no token"));
                     }
                     else if (!proof && !(loopback && PlainAuthOnLoopback))
@@ -526,6 +533,8 @@ public sealed partial class ControlService : IDisposable
                         // unencrypted (round 89): marked — rotate it: NEW TOKEN. A wrong one is no secret of this desk's. Inside
                         // TLS (Show Bus 1.3 §13.8.5) it did not cross in clear, so it is refused and not marked.
                         if (!overTls && PairingToken.Matches(token, cmd.Text)) SeenInClear(client, "wire");
+                        // Show Bus 1.3 §13.6.9: an app key sent the same way crossed in clear too — marked on its row, never taken.
+                        else if (!overTls && _kernel.AppKeys.OfPresented(cmd.Text) is { } clearKey) KeySeenInClear(client, clearKey, "wire");
                         Reply(ControlProtocol.Err(WireProof.UseProof));
                     }
                     else if (proof ? WireProof.Verify(token, nonce, helloName, cmd.Text) : PairingToken.Matches(token, cmd.Text))
@@ -615,8 +624,9 @@ public sealed partial class ControlService : IDisposable
                 }
                 if (BelowScope(token, peer, cmd))
                 {
-                    // Show Bus 1.3 §13.5.3: the acceptor enforces a key's scope; a refusal names it and where it is raised.
-                    Reply(ControlProtocol.Err(LinkAcceptor.ScopeWords(ScopeNow(peer.Link!), _kernel.Beacon.MachineName)));
+                    // Show Bus 1.3 §13.5.3 and §8.2's map (AppKeyScopes): the acceptor enforces a key's scope; a refusal names it and
+                    // where it is raised, and nothing runs.
+                    Reply(ControlProtocol.Err(LinkAcceptor.ScopeWords(ScopeNow(token, peer.Link!), _kernel.Beacon.MachineName)));
                     continue;
                 }
                 string response;
@@ -1004,6 +1014,8 @@ public sealed partial class ControlService : IDisposable
     private void TokenChanged()
     {
         var token = _kernel.State.Control.Token;
+        // Show Bus 1.3 §13.5.5: a new code revokes every key enrolled from the old one; their links end below with a code's.
+        RevokeEnrolled(token);
         List<WirePeer> cut;
         List<WirePeer> greet;
         lock (_gate)
@@ -1014,7 +1026,10 @@ public sealed partial class ControlService : IDisposable
         }
         foreach (var peer in cut)
         {
-            peer.SayLast(ControlProtocol.Err(ControlProtocol.TokenChanged));
+            // A link proved by LINK hears 13.5.5's refusal on its carrier, with no id; a deck, the legacy proof's words.
+            peer.SayLast(peer.Link is not null
+                ? ControlProtocol.Err(LinkAcceptor.Refusal("refused", AppKeyStore.ReplacedWords))
+                : ControlProtocol.Err(ControlProtocol.TokenChanged));
             _ = Task.Run(async () =>
             {
                 await peer.FlushAsync(LastWordWait);
@@ -1261,6 +1276,9 @@ public sealed partial class ControlService : IDisposable
             // network unencrypted — answered as before (a Require HTTPS refusal included), and marked (rotate it: NEW TOKEN).
             if (!audience && tls is null && !(local && TrustLoopback) && PairingToken.Needed(_kernel.State.Control.Token) && PairingToken.Matches(_kernel.State.Control.Token, request.Token))
                 SeenInClear(client, "web");
+            // Show Bus 1.3 §13.6.9: an app key in X-Patterns-Token on the plain listener crossed in clear — marked; it opens no route here.
+            else if (!audience && tls is null && !(local && TrustLoopback) && _kernel.AppKeys.OfPresented(request.Token) is { } clearKey)
+                KeySeenInClear(client, clearKey, "web");
             var refusePlain = plainControl && TlsSniff.RefusePlain(_kernel.State.Control.RequireHttps, isTls: false, own && TrustLoopback);
             if (refusePlain)
             {
@@ -1947,6 +1965,8 @@ public sealed partial class ControlService : IDisposable
     {
         _disposed = true;
         _kernel.State.Control.PropertyChanged -= ControlChanged;
+        _kernel.AppKeys.LinksEnd -= KeysEnded;
+        _kernel.AppKeys.Changed -= KeysChanged;
         _pushTimer.Stop();
         _clockTimer.Stop();
         StopListeners();

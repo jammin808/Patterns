@@ -565,6 +565,18 @@ public enum ShowActionKind
     /// proposal <c>window grant &lt;window&gt; &lt;this desk's id&gt;</c> a person there decides.
     /// </summary>
     NodesAskWindow,
+
+    /// <summary>
+    /// Show Bus 1.3 §13.5: a new <c>ptk_</c> app key for one connector (Target = its <c>t:id</c>, Value = its scope), shown once on the
+    /// Nodes page. The operator's alone, on the desk: never a deck's, a peer's, a running order's or an assistant's.
+    /// </summary>
+    AppKeyMake,
+
+    /// <summary>Show Bus 1.3 §13.5.2: the key (Target = its kid) speaks for another connector or at another scope (Value = <c>t:id [scope]</c>); its live links end when it moved or fell.</summary>
+    AppKeyBind,
+
+    /// <summary>Show Bus 1.3 §13.5.5: the key (Target = its kid) revoked; every live link that used it is refused at once.</summary>
+    AppKeyRevoke,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

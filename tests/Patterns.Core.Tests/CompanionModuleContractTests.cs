@@ -90,6 +90,19 @@ public class CompanionModuleContractTests
         Assert.DoesNotContain(actions, a => a.Kind is ShowActionKind.StagewatchTrust or ShowActionKind.StagewatchAccept or ShowActionKind.StagewatchKeyBind);
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.5: KEY MAKE, KEY BIND and KEY REVOKE are the desk operator's, on its Nodes page — not a deck's. The module
+    /// sends none of them, so no line of its own makes, binds or revokes an app key.
+    /// </summary>
+    [Fact]
+    public void TheModuleSaysNoKeyVerb()
+    {
+        var lines = File.ReadAllLines(Path.Combine(ModuleDir, "test", "lines.txt")).Where(l => l.Trim().Length > 0).ToList();
+        Assert.DoesNotContain(lines, l => l.TrimStart().StartsWith("KEY ", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(lines.Select(l => ControlProtocol.Parse(l)).Where(c => c.IsAction).Select(c => c.Action.Kind),
+            k => k is ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind or ShowActionKind.AppKeyRevoke);
+    }
+
     [Fact]
     public void TheModuleIsOneCompanion5Loads()
     {

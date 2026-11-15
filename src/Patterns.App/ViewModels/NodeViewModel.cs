@@ -346,6 +346,12 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     /// <summary>Round 89: this node's pairing token was seen in clear from another machine (amber on the Nodes page); "" when it was not.</summary>
     public string TokenClearWords => _host.Kernel.TokenClearWords;
 
+    private AppKeysPanel? _appKeys;
+
+    /// <summary>Show Bus 1.3 §13.5: a node accepts no app link, so its box is not drawn; its presses are refused as the desk's alone.</summary>
+    public AppKeysPanel AppKeys => _appKeys ??= new AppKeysPanel(_host.Kernel.AppKeys, () => State.Control.Token,
+        _ => ActionResult.Refused("App keys are the desk's — a node accepts no app link."));
+
     private RelayCommand? _acceptCertificate;
     private string _acceptHex = "";
 

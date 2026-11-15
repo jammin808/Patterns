@@ -10,9 +10,54 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed partial class ShowActions
 {
-    private ActionResult? RunNodes(ShowAction a, ActionOrigin origin) => StagewatchLinkActions.IsLinkVerb(a.Kind)
-        ? StagewatchLinkActions.Run(_s.Kernel.Stagewatch, _s.State.Control.Stagewatch, a, origin)
-        : null;
+    private ActionResult? RunNodes(ShowAction a, ActionOrigin origin)
+    {
+        if (StagewatchLinkActions.IsLinkVerb(a.Kind)) return StagewatchLinkActions.Run(_s.Kernel.Stagewatch, _s.State.Control.Stagewatch, a, origin);
+        return AppKeyActions.IsKeyVerb(a.Kind) ? AppKeyActions.Run(_s.Kernel.AppKeys, _s.IsDesk, a, origin) : null;
+    }
+}
+
+/// <summary>
+/// Show Bus 1.3 §13.5 and §13.16.6: the acceptor's operator actions on its app keys — <i>Make key for…</i>, <i>Let this key speak for
+/// &lt;node&gt;</i> and <i>Revoke key</i> — as KEY MAKE, KEY BIND and KEY REVOKE, one action per press so the Nodes page's buttons and
+/// a key row's right-click entries are the same verb, journalled as one row (its target the connector or the kid, never a key). The
+/// operator's on the desk alone: every other origin — the wire, a deck, OSC, a running order, an approval desk, a peer, the assistant —
+/// hears <see cref="KeyVerbs.DeskOnlyWords"/> and nothing changes. A change that would change nothing is refused with the reason.
+/// </summary>
+public static class AppKeyActions
+{
+    /// <summary>The kinds this layer runs.</summary>
+    public static bool IsKeyVerb(ShowActionKind kind) => kind is ShowActionKind.AppKeyMake or ShowActionKind.AppKeyBind or ShowActionKind.AppKeyRevoke;
+
+    /// <summary>Runs one KEY verb on the kept keys (UI thread); <paramref name="desk"/> is false on a node, which accepts no app key.</summary>
+    public static ActionResult Run(AppKeyStore keys, bool desk, ShowAction a, ActionOrigin origin)
+    {
+        if (origin.Kind != OriginKind.Desk) return ActionResult.Refused(KeyVerbs.DeskOnlyWords + " — refused from " + origin.Label + ".");
+        if (!desk) return ActionResult.Refused("App keys are the desk's — a node accepts no app link.");
+        switch (a.Kind)
+        {
+            case ShowActionKind.AppKeyMake:
+            {
+                var (ok, words, _) = keys.Make(a.Target, a.Value.Length > 0 ? a.Value : "follow", DateTime.UtcNow);
+                return ok ? ActionResult.Done(Sentence(words)) : ActionResult.Refused(Sentence(words));
+            }
+            case ShowActionKind.AppKeyBind:
+            {
+                var (bound, scope) = KeyVerbs.BindValue(a.Value);
+                var (ok, words) = keys.Bind(a.Target, bound, scope);
+                return ok ? ActionResult.Done(Sentence(words)) : ActionResult.Refused(Sentence(words));
+            }
+            case ShowActionKind.AppKeyRevoke:
+            {
+                var (ok, words) = keys.Revoke(a.Target);
+                return ok ? ActionResult.Done(Sentence(words)) : ActionResult.Refused(Sentence(words));
+            }
+            default:
+                return ActionResult.Refused($"Unknown action '{a.Kind}'.");
+        }
+    }
+
+    private static string Sentence(string words) => words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..] + ".";
 }
 
 /// <summary>

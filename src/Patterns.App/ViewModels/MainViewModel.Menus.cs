@@ -83,6 +83,11 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 return subject is ShowAppCard card
                     ? new DeskMenuVm(DeskMenus.ShowApp(facts, MenuShowApp.Of(card)), e => RunMenuEntry(e, card))
                     : null;
+            case "appkey":
+                // Show Bus 1.3 §13.16.6: a key row's Revoke, its scope and its binding, the row's own buttons' actions.
+                return subject is AppKeyRow row
+                    ? new DeskMenuVm(DeskMenus.AppKey(facts, row.Menu), e => RunMenuEntry(e, row))
+                    : null;
             default:
                 return null;
         }
@@ -309,6 +314,10 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 }
                 break;
             }
+            case "Nodes":
+                // Show Bus 1.3 §13.5.2: a key row's "speak for another connector" opens the BIND boxes with that key in them.
+                if (item.Length > 0) AppKeys.Pick(item);
+                break;
             case "Lower thirds":
             {
                 var design = State.LowerThirds.Find(item);

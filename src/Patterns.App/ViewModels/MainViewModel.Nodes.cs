@@ -50,6 +50,17 @@ public sealed partial class MainViewModel
     /// <summary>Round 89: the pairing token was seen in clear from another machine (the Nodes and Remote pages, amber); "" when it was not.</summary>
     public string TokenClearWords => _services.Kernel.TokenClearWords;
 
+    private AppKeysPanel? _appKeys;
+
+    /// <summary>Show Bus 1.3 §13.5: the App keys box — the kept keys, each a row, and KEY MAKE, KEY BIND and KEY REVOKE from the desk.</summary>
+    public AppKeysPanel AppKeys => _appKeys ??= new AppKeysPanel(_services.Kernel.AppKeys, () => State.Control.Token,
+        a =>
+        {
+            var result = Report(_services.Actions.Execute(a, ActionOrigin.Desk));
+            StatusMessage = result.Message;
+            return result;
+        });
+
     private RelayCommand? _askWindow;
     private string _askWindowName = "";
 
@@ -153,6 +164,7 @@ public sealed partial class MainViewModel
         _services.Nodes.Poll();
         _services.Stage.Follow();                                                  // a message a Stagewatch accepted and no frame names reads unconfirmed on the clock (13.12.4)
         LinkBoxes.Look();
+        AppKeys.Look();                                                            // a key enrolled, used, revoked or seen in clear since the last tick
         var link = _services.Kernel.Stagewatch;
         var (trust, trustName) = (link.TrustFingerprint, link.TrustName);
         var (bind, bindName) = (link.KeyBindTarget, link.KeyBindName);

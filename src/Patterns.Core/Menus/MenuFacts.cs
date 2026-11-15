@@ -325,6 +325,16 @@ public sealed record MenuStagewatch
     public string BindName { get; init; } = "";
 }
 
+/// <summary>
+/// Show Bus 1.3 §13.5: one app key's row on the Nodes page as its menu reads it — its kid, the connector it speaks for, its scope, how
+/// it was made and whether it was seen in clear. Never the key: the menu holds nothing a press could leak.
+/// </summary>
+public sealed record MenuAppKey(string Kid, string Bound, string Scope, string Made, bool ClearSeen)
+{
+    /// <summary>The row's facts from the kept key.</summary>
+    public static MenuAppKey Of(AppKey key) => new(key.Kid, key.Bound, key.Scope, key.Made, key.ClearSeen is not null);
+}
+
 /// <summary>Another show app's card on the Nodes page, as its menu reads it.</summary>
 /// <param name="AddAsDevice">Round 97: a heard PlayMap no device of this desk's drives yet — its menu offers <i>Add as a device…</i>.</param>
 /// <param name="DeviceId">Round 97: the device that drives it, "" for none — its menu opens it.</param>

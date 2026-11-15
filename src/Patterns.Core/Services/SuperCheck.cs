@@ -288,6 +288,13 @@ public sealed class CheckFacts
     /// <summary>Wire connections closed with nothing written since start: no first byte in time, a byte that opens neither, a TLS handshake not answered or not completed.</summary>
     public long WireUnanswered { get; init; }
 
+    /// <summary>Show Bus 1.3 §13.5: the app keys this desk keeps (kids, bindings, scopes and marks; the facts never carry a key).</summary>
+    public IReadOnlyList<AppKey> AppKeys { get; init; } = Array.Empty<AppKey>();
+    /// <summary>How the kept keys are protected at rest ("sealed to this Windows user (DPAPI)", or the owner-only file elsewhere).</summary>
+    public string AppKeysProtection { get; init; } = "";
+    /// <summary>"" while the keys are kept as <see cref="AppKeysProtection"/> says; otherwise why they are not (the seal refused them: this run only).</summary>
+    public string AppKeysProblem { get; init; } = "";
+
     /// <summary>
     /// Show Bus 1.3 §13.16.4: the record of each PeerLink this desk holds as connector — its Stagewatch link — as the link published
     /// it when the facts were gathered; the "Show network links" row takes them and derives no link fact of its own.
@@ -1129,6 +1136,22 @@ public static class SuperCheck
                 $"FIX: {(f.WireTlsProblem.Length > 0 ? f.WireTlsProblem : "no certificate yet")} — a link from another machine runs plain and a TLS client is closed unanswered until the desk has one (patterns.tls.json beside the settings; restart the desk to make it); {counts}");
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.5: the app keys a connector proves LINK with — how many, how made, how kept at rest — amber while one was seen in
+    /// clear (13.6.9), which only replacing it ends, and while the seal refuses them (they hold for this run only).
+    /// </summary>
+    private static CheckRow AppKeysRow(CheckFacts f)
+    {
+        var kept = f.AppKeysProtection.Length > 0 ? f.AppKeysProtection : "how they are kept is not known yet";
+        const string rule = "each bound to one connector and scoped follow, post, drive or operate (no OUTPUTS, TAKE or CUT, SCREEN or setting line below operate — drive's CUE GO runs the cue as it was built, whatever steps are in it, and SECTION puts that part of the playlist on air); KEY MAKE, KEY BIND and KEY REVOKE on the Nodes page only; never in the show, a backup, the twin or STATE";
+        var clear = f.AppKeys.Where(k => k.ClearSeen is not null).ToList();
+        var fixes = clear.Select(k => k.Kid + " " + Services.AppKeys.ClearWords(k.ClearSeen!) + " (Nodes page) — anyone on that network may hold it now").ToList();
+        if (f.AppKeysProblem.Length > 0) fixes.Add(f.AppKeysProblem);
+        return fixes.Count > 0
+            ? new CheckRow("REMOTE", "App keys", CheckLight.Amber, Services.AppKeys.Summary(f.AppKeys), $"FIX: {string.Join("; ", fixes)}; {kept}; {rule}")
+            : new CheckRow("REMOTE", "App keys", CheckLight.Green, Services.AppKeys.Summary(f.AppKeys), $"{kept}; {rule}");
+    }
+
     private static void Remote(CheckFacts f, List<CheckRow> rows)
     {
         if (!f.RemoteEnabled)
@@ -1187,6 +1210,7 @@ public static class SuperCheck
                 : new CheckRow("REMOTE", "Wire reads", CheckLight.Green, "paired connections only", rule));
         }
         if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(WireTlsRow(f));
+        if (f.WirePort > 0 && f.AppKeys.Count > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(AppKeysRow(f));
         if (f.WireFaults > 0)
         {
             // Round 83: a fault behind the wire is answered ERR on the line and logged; the row says it happened, so the log is read.

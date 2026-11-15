@@ -1056,6 +1056,63 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
         return WithMidi(d, new DeskMenu("showapp", app.Id, $"{app.KindLabel} {app.Name}".Trim(), app.Line, app.Linked ? MenuTone.Tile : MenuTone.Plain, groups));
     }
 
+    /// <summary>
+    /// Show Bus 1.3 §13.5 / §13.16.6: an app key's row on the Nodes page — Revoke it, change its scope on the ladder, or let it speak
+    /// for another connector, in step with the row's own buttons. Each entry is the operator's own action from the desk, with no wire
+    /// line: KEY MAKE, KEY BIND and KEY REVOKE are refused from a deck, the wire, a peer, a running order and the assistant, which
+    /// proposes none of them. Speak for another connector takes typed words, so it opens the Nodes page where they are typed.
+    /// </summary>
+    public static DeskMenu AppKey(DeskFacts d, MenuAppKey key)
+    {
+        var who = AppKeys.ConnectorWords(key.Bound);
+        var entries = new List<MenuEntry>
+        {
+            new("key.revoke", "Revoke key " + key.Kid, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = $"{who} can no longer link with it; a link that uses it now is refused at once",
+                Action = new ShowAction(ShowActionKind.AppKeyRevoke, key.Kid),
+                Because = d.IsNode ? "App keys are the desk's — revoke it there" : "",
+            },
+        };
+        foreach (var scope in LinkAcceptor.Scopes.Where(s => s != key.Scope))
+        {
+            entries.Add(new MenuEntry("key.scope." + scope, "Scope " + scope, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = LinkAcceptor.Rank(scope) < LinkAcceptor.Rank(key.Scope)
+                    ? $"Lower: {who}'s live link with it ends, and it links again at {scope}"
+                    : $"Raise: {who} may run {ScopeReach(scope)} from its next link",
+                Action = new ShowAction(ShowActionKind.AppKeyBind, key.Kid, key.Bound + " " + scope),
+                Because = d.IsNode ? "App keys are the desk's — change it there" : "",
+            });
+        }
+        // An enrolled key's K lives only at the connector that enrolled it, so it never speaks for another: its scope is all that moves.
+        if (key.Made != AppKeys.Enrolled)
+        {
+            entries.Add(new MenuEntry("key.bind", "Let this key speak for another connector…", MenuScope.Go, MenuTone.Go)
+            {
+                Detail = "Type its kind:id beside BIND on the Nodes page — the key's live link ends, and only that connector may link with it",
+                Route = new MenuRoute("Nodes", key.Kid),
+            });
+        }
+        var groups = new List<MenuGroup>
+        {
+            new("KEY", MenuTone.Tile, entries)
+            {
+                Note = "The operator's on this desk: never on the wire or a deck, never proposed by the assistant. The key itself was shown once, when it was made.",
+            },
+        };
+        var subtitle = $"{who} · scope {key.Scope} · {key.Made}" + (key.ClearSeen ? " · △ seen in clear — replace it" : "");
+        return new DeskMenu("appkey", key.Kid, "App key " + key.Kid, subtitle, MenuTone.Tile, groups);
+    }
+
+    /// <summary>What a scope reaches on this desk, as the menu says it (§8.2's map, <see cref="AppKeyScopes"/>).</summary>
+    public static string ScopeReach(string scope) => scope switch
+    {
+        "follow" or "post" => "STATE, STATUS, CONTEXT, EYE and the other reads, and RECORD",
+        "drive" => "the reads and VIDEO, CUE GO and STANDBY, SECTION and STAGE MESSAGE — a cue runs as it was built, whatever steps are in it, and SECTION puts that part of the playlist on air",
+        _ => "every verb, as the operator — the outputs, TAKE and CUT, SCREEN and the settings among them",
+    };
+
     /// <summary>The desk edit that adds a heard Show Bus node as a device, after its app's id.</summary>
     public const string AddDeviceEdit = "device.add:";
 

@@ -6,8 +6,8 @@ namespace Patterns.App.Services;
 public sealed partial class ControlService
 {
     /// <summary>
-    /// Show Bus 1.3 §13.5: the app keys this desk proves LINK against beside the pairing token. This build mints and keeps none,
-    /// so a desk accepts a key from no connector; the list is the seam a test plants a key through, and is empty in the desk.
+    /// Show Bus 1.3 §13.5: credentials planted beside the kept app keys (<see cref="ServiceKernel.AppKeys"/>) — the seam a test proves
+    /// a key of its own making through, with a binding and a scope it names. Empty in the desk, whose keys are the kept ones alone.
     /// </summary>
     public IReadOnlyList<LinkCredential> LinkKeys { get; set; } = Array.Empty<LinkCredential>();
 
@@ -65,14 +65,16 @@ public sealed partial class ControlService
         public void Dispose() => Disarm();
     }
 
-    /// <summary>The credentials in force for <paramref name="token"/>: the pairing token as a code, then the app keys (none in this build).</summary>
+    /// <summary>
+    /// The credentials in force for <paramref name="token"/>: the pairing token as a code, the kept app keys in force with it (every
+    /// issued key, and the keys enrolled from this code), then the planted ones.
+    /// </summary>
     private IReadOnlyList<LinkCredential> LinkCredentials(string token)
     {
-        var code = LinkAcceptor.Code(token);
-        var keys = LinkKeys;
-        if (code is null) return keys;
-        var all = new List<LinkCredential>(keys.Count + 1) { code };
-        all.AddRange(keys);
+        var all = new List<LinkCredential>();
+        if (LinkAcceptor.Code(token) is { } code) all.Add(code);
+        all.AddRange(_kernel.AppKeys.InForce(token).Select(k => k.Credential));
+        all.AddRange(LinkKeys);
         return all;
     }
 
@@ -82,24 +84,29 @@ public sealed partial class ControlService
     /// <see cref="WirePeer.Presented"/>, so a new token cuts it as it cuts the legacy proof.
     /// </summary>
     private bool Hears(string token, WirePeer peer)
-        => Paired(token, peer.Presented, peer.Loopback) || KeyInForce(peer.Link);
+        => Paired(token, peer.Presented, peer.Loopback) || KeyInForce(token, peer.Link);
 
-    private bool KeyInForce(LinkStanding? link)
-        => link is { Verified: "key" } l && LinkAcceptor.Of(LinkKeys, l.Kid) is { } key && string.Equals(key.Bound, l.Client, StringComparison.Ordinal);
+    /// <summary>A link that stands on an app key (issued or enrolled) whose key is in force now, for the connector its proof covered.</summary>
+    private bool KeyInForce(string token, LinkStanding? link) => KeyOf(token, link) is not null;
+
+    /// <summary>The credential in force now that a key's link stands on, or null: none for a code's link, a key revoked or bound elsewhere.</summary>
+    private LinkCredential? KeyOf(string token, LinkStanding? link)
+        => link is { Verified: "key" or "link" } l && LinkAcceptor.Of(LinkCredentials(token), l.Kid) is { Verified: "key" or "link" } key
+           && string.Equals(key.Bound, l.Client, StringComparison.Ordinal) ? key : null;
 
     /// <summary>
-    /// 13.5.3: a verb a key's link may not run — the link stands on a key, the connection is paired no other way, the line is not a
-    /// read, and the key in force now is not at <c>operate</c> or not at the scope its link was verified at (a key whose scope moved
-    /// is held to the lower of the two until it links again). Until each scope is mapped onto this desk's verbs, a key below
-    /// <c>operate</c> reads and runs nothing.
+    /// 13.5.3 with §8.2's map (<see cref="AppKeyScopes"/>): a line a key's link may not run — the link stands on a key, the connection
+    /// is paired no other way, and the scope it stands at now (<see cref="ScopeNow"/>) does not reach the line: follow and post read
+    /// and subscribe, drive adds clip and playlist transport, CUE GO and STANDBY and STAGE MESSAGE, operate runs everything. A key gone
+    /// from force runs nothing (its link is ended as it goes, 13.5.5).
     /// </summary>
     private bool BelowScope(string token, WirePeer peer, RemoteCommand cmd)
-        => peer.Link is { Verified: "key" } l && !Paired(token, peer.Presented, peer.Loopback) && !ControlProtocol.IsQuery(cmd)
-           && (LinkAcceptor.Of(LinkKeys, l.Kid)?.Scope is not { } now || now != l.Scope || now != "operate");
+        => peer.Link is { Verified: "key" or "link" } l && !Paired(token, peer.Presented, peer.Loopback)
+           && (KeyOf(token, l) is null || !AppKeyScopes.Allows(ScopeNow(token, l), cmd));
 
-    /// <summary>The scope a key's link stands at now, for its refusal's words: the lower of the key's in force and the link's own.</summary>
-    private string ScopeNow(LinkStanding link)
-        => LinkAcceptor.Of(LinkKeys, link.Kid)?.Scope is { } now && LinkAcceptor.Rank(now) < LinkAcceptor.Rank(link.Scope) ? now : link.Scope;
+    /// <summary>The scope a key's link stands at now, for its gate and its refusal's words: the lower of the key's in force and the link's own.</summary>
+    private string ScopeNow(string token, LinkStanding link)
+        => KeyOf(token, link)?.Scope is { } now && LinkAcceptor.Rank(now) < LinkAcceptor.Rank(link.Scope) ? now : link.Scope;
 
     /// <summary>
     /// 13.6.3: a connection's place among its address's unfinished ones, taken at its LINK ask; false, nothing taken, when that
@@ -129,7 +136,7 @@ public sealed partial class ControlService
     /// socket) — and the one proof, answered with the verdict and this desk's own proof, or refused in 13.6.4's words and the
     /// connection closed. True when the connection ends.
     /// </summary>
-    private async Task<bool> LinkLineAsync(WirePeer peer, LinkStep step, string rid, string body, string address, bool overTls, WireLimits limits)
+    private async Task<bool> LinkLineAsync(WirePeer peer, LinkStep step, string rid, string body, string address, bool overTls, WireLimits limits, string helloName)
     {
         // A deadline that has closed this connection took its one proof with it.
         if (Volatile.Read(ref step.Phase) == LinkStep.Expired) return true;
@@ -211,12 +218,14 @@ public sealed partial class ControlService
         LinkDecision? decision = null;
         try
         {
+            // 13.5.7: a desk offers enrol, and a code proved inside TLS enrols (the decision says only then); over plain it never does.
+            // A node enrols nothing: it has no Nodes page to list a key on or revoke it from (13.5.7's list), so it never keeps one.
             decision = LinkAcceptor.Decide(asked, parse.Proof, _kernel.ShowBusId, step.SNonce, step.Bind, credentials, kid =>
             {
                 var locked = _wrongProofs.Reserve(address, kid, now);
                 if (locked == 0) held = kid;
                 return locked;
-            });
+            }, enrol: _kernel.IsDesk);
         }
         finally
         {
@@ -237,15 +246,128 @@ public sealed partial class ControlService
         }
         step.AppLink = true;
         var standing = new LinkStanding(client, credential.Kid, credential.Verified, credential.Scope, lid, overTls);
+        // 13.5.7: a code proved over TLS enrols a key for this connector (the one enrolled before for it gives way); none past the bound.
+        var enrolment = decision.EnrolK is { } enrolK ? _kernel.AppKeys.Enrol(enrolK, client, helloName, token, DateTime.UtcNow) : null;
+        var enrolled = enrolment?.Key;
+        if (decision.EnrolK is not null && enrolled is null) Log.Warn($"Wire: {client} proved the pairing token over TLS and enrolled no key — this desk keeps {AppKeys.MaxKeys} app keys at most; revoke one on the Nodes page.");
         // 13.6.4's order: the verdict is queued before the connection hears anything as a link, so no push can be written ahead of
         // it; this handler is the only reader of the connection's lines, so no verb comes in between.
-        Reply(ControlProtocol.Ok(LinkAcceptor.Verdict(credential, proof, lid, Array.Empty<string>(), _kernel.Beacon.Instance, (int)ShowBusLiveness.Beat.TotalMilliseconds)));
+        Reply(ControlProtocol.Ok(LinkAcceptor.Verdict(credential, proof, lid, LinkCan(overTls && _kernel.IsDesk), _kernel.Beacon.Instance, (int)ShowBusLiveness.Beat.TotalMilliseconds, enrolled?.Kid)));
         if (credential.Verified == "code") peer.Presented = token;          // the token this proof was checked against: a new one cuts this link
         peer.Link = standing;
+        // 13.5.5: a key revoked or bound elsewhere, or a token replaced, after this line's credentials were read and before the link
+        // stood was missed by the cut (it reads the links that stand): the link is refused now in the same words and closed.
+        if (StaleLink(token, standing) is { } stale)
+        {
+            if (credential.Verified == "code") RevokeEnrolled(_kernel.State.Control.Token);
+            await LastWordAsync(peer, ControlProtocol.Err(LinkAcceptor.Refusal("refused", stale)));
+            return true;
+        }
         LinkVerified(address, standing);
+        if (enrolment is { } made) KeyEnrolled(address, made.Key, made.Replaced);
+        if (credential.Verified is "key" or "link") _kernel.AppKeys.Used(credential.Kid, DateTime.UtcNow);
         await GreetLinkAsync(peer);
         ArmPush();
         return false;
+    }
+
+    /// <summary>
+    /// Why a link that has just stood is out of force already, or null: its token was replaced, or its key revoked or bound to another
+    /// connector, since its line read them — 13.5.5's words.
+    /// </summary>
+    private string? StaleLink(string token, LinkStanding link)
+    {
+        var now = _kernel.State.Control.Token;
+        if (link.Verified == "code") return string.Equals(now, token, StringComparison.Ordinal) ? null : AppKeyStore.ReplacedWords;
+        if (link.Verified is not ("key" or "link") || KeyOf(now, link) is not null) return null;
+        if (link.Verified == "link" && !string.Equals(now, token, StringComparison.Ordinal)) return AppKeyStore.ReplacedWords;
+        return _kernel.AppKeys.Keys.Any(k => k.Kid == link.Kid) ? AppKeyStore.MovedWords : AppKeyStore.RevokedWords;
+    }
+
+    /// <summary>The features this desk uses on a link (13.6.6): <c>enrol</c> inside TLS on a desk (13.5.7), none on a plain carrier or a node.</summary>
+    private static IReadOnlyList<string> LinkCan(bool overTls) => overTls ? new[] { "enrol" } : Array.Empty<string>();
+
+    /// <summary>
+    /// 13.5.5: the keys whose live links end now (revoked, bound elsewhere, lowered, or enrolled from a code that was replaced): each
+    /// link that stands on one hears <c>ERR LINK refused — &lt;words&gt;</c> with no id as its last line and is closed, and leaves the
+    /// recorder's feed. One journal row and one log line for each key's links.
+    /// </summary>
+    private void KeysEnded(IReadOnlyList<string> kids, string words)
+    {
+        List<WirePeer> cut;
+        lock (_gate)
+        {
+            cut = _peers.Where(p => p.Link is { Verified: "key" or "link" } l && kids.Contains(l.Kid)).ToList();
+            foreach (var peer in cut) _recording.Remove(peer);
+        }
+        foreach (var peer in cut)
+        {
+            peer.SayLast(ControlProtocol.Err(LinkAcceptor.Refusal("refused", words)));
+            _ = Task.Run(async () =>
+            {
+                await peer.FlushAsync(LastWordWait);
+                peer.Dispose();
+            }, CancellationToken.None);   // a told link is never left open, whatever the listeners do
+        }
+        foreach (var kid in kids)
+        {
+            // A key with no live link ends nothing: the change that ended it wrote its own row (the press, the new token, the enrolment).
+            var ended = cut.Count(p => p.Link?.Kid == kid);
+            if (ended == 0) continue;
+            var line = $"key {kid}: {words} — {ended} live link{(ended == 1 ? "" : "s")} refused and closed (Show Bus 1.3 §13.5.5)";
+            Log.Info("Wire: " + line + ".");
+            _kernel.Journal.Record("Remote", "KeyLinksEnded", kid, "Info", line);
+        }
+    }
+
+    /// <summary>The kept keys moved: STATE's control row says them, so the decks and the desk hear it.</summary>
+    private void KeysChanged() => UiThread.Post(ArmPush);
+
+    /// <summary>
+    /// 13.5.5: a new code revokes the keys enrolled from the old one — one journal row naming the kids, never a key. At start
+    /// (<paramref name="atStart"/>) it revokes the ones kept from a token that changed while the desk was closed, so no key out of force
+    /// stays in the list where nobody sees it.
+    /// </summary>
+    private void RevokeEnrolled(string token, bool atStart = false)
+    {
+        var gone = _kernel.AppKeys.RevokeEnrolled(token);
+        if (gone.Count == 0) return;
+        var why = atStart ? "the pairing token is not the one these keys were enrolled from (it changed while the desk was closed)" : "the pairing token changed";
+        var words = $"{why} — {gone.Count} enrolled key{(gone.Count == 1 ? "" : "s")} revoked with it: {string.Join(", ", gone)} (Show Bus 1.3 §13.5.5)";
+        Log.Info("Wire: " + words + ".");
+        _kernel.Journal.Record("Remote", "KeysRevokedByNewToken", "", "Info", words);
+    }
+
+    /// <summary>
+    /// 13.5.7: a key enrolled from the pairing token over TLS — one journal row and one log line, the kid and its connector; never K. A
+    /// connector that proves the code again while it holds a key enrolled before (one that does not adopt the key its verdict named)
+    /// re-enrols on each dial: that renewal keeps the old key's scope and is said in the log once a minute for its connector, with no
+    /// journal row, so a flapping link fills nothing.
+    /// </summary>
+    private void KeyEnrolled(string address, AppKey key, string? replaced)
+    {
+        if (replaced is not null)
+        {
+            if (_busySaid.Allow("key-renewed:" + key.Bound, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
+                Log.Info($"Wire: {key.Bound} from {address} proved the pairing token over TLS again and its enrolled key was renewed ({replaced} → {key.Kid}, scope {key.Scope} kept) — it proves the code instead of the key it enrolled. Said once a minute for this connector.");
+            return;
+        }
+        var words = $"{key.Bound} from {address} enrolled key {key.Kid} from the pairing token over TLS — scope {key.Scope}; raise it on the Nodes page (KEY BIND)";
+        Log.Info("Wire: " + words + ".");
+        _kernel.Journal.Record("Remote", "KeyEnrolled", key.Bound, "Info", words);
+    }
+
+    /// <summary>
+    /// 13.6.9: an app key arrived in clear from another machine — refused as before (it opens nothing in clear), and marked on its row
+    /// and in STATE, amber, with when and from where: replace it. The first mark writes one journal row and one log line; never the key.
+    /// </summary>
+    private void KeySeenInClear(System.Net.Sockets.TcpClient client, AppKey key, string via)
+    {
+        var address = AddressKey(client);
+        if (!_kernel.AppKeys.MarkClear(key.Kid, address, via, DateTime.UtcNow)) return;
+        var words = $"app key {key.Kid} ({AppKeys.ConnectorWords(key.Bound)}) arrived in clear from {address} ({TokenClearSightings.HowWords(via)}) — replace it: KEY REVOKE, then KEY MAKE (Nodes page)";
+        Log.Warn("Remote: " + words + ".");
+        _kernel.Journal.Record("Remote", "KeySeenInClear", key.Kid, "Alert", words);
     }
 
     /// <summary>

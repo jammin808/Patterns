@@ -25,14 +25,15 @@ public sealed record LinkCredential(string Kid, byte[] K, string Verified, strin
 /// What the acceptor made of one <c>LINK PROOF</c> (13.6.3, 13.6.4): linked by a credential in force, with the acceptor's proof and
 /// the link's id; or refused with 13.6.4's class and words. <see cref="CountKid"/> names the kid of a credential in force whose
 /// proof did not verify — the one refusal the wrong-proof table counts (13.5.6); an unknown kid, a locked pair and a binding
-/// refusal never name one.
+/// refusal never name one. <see cref="EnrolK"/> is the link key both ends derive when a code proved over TLS enrols (13.5.7), null
+/// otherwise: a secret, kept by the acceptor and never sent.
 /// </summary>
-public sealed record LinkDecision(bool Ok, string? Class, string Words, int RetrySeconds, LinkCredential? Credential, string? Proof, string? Lid, string? CountKid)
+public sealed record LinkDecision(bool Ok, string? Class, string Words, int RetrySeconds, LinkCredential? Credential, string? Proof, string? Lid, string? CountKid, byte[]? EnrolK = null)
 {
     public static LinkDecision Refused(string cls, string words, int retrySeconds = 0, string? countKid = null)
         => new(false, cls, words, retrySeconds, null, null, null, countKid);
 
-    /// <summary>What a log line or an exception may say of a decision: never the acceptor's proof (13.19).</summary>
+    /// <summary>What a log line or an exception may say of a decision: never the acceptor's proof (13.19), never the enrolled key.</summary>
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append("Ok = ").Append(Ok ? "True" : "False").Append(", Class = ").Append(Class).Append(", Words = ").Append(Words)
@@ -55,7 +56,8 @@ public sealed record LinkStanding(string Client, string Kid, string Verified, st
 /// constant-time compare, the same words — and is never counted. A pair the wrong-proof table locks is refused before its proof is
 /// checked. One proof a connection: the caller hands each connection's one proof here once, and a refused one ends the connection.
 /// The credentials are the ones in force: the pairing token as a code (scope <c>operate</c>, 13.5.1), and the app keys this desk
-/// holds — none in this build, which mints no key yet; a key reaches this acceptor only where a test plants one.
+/// keeps (<see cref="AppKeys"/>): the <c>ptk_</c> keys its operator issued, each bound to one connector, and the link keys enrolled
+/// from the code over TLS (13.5.7).
 /// </summary>
 public static class LinkAcceptor
 {
@@ -156,9 +158,10 @@ public static class LinkAcceptor
     /// <paramref name="snonce"/> and <paramref name="bind"/> are the ones its offer named; <paramref name="proof"/> is null for a proof that
     /// is not 64 lowercase hex, a wrong proof (13.6.4). <paramref name="lockedFor"/> is asked once, for every kid, before its proof is
     /// checked: how many seconds its pair is still locked by the wrong-proof table, or 0 (a caller may hold the pair's place for
-    /// this proof then, and settle it by <see cref="LinkDecision.CountKid"/>).
+    /// this proof then, and settle it by <see cref="LinkDecision.CountKid"/>). With <paramref name="enrol"/>, a code verified over TLS
+    /// enrols (13.5.7): the decision carries the link key both ends derive from it; over plain it never does.
     /// </summary>
-    public static LinkDecision Decide(LinkAsk ask, string? proof, string ownId, string snonce, string bind, IReadOnlyList<LinkCredential> credentials, Func<string, int> lockedFor)
+    public static LinkDecision Decide(LinkAsk ask, string? proof, string ownId, string snonce, string bind, IReadOnlyList<LinkCredential> credentials, Func<string, int> lockedFor, bool enrol = false)
     {
         var credential = Of(credentials, ask.Kid);
         // The lock is asked for every kid, known or not, so the work a proof is given does not say whether its kid is held; an unknown
@@ -172,14 +175,16 @@ public static class LinkAcceptor
         if (!verified || credential is null) return LinkDecision.Refused("refused", PeerLink.ProofWords, countKid: credential?.Kid);
         if (credential.Bound is { } bound && !string.Equals(bound, ask.T + ":" + ask.Id, StringComparison.Ordinal))
             return LinkDecision.Refused("binding", BindingWords(bound));
-        return new LinkDecision(true, null, "", 0, credential, PeerLink.ServerProof(k, t), PeerLink.Lid(t), null);
+        var enrolK = enrol && credential.Verified == "code" && PeerLink.MayEnrol(ask.Kid, bind) ? PeerLink.EnrolKey(k, t) : null;
+        return new LinkDecision(true, null, "", 0, credential, PeerLink.ServerProof(k, t), PeerLink.Lid(t), null, enrolK);
     }
 
     /// <summary>
     /// The verdict of a LINK verified, after its <c>OK</c> (13.6.4, 13.6.6): <c>paired</c> and its JSON — <c>v</c>, how it is verified, its
-    /// scope, the acceptor's proof, the lid, the level, the features it uses on this link, this process's inst and its beat.
+    /// scope, the acceptor's proof, the lid, the level, the features it uses on this link, this process's inst and its beat, and the kid
+    /// a code enrolled (<c>enrolled</c>) when it did.
     /// </summary>
-    public static string Verdict(LinkCredential credential, string proof, string lid, IReadOnlyList<string> can, string inst, int beatMs)
+    public static string Verdict(LinkCredential credential, string proof, string lid, IReadOnlyList<string> can, string inst, int beatMs, string? enrolled = null)
     {
         var buffer = new ArrayBufferWriter<byte>(256);
         using (var w = new Utf8JsonWriter(buffer))
@@ -196,6 +201,7 @@ public static class LinkAcceptor
             w.WriteEndArray();
             w.WriteString("inst", inst);
             w.WriteNumber("beatMs", beatMs);
+            if (enrolled is not null) w.WriteString("enrolled", enrolled);
             w.WriteEndObject();
         }
         return "paired " + Encoding.UTF8.GetString(buffer.WrittenSpan);

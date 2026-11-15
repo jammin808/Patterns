@@ -1383,6 +1383,11 @@ public static class ControlProtocol
             case "STAGEWATCH":
                 return StagewatchVerbs.Parse(arg) ?? Unknown(s);
 
+            // Show Bus 1.3 §13.5: KEY MAKE <t:id> [scope], KEY BIND <kid> <t:id> [scope], KEY REVOKE <kid> — the operator's on the
+            // Nodes page; a line names them only to be refused in words (KeyVerbs.DeskOnlyWords). Any other word is unknown.
+            case "KEY":
+                return KeyVerbs.Parse(arg) ?? Unknown(s);
+
             // The camera calibration: a run through a camera, cancelled, the demo, applied, undone, or read.
             case "CALIBRATE":
             case "CALIBRATION":

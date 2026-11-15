@@ -549,6 +549,11 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
   desk's `docs/OPEN.md` L94 holds. A LINK from a deck never sends the desk's key where the deck chose: a key not yet
   bound to a Stagewatch is bound to nothing by it, and the link reads the public view until a person binds it on the
   desk.
+- **App keys are not a deck's** (Round 98.3, Show Bus 1.3 §13.5). `KEY MAKE`, `KEY BIND` and `KEY REVOKE` — the keys
+  another app proves `LINK` with on the wire — are the desk operator's, on its Nodes page and its key rows' right-click
+  menus. The module sends none of them and `test/lines.txt` holds none; from a deck each is refused (`ERR KEY MAKE, KEY
+  BIND and KEY REVOKE are this desk's operator's, on its Nodes page …`). A deck itself keeps the legacy proof
+  (AUTH-PROOF) until its own round adopts `LINK`; it needs no app key.
 - **After the upgrade.** A desk that pinned a Stagewatch's certificate before round 93 reads that pin `first` until a
   person presses Trust on the desk; meanwhile `stagewatch_link_flags` names `first` and `keyless`, and every keyed link
   reads `legacy` and amber until both ends speak `LINK` (round 96).

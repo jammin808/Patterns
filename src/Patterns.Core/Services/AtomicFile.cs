@@ -66,6 +66,27 @@ public static class AtomicFile
         }
     }
 
+    /// <summary>
+    /// As <see cref="WriteAllText"/>, for a secret at rest (the app keys): off Windows the temp file is born readable and writable by
+    /// its owner alone, so the bytes are never readable by others, not even between the write and the move; a temp file an earlier
+    /// write left behind is removed first, so its mode is never inherited. On Windows the file takes its folder's ACL.
+    /// </summary>
+    public static void WriteAllTextOwnerOnly(string path, string content)
+    {
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        var tmp = TempPath(path);
+        if (File.Exists(tmp)) File.Delete(tmp);
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        using (var stream = new FileStream(tmp, options))
+        {
+            stream.Write(System.Text.Encoding.UTF8.GetBytes(content));
+            stream.Flush(flushToDisk: true);
+        }
+        File.Move(tmp, path, overwrite: true);
+    }
+
     private static void WriteTemp(string tmp, string content, bool durable)
     {
         using var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None);

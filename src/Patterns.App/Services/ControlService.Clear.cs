@@ -58,6 +58,28 @@ public sealed partial class ControlService
             // Show Bus 1.3 §13.8.5: whether the wire's port serves TLS (told from plain by the first byte, with the certificate the
             // hello's tls names) and its words — appended at the end.
             wire = WireRow(),
+            // Show Bus 1.3 §13.5 and §13.16.5: the app keys in force — each one's kid, the connector it speaks for, its scope, how and
+            // when it was made, when it last linked and where it was seen in clear; never a key or its K. Appended at the end.
+            keys = _kernel.AppKeys.InForce(_kernel.State.Control.Token).Select(k => new
+            {
+                kid = k.Kid,
+                bound = k.Bound,
+                scope = k.Scope,
+                made = k.Made,
+                since = k.MadeUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                lastUse = k.LastUseUtc?.ToString("o", System.Globalization.CultureInfo.InvariantCulture) ?? "",
+                clearSeen = k.ClearSeen is { } m
+                    ? new
+                    {
+                        address = m.Address,
+                        via = m.Via,
+                        first = m.FirstUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                        last = m.LastUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                        count = m.Count,
+                    }
+                    : null,
+                words = AppKeys.Words(k),
+            }).ToArray(),
         };
     }
 }

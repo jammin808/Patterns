@@ -103,6 +103,9 @@ public static class SupportBundle
         // Round 89: it holds a keyed hash of the pairing token with its salt; the journal's TokenSeenInClear rows and the
         // Super Check report, both bundled, say the same addresses and times.
         [TokenClearSightings.FileName] = "a keyed hash of the pairing token beside its salt",
+        // Show Bus 1.3 §13.5.4: the app keys' K, sealed to this Windows user — never in a backup or a bundle; the Super Check's
+        // "App keys" row and the journal's Key rows, both bundled, say each key's kid, binding and scope.
+        [AppKeys.FileName] = "the app keys' K and their bindings, sealed",
     };
 
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>
