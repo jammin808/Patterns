@@ -66,6 +66,12 @@ public interface IRouter
 
     Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin = null);
 
+    /// <summary>
+    /// The same, with <paramref name="started"/> called on the show's thread the moment it takes the command (Show Bus 1.3 §13.12.5's
+    /// "ran", which a late receipt counts from); a router that cannot say when calls it never, and its caller then counts no wait for the command.
+    /// </summary>
+    Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin, Action? started) => ExecuteAsync(cmd, origin);
+
     string StateJson();
 
     Task<string> StateJsonAsync();

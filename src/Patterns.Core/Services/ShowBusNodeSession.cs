@@ -85,8 +85,19 @@ public sealed class ShowBusNodeSession : ProfileSession
     /// <summary>What every reader says of a node that asks for a token this device has not been given.</summary>
     public const string NoTokenWords = "the node asks for its pairing token — type it in the device's Secret box (PlayMap: its Network drawer)";
 
-    /// <summary>What a reader says of the pairing this round: the token's proof, level 0, until the node offers LINK on its line wire.</summary>
-    public const string LevelWords = "paired by its pairing token (AUTH-PROOF, level 0) — PlayMap's line wire offers no LINK yet";
+    /// <summary>
+    /// What a reader says of the pairing: the token's proof, level 0. This desk sends a node device no LINK — PlayMap's line wire
+    /// answers none at the build this desk was made against — so whatever a node offers, the device is proved the older way and says so.
+    /// </summary>
+    public const string LevelWords = "paired by its pairing token (AUTH-PROOF, level 0) — this desk asks a node device for no LINK until PlayMap's line wire answers one";
+
+    /// <summary>
+    /// The PeerLink level this session proves a node at: 0, §7's AUTH-PROOF on the node's NONCE (13.6.8). The seam LINK comes through
+    /// once PlayMap's 9941 answers it: the session then speaks first with <c>LINK</c> on <see cref="PeerLinkMachine"/>'s line carrier,
+    /// as the Stagewatch link does, keeps the floor it reached, and comes back to this proof only on 13.6.8's unknown-word refusal.
+    /// Until then every reader — the record, STATE's row, the Nodes page, the card — says level 0, legacy, amber.
+    /// </summary>
+    public const int Level = 0;
 
     private readonly string _secret;
     private readonly string _inst;
@@ -501,7 +512,7 @@ public sealed class ShowBusNodeSession : ProfileSession
             LinkState.Down => _name + " is not answering — its link is down",
             _ => _name + ": " + Words,
         };
-        return new LinkRecord("playmap", peerId.Length > 0 ? peerId : null, _name, "line", 0, "plain", "", Paired && state == LinkState.Live ? "legacy" : Open && state == LinkState.Live ? "open" : "none",
+        return new LinkRecord("playmap", peerId.Length > 0 ? peerId : null, _name, "line", Level, "plain", "", Paired && state == LinkState.Live ? "legacy" : Open && state == LinkState.Live ? "open" : "none",
             "", "none", LinkRecord.StateWord(state), Stopped ? "key" : "", "unknown", flags, LinkRecord.LightWord(light), LinkRecord.MarkOf(light), words,
             0, null, 0, null, default, new LinkCounts(0, 0, 0, Oversize, 0, 0), null);
     }
@@ -529,7 +540,7 @@ public sealed record ShowBusNodeSight(string DeviceId, string DeviceName, string
     /// <summary>STATE's row for the device, at the end of its device row: no secret, no proof, no nonce.</summary>
     public object Row() => new
     {
-        level = 0,
+        level = ShowBusNodeSession.Level,
         pairing = Paired ? "auth-proof" : Open ? "open" : "none",
         up = Up,
         stopped = Stopped,

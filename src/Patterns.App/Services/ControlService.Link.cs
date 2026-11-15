@@ -1,4 +1,5 @@
 using System.Globalization;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;
@@ -400,7 +401,7 @@ public sealed partial class ControlService
         if (decision.EnrolK is not null && enrolled is null) Log.Warn($"Wire: {client} proved the pairing token over TLS and enrolled no key — this desk keeps {AppKeys.MaxKeys} app keys at most; revoke one on the Nodes page.");
         // 13.6.4's order: the verdict is queued before the connection hears anything as a link, so no push can be written ahead of
         // it; this handler is the only reader of the connection's lines, so no verb comes in between.
-        Reply(ControlProtocol.Ok(LinkAcceptor.Verdict(credential, proof, lid, LinkCan(overTls && _kernel.IsDesk), _kernel.Beacon.Instance, (int)ShowBusLiveness.Beat.TotalMilliseconds, enrolled?.Kid)));
+        Reply(ControlProtocol.Ok(LinkAcceptor.Verdict(credential, proof, lid, LinkCan(_kernel.IsDesk, overTls), _kernel.Beacon.Instance, (int)ShowBusLiveness.Beat.TotalMilliseconds, enrolled?.Kid)));
         if (credential.Verified == "code") peer.Presented = token;          // the token this proof was checked against: a new one cuts this link
         peer.Link = standing;
         // 13.5.5: a key revoked or bound elsewhere, or a token replaced, after this line's credentials were read and before the link
@@ -436,8 +437,178 @@ public sealed partial class ControlService
         return _kernel.AppKeys.Keys.Any(k => k.Kid == link.Kid) ? AppKeyStore.MovedWords : AppKeyStore.RevokedWords;
     }
 
-    /// <summary>The features this desk uses on a link (13.6.6): <c>enrol</c> inside TLS on a desk (13.5.7), none on a plain carrier or a node.</summary>
-    private static IReadOnlyList<string> LinkCan(bool overTls) => overTls ? new[] { "enrol" } : Array.Empty<string>();
+    /// <summary>
+    /// The features this wire uses on a link (13.6.6), in §14's order: <c>final</c> on a desk, whose cue history says what a
+    /// <c>CUE GO</c> came to (13.12.4); <c>receipts</c> everywhere (13.12.6); <c>enrol</c> inside TLS on a desk (13.5.7). Never
+    /// <c>stuck</c> or <c>expire</c>: neither is offered before this desk's show writer has a measured stall (the Super Check's
+    /// "Desk thread" row records the distribution a later round reads, LP-1).
+    /// </summary>
+    private static IReadOnlyList<string> LinkCan(bool desk, bool overTls)
+        => desk ? (overTls ? new[] { "final", "receipts", "enrol" } : new[] { "final", "receipts" }) : new[] { "receipts" };
+
+    // Show Bus 1.3 §13.12.6: the receipts of each verified connector's last ids, and the clock their ages run on.
+    private readonly AcceptorReceipts _receipts = new();
+
+    // The desk thread's stall distribution as the wire sees it: from each command's read to the thread taking it (LP-1).
+    private readonly DeskStall _deskStall = new();
+
+    /// <summary>
+    /// The receipts record's clock, the final's window and a command's read-to-ran wait (13.12.5): monotonic milliseconds, so a wall-clock
+    /// step never makes or hides a late run. Settable for the tests, which step it.
+    /// </summary>
+    public Func<long> ReceiptsNowMs { get; set; } = () => Environment.TickCount64;
+
+    /// <summary>Called on the wire's thread with each line's request id (empty without one) the moment the line is read: the tests' seam between read and ran.</summary>
+    public Action<string>? LineRead { get; set; }
+
+    // A command the desk's thread has not taken: no clock reads this.
+    private const long NotTaken = long.MinValue;
+
+    /// <summary>The desk thread's stall distribution so far (the Super Check's "Desk thread" row).</summary>
+    public DeskStallFacts DeskStall => _deskStall.Snapshot();
+
+    /// <summary>How many connectors' receipts the record holds now.</summary>
+    public int ReceiptConnectors => _receipts.ConnectorsHeld;
+
+    /// <summary>
+    /// The connector a verb's receipt is kept for (13.12.6): a link LINK verified, a verb (never a read, which changes nothing and is
+    /// answered afresh), and an id of 13.12.1's shape. Null otherwise: the line runs as it always did.
+    /// </summary>
+    private static string? KeptFor(WirePeer peer, string rid, RemoteCommand cmd)
+        => peer.Link is { } link && cmd.Kind == RemoteCommandKind.Action && AcceptorReceipts.Keeps(rid) ? link.Client : null;
+
+    /// <summary>
+    /// 13.12.6: <c>@rq1 RECEIPTS &lt;id&gt; …</c>, answered by the port from the record for the link's own ids —
+    /// <c>OK @rq1 {"inst":…,"receipts":{…}}</c> — or refused: no id to answer by, a connection LINK did not verify, an ask of no id or
+    /// of more than receipts.ask.max.
+    /// </summary>
+    private string ReceiptsAnswer(WirePeer peer, string rid, string body)
+    {
+        if (rid.Length == 0) return ControlProtocol.Err(AcceptorReceipts.NeedIdWords);
+        if (peer.Link is not { } link) return WireReceipt.Tag(ControlProtocol.Err(AcceptorReceipts.NotLinkedWords), rid);
+        if (!Hears(_kernel.State.Control.Token, peer)) return WireReceipt.Tag(ControlProtocol.Err(ControlProtocol.NotPaired), rid);
+        var ids = body.TrimStart()[8..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return AcceptorReceipts.AskOf(ids) is { } ask
+            ? WireReceipt.Tag(ControlProtocol.Ok(_receipts.Answer(link.Client, ask, _kernel.Beacon.Instance, ReceiptsNowMs())), rid)
+            : WireReceipt.Tag(ControlProtocol.Err(AcceptorReceipts.AskWords), rid);
+    }
+
+    /// <summary>
+    /// A link's verb answered: its receipt kept (13.12.6). A <c>CUE GO</c> on a desk answered <c>Requested</c> stays running in the
+    /// record and is owed its final line (13.12.4) once its row in the cue history says what came of it; one answered <c>Requested</c>
+    /// that no row will settle (no run named, or a node's) is kept as it read, accepted, never applied; one answered <c>Confirm</c>
+    /// ran nothing and never will — its final follows at once, refused, since only a second GO, a person's, runs the cue.
+    /// </summary>
+    private void Settled(WirePeer peer, string connector, string rid, RemoteCommand cmd, string response, long? late, long readMono)
+    {
+        if (cmd.Action.Kind == ShowActionKind.CueGo && CueAnswer(response) is { } go)
+        {
+            if (go.Outcome == "Requested" && (!_kernel.IsDesk || go.Execution.Length == 0))
+            {
+                _receipts.Keep(connector, rid, AcceptorReceipts.Accepted(AcceptorReceipts.WordsOf(response[3..]), late), ReceiptsNowMs());
+                return;
+            }
+            if (go.Outcome == "Requested")
+            {
+                var owed = new OwedFinal(peer, connector, rid, go.Execution, readMono, late);
+                UiThread.Post(() =>
+                {
+                    _finals.Add(owed);
+                    SettleFinals();
+                });
+                return;
+            }
+            if (go.Outcome == "Confirm" && _kernel.IsDesk)
+            {
+                var (line, receipt) = CueFinal.Line(rid, false, ConfirmWords, late);
+                _receipts.Keep(connector, rid, receipt, ReceiptsNowMs());
+                peer.Say(line);
+                return;
+            }
+        }
+        _receipts.Keep(connector, rid, AcceptorReceipts.FromAnswer(response, late), ReceiptsNowMs());
+    }
+
+    /// <summary>The final words of a <c>CUE GO</c> that asked for a second GO: it ran nothing.</summary>
+    public const string ConfirmWords = "not run — this GO asked for a second GO, a person's, within the confirm window; the cue runs on that GO, never on this one";
+
+    /// <summary>A <c>CUE GO</c>'s answer as this wire gives it: its outcome and the run it started; null for any other answer.</summary>
+    private static (string Outcome, string Execution)? CueAnswer(string response)
+    {
+        if (!response.StartsWith("OK {", StringComparison.Ordinal)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(response[3..]);
+            var o = doc.RootElement;
+            string Str(string name) => o.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() ?? "" : "";
+            return (Str("outcome"), Str("execution"));
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A link's <c>CUE GO</c> waiting for its row to say what came of it: the connection, its connector, its id, its run, when it was read.</summary>
+    private sealed record OwedFinal(WirePeer Peer, string Connector, string Rid, string Execution, long ReadMono, long? Late);
+
+    // The finals owed, on the desk's thread alone. Each run is one row of the cue history: an owed final leaves with its row, so they
+    // are never more than the history's rows.
+    private readonly List<OwedFinal> _finals = new();
+
+    /// <summary>How many CUE GO finals are owed now.</summary>
+    public int FinalsOwed => _finals.Count;
+
+    /// <summary>
+    /// 13.12.4 on the desk's thread: each owed final whose row has settled is said — <c>OK @id final {…}</c> applied for a cue that ran
+    /// (failed late or part-way included, its words naming what failed), <c>ERR @id final …</c> refused only for one where nothing ran
+    /// (<see cref="CueFinal"/>) — and kept in the record. Said on its connection only within receipt.final.ms of its read (an answer at
+    /// it still counts) and while that connection is open; later, or once it closed, the record alone takes it, where a RECEIPTS ask after
+    /// a relink reads it. One whose row has left the history, or that waited receipts.kept.ms, is given up: the record keeps it as its
+    /// first answer read — accepted, unconfirmed in words, it may have run — never running and never more than was observed. A fault here
+    /// is logged and settles nothing; it never leaves the desk's timer or the cue stack's change.
+    /// </summary>
+    private void SettleFinals()
+    {
+        if (_finals.Count == 0) return;
+        try
+        {
+            var history = _services.CueStack?.History;
+            var now = ReceiptsNowMs();
+            for (var i = _finals.Count - 1; i >= 0; i--)
+            {
+                var owed = _finals[i];
+                var row = history?.FirstOrDefault(r => r.ExecutionId == owed.Execution);
+                if (row is null || now - owed.ReadMono > (long)PeerLink.ReceiptsKeptFor.TotalMilliseconds)
+                {
+                    _finals.RemoveAt(i);
+                    _receipts.Keep(owed.Connector, owed.Rid, AcceptorReceipts.Accepted(AcceptorReceipts.GivenUpWords, owed.Late), now);
+                    continue;
+                }
+                if (CueFinal.Of(row) is not { } final) continue;
+                _finals.RemoveAt(i);
+                var (line, receipt) = CueFinal.Line(owed.Rid, final.Ok, final.Words, owed.Late);
+                _receipts.Keep(owed.Connector, owed.Rid, receipt, now);
+                if (now - owed.ReadMono <= (long)PeerLink.ReceiptFinal.TotalMilliseconds && !owed.Peer.Closed && !owed.Peer.LastSaid) owed.Peer.Say(line);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Wire: a CUE GO's final could not be settled; the record keeps what it had.", ex);
+        }
+    }
+
+    /// <summary>
+    /// 13.12.5: a command with an id that ran more than receipt.late.ms after it was read — its receipt says <c>lateMs</c>, and one
+    /// journal row and one log line say which verb, from where, and how late. Never the line's text, which may carry a secret's word.
+    /// </summary>
+    private void LateCommand(RemoteCommand cmd, string rid, ActionOrigin origin, long lateMs)
+    {
+        var verb = cmd.Kind == RemoteCommandKind.Action ? cmd.Action.Kind.ToString() : cmd.Kind.ToString();
+        var words = $"{verb} (@{rid}) from {origin.Label} {AcceptorReceipts.LateWords(lateMs)} — the desk's thread was busy; its receipt says so (Show Bus 1.3 §13.12.5)";
+        Log.Info("Wire: " + words + ".");
+        _kernel.Journal.Record(origin.Label, "LateCommand", verb, "Warn", words);
+    }
 
     /// <summary>
     /// 13.5.5: the keys whose live links end now (revoked, bound elsewhere, lowered, or enrolled from a code that was replaced): each

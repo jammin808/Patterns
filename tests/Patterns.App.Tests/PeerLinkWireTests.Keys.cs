@@ -158,7 +158,7 @@ public sealed partial class PeerLinkWireTests
         // S21, over plain: the code links at operate and enrols nothing.
         var (plain, plainLink) = Dialled(desk, DialDesk(desk, tls: false, code, "code"));
         Assert.Equal(("code", "operate"), (Str(plainLink, "verified"), Str(plainLink, "scope")));
-        Assert.Empty(plainLink["can"]!.AsArray());
+        Assert.Equal(["final", "receipts"], plainLink["can"]!.AsArray().Select(n => n!.GetValue<string>()));   // no enrol on plain, and no stuck or expire
         Assert.DoesNotContain(desk.Peer.Events, e => Str(e, "ev") == "enrolled");
         Assert.Empty(desk.Services.Kernel.AppKeys.Keys);
         Send(desk, plain, "@x1 PING 1");
@@ -166,7 +166,7 @@ public sealed partial class PeerLinkWireTests
 
         // Over TLS: the verdict names the key it enrolled, the connector derives the same one, and the desk keeps it at follow.
         var (tls, tlsLink) = Dialled(desk, DialDesk(desk, tls: true, code, "code"));
-        Assert.Equal(["enrol"], tlsLink["can"]!.AsArray().Select(n => n!.GetValue<string>()));
+        Assert.Equal(["final", "receipts", "enrol"], tlsLink["can"]!.AsArray().Select(n => n!.GetValue<string>()));
         var enrolled = TestApp.Pump(desk.Peer.Wait(e => Str(e, "ev") == "enrolled" && Str(e, "role") == "connector" && Int(e, "conn") == tls));
         Assert.True(enrolled["derived"]!.GetValue<bool>());
         var key = Assert.Single(desk.Services.Kernel.AppKeys.Keys);
@@ -301,7 +301,7 @@ public sealed partial class PeerLinkWireTests
             var conn = Int(TestApp.Pump(peer.Ask(dial)), "conn");
             var linked = TestApp.Pump(peer.Wait(e => Str(e, "ev") is "link" or "refused" && Str(e, "role") == "connector" && Int(e, "conn") == conn));
             Assert.Equal(("link", "code", "operate"), (Str(linked, "ev"), Str(linked, "verified"), Str(linked, "scope")));
-            Assert.Empty(linked["can"]!.AsArray());
+            Assert.Equal(["receipts"], linked["can"]!.AsArray().Select(n => n!.GetValue<string>()));       // a node keeps receipts and enrols nothing; it has no cue history to say a final from
             Assert.DoesNotContain(peer.Events, e => Str(e, "ev") == "enrolled");
             Assert.Empty(host.Kernel.AppKeys.Keys);
         }

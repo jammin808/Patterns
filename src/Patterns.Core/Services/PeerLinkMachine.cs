@@ -1687,14 +1687,43 @@ public sealed class ReceiptBook
         return s.Append("}}").ToString();
     }
 
-    /// <summary>A receipt answered from the record: <c>"repeat":true</c> appended at its end, every byte before it as kept.</summary>
+    /// <summary>
+    /// A receipt answered from the record: <c>"repeat":true</c> appended at its end — before its <c>lateMs</c> or <c>frame</c> where it
+    /// carries one as a field of its own, so §3's last fields keep their order (<c>final</c>, <c>repeat</c>, <c>lateMs</c>, <c>frame</c>) —
+    /// every other byte as kept.
+    /// </summary>
     public static string Repeat(string receipt)
     {
         var end = receipt.LastIndexOf('}');
         if (end < 0) return receipt;
+        foreach (var later in new[] { ",\"lateMs\":", ",\"frame\":" })
+            if (receipt.LastIndexOf(later, StringComparison.Ordinal) is var at and >= 0 && at < end && OwnField(receipt, at)) end = at;
         var open = receipt.AsSpan(0, end).TrimEnd();
         return open.ToString() + (open.EndsWith("{", StringComparison.Ordinal) ? "" : ",") + "\"repeat\":true" + receipt[end..];
     }
+
+    /// <summary>Whether <paramref name="at"/> stands in the receipt's own object, outside every string and every object inside it.</summary>
+    private static bool OwnField(string receipt, int at)
+    {
+        var depth = 0;
+        var inString = false;
+        for (var i = 0; i < at; i++)
+        {
+            var c = receipt[i];
+            if (inString)
+            {
+                if (c == '\\') i++;
+                else if (c == '"') inString = false;
+            }
+            else if (c == '"') inString = true;
+            else if (c is '{' or '[') depth++;
+            else if (c is '}' or ']') depth--;
+        }
+        return depth == 1 && !inString;
+    }
+
+    /// <summary>The connector's book gone whole: the acceptor keeps the receipts of so many connectors at most, and forgets the one heard from longest ago.</summary>
+    public void Forget(string connector) => _books.Remove(connector);
 
     /// <summary>
     /// The connector's book to write in. A connector new to the record first has every book purged, and each empty one

@@ -719,6 +719,7 @@ public sealed class SystemMetricsService : IDisposable
             AppKeysProtection = _services.Kernel.AppKeys.Protection,
             AppKeysProblem = _services.Kernel.AppKeys.Problem,
             AppLinks = _services.Control.AppLinkList,                                                 // Show Bus 1.3 §13.16.5: the acceptor's list, never decks
+            DeskStall = _services.Control.DeskStall,                                                  // LP-1: the desk thread's stall as the wire measured it
             ShowNetworkLinks = new[] { _services.Kernel.Stagewatch.Record },                          // Show Bus 1.3 §13.16.4: the link's record, read once
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,

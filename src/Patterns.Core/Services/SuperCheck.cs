@@ -295,6 +295,12 @@ public sealed class CheckFacts
     /// <summary>"" while the keys are kept as <see cref="AppKeysProtection"/> says; otherwise why they are not (the seal refused them: this run only).</summary>
     public string AppKeysProblem { get; init; } = "";
 
+    /// <summary>
+    /// The desk thread's stall distribution as the wire measured it: from each command's read to the desk's thread taking it (LP-1, the
+    /// measurement a later round reads before it offers <c>stuck</c> or <c>expire</c>).
+    /// </summary>
+    public DeskStallFacts DeskStall { get; init; } = DeskStallFacts.None;
+
     /// <summary>Show Bus 1.3 §13.16.5: the acceptor's list — the app links this wire accepted that LINK verified, open or ended this minute.</summary>
     public IReadOnlyList<AppLinkRow> AppLinks { get; init; } = Array.Empty<AppLinkRow>();
 
@@ -1170,6 +1176,24 @@ public static class SuperCheck
         return new CheckRow("REMOTE", "App links", CheckLight.Amber, value, $"FIX: {string.Join("; ", fixes)}; {rule}");
     }
 
+    /// <summary>
+    /// The desk thread's stall distribution (LP-1): how long after its read each wire command waited for the desk's thread, and how
+    /// many waited past receipt.late.ms — those receipts said <c>lateMs</c> and the journal has their rows. A record, never a governor:
+    /// green while none ran late, amber with the count when some did. This desk offers no <c>stuck</c> and no <c>expire</c> until a
+    /// stall like this one is measured on the rig and sets them.
+    /// </summary>
+    private static CheckRow DeskStallRow(CheckFacts f)
+    {
+        var lateMs = ((long)PeerLink.ReceiptLate.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var rule = $"measured, not governed: a link is offered no 'stuck' or 'expire' until this distribution, read on the rig, sets them (Show Bus 1.3 §13.10.5, §13.12.5); a command that waited past {lateMs} ms says lateMs in its receipt";
+        var d = f.DeskStall;
+        if (d.Total == 0) return new CheckRow("REMOTE", "Desk thread", CheckLight.Grey, d.Words, rule);
+        return d.Late == 0
+            ? new CheckRow("REMOTE", "Desk thread", CheckLight.Green, d.Words, rule)
+            : new CheckRow("REMOTE", "Desk thread", CheckLight.Amber, d.Words,
+                $"FIX: the desk's thread kept {d.Late} wire command{(d.Late == 1 ? "" : "s")} waiting more than {lateMs} ms — the journal's LateCommand rows say which and when; a heavy edit, a load or a stalled driver at that moment is the cause to look for; {rule}");
+    }
+
     private static void Remote(CheckFacts f, List<CheckRow> rows)
     {
         if (!f.RemoteEnabled)
@@ -1230,6 +1254,7 @@ public static class SuperCheck
         if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(WireTlsRow(f));
         if (f.WirePort > 0 && f.AppKeys.Count > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(AppKeysRow(f));
         if (f.WirePort > 0 && f.AppLinks.Count > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(AppLinksRow(f));
+        if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(DeskStallRow(f));
         if (f.WireFaults > 0)
         {
             // Round 83: a fault behind the wire is answered ERR on the line and logged; the row says it happened, so the log is read.

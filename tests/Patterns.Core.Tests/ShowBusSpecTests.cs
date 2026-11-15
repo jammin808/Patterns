@@ -132,6 +132,7 @@ public sealed class ShowBusSpecTests
         ("receipts.kept", Relation.Same, () => PeerLink.ReceiptsKept),
         ("receipts.kept.ms", Relation.Same, () => Ms(PeerLink.ReceiptsKeptFor)),
         ("receipts.ask.max", Relation.Same, () => PeerLink.ReceiptsAskMost),
+        ("receipt.late.ms", Relation.Same, () => Ms(PeerLink.ReceiptLate)),
         ("link.check.max.ms", Relation.WaitsAtMost, () => Ms(PeerLink.CheckEvery)),
         ("link.write.deadline.max.ms", Relation.WaitsAtMost, () => Ms(PeerLink.WriteDeadline)),
         ("link.sidecall.inflight", Relation.Same, () => PeerLink.SideCallsAtOnce),
@@ -192,14 +193,14 @@ public sealed class ShowBusSpecTests
         ["peerlink.hold.disconnect.ms"] = "the connector's hold after an acceptor operator's disconnect, which no verdict or message of 1.3 names: not scheduled",
         ["link.replies.max"] = Acceptor,
         ["link.command.bytes"] = Acceptor,
-        ["show.stuck.min.ms"] = Acceptor,
-        ["show.stuck.max.ms"] = Acceptor,
-        ["receipt.late.ms"] = Acceptor,
-        ["cmd.expire.max.ms"] = Acceptor,
+        ["show.stuck.min.ms"] = Stuck,
+        ["show.stuck.max.ms"] = Stuck,
+        ["cmd.expire.max.ms"] = Stuck,
     };
 
     private const string Windows = "§12's windows: this desk holds no granted window yet";
     private const string Acceptor = "a LINK acceptor's: this desk accepts no LINK before round 98 (the plan's 97), and its wire offers none";
+    private const string Stuck = "13.12.7's stuck and expire: this desk's wire offers neither until its show thread's stall is measured (the Super Check's Desk thread row records it, LP-1)";
 
     /// <summary>
     /// §2's words this desk does not keep yet (docs/OPEN.md L73), as the copy says them: checked both ways, the words still the

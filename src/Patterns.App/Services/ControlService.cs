@@ -104,6 +104,7 @@ public sealed partial class ControlService : IDisposable
 
     private void ClockTick()
     {
+        SettleFinals();              // §13.12.4: a final owed past receipt.final.ms is said to the record alone, each second at most (guarded inside)
         try
         {
             // A node appearing, the twin's phase moving, a message to the stage waiting: nothing publishes for it, and a deck's keys read it.
@@ -142,6 +143,7 @@ public sealed partial class ControlService : IDisposable
         {
             Interlocked.Increment(ref _rev);
             ArmPush();
+            SettleFinals();          // Show Bus 1.3 §13.12.4: a row a link's CUE GO waits on may have said what came of it
         };
     }
 
@@ -481,12 +483,20 @@ public sealed partial class ControlService : IDisposable
                     break;
                 }
                 var readAt = ClockPing.Ms(ShowClock.UtcNow);                          // t2 of a clock exchange: when the line was read
+                var readMono = ReceiptsNowMs();                                         // §13.12.5's read, on the monotonic clock a wait is counted on
                 // Round 87 (Show Bus 1.1 §3): "@a1 <line>" carries a request id; every answer to the line names it.
                 var (rid, body) = WireReceipt.Split(line, out var malformed);
+                LineRead?.Invoke(rid);
                 void Reply(string reply) => peer.Say(WireReceipt.Tag(reply, rid));
                 if (malformed)
                 {
                     peer.Say(ControlProtocol.Err(WireReceipt.Malformed));
+                    continue;
+                }
+                if (AcceptorReceipts.IsAsk(body))
+                {
+                    // Show Bus 1.3 §13.12.6: a link's own RECEIPTS ask, answered by the port from this desk's record; never a command.
+                    peer.Say(ReceiptsAnswer(peer, rid, body));
                     continue;
                 }
                 RemoteCommand cmd;
@@ -639,17 +649,36 @@ public sealed partial class ControlService : IDisposable
                     continue;
                 }
                 if (peer.LastSaid) continue;                                            // told its last word while this line was read
+                // Show Bus 1.3 §13.12.6: a link's verb whose id the record holds is answered from it and never runs again.
+                var keptFor = KeptFor(peer, rid, cmd);
+                if (keptFor is not null && _receipts.Begin(keptFor, rid, ReceiptsNowMs()) is { } held)
+                {
+                    peer.Say("OK @" + rid + " " + held);
+                    continue;
+                }
                 if (peer.Link is not null && cmd.Kind == RemoteCommandKind.Action) peer.MarkDrove();
+                var ranAt = NotTaken;
                 string response;
                 try
                 {
-                    response = await _router.ExecuteAsync(cmd, origin);
+                    // The first call is the desk's thread taking the command; a router that hands part of it to a worker calls it once.
+                    response = await _router.ExecuteAsync(cmd, origin, () => Interlocked.CompareExchange(ref ranAt, ReceiptsNowMs(), NotTaken));
                 }
                 catch (Exception ex) when (!Faults.IsIoEnd(ex))
                 {
                     response = WireFault(ex, "TCP");
                 }
-                Reply(response);
+                // §13.12.5: when the desk's thread took it against its read, both on one monotonic clock. A command the desk's thread
+                // never took (answered off it, or by a router that cannot say) is no measurement of that thread: neither counted nor late.
+                long? late = null;
+                if (Interlocked.Read(ref ranAt) is var ran and not NotTaken)
+                {
+                    _deskStall.Add(ran - readMono);
+                    late = rid.Length > 0 ? AcceptorReceipts.Late(readMono, ran) : null;
+                }
+                if (late is { } lateMs) LateCommand(cmd, rid, origin, lateMs);
+                Reply(AcceptorReceipts.WithLate(response, late));
+                if (keptFor is not null) Settled(peer, keptFor, rid, cmd, response, late, readMono);
             }
         }
         catch (Exception ex)

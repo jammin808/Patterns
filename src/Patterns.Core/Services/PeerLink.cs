@@ -81,6 +81,12 @@ public static class PeerLink
     /// <summary>A command written with no final answer in this is unconfirmed (§14 <c>receipt.final.ms</c>, 13.12.4); an answer at it still counts.</summary>
     public static readonly TimeSpan ReceiptFinal = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// An acceptor that runs a command more than this after it read it says so: <c>lateMs</c> in the receipt and a journal row
+    /// (§14 <c>receipt.late.ms</c>, 13.12.5); one that ran at it ran in time.
+    /// </summary>
+    public static readonly TimeSpan ReceiptLate = TimeSpan.FromSeconds(1);
+
     /// <summary>The ids an acceptor's record keeps per connector (§14 <c>receipts.kept</c>, 13.12.6).</summary>
     public const int ReceiptsKept = 256;
 

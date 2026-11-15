@@ -31,14 +31,24 @@ public sealed class CommandRouter : IRouter
     public static Func<RemoteCommand, bool>? FaultOn { get; set; }
 
     /// <summary>Runs one command on the UI thread; returns the protocol response line.</summary>
-    public async Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin = null)
+    public Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin = null) => ExecuteAsync(cmd, origin, null);
+
+    /// <summary>
+    /// Runs one command on the UI thread, <paramref name="started"/> called there as it takes it — before any part handed to the network,
+    /// a model or a worker, whose time is no wait of that thread; first call counts — and returns the protocol response line.
+    /// </summary>
+    public async Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin, Action? started)
     {
         if (FaultOn?.Invoke(cmd) == true) throw new InvalidOperationException("a fault injected at the router's seam");
         try
         {
             // The arcade's status from a desk is the arcade nodes' — asked on their wires, off the UI thread.
             if (cmd.Kind is RemoteCommandKind.ArcadeStatus or RemoteCommandKind.PlayStatus && _services.Profile != NodeKind.Arcade
-                && await UiThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0)
+                && await UiThread.InvokeAsync(() =>
+                {
+                    started?.Invoke();                                                          // the desk's thread's part: the arcade list
+                    return _services.Nodes.Arcades().Count;
+                }) > 0)
             {
                 var head = cmd.Kind == RemoteCommandKind.ArcadeStatus ? "ARCADE " : "PLAY ";
                 return ControlProtocol.Ok(await _services.Nodes.AskArcadesAsync(head + (cmd.Text.Length == 0 ? "STATUS" : cmd.Text)));
@@ -49,16 +59,28 @@ public sealed class CommandRouter : IRouter
                 if (!_services.State.Control.AssistantOnWire) return ControlProtocol.Err("the assistant is not on the wire — Remote page, 'Nodes may ask the assistant'");
                 // The desk's assistant for a node (a hub's queue, a caller's brief): one ask, the reply as JSON, the network off the UI thread.
                 var question = cmd.Text.StartsWith("moderate ", StringComparison.OrdinalIgnoreCase) ? PlayService.ModerationQuestion(cmd.Text[9..].Trim()) : cmd.Text;
-                var answer = await UiThread.InvokeAsync(() => _services.Assistant.AskAsync(question));
+                var answer = await UiThread.InvokeAsync(() =>
+                {
+                    started?.Invoke();                                                          // the model's answer is not the desk's thread's wait
+                    return _services.Assistant.AskAsync(question);
+                });
                 return ControlProtocol.Ok(JsonUtil.SerializeCompact(new { sent = answer.Sent, status = answer.Status, inScope = answer.Reply?.InScope ?? false, reply = answer.Reply?.Reply ?? "" }));
             }
             if (cmd.Kind == RemoteCommandKind.EyeAt)
             {
                 // The record at an instant, the page untouched: the journal and the metrics file are read on a worker,
                 // never on the UI thread, and the reply waits for that read.
-                return await UiThread.InvokeAsync(() => _services.Eye.JsonAtAsync(cmd.Text));
+                return await UiThread.InvokeAsync(() =>
+                {
+                    started?.Invoke();                                                          // the worker's read is not the desk's thread's wait
+                    return _services.Eye.JsonAtAsync(cmd.Text);
+                });
             }
-            return await UiThread.InvokeAsync(() => Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp)));
+            return await UiThread.InvokeAsync(() =>
+            {
+                started?.Invoke();
+                return Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp));
+            });
         }
         catch (Exception ex)
         {
@@ -157,7 +179,7 @@ public sealed class CommandRouter : IRouter
                     return ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = "Confirm", confirm = stack.ConfirmText, standby = StandbyRow(stack.StandbyCue) }));
                 }
                 return result.Ok
-                    ? ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = result.Status.ToString(), last = LastRow(stack), standby = StandbyRow(stack.StandbyCue) }))
+                    ? ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = result.Status.ToString(), last = LastRow(stack), standby = StandbyRow(stack.StandbyCue), execution = result.Execution?.Id ?? "" }))
                     : ControlProtocol.Err(result.Message);
             }
             case ShowActionKind.CueStandby:
