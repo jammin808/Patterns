@@ -15,9 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # The SDK is the one global.json names, in every job: each setup-dotnet step installs
+      # from global-json-file and names no version of its own, and no line runs dotnet-install
+      # (SdkPinTests holds both). global.json pins the bench's SDK with rollForward latestPatch;
+      # setup-dotnet turns latestPatch into the pin's feature band (major.minor.Nxx, N the patch
+      # field's first digit) and installs that band's newest patch, and the SDK resolver takes the
+      # highest patch of that band at or above the pin. So CI builds on the pinned band, never
+      # another: a newer band on the runner image decides no analysis rule. A patch newer than the
+      # bench's is the one update the pin allows.
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: global.json
       # The App suite's PeerLinkWireTests run the scripted PeerLink peer (tools/showbus/peerlink-peer.mjs) on Node 22,
       # the version the Show Bus tools are written for; without it those tests fail, they never skip.
       - uses: actions/setup-node@v4
@@ -56,9 +64,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # The SDK global.json names, its band's newest patch (the invariant at the test job's step).
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: global.json
       - name: Restore
         run: dotnet restore tests/Patterns.App.Tests/Patterns.App.Tests.csproj
       - name: Build
@@ -114,9 +123,10 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v5
+      # The SDK global.json names, its band's newest patch (the invariant at the test job's step).
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: global.json
       # Round 79: the build says which build it is. The version is 0.<round>.<run> — the round from the
       # changelog's newest header, the run number from Actions — and the informational version carries
       # the round and the commit (0.79.312+round-79.9410292), so the wire, the beacon, the pages, the
@@ -251,9 +261,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
+      # The SDK global.json names, its band's newest patch (the invariant at the test job's step).
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: global.json
       - name: Restore
         run: dotnet restore
       - name: Build

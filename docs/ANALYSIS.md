@@ -102,7 +102,7 @@ Sonar's, in the source tree:
 
 | Tool | Verdict | Why |
 |---|---|---|
-| .NET SDK analyzers (`Microsoft.CodeAnalysis.NetAnalyzers`, in the SDK) | **In, as fences** | Already in every build; the rules with a failure mode behind them — culture, disposal, threading, P/Invoke search paths, ignored results — are the ones a show machine needs stopped; the naming and API-shape rules are off by name with the reason. |
+| .NET SDK analyzers (`Microsoft.CodeAnalysis.NetAnalyzers`, in the SDK `global.json` pins) | **In, as fences** | Already in every build; the rules with a failure mode behind them — culture, disposal, threading, P/Invoke search paths, ignored results — are the ones a show machine needs stopped; the naming and API-shape rules are off by name with the reason. |
 | `SonarAnalyzer.CSharp` 10.34 (NuGet) | **In, as fences** | The same rules a SonarQube server runs, inside the compiler, no server: a regular expression without a timeout, a DateTime without a Kind, an exception swallowed, a non-short-circuit boolean, swapped arguments, dead stores and dead code. The style rules (nested conditionals, loops-to-LINQ, `this`) are off by name. |
 | `Microsoft.VisualStudio.Threading.Analyzers` 18.7 | **In, as fences** | Blocking waits, unscheduled continuations, async-void, unobserved results — the hang classes of a desk with a UI thread. The JoinableTaskFactory-specific rules and the `Async` suffix rule are off: the desk has no JTF and not that naming. |
 | `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6 | **In, with a list** | `Environment.TickCount`, `Thread.Sleep`, `GC.Collect`, `Console.Write`, `Task.Wait` — each with its reason in `BannedSymbols.txt`; the desk's code only, the tests may sleep. |
@@ -201,6 +201,17 @@ unit.
 
 - The build is the run: `dotnet build -c Release` fails on a fenced rule locally and in CI; the Windows
   lane builds the same tree with the same `.editorconfig`.
+- The SDK's analyzers are the pinned SDK's: `global.json` at the root names the SDK (10.0.115,
+  `rollForward` `latestPatch`, no previews), every `actions/setup-dotnet` step installs from it and
+  names no version of its own, and `SdkPinTests` fails the build's tests when either drifts. So which
+  CA rules exist and what they find is the pinned patch's feature band's wherever the tree builds; a
+  runner image's newer band decides nothing, and a newer patch of the band is the one update the pin
+  allows. Only CI installs from `global.json`; any other machine — the maintainer's PC included —
+  needs a 10.0.1xx SDK at the pinned patch or above installed by hand, and without one `dotnet` refuses
+  the build with words that name `global.json`. `SdkPinTests` holds the setup-dotnet steps of
+  `.github/workflows` and `.github/actions`, and no workflow line that runs `dotnet-install`; an SDK
+  any other installer puts on a machine is still refused by `global.json` outside the band. Moving the pin is a unit of its own: install the new SDK, build,
+  fix or reason what its rules find, then change the one version in `global.json`.
 - `tools/gen_editorconfig.py` is the plan: a family is a list of rules with a reason each; `python3
   tools/gen_editorconfig.py <family> <family> …` regenerates `.editorconfig` with the named families at
   error and the rest at suggestion. Edit the plan, never the generated file.
