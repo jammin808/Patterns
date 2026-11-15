@@ -26,12 +26,7 @@ public class NodeLightnessTests
 
     public NodeLightnessTests(ITestOutputHelper output) => _out = output;
 
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     [AvaloniaFact]
     public void ATimerNodeBootsOnTheKernelsModulesAndSaysWhatItLoaded()
@@ -40,8 +35,7 @@ public class NodeLightnessTests
         var dir = TempRun.Folder("patterns-tests-light-").Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = false;
-        s.Control.HttpPort = FreePort();
-        s.Control.TcpPort = FreePort();
+        (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
         s.Watchdog.BeaconListenPort = FreePort();
         s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
         File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
@@ -87,8 +81,7 @@ public class NodeLightnessTests
         var dir = TempRun.Folder("patterns-tests-role-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = false;
-        s.Control.HttpPort = FreePort();
-        s.Control.TcpPort = FreePort();
+        (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
         s.Watchdog.BeaconListenPort = FreePort();
         s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
         File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));

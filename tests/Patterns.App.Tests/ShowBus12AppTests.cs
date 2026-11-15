@@ -28,12 +28,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class ShowBus12AppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     /// <summary>Pumps the desk until <paramref name="condition"/> holds; a wait that runs out says what <paramref name="seen"/> reads then.</summary>
     internal static void PumpUntil(Func<bool> condition, int timeoutMs = 15000, Func<string>? seen = null)
@@ -104,8 +99,7 @@ public class ShowBus12AppTests
         var trusted = ControlService.TrustLoopback;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
             var fp = services.Kernel.Tls.Fingerprint;
@@ -1225,15 +1219,14 @@ public class ShowBus12AppTests
     [AvaloniaFact]
     public void ATimerNodeFollowsItsDesksStagewatchByRelayAndTheDeskDrawsTheNodesOwnContext()
     {
-        var twinPort = FreePort();
+        var (twinPort, deskHttp, deskWire) = TestPorts.Three();
         using var sw = new FakeStagewatch(Frame, null);
         var desk = TestApp.Boot("patterns-tests-desk88-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Twin.Port = twinPort;
             s.Twin.Key = "hunter2";
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (deskHttp, deskWire);
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             s.Control.Stagewatch.Enabled = true;
@@ -1254,8 +1247,7 @@ public class ShowBus12AppTests
             {
                 s.Twin.Key = "hunter2";
                 s.Control.Enabled = true;
-                s.Control.HttpPort = FreePort();
-                s.Control.TcpPort = FreePort();
+                (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
                 s.Watchdog.BeaconListenPort = FreePort();
                 s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             });

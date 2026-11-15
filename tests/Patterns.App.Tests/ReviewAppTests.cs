@@ -13,15 +13,6 @@ namespace Patterns.App.Tests;
 /// <summary>The review from the desk and the remote: the preview on the multiview thumbnail, the flag on the program snapshot and in STATE, the toggles following each other.</summary>
 public class ReviewAppTests
 {
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -45,8 +36,7 @@ public class ReviewAppTests
         {
             var vm = b.Vm;
             var services = b.Services;
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
 
             // The program: blue, with a Program tile and a Preview tile in its multiview; EDIT SAFE freezes it and the desk builds red.
             vm.ActivePattern.Kind = PatternKind.FlatField;

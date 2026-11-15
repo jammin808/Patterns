@@ -33,14 +33,7 @@ public class ShowBusAppTests
 
     public ShowBusAppTests(ITestOutputHelper output) => _out = output;
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void Pump(Task task, int timeoutMs = 8000)
     {
@@ -162,8 +155,7 @@ public class ShowBusAppTests
         ControlService.PlainAuthOnLoopback = false;                              // this connection plays another machine
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
 
@@ -239,8 +231,7 @@ public class ShowBusAppTests
         var (trusted, plain) = (ControlService.TrustLoopback, ControlService.PlainAuthOnLoopback);
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
@@ -323,8 +314,7 @@ public class ShowBusAppTests
         var trusted = ControlService.TrustLoopback;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             vm.State.Control.RequireHttps = true;
             Dispatcher.UIThread.RunJobs();
@@ -375,8 +365,7 @@ public class ShowBusAppTests
         ControlService.TrustLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = "";
             Dispatcher.UIThread.RunJobs();
             using (var open = new Wire(vm.State.Control.TcpPort, expectNonce: false))
@@ -817,8 +806,7 @@ public class ShowBusAppTests
         ControlService.TrustLoopback = false;                                                         // the stage page reads as a speaker's screen would
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
             using var page = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{vm.State.Control.HttpPort}/") };
             Link(vm, services, stagewatch);

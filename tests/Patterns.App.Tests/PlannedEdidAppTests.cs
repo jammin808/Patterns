@@ -23,15 +23,6 @@ public class PlannedEdidAppTests
     private static readonly PixelRect Wall = new(0, 9000, 1920, 1080);
     private const string DevicePath = @"\\?\DISPLAY#PTN0001#5&2a3c8f1&0&UID4353#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}";
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -128,8 +119,7 @@ public class PlannedEdidAppTests
             _ = wire;
 
             // Over HTTP: the bytes, the hex, the summary; a screen that is not there is 404.
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
             var bin = Get(port, $"/api/screens/{n}/edid.bin");

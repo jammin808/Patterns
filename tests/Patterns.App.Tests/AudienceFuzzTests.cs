@@ -20,12 +20,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class AudienceFuzzTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 20000)
     {
@@ -69,14 +64,13 @@ public class AudienceFuzzTests
     [AvaloniaFact]
     public void TheAudiencePortAnswersEveryShapeItIsSentWithAStatusOrAClosedDoorAndSeatsThePhoneAfter()
     {
-        var audiencePort = FreePort();
+        var (httpPort, tcpPort, audiencePort) = TestPorts.Three();
         var b = TestApp.Boot("patterns-tests-fuzz-", dir =>
         {
             var s = SettingsStore.Fresh();
             s.Name = "Gala";
             s.Control.Enabled = true;
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (httpPort, tcpPort);
             s.Control.AudienceEnabled = true;
             s.Control.AudiencePort = audiencePort;
             s.Control.AudienceMaxPlayers = 60;
@@ -91,7 +85,7 @@ public class AudienceFuzzTests
             var play = services.Play;
             // Nobody here waits five seconds for a phone that stopped talking: one is plenty.
             services.Control.AudienceLimits = HttpLimits.Audience with { HeadSeconds = 1, BodySeconds = 1 };
-            PumpUntil(() => services.Control.AudienceListening);
+            TestListeners.Up(services.Control, b.Vm.State.Control, () => services.Control.AudienceListening, "the audience listener");
             using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audiencePort}/"), Timeout = TimeSpan.FromSeconds(8) };
 
             // A name with an accent and an emoji: the body is bytes, not characters, and the join lands with the name whole.
@@ -281,12 +275,12 @@ public class AudienceFuzzTests
     [AvaloniaFact]
     public void TheControlWiresLinesAndTheTwinsFirstLineAreBoundedToo()
     {
-        var wire = FreePort();
+        var (wire, web) = TestPorts.Two();
         var b = TestApp.Boot("patterns-tests-wire-", dir =>
         {
             var s = SettingsStore.Fresh();
             s.Control.Enabled = true;
-            s.Control.HttpPort = FreePort();
+            s.Control.HttpPort = web;
             s.Control.TcpPort = wire;
             s.Twin.AcceptCallers = false;
             s.Watchdog.BeaconListenPort = FreePort();
@@ -296,7 +290,7 @@ public class AudienceFuzzTests
         try
         {
             var (services, vm, _) = b;
-            PumpUntil(() => CanConnect(wire));
+            TestListeners.Up(services.Control, vm.State.Control, () => CanConnect(wire), "the wire");
 
             // A line that never ends is not a command: said once, the door closed, the wire still there for the next.
             // A STATE push may land in between — the desk goes on changing while the line is read — and is no answer to the line.
@@ -347,12 +341,12 @@ public class AudienceFuzzTests
     [AvaloniaFact]
     public void AConnectionClosedOnARefusalHearsNothingAfterItEvenAPushThatLandsBeforeTheClose()
     {
-        var wire = FreePort();
+        var (wire, web) = TestPorts.Two();
         var b = TestApp.Boot("patterns-tests-lastword-", dir =>
         {
             var s = SettingsStore.Fresh();
             s.Control.Enabled = true;
-            s.Control.HttpPort = FreePort();
+            s.Control.HttpPort = web;
             s.Control.TcpPort = wire;
             s.Twin.AcceptCallers = false;
             s.Watchdog.BeaconListenPort = FreePort();
@@ -365,7 +359,7 @@ public class AudienceFuzzTests
         ControlService.AfterLastWord = peer => peer.Push(Late);
         try
         {
-            Assert.True(b.Services.Control.Listening, b.Services.Control.Status);
+            Assert.True(b.Services.Control.Listening, $"{b.Services.Control.Status} ({TestListeners.Asked(b.Vm.State.Control)})");
             foreach (var (bytes, words) in new[]
                      {
                          (Encoding.ASCII.GetBytes(new string('x', 200_000)), $"past {ControlService.WireLineBytes} bytes"),

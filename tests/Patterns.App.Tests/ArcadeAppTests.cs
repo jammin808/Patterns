@@ -19,12 +19,7 @@ namespace Patterns.App.Tests;
 
 public class ArcadeAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static bool CanConnect(int port)
     {
@@ -68,13 +63,13 @@ public class ArcadeAppTests
     [AvaloniaFact]
     public void AnArcadeNodeRunsTheGameFromTheWireTheKeyboardAndThePhonePad()
     {
-        var http = FreePort();
+        var (http, wire) = TestPorts.Two();
         var b = TestApp.Boot("patterns-tests-arcade-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Control.Enabled = true;
             s.Control.HttpPort = http;
-            s.Control.TcpPort = FreePort();
+            s.Control.TcpPort = wire;
             s.Twin.AcceptCallers = false;
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
@@ -314,19 +309,19 @@ public class ArcadeAppTests
             Assert.True(d.Actions.Execute(new ShowAction(ShowActionKind.ArcadeStop), ActionOrigin.Desk).Ok);
             Assert.Equal(ArcadePhase.Idle, d.Arcade.Phase);
 
-            var wire = FreePort();
+            var (wire, web) = TestPorts.Two();
             node = TestApp.Boot("patterns-tests-arcade2-", dir => Settings(dir, s =>
             {
                 s.Name = "Gala";
                 s.Control.Enabled = true;
-                s.Control.HttpPort = FreePort();
+                s.Control.HttpPort = web;
                 s.Control.TcpPort = wire;
                 s.Twin.AcceptCallers = false;
                 s.Watchdog.BeaconListenPort = FreePort();
                 s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             }), NodeKind.Arcade);
             var n = node.Services;
-            PumpUntil(() => CanConnect(wire));
+            TestListeners.Up(n.Control, node.Vm.State.Control, () => CanConnect(wire), "the arcade node's wire");
 
             // The desk hears the node's beacon (as the network would carry it) and its card has the wire.
             d.Beacon.Hear(n.Beacon.Build() with { Machine = "HUB-PC" }, new IPEndPoint(IPAddress.Loopback, 9700));

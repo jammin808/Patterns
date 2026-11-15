@@ -15,12 +15,7 @@ namespace Patterns.App.Tests;
 
 public class PlayAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000)
     {
@@ -31,31 +26,6 @@ public class PlayAppTests
             Thread.Sleep(5);
             if (Environment.TickCount64 > deadline) throw new TimeoutException("the condition never held");
         }
-    }
-
-    /// <summary>
-    /// The hub's control listeners open — the wire and the web remote, which <see cref="ControlService.Listening"/> needs both of
-    /// — and the wire's port. A port <see cref="FreePort"/> found free is free only until its probe lets it go, and anything on
-    /// the machine may take it before the hub binds it; the hub's start then fails, and its retry every 5 s fails for as long as
-    /// the port is held, so no wait is long enough. The hub's own fact says which, and both are set before the boot returns (the
-    /// window's opening starts the listeners): it listens, or its start failed. A start that failed moves every listener to
-    /// another port, a bounded count of tries and never a clock; the status names the listener that failed.
-    /// </summary>
-    private static int WireOpen(TestApp.Booted hub, int port)
-    {
-        var control = hub.Services.Control;
-        for (var tries = 0; !control.Listening; tries++)
-        {
-            Assert.True(control.StartFailed, $"the hub's control listeners neither listen nor failed to start: {control.Status}");
-            Assert.True(tries < 8, $"the hub's control listeners could not bind in {tries} tries: {control.Status}");
-            port = FreePort();
-            hub.Vm.State.Control.TcpPort = port;
-            hub.Vm.State.Control.HttpPort = FreePort();
-            if (hub.Vm.State.Control.AudienceEnabled) hub.Vm.State.Control.AudiencePort = FreePort();
-            Dispatcher.UIThread.RunJobs();
-            control.Reconcile();
-        }
-        return port;
     }
 
     private static void Settings(string dir, Action<ShowState> edit)
@@ -73,14 +43,13 @@ public class PlayAppTests
     [AvaloniaFact]
     public void TheHubRunsARoomForThePhonesTheHostAndTheWall()
     {
-        var httpPort = FreePort();
-        var audiencePort = FreePort();
+        var (httpPort, tcpPort, audiencePort) = TestPorts.Three();
         var b = TestApp.Boot("patterns-tests-hub-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Control.Enabled = true;
             s.Control.HttpPort = httpPort;
-            s.Control.TcpPort = FreePort();
+            s.Control.TcpPort = tcpPort;
             s.Control.AudienceEnabled = true;
             s.Control.AudiencePort = audiencePort;
             s.Install.AdminPasscode = "1234";
@@ -99,7 +68,7 @@ public class PlayAppTests
             string Wire(string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{httpPort}/") };
             using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audiencePort}/") };
-            PumpUntil(() => services.Control.AudienceListening);
+            TestListeners.Up(services.Control, vm.State.Control, () => services.Control.AudienceListening, "the hub's audience listener");
 
             // The boundary: the audience port answers the play pages and nothing else; the control port never the room.
             Assert.Contains("Patterns Play", Get(phone, "play?room=" + play.Code));
@@ -219,7 +188,7 @@ public class PlayAppTests
             Assert.Equal("", play.JoinUrl);
             var again = FreePort();
             Assert.StartsWith("OK", Wire($"AUDIENCE ON {again}"));
-            PumpUntil(() => services.Control.AudienceListening);
+            TestListeners.Up(services.Control, vm.State.Control, () => services.Control.AudienceListening, "the hub's audience listener after AUDIENCE ON");
             Assert.Equal(again, vm.State.Control.AudiencePort);
             Assert.Contains($":{again}/", play.JoinUrl);
         }
@@ -251,21 +220,27 @@ public class PlayAppTests
             Assert.StartsWith("OK {", TestApp.Pump(new CommandRouter(d).ExecuteAsync(ControlProtocol.Parse("PLAY STATUS"))));
 
             // The port picked for the hub's wire is taken before the hub binds it, as anything on the machine may take it.
-            var wire = FreePort();
+            var (wire, web) = TestPorts.Two();
             using var taken = new TcpListener(IPAddress.Any, wire);
             taken.Start();
             hub = TestApp.Boot("patterns-tests-hub2-", dir => Settings(dir, s =>
             {
                 s.Name = "Gala";
                 s.Control.Enabled = true;
-                s.Control.HttpPort = FreePort();
+                s.Control.HttpPort = web;
                 s.Control.TcpPort = wire;
                 s.Twin.AcceptCallers = false;
                 s.Watchdog.BeaconListenPort = FreePort();
                 s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             }), NodeKind.Arcade);
             var h = hub.Services;
-            Assert.NotEqual(wire, WireOpen(hub, wire));
+            // The start failed on the held port, and says so by its fields: the wire, that port, every address; nothing listens.
+            var fault = Assert.IsType<ListenerFault>(h.Control.StartFault);
+            Assert.Equal((ControlService.WireListener, wire, "0.0.0.0"), (fault.Listener, fault.Port, fault.Bind));
+            Assert.False(h.Control.Listening);
+            Assert.Contains($"the wire listener could not open port {wire}", h.Control.Status);
+            Assert.NotEqual(wire, TestListeners.WireOpen(hub, wire));
+            Assert.Null(h.Control.StartFault);
             d.Beacon.Hear(h.Beacon.Build() with { Machine = "HUB-PC" }, new IPEndPoint(IPAddress.Loopback, 9700));
             d.Nodes.Poll();
             Assert.Single(d.Nodes.Arcades());

@@ -242,6 +242,12 @@ public sealed class CheckFacts
     public string RemoteBindProblem { get; init; } = "";
     /// <summary>Round 85: why the audience listener is closed — its bind is not an address; "" when it is open or off.</summary>
     public string AudienceBindProblem { get; init; } = "";
+    /// <summary>
+    /// Why the control listeners are closed after their start threw — the listener, its port, the address it asked for and the
+    /// socket's message, the words the desk's status says — or "" while they listen, are off or are closed on a bind that is not
+    /// an address. The wire, the web remote and the audience listener close together; the desk asks again every few seconds.
+    /// </summary>
+    public string RemoteStartProblem { get; init; } = "";
     /// <summary>Whether a pairing token is set, so a remote must present it before a mutating verb runs.</summary>
     public bool RemoteToken { get; init; }
     /// <summary>Round 79: whether OSC is listening (remote control on, OSC in ticked) — the one control port that has no session to pair.</summary>
@@ -1137,6 +1143,13 @@ public static class SuperCheck
             rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Red, "closed — the bind is not an address",
                 $"FIX: {f.RemoteBindProblem} (Remote page, Bind to); the web remote, the wire and OSC stay closed until it binds"));
         }
+        else if (f.RemoteStartProblem.Length > 0)
+        {
+            // A listener's port could not be opened: the wire, the web remote and the audience listener are all closed, and the
+            // words name the one that failed, its port and the address it asked for.
+            rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Red, "closed — a listener could not open its port",
+                $"FIX: {f.RemoteStartProblem} — another program holds that port, or the desk this one replaces has not let it go; the desk asks again every few seconds, or give that listener another port on the Remote page"));
+        }
         else if (f.RemoteToken)
         {
             // Paired: a remote presents the show's token before a verb runs, whatever network it is on.
@@ -1160,9 +1173,10 @@ public static class SuperCheck
             rows.Add(new CheckRow("REMOTE", "Pairing token", CheckLight.Amber, TokenClearSightings.Words(f.TokenSeenInClear),
                 $"FIX: the token crossed the network unencrypted ({how}) — anyone on that network may hold it now: Remote page, TRUST: NEW TOKEN, then pair those remotes again over https:// or by proof (Companion module {CompanionModule.Version} or later)"));
         }
-        if (f.RemoteToken && f.RemoteBindProblem.Length == 0)
+        if (f.RemoteToken && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0)
         {
-            // ADR-016: a paired desk shows its state on the wire only to a paired connection. The row says the rule and what
+            // ADR-016: a paired desk shows its state on the wire only to a paired connection — said only while the wire listens,
+            // as the row "Wire TLS" is. The row says the rule and what
             // scope A leaves open; a refused read turns it amber — a deck or a link without the token asked, or a machine
             // that is not the operator's — with the count since start and the last one's verb and address.
             var refused = f.WireReadsRefused;
@@ -1172,7 +1186,7 @@ public static class SuperCheck
                     $"FIX: a reader without the pairing token asked for the show's state — the last: {f.WireReadRefusedLast}; a deck or a link of yours whose token field is empty or old reads nothing until the token is typed into it (Remote page, TRUST), and a machine that is not yours learned nothing. patterns.log names each address once, at most {ControlProtocol.UnpairedReadsNamedMost} addresses; {rule}")
                 : new CheckRow("REMOTE", "Wire reads", CheckLight.Green, "paired connections only", rule));
         }
-        if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0) rows.Add(WireTlsRow(f));
+        if (f.WirePort > 0 && f.RemoteBindProblem.Length == 0 && f.RemoteStartProblem.Length == 0) rows.Add(WireTlsRow(f));
         if (f.WireFaults > 0)
         {
             // Round 83: a fault behind the wire is answered ERR on the line and logged; the row says it happened, so the log is read.

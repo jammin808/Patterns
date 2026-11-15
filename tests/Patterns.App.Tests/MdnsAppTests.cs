@@ -20,12 +20,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class MdnsAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 10000)
     {
@@ -45,8 +40,7 @@ public class MdnsAppTests
         s.Name = "Gala";
         s.Control.Enabled = true;
         s.Control.Announce = announce;
-        s.Control.HttpPort = FreePort();
-        s.Control.TcpPort = FreePort();
+        (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
         s.Watchdog.BeaconName = "HUB-PC";
         s.Watchdog.BeaconListenPort = FreePort();
         s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;

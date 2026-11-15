@@ -293,12 +293,5 @@ public class InstallAppTests
         }
     }
 
-    private static int FreePort()
-    {
-        var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
-    }
+    private static int FreePort() => TestPorts.Free();
 }

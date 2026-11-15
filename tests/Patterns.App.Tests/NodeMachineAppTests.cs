@@ -23,20 +23,14 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class NodeMachineAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState>? edit = null, [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerMemberName] string member = "")
     {
         var dir = TempRun.Folder($"patterns-tests-machine-{NodeKinds.Wire(kind)}-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = true;
-        s.Control.HttpPort = FreePort();
-        s.Control.TcpPort = FreePort();
+        (s.Control.HttpPort, s.Control.TcpPort, s.Control.AudiencePort) = TestPorts.Three();   // one pick: the audience's too, used or not
         s.Watchdog.BeaconListenPort = FreePort();
         s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
         edit?.Invoke(s);
@@ -113,7 +107,6 @@ public class NodeMachineAppTests
         var (host, dir) = BootNode(NodeKind.Arcade, s =>
         {
             s.Control.AudienceEnabled = true;
-            s.Control.AudiencePort = FreePort();
             s.Control.AudienceMaxPlayers = 250;
         });
         try
@@ -137,7 +130,6 @@ public class NodeMachineAppTests
         var (host, dir) = BootNode(NodeKind.Arcade, s =>
         {
             s.Control.AudienceEnabled = true;
-            s.Control.AudiencePort = FreePort();
             s.Control.AudienceMaxPlayers = 300;
         });
         try

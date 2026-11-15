@@ -356,6 +356,7 @@ public sealed partial class MainViewModel
     {
         RemoteStatus = !State.Control.Enabled ? "Remote control off."
             : _services.Control.BindProblem.Length > 0 ? $"Remote: closed — {_services.Control.BindProblem}."     // round 85: never every interface by mistake
+            : _services.Control.StartFault is { } fault ? $"Remote: closed — {fault.Words}"                      // never an address nothing answers on
             : $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}";
         OscStatus = _services.Osc.StatusLine;
         CompanionText = CompanionStrip();
@@ -372,9 +373,9 @@ public sealed partial class MainViewModel
         var tls = _services.Kernel.Tls;
         if (tls.Fingerprint.Length == 0) return "HTTPS: off — " + (tls.Problem.Length > 0 ? tls.Problem : "no certificate yet.");
         // Show Bus 1.3 §13.8.5: the wire's port serves the same certificate — said only while the wire listens (remote control on,
-        // its bind an address), as the Super Check's Wire TLS row is.
+        // its bind an address, its last start not failed), as the Super Check's Wire TLS row is.
         var wire = _services.Kernel.WireDoors;
-        var wireListens = State.Control.Enabled && _services.Control.BindProblem.Length == 0;
+        var wireListens = State.Control.Enabled && _services.Control.BindProblem.Length == 0 && !_services.Control.StartFailed;
         return $"HTTPS on the same port as the web remote · certificate {TlsFingerprint.Short(tls.Fingerprint)} ({tls.Protection}) · {_services.Control.TlsConnections} connection(s) over TLS since start · /tls says how to trust it"
                + (wireListens ? $" · the wire on port {State.Control.TcpPort} too, TLS or plain by the first byte: {wire.OverTls} over TLS, {wire.Plain} plain" : "");
     }

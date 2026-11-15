@@ -699,6 +699,7 @@ public sealed class SystemMetricsService : IDisposable
             RemoteBind = state.Control.Bind,
             RemoteBindProblem = _services.Control.BindProblem,                                          // round 85: closed on a bind that is not an address
             AudienceBindProblem = _services.Control.AudienceBindProblem,
+            RemoteStartProblem = _services.Control.StartFault?.Words ?? "",                                // the listener whose port could not be opened, named
             RemoteToken = PairingToken.Needed(state.Control.Token),
             OscOpen = state.Control.Enabled && state.Control.OscEnabled,                                  // round 79: the port that cannot pair
             OscPort = state.Control.OscPort,

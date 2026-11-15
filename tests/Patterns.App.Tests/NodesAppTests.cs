@@ -18,12 +18,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class NodesAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000)
     {
@@ -51,8 +46,7 @@ public class NodesAppTests
         Settings(dir, s =>
         {
             s.Control.Enabled = true;
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             edit(s);
@@ -68,7 +62,7 @@ public class NodesAppTests
     [AvaloniaFact]
     public void TheDeskHearsANodeOnTheBeaconListsItOnThePageAndCountsItOnTheRail()
     {
-        var b = TestApp.Boot(prepare: dir => Settings(dir, s => { s.Twin.Port = FreePort(); s.Control.HttpPort = FreePort(); s.Control.TcpPort = FreePort(); s.Watchdog.BeaconListenPort = FreePort(); s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort; }));
+        var b = TestApp.Boot(prepare: dir => Settings(dir, s => { (s.Twin.Port, s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Three(); s.Watchdog.BeaconListenPort = FreePort(); s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort; }));
         try
         {
             var (services, vm, _) = b;
@@ -113,14 +107,13 @@ public class NodesAppTests
     [AvaloniaFact]
     public void ACallerNodeRehearsesOnPaperAloneThenFollowsADeskOffersItsPlanCallsItAndItsNotesLandThere()
     {
-        var twinPort = FreePort();
+        var (twinPort, deskHttp, deskWire) = TestPorts.Three();
         var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Twin.Port = twinPort;
             s.Twin.Key = "hunter2";
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (deskHttp, deskWire);
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             var stack = CueStacks.Caller(s);
@@ -262,14 +255,13 @@ public class NodesAppTests
     [AvaloniaFact]
     public void ACallersPlanAndShapeChangingEditsWaitWhileTheDesksStackIsArmedAndItsNotesLandAtOnce()
     {
-        var twinPort = FreePort();
+        var (twinPort, deskHttp, deskWire) = TestPorts.Three();
         var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Twin.Port = twinPort;
             s.Twin.Key = "hunter2";
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (deskHttp, deskWire);
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
             var stack = CueStacks.Caller(s);
@@ -361,14 +353,13 @@ public class NodesAppTests
     [AvaloniaFact]
     public void AStageTimerNodeKeepsItsOwnClockAloneThenShowsTheDesksAndSendsItsReceiptsHome()
     {
-        var twinPort = FreePort();
+        var (twinPort, deskHttp, deskWire) = TestPorts.Three();
         var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Twin.Port = twinPort;
             s.Twin.Key = "hunter2";
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (deskHttp, deskWire);
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
         }));
@@ -525,14 +516,13 @@ public class NodesAppTests
     [AvaloniaFact]
     public void ANodeInStepWithADeskTrustsItsOwnStagewatchHereAndSendsNothingToTheDesk()
     {
-        var twinPort = FreePort();
+        var (twinPort, deskHttp, deskWire) = TestPorts.Three();
         var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Twin.Port = twinPort;
             s.Twin.Key = "hunter2";
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (deskHttp, deskWire);
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
         }));

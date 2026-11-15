@@ -21,15 +21,6 @@ public class MultiviewStreamAppTests
         return (b.Services, b.Vm, b.Window);
     }
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -50,8 +41,7 @@ public class MultiviewStreamAppTests
         {
             vm.State.Pattern.Kind = PatternKind.FlatField;
             vm.State.Pattern.FlatField.Color = "#FF0000";
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
 
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{vm.State.Control.HttpPort}/") };
@@ -121,8 +111,7 @@ public class MultiviewStreamAppTests
                 Source = MultiviewSource.Screen,
                 ScreenId = key,
             });
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
 
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{vm.State.Control.HttpPort}/") };
@@ -154,8 +143,7 @@ public class MultiviewStreamAppTests
         try
         {
             vm.State.Pattern.Kind = PatternKind.FlatField;
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
 
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{vm.State.Control.HttpPort}/") };

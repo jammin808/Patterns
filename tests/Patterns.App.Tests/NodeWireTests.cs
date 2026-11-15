@@ -19,12 +19,7 @@ public class NodeWireTests
 {
     private static NodeCard Card(int port) => new("hub-1", NodeKind.Arcade, "HUB-PC", IPAddress.Loopback, "Gala", "", 0, 0, TimeSpan.Zero, false, port);
 
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     [Fact]
     public async Task ALineThatNeverLeftIsSentAgainOnceAndThenTheNodeIsCalledUnreachable()

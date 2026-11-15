@@ -216,7 +216,7 @@ public sealed partial class ControlService : IDisposable
         var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}@{cfg.Bind}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
-        StartFailed = false;
+        StartFault = null;
         BindProblem = "";
         AudienceBindProblem = "";
         ForgetRemoteUrls();
@@ -240,15 +240,18 @@ public sealed partial class ControlService : IDisposable
             return;
         }
         _cts = new CancellationTokenSource();
+        // Round 65: the control ports bind where the Remote page says — every interface, or the
+        // control network's own address on a desk with two, so the audience network never sees them.
+        var controlBind = boundTo ?? IPAddress.Any;
+        // The listener being opened when a start throws: the one the failure names.
+        var opening = (Listener: WireListener, Port: cfg.TcpPort, Bind: controlBind);
         try
         {
-            // Round 65: the control ports bind where the Remote page says — every interface, or the
-            // control network's own address on a desk with two, so the audience network never sees them.
-            var controlBind = boundTo ?? IPAddress.Any;
             _tcp = new TcpListener(controlBind, cfg.TcpPort);
             _tcp.Start();
             _ = AcceptLoop(_tcp, HandleTcpClient, _cts.Token);
 
+            opening = (WebListener, cfg.HttpPort, controlBind);
             _http = new TcpListener(controlBind, cfg.HttpPort);
             _http.Start();
             _ = AcceptLoop(_http, HandleHttpClient, _cts.Token);
@@ -267,6 +270,7 @@ public sealed partial class ControlService : IDisposable
                 {
                     // The room's own socket: the play pages and nothing else, on the audience network's address when the hub has one.
                     var bind = audienceBind ?? IPAddress.Any;
+                    opening = (AudienceListener, cfg.AudiencePort, bind);
                     _audience = new TcpListener(bind, cfg.AudiencePort);
                     _audience.Start();
                     _ = AcceptLoop(_audience, HandleAudienceClient, _cts.Token);
@@ -279,21 +283,38 @@ public sealed partial class ControlService : IDisposable
         }
         catch (Exception ex)
         {
-            _status = $"Remote control failed to start: {ex.Message}";
+            var fault = new ListenerFault(opening.Listener, opening.Port, opening.Bind.ToString(), ex.Message);
+            _status = fault.Words;
             // Round 77: the ports are usually held by the desk this one replaces, gone within seconds — the poll asks again
-            // (AppServices.RetryListeners); the first failure is the error, the rest a line a minute.
-            if (_startFailures++ == 0) Log.Error("Control server start failed.", ex);
-            else if (_startFailures % 12 == 0) Log.Warn($"Control server still cannot start ({_startFailures} tries): {ex.Message}");
-            StopListeners();
-            StartFailed = true;
+            // (AppServices.RetryListeners); the first failure is the error, the rest a line a minute. Each names the listener.
+            if (_startFailures++ == 0) Log.Error(fault.Words, ex);
+            else if (_startFailures % 12 == 0) Log.Warn($"{fault.Words} (still, after {_startFailures} tries)");
+            StopListeners();                                                   // all three close together: one start, one fact
+            StartFault = fault;
             _activeKey = ""; // retry on the next change, and from the poll
         }
     }
 
     private int _startFailures;
 
+    /// <summary>The wire's listener, as a start failure names it.</summary>
+    public const string WireListener = "wire";
+
+    /// <summary>The web remote's listener, as a start failure names it.</summary>
+    public const string WebListener = "web remote";
+
+    /// <summary>The audience room's listener, as a start failure names it.</summary>
+    public const string AudienceListener = "audience";
+
+    /// <summary>
+    /// The listener whose opening threw at the last start — which of the three, the port and the address it asked for, and the
+    /// socket's own message — or null while the last start opened them all (or nothing was started). The other two are
+    /// closed with it.
+    /// </summary>
+    public ListenerFault? StartFault { get; private set; }
+
     /// <summary>Round 77: the last start failed (a port held by another process); the desk's poll asks again.</summary>
-    public bool StartFailed { get; private set; }
+    public bool StartFailed => StartFault is not null;
 
     /// <summary>Both control listeners hold their ports and accept — the wire and the web remote (UI thread). What the bench host waits for before it says ready.</summary>
     public bool Listening => _tcp is not null && _http is not null;
@@ -2160,4 +2181,17 @@ setInterval(function () {
 </html>
 """;
 
+}
+
+/// <summary>
+/// One start failure of the control listeners: the listener whose opening threw (<see cref="ControlService.WireListener"/>,
+/// <see cref="ControlService.WebListener"/> or <see cref="ControlService.AudienceListener"/>), the port and the bind address it
+/// asked for, and the socket's message. A port and an address are not secrets; nothing else rides here.
+/// </summary>
+public sealed record ListenerFault(string Listener, int Port, string Bind, string Message)
+{
+    /// <summary>The one sentence the status, the log and every reader of the status say for it.</summary>
+    public string Words
+        => string.Create(CultureInfo.InvariantCulture,
+            $"Remote control failed to start: the {Listener} listener could not open port {Port} on {(Bind == IPAddress.Any.ToString() ? "every address (0.0.0.0)" : Bind)} — {Message}");
 }

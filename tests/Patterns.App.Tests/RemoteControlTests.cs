@@ -24,15 +24,6 @@ public class RemoteControlTests
         return (b.Services, b.Vm, b.Window);
     }
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     /// <summary>Waits for a background task while pumping the (blocked) UI thread's queue.</summary>
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
@@ -64,8 +55,7 @@ public class RemoteControlTests
         var (services, vm, window) = Boot();
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs(); // publish → listeners start
 
             using var client = new TcpClient();
@@ -132,8 +122,7 @@ public class RemoteControlTests
         var (services, vm, window) = Boot();
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
 
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{vm.State.Control.HttpPort}/") };

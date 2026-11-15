@@ -13,21 +13,13 @@ namespace Patterns.App.Tests;
 /// <summary>The stage on a live desk: the timer's verbs on the countdown's clock, a message with its receipt through the page's API, the pages themselves, a cue that messages the stage.</summary>
 public class StageAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
-
     [AvaloniaFact]
     public void TheStageTimerRunsPausesAndNudgesAndAMessageComesBackWithAReceipt()
     {
         var b = TestApp.Boot(prepare: dir =>
         {
             var s = SettingsStore.Fresh();
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
             s.Twin.AcceptCallers = false;
             File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
         });

@@ -28,13 +28,6 @@ public class BenchHostTests
     private static readonly TimeSpan ReadyWithin = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan AnswerWithin = TimeSpan.FromSeconds(20);
 
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
-
     private static string SecretFile(string dir, string name, string text)
     {
         var path = Path.Combine(dir, name);
@@ -224,9 +217,7 @@ public class BenchHostTests
         Directory.CreateDirectory(dir);
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));                      // the lane's tokens: 32 upper-case hex
         var tokenFile = SecretFile(dir, "token", token + "\n");
-        var http = FreePort();
-        var wirePort = FreePort();
-        while (wirePort == http) wirePort = FreePort();
+        var (http, wirePort) = TestPorts.Two();
         try
         {
             using var bench = new Bench("--home", home, "--token-file", tokenFile, "--http", http.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -345,9 +336,7 @@ public class BenchHostTests
         var pasted = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));                    // a secret typed into the wrong window
         var tokenFile = SecretFile(dir, "token", token + "\n");
         var keyFile = SecretFile(dir, "key", key + "\n");
-        var ports = new HashSet<int>();
-        while (ports.Count < 3) ports.Add(FreePort());
-        var (http, wirePort, dead) = (ports.ElementAt(0), ports.ElementAt(1), ports.ElementAt(2));
+        var (http, wirePort, dead) = TestPorts.Three();
         string Port(int p) => p.ToString(System.Globalization.CultureInfo.InvariantCulture);
         try
         {
@@ -437,9 +426,7 @@ public class BenchHostTests
         const string Key = "swk_benchkey";
         var tokenFile = SecretFile(dir, "token", token + "\n");
         var keyFile = SecretFile(dir, "key", Key + "\n");
-        var http = FreePort();
-        var wirePort = FreePort();
-        while (wirePort == http) wirePort = FreePort();
+        var (http, wirePort) = TestPorts.Two();
         using var cert = ShowBus12AppTests.Cert("Hall A");
         var fp = TlsFingerprint.Of(cert);
         var hex = fp[TlsFingerprint.Prefix.Length..];
@@ -526,10 +513,9 @@ public class BenchHostTests
         var tokenFile = SecretFile(dir, "token", Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) + "\n");
         string[] Doors()
         {
-            var ports = new HashSet<int>();
-            while (ports.Count < 2) ports.Add(FreePort());
-            return new[] { "--http", ports.ElementAt(0).ToString(System.Globalization.CultureInfo.InvariantCulture), "--wire",
-                ports.ElementAt(1).ToString(System.Globalization.CultureInfo.InvariantCulture), "--bind", "127.0.0.1" };
+            var (http, wire) = TestPorts.Two();
+            return new[] { "--http", http.ToString(System.Globalization.CultureInfo.InvariantCulture), "--wire",
+                wire.ToString(System.Globalization.CultureInfo.InvariantCulture), "--bind", "127.0.0.1" };
         }
         try
         {

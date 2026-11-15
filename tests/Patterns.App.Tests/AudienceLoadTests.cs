@@ -16,12 +16,7 @@ namespace Patterns.App.Tests;
 
 public class AudienceLoadTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 20000)
     {
@@ -38,14 +33,13 @@ public class AudienceLoadTests
     public void TwoHundredPhonesBehindOneAddressAreSeatedUnderTheVenueNatProfileAndTurnedAwayOnAFlatNetwork()
     {
         const int Phones = 200;
-        var audiencePort = FreePort();
+        var (httpPort, tcpPort, audiencePort) = TestPorts.Three();
         var b = TestApp.Boot("patterns-tests-nat-", dir =>
         {
             var s = SettingsStore.Fresh();
             s.Name = "Gala";
             s.Control.Enabled = true;
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (httpPort, tcpPort);
             s.Control.AudienceEnabled = true;
             s.Control.AudiencePort = audiencePort;
             s.Control.AudienceMaxPlayers = Phones + 50;
@@ -62,7 +56,7 @@ public class AudienceLoadTests
             Assert.Equal(new AudienceBudget(), play.Budget);                                          // nothing widened by hand
             Assert.Equal(2 * (Phones + 50) + 20, play.Effective.JoinsPerAddressPerMinute);
             Assert.Equal(play.Effective.MaxConnections, play.Effective.MaxConnectionsPerAddress);
-            PumpUntil(() => services.Control.AudienceListening);
+            TestListeners.Up(services.Control, b.Vm.State.Control, () => services.Control.AudienceListening, "the audience listener");
             var router = new CommandRouter(services);
             string Wire(string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
             using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audiencePort}/"), Timeout = TimeSpan.FromSeconds(60) };
@@ -105,14 +99,13 @@ public class AudienceLoadTests
     public void TwoHundredPhonesJoinWaitOnTheRoomAndAnswerTogetherWithinTheBudgets()
     {
         const int Phones = 200;
-        var audiencePort = FreePort();
+        var (httpPort, tcpPort, audiencePort) = TestPorts.Three();
         var b = TestApp.Boot("patterns-tests-load-", dir =>
         {
             var s = SettingsStore.Fresh();
             s.Name = "Gala";
             s.Control.Enabled = true;
-            s.Control.HttpPort = FreePort();
-            s.Control.TcpPort = FreePort();
+            (s.Control.HttpPort, s.Control.TcpPort) = (httpPort, tcpPort);
             s.Control.AudienceEnabled = true;
             s.Control.AudiencePort = audiencePort;
             s.Control.AudienceMaxPlayers = Phones + 50;
@@ -127,7 +120,7 @@ public class AudienceLoadTests
             var play = services.Play;
             // Every phone here comes from one address: the per-address budgets are the ones a room of real phones never meets.
             play.Budget = play.Budget with { JoinsPerAddressPerMinute = 100000, MaxConnectionsPerAddress = 100000, AnswersPerTokenPerMinute = 100 };
-            PumpUntil(() => services.Control.AudienceListening);
+            TestListeners.Up(services.Control, b.Vm.State.Control, () => services.Control.AudienceListening, "the audience listener");
             var router = new CommandRouter(services);
             string Wire(string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
             using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audiencePort}/"), Timeout = TimeSpan.FromSeconds(60) };

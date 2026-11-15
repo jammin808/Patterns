@@ -19,12 +19,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class TwinAppTests
 {
-    internal static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    internal static int FreePort() => TestPorts.Free();
 
     internal static void PumpUntil(Func<bool> condition, int timeoutMs = 10000)
     {

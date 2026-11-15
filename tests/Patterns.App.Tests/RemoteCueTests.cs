@@ -17,15 +17,6 @@ namespace Patterns.App.Tests;
 /// <summary>The cue stack over the wire: HELLO, CUE verbs, STOPALL, the pushed cuestack block, the tablet's endpoints, the pop-out.</summary>
 public class RemoteCueTests
 {
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -84,8 +75,7 @@ public class RemoteCueTests
         try
         {
             var built = Build(b);
-            b.Vm.State.Control.HttpPort = FreePort();
-            b.Vm.State.Control.TcpPort = FreePort();
+            (b.Vm.State.Control.HttpPort, b.Vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
 
             using var client = new TcpClient();
@@ -191,8 +181,7 @@ public class RemoteCueTests
         try
         {
             var built = Build(b);
-            b.Vm.State.Control.HttpPort = FreePort();
-            b.Vm.State.Control.TcpPort = FreePort();
+            (b.Vm.State.Control.HttpPort, b.Vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{b.Vm.State.Control.HttpPort}/") };
 

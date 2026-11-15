@@ -97,15 +97,6 @@ public class SpotifyAppTests
         return LookService.Find(vm.State, name)!;
     }
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -730,8 +721,7 @@ public class SpotifyAppTests
             b.Vm.State.Spotify.Enabled = true;
             var item = new SpotifyItemConfig { Name = "Interval bed", Uri = "spotify:playlist:X" };
             b.Vm.State.Spotify.Items.Add(item);
-            b.Vm.State.Control.HttpPort = FreePort();
-            b.Vm.State.Control.TcpPort = FreePort();
+            (b.Vm.State.Control.HttpPort, b.Vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
 
             using var client = new TcpClient();

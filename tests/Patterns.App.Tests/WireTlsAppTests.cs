@@ -24,15 +24,6 @@ public class WireTlsAppTests
 {
     private const string Token = "K7QM-3XWD-P9RA";
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 10000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -188,8 +179,7 @@ public class WireTlsAppTests
         ControlService.PlainAuthOnLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.TcpPort;
@@ -253,8 +243,7 @@ public class WireTlsAppTests
         ControlService.TrustLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             services.Control.WireLimits = new WireLimits(FirstByteSeconds: 0.5);
@@ -301,8 +290,7 @@ public class WireTlsAppTests
         ControlService.TrustLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             services.Control.WireLimits = new WireLimits(MaxClients: 1, MaxClientsPerAddress: 1);
@@ -382,8 +370,7 @@ public class WireTlsAppTests
             // 127.0.0.2 stands in for the control network's card: an address of this machine that is not 127.0.0.1.
             var bound = IPAddress.Parse("127.0.0.2");
             vm.State.Control.Bind = "127.0.0.2";
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.TcpPort;

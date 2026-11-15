@@ -154,4 +154,33 @@ public class BindAddressTests
         var boundOpen = EyeGraph.Build(new EyeFacts { Osc = new EyeOsc(9698, "OSC in on port 9698 on 10.0.0.5 only.", "10.0.0.5") }).Find("osc");
         Assert.Equal("open on 10.0.0.5 only — OSC cannot pair; the bind keeps it to the control network", Assert.Single(boundOpen!.Words));
     }
+
+    [Fact]
+    public void AStartThatThrewIsRedOnTheRowAndTheTileWithTheListenerAndThePortTheDeskNamed()
+    {
+        const string Words = "Remote control failed to start: the audience listener could not open port 9700 on every address (0.0.0.0) — Address already in use";
+        var facts = new CheckFacts
+        {
+            RemoteEnabled = true, RemoteUrl = "http://10.0.0.5:9696/", RemoteToken = true, WirePort = 9697,
+            WireTlsFingerprint = "", RemoteStartProblem = Words,
+        };
+        var rows = SuperCheck.Run(facts).Rows.Where(r => r.Section == "REMOTE").ToList();
+        var remote = Assert.Single(rows, r => r.Item == "Remote control");
+        Assert.Equal(CheckLight.Red, remote.Light);
+        Assert.Equal("closed — a listener could not open its port", remote.Value);
+        Assert.StartsWith("FIX: " + Words, remote.Note);
+        Assert.DoesNotContain(rows, r => r.Item == "Wire TLS");                          // no wire port to describe while it is closed
+        Assert.DoesNotContain(rows, r => r.Item == "Wire reads");                        // nor the reads of a wire that is not listening
+        var tile = Assert.Single(HealthDashboard.Tiles(facts), t => t.Id == "remote");
+        Assert.Equal((CheckLight.Red, "closed", Words), (tile.Light, tile.Value, tile.Detail));
+
+        // The bind's own problem outranks it: a bind that is not an address opens nothing, so nothing could fail to start.
+        var both = SuperCheck.Run(new CheckFacts { RemoteEnabled = true, RemoteBindProblem = BindAddress.Problem("10.0.0"), RemoteStartProblem = Words }).Rows;
+        Assert.Equal("closed — the bind is not an address", Assert.Single(both, r => r.Item == "Remote control").Value);
+        // Listening again, the fact is "" and the row is the paired one.
+        var open = new CheckFacts { RemoteEnabled = true, RemoteUrl = "http://10.0.0.5:9696/", RemoteToken = true };
+        var openRows = SuperCheck.Run(open).Rows;
+        Assert.Equal(CheckLight.Green, Assert.Single(openRows, r => r.Item == "Remote control").Light);
+        Assert.Equal(CheckLight.Green, Assert.Single(openRows, r => r.Item == "Wire reads").Light);
+    }
 }

@@ -41,8 +41,7 @@ public sealed partial class PeerLinkWireTests
                 booted = TestApp.Boot();
                 Booted = booted;
                 Token = PairingToken.New();
-                Booted.Vm.State.Control.HttpPort = FreePort();
-                Booted.Vm.State.Control.TcpPort = FreePort();
+                (Booted.Vm.State.Control.HttpPort, Booted.Vm.State.Control.TcpPort) = TestPorts.Two();
                 Booted.Vm.State.Control.Token = Token;
                 Dispatcher.UIThread.RunJobs();
                 Peer = ScriptedPeer.Start();
@@ -87,15 +86,6 @@ public sealed partial class PeerLinkWireTests
                 ControlService.PlainAuthOnLoopback = _plainAuth;
             }
         }
-    }
-
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
     }
 
     private static string NewKey() => "ptk_" + RandomNumberGenerator.GetString(KeyAlphabet, 32);

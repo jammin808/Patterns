@@ -225,11 +225,14 @@ public static class HealthDashboard
     /// does, until the token changes. Round 91 (ADR-016): so does a read the wire refused to a connection that had not
     /// paired, as the row "Wire reads" does — a deck or a link of the operator's without the token reads nothing. Show Bus 1.3
     /// §13.8.5: a wire that can serve no TLS (no certificate) is amber too, as the row "Wire TLS" is; a green tile names the wire's
-    /// TLS beside the address.
+    /// TLS beside the address. A start of the control listeners that threw outranks them all: red, closed, with the words that
+    /// name the listener, its port and the address it asked for, as the row "Remote control" says.
     /// </summary>
     private static DashboardTile Remote(CheckFacts f)
         => !f.RemoteEnabled
             ? new DashboardTile("remote", "REMOTE", CheckLight.Grey, "off", "the phone, Companion and OSC need it on")
+            : f.RemoteStartProblem.Length > 0
+            ? new DashboardTile("remote", "REMOTE", CheckLight.Red, "closed", f.RemoteStartProblem)
             : f.RemoteToken && f.TokenSeenInClear.Count > 0
                 ? new DashboardTile("remote", "REMOTE", CheckLight.Amber, "token in clear", TokenClearSightings.Words(f.TokenSeenInClear))
                 : f.RemoteToken && f.WireReadsRefused > 0

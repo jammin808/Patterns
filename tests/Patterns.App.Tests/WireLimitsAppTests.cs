@@ -20,12 +20,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class WireLimitsAppTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 10000)
     {
@@ -50,8 +45,7 @@ public class WireLimitsAppTests
         var dir = TempRun.Folder("patterns-tests-wire-", file, member).Path;
         var s = SettingsStore.Fresh();
         s.Control.Enabled = true;
-        s.Control.HttpPort = FreePort();
-        s.Control.TcpPort = FreePort();
+        (s.Control.HttpPort, s.Control.TcpPort) = TestPorts.Two();
         s.Watchdog.BeaconListenPort = FreePort();
         s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
         File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));

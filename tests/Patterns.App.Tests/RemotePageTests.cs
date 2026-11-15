@@ -12,15 +12,6 @@ namespace Patterns.App.Tests;
 /// <summary>The redesigned phone remote: one page with its tabs, its controls and the commands they send, served live and shaped as the phone needs it.</summary>
 public class RemotePageTests
 {
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -40,8 +31,7 @@ public class RemotePageTests
         try
         {
             var vm = b.Vm;
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.LowerThirds.Designs.Add(LowerThirdPresets.Create("Clean"));
             vm.State.LowerThirds.Entries.Add(new LowerThirdEntry { Name = "Jane Doe", Role = "CEO" });
             Dispatcher.UIThread.RunJobs();

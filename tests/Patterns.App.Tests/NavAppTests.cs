@@ -269,12 +269,7 @@ public class NavAppTests
 
     // ---- over a real socket: a deck's whereabouts and the recorder's feed ----------------------
 
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static bool CanConnect(int port)
     {
@@ -313,7 +308,7 @@ public class NavAppTests
     {
         const string token = "K7QM-3XWD-P9RA";
         const string passcode = "hunter2-9931";
-        var wire = FreePort();
+        var (wire, web) = TestPorts.Two();
         var trusted = ControlService.TrustLoopback;
         ControlService.TrustLoopback = false;   // the test's deck connects from loopback, which a desk trusts by default
         var b = TestApp.Boot("patterns-tests-recorder-", dir =>
@@ -321,7 +316,7 @@ public class NavAppTests
             var s = SettingsStore.Fresh();
             s.Control.Enabled = true;
             s.Control.TcpPort = wire;
-            s.Control.HttpPort = FreePort();
+            s.Control.HttpPort = web;
             s.Twin.AcceptCallers = false;
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
@@ -332,7 +327,7 @@ public class NavAppTests
             var (services, vm, _) = b;
             vm.State.Control.Token = token;
             Dispatcher.UIThread.RunJobs();
-            PumpUntil(() => CanConnect(wire));
+            TestListeners.Up(services.Control, vm.State.Control, () => CanConnect(wire), "the wire");
             using var deck = new Deck(wire, paired: false);
             Assert.Equal("OK", deck.Say("HELLO FOH deck module=3.14.0"));
 
@@ -437,13 +432,13 @@ public class NavAppTests
     [AvaloniaFact]
     public void ADeckSaysWhereItsNavigatorIsAndRecordsWhatTheDeskDoesAsActionLines()
     {
-        var wire = FreePort();
+        var (wire, web) = TestPorts.Two();
         var b = TestApp.Boot("patterns-tests-nav-", dir =>
         {
             var s = SettingsStore.Fresh();
             s.Control.Enabled = true;
             s.Control.TcpPort = wire;
-            s.Control.HttpPort = FreePort();
+            s.Control.HttpPort = web;
             s.Twin.AcceptCallers = false;
             s.Watchdog.BeaconListenPort = FreePort();
             s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
@@ -452,7 +447,7 @@ public class NavAppTests
         try
         {
             var (services, vm, _) = b;
-            PumpUntil(() => CanConnect(wire));
+            TestListeners.Up(services.Control, vm.State.Control, () => CanConnect(wire), "the wire");
             var walkIn = SaveLook(vm, "Walk-in");
             using var deck = new Deck(wire);
             Assert.Equal("OK", deck.Say("HELLO FOH deck module=3.14.0"));

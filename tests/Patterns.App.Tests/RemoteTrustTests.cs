@@ -34,15 +34,6 @@ public class RemoteTrustTests
         return (b.Services, b.Vm);
     }
 
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     private static T Pump<T>(Task<T> task, int timeoutMs = 8000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -190,8 +181,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             Assert.EndsWith("· paired.", services.Control.Status);
@@ -292,8 +282,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = false;                                   // loopback plays another machine
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var log = Path.Combine(b.Dir, "patterns.log");
@@ -540,8 +529,7 @@ public class RemoteTrustTests
         var trusted = ControlService.TrustLoopback;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             ControlService.TrustLoopback = true;
             Dispatcher.UIThread.RunJobs();
@@ -593,8 +581,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             using var wire = new Wire(vm.State.Control.TcpPort, paired: false);
@@ -626,8 +613,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = false;
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
@@ -703,8 +689,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = true;                                        // the show machine's own browser is trusted — by its own names only
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
@@ -820,8 +805,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = true;                                        // the show machine's own browser: trusted, and still not a way in for another site's page
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
             var desk = ("Host", $"localhost:{port}");                               // this machine's browser and curl, by the desk's own name (round 89)
@@ -879,8 +863,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = true;                                        // the show machine's own browser is trusted — its own pages only
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
@@ -934,8 +917,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = true;                                        // this machine may stay plain — by the desk's own names
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             vm.State.Control.RequireHttps = true;
             Dispatcher.UIThread.RunJobs();
@@ -976,8 +958,7 @@ public class RemoteTrustTests
         ControlService.TrustLoopback = true;                                        // the harm needs this machine's trust: the body would run as its line
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Control.Token = Token;
             Dispatcher.UIThread.RunJobs();
             var tcp = vm.State.Control.TcpPort;
@@ -1033,8 +1014,7 @@ public class RemoteTrustTests
         var (services, vm) = Boot();
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Install.AdminPasscode = "open-sesame";
             Dispatcher.UIThread.RunJobs();
             var port = vm.State.Control.HttpPort;
@@ -1080,8 +1060,7 @@ public class RemoteTrustTests
         try
         {
             var vm = b.Vm;
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = TestPorts.Two();
             vm.State.Install.AdminPasscode = "open-sesame";
             vm.State.Twin.Key = "xpbe-4kq2-m7rd-9tzc";
             Dispatcher.UIThread.RunJobs();
@@ -1122,8 +1101,8 @@ public class RemoteTrustTests
         var (services, vm) = Boot();
         try
         {
-            vm.State.Control.HttpPort = FreePort();
-            vm.State.Control.TcpPort = FreePort();
+            var (httpPort, tcpPort, audiencePort) = TestPorts.Three();                       // one pick for the desk's three listeners
+            (vm.State.Control.HttpPort, vm.State.Control.TcpPort) = (httpPort, tcpPort);
             vm.State.Control.Bind = "127.0.0.1";
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("at 127.0.0.1 only", services.Control.Status);
@@ -1174,7 +1153,7 @@ public class RemoteTrustTests
             // The audience listener fails closed the same way, on its own bind, with the control ports untouched.
             vm.State.Control.Bind = "";
             vm.State.Control.AudienceEnabled = true;
-            vm.State.Control.AudiencePort = FreePort();
+            vm.State.Control.AudiencePort = audiencePort;
             vm.State.Control.AudienceBind = "phones";
             Dispatcher.UIThread.RunJobs();
             Assert.False(services.Control.AudienceListening);
@@ -1191,12 +1170,7 @@ public class RemoteTrustTests
             Assert.Contains("'phones' is not an address", audienceRow.Note);
             vm.State.Control.AudienceBind = "";
             Dispatcher.UIThread.RunJobs();
-            for (var i = 0; i < 400 && !services.Control.AudienceListening; i++)
-            {
-                Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(5);
-            }
-            Assert.True(services.Control.AudienceListening);
+            TestListeners.Up(services.Control, vm.State.Control, () => services.Control.AudienceListening, "the audience listener on every address again");
             Assert.NotEmpty(services.Control.AudienceUrls());
             Assert.DoesNotContain(SuperCheck.Run(services.Metrics.GatherFacts()).Rows, r => r.Section == "REMOTE" && r.Item == "Audience");
             vm.State.Control.AudienceEnabled = false;

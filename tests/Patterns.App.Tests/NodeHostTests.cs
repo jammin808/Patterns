@@ -20,12 +20,7 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class NodeHostTests
 {
-    private static int FreePort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        return ((IPEndPoint)probe.LocalEndpoint).Port;
-    }
+    private static int FreePort() => TestPorts.Free();
 
     private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000)
     {
@@ -74,9 +69,7 @@ public class NodeHostTests
     public void AnArcadeNodeBootsFromTheKernelAloneAnswersItsVerbsAndRefusesTheDesks()
     {
         var dir = TempRun.Folder("patterns-node-").Path;
-        var wire = FreePort();
-        var http = FreePort();
-        var audience = FreePort();
+        var (wire, http, audience) = TestPorts.Three();
         var s = SettingsStore.Fresh();
         s.Name = "Foyer games";
         s.Control.Enabled = true;
@@ -96,7 +89,7 @@ public class NodeHostTests
             Assert.False(host.Kernel.IsDesk);
             Assert.Equal("Foyer games", host.State.Name);
             host.Start();
-            PumpUntil(() => CanConnect(wire) && host.Control.AudienceListening);
+            TestListeners.Up(host.Control, host.State.Control, () => CanConnect(wire) && host.Control.AudienceListening, "the node's wire and audience listener");
 
             // The wire greets with the node's own state, and answers the node's verbs.
             var (greeting, pong) = Wire(wire, "PING");
