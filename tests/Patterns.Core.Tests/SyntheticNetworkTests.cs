@@ -169,4 +169,122 @@ public class SyntheticNetworkTests
             if (step % 4 == 3) room = room.Select(a => a with { Context = a.Context is null ? null : a.Context with { Light = "red" } }).ToList();   // a light changes nothing's place
         }
     }
+
+    /// <summary>
+    /// A room whose contexts speak of each other (Show Bus 1.3 §6): each app's link items with a row to another app or to this desk,
+    /// rows from its things to another app's things or to unknown nodes, broken ends, peers rows naming apps heard and apps not, and
+    /// canary words — a Stagewatch key, an app key, a window's address and a path — in its items' states and labels.
+    /// </summary>
+    private static List<EyeShowApp> Talking(Noise noise, int count)
+    {
+        var ids = Enumerable.Range(0, count).Select(i => $"a{i:0000}").ToList();
+        string Some() => ids.Count == 0 ? "zzzzzz99" : ids[noise.Next(ids.Count)];
+        var canaries = new[] { "swk_canary0123456789", "ptk_canary0123456789", "http://10.0.0.5:9924/w/abcdef0123456789", "C:\\shows\\gala.json" };
+        var apps = new List<EyeShowApp>();
+        foreach (var id in ids)
+        {
+            var things = noise.Next(31);
+            var items = Enumerable.Range(0, things).Select(t => new ShowContextItem
+            {
+                Id = $"t{t}", Kind = Kinds[noise.Next(Kinds.Length)], Label = $"{id} thing {t}", Light = Lights[noise.Next(Lights.Length)],
+                State = noise.Chance(10) ? canaries[noise.Next(canaries.Length)] : "s",
+            }).ToList();
+            var links = new List<ShowContextLink>();
+            var linkItems = noise.Next(4);
+            for (var k = 0; k < linkItems; k++)
+            {
+                items.Add(new ShowContextItem { Id = $"link:{k}", Kind = "link", Label = "link " + k, Light = Lights[noise.Next(Lights.Length)], State = "scope post" });
+                links.Add(new ShowContextLink { From = $"link:{k}", To = noise.Chance(20) ? "@" + Desk : "@" + Some(), Kind = "follows", Light = "green" });
+                if (things > 0) links.Add(new ShowContextLink { From = $"link:{k}", To = $"t{noise.Next(things)}", Kind = "controls", Light = "green" });
+            }
+            var rows = noise.Next(12);
+            for (var r = 0; r < rows && things > 0; r++)
+            {
+                var end = noise.Next(5) switch
+                {
+                    0 => "@" + Some(),
+                    1 => $"@{Some()}/t{noise.Next(31)}",
+                    2 => "@unknown-" + noise.Next(1000),
+                    3 => "@bad end",
+                    _ => $"t{noise.Next(things)}",
+                };
+                links.Add(new ShowContextLink { From = $"t{noise.Next(things)}", To = end, Kind = noise.Chance(50) ? "feeds" : "shows", Light = "green" });
+            }
+            var peers = Enumerable.Range(0, noise.Next(40)).Select(_ => noise.Chance(50) ? Some() : $"m{noise.Next(400):0000}x")
+                .Select(p => new ShowContextPeer { Kind = "messenger", Id = p, Name = "peer " + p, Light = Lights[noise.Next(Lights.Length)], Link = noise.Chance(30) ? "ws" : "", Verified = noise.Chance(30) ? "key" : "" }).ToList();
+            var json = new ShowContext { Node = new ShowContextNode { Kind = "x", Id = id, Name = id }, Light = "green", Items = items, Links = links, Peers = peers }.ToJson();
+            var context = ShowContext.Parse(json)!;                                               // as a reader takes it: broken ends refused, peers bounded
+            apps.Add(new EyeShowApp(id, AppKinds[noise.Next(AppKinds.Length - 1)], $"Room {id}", ShowBusState.Live, false, "") { Context = context, Needed = noise.Chance(10) });
+        }
+        return apps;
+    }
+
+    private const string Desk = "d35kd35k";
+
+    public static IEnumerable<object[]> TalkingRooms()
+    {
+        foreach (var n in new[] { 0, 1, 3, 16, 40, 128, 160 }) yield return new object[] { (ulong)(n + 7), n };
+    }
+
+    [Theory]
+    [MemberData(nameof(TalkingRooms))]
+    public void ARoomWhoseContextsSpeakOfEachOtherKeepsItsBoundsItsIdsAndNoSecretReachesTheExport(ulong seed, int count)
+    {
+        var apps = Talking(new Noise(seed), count);
+        EyeFacts Room() => new()
+        {
+            MachineName = "FOH",
+            ShowBusId = Desk,
+            Health = CheckLight.Green,
+            Screens = new[] { new EyeScreen { Id = "s1", Number = "1", Label = "Wall" } },
+            Sources = new[] { new EyeSource("vid:C:\\shows\\gala\\walk-in.mp4", "Walk-in", "video", true, "", CheckLight.Green) },
+            ShowApps = apps,
+        };
+        var g = EyeGraph.Build(Room());
+        var why = $"seed {seed} · {count} apps";
+
+        // Apps at most the bound and one "+N more"; mentions — nodes only a peers row names — at most their own bound.
+        var cards = g.Nodes.Where(n => n.Kind == EyeKind.ShowApp && n.Id != EyeGraph.MoreId && n.Origin != EyeOrigin.Relayed).ToList();
+        Assert.Equal(Math.Min(count, EyeLayout.MaxApps), cards.Count);
+        Assert.InRange(g.Nodes.Count(n => n.Origin == EyeOrigin.Relayed), 0, EyeNetwork.MaxMentions);
+        Assert.Equal(g.Nodes.Count, g.Nodes.Select(n => n.Id).Distinct().Count());
+        // Things per app at most the dozen a cluster draws; no link item is drawn as a thing where its row names a node.
+        foreach (var c in cards)
+        {
+            var mine = g.Nodes.Where(n => n.Kind == EyeKind.ShowAppItem && n.App == c.App).ToList();
+            Assert.InRange(mine.Count, 0, EyeLayout.ClusterThings);
+            var app = apps.Single(a => a.Id == c.App);
+            var asEdges = app.Context!.Links.Where(l => l.From.StartsWith("link:", StringComparison.Ordinal) && EyeNetwork.IsEnd(l.To)).Select(l => l.From).ToHashSet();
+            Assert.DoesNotContain(mine, n => asEdges.Contains(n.Id[(c.Id.Length + 1)..]));
+        }
+        // Relayed and cross-app links within their bounds; every claim says whose it is; every edge joins two things the Eye has.
+        Assert.InRange(g.Edges.Count(e => e.Origin == EyeOrigin.Relayed), 0, EyeNetwork.MaxRelayed);
+        Assert.InRange(g.Edges.Count(e => e.Origin == EyeOrigin.Told && e.Claim.Length > 0), 0, EyeNetwork.MaxCrossApp);
+        Assert.All(g.Edges.Where(e => e.Origin is EyeOrigin.Relayed), e => Assert.True(e.Claim.Length > 0, why));
+        Assert.All(g.Edges, e => Assert.True(g.Find(e.From) is not null && g.Find(e.To) is not null, $"{why}: {e.From} → {e.To}"));
+        Assert.All(g.Edges.Where(e => e.Claim.Length > 0), e => Assert.StartsWith(e.Claim + " says:", e.Words, StringComparison.Ordinal));
+
+        // The same facts in the same order: the same ids, links, places and JSON.
+        var again = EyeGraph.Build(Room());
+        Assert.Equal(g.Nodes.Select(n => n.Id), again.Nodes.Select(n => n.Id));
+        Assert.Equal(g.Edges.Select(e => (e.From, e.To, e.Kind, e.Light, e.Words)), again.Edges.Select(e => (e.From, e.To, e.Kind, e.Light, e.Words)));
+        Assert.Equal(g.Unplaced, again.Unplaced);
+        var slots = EyeLayout.Slots(g, new Dictionary<string, int>());
+        var p = EyeLayout.Place(g, new EyeNetworkView { Slots = slots });
+        Assert.Equal(EyeJson.Write(g, p, null, EyeLens.All), EyeJson.Write(again, EyeLayout.Place(again, new EyeNetworkView { Slots = slots }), null, EyeLens.All));
+        var rects = p.Rects.ToList();
+        for (var i = 0; i < rects.Count; i++)
+        {
+            for (var j = i + 1; j < rects.Count; j++) Assert.False(rects[i].Value.Intersects(rects[j].Value), $"{why}: {rects[i].Key} overlaps {rects[j].Key}");
+        }
+
+        // The canary: whatever the apps' words carry, this desk's export carries none of it — no other app's thing, no key, no
+        // window's address, no path — and its every id is short.
+        var export = ShowContextBuilder.FromEye(g, Desk, "FOH", new DateTime(2026, 11, 15, 20, 0, 0, DateTimeKind.Utc), Array.Empty<ShowLogEntry>(), Array.Empty<ShowContextPeer>());
+        var json = export.ToJson();
+        Assert.False(EyeNetwork.Secretish(json), $"{why}: {json}");
+        Assert.DoesNotContain(export.Items, i => i.Id.StartsWith("app:", StringComparison.Ordinal) || i.Id.StartsWith("node:", StringComparison.Ordinal));
+        Assert.All(export.Items, i => Assert.True(i.Id.Length <= EyeNetwork.ShortChars, i.Id));
+        Assert.DoesNotContain("canary", json, StringComparison.Ordinal);
+    }
 }

@@ -147,7 +147,7 @@ public sealed class EyeService
     private string FoldedWords(EyeNode n)
     {
         if (n.App.Length == 0 || !Placement.Of(n.Id).IsEmpty) return "";
-        var card = Shown.Find("app:" + n.App);
+        var card = Shown.Find(EyeNetwork.CardOf(n.App));
         return card is null ? "" : $" {n.Label} is folded in {card.Label}'s card — open its cluster to see it.";
     }
 
@@ -222,7 +222,7 @@ public sealed class EyeService
         var id = Shown.Resolve(words);
         var n = id is null ? null : Shown.Find(id);
         if (n is null) return ActionResult.Refused($"The Eye has nothing called '{words.Trim()}'.");
-        var card = n.Kind == EyeKind.ShowAppItem && n.App.Length > 0 ? "app:" + n.App : n.Id;
+        var card = n.Kind == EyeKind.ShowAppItem && n.App.Length > 0 ? EyeNetwork.CardOf(n.App) : n.Id;
         var cardNode = Shown.Find(card);
         if (cardNode is null || cardNode.Kind != EyeKind.ShowApp || cardNode.Id == EyeGraph.MoreId)
             return ActionResult.Refused($"'{n.Label}' is no other app's card — only an app on the NETWORK band opens or folds.");
@@ -653,8 +653,12 @@ public sealed class EyeService
             twin = new EyeTwin(isMain ? "main" : "standby", phase.ToString(), other, _s.Twin.GlanceWords, light);
         }
 
+        // Show Bus 1.3 §2: a Patterns hello names its process's instance beside its id — the beacon's card for that instance is the one
+        // card of both, and another app's end @<that id> is placed on it.
+        var helloIds = _s.Beacon.ShowBus.Snapshot(now).Where(p => p.Kind == "patterns" && p.Instance.Length > 0)
+            .GroupBy(p => p.Instance, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Id, StringComparer.Ordinal);
         var nodes = _s.Kernel.Nodes.Nodes
-            .Select(c => new EyeNodeHeard(c.Instance, c.Kind.ToString().ToLowerInvariant(), c.Name, c.Fresh, c.Fresh && c.Live, c.Words))
+            .Select(c => new EyeNodeHeard(c.Instance, c.Kind.ToString().ToLowerInvariant(), c.Name, c.Fresh, c.Fresh && c.Live, c.Words) { ShowBusId = helloIds.TryGetValue(c.Instance, out var said) ? said : "" })
             .ToList();
 
         EyeRoom? room = null;
@@ -752,6 +756,7 @@ public sealed class EyeService
             Stack = stack,
             Assistant = new EyeAssistant(hasKey, hasKey ? "ready" : ""),
             ShowApps = AppsOverride?.Invoke() ?? _s.ShowApps(DateTime.UtcNow),                                                     // round 87: the other show apps, and a linked Stagewatch's things
+            ShowBusId = _s.Kernel.ShowBusId,                                                                                         // another app's @<this desk> is the desk
         };
     }
 

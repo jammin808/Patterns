@@ -226,16 +226,21 @@ public sealed class LinkRecordReadersTests
         Assert.Equal("amber", own.Items.Single(i => i.Id == "stagewatch").Light);             // the live record's amber reaches the item that shows it
         Assert.Contains(own.Links, l => l.From == "link:stagewatch" && l.To == "@" + Id && l.Kind == "follows");
 
-        // Following the desk's relay with no link of its own: the link is the desk's to publish, not this node's.
+        // Following the desk's relay with no link of its own (Show Bus 1.3 §6 P1, P2; rewritten in round 99 for 13.16: a relay is no
+        // thing of the node's own): the relay is the one item of kind link the node follows the Stagewatch by — grey, its words the stage's
+        // and "relayed by the desk" — and lends the node no light. The PeerLink is the desk's to publish, so the item has no row.
         var relay = sight with { Address = "via the desk" };
         var relayed = NodeContextBuilder.Build("n1n1n1n1", "TIMER-1", at, new NodeContextFacts { Role = "timer", Stagewatch = relay, StagewatchViaDesk = true }, Array.Empty<ShowLogEntry>());
-        Assert.DoesNotContain(relayed.Items, i => i.Kind == "link");
-        Assert.DoesNotContain(relayed.Links, l => l.From == "link:stagewatch");
+        var item = Assert.Single(relayed.Items, i => i.Kind == "link");
+        Assert.Equal((NodeContextBuilder.RelayItem, "grey"), (item.Id, item.Light));
+        Assert.EndsWith(NodeContextBuilder.RelayWords, item.State, StringComparison.Ordinal);
+        Assert.DoesNotContain(relayed.Items, i => i.Id == "stagewatch");
+        Assert.DoesNotContain(relayed.Links, l => l.From == "link:stagewatch" || l.From == NodeContextBuilder.RelayItem || l.To == NodeContextBuilder.RelayItem);
 
-        // Its own link on while its stage follows the relay: its link is published, and lends the relayed Stagewatch's item nothing.
+        // Its own link on while its stage follows the relay: its link is published, and lends the relay's item nothing.
         var both = NodeContextBuilder.Build("n1n1n1n1", "TIMER-1", at, new NodeContextFacts { Role = "timer", Stagewatch = relay, StagewatchViaDesk = true, OwnLink = r }, Array.Empty<ShowLogEntry>());
         Assert.Equal("link:stagewatch", both.Items[0].Id);
-        Assert.Equal("green", both.Items.Single(i => i.Id == "stagewatch").Light);
+        Assert.Equal("grey", both.Items.Single(i => i.Id == NodeContextBuilder.RelayItem).Light);
     }
 
     [Fact]

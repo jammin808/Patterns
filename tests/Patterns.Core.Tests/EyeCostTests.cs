@@ -146,7 +146,7 @@ public sealed class EyeCostTests
         var sight = new StagewatchSight("Hall A", "127.0.0.1:9924", ShowBusState.Live, null, 0, moved.Context, "") { ContextRev = moved.Rev };
         var app = Assert.Single(ShowBusView.Apps(Array.Empty<ShowBusPeer>(), DateTime.UtcNow, sight));
         Assert.Equal(moved.Rev, app.ContextRev);
-        var node = Assert.Single(ShowBusView.Nodes(new[] { ("Timer 1", moved, DateTime.UtcNow) }, DateTime.UtcNow));
+        var node = Assert.Single(ShowBusView.Nodes(new[] { ("0a1b2c3d4e5f6071", "Timer 1", moved, DateTime.UtcNow) }, DateTime.UtcNow));
         Assert.Equal(moved.Rev, node.ContextRev);
         Assert.Equal(0, node.Context!.At);
     }

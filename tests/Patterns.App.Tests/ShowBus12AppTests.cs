@@ -1268,17 +1268,18 @@ public class ShowBus12AppTests
             // The node says what it is, itself, and its desk draws it from that.
             var own = ShowContext.Parse(Pump(t.NewRouter().ContextJsonAsync()))!;
             Assert.Equal(t.Kernel.ShowBusId, own.Node.Id);
-            Assert.Contains(own.Items, i => i.Id == "stagewatch" && i.State.Contains("relayed by the desk", StringComparison.Ordinal));
+            Assert.Contains(own.Items, i => i.Id == NodeContextBuilder.RelayItem && i.Kind == "link" && i.State.EndsWith(NodeContextBuilder.RelayWords, StringComparison.Ordinal));
             Assert.Contains(own.Items, i => i.Id == "desk" && i.Light == "green");
             // Show Bus 1.3 §13.16.4: the relay is the desk's link, not the node's — the node's own record is off in its STATE, at the end
-            // where the desk's STATE carries the desk's, and its context and glance show no link of its own.
+            // where the desk's STATE carries the desk's, and its context and glance show no link of its own: the one link item is the
+            // relay (round 99, Show Bus 1.3 §6 P1), grey and with no row — the PeerLink is the desk's to publish.
             using (var nodeState = JsonDocument.Parse(t.NewRouter().StateJson()))
             {
                 Assert.Equal("bus", nodeState.RootElement.EnumerateObject().Last().Name);
                 Assert.Equal("off", nodeState.RootElement.GetProperty("bus").GetProperty("stagewatch").GetProperty("link").GetProperty("state").GetString());
             }
-            Assert.DoesNotContain(own.Items, i => i.Kind == "link");
-            Assert.DoesNotContain(own.Links, l => l.From == "link:stagewatch");
+            Assert.Equal(NodeContextBuilder.RelayItem, Assert.Single(own.Items, i => i.Kind == "link").Id);
+            Assert.DoesNotContain(own.Links, l => l.From == "link:stagewatch" || l.From == NodeContextBuilder.RelayItem || l.To == NodeContextBuilder.RelayItem);
             Assert.DoesNotContain("STAGEWATCH", t.GlanceWords, StringComparison.Ordinal);
             PumpUntil(() => d.Twin.NodeContexts(DateTime.UtcNow).Count > 0, 20000);
             Assert.Contains(d.ShowApps(DateTime.UtcNow), a => a.KindWords == "Patterns node" && a.Context is { } c && c.Items.Any(i => i.Id == "stage"));
@@ -1299,7 +1300,8 @@ public class ShowBus12AppTests
             using (var follows = JsonDocument.Parse(t.Stage.StatusJson()))
                 Assert.True(follows.RootElement.GetProperty("follows").GetProperty("stuck").GetBoolean());
             var stalled = ShowContext.Parse(Pump(t.NewRouter().ContextJsonAsync()))!;
-            Assert.Contains(stalled.Items, i => i.Id == "stagewatch" && i.Light == "amber");
+            // Round 99 (Show Bus 1.3 §6 P1): the relay is the node's link item, grey, saying the stall; the stage — the node's own — is red.
+            Assert.Contains(stalled.Items, i => i.Id == NodeContextBuilder.RelayItem && i.Light == "grey" && i.State.Contains("says its show is stuck", StringComparison.Ordinal));
             Assert.Contains(stalled.Items, i => i.Id == "stage" && i.Light == "red" && i.State.StartsWith("no time shown", StringComparison.Ordinal));
             stageRev = t.Stage.Rev;
             sw.Stuck = false;

@@ -991,7 +991,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Eye.Refresh();
         var now = DateTime.UtcNow;
         return ShowContextBuilder.FromEye(Eye.Graph, Kernel.ShowBusId, Beacon.MachineName, now, Journal.Tail(ShowContext.MaxRecent), ShowBusView.Peers(ShowBusView.Published(ShowApps(now))),
-            Kernel.PeerLinks()).ToJson();
+            Kernel.PeerLinks(), Control.AppLinkList).ToJson();                                             // §6 P2: the links it holds, and those it accepted by LINK
     }
 
     /// <summary>Round 87: the Stagewatch the stage timer follows, when its link is on and following is on.</summary>

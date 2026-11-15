@@ -124,6 +124,17 @@ public sealed record ShowContext
     /// </summary>
     [JsonIgnore] public int CommandsDropped { get; init; }
 
+    /// <summary>
+    /// How many of the sender's links this reader refused (§6): a link one of whose ends names another node and breaks the end's shape
+    /// (<see cref="EyeNetwork.TryEnd"/>) — a reader never guesses which node a broken end meant. Never written.
+    /// </summary>
+    [JsonIgnore] public int LinksRefused { get; init; }
+
+    /// <summary>Whether a link's ends are ones this reader reads: its own item ids, or a cross-node end of §6's shape.</summary>
+    private static bool EndsRead(ShowContextLink l)
+        => (l.From ?? "").Length > 0 && (l.To ?? "").Length > 0
+           && (!EyeNetwork.IsEnd(l.From) || EyeNetwork.TryEnd(l.From, out _)) && (!EyeNetwork.IsEnd(l.To) || EyeNetwork.TryEnd(l.To, out _));
+
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
 
     public string ToJson() => JsonSerializer.Serialize(this, Options);
@@ -141,7 +152,8 @@ public sealed record ShowContext
             {
                 Light = NormalLight(c.Light),
                 Items = (c.Items ?? Array.Empty<ShowContextItem>()).Where(i => i is not null && i.Id.Length > 0).Take(MaxItems).Select(i => i with { Light = NormalLight(i.Light) }).ToList(),
-                Links = (c.Links ?? Array.Empty<ShowContextLink>()).Where(l => l is not null).Take(MaxItems * 2).Select(l => l with { Light = NormalLight(l.Light) }).ToList(),
+                Links = (c.Links ?? Array.Empty<ShowContextLink>()).Where(l => l is not null && EndsRead(l)).Take(MaxItems * 2).Select(l => l with { Light = NormalLight(l.Light) }).ToList(),
+                LinksRefused = (c.Links ?? Array.Empty<ShowContextLink>()).Count(l => l is not null && !EndsRead(l)),
                 Recent = (c.Recent ?? Array.Empty<ShowContextLine>()).Where(r => r is not null).TakeLast(MaxRecent).ToList(),
                 Commands = commands,
                 CommandsDropped = dropped,
@@ -302,30 +314,60 @@ public static class ShowContextBuilder
     public static bool IsBorrowed(EyeKind kind) => kind is EyeKind.ShowApp or EyeKind.ShowAppItem;
 
     /// <summary>
-    /// This desk's context: the Eye's own things and their links; first, each PeerLink it holds as connector (§6 P1, P2, P7) — one
-    /// item of kind <c>link</c> in its record's light and words, and its one row to the peer node; the journal's last lines; the
-    /// verbs a peer may propose; and the apps it hears.
+    /// This desk's context (Show Bus 1.3 §6, the Eye design's D11): the Eye's own things, each by a short stable id
+    /// (<see cref="EyeNetwork.ShortId"/>: never a path, an address or a page's pass), and their links; first, each PeerLink it holds as
+    /// connector and each it accepted that LINK verified (§6 P1, P2, P7) — one item of kind <c>link</c> in its record's or its acceptor
+    /// row's light and words, and its one row to the peer node; every link of this desk's own between one of its things and another
+    /// app's, its far end written <c>@&lt;app&gt;/&lt;item&gt;</c>; the journal's last lines; the verbs a peer may propose; and the apps
+    /// it hears. Never another app's thing, a told or relayed link, a mention, or words that carry a key, a window's address or a path.
     /// </summary>
-    public static ShowContext FromEye(EyeGraph graph, string id, string name, DateTime utcNow, IEnumerable<ShowLogEntry> journal, IEnumerable<ShowContextPeer> peers, IReadOnlyList<ShowContextPeerLink>? links = null)
+    public static ShowContext FromEye(EyeGraph graph, string id, string name, DateTime utcNow, IEnumerable<ShowLogEntry> journal, IEnumerable<ShowContextPeer> peers, IReadOnlyList<ShowContextPeerLink>? links = null, IReadOnlyList<AppLinkRow>? accepted = null)
     {
         var held = (links ?? Array.Empty<ShowContextPeerLink>()).Where(l => l.Record.IsOn).Take(ShowContext.MaxItems).ToList();
-        var linkItems = held.Select(LinkItem).ToList();
+        var took = (accepted ?? Array.Empty<AppLinkRow>()).Where(r => !r.Ended && r.Id.Length > 0).GroupBy(r => r.Id, StringComparer.Ordinal).Select(g => g.First())
+            .Take(Math.Max(0, ShowContext.MaxItems - held.Count)).ToList();
+        var linkItems = held.Select(LinkItem).Concat(took.Select(AcceptedItem)).Select(i => i with { Label = Clean(i.Label), State = Clean(i.State) }).ToList();
         var own = graph.Nodes.Where(n => !IsBorrowed(n.Kind)).Take(ShowContext.MaxItems - linkItems.Count).ToList();
         var ids = own.Select(n => n.Id).ToHashSet(StringComparer.Ordinal);
+        var shortOf = own.ToDictionary(n => n.Id, n => EyeNetwork.ShortId(n.Id), StringComparer.Ordinal);
+        // A link of this desk's own to another app's thing: its far end written as that app's id and the item that app gave it.
+        string? Far(string eyeId)
+            => graph.Find(eyeId) is { App.Length: > 0 } n && !n.App.StartsWith("node:", StringComparison.Ordinal) && n.Origin != EyeOrigin.Relayed
+                ? EyeNetwork.End(n.App, n.Kind == EyeKind.ShowAppItem && n.Id.StartsWith(EyeNetwork.CardOf(n.App) + ":", StringComparison.Ordinal) ? n.Id[(EyeNetwork.CardOf(n.App).Length + 1)..] : "")
+                : null;
+        var crossRows = graph.Edges.Where(e => e.Origin == EyeOrigin.Own && (ids.Contains(e.From) ^ ids.Contains(e.To)))
+            .Select(e => ids.Contains(e.From) ? (From: shortOf[e.From], To: Far(e.To), e) : (From: Far(e.From), To: shortOf[e.To], e))
+            .Where(x => x.From is not null && x.To is not null && EyeNetwork.TryEnd(EyeNetwork.IsEnd(x.From) ? x.From : x.To, out _))
+            .Select(x => new ShowContextLink { From = x.From!, To = x.To!, Kind = x.e.Verb, Light = ShowContext.Word(x.e.Light) });
         return new ShowContext
         {
             Node = new ShowContextNode { Kind = "patterns", Id = id, Name = name },
             At = ClockPing.Ms(utcNow),
-            Light = ShowContext.Word(ShowContext.Worst(own.Select(n => n.Light).Concat(held.Select(l => l.Record.LightValue)))),
-            Headline = graph.Headline,
-            Items = linkItems.Concat(own.Select(n => new ShowContextItem { Id = n.Id, Kind = n.Kind.ToString().ToLowerInvariant(), Label = n.Label, Light = ShowContext.Word(n.Light), State = n.Sub })).ToList(),
-            Links = held.Select(LinkRow).OfType<ShowContextLink>().Concat(graph.Edges.Where(e => ids.Contains(e.From) && ids.Contains(e.To))
-                .Select(e => new ShowContextLink { From = e.From, To = e.To, Kind = e.Verb, Light = ShowContext.Word(e.Light) })).ToList(),
-            Recent = journal.TakeLast(ShowContext.MaxRecent).Select(Line).ToList(),
+            Light = ShowContext.Word(ShowContext.Worst(own.Select(n => n.Light).Concat(held.Select(l => l.Record.LightValue)).Concat(took.Select(r => r.Light)))),
+            Headline = Clean(graph.Headline),
+            Items = linkItems.Concat(own.Select(n => new ShowContextItem { Id = shortOf[n.Id], Kind = n.Kind.ToString().ToLowerInvariant(), Label = Clean(n.Label), Light = ShowContext.Word(n.Light), State = Clean(n.Sub) })).ToList(),
+            Links = held.Select(LinkRow).OfType<ShowContextLink>().Concat(took.Select(AcceptedRow))
+                .Concat(graph.Edges.Where(e => ids.Contains(e.From) && ids.Contains(e.To)).Select(e => new ShowContextLink { From = shortOf[e.From], To = shortOf[e.To], Kind = e.Verb, Light = ShowContext.Word(e.Light) }))
+                .Concat(crossRows).ToList(),
+            Recent = journal.TakeLast(ShowContext.MaxRecent).Select(Line).Select(l => l with { Text = Clean(l.Text) }).ToList(),
             Commands = Commands,
-            Peers = peers.Take(32).ToList(),
+            Peers = peers.Take(32).Select(p => p with { Name = Clean(p.Name), Headline = Clean(p.Headline) }).ToList(),
         };
     }
+
+    /// <summary>Words of this desk's that reach another app: whatever would carry a key, a window's address or a path is said as held.</summary>
+    private static string Clean(string words) => EyeNetwork.Secretish(words) ? WindowAddresses.RedactText(words) is var r && !EyeNetwork.Secretish(r) ? r : "(held — not published)" : words;
+
+    /// <summary>
+    /// §6 P2's item for a link this desk's wire accepted that LINK verified (13.16.5's row): <c>link:&lt;peer id&gt;</c>, kind
+    /// <c>link</c>, the row's light and words with its scope; never its key, its kid's secret or its address.
+    /// </summary>
+    public static ShowContextItem AcceptedItem(AppLinkRow r)
+        => new() { Id = "link:" + r.Id, Kind = "link", Label = r.Name.Length > 0 ? $"{ShowBusPeers.KindWords(r.T)} {r.Name}" : ShowBusPeers.KindWords(r.T), Light = ShowContext.Word(r.Light), State = $"accepted by LINK · {r.ProofWords} · scope {r.Scope}" };
+
+    /// <summary>§6 P2's one row for an accepted link: from the connector's node to this desk's item, of the connector's use K.</summary>
+    public static ShowContextLink AcceptedRow(AppLinkRow r)
+        => new() { From = EyeNetwork.End(r.Id), To = "link:" + r.Id, Kind = r.Drove ? "controls" : "follows", Light = ShowContext.Word(r.Light) };
 
     /// <summary>
     /// §6 P2's item for a PeerLink this desk holds as connector, from its record alone (13.16.4): kind <c>link</c>, the record's light,

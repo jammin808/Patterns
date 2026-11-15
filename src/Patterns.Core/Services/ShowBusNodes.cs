@@ -116,6 +116,12 @@ public sealed record NodeContextFacts
 /// </summary>
 public static class NodeContextBuilder
 {
+    /// <summary>The item a node follows its desk's relayed Stagewatch by: of kind <c>link</c>, never a thing of the node's own.</summary>
+    public const string RelayItem = "link:relay";
+
+    /// <summary>What the relay item's words end with.</summary>
+    public const string RelayWords = "relayed by the desk";
+
     public static ShowContext Build(string id, string name, DateTime utcNow, NodeContextFacts f, IEnumerable<ShowLogEntry> journal)
     {
         var items = new List<ShowContextItem>();
@@ -134,7 +140,18 @@ public static class NodeContextBuilder
         // the item that shows the Stagewatch it follows lends that item its light.
         var ownLink = ShowContextPeerLink.Stagewatch(f.OwnLink);
         if (ownLink is not null) items.Insert(0, ShowContextBuilder.LinkItem(ownLink));
-        if (f.Stagewatch.Name.Length > 0 || f.Stagewatch.Address.Length > 0)
+        // Show Bus 1.3 §6 P1, P2: the desk's relay of its Stagewatch is not this node's own, and lends the node no light. It is the link
+        // the node follows the Stagewatch by — one item of kind link, grey, its words the stage's and "relayed by the desk" — with no row
+        // to the Stagewatch: the PeerLink is the desk's, and the desk's context publishes it.
+        if (f.StagewatchViaDesk && (f.Stagewatch.Name.Length > 0 || f.Stagewatch.Address.Length > 0))
+        {
+            items.Add(new ShowContextItem
+            {
+                Id = RelayItem, Kind = "link", Label = "Stagewatch " + f.Stagewatch.Name, Light = "grey",
+                State = StageFollow.Words(f.Stagewatch) + " · " + RelayWords,
+            });
+        }
+        else if (f.Stagewatch.Name.Length > 0 || f.Stagewatch.Address.Length > 0)
         {
             var light = f.Stagewatch.State switch
             {
@@ -143,11 +160,11 @@ public static class NodeContextBuilder
                 ShowBusState.Stale => CheckLight.Amber,
                 _ => CheckLight.Red,
             };
-            if (!f.StagewatchViaDesk && ownLink is { Record: { IsLive: true } live } && f.Stagewatch.State == ShowBusState.Live) light = ShowContext.Worst(new[] { light, live.LightValue });
+            if (ownLink is { Record: { IsLive: true } live } && f.Stagewatch.State == ShowBusState.Live) light = ShowContext.Worst(new[] { light, live.LightValue });
             items.Add(new ShowContextItem
             {
                 Id = "stagewatch", Kind = "stagewatch", Label = "Stagewatch " + f.Stagewatch.Name, Light = ShowContext.Word(light),
-                State = StageFollow.Words(f.Stagewatch) + (f.StagewatchViaDesk ? " (relayed by the desk)" : ""),
+                State = StageFollow.Words(f.Stagewatch),
             });
         }
         var screens = f.StageScreens > 0 ? string.Create(CultureInfo.InvariantCulture, $" · {f.StageScreens} screen{(f.StageScreens == 1 ? "" : "s")} watching") : "";

@@ -149,15 +149,16 @@ public class ShowBus12Tests
         Assert.False(running.Stuck);
         Assert.True(running.Frame!.Live);
 
-        // The node's own context: its Stagewatch amber (the link live), its stage red with no time.
+        // The node's own context: the desk's relay its one link item, grey and saying the stall (round 99: a relay lends the node no
+        // light, Show Bus 1.3 §6 P1), its stage — its own — red with no time.
         var facts = new NodeContextFacts { Role = "timer", DeskName = "FOH", DeskLight = CheckLight.Green, Linked = true, Stagewatch = onNode, StagewatchViaDesk = true, StageWords = "idle (Stagewatch Hall A's time)", StageScreens = 2 };
         var c = NodeContextBuilder.Build("1a2b3c4d", "Stage Left", T0, facts, Array.Empty<ShowLogEntry>());
-        Assert.Contains(c.Items, i => i.Id == "stagewatch" && i.Light == "amber" && i.State.Contains("says its show is stuck", StringComparison.Ordinal));
+        Assert.Contains(c.Items, i => i.Id == NodeContextBuilder.RelayItem && i.Kind == "link" && i.Light == "grey" && i.State.Contains("says its show is stuck", StringComparison.Ordinal));
         Assert.Contains(c.Items, i => i.Id == "stage" && i.Light == "red" && i.State == "no time shown — Stagewatch Hall A says its show is stuck · 2 screens watching");
         Assert.Equal("red", c.Light);
         Assert.Contains("Stage display: no time shown", c.Headline, StringComparison.Ordinal);
         var waiting = NodeContextBuilder.Build("1a2b3c4d", "Stage Left", T0, facts with { Stagewatch = bare, StageWords = "05:00 — running" }, Array.Empty<ShowLogEntry>());
-        Assert.Contains(waiting.Items, i => i.Id == "stagewatch" && i.Light == "amber" && i.State.Contains("own stage timer runs until its first frame", StringComparison.Ordinal));
+        Assert.Contains(waiting.Items, i => i.Id == NodeContextBuilder.RelayItem && i.Light == "grey" && i.State.Contains("own stage timer runs until its first frame", StringComparison.Ordinal));
         Assert.Contains(waiting.Items, i => i.Id == "stage" && i.Light == "green" && i.State.StartsWith("05:00", StringComparison.Ordinal));
     }
 
@@ -192,9 +193,11 @@ public class ShowBus12Tests
         var round = ShowContext.Parse(c.ToJson())!;                                      // what another app reads back
         Assert.Equal("patterns", round.Node.Kind);
         Assert.Equal("1a2b3c4d", round.Node.Id);
-        Assert.Equal("amber", round.Light);                                               // a quiet Stagewatch is the worst thing it knows
+        // Round 99 (Show Bus 1.3 §6 P1, 13.16): the desk's relay of a quiet Stagewatch is the desk's link, not the node's own thing — one
+        // grey link item that says so — so the node's light is its own things', green.
+        Assert.Equal("green", round.Light);
         Assert.Contains(round.Items, i => i.Id == "desk" && i.Light == "green");
-        Assert.Contains(round.Items, i => i.Id == "stagewatch" && i.Light == "amber" && i.State.Contains("relayed by the desk", StringComparison.Ordinal));
+        Assert.Contains(round.Items, i => i.Id == NodeContextBuilder.RelayItem && i.Kind == "link" && i.Light == "grey" && i.State.Contains("gone quiet", StringComparison.Ordinal) && i.State.EndsWith(NodeContextBuilder.RelayWords, StringComparison.Ordinal));
         Assert.Contains(round.Items, i => i.Id == "stage" && i.State.StartsWith("02:00", StringComparison.Ordinal));
         Assert.Contains("stage timer node", round.Headline, StringComparison.Ordinal);
         Assert.Contains(round.Commands, x => x.Verb == "STAGE STATUS" && x.Risk == "low");

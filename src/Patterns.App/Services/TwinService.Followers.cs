@@ -207,13 +207,14 @@ public sealed partial class TwinService
 
     private long _relaySeq;
 
-    private readonly Dictionary<string, (string Name, KeptContext Kept, DateTime AtUtc)> _nodeContexts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Instance, string Name, KeptContext Kept, DateTime AtUtc)> _nodeContexts = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Round 88 (closes L52): each linked node's own context as it last said it (UI thread), by its instance, with the revision it
-    /// was kept with — moved only when what it says moved, which is what the Eye's hash reads; forgotten a minute after it stops.
+    /// was kept with — moved only when what it says moved, which is what the Eye's hash reads; forgotten a minute after it stops. Each
+    /// with its instance, the card its beacon and its hello name, so the Eye draws the three as one.
     /// </summary>
-    public IReadOnlyList<(string Name, KeptContext Kept, DateTime AtUtc)> NodeContexts(DateTime utcNow)
+    public IReadOnlyList<(string Instance, string Name, KeptContext Kept, DateTime AtUtc)> NodeContexts(DateTime utcNow)
     {
         foreach (var gone in _nodeContexts.Where(kv => utcNow - kv.Value.AtUtc > ShowBusLiveness.ForgetAfter).Select(kv => kv.Key).ToList()) _nodeContexts.Remove(gone);
         return _nodeContexts.Values.ToList();
@@ -229,7 +230,7 @@ public sealed partial class TwinService
                 if (ShowContext.Parse(msg.Payload) is { } context)
                 {
                     var was = _nodeContexts.TryGetValue(caller.Instance, out var kept) ? kept.Kept : null;
-                    _nodeContexts[caller.Instance] = (caller.Name, KeptContext.Next(was, context), DateTime.UtcNow);
+                    _nodeContexts[caller.Instance] = (caller.Instance, caller.Name, KeptContext.Next(was, context), DateTime.UtcNow);
                 }
                 return;
             }

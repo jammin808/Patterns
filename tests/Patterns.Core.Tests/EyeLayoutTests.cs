@@ -148,11 +148,12 @@ public class EyeLayoutTests
             }
             else Assert.True(p.FitScale >= EyeLayout.LabelScale, $"{w}×{h}: {p.FitScale:0.000}");
             // The needed apps open first: Stagewatch and the desk's own nodes before PlayMap and AGMessage.
-            var needed = new[] { "app:a1b2c3d4", "app:node:t1", "app:node:t2", "app:node:t3" };
+            // A Patterns node is its own card, node:<instance> (its beacon, its hello and its twin context folded into one).
+            var needed = new[] { "app:a1b2c3d4", "node:t1", "node:t2", "node:t3" };
             if (p.Expanded.Count is > 0 and < 4) Assert.All(p.Expanded, id => Assert.Contains(id, needed));
             // What is folded is said: its things counted as not drawn.
-            Assert.Equal(g.Nodes.Count(n => n.Kind == EyeKind.ShowAppItem && !p.IsExpanded("app:" + n.App)), p.LeftItems);
-            Assert.All(g.Nodes.Where(n => n.Kind == EyeKind.ShowAppItem && !p.IsExpanded("app:" + n.App)), n => Assert.True(p.Of(n.Id).IsEmpty));
+            Assert.Equal(g.Nodes.Count(n => n.Kind == EyeKind.ShowAppItem && !p.IsExpanded(EyeNetwork.CardOf(n.App))), p.LeftItems);
+            Assert.All(g.Nodes.Where(n => n.Kind == EyeKind.ShowAppItem && !p.IsExpanded(EyeNetwork.CardOf(n.App))), n => Assert.True(p.Of(n.Id).IsEmpty));
         }
         var tiny = EyeLayout.Place(g, new EyeNetworkView { Slots = slots, CanvasW = 500, CanvasH = 300 });
         Assert.True(tiny.MarksOnly);
@@ -202,7 +203,7 @@ public class EyeLayoutTests
         IEnumerable<EyeNode> Others(EyeGraph graph, string app) => graph.Nodes.Where(n => n.Band == EyePlane.Network && n.App != app);
         foreach (var app in apps)
         {
-            var card = "app:" + app.Id;
+            var card = EyeNetwork.CardOf(app.Id);
             // Folded by hand: its card goes to the strip, its cell stays a gap, and every other card and thing keeps its rectangle.
             var folded = EyeLayout.Place(g, kept with { Folded = new[] { card } });
             Assert.False(folded.IsExpanded(card));
@@ -231,7 +232,7 @@ public class EyeLayoutTests
         var mkept = mview with { Cells = mp.Cells };
         void Still(EyeGraph graph, EyePlacement after, string changed)
         {
-            foreach (var n in graph.Nodes.Where(n => n.Band == EyePlane.Network && n.App.Length > 0 && n.App != changed && mp.IsExpanded("app:" + n.App) == after.IsExpanded("app:" + n.App)))
+            foreach (var n in graph.Nodes.Where(n => n.Band == EyePlane.Network && n.App.Length > 0 && n.App != changed && mp.IsExpanded(EyeNetwork.CardOf(n.App)) == after.IsExpanded(EyeNetwork.CardOf(n.App))))
                 Assert.Equal(mp.Of(n.Id), after.Of(n.Id));
             NoOverlap(after);
         }

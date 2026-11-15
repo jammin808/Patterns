@@ -89,6 +89,12 @@ public sealed class EyePlacement
     /// <summary>The things the drawn apps name that are not drawn — folded clusters and past the dozen.</summary>
     public int LeftItems { get; init; }
 
+    /// <summary>
+    /// The link ends the apps' contexts name that the Eye does not place (Show Bus 1.3 §6): a node it does not show, a word it does not
+    /// read, past a bound — left out and counted (<see cref="EyeGraph.Unplaced"/>), said in the band's words.
+    /// </summary>
+    public int LeftEnds { get; init; }
+
     /// <summary>The fit view's scale on the canvas it was placed for.</summary>
     public double FitScale { get; init; }
 
@@ -119,7 +125,7 @@ public sealed class EyePlacement
     public EyeRect Around(string id, EyeGraph graph)
     {
         var r = Of(id);
-        if (r.IsEmpty && graph.Find(id) is { App.Length: > 0 } folded) return Of("app:" + folded.App);
+        if (r.IsEmpty && graph.Find(id) is { App.Length: > 0 } folded) return Of(EyeNetwork.CardOf(folded.App));
         foreach (var n in graph.Neighbours(id)) r = r.Union(Of(n));
         return r;
     }
@@ -391,7 +397,7 @@ public static class EyeLayout
                 }
                 else if (n.App.Length > 0)
                 {
-                    var card = "app:" + n.App;
+                    var card = EyeNetwork.CardOf(n.App);
                     if (!net.Things.TryGetValue(card, out var list)) net.Things[card] = list = new List<EyeNode>();
                     list.Add(n);
                 }
@@ -496,7 +502,7 @@ public static class EyeLayout
                 if (left > 0) hidden[card.Id] = left;
             }
             var leftItems = hidden.Values.Sum();
-            var note = Words(expanded.Count, Cards.Count, graph.MoreApps, leftItems, marksOnly);
+            var note = Words(expanded.Count, Cards.Count, graph.MoreApps, leftItems, graph.Unplaced, marksOnly);
             bands.Add(new EyeBand(EyePlane.Network, BandLabel(EyePlane.Network), bandRect) { Note = note });
             foreach (var b in own.Bands)
             {
@@ -511,6 +517,7 @@ public static class EyeLayout
                 Hidden = hidden,
                 LeftApps = graph.MoreApps,
                 LeftItems = leftItems,
+                LeftEnds = graph.Unplaced,
                 FitScale = scale,
                 MarksOnly = marksOnly,
                 Note = note,
@@ -518,11 +525,12 @@ public static class EyeLayout
         }
 
         /// <summary>What the band says beside its word: the clusters open, what is left out, and a fit view that shows marks only.</summary>
-        private static string Words(int open, int cards, int moreApps, int leftItems, bool marksOnly)
+        private static string Words(int open, int cards, int moreApps, int leftItems, int leftEnds, bool marksOnly)
         {
             var words = new List<string> { $"{open} of {cards} app{(cards == 1 ? "" : "s")} open" };
             if (moreApps > 0) words.Add($"{moreApps} more heard, not drawn");
             if (leftItems > 0) words.Add($"{leftItems} thing{(leftItems == 1 ? "" : "s")} not drawn");
+            if (leftEnds > 0) words.Add($"{leftEnds} link{(leftEnds == 1 ? "" : "s")} the apps name not placed");
             if (marksOnly) words.Add(MarksOnlyWords);
             return string.Join(" · ", words);
         }
