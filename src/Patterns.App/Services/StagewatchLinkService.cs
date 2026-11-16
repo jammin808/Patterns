@@ -509,7 +509,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             var stuck = show is { Stuck: true };
             var kept = show?.Context;
             var s = _sight;
-            if (s.Name.Length == 0 && s.Address.Length == 0) return s;
+            if (!Named(s)) return s;
             s = s with { Context = kept?.Context, ContextRev = kept?.Rev ?? 0, Key = KeyNow() };
             if (stuck) s = s with { Frame = s.Frame is { } f ? f with { Live = false } : null, Stuck = true };
             // The state is the silence since the last word, read now: a link that stopped talking goes stale on its own.
@@ -523,15 +523,41 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// <summary>
     /// <see cref="Sight"/> with the link's record (Show Bus 1.3 §13.16.3) — what the readers that draw the link take: the Eye, the Nodes
     /// card, the context's peers, the assistant's facts, STATE. The stage's own readers take <see cref="Sight"/>, which reads no record.
+    /// The record and the key's standing it carries are one read (<see cref="Face"/>), so a reader never draws a link live beside a
+    /// key its verdict has not given yet.
     /// </summary>
-    public StagewatchSight SightWithLink => Sight with { Link = Record };
+    public StagewatchSight SightWithLink
+    {
+        get
+        {
+            var (record, key) = Face();
+            var s = Sight;
+            return s with { Link = record, Key = Named(s) ? key : s.Key };
+        }
+    }
+
+    /// <summary>A sight that names a Stagewatch — by its name or the address dialled; one that names none carries nothing of a link.</summary>
+    private static bool Named(StagewatchSight s) => s.Name.Length > 0 || s.Address.Length > 0;
 
     /// <summary>The key's standing as every reader shows it: the Stagewatch's word, and the Trust a held-back key waits for.</summary>
-    private StagewatchKey KeyNow()
+    private StagewatchKey KeyNow() => KeyOf(_run);
+
+    private StagewatchKey KeyOf(Run run)
     {
         var trust = Volatile.Read(ref _trust);
-        var key = _run.Key;
+        var key = run.Key;
         return trust is not null ? key with { TrustFor = TlsFingerprint.Short(trust.Fingerprint) } : key;
+    }
+
+    /// <summary>
+    /// The link's record and the key's standing, read in one step under the core's gate. A verdict's standing is written in the
+    /// same step under that gate as the core's taking of the verdict (<see cref="LinkAsync"/>), so the pair read here is one the link
+    /// was in: a record live at level 1 never beside a key whose word the verdict that made it live has not given yet.
+    /// </summary>
+    private (LinkRecord Record, StagewatchKey Key) Face()
+    {
+        var run = _run;
+        lock (_core) return (RecordOf(run), KeyOf(run));
     }
 
     /// <summary>
@@ -693,13 +719,16 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         get
         {
             var run = _run;
-            lock (_core)
-            {
-                var now = Now();
-                var record = (run.Current ?? run.Idle)?.Record(now) ?? PeerLinkMachine.Unlinked(IdleSettings(false, null, null, false), now);
-                return run.Current is null && run.NotAnAddress ? record with { Words = NotAnAddressWords } : record;
-            }
+            lock (_core) return RecordOf(run);
         }
+    }
+
+    /// <summary><see cref="Record"/> of one run, read under the core's gate.</summary>
+    private LinkRecord RecordOf(Run run)
+    {
+        var now = Now();
+        var record = (run.Current ?? run.Idle)?.Record(now) ?? PeerLinkMachine.Unlinked(IdleSettings(false, null, null, false), now);
+        return run.Current is null && run.NotAnAddress ? record with { Words = NotAnAddressWords } : record;
     }
 
     /// <summary>
@@ -740,7 +769,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     {
         lock (_saidGate)
         {
-            var record = Record;
+            var (record, key) = Face();
             foreach (var line in _said.Take(record, MonoMs()))
             {
                 var peer = record.PeerId is { Length: > 0 } id ? $"{record.PeerT ?? "main"} {id}" : record.PeerName;
@@ -752,8 +781,17 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 Journal?.Record("Show network", "StagewatchLink", record.PeerId is { Length: > 0 } pid ? $"{label} ({pid})" : label,
                     line.Summary ? "repeating" : record.State, line.Words);
             }
+            Published?.Invoke(record, key);
         }
     }
+
+    /// <summary>
+    /// Every reading of the link that <see cref="SayChange"/> says or weighs — the record and the key's standing as one read
+    /// (<see cref="Face"/>), in the order said, raised on the thread that said it (the link's reader, often) under the gate that
+    /// orders the sayings. It is the test fence's reading of every publication, and no desk reader subscribes: a handler takes the
+    /// pair and returns, never throws (a throw would end the connection that said it) and calls nothing of the link.
+    /// </summary>
+    public event Action<LinkRecord, StagewatchKey>? Published;
 
     /// <summary>The certificates looked at after CERTIFICATE CHANGED on this run (13.8.3): one TLS greeting each, nothing sent.</summary>
     public int CertificateProbes
@@ -3097,6 +3135,26 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// </summary>
     private void Apply(Connection c, StagewatchKeyStep step, long asked, bool publicView = true)
     {
+        if (Stand(c, step, asked, publicView) is { } stood) Follow(c, stood);
+    }
+
+    /// <summary>
+    /// What a word moved of the key's standing, decided under the run's gate (<see cref="Stand"/>): the step, the standing before and
+    /// after, the hold it started, and the redial's words a viewing code's refusal leaves; what follows it (<see cref="Follow"/>) runs
+    /// outside every gate.
+    /// </summary>
+    private sealed record KeyStood(StagewatchKeyStep Step, long Asked, bool PublicView, StagewatchKey Before, StagewatchKey After, long HoldMs)
+    {
+        public string Redial { get; init; } = "";
+    }
+
+    /// <summary>
+    /// <see cref="Apply"/>'s first half: the standing and the run's holds written under the run's gate, nothing else. Called under the
+    /// core's gate too where the core takes the word that gives it (a LINK verdict, <see cref="LinkAsync"/>), so the record and the
+    /// standing move in one step; null when an answer came after a later word and applies nothing.
+    /// </summary>
+    private KeyStood? Stand(Connection c, StagewatchKeyStep step, long asked, bool publicView)
+    {
         var run = c.Run;
         var name = c.Target.Name;
         StagewatchKey before;
@@ -3104,7 +3162,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         long holdMs = 0;
         lock (run.Gate)
         {
-            if (asked >= 0 && asked != run.Said) return;
+            if (asked >= 0 && asked != run.Said) return null;
             if (asked < 0 || step.Hold is StagewatchHoldKind.Refused or StagewatchHoldKind.Node) run.Said++;
             var now = MonoMs();
             if (step.Takes && !c.Public) (run.HeldUntilMs, run.NodeHeldUntilMs) = (0, 0);
@@ -3128,6 +3186,18 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                         : $"approval desk: Stagewatch {name} — the assistant's proposals wait while this desk's key is held there";
             }
         }
+        return new KeyStood(step, asked, publicView, before, after, holdMs);
+    }
+
+    /// <summary>
+    /// <see cref="Apply"/>'s second half, outside every gate: the core told of the hold or of the key taken, the hold kept for a
+    /// restart or lifted under every name the run kept it by, one log line when the standing moved, and the desk's readers told.
+    /// </summary>
+    private void Follow(Connection c, KeyStood stood)
+    {
+        var (step, asked, publicView, before, after, holdMs) = stood;
+        var run = c.Run;
+        var name = c.Target.Name;
         if (holdMs > 0)
         {
             // The core holds the dial too, and the store keeps a key's hold for a restart, before the caller does anything more.
@@ -3178,6 +3248,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 Log.Info($"Stagewatch link: {name} — no key on this link: {after.Said}.");
             UiThread.Post(_changed);
         }
+        if (stood.Redial.Length > 0) Volatile.Write(ref run.Redial, stood.Redial);
     }
 
     /// <summary>
@@ -3188,13 +3259,21 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// </summary>
     private void Verdict(Connection c, string text)
     {
-        if (StagewatchFrame.Auth(text, c.Secret) is not { } auth) return;
-        if (StagewatchKey.OfVerdict(auth, SelfId, c.Keyed || c.Proved, RefusedHoldAtLeast) is not { } step) return;
-        Apply(c, step, -1, publicView: !auth.View);
-        if (!auth.View) return;
+        if (StagewatchFrame.Auth(text, c.Secret) is { } auth && StandVerdict(c, auth) is { } stood) Follow(c, stood);
+    }
+
+    /// <summary><see cref="Verdict"/>'s standing, under the run's gate (<see cref="Stand"/>); null when the verdict says nothing of the key.</summary>
+    private KeyStood? StandVerdict(Connection c, StagewatchAuth auth)
+    {
+        if (StagewatchKey.OfVerdict(auth, SelfId, c.Keyed || c.Proved, RefusedHoldAtLeast) is not { } step) return null;
+        var stood = Stand(c, step, -1, publicView: !auth.View);
+        if (stood is null || !auth.View) return stood;
         var why = step.Words.Length > 0 ? step.Words : auth.Error.Length > 0 ? auth.Error : "its viewing code";
-        Volatile.Write(ref c.Run.Redial, string.Create(System.Globalization.CultureInfo.InvariantCulture,
-            $"{c.Target.Name} closed the link — {why}; dialling again in {Math.Ceiling(step.For.TotalSeconds):0} s."));
+        return stood with
+        {
+            Redial = string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{c.Target.Name} closed the link — {why}; dialling again in {Math.Ceiling(step.For.TotalSeconds):0} s."),
+        };
     }
 
     /// <summary>
@@ -3364,8 +3443,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             switch (type)
             {
                 case "auth":
-                    if (c.Transcript is not null) LinkVerdict(c, text);                                       // its hold recorded before the lane may send anything keyed
-                    else Verdict(c, text);
+                    // A LINK socket's verdict moved the key's standing in the core's step that took it (LinkAsync), its hold recorded
+                    // before the lane may send anything keyed; a level-0 socket's is read here.
+                    if (c.Transcript is null) Verdict(c, text);
                     break;
                 case StagewatchGrants.Type:
                     await GrantsAsync(c, text, ct);
@@ -3577,6 +3657,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         LinkPin? proofPin = null;
         LinkFloor? floor = null;
         string? boundId = null;
+        KeyStood? stood = null;
+        var stoodSaid = "";
         lock (_core)
         {
             var now = Now();
@@ -3687,11 +3769,16 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             {
                 m.Heard(now);                                                               // before the verdict: discarded and counted (13.6.3)
             }
+            // A verdict the connection keeps moves the key's standing in this same step, after the core decided the link: a record
+            // the verdict made live is never read beside a key the verdict has not given, nor a held one beside a key it still takes.
+            if (step == LinkStep.Taken && type == "auth" && c.Transcript is not null) (stood, stoodSaid) = StandLinkVerdict(c, text);
         }
         if (message is not null) await SendLinkAsync(c, message, ct);
         if (step == LinkStep.Ended) Volatile.Write(ref c.Run.Redial, ended);
         if (c.Session is not null && step == LinkStep.Taken && !c.Heard) TakeProof(c, proofPin, floor, boundId);
         SayChange();
+        if (stood is not null) Follow(c, stood);
+        if (stoodSaid.Length > 0) Log.Info(stoodSaid);
         return step;
     }
 
@@ -3726,31 +3813,26 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// <summary>
     /// What a LINK verdict says of this desk's key on every reader (13.6.4): one that verified takes it, as a node link's verdict does;
     /// a refused, bound, locked-out or out-of-scope key is held and kept for a restart; a rate limit waits its retry; an open
-    /// acceptor, or a message it could not take, says nothing of the key. The core decided the link already.
+    /// acceptor, or a message it could not take, says nothing of the key. Decided under the core's gate in the step the core takes
+    /// the verdict in (<see cref="LinkAsync"/>), after the core decided the link: the standing is written there, so no reader finds the
+    /// record moved by the verdict beside a standing the verdict has not given; the rest — the hold kept, the log line, the readers
+    /// told — follows outside the gate, as does the line said of a verdict that says nothing of the key.
     /// </summary>
-    private void LinkVerdict(Connection c, string text)
+    private (KeyStood? Stood, string Said) StandLinkVerdict(Connection c, string text)
     {
-        if (StagewatchFrame.Auth(text, c.Secret) is not { } auth) return;
-        if (auth.Ok)
-        {
-            if (c.Session is not null) Verdict(c, text);
-            return;
-        }
+        if (StagewatchFrame.Auth(text, c.Secret) is not { } auth) return (null, "");
+        if (auth.Ok) return (c.Session is not null ? StandVerdict(c, auth) : null, "");
         var cls = ObjectOf(text) is { } v ? PeerLink.Text(v, "class") ?? "refused" : "refused";
         switch (cls)
         {
             case "refused" or "binding" or "locked" or "scope":
-                Verdict(c, text);
-                break;
+                return (StandVerdict(c, auth), "");
             case "busy":
-                Apply(c, new StagewatchKeyStep(null, StagewatchHoldKind.Busy, TimeSpan.FromSeconds(Math.Max(1, auth.Retry)), false, false, ""), -1);
-                break;
+                return (Stand(c, new StagewatchKeyStep(null, StagewatchHoldKind.Busy, TimeSpan.FromSeconds(Math.Max(1, auth.Retry)), false, false, ""), -1, publicView: true), "");
             default:
                 // The peer's class word is not logged: the core reduced any word outside 13.6.4's closed set to malformed.
-                string said;
-                lock (_core) said = c.Core.Machine.Refusal(Now());
-                Log.Info($"Stagewatch link: {c.Target.Name} answered this desk's LINK {(said.Length > 0 ? said : "malformed")} — {(auth.Error.Length > 0 ? auth.Error : "no words")}; its public view is read.");
-                break;
+                var said = c.Core.Machine.Refusal(Now());
+                return (null, $"Stagewatch link: {c.Target.Name} answered this desk's LINK {(said.Length > 0 ? said : "malformed")} — {(auth.Error.Length > 0 ? auth.Error : "no words")}; its public view is read.");
         }
     }
 

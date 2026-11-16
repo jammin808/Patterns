@@ -840,7 +840,8 @@ public sealed class CommandRouter : IRouter
     {
         var link = _services.Kernel.Stagewatch;
         var config = _services.State.Control.Stagewatch;
-        var sight = link.Sight;
+        // The record and the key's standing come from one read: the linked card's, or this sight's when no card is the link's.
+        var sight = link.SightWithLink;
         var linked = apps.FirstOrDefault(ShowBusView.LinkedApp);                              // the link's own card, whatever kind LINK proved it is, never one of this desk's nodes
         // Round 89: a stuck show — the link live and amber, no time from it (profile 13.10.5, 13.16.1).
         var stuck = sight.StuckLive;
@@ -867,9 +868,9 @@ public sealed class CommandRouter : IRouter
             words = link.Status,
             stuck,                                                                   // round 89: appended at the row's end
             carrier = link.Carrier,                                                  // round 89: "tls", "plain", "keyless" (not loopback and no TLS: read without the key) or ""
-            key = sight.Key.Word,                                                    // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
+            key = (linked is { Link: not null } ? linked.Key : sight.Key).Word,     // round 91: "key", "operator", "none", "refused" or "" — appended at the row's end
             held,                                                                    // Show Bus 1.3 §2: the conflict the link is held off for ("" when none) — appended at the row's end
-            link = (linked?.Link ?? link.Record).ToElement(),                        // Show Bus 1.3 §13.16.3: the link's record, one object — appended at the row's end
+            link = (linked?.Link ?? sight.Link ?? link.Record).ToElement(),          // Show Bus 1.3 §13.16.3: the link's record, one object — appended at the row's end
             follow = config.FollowStage,                                             // G34: the stage follows its timer — appended at the row's end
             pending = TlsFingerprint.Short(link.PendingFingerprint),                 // G34: a changed certificate waiting for a person's ACCEPT, "" when none
             keyFor = config.KeyFor,                                                  // G34: where the key goes, never the key
