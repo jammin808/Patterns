@@ -267,7 +267,15 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         /// <summary>The link's monotonic ms until which the node routes wait for a key that speaks for no node of this desk's (under <see cref="Gate"/>).</summary>
         public long NodeHeldUntilMs;
 
-        public volatile StagewatchKey Key = StagewatchKey.Unknown;
+        /// <summary>
+        /// The key's standing and the approval desk's words on this run, one value replaced whole: under <see cref="Gate"/>
+        /// (<see cref="Write"/>), or by <see cref="Carry"/> before the run is published. A reader takes both in one read, so a standing
+        /// is never read beside words it was not written with.
+        /// </summary>
+        public volatile KeyStanding Standing = KeyStanding.None;
+
+        /// <summary>The key's standing (<see cref="Standing"/>'s).</summary>
+        public StagewatchKey Key => Standing.Key;
 
         /// <summary>
         /// The Stagewatch's words when it refused this key a message to its speaker (a 403: a key that may read but not send);
@@ -286,7 +294,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 HeldUntilMs = from.HeldUntilMs;
                 BusyUntilMs = from.BusyUntilMs;
                 NodeHeldUntilMs = from.NodeHeldUntilMs;
-                Key = from.Key;
+                Standing = new KeyStanding(from.Key, "");                                   // the standing goes on; a new run's words start empty
                 SpeakerRefused = from.SpeakerRefused;
             }
         }
@@ -418,7 +426,6 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     private volatile StagewatchSight _sight = StagewatchSight.None;
     private volatile string _status = "Stagewatch link off.";
     private volatile string _tlsWords = "";
-    private volatile string _approvalWords = "";
     private volatile string _pendingFingerprint = "";
     private volatile string _pendingPinKey = "";
     private volatile bool _approvalsLive;
@@ -542,45 +549,58 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// <summary>The key's standing as every reader shows it: the Stagewatch's word, and the Trust a held-back key waits for.</summary>
     private StagewatchKey KeyNow() => KeyOf(_run);
 
-    private StagewatchKey KeyOf(Run run)
+    private StagewatchKey KeyOf(Run run) => WithTrust(run.Key);
+
+    private StagewatchKey WithTrust(StagewatchKey key)
     {
         var trust = Volatile.Read(ref _trust);
-        var key = run.Key;
         return trust is not null ? key with { TrustFor = TlsFingerprint.Short(trust.Fingerprint) } : key;
     }
 
     /// <summary>
-    /// The link's record, the key's standing and the approval desk's words, read in that order in one step under the core's gate. A
-    /// verdict's standing is written in the same step under that gate as the core's taking of the verdict (<see cref="LinkAsync"/>), so
-    /// the record and the key read here are a pair the link was in: a record live at level 1 never beside a key whose word the verdict
-    /// that made it live has not given yet. The words of a refused or unconfirmed context answer that moves the standing are written
-    /// before that standing (<see cref="Stand"/>), so that standing, read before the words, is never read beside older words. Two answers
-    /// keep no such pair: a 2xx context answer writes no words (the previous answer's stand beside the standing it moves), and an answer a
-    /// later word overtook has its words written after the later standing (<see cref="PostOwnContextAsync"/>).
+    /// The key's standing and the approval desk's words, one immutable value a run holds and replaces whole under its gate
+    /// (<see cref="Run.Standing"/>): a reader takes both in one read, so no order of reads or writes is needed for a standing never to
+    /// be read beside words it was not written with. <see cref="Context"/>: the words are a context answer's
+    /// (<see cref="PostOwnContextAsync"/>) — the only words a later context answer takes back (<see cref="ContextSaid"/>).
     /// </summary>
-    private (LinkRecord Record, StagewatchKey Key, string ApprovalWords) Face()
+    public sealed record KeyStanding(StagewatchKey Key, string ApprovalWords)
+    {
+        /// <summary>A run's value before anything is said: no standing, no words.</summary>
+        public static readonly KeyStanding None = new(StagewatchKey.Unknown, "");
+
+        public bool Context { get; init; }
+    }
+
+    /// <summary>
+    /// The link's record and the run's one value of the key's standing and the approval desk's words (<see cref="KeyStanding"/>), read
+    /// in one step under the core's gate. A verdict's standing is written in the same step under that gate as the core's taking of the
+    /// verdict (<see cref="LinkAsync"/>), so the record and the key read here are a pair the link was in: a record live at level 1 never
+    /// beside a key whose word the verdict that made it live has not given yet. The key and the words are one read of one value, so
+    /// they are always a pair the run held. The key is returned with the Trust a held-back key waits for.
+    /// </summary>
+    private (LinkRecord Record, StagewatchKey Key, KeyStanding Standing) Face()
     {
         var run = _run;
         lock (_core)
         {
             var record = RecordOf(run);
-            var key = KeyOf(run);
-            return (record, key, _approvalWords);
+            var standing = run.Standing;
+            return (record, WithTrust(standing.Key), standing);
         }
     }
 
     /// <summary>
-    /// <see cref="Status"/> and <see cref="ApprovalWords"/> as one pair, for a reader that draws them side by side (the Nodes page's
-    /// line): the key's standing the status says is read before the words (<see cref="Face"/>), so a refused or unconfirmed context
-    /// answer's "key not accepted" is never drawn beside the words of an answer before the one that said it (the two answers that keep
-    /// no such pair are named at <see cref="Face"/>).
+    /// <see cref="Status"/> and the approval desk's words as one pair, for a reader that draws them side by side (the Nodes page's
+    /// line): the status is made of the key in the one value read (<see cref="Face"/>) and that very value is returned, its
+    /// <see cref="KeyStanding.ApprovalWords"/> the words to draw — so "key not accepted" is never drawn beside words another answer
+    /// left, and the test fence holds the value read to one the run was given (<see cref="StandingWritten"/>).
     /// </summary>
-    public (string Status, string ApprovalWords) StatusAndApprovals
+    public (string Status, KeyStanding Standing) StatusAndApprovals
     {
         get
         {
-            var (_, key, words) = Face();
-            return (StatusOf(key), words);
+            var (_, key, standing) = Face();
+            return (StatusOf(key), standing);
         }
     }
 
@@ -677,7 +697,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     public string TlsWords => _tlsWords;
 
     /// <summary>The approval desk in words ("" when the Stagewatch is not one, or the link is down).</summary>
-    public string ApprovalWords => _approvalWords;
+    public string ApprovalWords => _run.Standing.ApprovalWords;
 
     /// <summary>The linked Stagewatch is an approval desk and this desk's key may use it: the assistant sends there.</summary>
     public bool ApprovalsLive => _approvalsLive && _sight.State == ShowBusState.Live;
@@ -817,13 +837,12 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     public event Action<LinkRecord, StagewatchKey>? Published;
 
     /// <summary>
-    /// Every write of the key's standing (<see cref="Stand"/>), raised the instant it is written, under the run's gate, with the standing
-    /// and the approval desk's words as they stand then: the oldest words a reader that reads the key and then the words can read beside
-    /// that standing. It is the test fence's reading of each write, and no desk reader subscribes: a handler takes the pair and returns,
-    /// never throws and calls nothing of the link. A handler that threw would leave the standing written without its Follow: the core
-    /// not told of the hold, and no hold kept for a restart.
+    /// Every value of the key's standing and the approval desk's words a run is given (<see cref="Write"/>, and a carried run's first),
+    /// raised the instant it is written, under the run's gate: every value a reader can read. It is the test fence's reading of each
+    /// write, and no desk reader subscribes: a handler takes the value and returns, never throws and calls nothing of the link. A handler
+    /// that threw would leave a standing written without its Follow: the core not told of the hold, and no hold kept for a restart.
     /// </summary>
-    public event Action<StagewatchKey, string>? StandingWritten;
+    public event Action<KeyStanding>? StandingWritten;
 
     /// <summary>The certificates looked at after CERTIFICATE CHANGED on this run (13.8.3): one TLS greeting each, nothing sent.</summary>
     public int CertificateProbes
@@ -1034,7 +1053,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         lock (run.Gate)
         {
             run.HeldUntilMs = run.BusyUntilMs = run.NodeHeldUntilMs = 0;
-            if (run.Key.Refused) run.Key = StagewatchKey.Unknown;
+            if (run.Key.Refused) Write(run, run.Standing with { Key = StagewatchKey.Unknown });
         }
         lock (_core) run.Core?.Machine.LinkAgainNow(Now());
         var lifted = run.Kid is { } kid ? Holds.Lift(kid, wall) : 0;
@@ -1137,7 +1156,11 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         var previous = _run;
         var run = new Run { Kid = kid.Length > 0 ? kid : null, ShowNeeds = c.FollowStage, KeyFor = c.KeyFor };
         foreach (var f in c.Floors) run.Floors[f.Key] = new KeptFloor(f.Floor, f.Node ?? "");
-        if (carry) run.Carry(previous);                                                     // its holds and standing go on
+        if (carry)
+        {
+            run.Carry(previous);                                                            // its holds and standing go on
+            StandingWritten?.Invoke(run.Standing);
+        }
         var typed = StageFollow.ParseAddress(c.Host) is { } t ? $"{t.Host}:{t.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null;
         run.NotAnAddress = key.Length > 0 && typed is null && c.Host.Length > 0 && StageFollow.ParseId(c.Host) is null;   // as the run resolves it: any typed text it cannot read
         lock (_core) run.Idle = new PeerLinkMachine(IdleSettings(key.Length > 0 && !run.NotAnAddress, typed, null, run.ShowNeeds), null, Now(), Jitter);
@@ -1148,8 +1171,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             _trust = null;                                                                  // and nothing waiting for Trust until its own frame offers it
         }
         Volatile.Write(ref _lastWordMs, long.MinValue);
-        _approvalsLive = false;
-        _approvalWords = "";
+        _approvalsLive = false;                                                             // and its words are the new run's: none yet
         _tlsWords = "";
         _note = "";
         _reached = "";
@@ -1422,7 +1444,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// A hold kept from before this start (13.15.3): the run's keyed calls wait it out on the link's clock, and every reader
     /// says the key is held — said once.
     /// </summary>
-    private static void RestoreHold(Run run, Target target, LinkHold hold, LinkNow now)
+    private void RestoreHold(Run run, Target target, LinkHold hold, LinkNow now)
     {
         var until = now.Mono + (hold.UntilWallMs - now.Wall);
         var busy = hold.BusyUntilWallMs > now.Wall ? now.Mono + (hold.BusyUntilWallMs - now.Wall) : long.MinValue;
@@ -1432,7 +1454,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             if (hold.Word != "busy")
             {
                 if (until > run.HeldUntilMs) run.HeldUntilMs = until;
-                if (!run.Key.Refused) run.Key = new StagewatchKey { Word = "refused", Said = LinkHolds.Words(hold) + ", said before this desk started", Keyed = true };
+                if (!run.Key.Refused)
+                    Write(run, run.Standing with { Key = new StagewatchKey { Word = "refused", Said = LinkHolds.Words(hold) + ", said before this desk started", Keyed = true } });
             }
         }
         Log.Info($"Stagewatch link: {target.Name} — this desk's key was {LinkHolds.Words(hold)}, said before this start; its public view is read without it meanwhile.");
@@ -2883,31 +2906,29 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             return;
         }
         if (json is null || !NodeRoutesOpen(c)) return;                               // a verdict or a refusal may have come while the context was made
+        var asked = Asked(c.Run);
         try
         {
-            var asked = Asked(c.Run);
             using var request = Request(c, HttpMethod.Post, url, apiKey, json);
             using var response = await http.SendAsync(request, ct);
             var status = (int)response.StatusCode;
             var body = await response.Content.ReadAsStringAsync(ct);
             var retryAfter = RetryAfterOf(response);
-            // A refused or unconfirmed answer's words go with the standing it moves (Stand writes them before the key); one that moves
-            // none — a relink, one that says nothing of the key, one a later word overtook — has them written here, once it is read, so
-            // an overtaken answer's words stand after the later standing. A 2xx has no words and leaves the previous answer's.
+            // The answer's own words — a refusal's, an unconfirmed answer's, none for a 2xx — are a function of this answer alone. They
+            // go with the standing it moves, in one value with it (Stand); one that moves none — a relink, one that says nothing of the
+            // key — has them written here beside the standing in force; and one a later verdict or refusal overtook says nothing.
             var parsed = ReadAnswerBody(body, c.Secret);
-            var words = ContextAnswerWords(c.Target.Name, status, AnswerWords(status, parsed.Error), retryAfter) is { } w
-                ? new ContextWords(w)
-                : null;
+            var words = new ContextWords(ContextAnswerWords(c.Target.Name, status, AnswerWords(status, parsed.Error), retryAfter) ?? "");
             Answered(c, status, parsed, retryAfter, asked, context: true, words);
             if (response.IsSuccessStatusCode) BindAtFirstAnswer(c, apiKey);
             _approvalsLive = response.IsSuccessStatusCode && _approvalsLive;
-            if (words is { Written: false }) _approvalWords = words.Words;
+            if (!words.Written) SayContext(c.Run, asked, words.Words);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException && !ct.IsCancellationRequested)
         {
             // No answer says nothing of it: unconfirmed, never failed (13.12.3), and posted again on its own schedule.
             Interlocked.Increment(ref _sideFaults);
-            _approvalWords = $"Stagewatch {c.Target.Name} did not confirm this desk's context ({PeerLink.ReadHttp(null, null).Words}) — posted again in five seconds";
+            SayContext(c.Run, asked, $"Stagewatch {c.Target.Name} did not confirm this desk's context ({PeerLink.ReadHttp(null, null).Words}) — posted again in five seconds");
         }
     }
 
@@ -2915,7 +2936,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// What the approval desk's line says of an answer to this desk's context (<see cref="PostOwnContextAsync"/>): an answer that
     /// says nothing of it (13.12.3: a 5xx, a 408) is unconfirmed and posted again in five seconds; any other refusal is said in the
     /// Stagewatch's own words (<paramref name="said"/>, the key already masked out of them, <see cref="ReadAnswerBody"/>); null for a
-    /// 2xx, which says nothing here. Pure: the words are made before the answer moves anything, so they can be written with it.
+    /// 2xx, which has no words of its own (it takes back a context answer's, <see cref="ContextSaid"/>). Pure: the words are made before
+    /// the answer moves anything, so they can be written with it.
     /// </summary>
     public static string? ContextAnswerWords(string name, int status, string said, long retryAfter)
     {
@@ -2927,8 +2949,8 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     }
 
     /// <summary>
-    /// A context answer's words on their way to the standing they go with (<see cref="Stand"/>): <see cref="Written"/> once Stand has
-    /// written them, before the key, so the caller writes them only when the answer moved no standing.
+    /// A context answer's words on their way to the standing they go with (<see cref="Stand"/>; "" for a 2xx): <see cref="Written"/>
+    /// once Stand has written them with the key, so the caller writes them only when the answer reached no standing.
     /// </summary>
     private sealed class ContextWords(string words)
     {
@@ -2997,11 +3019,11 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
                 if (reading.Outcome == LinkOutcome.Unconfirmed)
                 {
                     e.UnconfirmedAt = MonoMs();
-                    _approvalWords = $"approval desk: Stagewatch {deskName} did not confirm this desk's proposal ({reading.Words}) — it is looked for there before it is sent again";
+                    Say(c.Run, $"approval desk: Stagewatch {deskName} did not confirm this desk's proposal ({reading.Words}) — it is looked for there before it is sent again");
                     Log.Info($"Approval desk ({deskName}): the proposal {e.LocalId} is unconfirmed — {reading.Words}; it is looked for there before it is sent again.");
                     return;
                 }
-                _approvalWords = $"the approval desk refused this desk's proposal — {Answered(c, status!.Value, body, retryAfter, asked, context: false)}";
+                Say(c.Run, $"the approval desk refused this desk's proposal — {Answered(c, status!.Value, body, retryAfter, asked, context: false)}");
                 _approvalsLive = false;
                 return;
             }
@@ -3010,7 +3032,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             {
                 if (!NodeRoutesOpen(c)) return;
                 _approvalsLive = true;
-                _approvalWords = $"approval desk: Stagewatch {deskName} — the assistant's proposals go there";
+                Say(c.Run, $"approval desk: Stagewatch {deskName} — the assistant's proposals go there");
             }
 
             var to = c.Target.PinKey;
@@ -3053,7 +3075,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             {
                 // A refused collect is said: nothing approved for this desk reaches it until the Stagewatch hands it over.
                 var refusal = Answered(c, (int)list.StatusCode, await list.Content.ReadAsStringAsync(ct), RetryAfterOf(list), askedCollect, context: false);
-                _approvalWords = $"the approval desk refused to hand over what was approved for this desk — {refusal}";
+                Say(c.Run, $"the approval desk refused to hand over what was approved for this desk — {refusal}");
                 _approvalsLive = false;
                 return;
             }
@@ -3307,27 +3329,72 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
             if (step.Hold is StagewatchHoldKind.Refused or StagewatchHoldKind.Busy) holdMs = (long)step.For.TotalMilliseconds;
             before = run.Key;
             after = step.Key is { } k && !c.Public ? k with { Legacy = c.Legacy && c.Keyed } : before;
+            var next = run.Standing with { Key = after };
             if (step.Hold != StagewatchHoldKind.None)
             {
                 // The approval desk is held with the key, and says so: no "the proposals go there" beside a refusal.
                 _approvalsLive = false;
                 if (c.Target.Approvals)
-                    _approvalWords = step.Hold == StagewatchHoldKind.Busy
-                        ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"approval desk: Stagewatch {name} — the assistant's proposals wait out its rate limit ({step.For.TotalSeconds:0} s)")
-                        : $"approval desk: Stagewatch {name} — the assistant's proposals wait while this desk's key is held there";
+                    next = next with
+                    {
+                        ApprovalWords = step.Hold == StagewatchHoldKind.Busy
+                            ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"approval desk: Stagewatch {name} — the assistant's proposals wait out its rate limit ({step.For.TotalSeconds:0} s)")
+                            : $"approval desk: Stagewatch {name} — the assistant's proposals wait while this desk's key is held there",
+                        Context = false,
+                    };
             }
-            // A context answer's words are written before the standing they go with: a reader that reads the key and then the words
-            // (Face) never reads this standing beside an earlier answer's words.
+            // A context answer's own words go with the standing it moves, in the one value: a refusal's or an unconfirmed answer's
+            // words, and a 2xx's none, which takes back what an earlier context answer said.
             if (contextWords is not null)
             {
-                _approvalWords = contextWords.Words;
+                next = ContextSaid(next, contextWords.Words);
                 contextWords.Written = true;
             }
-            run.Key = after;
-            StandingWritten?.Invoke(KeyOf(run), _approvalWords);
+            Write(run, next);
         }
         return new KeyStood(step, asked, publicView, before, after, holdMs);
     }
+
+    /// <summary>
+    /// The run's one value of the key's standing and the approval desk's words replaced whole — the caller holds the run's gate — and
+    /// the fence told (<see cref="StandingWritten"/>).
+    /// </summary>
+    private void Write(Run run, KeyStanding next)
+    {
+        run.Standing = next;
+        StandingWritten?.Invoke(next);
+    }
+
+    /// <summary>The approval queue's words on <paramref name="run"/>, beside the standing in force, written whole under its gate.</summary>
+    private void Say(Run run, string words)
+    {
+        lock (run.Gate) Write(run, run.Standing with { ApprovalWords = words, Context = false });
+    }
+
+    /// <summary>
+    /// The words of a context answer that moved no standing (<see cref="PostOwnContextAsync"/>: a 404, a 408, a 5xx, a 2xx that names
+    /// nothing, a relink, no answer at all) written beside the standing in force, under the run's gate — only while no verdict or
+    /// refusal came after its call left (<paramref name="asked"/> against <see cref="Run.Said"/>, as <see cref="Stand"/> decides it for
+    /// an answer that moves the standing). An answer older than the standing in force says nothing of it, and nothing here.
+    /// </summary>
+    private void SayContext(Run run, long asked, string words)
+    {
+        lock (run.Gate)
+        {
+            if (asked != run.Said) return;
+            Write(run, ContextSaid(run.Standing, words));
+        }
+    }
+
+    /// <summary>
+    /// What a context answer's words (<see cref="ContextAnswerWords"/>; "" for a 2xx) leave of <paramref name="now"/>: a refused or
+    /// unconfirmed answer's own words, marked the context's; a 2xx takes back only the words a context answer said, and leaves the
+    /// approval queue's and a hold's — those are not the context's to take back. Pure.
+    /// </summary>
+    public static KeyStanding ContextSaid(KeyStanding now, string words)
+        => words.Length > 0 ? now with { ApprovalWords = words, Context = true }
+            : now.Context ? now with { ApprovalWords = "", Context = false }
+            : now;
 
     /// <summary>
     /// <see cref="Apply"/>'s second half, outside every gate: the core told of the hold or of the key taken, the hold kept for a
@@ -3434,7 +3501,7 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         {
             before = run.Key;
             after = c.Keyed ? before.Legacy && before.Keyed ? before : new StagewatchKey { Keyed = true, Legacy = true } : StagewatchKey.Unknown;
-            run.Key = after;
+            Write(run, run.Standing with { Key = after });
         }
         if (after == before) return;
         if (after.Legacy) Log.Info($"Stagewatch link: {c.Target.Name} — {StagewatchKey.LegacyWords}.");

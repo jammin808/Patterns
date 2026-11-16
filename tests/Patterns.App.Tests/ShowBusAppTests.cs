@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -515,6 +516,12 @@ public class ShowBusAppTests
         /// <summary>How long POST /api/peers/context takes to answer — past the side call's time, no answer at all.</summary>
         public volatile int PostContextDelayMs;
 
+        /// <summary>While set, POST /api/peers/context is answered only once the test completes it: the answer held after the post arrived.</summary>
+        public volatile TaskCompletionSource? PostHeld;
+
+        /// <summary>The timestamp (<see cref="Stopwatch.GetTimestamp"/>) the last post held by <see cref="PostHeld"/> arrived at.</summary>
+        public long PostHeldSince;
+
         /// <summary>What POST /api/peers/context answers: the status line, its JSON body and a Retry-After (0: none).</summary>
         public volatile string ContextStatus = "";
 
@@ -670,6 +677,11 @@ public class ShowBusAppTests
                     if (path == "/api/context") Interlocked.Increment(ref _contextReads);
                     if (path == "/api/context" && ContextDelayMs > 0) await Task.Delay(ContextDelayMs, _cts.Token);
                     if (path == "/api/peers/context" && PostContextDelayMs > 0) await Task.Delay(PostContextDelayMs, _cts.Token);
+                    if (path == "/api/peers/context" && PostHeld is { } held)
+                    {
+                        Interlocked.Exchange(ref PostHeldSince, Stopwatch.GetTimestamp());
+                        await held.Task.WaitAsync(_cts.Token);
+                    }
                     var (status, body, retryAfter) = path switch
                     {
                         "/api/context" when ServeContext => (200,
@@ -2035,7 +2047,7 @@ public class ShowBusAppTests
         var link = services.Kernel.Stagewatch;
         // Every write of the key's standing, sampled where it is written (under the run's gate) with the approval words beside it then.
         var stood = new ConcurrentQueue<(StagewatchKey Key, string Words)>();
-        Action<StagewatchKey, string> onStood = (key, words) => stood.Enqueue((key, words));
+        Action<StagewatchLinkService.KeyStanding> onStood = s => stood.Enqueue((s.Key, s.ApprovalWords));
         link.StandingWritten += onStood;
         try
         {
@@ -2060,8 +2072,8 @@ public class ShowBusAppTests
             Assert.Equal("none", StagewatchRow(services).GetProperty("key").GetString());
             Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
 
-            // A refused context answer's words are written before the standing they go with: at the instant each standing was written, the
-            // words beside it were already its own answer's. The rate limit's words first stood at the 429's own write, beside its "key";
+            // A refused context answer's words are written in one value with the standing they go with: at the instant each standing was
+            // written, the words beside it were already its own answer's. The rate limit's words first stood at the 429's own write, beside its "key";
             // the 403's "key not accepted" never stood beside them, only beside its own (that leg fences the order on its own too).
             var samples = stood.ToArray();
             var rateWords = "Stagewatch localhost refused this desk's context — rate limit: too many requests with this key";
@@ -2101,6 +2113,164 @@ public class ShowBusAppTests
         Assert.Equal("Stagewatch sw refused this desk's context — link again", StagewatchLinkService.ContextAnswerWords("sw", 401, "link again", 0));
         Assert.Equal("Stagewatch sw refused this desk's context — not this node", StagewatchLinkService.ContextAnswerWords("sw", 403, "not this node", 0));
         Assert.Equal("Stagewatch sw refused this desk's context — rate limit", StagewatchLinkService.ContextAnswerWords("sw", 429, "rate limit", 4));
+    }
+
+    /// <summary>
+    /// What a context answer's words leave of the run's one value: a refused or unconfirmed answer's own words, marked the context's; a
+    /// 2xx (no words) takes back only what a context answer said — never the approval queue's words or a hold's — and the key's standing
+    /// in the value is the one it came with.
+    /// </summary>
+    [Fact]
+    public void AContextAnswersWordsTakeBackOnlyWhatAContextAnswerSaid()
+    {
+        var key = new StagewatchKey { Word = "key", Keyed = true };
+        var start = StagewatchLinkService.KeyStanding.None with { Key = key };
+        var refused = StagewatchLinkService.ContextSaid(start, "Stagewatch sw refused this desk's context — rate limit");
+        Assert.Equal(("Stagewatch sw refused this desk's context — rate limit", true), (refused.ApprovalWords, refused.Context));
+        Assert.Same(key, refused.Key);
+        var taken = StagewatchLinkService.ContextSaid(refused, "");
+        Assert.Equal(("", false), (taken.ApprovalWords, taken.Context));
+        Assert.Same(key, taken.Key);
+        var queue = start with { ApprovalWords = "approval desk: Stagewatch sw — the assistant's proposals go there" };
+        Assert.Same(queue, StagewatchLinkService.ContextSaid(queue, ""));
+        var held = start with { ApprovalWords = "approval desk: Stagewatch sw — the assistant's proposals wait while this desk's key is held there" };
+        Assert.Same(held, StagewatchLinkService.ContextSaid(held, ""));
+        var unconfirmed = StagewatchLinkService.ContextSaid(queue, "Stagewatch sw did not confirm this desk's context (503 — it may have run) — posted again in five seconds");
+        Assert.Equal(("Stagewatch sw did not confirm this desk's context (503 — it may have run) — posted again in five seconds", true), (unconfirmed.ApprovalWords, unconfirmed.Context));
+    }
+
+    /// <summary>
+    /// The words after a context answer are that answer's own, never the one's before it: a 429 to this desk's context, then a 2xx that
+    /// says each standing (verified key, operator, none, and an older Stagewatch's take with no word) — the rate limit's words go in the
+    /// one value the 2xx's standing is written in, and no value from it on carries them. And the readers' pair: every value read through
+    /// the readers' one read is the very value the run was given (<see cref="StagewatchLinkService.StandingWritten"/>), never one made
+    /// of two reads.
+    /// </summary>
+    [AvaloniaTheory]
+    [InlineData("key")]
+    [InlineData("operator")]
+    [InlineData("none")]
+    [InlineData("legacy")]
+    public void AContextAnswerAfterARateLimitLeavesItsOwnWordsForEachStanding(string standing)
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var legacy = standing == "legacy";
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame)
+        {
+            Legacy = legacy,
+            ContextStatus = "429",
+            ContextBody = "{\"ok\":false,\"error\":\"rate limit: too many requests with this key\"}",
+            ContextRetryAfter = 1,
+        };
+        var link = services.Kernel.Stagewatch;
+        var written = new ConcurrentQueue<StagewatchLinkService.KeyStanding>();
+        Action<StagewatchLinkService.KeyStanding> onWritten = written.Enqueue;
+        var read = new List<(string Status, StagewatchLinkService.KeyStanding Standing)>();
+        link.StandingWritten += onWritten;
+        try
+        {
+            const string rateWords = "Stagewatch localhost refused this desk's context — rate limit: too many requests with this key";
+            Link(vm, services, stagewatch);
+            PumpUntil(() =>
+            {
+                read.Add(link.StatusAndApprovals);
+                return link.ApprovalWords == rateWords;
+            }, 15000);
+            Assert.False(link.Key.Fault);
+
+            // The 2xx that says the standing, posted once the rate limit's hold is out: its own words are none.
+            stagewatch.ContextBody = legacy ? "{\"ok\":true}" : "{\"ok\":true,\"verified\":\"" + standing + "\"}";
+            stagewatch.ContextStatus = "200";
+            var at = written.Count;
+            PumpUntil(() =>
+            {
+                read.Add(link.StatusAndApprovals);
+                return written.Skip(at).Any(s => s.ApprovalWords.Length == 0);
+            }, 20000);
+            var twoHundred = written.Skip(at).First(s => s.ApprovalWords.Length == 0);
+            Assert.Equal(legacy ? "" : standing, twoHundred.Key.Word);
+            Assert.Equal(legacy, twoHundred.Key.Legacy);
+            Assert.Equal(standing == "none", twoHundred.Key.NotAccepted);
+            Assert.False(twoHundred.Context);
+            PumpFor(1000);
+            read.Add(link.StatusAndApprovals);
+            Assert.All(written.SkipWhile(s => !ReferenceEquals(s, twoHundred)), s => Assert.NotEqual(rateWords, s.ApprovalWords));
+            Assert.Equal("", link.ApprovalWords);
+            var (status, said) = link.StatusAndApprovals;
+            Assert.Equal("", said.ApprovalWords);
+            if (standing == "none") Assert.Contains(StagewatchKey.NotAcceptedWords, status, StringComparison.Ordinal);
+
+            // The Nodes line's reader: every value it read is one the run was given whole, and the status beside it says that value's key.
+            var given = new HashSet<object>(written, ReferenceEqualityComparer.Instance) { StagewatchLinkService.KeyStanding.None };
+            var made = read.Where(r => !given.Contains(r.Standing)).ToArray();
+            Assert.True(made.Length == 0, $"{made.Length} of {read.Count} values read were never written: " + string.Join(" | ", made.Take(3).Select(r => r.Standing.Key.Word + "/" + r.Standing.ApprovalWords)));
+            var torn = read.Where(r => r.Status.Contains(StagewatchKey.NotAcceptedWords, StringComparison.Ordinal) != r.Standing.Key.NotAccepted).ToArray();
+            Assert.True(torn.Length == 0, $"{torn.Length} of {read.Count} statuses say another key than the value read beside them: " + string.Join(" | ", torn.Take(3).Select(r => r.Standing.Key.Word + " / " + r.Status)));
+        }
+        finally
+        {
+            link.StandingWritten -= onWritten;
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// An answer a later word overtook says nothing of the standing, and its words are not written over the later one's: a 403 to this
+    /// desk's context whose call left before a verdict that takes the key applies nothing — no hold, no standing — and no value the run is
+    /// given carries its "refused … speaks for" beside the verified key. The lane's next call shows the 403 was read and done with.
+    /// </summary>
+    [AvaloniaFact]
+    public void AContextAnswerALaterVerdictOvertookWritesNoWordsBesideTheLaterStanding()
+    {
+        var b = TestApp.Boot();
+        var (services, vm) = (b.Services, b.Vm);
+        var first = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var second = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stagewatch = new FakeStagewatch(this, services, RunningFrame) { PostHeld = first };
+        var link = services.Kernel.Stagewatch;
+        var written = new ConcurrentQueue<StagewatchLinkService.KeyStanding>();
+        Action<StagewatchLinkService.KeyStanding> onWritten = written.Enqueue;
+        link.StandingWritten += onWritten;
+        int Posts() => stagewatch.Requests.Count(r => r.What == "POST /api/peers/context");
+        try
+        {
+            var id = services.Kernel.ShowBusId;
+            var refusedWords = $"Stagewatch localhost refused this desk's context — {StagewatchBytes.SpeaksFor("1a2b3c4d", id)}";
+            stagewatch.ContextBody = "{\"ok\":false,\"error\":\"" + StagewatchBytes.SpeaksFor("1a2b3c4d", id) + "\"}";
+            stagewatch.ContextStatus = "403";
+            Link(vm, services, stagewatch);
+            PumpUntil(() => Posts() == 1 && link.Key.Word == "key", 15000);                          // the post left and waits there
+            var reads = stagewatch.ContextReads;
+            var before = written.Count;
+            stagewatch.Say(StagewatchBytes.Verdict("node", "patterns", id, "key"));
+            PumpUntil(() => written.Count > before, 10000);                                            // the verdict's standing, after the post left
+            stagewatch.PostHeld = second;                                                              // nothing answers after the 403 but it
+            var heldFor = Stopwatch.GetElapsedTime(Interlocked.Read(ref stagewatch.PostHeldSince));
+            first.SetResult();
+            // The 403 went back before the side call's time was out, so the post read it (the overtaken Stand), not no answer at all.
+            Assert.True(heldFor < StagewatchFrame.SideCallWithin - TimeSpan.FromMilliseconds(500),
+                $"the post was held {heldFor.TotalMilliseconds:0} ms of the side call's {StagewatchFrame.SideCallWithin.TotalMilliseconds:0} ms: its 403 may have been read as no answer");
+            PumpUntil(() => stagewatch.ContextReads > reads, 15000);                                   // the lane's next call: the 403 is done with
+            Assert.Equal("key", link.Key.Word);
+            Assert.False(link.Key.NotAccepted);
+            Assert.Equal(TimeSpan.Zero, link.KeyHeld);
+            Assert.Equal("", link.ApprovalWords);
+            Assert.DoesNotContain(written, s => s.ApprovalWords == refusedWords);
+        }
+        finally
+        {
+            first.TrySetResult();
+            second.TrySetResult();
+            link.StandingWritten -= onWritten;
+            vm.State.Control.Stagewatch.Enabled = false;
+            link.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            b.Dispose();
+        }
     }
 
     [AvaloniaFact]
