@@ -91,8 +91,11 @@ public sealed class NodesService
             .Where(a => !a.Id.StartsWith("node:", StringComparison.Ordinal)).ToList();
         var cards = ShowBusView.Network(apps).Select(ShowAppCard.Of).ToList();                     // the show network's one projection of lights
         var link = _s.Stagewatch;
-        var extra = string.Join(" ", new[] { link.TlsWords, link.ApprovalWords }.Where(w => w.Length > 0).Select(w => w.EndsWith('.') ? w : w + "."));
-        var line = ShowAppCard.NetworkLine(cards.Count, _s.Beacon.HearingShowBus, link.Status, table.Dropped) + (extra.Length > 0 ? " " + extra : "");   // round 88: TLS and the approval desk
+        // The key's standing the status says and the approval desk's words as one pair, the key read first: never "key not accepted"
+        // beside the words of the answer before the one that said it.
+        var (status, approvals) = link.StatusAndApprovals;
+        var extra = string.Join(" ", new[] { link.TlsWords, approvals }.Where(w => w.Length > 0).Select(w => w.EndsWith('.') ? w : w + "."));
+        var line = ShowAppCard.NetworkLine(cards.Count, _s.Beacon.HearingShowBus, status, table.Dropped) + (extra.Length > 0 ? " " + extra : "");   // round 88: TLS and the approval desk
         var key = line + "|" + string.Join("|", cards.Select(c => c.Key));
         if (key == _appsSeen) return;
         _appsSeen = key;

@@ -2033,6 +2033,10 @@ public class ShowBusAppTests
             ContextRetryAfter = 4,
         };
         var link = services.Kernel.Stagewatch;
+        // Every write of the key's standing, sampled where it is written (under the run's gate) with the approval words beside it then.
+        var stood = new ConcurrentQueue<(StagewatchKey Key, string Words)>();
+        Action<StagewatchKey, string> onStood = (key, words) => stood.Enqueue((key, words));
+        link.StandingWritten += onStood;
         try
         {
             var id = services.Kernel.ShowBusId;
@@ -2055,14 +2059,48 @@ public class ShowBusAppTests
             Assert.Equal($"Stagewatch localhost refused this desk's context — {StagewatchBytes.SpeaksFor("1a2b3c4d", id)}", link.ApprovalWords);
             Assert.Equal("none", StagewatchRow(services).GetProperty("key").GetString());
             Assert.InRange(link.KeyHeld.TotalSeconds, 50, 60.5);
+
+            // A refused context answer's words are written before the standing they go with: at the instant each standing was written, the
+            // words beside it were already its own answer's. The rate limit's words first stood at the 429's own write, beside its "key";
+            // the 403's "key not accepted" never stood beside them, only beside its own (that leg fences the order on its own too).
+            var samples = stood.ToArray();
+            var rateWords = "Stagewatch localhost refused this desk's context — rate limit: too many requests with this key";
+            var firstRate = Array.FindIndex(samples, s => s.Words == rateWords);
+            Assert.True(firstRate >= 0, "no standing was written beside the 429's words: " + string.Join(" | ", samples.Select(s => s.Key.Word + "/" + s.Words)));
+            Assert.Equal("key", samples[firstRate].Key.Word);
+            var notAccepted = samples.Where(s => s.Key.NotAccepted).ToArray();
+            Assert.NotEmpty(notAccepted);
+            Assert.All(notAccepted, s => Assert.Equal($"Stagewatch localhost refused this desk's context — {StagewatchBytes.SpeaksFor("1a2b3c4d", id)}", s.Words));
         }
         finally
         {
+            link.StandingWritten -= onStood;
             vm.State.Control.Stagewatch.Enabled = false;
             link.Reconcile();
             Dispatcher.UIThread.RunJobs();
             b.Dispose();
         }
+    }
+
+    /// <summary>
+    /// The words an answer to this desk's context leaves on the approval desk's line: a 5xx or a 408, which says nothing of the context,
+    /// unconfirmed and posted again in five seconds; any other refusal in the Stagewatch's own words; a 2xx none.
+    /// </summary>
+    [Fact]
+    public void AContextAnswersWordsAreUnconfirmedForA5xxOr408AndTheStagewatchsOwnOtherwise()
+    {
+        Assert.Null(StagewatchLinkService.ContextAnswerWords("sw", 200, "HTTP 200", 0));
+        Assert.Null(StagewatchLinkService.ContextAnswerWords("sw", 299, "HTTP 299", 0));
+        Assert.Equal("Stagewatch sw did not confirm this desk's context (503 — it may have run) — posted again in five seconds",
+            StagewatchLinkService.ContextAnswerWords("sw", 503, "busy", 0));
+        Assert.Equal("Stagewatch sw did not confirm this desk's context (500 — it may have run) — posted again in five seconds",
+            StagewatchLinkService.ContextAnswerWords("sw", 500, "HTTP 500", 0));
+        Assert.Equal("Stagewatch sw did not confirm this desk's context (408 — it may have run) — posted again in five seconds",
+            StagewatchLinkService.ContextAnswerWords("sw", 408, "HTTP 408", 0));
+        Assert.Equal("Stagewatch sw refused this desk's context — HTTP 404", StagewatchLinkService.ContextAnswerWords("sw", 404, "HTTP 404", 0));
+        Assert.Equal("Stagewatch sw refused this desk's context — link again", StagewatchLinkService.ContextAnswerWords("sw", 401, "link again", 0));
+        Assert.Equal("Stagewatch sw refused this desk's context — not this node", StagewatchLinkService.ContextAnswerWords("sw", 403, "not this node", 0));
+        Assert.Equal("Stagewatch sw refused this desk's context — rate limit", StagewatchLinkService.ContextAnswerWords("sw", 429, "rate limit", 4));
     }
 
     [AvaloniaFact]
