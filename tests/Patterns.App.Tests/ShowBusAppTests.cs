@@ -786,8 +786,8 @@ public class ShowBusAppTests
 
     /// <summary>
     /// The Eye's gather works by revisions (the Eye design's EYE.3): a still link and a still desk rebuild nothing tick after tick —
-    /// not even with an amber Super Check row whose reading runs on (a test desk's tick is slow), which the Eye says without its number —
-    /// and the apps' revision stands.
+    /// not even with a lit Super Check row whose reading runs on (the Desk tick row, pinned red by the baseline, its readings moving with
+    /// every real tick of the window), which the Eye says without its number — and the apps' revision stands.
     /// </summary>
     [AvaloniaFact]
     public void ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick()
@@ -815,7 +815,7 @@ public class ShowBusAppTests
                 services.Eye.Refresh();
                 ticks++;
             }
-            // A rebuild names the first node that moved, with the contained errors counted at both ends of the window.
+            // A rebuild names every node that moved, with the contained errors counted at both ends of the window.
             StillDesk.AssertStill(services, still, ticks, "a still link");
             Assert.True(rev == services.AppsRev, $"the apps' revision moved {services.AppsRev - rev} times in {ticks} ticks — {StillDesk.Moved(still.Graph, services.Eye.Graph)}");
             // The gather handed the hash the revision it took with the apps, in the apps' place.

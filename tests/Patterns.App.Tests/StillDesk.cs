@@ -9,8 +9,8 @@ using Xunit;
 
 namespace Patterns.App.Tests;
 
-/// <summary>What a still desk stood at when its count began: the Eye's builds and picture, the process's contained errors, the sample the desk's sampler last took, and the desk's facts no node draws (<see cref="StillDesk.DeskWords"/>).</summary>
-internal sealed record StillBaseline(long Builds, EyeGraph Graph, long Faults, string? LastFault, DateTime? LastFaultLocal, long SampleFaults, DateTime SampleUtc, long DeskTicks, DateTime TakenUtc, string Desk);
+/// <summary>What a still desk stood at when its count began: the Eye's builds and picture, the process's contained errors, the sample the desk's sampler last took, the desk's facts no node draws (<see cref="StillDesk.DeskWords"/>), and the desk's tick count when its <i>Desk tick</i> light was pinned red (<see cref="StillDesk.PinnedMs"/>).</summary>
+internal sealed record StillBaseline(long Builds, EyeGraph Graph, long Faults, string? LastFault, DateTime? LastFaultLocal, long SampleFaults, DateTime SampleUtc, long DeskTicks, DateTime TakenUtc, string Desk, long PinnedAtTick);
 
 /// <summary>What the Eye stood at when a count began — its revision, its builds, its picture — with the process's contained errors and the desk's facts no node draws, for the words at both ends.</summary>
 internal sealed record EyeAt(long Rev, long Builds, EyeGraph Graph, long Faults, string? LastFault, DateTime? LastFaultLocal, string Desk);
@@ -20,9 +20,25 @@ internal sealed record EyeAt(long Rev, long Builds, EyeGraph Graph, long Faults,
 /// exists) and its sampler has sampled the count of contained errors the process holds at that moment (the advisor's suggestions are
 /// built). A desk younger than one tick of its own 1 s clocks would otherwise take a first reading inside the counted window and
 /// rebuild the Eye for a row that was only late. The waits are on those facts, never on a time; nothing here runs inside the window.
+/// <para>
+/// The <i>Desk tick</i> row's light is pinned red at the baseline: one tick past the stutter bound recorded into the desk's own budget,
+/// so the window's real ticks — timed on the runner's wall clock, a slow one past 16 or 50 ms whenever a pause lands in it — move the
+/// row's readings (its value) and never its light or its note, the only words of it the Eye hashes. The light holds while the pinned
+/// tick is in the budget's ring (<see cref="TickBudget.Window"/> ticks); <see cref="AssertStill"/> asserts the window ended inside it.
+/// Each window then also holds the rule that a reading moving within one light moves no hashed word. What the pin stops catching: a
+/// subject under test that itself slowed the desk's tick no longer shows in these windows as the row's light changing — the windows
+/// never claimed it, and <c>DeskPollTests</c>' budget tests hold the tick's cost. An area that throws inside a window is still a
+/// fact the row's note names, and is counted.
+/// </para>
 /// </summary>
 internal static class StillDesk
 {
+    /// <summary>The pinned tick's time and its slowest area's: one millisecond past the stutter bound, so the row stands red.</summary>
+    public const double PinnedMs = TickBudget.StutterMs + 1;
+
+    /// <summary>The pinned tick's area, as the row's value names the worst tick's: what a failing window's words read.</summary>
+    public const string PinnedArea = "the still count's pinned tick";
+
     public static StillBaseline Baseline(AppServices services, int timeoutMs = 10000)
     {
         var watch = Stopwatch.StartNew();
@@ -33,6 +49,13 @@ internal static class StillDesk
             Dispatcher.UIThread.RunJobs();
             Thread.Sleep(5);
         }
+        // The Desk tick light pinned red before anything the baseline reads: nothing pumps the desk's clocks from here to the Eye's read,
+        // and a real tick that did could not move a red light (the worst is the ring's maximum, red's note constant).
+        services.DeskTick.Record(PinnedMs, PinnedArea, PinnedMs);
+        var pinnedAt = services.DeskTick.Ticks;
+        var row = services.AttentionRows().FirstOrDefault(r => r.Item == "Desk tick");
+        Assert.True(row is { Light: CheckLight.Red }, string.Create(CultureInfo.InvariantCulture,
+            $"the pinned tick did not stand the Desk tick row red: {(row is null ? "no row asking for attention" : $"{row.Light} · {row.Value} · {row.Note}")} — {DeskWords(services)}"));
         // The sampler's sample carries the count the process holds now: sampled on the test's own clock, again if an error landed
         // between the sample and the read (each pass a fact: the sample's count against the counter).
         var faults = -1L;
@@ -46,7 +69,7 @@ internal static class StillDesk
             $"the sampler's sample never caught up with the process's contained errors: sample {(sample is null ? "none" : sample.Faults.ToString(CultureInfo.InvariantCulture))}, the process {HealthMonitor.Faults} (last {HealthMonitor.LastFault})");
         services.Eye.Refresh();
         return new StillBaseline(services.Eye.Cost.Total, services.Eye.Graph, faults, HealthMonitor.LastFault, HealthMonitor.LastFaultLocal,
-            sample!.Faults, sample.Utc, services.DeskTick.Ticks, DateTime.UtcNow, DeskWords(services));
+            sample!.Faults, sample.Utc, services.DeskTick.Ticks, DateTime.UtcNow, DeskWords(services), pinnedAt);
     }
 
     /// <summary>
@@ -78,7 +101,7 @@ internal static class StillDesk
         new(services.Eye.Rev, services.Eye.Cost.Total, services.Eye.Graph, HealthMonitor.Faults, HealthMonitor.LastFault, HealthMonitor.LastFaultLocal, DeskWords(services));
 
     /// <summary>
-    /// After the counted window: neither the picture's revision nor its builds moved. A move's words name the first node that moved with
+    /// After the counted window: neither the picture's revision nor its builds moved. A move's words name every node that moved with
     /// its old and new words, the desk's ticks and the counts no node draws at both ends, and the process's contained errors at both ends
     /// with the last one's words and time — so a sighting names its own route.
     /// </summary>
@@ -109,19 +132,24 @@ internal static class StillDesk
     }
 
     /// <summary>
-    /// After the counted window: the Eye rebuilt nothing. A rebuild's words name the first node that moved with its old and new
-    /// words, the sample's count at the baseline and when the first sample after it was taken, and the process's contained errors at
-    /// both ends with the last one's words and time. A contained error inside the window is that diagnosis and never a failure of its
-    /// own: an earlier test's late error, or an ambient port's, may land in any window, and what a still desk owes is a still Eye.
+    /// After the counted window: the Eye rebuilt nothing, and the window ended while the baseline's pinned tick was still in the desk's
+    /// ring (a window that outlived it would count a light the pin no longer holds, and says so). A rebuild's words name every node that
+    /// moved with its old and new words, the pinned tick and the ticks since it, the sample's count at the baseline and when the first
+    /// sample after it was taken, and the process's contained errors at both ends with the last one's words and time. A contained error
+    /// inside the window is that diagnosis and never a failure of its own: an earlier test's late error, or an ambient port's, may land in
+    /// any window, and what a still desk owes is a still Eye.
     /// </summary>
     public static void AssertStill(AppServices services, StillBaseline at, int ticks, string what)
     {
+        var sincePin = services.DeskTick.Ticks - at.PinnedAtTick;
+        Assert.True(sincePin < TickBudget.Window, string.Create(CultureInfo.InvariantCulture,
+            $"{what} outlived the pinned Desk tick: {sincePin} ticks recorded since the pin at tick {at.PinnedAtTick}, and the ring holds {TickBudget.Window} — the row's light was no longer pinned by the window's end · {DeskWords(services)}"));
         var builds = services.Eye.Cost.Total;
         if (builds == at.Builds) return;
         var faults = HealthMonitor.Faults;
         Assert.Fail(
             $"{builds - at.Builds} rebuilds in {ticks} ticks of {what} — {Moved(at.Graph, services.Eye.Graph)} · at the baseline {at.Desk}; after {DeskWords(services)} · at the baseline the sample counted {at.SampleFaults} contained errors " +
-            $"(taken {(at.TakenUtc - at.SampleUtc).TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms before it), the desk had ticked {at.DeskTicks} times; {FirstSampleAfter(services, at)} · " +
+            $"(taken {(at.TakenUtc - at.SampleUtc).TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms before it), the desk had ticked {at.DeskTicks} times, its Desk tick light pinned red at tick {at.PinnedAtTick} and {sincePin} ticks recorded since (the ring holds {TickBudget.Window}); {FirstSampleAfter(services, at)} · " +
             $"the process counted {at.Faults} contained errors at the baseline (last: {at.LastFault ?? "none"} at {Clock(at.LastFaultLocal)}) " +
             $"and {faults} after (last: {HealthMonitor.LastFault ?? "none"} at {Clock(HealthMonitor.LastFaultLocal)})");
     }
@@ -144,18 +172,26 @@ internal static class StillDesk
         }
     }
 
-    /// <summary>The first node whose words, line or light moved between two pictures, with its old and new words; or that nothing drawn moved.</summary>
+    /// <summary>Every node whose words, line or light moved between two pictures, each with its old and new words, every node that appeared and every node that went; or that nothing drawn moved.</summary>
     public static string Moved(EyeGraph before, EyeGraph after)
     {
+        var moved = new List<string>();
         foreach (var n in after.Nodes)
         {
             var was = before.Find(n.Id);
-            if (was is null) return $"{n.Id} appeared: {n.Sub} · {n.Light} · {string.Join(" | ", n.Words)}";
+            if (was is null)
+            {
+                moved.Add($"{n.Id} appeared: {n.Sub} · {n.Light} · {string.Join(" | ", n.Words)}");
+                continue;
+            }
             if (was.Sub == n.Sub && was.Light == n.Light && was.Words.SequenceEqual(n.Words)) continue;
-            return $"{n.Id}: {was.Sub} · {was.Light} → {n.Sub} · {n.Light} · words gone [{string.Join(" | ", was.Words.Except(n.Words))}] new [{string.Join(" | ", n.Words.Except(was.Words))}]";
+            moved.Add($"{n.Id}: {was.Sub} · {was.Light} → {n.Sub} · {n.Light} · words gone [{string.Join(" | ", was.Words.Except(n.Words))}] new [{string.Join(" | ", n.Words.Except(was.Words))}]");
         }
-        var gone = before.Nodes.FirstOrDefault(n => after.Find(n.Id) is null);
-        return gone is not null ? $"{gone.Id} went: {gone.Sub} · {string.Join(" | ", gone.Words)}" : "nothing drawn moved (a hashed fact no node draws)";
+        foreach (var gone in before.Nodes.Where(n => after.Find(n.Id) is null))
+            moved.Add($"{gone.Id} went: {gone.Sub} · {string.Join(" | ", gone.Words)}");
+        return moved.Count == 0
+            ? "nothing drawn moved (a hashed fact no node draws)"
+            : string.Create(CultureInfo.InvariantCulture, $"{moved.Count} node{(moved.Count == 1 ? "" : "s")} moved: {string.Join(" ;; ", moved)}");
     }
 
     private static string FirstSampleAfter(AppServices services, StillBaseline at)

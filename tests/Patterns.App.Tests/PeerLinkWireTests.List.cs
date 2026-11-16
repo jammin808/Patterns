@@ -132,7 +132,7 @@ public sealed partial class PeerLinkWireTests
             Dispatcher.UIThread.RunJobs();
             desk.Services.Eye.Refresh();
         }
-        // A rebuild names the first node that moved, with the contained errors counted at both ends of the window.
+        // A rebuild names every node that moved, with the contained errors counted at both ends of the window.
         StillDesk.AssertStill(desk.Services, still, 10, $"a still link and hello (the apps' revision {rev} → {desk.Services.Eye.AppsRev})");
         Assert.Equal(rev, desk.Services.Eye.AppsRev);
 
