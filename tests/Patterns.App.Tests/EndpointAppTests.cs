@@ -30,7 +30,9 @@ public class EndpointAppTests
         }
     }
 
-    private static string ReadUntil(NetworkStream stream, string terminator, int timeoutMs = 10000)
+    /// <param name="state">What the desk holds of the device when nothing arrived (its traffic, its status, the pool's counts), so the
+    /// words tell a reply heard that played nothing (in 1 or more, the reply's own words last) from a read that never ran (in 0).</param>
+    private static string ReadUntil(NetworkStream stream, string terminator, int timeoutMs = 10000, Func<string>? state = null)
     {
         var sb = new StringBuilder();
         var buffer = new byte[1024];
@@ -59,10 +61,16 @@ public class EndpointAppTests
                 Dispatcher.UIThread.RunJobs();
             }
         }
-        throw new TimeoutException("nothing arrived");
+        var seen = sb.Length == 0 ? "nothing read" : $"read '{sb}'";
+        throw new TimeoutException($"nothing arrived ({seen}){(state is null ? "" : "; " + state())}");
     }
 
     private static void Write(NetworkStream stream, string text) => stream.Write(Encoding.UTF8.GetBytes(text));
+
+    /// <summary>A device as the desk holds it: its link, its traffic each way with the last line, its status, and the pool's counts.</summary>
+    private static string DeviceWords(AppServices services, DeviceConfig device) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"the link {(services.Devices.LinkFor(device.Id) is { } link ? (link.IsOpen ? "open" : "not open") + " (" + link.Status + ")" : "not made")}; traffic {services.Devices.Traffic(device.Id)?.ToString() ?? "none"}; status '{device.Status}'; the pool {ThreadPool.ThreadCount} threads, {ThreadPool.PendingWorkItemCount} items waiting");
 
     [AvaloniaFact]
     public void AProjectorIsSwitchedOnThroughPjLinkWithItsPasswordAndReadOntoTheCard()
@@ -172,11 +180,12 @@ public class EndpointAppTests
             var cue = new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Pixera", Value = "TIMELINE Main PLAY" };
             var result = services.Actions.Execute(cue.ToAction(), ActionOrigin.Desk);
             Assert.True(result.Ok, result.Message);
-            var lookup = ReadUntil(stream, PixeraSession.Terminator);
+            string Pixera() => DeviceWords(services, px);
+            var lookup = ReadUntil(stream, PixeraSession.Terminator, state: Pixera);
             Assert.Contains("\"method\":\"Pixera.Timelines.getTimelineFromName\"", lookup);
             Assert.Contains("\"name\":\"Main\"", lookup);
             Write(stream, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":4711}" + PixeraSession.Terminator);
-            var play = ReadUntil(stream, PixeraSession.Terminator);
+            var play = ReadUntil(stream, PixeraSession.Terminator, state: Pixera);
             Assert.Contains("\"method\":\"Pixera.Timelines.Timeline.play\"", play);
             Assert.Contains("\"handle\":4711", play);
             PumpUntil(() => px.Status.Contains("found — sending on"));

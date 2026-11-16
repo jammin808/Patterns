@@ -102,9 +102,14 @@ public class LinkStartTests
         var port = OperatingSystem.IsWindows() ? "COM250" : "/dev/patterns-no-such-port";
         using var unstarted = new SerialDeviceLink(port, 115200);
         using var link = new SerialDeviceLink(port, 115200);
+        var said = 0;
+        link.Moving += () => Interlocked.Increment(ref said);
+        link.Opened += () => Interlocked.Increment(ref said);
         link.Start();
         Assert.True(Until(() => link.Status != "opening…"), "the started link tried its port: " + link.Status);
         Assert.StartsWith("closed: ", link.Status, StringComparison.Ordinal);
+        Assert.Equal((0L, 0), (link.Connection, Volatile.Read(ref said)));                               // a port that never opened was no connection
+        Assert.Equal(0L, unstarted.Connection);
         Thread.Sleep(Settle);
         Assert.Equal("opening…", unstarted.Status);                                                 // the unstarted link never tried
         Assert.False(unstarted.IsOpen);

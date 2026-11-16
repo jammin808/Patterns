@@ -39,10 +39,18 @@ public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
     {
         lock (_gate) _written.Add(framedLine);
     }
+    /// <summary>The connections published so far: one more at each <see cref="Connect"/> and <see cref="Publish"/>, before its start is said.</summary>
+    public long Connection { get; private set; }
     public void Connect()
     {
-        Move();
+        Publish();
         Open();
+    }
+    /// <summary>A new connection published, as the link's thread does before it says its start: moved, then counted.</summary>
+    public void Publish()
+    {
+        Move();
+        if (Starts > 0) Connection++;
     }
     public void Move()
     {
@@ -348,15 +356,25 @@ public class NodeDeviceTests
         }
     }
 
-    [Fact]
-    public void AProjectorsGreetingHeardBeforeThePollSeesTheLinkOpenStillSignsTheFirstCommand()
+    [Theory]
+    [InlineData(DeviceLink.Tcp, "10.0.0.20")]
+    [InlineData(DeviceLink.Serial, "COM3")]
+    public void AProjectorsGreetingHeardBeforeThePollSeesTheLinkOpenStillSignsTheFirstCommand(DeviceLink kind, string port)
     {
         // PJLink: the projector greets each connection with its seed, and the first command carries the digest of it. The greeting
         // is read on the desk's thread in order with the connection's start; the poll's pass that first sees the link open comes
-        // later, and must not start the session over after the seed was taken.
+        // later, and must not start the session over after the seed was taken. A serial port's each opening is a connection too: the
+        // fake carries the service's path for a serial-configured device, and the real serial link is held to being a link made of
+        // connections here, so the service takes that path for it.
+        if (kind == DeviceLink.Serial)
+        {
+            using var serial = new SerialDeviceLink(port, 115200);
+            Assert.IsAssignableFrom<IConnectionLink>(serial);
+        }
         var host = new NodeHost();
         var device = DeviceProfiles.Preset(DeviceProfile.PjLink, 1);
-        device.Port = "10.0.0.20";
+        device.Link = kind;
+        device.Port = port;
         device.Secret = "JBMIAProjectorLink";
         host.State.Interactive.Devices.Add(device);
         host.State.Interactive.Enabled = true;
@@ -397,6 +415,8 @@ public class NodeDeviceTests
         host.State.Interactive.Enabled = true;
         var link = new FakeConnectionLink();
         var devices = new DeviceService(host) { LinkFactory = _ => link };
+        var receipts = new List<DeviceReceipt>();
+        devices.Receipt += receipts.Add;
         try
         {
             devices.Reconcile();
@@ -406,8 +426,12 @@ public class NodeDeviceTests
             Assert.Contains("getTimelineFromName", link.Written[^1], StringComparison.Ordinal);
 
             link.Connect();                                                                         // dropped and back before the reply
+            var receipt = Assert.Single(receipts);                                                  // the play can never go: not-sent at the new start
+            Assert.Equal((false, LinkOutcome.NotSent, "Failed"), (receipt.Ok, receipt.Outcome, receipt.JournalOutcome));
+            Assert.Equal(PixeraSession.ForgottenWords, receipt.Answer);
             link.Say("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":42}");
             Assert.Equal(sent, link.Written.Count);                                                 // no play for a look-up the box no longer holds
+            Assert.Single(receipts);                                                                // and the late handle is nobody's yes
             Assert.Empty(link.Faults);
         }
         finally

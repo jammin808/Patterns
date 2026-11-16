@@ -95,7 +95,14 @@ a pattern is written against what the box actually says.
   timelines (`Pixera.Timelines.getTimelineFromName`, `Pixera.Timelines.Timeline.play`,
   `Pixera.Timelines.Timeline.getCueFromName`, `Pixera.Timelines.Cue.apply`); a box on another
   version answers with its own error, which the card shows word for word, and `API` and `RAW`
-  reach any method the reference lists. Check it against your Pixera before the show.
+  reach any method the reference lists. Check it against your Pixera before the show. The line's
+  receipt is the play's own answer, never the look-up's, and an answer to a request this desk
+  made settles only its own line (a `RAW` line, whose id is yours, takes only an answer whose id
+  the desk did not make). A line fired as the box connects is looked up on that connection; if
+  the connection ends before the play can go on it, the play is never sent, and the line's
+  receipt says *not-sent* ("it did not run") on the card, in STATE and in the journal
+  (`DeviceReceipt`, `Failed`). A handle that still arrives afterwards plays nothing. A play's own
+  answer that arrives as its connection ends still settles its line.
 - Passwords are kept with the show, as the rig's addresses are. A show file that travels carries
   them.
 - A twin (a second Patterns in step — `docs/PLAN.md` §48) carries the devices with the show, but

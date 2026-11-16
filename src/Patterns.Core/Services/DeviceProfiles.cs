@@ -76,10 +76,31 @@ public abstract class ProfileSession
     public virtual ProfileReply OnReceived(string text) => ProfileReply.Of(text);
 
     /// <summary>
-    /// A fresh connection: whatever the last one knew (a seed, a handle) starts over. On a link made of connections it is called at
-    /// each one's start, before any line of it reaches <see cref="OnReceived"/>; on any other link, when the poll first sees it open.
+    /// A fresh connection: whatever the last one knew (a seed, a handle) starts over. On a link made of connections it is called once
+    /// per connection, before anything is encoded for it and before any line of it reaches <see cref="OnReceived"/>; on any other
+    /// link, when the poll first sees it open.
     /// </summary>
     public virtual void OnConnected() { }
+
+    /// <summary>
+    /// The keys (<see cref="SentKey"/>) of the lines whose next step the last <see cref="OnConnected"/> forgot — a Pixera command
+    /// whose look-up was asked on the connection that ended, so the command itself can never go — each taken once; none for most
+    /// boxes. Each such line ends not-sent (Show Bus 13.12.3: never written; it did not run).
+    /// </summary>
+    public virtual IReadOnlyList<string> TakeForgotten() => Array.Empty<string>();
+
+    /// <summary>
+    /// A frame said on a connection this session has already started over from: read without touching what the new connection
+    /// knows, it is a reply keyed to the request it answers (<see cref="ProfileReply.AckKey"/>, never "") when the profile can tell
+    /// whose — a Pixera command's own result settles its own line — and null otherwise, so it settles nothing; it never sends on.
+    /// </summary>
+    public virtual ProfileReply? OnReceivedOfEnded(string text) => null;
+
+    /// <summary>
+    /// Whether every answer to a request this session made carries its line's key, so a keyed answer settles only the line of that
+    /// key and a line keyed "" (a request whose answer the session cannot tell) takes only an answer keyed "".
+    /// </summary>
+    public virtual bool KeysEveryAnswer => false;
 
     /// <summary>Whole frames out of a byte stream so far, the unfinished tail left in the buffer; lines unless the box frames otherwise.</summary>
     public virtual IReadOnlyList<string> Split(StringBuilder buffer) => DeviceLines.Split(buffer);
@@ -598,12 +619,87 @@ public sealed class PixeraSession : ProfileSession
 {
     public const string Terminator = "0xPX";
 
+    /// <summary>The receipt's words for a command whose look-up's connection ended before the command could go on it.</summary>
+    public const string ForgottenWords = "not-sent — the connection its look-up was asked on ended before the command could go on it, so the command itself never went; it did not run";
+
+    /// <summary>How many request ids are remembered with the line they serve; an older one that was never answered is let go.</summary>
+    public const int AskedKept = 256;
+
     private readonly Dictionary<int, Func<JsonElement, IReadOnlyList<byte[]>>> _pending = new();
+    // Every request this session made, by id, to the key of the line it serves (a look-up and the command it leads to share one),
+    // so an answer settles that line's receipt and no other; answered ids leave, and the oldest go past AskedKept.
+    private readonly Dictionary<int, string> _asked = new();
+    private readonly Queue<int> _askedOrder = new();
+    // Look-ups a start-over forgot: their answer, if one still reaches the session, plays nothing and acknowledges nothing.
+    private readonly HashSet<int> _gone = new();
+    private readonly Queue<int> _goneOrder = new();
+    private readonly List<string> _forgotten = new();
+    private string? _serving;
+    private string _lastKey = "";
     private int _id;
 
     public override DeviceProfile Profile => DeviceProfile.Pixera;
 
-    public override void OnConnected() => _pending.Clear();
+    /// <summary>A new connection: every look-up of the last one is forgotten, and the lines they served end not-sent.</summary>
+    public override void OnConnected()
+    {
+        foreach (var id in _pending.Keys)
+        {
+            if (_gone.Add(id)) _goneOrder.Enqueue(id);
+            if (_asked.TryGetValue(id, out var key) && !_forgotten.Contains(key)) _forgotten.Add(key);
+        }
+        _pending.Clear();
+        // The oldest forgotten look-ups go past AskedKept, and with them their ids' lines, so a late answer to one is nobody's yes.
+        while (_goneOrder.Count > AskedKept)
+        {
+            var old = _goneOrder.Dequeue();
+            _gone.Remove(old);
+            _asked.Remove(old);
+        }
+    }
+
+    public override bool KeysEveryAnswer => true;
+
+    public override ProfileReply? OnReceivedOfEnded(string text)
+    {
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(text);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        using (doc)
+        {
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.Number || !idEl.TryGetInt32(out var id)) return null;
+            // A look-up still waiting belongs to the connection this session holds; it is answered there, never by an ended one's frame.
+            if (_pending.ContainsKey(id) || !_asked.TryGetValue(id, out var key)) return null;
+            _asked.Remove(id);
+            if (_gone.Remove(id)) return null;   // a forgotten look-up's answer: its line already ended not-sent
+            if (root.TryGetProperty("error", out var error))
+            {
+                var message = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("message", out var msg) ? msg.ToString() : error.ToString();
+                return ProfileReply.Refused($"Pixera error: {message}", key);
+            }
+            return root.TryGetProperty("result", out var result) ? ProfileReply.Acked($"result {result}", key) : null;
+        }
+    }
+
+    public override IReadOnlyList<string> TakeForgotten()
+    {
+        if (_forgotten.Count == 0) return Array.Empty<string>();
+        var keys = _forgotten.ToArray();
+        _forgotten.Clear();
+        return keys;
+    }
+
+    /// <summary>The key of the line just encoded: its first request's (a look-up's for TIMELINE and CUE); "" for RAW, whose id is the sender's.</summary>
+    public override string SentKey(string words) => _lastKey;
+
+    private static string KeyOf(int id) => "px" + id.ToString(CultureInfo.InvariantCulture);
 
     public override IReadOnlyList<string> Split(StringBuilder buffer)
     {
@@ -627,6 +723,11 @@ public sealed class PixeraSession : ProfileSession
     public byte[] Request(string method, object? parameters, out int id)
     {
         id = ++_id;
+        var key = _serving ?? KeyOf(id);
+        if (_serving is null && _lastKey.Length == 0) _lastKey = key;
+        _asked[id] = key;
+        _askedOrder.Enqueue(id);
+        while (_askedOrder.Count > AskedKept) _asked.Remove(_askedOrder.Dequeue());
         var json = JsonSerializer.Serialize(new { jsonrpc = "2.0", id, method, @params = parameters });
         return Bytes(json + Terminator);
     }
@@ -634,6 +735,7 @@ public sealed class PixeraSession : ProfileSession
     public override IReadOnlyList<byte[]> Encode(string words, out string problem)
     {
         problem = "";
+        _lastKey = "";
         var w = (words ?? "").Trim();
         if (w.Length == 0) return None("Nothing to send.", out problem);
         if (w.StartsWith('{')) return One(w + Terminator);
@@ -715,19 +817,39 @@ public sealed class PixeraSession : ProfileSession
         {
             var root = doc.RootElement;
             var id = root.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number && idEl.TryGetInt32(out var i) ? i : -1;
+            // The line this answer belongs to, by the request it answers: it settles that line's receipt and no other ("" for an id
+            // this session did not make, a RAW request's).
+            var key = _asked.Remove(id, out var k) ? k : "";
+            // A look-up a start-over forgot: its line already ended not-sent; its answer, a handle or an error, is a note that plays
+            // nothing and settles nothing.
+            if (_gone.Remove(id))
+            {
+                var said = root.TryGetProperty("error", out var lateError) ? $"error {lateError}" : root.TryGetProperty("result", out var lateResult) ? $"result {lateResult}" : "an answer";
+                return ProfileReply.Of($"{said} — the answer to a look-up of a connection that ended; nothing sent on");
+            }
             if (root.TryGetProperty("error", out var error))
             {
                 _pending.Remove(id);
                 var message = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("message", out var msg) ? msg.ToString() : error.ToString();
-                return ProfileReply.Refused($"Pixera error: {message}");
+                return ProfileReply.Refused($"Pixera error: {message}", key);
             }
             if (root.TryGetProperty("result", out var result))
             {
                 var lookedUp = _pending.Remove(id, out var then);
-                var next = lookedUp ? then!(result) : Array.Empty<byte[]>();
+                IReadOnlyList<byte[]> next;
+                _serving = key.Length > 0 ? key : null;   // the command a handle leads to serves the line its look-up served
+                try
+                {
+                    next = lookedUp ? then!(result) : Array.Empty<byte[]>();
+                }
+                finally
+                {
+                    _serving = null;
+                }
                 var words = result.ValueKind == JsonValueKind.Number && next.Count > 0 ? "found — sending on" : $"result {result}";
-                // A look-up's handle is on the way to the command; the command's own result is the yes.
-                return new ProfileReply(words, false, next, Ack: !lookedUp);
+                // A look-up's handle is on the way to the command; the command's own result is the yes. An answer that matches no
+                // look-up of this connection is a command's own result, never the yes of a line whose look-up it does not answer.
+                return new ProfileReply(words, false, next, Ack: !lookedUp, AckKey: key);
             }
             return ProfileReply.Of(text);
         }

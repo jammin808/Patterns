@@ -216,6 +216,100 @@ public class DeviceProfileTests
     }
 
     [Fact]
+    public void APixeraAnswerSettlesOnlyTheLineItServesAndALookUpAStartOverForgotPlaysNothingAndIsNoYes()
+    {
+        var s = new PixeraSession();
+
+        // Each line is keyed by its first request; the look-up's answer and the command it leads to carry that key.
+        Assert.Single(s.Encode("TIMELINE Main PLAY", out _));
+        Assert.Equal("px1", s.SentKey("TIMELINE Main PLAY"));
+        var found = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":4711}");
+        Assert.Equal(("found — sending on", false, "px1"), (found.Words, found.Ack, found.AckKey));
+        var played = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":true}");
+        Assert.Equal((true, "px1"), (played.Ack, played.AckKey));                                // the play's own result is the TIMELINE line's yes
+        Assert.Single(s.Encode("API Pixera.Utility.getApiRevision", out _));
+        Assert.Equal("px3", s.SentKey("API Pixera.Utility.getApiRevision"));
+        Assert.Equal("px3", s.OnReceived("{\"id\":3,\"error\":{\"message\":\"no\"}}").AckKey);    // a no names its own line too
+        Assert.Single(s.Encode("RAW {\"id\":77,\"method\":\"x\"}", out _));
+        Assert.Equal("", s.SentKey("RAW"));                                                       // the sender's own id: any answer may be its
+        Assert.Empty(s.TakeForgotten());                                                         // nothing forgotten yet
+
+        // A look-up asked on a connection that ends: the start-over forgets it once, its line's key said once.
+        Assert.Single(s.Encode("CUE Main Intro", out _));
+        Assert.Equal("px4", s.SentKey("CUE Main Intro"));
+        Assert.Equal(1, s.PendingCount);
+        s.OnConnected();
+        Assert.Equal(0, s.PendingCount);
+        Assert.Equal(new[] { "px4" }, s.TakeForgotten());
+        Assert.Empty(s.TakeForgotten());
+        s.OnConnected();                                                                          // a second start-over has nothing more to forget
+        Assert.Empty(s.TakeForgotten());
+
+        // Its handle, if it still reaches the session, plays nothing and is nobody's yes.
+        var late = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":4,\"result\":4711}");
+        Assert.Empty(late.SendNext);
+        Assert.False(late.Ack);
+        Assert.False(late.IsError);
+        Assert.Equal("", late.AckKey);                                                            // a note: it settles no line
+        Assert.StartsWith("result 4711 — ", late.Words, StringComparison.Ordinal);
+
+        // An answer whose id this session did not make (a RAW request's) is keyed "": only a line keyed "" takes it.
+        var raw = s.OnReceived("{\"id\":500,\"result\":1}");
+        Assert.Equal((true, ""), (raw.Ack, raw.AckKey));
+        Assert.True(s.KeysEveryAnswer);
+    }
+
+    [Fact]
+    public void APixeraLookUpAStartOverForgotIsANoteEvenWhenItsAnswerIsAnError()
+    {
+        var s = new PixeraSession();
+        Assert.Single(s.Encode("TIMELINE Main PLAY", out _));
+        s.OnConnected();
+        Assert.Equal(new[] { "px1" }, s.TakeForgotten());
+        var late = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"message\":\"no such timeline\"}}");
+        Assert.Equal((false, false, ""), (late.IsError, late.Ack, late.AckKey));
+        Assert.StartsWith("error ", late.Words, StringComparison.Ordinal);
+        Assert.Empty(late.SendNext);
+    }
+
+    [Fact]
+    public void APixeraAnswerOfAConnectionTheSessionStartedOverFromSettlesOnlyAKeyedCommandsOwnLine()
+    {
+        var s = new PixeraSession();
+        Assert.Single(s.Encode("TIMELINE Main PLAY", out _));
+        Assert.Single(s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":4711}").SendNext);   // the play, id 2, keyed px1
+        Assert.Single(s.Encode("CUE Main Intro", out _));                                          // a look-up, id 3, keyed px3
+        s.OnConnected();
+        Assert.Equal(new[] { "px3" }, s.TakeForgotten());
+
+        // The play's own result, read after the start-over: its own line's yes, sending nothing on.
+        var played = s.OnReceivedOfEnded("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":true}");
+        Assert.NotNull(played);
+        Assert.Equal((true, "px1", 0), (played!.Ack, played.AckKey, played.SendNext.Count));
+        Assert.Null(s.OnReceivedOfEnded("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":true}"));          // answered once
+        Assert.Null(s.OnReceivedOfEnded("{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":9}"));             // a forgotten look-up's handle: nothing
+        Assert.Null(s.OnReceivedOfEnded("{\"id\":500,\"result\":1}"));                                  // an id this session did not make
+        Assert.Null(s.OnReceivedOfEnded("not json"));
+        Assert.Null(new PjLinkSession("").OnReceivedOfEnded("%1POWR=OK"));                              // a profile that cannot tell: nothing
+    }
+
+    [Fact]
+    public void APixeraSessionForgetsItsOldestForgottenLookUpsPastTheBoundAndNeverReadsTheirAnswersAsAYes()
+    {
+        var s = new PixeraSession();
+        for (var i = 0; i < PixeraSession.AskedKept + 10; i++)
+        {
+            Assert.Single(s.Encode("TIMELINE Main PLAY", out _));
+            s.OnConnected();
+        }
+        Assert.Equal(PixeraSession.AskedKept + 10, s.TakeForgotten().Count);
+        var oldest = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":1}");               // let go past the bound
+        Assert.Equal((true, ""), (oldest.Ack, oldest.AckKey));                                     // keyed "": no keyed line takes it
+        var newest = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":" + (PixeraSession.AskedKept + 10).ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\"result\":1}");
+        Assert.Equal((false, ""), (newest.Ack, newest.AckKey));                                    // still remembered as forgotten: a note
+    }
+
+    [Fact]
     public void PresetsAndLabelsAndTheAddressWordsCarryTheProfile()
     {
         var projector = DeviceProfiles.Preset(DeviceProfile.PjLink, 1);
