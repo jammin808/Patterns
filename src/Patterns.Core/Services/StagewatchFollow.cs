@@ -752,8 +752,9 @@ public static class ShowBusView
     /// <summary>
     /// The links this desk's wire accepted that LINK verified, onto the apps (Show Bus 1.3 §13.16.5): LINK proved the connector's t:id,
     /// so its rows are the app's that says that id — a Stagewatch's playout link, a PlayMap, an AGMessage — and an id no other source
-    /// names is an app of its own, of the kind LINK proved, while one of its links is open (an ended link no source names is the Nodes
-    /// page's to list). A source that says the id under another kind is another claim: the rows are kept on it and said as an i note
+    /// names is an app of its own, of the kind LINK proved, while one of its links is open — not ended and not told its last word (an
+    /// ended or closing link no source names is the Nodes page's to list: from its last word this desk takes nothing more from it, so it
+    /// is no evidence that the app is there). A source that says the id under another kind is another claim: the rows are kept on it and said as an i note
     /// (<see cref="Light"/>), and never say it is there. Precedence: a link this desk dials (the Stagewatch link, a device) says whether
     /// the app is there; with none, an open accepted link of its kind does — the app is there, its hello's age kept in
     /// <see cref="EyeShowApp.Heard"/> and said beside it.
@@ -765,7 +766,7 @@ public static class ShowBusView
         foreach (var rows in accepted.Where(r => EyeNetwork.IsId(r.Id)).GroupBy(r => r.Id, StringComparer.Ordinal))
         {
             var mine = rows.ToList();
-            var open = mine.FirstOrDefault(r => !r.Ended);
+            var open = mine.FirstOrDefault(r => r.Open);
             var at = list.FindIndex(a => a.Id == rows.Key);
             if (at >= 0)
             {
@@ -786,8 +787,8 @@ public static class ShowBusView
     /// </summary>
     public static bool Accepts(EyeShowApp app) => OpenAccepted(app) is not null;
 
-    /// <summary>The first open link this desk's wire accepted from the app, of the app's own kind; null with none.</summary>
-    public static AppLinkRow? OpenAccepted(EyeShowApp app) => app.Accepted.FirstOrDefault(r => !r.Ended && SameKind(app, r));
+    /// <summary>The first open link this desk's wire accepted from the app (<see cref="AppLinkRow.Open"/>: not ended, not told), of the app's own kind; null with none.</summary>
+    public static AppLinkRow? OpenAccepted(EyeShowApp app) => app.Accepted.FirstOrDefault(r => r.Open && SameKind(app, r));
 
     /// <summary>Whether a row LINK proved is of the kind the app is drawn as (its t, said as every reader says a kind).</summary>
     private static bool SameKind(EyeShowApp app, AppLinkRow r) => string.Equals(app.KindWords, ShowBusPeers.KindWords(r.T), StringComparison.Ordinal);
@@ -813,11 +814,11 @@ public static class ShowBusView
 
     /// <summary>
     /// One accepted link in the words every reader says it in (13.16.5): its mark, what proved it, its scope and its flags; once
-    /// ended, when and why. Never a key, a proof or a nonce.
+    /// ended, when and why; once told its last word, that it is closing. Never a key, a proof or a nonce.
     /// </summary>
     public static string AcceptedWords(AppLinkRow r)
-        => r.Ended
-            ? $"{r.Mark} its link to this desk by LINK ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
+        => r.Ended ? $"{r.Mark} its link to this desk by LINK ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
+            : r.Told ? $"{r.Mark} its link to this desk by LINK is " + AppLinkRow.ClosingWords
             : $"{r.Mark} linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}" + (r.Flags.Count > 0 ? " · " + string.Join(", ", r.Flags) : "");
 
     /// <summary>
@@ -975,7 +976,7 @@ public static class ShowBusView
         var notes = new List<string>(1);
         var record = HoldsLink(a) ? a.Link : null;
         // An accepted link's amber where a link this desk dials says whether the app is there: its own edge's and an i note, never the card's.
-        if (!AcceptedLeads(a) && a.Accepted.FirstOrDefault(r => !r.Ended && r.Light == CheckLight.Amber) is { } beside)
+        if (!AcceptedLeads(a) && a.Accepted.FirstOrDefault(r => r.Open && r.Light == CheckLight.Amber) is { } beside)
             notes.Add($"i its link to this desk by LINK is {beside.Mark} amber — {AmberWords(beside)}");
         if (KindNote(a) is { Length: > 0 } kind) notes.Add(kind);
         if (a.Posted) notes.Add(HoldsLink(a) ? PostedNote : PostedEndedNote);
@@ -1038,17 +1039,21 @@ public static class ShowBusView
         return a.State == ShowBusState.Stale ? "its link is quiet" : "";
     }
 
-    /// <summary>Why nothing a posted context says is current once the link it came over has ended (it is kept <see cref="ContextPost.KeptMs"/> all the same).</summary>
-    public const string PostedEndedWhy = "the link it posted its context over has ended";
+    /// <summary>
+    /// Why nothing a posted context says is current once the link it came over has ended, or from the moment this desk told that link its
+    /// last word (it is kept <see cref="ContextPost.KeptMs"/> all the same). Closing is the desk's own act, the end its observation: the
+    /// words claim neither one alone.
+    /// </summary>
+    public const string PostedEndedWhy = "the link it posted its context over has ended or is closing";
 
-    /// <summary>The headline every reader says of an app whose posted context's link has ended, in place of that context's own.</summary>
+    /// <summary>The headline every reader says of an app whose posted context's link has ended or is closing, in place of that context's own.</summary>
     public const string PostedEndedHeadline = "? — " + PostedEndedWhy + " — what it said of itself is not current";
 
     /// <summary>The i note on an app whose context came by CONTEXT POST over the link it holds to this desk.</summary>
     public const string PostedNote = "i what it says of itself came by CONTEXT POST over its link to this desk — told, not checked";
 
-    /// <summary>The i note on an app whose context came by CONTEXT POST over a link that has ended since.</summary>
-    public const string PostedEndedNote = "i what it says of itself came by CONTEXT POST over a link that has ended — kept 30 s, not current";
+    /// <summary>The i note on an app whose context came by CONTEXT POST over a link that has ended or is closing since.</summary>
+    public const string PostedEndedNote = "i what it says of itself came by CONTEXT POST over a link that has ended or is closing — kept 30 s, not current";
 
     /// <summary>What a counting thing of a link that is not live says after why (<see cref="LinkNotCurrent"/>).</summary>
     public const string NoCountWords = " — no count is current";
@@ -1132,11 +1137,11 @@ public static class ShowBusView
     /// is there (<see cref="AcceptedLeads"/>) — a caution amber over the app's green or grey, never over a red, and never red itself: an
     /// acceptor does not redial. Beside a link this desk dials it is that edge's own light and an i note (<see cref="Light"/>).
     /// </summary>
-    public static bool AcceptedAmber(EyeShowApp app) => AcceptedLeads(app) && app.Accepted.Any(r => !r.Ended && SameKind(app, r) && r.Light == CheckLight.Amber);
+    public static bool AcceptedAmber(EyeShowApp app) => AcceptedLeads(app) && app.Accepted.Any(r => r.Open && SameKind(app, r) && r.Light == CheckLight.Amber);
 
     /// <summary>What an amber accepted link says in the app's headline: what makes it amber, as the other cautions say theirs.</summary>
     private static string AcceptedHeadline(EyeShowApp app)
-        => AcceptedWord + " — " + AmberWords(app.Accepted.First(r => !r.Ended && SameKind(app, r) && r.Light == CheckLight.Amber));
+        => AcceptedWord + " — " + AmberWords(app.Accepted.First(r => r.Open && SameKind(app, r) && r.Light == CheckLight.Amber));
 
     /// <summary>What makes an accepted link amber (13.16.5), in its row's words: plain from another machine, or its key seen in clear.</summary>
     public static string AmberWords(AppLinkRow r)

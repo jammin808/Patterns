@@ -695,7 +695,7 @@ public sealed class EyeGraph
     private static string LinkSays(EyeEdge link)
     {
         if (link.Record is { } r) return r.Flags.Count > 0 ? string.Join(", ", r.Flags) : r.SteadyWords;
-        if (link.Accepted is { } a) return a.Flags.Count > 0 ? string.Join(", ", a.Flags) : a.Ended ? "ended" : "linked by LINK";
+        if (link.Accepted is { } a) return a.Flags.Count > 0 ? string.Join(", ", a.Flags) : a.Ended ? "ended" : a.Told ? "closing" : "linked by LINK";
         var words = link.Words;
         return words.Length > 2 && words[1] == ' ' && "✓△✕○".Contains(words[0], StringComparison.Ordinal) ? words[2..] : words;
     }
@@ -1277,7 +1277,7 @@ public sealed class EyeGraph
             if (ShowBusView.HoldsLink(app) && app.Link is { } record) words.Add("the link: " + record.Steady);
             if (app.Linked && app.Speaker.Length > 0) words.Add(app.Speaker);
             if (app.Linked && app.Windows.Length > 0) words.Add("windows it grants this desk: " + app.Windows);
-            foreach (var r in app.Accepted) words.Add(ShowBusView.AcceptedWords(r) + (r.Ended ? "" : " — " + r.Words));
+            foreach (var r in app.Accepted) words.Add(ShowBusView.AcceptedWords(r) + (r.Open ? " — " + r.Words : ""));
             if (app.DeviceId.Length > 0) words.Add($"driven as the device {app.Device} — DEVICE {ShowBusView.DeviceWord(app)} <its verb>");
             else if (app.DeviceAt.Length > 0) words.Add($"this desk's device {app.Device} is set at its address — drawn as one with it once that link is proved and its context names this app");
             if (app.Discarded.Length > 0) words.Add(app.Discarded);
@@ -1376,14 +1376,17 @@ public sealed class EyeGraph
         // Show Bus 1.3 §13.16.5 and §6 P2: a link this desk's wire accepted by LINK is an edge, never a thing — the one edge between the
         // connector's card (app:<its id>) and this desk, lit, marked and worded by the acceptor's list, so an app heard on the bus and
         // linked by LINK is drawn and counted once. LINK proved the id (level 1), so a connector no hello has named gets its card here,
-        // counted only through the edge. The edge is counted while the link stands, folded into the card as one thing; once ended it is
-        // grey and counted by nothing. K is what the connector did on the link: controls once it ran one of this desk's verbs, else follows.
+        // counted only through the edge. The edge is counted while the link stands, folded into the card as one thing; once told its last
+        // word it is closing, grey, worded closing and counted by nothing (from that word this desk takes nothing more from it, so it says
+        // nothing of whether the app is there, and no link light — LinkLights, NetworkLine — names it green, amber or worst); once ended it
+        // is grey and counted by nothing. K is what the connector did on the link: controls once it ran one of this desk's verbs, else
+        // follows.
         foreach (var r in f.AppLinks.Where(r => r.Id.Length > 0 && !undrawn.Contains(r.Id)))
         {
             var card = EyeNetwork.CardOf(r.Id);
             if (!ids.Contains(card))
             {
-                if (r.Ended) continue;                                                  // an ended link with no card: the Nodes page lists it
+                if (!r.Open) continue;                                                  // an ended or closing link with no card: the Nodes page lists it
                 var kindWords = ShowBusPeers.KindWords(r.T);
                 Add(new EyeNode(card, EyeKind.ShowApp, EyePlane.Control, 2, r.Name.Length > 0 ? $"{kindWords} {r.Name}" : AppKeys.ConnectorWords(r.Client),
                     $"linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}", r.Light)
@@ -1398,10 +1401,11 @@ public sealed class EyeGraph
             }
             cardOfId.TryAdd(r.Id, card);
             var drove = r.Drove ? EyeEdgeKind.Controls : EyeEdgeKind.Follows;
-            var words = r.Ended
-                ? $"{r.Mark} its link to this desk ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
+            var light = r.Open ? r.Light : CheckLight.Grey;
+            var words = r.Ended ? $"{r.Mark} its link to this desk ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
+                : r.Told ? $"{LinkRecord.MarkOf(light)} its link to this desk is " + AppLinkRow.ClosingWords
                 : $"{r.Mark} linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}" + (r.Flags.Count > 0 ? " · " + string.Join(", ", r.Flags) : "") + (r.Recording ? " · recording the desk's actions" : "");
-            Link(card, DeskId, drove, r.Light, words, counted: !r.Ended, origin: EyeOrigin.Link, accepted: r);
+            Link(card, DeskId, drove, light, words, counted: r.Open, origin: EyeOrigin.Link, accepted: r);
         }
 
         // Show Bus 1.3 §6's cross-node ends and the Eye design's D3, D4 and D6, once every card and thing is drawn: each context's rows

@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 100 — 2026-11-16 — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested
 
-`round-100` · PLAN §118 · REVIEW round 100 · 3,735 tests · module 3.24.0 · evidence: a handed-in critique (the Eye design, `eye.md`, EYE.4, with its critique's issue 13) and CI's file for runs 319 to 327; no field files and no rig report; no measurement beyond the flood test's counts
+`round-100` · PLAN §118 · REVIEW round 100 · 3,735 tests · module 3.25.0 · evidence: a handed-in critique (the Eye design, `eye.md`, EYE.4, with its critique's issue 13) and CI's file for runs 319 to 327; no field files and no rig report; no measurement beyond the flood test's counts
 
 - **The round opens (100.0).** PLAN §118.1 names the round's number (the plan's round 99) and its unit table, 100.0 to 100.2, each
   dependency under this tree's numbers (99.6's papers, 98.3's scoped keys) and beside 100.1 what already stands and what is to build

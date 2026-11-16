@@ -310,7 +310,7 @@ public static class EyeLinks
         }
         foreach (var a in app.Accepted)
         {
-            rows.Add(new EyeLinkRow(a.Light, a.Mark, a.Ended ? "its link to this desk — ended" : "its link to this desk",
+            rows.Add(new EyeLinkRow(a.Light, a.Mark, a.Ended ? "its link to this desk — ended" : a.Told ? "its link to this desk — closing" : "its link to this desk",
                 $"{a.ProofWords} · scope {a.Scope}" + (a.Ended ? "" : " · " + a.Words), string.Join(", ", a.Flags), ""));
         }
         return rows;

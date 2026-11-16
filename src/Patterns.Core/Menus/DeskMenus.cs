@@ -1108,7 +1108,8 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
     /// Show Bus 1.3 §13.16.5–6: one app link this desk accepted, from its row on the Nodes page (and its node on the Eye) — close it, or
     /// revoke the key it stands on, in step with the row's own CLOSE and REVOKE KEY. Each entry is the operator's own action from the
     /// desk, with no wire line: refused from a deck, the wire, a peer, a running order and the assistant, which proposes neither. A code's
-    /// link has no key to revoke (a new pairing token ends it, on the Remote page); a link that has ended has nothing left to close.
+    /// link has no key to revoke (a new pairing token ends it, on the Remote page); a link that has ended, or that was told its last word
+    /// and is closing, has nothing left to close — the entry says why, in step with the action's refusal.
     /// </summary>
     public static DeskMenu AppLink(DeskFacts d, MenuAppLink link)
     {
@@ -1118,7 +1119,7 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
             {
                 Detail = $"{link.Label} hears that this desk's operator closed it, runs nothing more and the connection ends; the key stays in force, so it may link again — {AcceptorWords.ClosedSeenAs}",
                 Action = new ShowAction(ShowActionKind.AppLinkClose, link.Lid),
-                Because = link.Ended ? "This link has ended already" : d.IsNode ? "App links are the desk's — close it there" : "",
+                Because = link.Ended ? "This link has ended already" : link.Told ? ClosingAlready : d.IsNode ? "App links are the desk's — close it there" : "",
             },
         };
         if (link.KeyKid.Length > 0)
@@ -1156,9 +1157,12 @@ return WithMidi(d, new DeskMenu("cue", c.Id, who, subtitle, c.IsBroken ? MenuTon
             },
         };
         var subtitle = $"{AppKeys.ConnectorWords(link.Client)} · {(link.Verified == "code" ? "the pairing token" : "key " + link.KeyKid)} · scope {link.Scope} · {link.Mark}"
-                       + (link.Ended ? " · ended" : "");
+                       + (link.Ended ? " · ended" : link.Told ? " · closing" : "");
         return new DeskMenu("applink", link.Lid, "App link " + link.Label, subtitle, MenuTone.Tile, groups);
     }
+
+    /// <summary>Why a link told its last word takes no CLOSE: the menu's words, the Nodes page's and the action's refusal say the same.</summary>
+    public const string ClosingAlready = "This link is closing already — it was told its last word and runs nothing more; its row goes grey once the connection ends";
 
     /// <summary>What a scope reaches on this desk, as the menu says it (§8.2's map, <see cref="AppKeyScopes"/>).</summary>
     public static string ScopeReach(string scope) => scope switch

@@ -1,4 +1,5 @@
 using System.Text;
+using Patterns.Core.Menus;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
@@ -266,6 +267,70 @@ public class ContextPostTests
         Assert.Empty(ShowBusView.Compose(new ShowBusFeed(Array.Empty<ShowBusPeer>(), StagewatchSight.None) { Accepted = new[] { Accepted(ended: true) }, Posted = new[] { Posted() } }, Now));
         // Another kind's claim on the id is not folded.
         Assert.False(Assert.Single(ShowBusView.Compose(feed with { Posted = new[] { Posted(t: "main") } }, Now)).Posted);
+    }
+
+    /// <summary>
+    /// Round 100.5: a link this desk has told its last word (an oversize line's close, the operator's CLOSE, a revoke, a new token) is
+    /// closing — listed, neither ended nor open — and every reader of the feed counts it as no open link: it draws no card of its own,
+    /// says nothing of whether the app is there, takes no CLOSE, and beside a live hello the card is the hello's with the posted-ended
+    /// headline, exactly as for a link that has ended.
+    /// </summary>
+    [Fact]
+    public void ALinkToldItsLastWordIsNoEvidenceTheAppIsThereAndNoReaderCountsItOpen()
+    {
+        var told = Accepted() with { Told = true };
+        Assert.Equal((false, false, true), (told.Open, told.Ended, told.Closing));
+        Assert.Contains(AppLinkRow.ClosingWords, told.Words, StringComparison.Ordinal);
+
+        // No hello: a told row and its post draw no card — the context is kept in the table, nothing in the picture.
+        var alone = new ShowBusFeed(Array.Empty<ShowBusPeer>(), StagewatchSight.None) { Accepted = new[] { told }, Posted = new[] { Posted() } };
+        Assert.Empty(ShowBusView.Compose(alone, Now));
+        Assert.Empty(ShowBusView.Accept(Array.Empty<EyeShowApp>(), new[] { told }));
+        var eyeAlone = EyeGraph.Build(new EyeFacts { ShowBusId = "9f8e7d6c", AppLinks = new[] { told } });
+        Assert.Null(eyeAlone.Find("app:" + Messenger));                                              // an ended or closing link with no card: the Nodes page lists it
+        Assert.DoesNotContain(eyeAlone.Edges, e => e.Accepted is not null);
+
+        // A live hello beside it: the hello's card, no open accepted link, the posted-ended headline and grey, never the post's green.
+        var feed = new ShowBusFeed(new[] { HeardMessenger(Now) }, StagewatchSight.None) { Accepted = new[] { told }, Posted = new[] { Posted() } };
+        var app = Assert.Single(ShowBusView.Compose(feed, Now));
+        Assert.Null(ShowBusView.OpenAccepted(app));
+        Assert.False(ShowBusView.Accepts(app) || ShowBusView.HoldsLink(app));
+        Assert.True(app.Posted);
+        var lit = ShowBusView.Light(app);
+        Assert.Equal((CheckLight.Grey, ShowBusView.PostedEndedHeadline), (lit.Light, lit.Headline));
+        Assert.Contains(ShowBusView.PostedEndedNote, lit.Notes);
+        var row = Assert.Single(ShowBusView.StateRows(new[] { app }));
+        Assert.Equal((ShowBusView.PostedEndedHeadline, ""), (row.Headline, row.Link));
+        var peer = Assert.Single(ShowBusView.Peers(new[] { app }));
+        Assert.Equal((ShowBusView.PostedEndedHeadline, "", ""), (peer.Headline, peer.Link, peer.Verified));
+        // The Eye draws the hello's card with the told link's edge beside it, worded closing and counted by nothing.
+        var g = EyeGraph.Build(new EyeFacts { ShowBusId = "9f8e7d6c", ShowApps = new[] { app }, AppLinks = new[] { told } });
+        var edge = Assert.Single(g.Edges, e => e.Accepted is not null);
+        Assert.False(edge.Counted);
+        Assert.Contains("closing", edge.Words, StringComparison.Ordinal);
+        Assert.NotEqual(EyeOrigin.Link, g.Find("app:" + Messenger)!.Origin);
+        // A plain told row (amber while it stood) is grey on the Eye: no link light counts it green or amber, and the network line names
+        // no worst link for it — STATE's eye.linksAmber and linksWorst, EYE JSON's linkLights, the Super Check and the deck read these.
+        var plainTold = told with { Tls = false, Local = false };
+        Assert.Equal(CheckLight.Amber, (plainTold with { Told = false }).Light);
+        var gp = EyeGraph.Build(new EyeFacts { ShowBusId = "9f8e7d6c", ShowApps = new[] { app }, AppLinks = new[] { plainTold } });
+        Assert.Equal(CheckLight.Grey, Assert.Single(gp.Edges, e => e.Accepted is not null).Light);
+        Assert.Equal((0, 0, 1), (gp.LinkLights.Green + gp.LinkLights.Amber, gp.LinkLights.Red, gp.LinkLights.Grey));
+        Assert.DoesNotContain("amber", gp.NetworkLine, StringComparison.Ordinal);
+        Assert.DoesNotContain("plain", gp.NetworkLine, StringComparison.Ordinal);
+        // This desk's own context names no link it took over a told row (§6 P2: the links it holds).
+        var own = ShowContextBuilder.FromEye(g, "9f8e7d6c", "FOH", Now, Array.Empty<ShowLogEntry>(), ShowBusView.Peers(new[] { app }), null, new[] { told });
+        Assert.DoesNotContain(own.Items, i => i.Id == "link:" + Messenger);
+
+        // The acceptor's own readers: no open link on the Run strip, the Super Check's line or its worst light; counted closing.
+        Assert.Equal("", AcceptorWords.Glance(new[] { told }));
+        Assert.Equal(CheckLight.Grey, AcceptorWords.Worst(new[] { told }));
+        Assert.Equal("0 app links by LINK (1 closing) — none open", AcceptorWords.Line(new[] { told }));
+        Assert.NotEqual(AcceptorWords.Signature(new[] { Accepted() }), AcceptorWords.Signature(new[] { told }));
+        // CLOSE is not offered on a told row, in the action's words; the same row open offers it.
+        var facts = new DeskFacts { AppLinks = new[] { MenuAppLink.Of(told) } };
+        Assert.Equal(DeskMenus.ClosingAlready, DeskMenus.AppLink(facts, MenuAppLink.Of(told)).Groups.SelectMany(gr => gr.Entries).Single(e => e.Id == "link.close").Because);
+        Assert.Equal("", DeskMenus.AppLink(facts, MenuAppLink.Of(Accepted())).Groups.SelectMany(gr => gr.Entries).Single(e => e.Id == "link.close").Because);
     }
 
     [Fact]

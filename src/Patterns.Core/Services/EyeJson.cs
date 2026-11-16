@@ -108,7 +108,8 @@ public static class EyeJson
     /// Show Bus 1.3 §13.16.5's row of a link this desk's wire accepted, as the acceptor names it: its role, the connector's kind, id and
     /// name, its carrier, level, TLS, what proved it and the kid, its scope now, since when (ms since 1970), its light and mark, its flags,
     /// whether it has ended, and for an ended row when (ms since 1970, 0 while it stands) and why — the why the edge's own words already
-    /// carry. Never the row's words, which name the address it was dialled from, and never a key, a proof, a nonce, a lid or an address.
+    /// carry — then whether this desk has told it its last word (closing until it ends). Never the row's words, which name the address
+    /// it was dialled from, and never a key, a proof, a nonce, a lid or an address.
     /// </summary>
     private static object AcceptedRow(AppLinkRow r) => new
     {
@@ -129,6 +130,7 @@ public static class EyeJson
         ended = r.Ended,
         endedAt = r.EndedUtc is { } at ? new DateTimeOffset(DateTime.SpecifyKind(at, DateTimeKind.Utc)).ToUnixTimeMilliseconds() : 0,
         endWords = r.EndWords,
+        told = r.Told,
     };
 }
 

@@ -474,6 +474,18 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 100 — a link the desk has closed is no open link on a key (module 3.25.0)
+
+- **`told` on STATE's `decks` rows** (100.5). An app link this desk has told its last word — its operator's CLOSE, a revoke, a
+  new token, a line the wire does not read — appends `told` true at the row's end while its connection has not yet ended; the
+  row's words say *closing*. `told` stays true on the grey row of a link told before it ended, so a reader takes `ended` first.
+- **`$(patterns:desk_app_links)` names open links only** (3.25.0, a minor version: the variable's reading changes): a row with
+  `ended` or `told` is left out, as the desk's Run strip and Super Check leave it out. `$(patterns:eye_links_worst)` reads grey
+  for a closing link, which the Eye draws grey and counts in no light, and its description and the `eye_links` feedback's grey
+  choice say *not up yet, closing or ended*.
+- No action, feedback or wire line is new: `lines.txt` is unchanged. `CONTEXT POST` (100.1) is another app's verb; the module
+  sends none. The version moves to 3.25.0 in every file that carries it.
+
 ## Round 99 — the God's Eye's show network on a key (module 3.24.0)
 
 - **The show network in one line and one light** (3.24.0, a minor version: two variables, a feedback, a lens and a preset

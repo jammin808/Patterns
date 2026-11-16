@@ -4,7 +4,10 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Patterns.App.Services;
+using Patterns.Core.Menus;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -213,6 +216,116 @@ public sealed partial class PeerLinkWireTests
         // None of the refusals counted against a key: the wrong-proof table locked no pair, and the refusals are summed by reason.
         Assert.DoesNotContain(Rows(desk.Services, "LinkLocked"), _ => true);
         Assert.True(desk.Control.PostRefusals.Values.Sum() >= 7, string.Join(", ", desk.Control.PostRefusals.Select(r => r.Key + " " + r.Value)));
+    }
+
+    /// <summary>
+    /// Round 100.5: a link this desk has told its last word — the oversize line's <c>ERR … closed</c>, the operator's CLOSE — is closing
+    /// from that word for every reader, while its connection has not yet ended: its row listed, told and not ended, its app-link slot
+    /// held (the connection's), its posted context kept, and nothing reading it as open — no card in STATE's <c>bus.apps</c>, no open
+    /// accepted link on any app, no CLOSE on its row or its menu, no app link on the Run strip. Deterministic: the first leg holds the
+    /// connection's handler right after its last word is queued (<see cref="ControlService.AfterLastWord"/>, the poster's alone, let go
+    /// in <c>finally</c>), the second holds its connection open after the word for <see cref="ControlService.CloseLinger"/> — 3 s here,
+    /// the margin its reads after the word are made within on a loaded runner (no hook holds that leg; the linger alone does); every
+    /// assertion after the word is read is made with no pump and no wait. Then the connection ends, its slot is given back and the grey
+    /// row is written — the close observed by the grey row, as before.
+    /// </summary>
+    [AvaloniaFact]
+    public void ALinkToldItsLastWordIsClosingForEveryReaderUntilItsConnectionEndsAndTheGreyRowObservesTheEnd()
+    {
+        using var desk = new AcceptorDesk();
+        var clock = 1_000_000L;
+        desk.Control.PostedNowMs = () => clock;
+        var cred = LinkAcceptor.Key(MakeKey(desk, Poster, "post"), Poster, "post")!;
+        var machine = desk.Services.Kernel.Beacon.MachineName;
+
+        // What every reader says of a link told its last word and not yet ended, read at once on the test's thread.
+        void AssertClosing(string lid, string when)
+        {
+            var row = Assert.Single(desk.Control.AppLinkList, r => r.Lid == lid);
+            Assert.True(row.Told && !row.Ended && !row.Open, $"{when}: the row is told {row.Told}, ended {row.Ended}");
+            Assert.Contains(AppLinkRow.ClosingWords, row.Words, StringComparison.Ordinal);
+            Assert.Equal(1, desk.Control.AppLinks);                                                  // the slot is the connection's, still held
+            using (var doc = JsonDocument.Parse(new CommandRouter(desk.Services).StateJson()))
+            {
+                var bus = doc.RootElement.GetProperty("bus");
+                Assert.DoesNotContain(bus.GetProperty("apps").EnumerateArray(), a => a.GetProperty("id").GetString() == PosterId);
+                Assert.Contains(bus.GetProperty("posted").EnumerateArray(), p => p.GetProperty("id").GetString() == PosterId);
+                // The lid's row (an earlier link of the same app may be listed ended beside it): told at the row's end, not ended.
+                var deckRow = Assert.Single(doc.RootElement.GetProperty("decks").EnumerateArray(), d => d.GetProperty("level").GetInt32() == 1 && !d.GetProperty("ended").GetBoolean());
+                Assert.Equal((PosterId, true), (deckRow.GetProperty("id").GetString(), deckRow.GetProperty("told").GetBoolean()));
+                Assert.Equal("told", deckRow.EnumerateObject().Last().Name);
+            }
+            Assert.All(desk.Services.Apps(DateTime.UtcNow), a => Assert.Null(ShowBusView.OpenAccepted(a)));
+            Assert.DoesNotContain(desk.Services.Apps(DateTime.UtcNow), a => a.Id == PosterId);
+            Assert.Equal("", AcceptorWords.Glance(desk.Control.AppLinkList));
+            // The Nodes page's row offers no CLOSE, its menu says why, and the action refuses it in the same words' sense.
+            var vm = desk.Booted.Vm;
+            vm.AppLinks.Look();
+            var tableRow = Assert.Single(vm.AppLinks.Rows, r => r.Lid == lid);
+            Assert.False(tableRow.CanClose, when + ": CLOSE is drawn on a closing row");
+            Assert.Equal(DeskMenus.ClosingAlready, DeskMenus.AppLink(new DeskFacts(), tableRow.Menu).Groups.SelectMany(g => g.Entries).Single(e => e.Id == "link.close").Because);
+            var again = desk.Services.Actions.Execute(new ShowAction(ShowActionKind.AppLinkClose, lid), ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Refused, again.Status);
+            Assert.Contains("closing already", again.Message, StringComparison.Ordinal);
+        }
+
+        // The oversize line's last word, the connection's handler held right after it is queued: the line is written and read, and the
+        // handler has not reached its end, so the row is told and not ended for as long as the hold lasts.
+        using var held = new ManualResetEventSlim(false);
+        string lid;
+        ControlService.AfterLastWord = peer =>
+        {
+            if (peer.Link?.Client == Poster) held.Wait(TimeSpan.FromSeconds(10));
+        };
+        try
+        {
+            using var poster = TestApp.Pump(LinkAs(desk.Port, cred, Poster));
+            Assert.Equal("OK @p1 kept", Ask(poster, "p1", "CONTEXT POST " + PostJson()));
+            lid = Assert.Single(desk.Control.AppLinkList).Lid;
+            Assert.Contains(desk.Services.Apps(DateTime.UtcNow), a => a.Id == PosterId && a.Posted && ShowBusView.OpenAccepted(a)?.Lid == lid);
+            var head = "@big CONTEXT POST ";
+            var json = PostJson(id: PosterId, headline: "big");
+            TestApp.Pump(poster.Send(head + PostJson(id: PosterId, headline: "big", pad: WireLimits.CommandBytes + 1 - Encoding.UTF8.GetByteCount(head + json))).ContinueWith(_ => true, TaskScheduler.Default));
+            Assert.EndsWith("closed", TestApp.Pump(poster.NextMatching(l => l.StartsWith("ERR ", StringComparison.Ordinal))), StringComparison.Ordinal);
+            AssertClosing(lid, "after the oversize line's last word");
+        }
+        finally
+        {
+            held.Set();
+            ControlService.AfterLastWord = null;
+        }
+        // Let go, the connection ends: its slot is given back and its grey row written — the end observed, never claimed at the word.
+        PumpWhile(() => desk.Control.AppLinks != 0 || !desk.Control.AppLinkList.Any(r => r.Lid == lid && r.Ended), 5000);
+        var oversized = Assert.Single(desk.Control.AppLinkList, r => r.Lid == lid);
+        Assert.Equal((CheckLight.Grey, true), (oversized.Light, oversized.Told));                 // told before it ended, grey once it had
+
+        // The operator's CLOSE, its connection held open for three seconds after the word: told and not ended for the whole linger, then
+        // the slot's release and the grey row, as the acceptor's list test waits for them.
+        desk.Control.CloseLinger = TimeSpan.FromSeconds(3);
+        using var closed = TestApp.Pump(LinkAs(desk.Port, cred, Poster));
+        Assert.Equal("OK @c1 kept", Ask(closed, "c1", "CONTEXT POST " + PostJson()));
+        var second = Assert.Single(desk.Control.AppLinkList, r => r.Open).Lid;
+        var pressed = Stopwatch.StartNew();
+        Assert.Equal(ActionStatus.Requested, desk.Services.Actions.Execute(new ShowAction(ShowActionKind.AppLinkClose, second), ActionOrigin.Desk).Status);
+        TestApp.Pump(closed.NextMatching(l => l == "ERR LINK refused — " + AcceptorWords.ClosedWords(machine)));
+        AssertClosing(second, "after CLOSE's last word");
+        var reads = 0;
+        while (desk.Control.AppLinks != 0)
+        {
+            // Every reading while the connection lingers: no card, and a row for the lid that has not ended is told.
+            reads++;
+            using (var doc = JsonDocument.Parse(new CommandRouter(desk.Services).StateJson()))
+                Assert.DoesNotContain(doc.RootElement.GetProperty("bus").GetProperty("apps").EnumerateArray(), a => a.GetProperty("id").GetString() == PosterId);
+            Assert.All(desk.Control.AppLinkList.Where(r => r.Lid == second && !r.Ended), r => Assert.True(r.Told, "a lingering row read as open"));
+            // Bound from the press: the flush (at most 2 s), the 3 s linger, and a margin for a loaded runner.
+            Assert.True(pressed.ElapsedMilliseconds < 9000, $"the closed link's slot was still held {pressed.ElapsedMilliseconds} ms after the press ({reads} readings)");
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(10);
+        }
+        PumpWhile(() => !desk.Control.AppLinkList.Any(r => r.Lid == second && r.Ended), 5000);
+        var ended = Assert.Single(desk.Control.AppLinkList, r => r.Lid == second);
+        Assert.Equal((CheckLight.Grey, "closed by this desk's operator"), (ended.Light, ended.EndWords));
+        Assert.Single(Rows(desk.Services, nameof(ShowActionKind.AppLinkClose)), r => r.Target == second && r.Outcome == "Requested");
     }
 
     /// <summary>

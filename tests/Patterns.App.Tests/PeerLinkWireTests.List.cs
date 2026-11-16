@@ -76,7 +76,8 @@ public sealed partial class PeerLinkWireTests
         Assert.Equal(("FOH deck", "", "", "", "none"), (deckRow.GetProperty("name").GetString(), deckRow.GetProperty("t").GetString(), deckRow.GetProperty("id").GetString(), deckRow.GetProperty("verified").GetString(), deckRow.GetProperty("scope").GetString()));
         Assert.Equal(new[] { "name", "module", "address", "where", "recording", "level", "t", "id", "verified", "scope" }, deckRow.EnumerateObject().Select(p => p.Name));
         var appRow = rows.Single(r => r.GetProperty("level").GetInt32() == 1);
-        Assert.Equal(new[] { "name", "module", "address", "where", "recording", "level", "t", "id", "verified", "scope", "tls", "kid", "light", "mark", "words", "ended" }, appRow.EnumerateObject().Select(p => p.Name));
+        Assert.Equal(new[] { "name", "module", "address", "where", "recording", "level", "t", "id", "verified", "scope", "tls", "kid", "light", "mark", "words", "ended", "told" }, appRow.EnumerateObject().Select(p => p.Name));
+        Assert.False(appRow.GetProperty("told").GetBoolean());                                   // round 100.5: told its last word, closing — not yet
         Assert.Equal(("main", StagewatchId, "key", "drive", "green", "✓", false), (appRow.GetProperty("t").GetString(), appRow.GetProperty("id").GetString(), appRow.GetProperty("verified").GetString(), appRow.GetProperty("scope").GetString(), appRow.GetProperty("light").GetString(), appRow.GetProperty("mark").GetString(), appRow.GetProperty("ended").GetBoolean()));
 
         // The Run strip's glance and the assistant's facts name it as an app link; the brief says closing it is the operator's.

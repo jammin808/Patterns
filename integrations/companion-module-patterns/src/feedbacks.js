@@ -77,7 +77,7 @@ export function buildFeedbacks(ctx) {
 		// Round 99 — the show network: the worst light among the desk's links to other apps, each lit by its own record.
 		eye_links: bool("God's Eye — the worst link light is …", style('eye', 'red'), [{ type: 'dropdown', id: 'light', label: 'Light', default: 'red', choices: [
 			{ id: 'red', label: 'red — a link the show needs is down' }, { id: 'amber', label: 'amber — a link needs a look' }, { id: 'green', label: 'green — every link green' },
-			{ id: 'grey', label: 'grey — links not up yet or ended (no link amber or red)' },
+			{ id: 'grey', label: 'grey — links not up yet, closing or ended (no link amber or red)' },
 		] }], (fb) => String(s().eye?.linksWorst ?? '') === fb.options.light),
 		// The install: the clock running, an announcement or an advert over the programme.
 		schedule_on: bool('The install schedule is on (the clock runs the site)', style('install', 'schedule'), [], () => s().install?.on === true),

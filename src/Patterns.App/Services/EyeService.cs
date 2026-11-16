@@ -765,6 +765,7 @@ public sealed class EyeService
             Decks = decks,
             AppLinks = appLinks,
             Companions = companions,
+            // Every app link whose connection has not ended holds a connection, a closing one (told its last word) among them.
             WireClients = Math.Max(0, _s.Control.WireConnections - decks.Count - appLinks.Count(r => !r.Ended)),
             WebClients = _s.Control.HttpConnections,
             Osc = state.Control.OscEnabled ? new EyeOsc(state.Control.OscPort, _s.Osc.StatusLine, state.Control.Bind, PairingToken.Needed(state.Control.Token), OscGate.Read(state.Control.OscAllow)) : null,   // round 79: the bind decides its light; round 87: pairing gates its verbs

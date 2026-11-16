@@ -41,9 +41,11 @@ public sealed partial class ControlService
     public Func<DateTime> AcceptorNow { get; set; } = () => DateTime.UtcNow;
 
     /// <summary>
-    /// Show Bus 1.3 §13.16.5: the acceptor's list — every link this wire accepted that LINK verified and that stands now, each at the
-    /// scope it stands at now and marked when its key (or the token, for a code's link) was seen in clear, then each that ended within
-    /// peer.forget.ms, grey. Never a deck: a connection proved by the legacy proof is on <see cref="Decks"/>, and one here is not.
+    /// Show Bus 1.3 §13.16.5: the acceptor's list — every link this wire accepted that LINK verified and whose connection has not ended,
+    /// each at the scope it stands at now, marked when its key (or the token, for a code's link) was seen in clear and marked told once
+    /// this desk has told it its last word (closing: it holds its app-link slot until its connection ends, the limit being the
+    /// connection's), then each that ended within peer.forget.ms, grey — the grey row written once the connection has ended. Never a
+    /// deck: a connection proved by the legacy proof is on <see cref="Decks"/>, and one here is not.
     /// </summary>
     public IReadOnlyList<AppLinkRow> AppLinkList
     {
@@ -74,9 +76,11 @@ public sealed partial class ControlService
     /// STATE's <c>decks</c> rows, on the desk and on a node alike (Show Bus 1.3 §13.16.5): every deck that said HELLO — level 0, no
     /// <c>t</c> or <c>id</c>, <c>verified</c> empty (the legacy proof is not LINK), scope <c>operate</c> while it is paired and
     /// <c>none</c> while it is not — then the acceptor's list, one row per app link LINK verified (level 1, its connector's
-    /// <c>t</c> and <c>id</c>, <c>key</c>, <c>link</c> or <c>code</c>, its scope now) with its TLS, kid, light, mark, words and
-    /// whether it ended appended. The fields after <c>recording</c> are appended at the end of the row, so a reader that matches the
-    /// older row's fields still does; a reader that counts decks takes the rows at level 0 only.
+    /// <c>t</c> and <c>id</c>, <c>key</c>, <c>link</c> or <c>code</c>, its scope now) with its TLS, kid, light, mark, words,
+    /// whether it ended and whether this desk told it its last word (<c>told</c>: closing until it ends) appended. The fields after
+    /// <c>recording</c> are appended at the end of the row, so a reader that matches the older row's fields still does; a reader that
+    /// counts decks takes the rows at level 0 only, and one that counts open app links takes those neither ended nor told. STATE answers a
+    /// paired connection only (ADR-016), so these fields reach no other.
     /// </summary>
     internal object[] DeckRows()
     {
@@ -89,7 +93,7 @@ public sealed partial class ControlService
         {
             name = r.Label, module = "", address = r.Address, where = r.Where, recording = r.Recording,
             level = r.Level, t = r.T, id = r.Id, verified = r.Verified, scope = r.Scope,
-            tls = r.Tls, kid = r.Kid, light = LinkRecord.LightWord(r.Light), mark = r.Mark, words = r.Words, ended = r.Ended,
+            tls = r.Tls, kid = r.Kid, light = LinkRecord.LightWord(r.Light), mark = r.Mark, words = r.Words, ended = r.Ended, told = r.Told,
         });
         return decks.Concat(links).ToArray();
     }
@@ -101,7 +105,12 @@ public sealed partial class ControlService
             ? _kernel.TokenClearWords.Length > 0
             : _kernel.AppKeys.Keys.FirstOrDefault(k => k.Kid == link.Kid)?.ClearSeen is not null;
         var scope = link.Verified == "code" ? link.Scope : KeyOf(token, link) is null ? "none" : ScopeNow(token, link);
-        return new AppLinkRow(link.Lid, link.Client, link.Name, link.Address, peer.Loopback, link.Tls, link.Verified, link.Kid, scope, link.SinceUtc) { ClearSeen = clear, Drove = peer.Drove };
+        // Told is read from the connection itself (its gate is a leaf lock): from its last word nothing it sends runs, so every reader
+        // that counts an open link counts it closing from that word, while the row stays listed until the connection ends.
+        return new AppLinkRow(link.Lid, link.Client, link.Name, link.Address, peer.Loopback, link.Tls, link.Verified, link.Kid, scope, link.SinceUtc)
+        {
+            ClearSeen = clear, Drove = peer.Drove, Told = peer.LastSaid,
+        };
     }
 
     /// <summary>

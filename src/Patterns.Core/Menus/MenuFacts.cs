@@ -346,12 +346,13 @@ public sealed record MenuAppKey(string Kid, string Bound, string Scope, string M
 
 /// <summary>
 /// Show Bus 1.3 §13.16.5: one app link this desk accepted, as its row's menu reads it — its lid, its connector and name, what proved
-/// it, the kid a revoke reaches ("" for a code's link), its scope and light, and whether it has ended. Never a key or a proof.
+/// it, the kid a revoke reaches ("" for a code's link), its scope and light, whether it has ended, and whether this desk has told it its
+/// last word (closing). Never a key or a proof.
 /// </summary>
-public sealed record MenuAppLink(string Lid, string Client, string Label, string Verified, string KeyKid, string Scope, string Mark, bool Ended)
+public sealed record MenuAppLink(string Lid, string Client, string Label, string Verified, string KeyKid, string Scope, string Mark, bool Ended, bool Told = false)
 {
     /// <summary>The row's facts from the acceptor's list.</summary>
-    public static MenuAppLink Of(AppLinkRow row) => new(row.Lid, row.Client, row.Label, row.Verified, row.KeyKid, row.Scope, row.Mark, row.Ended);
+    public static MenuAppLink Of(AppLinkRow row) => new(row.Lid, row.Client, row.Label, row.Verified, row.KeyKid, row.Scope, row.Mark, row.Ended, row.Told);
 
     /// <summary>The connector's node id (the part of its <c>t:id</c> after the colon): its card on the Eye is <c>app:&lt;Id&gt;</c>.</summary>
     public string Id => Client.IndexOf(':', StringComparison.Ordinal) is var at and > 0 ? Client[(at + 1)..] : "";

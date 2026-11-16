@@ -26,8 +26,11 @@ public sealed record AppLinkTableRow(AppLinkRow Row, bool Acts = true)
     /// <summary>REVOKE KEY is drawn for a link that stands on a key and is open, on the desk; a code's link has none (NEW TOKEN ends it).</summary>
     public bool CanRevoke => Acts && !Row.Ended && Row.KeyKid.Length > 0;
 
-    /// <summary>CLOSE is drawn while the link is open, on the desk — in step with the row's menu, which a node draws disabled.</summary>
-    public bool CanClose => Acts && !Row.Ended;
+    /// <summary>
+    /// CLOSE is drawn while the link is open — not ended, not told its last word — on the desk: in step with the row's menu, which draws
+    /// it disabled with the reason on a node and on a closing row, and with the action, which refuses a second close.
+    /// </summary>
+    public bool CanClose => Acts && Row.Open;
 
     /// <summary>The link as its menu reads it.</summary>
     public Patterns.Core.Menus.MenuAppLink Menu => Patterns.Core.Menus.MenuAppLink.Of(Row);

@@ -230,7 +230,9 @@ public class EyeWireTests
             var row = doc.RootElement.GetProperty("edges").EnumerateArray().Single(e => e.GetProperty("from").GetString() == "app:" + Messenger).GetProperty("link");
             Assert.Equal(("acceptor", Messenger, false, 0L, ""), (row.GetProperty("role").GetString(), row.GetProperty("id").GetString(),
                 row.GetProperty("ended").GetBoolean(), row.GetProperty("endedAt").GetInt64(), row.GetProperty("endWords").GetString()));
-            Assert.Equal(new[] { "flags", "ended", "endedAt", "endWords" }, row.EnumerateObject().Select(o => o.Name).TakeLast(4));
+            // Round 100.5 appends told (closing: told its last word, not yet ended) after endWords, at the row's end.
+            Assert.Equal(new[] { "flags", "ended", "endedAt", "endWords", "told" }, row.EnumerateObject().Select(o => o.Name).TakeLast(5));
+            Assert.False(row.GetProperty("told").GetBoolean());
         }
         // An ended row of an app heard on the bus (an ended link with no card of its own is the Nodes page's to list): grey, with when
         // and why — the why its edge already says — and still no address.

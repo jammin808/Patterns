@@ -1181,14 +1181,14 @@ public static class SuperCheck
 
     /// <summary>
     /// Show Bus 1.3 §13.16.5: the app links this desk's wire accepted by LINK — never decks — each with its light: amber while one is
-    /// plain from another machine (proved, not private) or its key was seen in clear; grey ones have ended. The round's row for the
-    /// acceptor's list and its CLOSE, read beside the Nodes page's APP LINKS table.
+    /// plain from another machine (proved, not private) or its key was seen in clear; one told its last word is counted closing, never
+    /// open; grey ones have ended. The round's row for the acceptor's list and its CLOSE, read beside the Nodes page's APP LINKS table.
     /// </summary>
     private static CheckRow AppLinksRow(CheckFacts f)
     {
         const string rule = "each proved by LINK with the pairing token or an app key, both ends checked; listed on the Nodes page (APP LINKS) apart from the decks, which pair the older way; CLOSE and REVOKE KEY there are the operator's, never on the wire or proposed";
         var value = AcceptorWords.Line(f.AppLinks);
-        var amber = f.AppLinks.Where(r => !r.Ended && r.Light == CheckLight.Amber).ToList();
+        var amber = f.AppLinks.Where(r => r.Open && r.Light == CheckLight.Amber).ToList();
         if (amber.Count == 0) return new CheckRow("REMOTE", "App links", CheckLight.Green, value, rule);
         var fixes = amber.Select(r => r.Label + (r.Plain ? ": plain from another machine — link it over TLS (the wire serves it on the same port)" : "") + (r.ClearSeen ? ": its key was seen in clear — REVOKE KEY, then KEY MAKE" : ""));
         return new CheckRow("REMOTE", "App links", CheckLight.Amber, value, $"FIX: {string.Join("; ", fixes)}; {rule}");

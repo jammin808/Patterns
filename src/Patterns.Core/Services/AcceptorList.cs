@@ -5,9 +5,9 @@ namespace Patterns.Core.Services;
 /// <summary>
 /// Show Bus 1.3 §13.16.5: one link this desk accepted on its wire that LINK verified — its lid, the connector's <c>t:id</c> its proof
 /// covered, the name its hello gave, where it dialled from, whether it rides TLS, what proved it (<c>key</c>, <c>link</c> or
-/// <c>code</c>) and the kid, the scope it stands at now, since when, whether its key (or the token, for a code) was seen in clear, and,
-/// once it has ended, when and why. Never a key, a proof, a nonce or a session credential. A deck that proved the token by the legacy
-/// proof is no row here: it is a deck (13.18), and a row here is never a deck.
+/// <c>code</c>) and the kid, the scope it stands at now, since when, whether its key (or the token, for a code) was seen in clear, whether
+/// this desk has told it its last word (closing), and, once it has ended, when and why. Never a key, a proof, a nonce or a session
+/// credential. A deck that proved the token by the legacy proof is no row here: it is a deck (13.18), and a row here is never a deck.
 /// </summary>
 public sealed record AppLinkRow(string Lid, string Client, string Name, string Address, bool Local, bool Tls, string Verified, string Kid, string Scope, DateTime SinceUtc)
 {
@@ -32,6 +32,13 @@ public sealed record AppLinkRow(string Lid, string Client, string Name, string A
     /// </summary>
     public bool Drove { get; init; }
 
+    /// <summary>
+    /// This desk has told the link its last word (the operator's CLOSE, a revoke, a new token, a line the wire does not read): nothing
+    /// it sends runs from then on, and its connection is closing. A claim of the desk's own act, never the observation of the end —
+    /// <see cref="Ended"/> is that, written once the connection has ended. Read from the connection where the row is made.
+    /// </summary>
+    public bool Told { get; init; }
+
     /// <summary>The connector's kind (§2): <c>main</c> for a Stagewatch.</summary>
     public string T => Client.IndexOf(':', StringComparison.Ordinal) is var at and > 0 ? Client[..at] : Client;
 
@@ -42,6 +49,15 @@ public sealed record AppLinkRow(string Lid, string Client, string Name, string A
     public int Level => 1;
 
     public bool Ended => EndedUtc is not null;
+
+    /// <summary>
+    /// The link stands for every reader of the list: not ended and not told its last word. A told link is closing — it holds its slot
+    /// until its connection ends, and it is no evidence that its app is there, takes no CLOSE and counts as no open link.
+    /// </summary>
+    public bool Open => !Ended && !Told;
+
+    /// <summary>Told its last word and its connection not yet ended: the list words it as closing until its grey row is written.</summary>
+    public bool Closing => Told && !Ended;
 
     /// <summary>13.16.2's <c>plain</c>: a line from another machine with no TLS.</summary>
     public bool Plain => !Tls && !Local;
@@ -97,10 +113,14 @@ public sealed record AppLinkRow(string Lid, string Client, string Name, string A
             if (Recording) words += " · recording the desk's actions";
             if (Where.Length > 0) words += " · navigator: " + Where;
             if (ClearSeen) words += " · △ " + (Verified == "code" ? "the pairing token" : "its key") + " was seen in clear — replace it";
+            if (Closing) words += " · " + ClosingWords;
             if (EndedUtc is { } ended) words += $" · ended {Stamp(ended)}" + (EndWords.Length > 0 ? " — " + EndWords : "");
             return words;
         }
     }
+
+    /// <summary>What a told link's row says until its connection ends.</summary>
+    public const string ClosingWords = "closing — told its last word, it runs nothing more; its row goes grey once the connection ends";
 
     private static string Stamp(DateTime utc) => utc.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " UTC";
 }
@@ -214,14 +234,21 @@ public sealed class AcceptorList
 /// </summary>
 public static class AcceptorWords
 {
-    /// <summary>"2 app links: Stagewatch ✓ key drive TLS · PlayMap Stage left △ plain" — "" with none open or ended.</summary>
+    /// <summary>
+    /// "2 app links: Stagewatch ✓ key drive TLS · PlayMap Stage left △ plain" — "" with none open, closing or ended. A link told its last
+    /// word is counted closing, never open.
+    /// </summary>
     public static string Line(IReadOnlyList<AppLinkRow> rows)
     {
-        var open = rows.Where(r => !r.Ended).ToList();
+        var open = rows.Where(r => r.Open).ToList();
         if (rows.Count == 0) return "";
         var head = open.Count == 1 ? "1 app link by LINK" : $"{open.Count.ToString(CultureInfo.InvariantCulture)} app links by LINK";
-        var ended = rows.Count - open.Count;
-        var tail = ended > 0 ? $" ({ended.ToString(CultureInfo.InvariantCulture)} ended in the last minute)" : "";
+        var ended = rows.Count(r => r.Ended);
+        var closing = rows.Count(r => r.Closing);
+        var said = new List<string>(2);
+        if (closing > 0) said.Add($"{closing.ToString(CultureInfo.InvariantCulture)} closing");
+        if (ended > 0) said.Add($"{ended.ToString(CultureInfo.InvariantCulture)} ended in the last minute");
+        var tail = said.Count > 0 ? " (" + string.Join(", ", said) + ")" : "";
         if (open.Count == 0) return head + tail + " — none open";
         return head + tail + ": " + string.Join(" · ", open.Select(Short));
     }
@@ -232,12 +259,12 @@ public static class AcceptorWords
            + (r.ClearSeen ? " seen in clear" : "");
 
     /// <summary>
-    /// The Run strip's word: "APP LINKS 2 ✓", "APP LINK △ PLAIN", "APP LINKS 3 △ (1 plain, 1 in clear)" — "" with none open. Ended links
-    /// are grey and say nothing here: the Nodes page lists them.
+    /// The Run strip's word: "APP LINKS 2 ✓", "APP LINK △ PLAIN", "APP LINKS 3 △ (1 plain, 1 in clear)" — "" with none open. Ended and
+    /// closing links say nothing here: the Nodes page lists them.
     /// </summary>
     public static string Glance(IReadOnlyList<AppLinkRow> rows)
     {
-        var open = rows.Where(r => !r.Ended).ToList();
+        var open = rows.Where(r => r.Open).ToList();
         if (open.Count == 0) return "";
         var head = open.Count == 1 ? "APP LINK" : "APP LINKS " + open.Count.ToString(CultureInfo.InvariantCulture);
         var plain = open.Count(r => r.Plain);
@@ -249,17 +276,17 @@ public static class AcceptorWords
         return open.Count == 1 ? head + " △ " + string.Join(", ", why) : head + " △ (" + string.Join(", ", why) + ")";
     }
 
-    /// <summary>The worst light among the open rows (grey with none open): what a tile and a row are lit by.</summary>
+    /// <summary>The worst light among the open rows (grey with none open; a closing row is not open): what a tile and a row are lit by.</summary>
     public static CheckLight Worst(IReadOnlyList<AppLinkRow> rows)
     {
-        var open = rows.Where(r => !r.Ended).ToList();
+        var open = rows.Where(r => r.Open).ToList();
         if (open.Count == 0) return CheckLight.Grey;
         return open.Any(r => r.Light == CheckLight.Amber) ? CheckLight.Amber : CheckLight.Green;
     }
 
-    /// <summary>A signature of the list for a reader's change test: a row added, ended, rescoped, marked, recording or moved moves it.</summary>
+    /// <summary>A signature of the list for a reader's change test: a row added, told, ended, rescoped, marked, recording or moved moves it.</summary>
     public static string Signature(IReadOnlyList<AppLinkRow> rows)
-        => string.Join("|", rows.Select(r => r.Lid + ":" + r.Scope + ":" + r.Mark + (r.Ended ? ":e" : "") + (r.Recording ? ":r" : "") + ":" + r.Where));
+        => string.Join("|", rows.Select(r => r.Lid + ":" + r.Scope + ":" + r.Mark + (r.Ended ? ":e" : r.Told ? ":t" : "") + (r.Recording ? ":r" : "") + ":" + r.Where));
 
     /// <summary>What the operator's CLOSE says to the link as its last line: the operator's act, refused class so the connector holds.</summary>
     public static string ClosedWords(string desk) => $"{desk}'s operator closed this link — the key stays in force; link again after the hold";

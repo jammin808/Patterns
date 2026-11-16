@@ -330,7 +330,7 @@ public static class ShowContextBuilder
     public static ShowContext FromEye(EyeGraph graph, string id, string name, DateTime utcNow, IEnumerable<ShowLogEntry> journal, IEnumerable<ShowContextPeer> peers, IReadOnlyList<ShowContextPeerLink>? links = null, IReadOnlyList<AppLinkRow>? accepted = null)
     {
         var held = (links ?? Array.Empty<ShowContextPeerLink>()).Where(l => l.Record.IsOn).Take(ShowContext.MaxItems).ToList();
-        var took = (accepted ?? Array.Empty<AppLinkRow>()).Where(r => !r.Ended && r.Id.Length > 0).GroupBy(r => r.Id, StringComparer.Ordinal).Select(g => g.First())
+        var took = (accepted ?? Array.Empty<AppLinkRow>()).Where(r => r.Open && r.Id.Length > 0).GroupBy(r => r.Id, StringComparer.Ordinal).Select(g => g.First())
             .Take(Math.Max(0, ShowContext.MaxItems - held.Count)).ToList();
         var linkItems = held.Select(LinkItem).Concat(took.Select(AcceptedItem)).Select(i => i with { Label = Clean(i.Label), State = Clean(i.State) }).ToList();
         var own = graph.Nodes.Where(n => !IsBorrowed(n.Kind)).Take(ShowContext.MaxItems - linkItems.Count).ToList();

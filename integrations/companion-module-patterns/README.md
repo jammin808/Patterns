@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.24.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.25.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.24.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.25.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
 desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
 paired` otherwise; from round 91 it shows its state only to a paired connection too — it says `NONCE` first and no
@@ -99,6 +99,10 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.25.0** — a closing app link (round 100, Show Bus 1.3 §13.16.5): STATE's `decks` rows carry `told` at the end of each
+  app link's row — the desk has told that link its last word (its operator's CLOSE, a revoke, a new token, a line the wire does
+  not read) and nothing it sends runs; the row stays, closing, until the connection ends and goes grey. `desk_app_links` names the
+  open links alone, neither ended nor told. No new action or verb.
 - **3.24.0** — the God's Eye's show network (round 99, Show Bus 1.3 §13.16): STATE's `eye` row carries `apps`, `linksRed`,
   `linksAmber`, `network` and `linksWorst` at its end; `eye_network` is the Eye's one line of the show network (the apps it knows,
   the desk's links, the worst link and what it says, what it leaves out) and `eye_links_worst` the worst light among the desk's

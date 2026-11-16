@@ -813,6 +813,9 @@ test('round 74 — the Navigator on the deck: every line matched to its reply, N
 	const older = variableValues({ ...sampleState(), decks: [{ name: 'Old deck', where: '' }, { name: 'Gone', level: 1, ended: true, mark: '○', verified: 'key', scope: 'follow' }] })
 	assert.equal(older.desk_decks, 'Old deck')
 	assert.equal(older.desk_app_links, '')
+	// A link the desk has told its last word (told, closing until its connection ends) is no open app link either.
+	const told = variableValues({ ...sampleState(), decks: [{ name: 'Closing', level: 1, ended: false, mark: '✓', verified: 'key', scope: 'post', told: true }] })
+	assert.equal(told.desk_app_links, '')
 	assert.equal(v.audio_level, '100')
 	assert.equal(askFeedback(b, 'nav_page_is', { page: 'cues' }), true)
 	assert.equal(askFeedback(b, 'nav_rail_is', { rail: 'PLAN' }), true)
