@@ -100,7 +100,7 @@ public class SdkPinTests
         Assert.Contains("global.json", text, StringComparison.Ordinal);
         var version = PinnedVersion();
         Assert.Contains(version, text, StringComparison.Ordinal);
-        // The band the papers name ("10.0.1xx") is the pinned patch's: a pin moved to another band
+        // The band the papers name ("10.0.4xx") is the pinned patch's: a pin moved to another band
         // leaves the band sentences stale unless they move with it.
         Assert.Contains(Band(version), text, StringComparison.Ordinal);
     }

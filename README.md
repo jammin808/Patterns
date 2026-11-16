@@ -2068,17 +2068,18 @@ dotnet run --project tools/Patterns.Bench -- --home ~/bench --token-file ~/bench
 ```
 
 Requires the .NET 10 SDK (LTS, supported to November 2028), the one `global.json` at the tree's root
-names: 10.0.115, with `rollForward` `latestPatch` and no previews. Any 10.0.1xx SDK at 10.0.115 or
+names: 10.0.404, with `rollForward` `latestPatch` and no previews. Any 10.0.4xx SDK at 10.0.404 or
 above builds the tree (the newest such patch installed is the one used); a machine with only an
-older patch, another feature band (10.0.2xx and on) or another major is refused by `dotnet` with
-words that name `global.json` ("A compatible .NET SDK was not found … global.json file: …"), so
-the SDK's own analyzers — which rules exist and what they find — come from the pinned patch's
-feature band wherever the tree builds. Only the CI jobs install from `global.json`: each
-setup-dotnet step installs that band's newest patch and names no version of its own. Any other
-machine needs the SDK installed by hand — the maintainer's PC needs a 10.0.1xx SDK at 10.0.115 or
-above (the .NET 10.0.1xx installer; the SDK a current Visual Studio carries is a later band and is
-refused) before `dotnet build` or `build/publish-win-x64*.cmd` runs there. A newer patch of the
-band is the one update the pin allows. `-p:PatternsTfm=net8.0` is meant to target .NET 8 from that
+older patch, another feature band (10.0.1xx to 10.0.3xx, or 10.0.5xx and on) or another major is
+refused by `dotnet` with words that name `global.json` ("A compatible .NET SDK was not found …
+Requested SDK version: 10.0.404 … global.json file: …"), so the SDK's own analyzers — which rules
+exist and what they find — come from the pinned patch's feature band wherever the tree builds. Only
+the CI jobs install from `global.json`: each setup-dotnet step installs that band's newest patch and
+names no version of its own. Any other machine needs the SDK installed by hand — the maintainer's PC
+needs a 10.0.4xx SDK at 10.0.404 or above (the band the maintainer says a current Visual Studio
+carries; a machine that has only the 10.0.1xx band the pin named before is refused) before
+`dotnet build` or `build/publish-win-x64*.cmd` runs there. A newer patch of the band is the one
+update the pin allows. `-p:PatternsTfm=net8.0` is meant to target .NET 8 from that
 SDK (not yet built on the pinned SDK); CI and the published exe are .NET 10. The exe is self-contained — end users need nothing installed — and it ships
 precompiled (ReadyToRun): the first page, the first frame of a renderer and the first cue never wait
 on the JIT. That is why it was about 88 MB rather than 50; the precompiled code is the difference.
