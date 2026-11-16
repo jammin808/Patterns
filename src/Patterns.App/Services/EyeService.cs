@@ -50,6 +50,9 @@ public sealed class EyeService
     /// <summary>The other show apps as the last gather read them — the side card's LINKS list reads each one's records from here.</summary>
     public IReadOnlyList<EyeShowApp> Apps { get; private set; } = Array.Empty<EyeShowApp>();
 
+    /// <summary>The links' records and accepted rows as the last gather read them — EYE JSON writes each link's from here.</summary>
+    public EyeLinksNow Links { get; private set; } = EyeLinksNow.Empty;
+
     /// <summary>The picture or the view moved — on the UI thread, where every verb runs.</summary>
     public event Action? Changed;
 
@@ -86,6 +89,7 @@ public sealed class EyeService
             return false;
         }
         Apps = facts.ShowApps;                                                              // the side card's LINKS read the records as they are now
+        Links = EyeLinksNow.Of(facts);                                                      // and EYE JSON's link records, whose clock and counts run on
         var hash = facts.Key();
         if (hash == _hash) return false;
         _hash = hash;
@@ -284,7 +288,7 @@ public sealed class EyeService
     public string Json()
     {
         EnsureRead();
-        return EyeJson.Write(Graph, Placement, FocusId, Lens);
+        return EyeJson.Write(Graph, Placement, FocusId, Lens, null, Links);
     }
 
     /// <summary>The STATE row: the headline, the worst light, the counts, the view.</summary>
@@ -308,6 +312,13 @@ public sealed class EyeService
         left = new { apps = Placement.LeftApps, items = Placement.LeftItems },
         problemsCounted = Graph.CountedProblems,                                           // the head of problems the rail counts; another app's after
         worstMark = EyeMarks.Glyph(Graph.WorstLight),                                      // the rail's light as its shape, never colour alone
+        // The show network (the Eye design's §6), appended: the other apps the Eye knows, this desk's red and amber links, the line that
+        // says them with the worst link and what is left out, and the worst link light's word ("" with no link) a deck's key lights by.
+        apps = Graph.Apps,
+        linksRed = Graph.LinkLights.Red,
+        linksAmber = Graph.LinkLights.Amber,
+        network = Graph.NetworkLine,
+        linksWorst = Graph.LinkLights.Worst,
     };
 
     /// <summary>The picture in words for the assistant's brief — the picture of now, with one line first while the page replays the record, so the assistant never mistakes then for now.</summary>

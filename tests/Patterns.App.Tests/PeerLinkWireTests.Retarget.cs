@@ -183,10 +183,13 @@ public sealed partial class PeerLinkWireTests
                 var accepted = link.AcceptCertificate(cert.Fingerprint[..8]);
                 Assert.True(accepted.Accepted, accepted.Words);
             }
+            // The record goes live in the core's step on the reader's thread and the LINK verdict's key standing is applied in the
+            // next (LinkVerdict → Apply), so a reader on another thread can see the record live a few tens of ms before the key's
+            // word: the wait reads both facts, and a word other than "key" still fails below.
             PumpUntil(() =>
             {
                 Hello();
-                return link.Record is { State: "live", PeerId: StagewatchId, Level: 1, Proof: "mutual" };
+                return link.Record is { State: "live", PeerId: StagewatchId, Level: 1, Proof: "mutual" } && link.Key.Word.Length > 0;
             }, 20000, link);
             Assert.Equal(2, Dials(peer));
             Assert.Equal("key", link.Key.Word);

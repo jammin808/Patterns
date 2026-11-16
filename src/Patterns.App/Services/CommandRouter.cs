@@ -810,7 +810,8 @@ public sealed class CommandRouter : IRouter
         {
             heard = apps.Count(ShowBusView.HeardLive),                                   // heard, never an app live only by a link this desk's wire accepted
             // Round 97: the device that drives a node, at the row's end ("" for none).
-            apps = rows.Select(r => new { kind = r.Kind, id = r.Id, name = r.Name, light = r.Light, headline = r.Headline, conflict = r.Conflict, device = r.Device }).ToArray(),
+            // Round 99: the light's shape and the state of the link this desk holds to it ("" for none), at the row's end.
+            apps = rows.Select(r => new { kind = r.Kind, id = r.Id, name = r.Name, light = r.Light, headline = r.Headline, conflict = r.Conflict, device = r.Device, mark = r.Mark, link = r.Link }).ToArray(),
             stagewatch = StagewatchRow(apps),
             dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
         };

@@ -120,6 +120,8 @@ export function variableDefinitions() {
 		eye_worst: "God's Eye — the worst thing by name and what is wrong, or empty when nothing is red or amber (round 66)",
 		eye_problems: "God's Eye — how many things in the picture are red or amber (round 66)",
 		eye_focus: "God's Eye — the id the operator's eye is on, or empty for the whole picture (round 66)",
+		eye_network: "God's Eye — the show network in one line: the apps it knows, the desk's links, the worst link and what it says, what is left out; empty when no other app is known (round 99)",
+		eye_links_worst: "God's Eye — the worst light among the desk's links to other apps: red, amber, green or grey (links not up yet or ended, none amber or red); empty with no link (round 99)",
 		take_next: "The one-shot the next TAKE arrives by — 'WIPE LEFT 800 ms', 'STING Whoosh' — or empty for the show's own transition (round 67)",
 		take_scope: "The wall's take scope as the desk's picker has it — every screen, the focused screen, the ticked screens, the ticked groups, the main / confidence / info screens (round 67, round 81)",
 		take_words: "What the next TAKE will do — '→ 1 · Left, 2 · Right · 1 outside the scope keeps its picture' — or why it is refused (round 67)",

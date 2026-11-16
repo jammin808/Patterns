@@ -74,6 +74,11 @@ export function buildFeedbacks(ctx) {
 			{ id: 'red', label: 'red — something is wrong now' }, { id: 'amber', label: 'amber — something needs a look' }, { id: 'green', label: 'green — all green' },
 		] }], (fb) => String(s().eye?.worstLight ?? '') === fb.options.light),
 		eye_problems: bool("God's Eye — something in the picture is red or amber", style('eye', 'amber'), [], () => (s().eye?.problems ?? 0) > 0),
+		// Round 99 — the show network: the worst light among the desk's links to other apps, each lit by its own record.
+		eye_links: bool("God's Eye — the worst link light is …", style('eye', 'red'), [{ type: 'dropdown', id: 'light', label: 'Light', default: 'red', choices: [
+			{ id: 'red', label: 'red — a link the show needs is down' }, { id: 'amber', label: 'amber — a link needs a look' }, { id: 'green', label: 'green — every link green' },
+			{ id: 'grey', label: 'grey — links not up yet or ended (no link amber or red)' },
+		] }], (fb) => String(s().eye?.linksWorst ?? '') === fb.options.light),
 		// The install: the clock running, an announcement or an advert over the programme.
 		schedule_on: bool('The install schedule is on (the clock runs the site)', style('install', 'schedule'), [], () => s().install?.on === true),
 		announcement_on: bool('An announcement is on (any, or a named one)', style('install', 'announcement'), [named('name', 'Announcement name (blank = any)')], (fb) => {

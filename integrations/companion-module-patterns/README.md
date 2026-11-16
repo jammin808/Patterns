@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.23.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.24.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -67,7 +67,7 @@ rig is on the keys too: `$(patterns:screen_n_signal)` is what Windows reports a 
 against its contract (MATCH / MISMATCH / PARTIAL / UNVERIFIED — MATCH alone is a pass), `$(patterns:machine_rig)`
 is the known-good rig's verdict and `$(patterns:commissioning)` the flow's headline; the `screen_signal_is`,
 `signal_mismatch_any`, `rig_known_good`, `rig_drift` and `commissioned` feedbacks colour them. The connection says `HELLO
-<label> module=3.23.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+<label> module=3.24.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
 connection's **Pairing token** field is filled, it proves the token against the desk's `NONCE` with `AUTH-PROOF`: a
 desk with a token set (Remote page, TRUST) runs a verb only from a connection that proved it, and answers `ERR not
 paired` otherwise; from round 91 it shows its state only to a paired connection too — it says `NONCE` first and no
@@ -99,6 +99,11 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.24.0** — the God's Eye's show network (round 99, Show Bus 1.3 §13.16): STATE's `eye` row carries `apps`, `linksRed`,
+  `linksAmber`, `network` and `linksWorst` at its end; `eye_network` is the Eye's one line of the show network (the apps it knows,
+  the desk's links, the worst link and what it says, what it leaves out) and `eye_links_worst` the worst light among the desk's
+  links; the `eye_links` feedback lights a key by that light (red, amber, green, or grey while every link is not up yet or has ended); the Eye page
+  gains LENS NETWORK and a NETWORK key showing the line, lit by the worst link, that presses `EYE LENS network`. No new verb.
 - **3.23.0** — the desk's acceptor's list (round 98, Show Bus 1.3 §13.16.5): STATE's `decks` rows carry `level`, `t`, `id`,
   `verified` and `scope` at the end of each row, and the app links another app proved by `LINK` ride there at level 1.
   `desk_decks` counts and names the decks alone (level 0), so a Stagewatch linked by `LINK` is never a deck on a button;

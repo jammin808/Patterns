@@ -310,6 +310,12 @@ public sealed class CheckFacts
     /// </summary>
     public IReadOnlyList<LinkRecord> ShowNetworkLinks { get; init; } = Array.Empty<LinkRecord>();
 
+    /// <summary>
+    /// The Eye's read of the show network (<see cref="EyeGraph.NetworkLine"/>, STATE's <c>eye.network</c>): the apps it knows, this
+    /// desk's links by light with the worst named, what it leaves out; "" while it knows no other app and holds no link (no row).
+    /// </summary>
+    public string EyeNetwork { get; init; } = "";
+
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
 
@@ -1314,6 +1320,15 @@ public static class SuperCheck
     /// cannot prove itself yet, a link quiet for now) says what ends it instead.
     /// </summary>
     private static void ShowNetwork(CheckFacts f, List<CheckRow> rows)
+    {
+        ShowNetworkLinks(f, rows);
+        // The Eye's network read, beside the Eye's NETWORK band, in grey: each link is lit on its own row (the links above, App links,
+        // a device's), so the count says what the Eye draws and lights nothing twice.
+        if (f.EyeNetwork.Length > 0)
+            rows.Add(new CheckRow("SHOW NETWORK", "Eye network", CheckLight.Grey, f.EyeNetwork, "what the Eye's NETWORK band draws (STATE eye.network) — each link is lit on its own row"));
+    }
+
+    private static void ShowNetworkLinks(CheckFacts f, List<CheckRow> rows)
     {
         var on = f.ShowNetworkLinks.Where(r => r.IsOn).ToList();
         if (on.Count == 0)

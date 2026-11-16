@@ -275,8 +275,11 @@ export function buildPresets() {
 	add('eye_next', key('Eye', 'NEXT PROBLEM — the eye moves to the next red or amber thing (amber while there are any)', 'NEXT\nPROBLEM\n$(patterns:eye_problems)', 'auto', press('eye_next'), [litAs('eye_problems', {}, 'eye', 'amber')]))
 	add('eye_prev', key('Eye', 'PREVIOUS PROBLEM', 'PREV\nPROBLEM', 'auto', press('eye_prev')))
 	add('eye_reset', key('Eye', 'RESET — the whole picture, nothing dimmed, the view from before the focus', 'EYE\nRESET', 'auto', press('eye_reset')))
-	for (const lens of ['all', 'video', 'control', 'audio', 'room', 'problems']) add(`eye_lens_${lens}`, key('Eye', `LENS ${lens.toUpperCase()} — the picture through one lens`, `LENS\n${lens.toUpperCase()}`, 'auto', press('eye_lens', { lens })))
+	for (const lens of ['all', 'video', 'control', 'audio', 'room', 'problems', 'network']) add(`eye_lens_${lens}`, key('Eye', `LENS ${lens.toUpperCase()} — the picture through one lens`, `LENS\n${lens.toUpperCase()}`, 'auto', press('eye_lens', { lens })))
 	add('eye_worst', key('Eye', 'WORST — the worst thing by name and what is wrong; press: the eye on screen 1', '$(patterns:eye_worst)', 'auto', press('eye_focus', { words: 'screen 1' })))
+	// Round 99 — NETWORK: the show network's line, lit by the worst of the desk's links; press: the NETWORK lens.
+	add('eye_network', key('Eye', 'NETWORK — the apps the Eye knows and the desk\'s links, lit by the worst link (red down, amber a look, green all green); press: LENS NETWORK', '$(patterns:eye_network)', 'auto', press('eye_lens', { lens: 'network' }),
+		[litAs('eye_links', { light: 'red' }, 'eye', 'red'), litAs('eye_links', { light: 'amber' }, 'eye', 'amber'), litAs('eye_links', { light: 'green' }, 'eye', 'green')]))
 
 	// ---- the stage: the speaker's timer as the speaker sees it, and the messages ----------------------------
 	const stageColours = [litAs('stage_colour_is', { colour: 'green' }, 'stage', 'running'), litAs('stage_colour_is', { colour: 'amber' }, 'stage', 'amber'), litAs('stage_colour_is', { colour: 'red' }, 'stage', 'red'), litAs('stage_is', { phase: 'paused' }, 'stage', 'paused')]

@@ -1010,13 +1010,21 @@ public static class ShowBusView
 
     /// <summary>
     /// STATE's <c>bus.apps</c> rows: each app as the context's peers row says it (<see cref="Peers"/>, one projection), then whether its
-    /// id is said by two machines and the device that drives it — the fields appended at the row's end.
+    /// id is said by two machines, the device that drives it, the light's shape and the state of the link this desk holds to it — the
+    /// fields appended at the row's end.
     /// </summary>
     public static IReadOnlyList<ShowBusAppRow> StateRows(IReadOnlyList<EyeShowApp> apps) => Network(apps).Select(lit =>
     {
         var p = PeerOf(lit);
-        return new ShowBusAppRow(p.Kind, p.Id, p.Name, p.Light, p.Headline, lit.App.Conflict.Length > 0, lit.App.Device);
+        return new ShowBusAppRow(p.Kind, p.Id, p.Name, p.Light, p.Headline, lit.App.Conflict.Length > 0, lit.App.Device) { Mark = lit.Mark, Link = LinkState(lit.App) };
     }).ToList();
+
+    /// <summary>
+    /// STATE's <c>bus.apps[].link</c> (the Eye design's §6): the 13.16.1 state of the record of the link this desk holds to the app — its
+    /// Stagewatch link, the device link that drives it — "" where it holds none with a record of its own (a hello alone, a link only
+    /// its wire accepted, which the decks rows list).
+    /// </summary>
+    public static string LinkState(EyeShowApp app) => (app.Linked || app.DeviceId.Length > 0) && app.Link is { } r ? r.State : "";
 
     /// <summary>
     /// STATE's <c>bus.stagewatch.light</c>: the light of the app the Stagewatch link is to, as every reader draws it (<see cref="Light"/>);
@@ -1301,7 +1309,14 @@ public sealed record AppLight(EyeShowApp App, CheckLight Light, string Headline,
 }
 
 /// <summary>One row of STATE's <c>bus.apps</c>: its peers row's fields, then the conflict and the device appended at its end.</summary>
-public sealed record ShowBusAppRow(string Kind, string Id, string Name, string Light, string Headline, bool Conflict, string Device);
+public sealed record ShowBusAppRow(string Kind, string Id, string Name, string Light, string Headline, bool Conflict, string Device)
+{
+    /// <summary>The light's shape beside its colour (✓ △ ✕ ○).</summary>
+    public string Mark { get; init; } = "○";
+
+    /// <summary>The state of the record of the link this desk holds to the app (<see cref="ShowBusView.LinkState"/>), "" with none.</summary>
+    public string Link { get; init; } = "";
+}
 
 /// <summary>Round 87: one other show app on the Nodes page — its kind in its colour, its name, and a line of what it is doing.</summary>
 public sealed record ShowAppCard(string Id, string KindLabel, string Name, string Line, string Hue, bool Linked, string Mark = "○")

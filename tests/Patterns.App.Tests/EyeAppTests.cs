@@ -347,7 +347,7 @@ public class EyeAppTests
                 var row = state.RootElement.GetProperty("eye");
                 Assert.Empty(row.GetProperty("expanded").EnumerateArray());
                 Assert.Equal(14, row.GetProperty("left").GetProperty("items").GetInt32());
-                Assert.Equal(new[] { "left", "problemsCounted", "worstMark" }, row.EnumerateObject().Select(o => o.Name).TakeLast(3));   // appended at the end of the row
+                Assert.Equal(new[] { "left", "problemsCounted", "worstMark", "apps", "linksRed", "linksAmber", "network", "linksWorst" }, row.EnumerateObject().Select(o => o.Name).TakeLast(8));   // appended at the end of the row, round 99's last
                 Assert.Equal(EyeMarks.Glyph(services.Eye.Graph.WorstLight), row.GetProperty("worstMark").GetString());   // the rail's light as its shape
                 Assert.Equal(services.Eye.Graph.Things, row.GetProperty("things").GetInt32());
                 Assert.Equal(services.Eye.Graph.CountedProblems, row.GetProperty("problemsCounted").GetInt32());

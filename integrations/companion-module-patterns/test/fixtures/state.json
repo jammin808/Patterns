@@ -565,7 +565,12 @@
     "things": 13,
     "problems": 2,
     "focus": "",
-    "lens": "all"
+    "lens": "all",
+    "apps": 2,
+    "linksRed": 0,
+    "linksAmber": 1,
+    "network": "2 apps \u00b7 2 links \u00b7 1 amber: Stagewatch Hall A \u2014 legacy",
+    "linksWorst": "amber"
   },
   "decks": [
     {
@@ -633,7 +638,9 @@
         "id": "a1b2c3d4",
         "name": "Hall A",
         "light": "amber",
-        "headline": "Keynote \u2014 Ana"
+        "headline": "Keynote \u2014 Ana",
+        "mark": "\u25b3",
+        "link": "live"
       }
     ],
     "stagewatch": {

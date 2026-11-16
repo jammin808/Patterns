@@ -492,6 +492,25 @@ public sealed record EyeEdge(string From, string To, EyeEdgeKind Kind, CheckLigh
     /// "" for a fact. Its words begin "&lt;that app&gt; says:", and it never makes the other node's light.
     /// </summary>
     public string Claim { get; init; } = "";
+
+    /// <summary>
+    /// A link this desk holds as connector (its Stagewatch link, the device link that drives a node): its 13.16.3 record as the link
+    /// published it when the picture was built — null for any other edge, and for a link that has no record of its own.
+    /// </summary>
+    public LinkRecord? Record { get; init; }
+
+    /// <summary>A link this desk's wire accepted by LINK: its row on the acceptor's list (13.16.5) — null for any other edge.</summary>
+    public AppLinkRow? Accepted { get; init; }
+
+    /// <summary>The app whose record <see cref="Record"/> is — its Show Bus id, which a reader of the record as it is now looks it up by; "" with none.</summary>
+    public string RecordOf { get; init; } = "";
+
+    /// <summary>
+    /// One of this desk's PeerLinks to another app (Show Bus 1.3 §13.16.4–5) — the link it holds, a device link, one its wire accepted:
+    /// what <see cref="EyeGraph.LinkLights"/> counts. Never the twin link to another Patterns node, a door 13.18 names as no PeerLink,
+    /// whose own readers (the Nodes page, STATE's twin) say it.
+    /// </summary>
+    public bool IsLink => Origin == EyeOrigin.Link && !EyeNetwork.TwinCard(From) && !EyeNetwork.TwinCard(To);
 }
 
 /// <summary>
@@ -613,6 +632,67 @@ public sealed class EyeGraph
     /// </summary>
     public int Unplaced { get; private set; }
 
+    /// <summary>
+    /// The rows of other apps' contexts that would be edges but are cut by the network's bounds (a cross-app claim past
+    /// <see cref="EyeNetwork.MaxCrossApp"/>, a relayed hearing past <see cref="EyeNetwork.MaxRelayed"/>) — EYE JSON's <c>left.edges</c>.
+    /// A cross-app claim cut is also in <see cref="Unplaced"/>, which counts every row that found no place, whatever the cause.
+    /// </summary>
+    public int LeftEdges { get; private set; }
+
+    /// <summary>The cross-app claims among <see cref="LeftEdges"/>, each also in <see cref="Unplaced"/> — the network line says each cut row once.</summary>
+    internal int CutCrossApp { get; private set; }
+
+    private int? _apps;
+    private EyeLinkLights? _linkLights;
+    private string? _network;
+
+    /// <summary>
+    /// The other apps the Eye knows: every app card it draws — another app, another Patterns node (a twin node is a machine of the show
+    /// network, counted here though its twin link is no PeerLink and is not among <see cref="LinkLights"/>), a node only another app's
+    /// context names — and those past its bound (<see cref="MoreApps"/>), never the "+N more" card itself.
+    /// </summary>
+    public int Apps => _apps ??= Nodes.Count(n => n.Kind is EyeKind.ShowApp or EyeKind.Node && n.Id != MoreId) + MoreApps;
+
+    /// <summary>This desk's links to other apps (<see cref="EyeEdge.IsLink"/>) by the light each is drawn in — each one its record's or its row's.</summary>
+    public EyeLinkLights LinkLights => _linkLights ??= EyeLinkLights.Of(Edges.Where(e => e.IsLink).Select(e => e.Light));
+
+    /// <summary>
+    /// The show network in one line, as STATE's <c>eye.network</c>, the deck's <c>eye_network</c> and the Super Check's <i>Eye network</i>
+    /// row say it: "4 apps · 5 links · 1 amber: PlayMap Stage left — legacy, plain", the worst link named with what it says, then what
+    /// the Eye leaves out; "" while it knows no other app and holds no link.
+    /// </summary>
+    public string NetworkLine => _network ??= NetworkWords();
+
+    private string NetworkWords()
+    {
+        var lights = LinkLights;
+        if (Apps == 0 && lights.Count == 0) return "";
+        var line = $"{Apps} app{(Apps == 1 ? "" : "s")} · {lights.Count} link{(lights.Count == 1 ? "" : "s")}";
+        var worst = lights.Red > 0 ? CheckLight.Red : lights.Amber > 0 ? CheckLight.Amber : (CheckLight?)null;
+        if (worst is { } bad && Edges.FirstOrDefault(e => e.IsLink && e.Light == bad) is { } link)
+        {
+            var count = bad == CheckLight.Red ? lights.Red : lights.Amber;
+            var card = _byId.TryGetValue(link.From, out var from) && from.Kind is EyeKind.ShowApp or EyeKind.Node ? from
+                : _byId.TryGetValue(link.To, out var to) ? to : null;
+            line += $" · {count} {Light(bad)}: {card?.Label ?? link.From} — {LinkSays(link)}";
+        }
+        var left = new List<string>(2);
+        if (MoreApps > 0) left.Add($"{MoreApps} app{(MoreApps == 1 ? "" : "s")} past the Eye's bound");
+        var unplaced = Unplaced - CutCrossApp;                                                // a claim the bound cut is said once, as cut
+        if (unplaced > 0) left.Add($"{unplaced} link end{(unplaced == 1 ? "" : "s")} not placed");
+        if (LeftEdges > 0) left.Add($"{LeftEdges} link{(LeftEdges == 1 ? "" : "s")} past the bounds");
+        return left.Count > 0 ? line + " · left out: " + string.Join(", ", left) : line;
+    }
+
+    /// <summary>What one of this desk's links says of itself: its record's flags in its words, else its record's or its row's words.</summary>
+    private static string LinkSays(EyeEdge link)
+    {
+        if (link.Record is { } r) return r.Flags.Count > 0 ? string.Join(", ", r.Flags) : r.SteadyWords;
+        if (link.Accepted is { } a) return a.Flags.Count > 0 ? string.Join(", ", a.Flags) : a.Ended ? "ended" : "linked by LINK";
+        var words = link.Words;
+        return words.Length > 2 && words[1] == ' ' && "✓△✕○".Contains(words[0], StringComparison.Ordinal) ? words[2..] : words;
+    }
+
     /// <summary>The things each drawn app's context names (by card id, its items' distinct ids) — what the layout counts as left out.</summary>
     internal Dictionary<string, int> Named { get; } = new(StringComparer.Ordinal);
 
@@ -645,7 +725,7 @@ public sealed class EyeGraph
     /// </summary>
     public EyeGraph Relit(Func<EyeNode, EyeNode> relight, Func<EyeEdge, EyeEdge>? relink = null)
     {
-        var graph = new EyeGraph(Nodes.Select(relight).ToList(), (relink is null ? Edges : Edges.Select(relink)).ToList()) { MoreApps = MoreApps, Unplaced = Unplaced };
+        var graph = new EyeGraph(Nodes.Select(relight).ToList(), (relink is null ? Edges : Edges.Select(relink)).ToList()) { MoreApps = MoreApps, Unplaced = Unplaced, LeftEdges = LeftEdges, CutCrossApp = CutCrossApp };
         foreach (var (id, number) in ScreenNumbers) graph.ScreenNumbers[id] = number;
         foreach (var (id, named) in Named) graph.Named[id] = named;
         return graph;
@@ -803,11 +883,13 @@ public sealed class EyeGraph
     /// <summary>
     /// The graph in words, one line per thing and per link — what the assistant reads. Each thing says where it is drawn and the
     /// lens it is on (<see cref="EyeLayout.Where"/>); a thing the headline does not count says so — it is another app's to say —
-    /// and an app's card the headline counts by this desk's link alone says the light it is counted with.
+    /// and an app's card the headline counts by this desk's link alone says the light it is counted with. The show network's line
+    /// (<see cref="NetworkLine"/>, as STATE, the deck and the Super Check say it) follows the headline while there is one.
     /// </summary>
     public IReadOnlyList<string> Lines()
     {
-        var lines = new List<string>(Nodes.Count + Edges.Count + 1) { Headline };
+        var lines = new List<string>(Nodes.Count + Edges.Count + 2) { Headline };
+        if (NetworkLine.Length > 0) lines.Add("The show network: " + NetworkLine);
         foreach (var n in Nodes)
         {
             var mark = n.Counted ? "" : _counted.TryGetValue(n.Id, out var link) ? $" (counted by this desk's link: {Light(link)})" : " (another app's, not counted)";
@@ -867,7 +949,8 @@ public sealed class EyeGraph
             if (!ids.Add(node.Id)) return;                                   // one thing once, whatever the facts repeated
             nodes.Add(node);
         }
-        void Link(string from, string to, EyeEdgeKind kind, CheckLight light, string words = "", bool counted = false, EyeOrigin origin = EyeOrigin.Own) => edges.Add(new EyeEdge(from, to, kind, light, words) { Counted = counted, Origin = origin });
+        void Link(string from, string to, EyeEdgeKind kind, CheckLight light, string words = "", bool counted = false, EyeOrigin origin = EyeOrigin.Own, LinkRecord? record = null, string recordOf = "", AppLinkRow? accepted = null)
+            => edges.Add(new EyeEdge(from, to, kind, light, words) { Counted = counted, Origin = origin, Record = record, RecordOf = record is null ? "" : recordOf, Accepted = accepted });
 
         // The desk: the hub of every band.
         var deskWords = new List<string>();
@@ -1209,7 +1292,7 @@ public sealed class EyeGraph
                 Origin = ShowBusView.HoldsLink(app) ? EyeOrigin.Link : ctx is not null ? EyeOrigin.Told : EyeOrigin.Heard,
             });
             // Show Bus 1.3 §13.16.4: the link's edge is its record — its light, its mark beside its words — and nothing this Eye derives.
-            if (app.Linked && app.Link is { } link) Link(id, DeskId, EyeEdgeKind.Follows, link.LightValue, $"{link.Mark} {link.SteadyWords}", counted: true, origin: EyeOrigin.Link);
+            if (app.Linked && app.Link is { } link) Link(id, DeskId, EyeEdgeKind.Follows, link.LightValue, $"{link.Mark} {link.SteadyWords}", counted: true, origin: EyeOrigin.Link, record: link, recordOf: app.Id);
             else if (app.Linked && stuck) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · its show is stuck", counted: true, origin: EyeOrigin.Link);
             else if (app.Linked && keyAmber) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, app.Key.Fault ? "linked · this desk's key " + (app.Key.Refused ? "refused" : "not accepted") : "linked · an older Stagewatch", counted: true, origin: EyeOrigin.Link);
             else if (app.Linked && conflict) Link(id, DeskId, EyeEdgeKind.Follows, CheckLight.Amber, "linked · " + ShowBusView.ConflictEdgeWords, counted: true, origin: EyeOrigin.Link);
@@ -1225,7 +1308,7 @@ public sealed class EyeGraph
             // device link's own record (13.16.4), from the device's node (from the desk when the Eye draws no node for the device).
             if (app.DeviceId.Length > 0 && app.Link is { } driven)
                 Link(ids.Contains("device:" + app.DeviceId) ? "device:" + app.DeviceId : DeskId, id, EyeEdgeKind.Controls, driven.LightValue,
-                    $"{driven.Mark} drives it — {driven.SteadyWords}", counted: true, origin: EyeOrigin.Link);
+                    $"{driven.Mark} drives it — {driven.SteadyWords}", counted: true, origin: EyeOrigin.Link, record: driven, recordOf: app.Id);
             if (ctx is null || app.State == ShowBusState.Gone) continue;
             named[id] = ctx.Items.Select(i => i.Id).Distinct(StringComparer.Ordinal).Count();
             // A link this desk holds that is down, held or refused: nothing its context says is current, so none of its things is drawn.
@@ -1311,7 +1394,7 @@ public sealed class EyeGraph
             var words = r.Ended
                 ? $"{r.Mark} its link to this desk ended" + (r.EndWords.Length > 0 ? " — " + r.EndWords : "")
                 : $"{r.Mark} linked to this desk by LINK · {r.ProofWords} · scope {r.Scope}" + (r.Flags.Count > 0 ? " · " + string.Join(", ", r.Flags) : "") + (r.Recording ? " · recording the desk's actions" : "");
-            Link(card, DeskId, drove, r.Light, words, counted: !r.Ended, origin: EyeOrigin.Link);
+            Link(card, DeskId, drove, r.Light, words, counted: !r.Ended, origin: EyeOrigin.Link, accepted: r);
         }
 
         // Show Bus 1.3 §6's cross-node ends and the Eye design's D3, D4 and D6, once every card and thing is drawn: each context's rows
@@ -1321,6 +1404,8 @@ public sealed class EyeGraph
         // re-anchored to the far node. A row to another node is the publishing app's claim: told, worded "<app> says", never a fact
         // about the other. Within one app, a row joins two drawn things, as before.
         var unplaced = 0;
+        var leftEdges = 0;
+        var cutCrossApp = 0;
         var crossApp = 0;
         var relayed = 0;
         var mentions = 0;
@@ -1414,6 +1499,8 @@ public sealed class EyeGraph
                 if (crossApp >= EyeNetwork.MaxCrossApp)
                 {
                     unplaced++;
+                    leftEdges++;
+                    cutCrossApp++;
                     continue;
                 }
                 crossApp++;
@@ -1462,6 +1549,8 @@ public sealed class EyeGraph
                 if (crossApp >= EyeNetwork.MaxCrossApp)
                 {
                     unplaced++;
+                    leftEdges++;
+                    cutCrossApp++;
                     continue;
                 }
                 crossApp++;
@@ -1504,7 +1593,12 @@ public sealed class EyeGraph
                     });
                     cardOfId[p.Id] = target;
                 }
-                if (pairs.Contains((target, card)) || relayed >= EyeNetwork.MaxRelayed) continue;
+                if (pairs.Contains((target, card))) continue;
+                if (relayed >= EyeNetwork.MaxRelayed)
+                {
+                    leftEdges++;                                                                            // past the bound: left out and counted
+                    continue;
+                }
                 relayed++;
                 var proved = p.Link.Length > 0 && p.Verified is "key" or "operator";
                 Claim(target, card, proved ? EyeEdgeKind.Follows : EyeEdgeKind.Hears, proved ? ShowContext.LightOf(p.Light) : CheckLight.Grey,
@@ -1548,7 +1642,7 @@ public sealed class EyeGraph
             Link(DeskId, "stream", EyeEdgeKind.Sends, stream.Light, stream.Status);
         }
 
-        var graph = new EyeGraph(nodes, edges) { MoreApps = Math.Max(0, more), Unplaced = unplaced };
+        var graph = new EyeGraph(nodes, edges) { MoreApps = Math.Max(0, more), Unplaced = unplaced, LeftEdges = leftEdges, CutCrossApp = cutCrossApp };
         foreach (var (id, number) in numbers) graph.ScreenNumbers[id] = number;
         foreach (var (id, count) in named) graph.Named[id] = count;
         return graph;

@@ -1056,3 +1056,29 @@ test('round 96 — a Stagewatch window granted to the desk: staged on a PVW or l
 	assert.ok(preset, 'the stage-then-take preset')
 	assert.deepEqual(preset.steps.map((st) => st.down[0].actionId), ['screen_window', 'screen_take'])
 })
+
+test("round 99 — the God's Eye's show network on the deck: the line and the worst link as variables, the worst link light as a feedback, a NETWORK key and lens; an older desk reads empty", async () => {
+	const b = await boot()
+	const v = variableValues(sampleState())
+	assert.equal(v.eye_network, '2 apps · 2 links · 1 amber: Stagewatch Hall A — legacy') // STATE's eye.network, the Eye's own line
+	assert.equal(v.eye_links_worst, 'amber')
+	assert.equal(askFeedback(b, 'eye_links', { light: 'amber' }), true)
+	assert.equal(askFeedback(b, 'eye_links', { light: 'red' }), false)
+	assert.equal(askFeedback(b, 'eye_links', { light: 'green' }), false)
+	// A desk before the fields, and one with no link, read empty and light nothing.
+	const older = { ...sampleState(), eye: { headline: 'all green', worstLight: 'green', problems: 0 } }
+	assert.equal(variableValues(older).eye_network, '')
+	assert.equal(variableValues(older).eye_links_worst, '')
+	const quiet = await boot({ state: older })
+	for (const light of ['red', 'amber', 'green', 'grey']) assert.equal(askFeedback(quiet, 'eye_links', { light }), false)
+	assert.equal(variableValues(emptyState()).eye_network, '')
+	// The Eye page: LENS NETWORK and the NETWORK key, which presses the lens and is lit by the worst link.
+	assert.ok(b.ctx.presets.eye_lens_network, 'the NETWORK lens has its key')
+	assert.deepEqual(pressAction(b, 'eye_lens', { lens: 'network' }), ['EYE LENS network'])
+	const key = b.ctx.presets.eye_network
+	assert.ok(key, 'the Eye page has its NETWORK key')
+	assert.equal(key.style.text, '$(patterns:eye_network)')
+	assert.deepEqual(key.feedbacks.map((f) => [f.feedbackId, f.options.light]), [['eye_links', 'red'], ['eye_links', 'amber'], ['eye_links', 'green']])
+	assert.deepEqual(key.steps[0].down.map((a) => [a.actionId, a.options.lens]), [['eye_lens', 'network']])
+	assert.ok('eye_network' in variableDefinitions() && 'eye_links_worst' in variableDefinitions(), 'both variables are defined')
+})

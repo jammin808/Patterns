@@ -247,6 +247,8 @@ export function variableValues(s) {
 		eye_worst: s.eye?.worstWords ?? '',
 		eye_problems: String(s.eye?.problems ?? 0),
 		eye_focus: s.eye?.focus ?? '',
+		eye_network: s.eye?.network ?? '',
+		eye_links_worst: s.eye?.linksWorst ?? '',
 		take_next: s.take?.next?.set ? (s.take.next.words ?? '') : '',
 		take_scope: s.take?.scopeLabel ?? '',
 		take_words: s.take?.refusal ? s.take.refusal : (s.take?.words ?? ''),

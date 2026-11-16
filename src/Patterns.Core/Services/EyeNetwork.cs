@@ -22,6 +22,36 @@ public enum EyeOrigin
 public readonly record struct EyeEnd(string Node, string Item);
 
 /// <summary>
+/// This desk's links to other apps counted by the light each is drawn in (each its own record's or its row's) — what EYE JSON's
+/// <c>linkLights</c>, STATE's <c>eye.linksRed</c> and <c>eye.linksAmber</c> and the deck's <c>eye_links</c> read; the four sum to <see cref="Count"/>.
+/// Grey is a link not up yet or no longer up: a record finding or connecting (13.16.1), one that has ended, a row whose link ended —
+/// never a fault, and never a link that is up.
+/// </summary>
+public readonly record struct EyeLinkLights(int Green, int Amber, int Red, int Grey)
+{
+    public int Count => Green + Amber + Red + Grey;
+
+    /// <summary>The worst light among them as its word — red over amber over green over grey, as the rail ranks lights — "" with no link.</summary>
+    public string Worst => Red > 0 ? "red" : Amber > 0 ? "amber" : Green > 0 ? "green" : Grey > 0 ? "grey" : "";
+
+    public static EyeLinkLights Of(IEnumerable<CheckLight> lights)
+    {
+        int green = 0, amber = 0, red = 0, grey = 0;
+        foreach (var l in lights)
+        {
+            switch (l)
+            {
+                case CheckLight.Green: green++; break;
+                case CheckLight.Amber: amber++; break;
+                case CheckLight.Red: red++; break;
+                default: grey++; break;
+            }
+        }
+        return new EyeLinkLights(green, amber, red, grey);
+    }
+}
+
+/// <summary>
 /// The network part of the Eye (Show Bus 1.3 §6, §13.16; the Eye design's D2, D3, D5, D6 and D8), pure: one card per app id,
 /// folded only on evidence of identity; a link drawn as an edge between two cards and never as a thing; a context's rows with a
 /// cross-node end placed on what they name, or counted when nothing on the Eye is that node; the counting things of an app whose
@@ -29,6 +59,19 @@ public readonly record struct EyeEnd(string Node, string Item);
 /// </summary>
 public static class EyeNetwork
 {
+    /// <summary>A twin node's card (Patterns' twin, 13.18): its link to this desk is failover's own carrier, never a PeerLink.</summary>
+    public static bool TwinCard(string id) => id.StartsWith("node:", StringComparison.Ordinal);
+
+    /// <summary>A source as the wire says it (EYE JSON's <c>source</c>): <c>own</c>, <c>link</c>, <c>told</c>, <c>relayed</c> or <c>heard</c>.</summary>
+    public static string SourceWord(EyeOrigin origin) => origin switch
+    {
+        EyeOrigin.Link => "link",
+        EyeOrigin.Told => "told",
+        EyeOrigin.Relayed => "relayed",
+        EyeOrigin.Heard => "heard",
+        _ => "own",
+    };
+
     /// <summary>Links one app's context says of a third node (its peers rows), drawn at most this many in all.</summary>
     public const int MaxRelayed = 256;
 
