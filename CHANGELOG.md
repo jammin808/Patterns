@@ -10,6 +10,22 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 100 — 2026-11-16 — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested
+
+`round-100` · PLAN §118 · REVIEW round 100 · 3,735 tests · module 3.24.0 · evidence: a handed-in critique (the Eye design, `eye.md`, EYE.4, with its critique's issue 13) and CI's file for runs 319 to 327; no field files and no rig report; no measurement beyond the flood test's counts
+
+- **The round opens (100.0).** PLAN §118.1 names the round's number (the plan's round 99) and its unit table, 100.0 to 100.2, each
+  dependency under this tree's numbers (99.6's papers, 98.3's scoped keys) and beside 100.1 what already stands and what is to build
+  (today `CONTEXT POST {…}` parses as an unknown line, is let through before pairing by `IsQuery` and `OpenKinds`, and is answered
+  `ERR unknown command` with the line echoed back; nothing is kept; the feed has no place for a posted context); reads CI (run 319 on
+  round 98's papers green, runs 320 to 326 green, run 327 on round 99's papers still running); finds nothing new in `docs/field/`;
+  carries the one sighting of `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore`, unexplained, and says what a
+  second sighting is read for; names the OPEN rows it touches (**L127**, **L107**'s posting clause, **L61**, **L115** read, **L125** to
+  **L130** as round 99 left them) and the row 100.2 expects to add; names the requester and the evidence class; and names the flood
+  test's bound: `WireLimits.MaxAppLinks` verified links each past `WireLimits.RepliesWaiting` unread, posts at `WireLimits.CommandBytes`,
+  and a Core leg at 129 ids, holding the table at 128, each context at 64 KiB, 30 s kept, one journal row on a first keep and one refusal
+  summary a minute. No platform path; no code changes in the opening.
+
 ## Round 99 — 2026-11-15 — the Eye sees the room: one card per app folded by proof of identity, each link an edge that says its source, the lights computed once, and the feed, the desk and the wire in step
 
 `round-99` · PLAN §117 · REVIEW round 99 · 3,735 tests · module 3.24.0 · evidence: a handed-in critique (the Eye design, `eye.md`, with its critique's issues 1 to 4, 8a, 9, 10, 12 and 18 to 20), a sibling's test lane for the inserted 99.7 (Stagewatch's interop lane, row S6.1 at pin `2515017`, read against the code by two readers) and CI's file for runs 318 to 326 (all green); no field files and no rig report; one measurement (99.3's still desk, the Eye rebuilt 3 times in 27 ticks before and none after) and 99.5's probe of a link's two publications · Walk: none asked

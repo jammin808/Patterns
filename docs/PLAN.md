@@ -17140,3 +17140,149 @@ with a Stagewatch linked and a PlayMap driven as a device, where each link the l
 99.7, the journal's `StagewatchLink` row with `retarget` (or `back`, `kept`), read beside the Nodes page's Stagewatch card after a
 Stagewatch at a typed address restarts. Not read on a rig: no such room is on the bench, so the reading is `unwalked` in the rig's
 sense; no walk row is asked.
+
+## 118. Round 100 — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested
+
+### 118.1 What opened the round, and what the files said
+
+**The round's number.** This is the plan's round 99 — its units P99.0 to P99.2, the seventh train's second Patterns round,
+"`CONTEXT POST` — another app gives its context over a verified PeerLink" — under the number §110.1's key gives it: round 100
+here, §118, not the plan's §117. The plan is the cross-app plan of record (`docs/ecosystem/master-plan.md` in Stagewatch's tree);
+the Eye's design and its critique are `docs/ecosystem/eye.md` and `plan-critique.md` beside it (EYE.4 and the critique's issue 13
+are this round's). The units keep their order and none is inserted; each dependency that names another Patterns unit of the plan
+reads one higher (the plan's P97.3, the scoped keys, is 98.3):
+
+| The plan's unit | Here | What it is | Depends on (here) | What already stands, and where it came from | What is to build |
+|---|---|---|---|---|---|
+| P99.0 | 100.0 | this opening: PLAN §118.1 and the changelog's round 100 entry | 99.6's papers (`52e176b`) | — | — |
+| P99.1 | 100.1 | `CONTEXT POST <json>` gated before the router: only on a connection `LINK` verified with a key bound to one node, of scope `post` or above, for the node that key speaks for; parsed on the reader task; latest wins; at most 128 contexts, each at most 64 KiB, kept 30 s; a journal row on the first keep, one refusal summary a minute, the Super Check's words; the flood test | 100.0; 98.3 (`ptk_` keys scoped `follow`/`post`/`drive`/`operate`, bound to one `t:id`) | see below | see below |
+| P99.2 | 100.2 | the papers: PLAN §118 completed, REVIEW round 100 (Walk: none asked), CHANGELOG, README, `docs/REMOTE.md` (the verb), `docs/COMPANION.md`, OPEN, round 99's tag row (`52e176b`) | 100.1 | — | — |
+
+**What already stands for 100.1, read at this head, and where it came from.**
+- **The word is not a verb.** `ControlProtocol.Parse` reads `CONTEXT` with an argument other than `STATUS` as `Unknown`
+  (`ControlProtocol.cs:305`), so `CONTEXT POST {…}` is today an unknown line. `IsQuery`
+  (`ControlProtocol.cs:1517`; the plan's text cites line 1454 at an older head) is true for every kind but `Action`, `Record` and
+  `NavDeck`, and `OpenKinds` (ADR-016, round 91) names `Unknown`, so the line is let through before pairing and answered by
+  `CommandRouter` as `ERR unknown command '<the whole line>'` (`CommandRouter.cs:124`): nothing is kept, and the answer echoes the
+  line back, up to `WireLimits.CommandBytes` (64 KiB). The new verb is a kind of its own, outside both lists, so neither door lets it
+  through by default and its answer never echoes a context.
+- **The scope gate has no place for it yet.** `AppKeyScopes` (`AppKeys.cs:374`, 98.3) says at `post` a link "adds its own context,
+  proposals and their results, of which this wire has none yet, so it runs what `follow` runs", and `Needed` returns `follow`,
+  `drive` or `operate` ("no verb of this wire is `post`'s alone"); `FollowKinds` holds `Unknown`. `ControlService.BelowScope`
+  (`ControlService.Link.cs:250`) refuses a line a link's scope does not reach, with `LinkAcceptor.ScopeWords`; `BelowScope` applies to a link verified by
+  key or link, and a pairing code speaks for no one node (13.5.2), so a connection a code proved has no key to speak for. A key's binding is `LinkCredential.Bound`
+  (`t:id`), held to the link's `Client` by `KeyOf`; `AppKeys.MaxKeys` is 64.
+- **The doors and the bounds.** The wire reads a line whole within `WireLimits.CommandBytes` (`link.command.bytes`, 64 KiB; one more is
+  `ERR … — closed` and the connection closed), a connection may have `WireLimits.RepliesWaiting` (256) replies waiting before it is cut as
+  not reading its answers (`WirePeer.MaxQueuedReplies`), the app links are held under `MaxAppLinks` (16) in all and `MaxAppLinksPerAddress`
+  (4), and an address keeps at most `UnfinishedPerAddress` LINKs without a verdict (98.2). §14's numbers for a post are
+  `context.bytes` 65,536, `context.kept.ms` 30,000 and `peers.max` 128 (`docs/SHOWBUS.md` §14, the contract copied byte for
+  byte).
+- **Where a posted context would enter.** `ShowBusFeed` (99.3) carries the hello table, the Stagewatch link's sight, node devices (97.2),
+  the acceptor's list (`Accepted`, 98.4) and the twin's nodes (`Twin`, each a `KeptContext` with the time it came). `KeptContext.Next`
+  (88) keeps a revision that moves only when the context's steady text moves, reckoned once per arrival; `ShowBusView.Compose`
+  (`StagewatchFollow.cs:720`) folds the accepted links onto the app whose `t:id` `LINK` proved (99.3) and `Eye.cs` draws a context
+  from a source other than a link as a told cluster (`EyeOrigin.Told`, 99.1). Nothing in the feed holds a posted context: the
+  composition's one new input is a bounded table of `KeptContext` by proved `t:id`, composed beside `Accepted`, so a posted context
+  folds onto the card its link proved and draws as a told cluster (`L127`'s last clause).
+- **Not in the tree:** no verb, no table, no journal row, no refusal summary, no Super Check row and no `CommandRouter` case for a
+  posted context; no desk reader of one; no poster. Stagewatch posts none to this desk (no unit of the plan gives its connector
+  `CONTEXT POST`; its 2.24 publishes by §6's P1 to P8 and reads the desk's), PlayMap accepts none and posts none here (G37: no PlayMap
+  reader needs it), and AGMessage's unit that posts (AG-10) is a sibling's, after these papers. Round 100's poster is therefore the
+  scripted peer (`tools/showbus/peerlink-peer.mjs`, held byte for byte by `ShowBusSpecTests`) and the tests' own clients.
+
+**What the files said.** Nothing new came in: `docs/field/` holds only its README, as at the last seven openings (no rig report, no
+show laptop files; `ls docs/field` read at this head). The files this opening reads are CI's, which Round 99's papers left to it:
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 319 (43728931758), `2515017` (98.7, round 98's papers) | Green (`success`), read from GitHub at this opening | Round 98's papers, left unread at §117.1's opening, are confirmed by a run of their own | Nothing; closed here |
+| 320 to 326, the runs on Round 99's units, through 326 (`dc3166c`, 99.5) | Green, every job (runs 320 to 326 on the round's units, as Round 99's papers read them; read again in the run list at this head: 326 `success`) | Round 99's code, unit by unit, is confirmed on both runners | Nothing |
+| 327 (43788341309), `52e176b` (99.6, round 99's papers) | In progress when this was written (started 01:47 UTC on 2026-11-16): `rollback-script`, `companion-module`, `lifecycle` and `windows-smoke` had ended green, `test` was still running | The papers commit changed one line of Help's words and no other source; the run is the whole suite again on the papers' tree | Read at the next opening (100.2's papers, if it has ended by then); until then round 99's papers are held as pushed and not yet confirmed by a run of their own |
+
+**The sighting carried: `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore`.** 99.5's validate saw it fail once in App
+part 3 (REVIEW round 99 and §117 hold it): green alone four times of four, green on the part's rerun, in no CI run of the round
+(runs 320 to 326 are green, 327 not ended). **It stands unexplained**: the failure's message was not kept, so which of the test's legs failed
+(the trusted loopback's STATE first, the open desk after `ControlService.TrustLoopback = false` and the token cleared, the reader told
+`TokenChanged`, or the connection that heard only NONCE and is greeted when the token clears) is not known, and no cause is claimed. It
+reads the static `ControlService.TrustLoopback` and the ports `TestPorts.Two` hands it, both of which round 98's red runs already taught
+this tree to distrust, and it waits on the desk's own greeting after a settings change, which is a timing path. **A second sighting
+is read for** the failing assertion's line and its message in full (the leg, what was read, the reply or the end of the stream); the
+part and the classes that ran before it; whether another test left `TrustLoopback` changed or held the port; the time from the token's change
+to the greeting; and whether the same leg fails on a CI runner. One sighting is not enough to change the test or the desk, so this round
+changes neither; a second one makes the test's wait carry what would tell its causes apart (§98.8's rule) and, if the reading names a
+cause, an OPEN row. It is not an OPEN row today: a row names what is wrong, and nothing is known to be.
+
+**OPEN rows to touch** (`docs/OPEN.md` was read whole; L125 to L130 are round 99's rows).
+- **L127** — an app that posts nothing is drawn by its hello alone. `CONTEXT POST` is the half this desk owns: 100.1 gives a verified
+  poster's context a place in the feed and the Eye draws it as a told cluster on the card its link proved. The row stays open under
+  its number until AGMessage's own unit posts (AG-10), and 100.2 amends it to say which half landed and which waits.
+- **L107's `CONTEXT POST` clause** — L107's text still lists `CONTEXT POST` among the things "not added", and says round 99 moved the
+  posting clause to L127; 100.2 takes the word out of L107 and says so, so the one row that holds it is L127.
+- **L61** — the takeover row says the posted contexts "wait on `CONTEXT POST`". After 100.1 a desk holds them, kept 30 s and
+  held in no file: a standby that takes over has none of the main's posted contexts, which is true of any context, since a poster
+  posts again within its own `context.post.max.ms`. 100.2 amends the row to say that: a lost posted context is a card that goes
+  quiet for a poster's beat, not a fact lost, while the accepted links and the node key's binding stay as the row says.
+- **L115** — the line carrier has no word for an acceptor operator's disconnect. Read, not touched: the round adds no close verb, and a
+  poster's link ended by the operator's CLOSE keeps its kept context for the 30 s `context.kept.ms` and no longer, the same as a link
+  that dropped.
+- **L125 to L130** as Round 99 left them — L125 (the replay's link edges), L126 (NDI across apps), L128 (a record live before its key's
+  word), L129 (Accept new id binds the running link only) and L130 (the beacon-only node's band) are read and not touched by this round;
+  L127 is above.
+- **Rows the round expects to add (100.2, never this opening):** the poster's side (no connector in the ecosystem posts to this desk
+  until AG-10, so the verb's only speakers are the scripted peer and the tests: a row that names AG-10 as its closer); and
+  whatever 100.1 meets and leaves. The 128 ceiling is not a row (see the bound below).
+
+**The requester and the evidence class.** The maintainer, through the show-network ask the plan answers in trains, and the owner's word of
+2026-10-25 ("all recommended", `docs/ecosystem/owner-answers.md`). The evidence is **a handed-in critique**: the Eye design (`eye.md`, EYE.4)
+and its critique's issue 13, beside the code at this head (the plan's check that `CONTEXT POST` is gated before the router, and that a
+posted context's `node.t` and `node.id` are the key's). No maintainer's list, rig report or show laptop's files stand behind it. The
+owner's answers this round waits on: none.
+
+**The flood test's bound, named here.** The test floods at the wire's own caps, `WireLimits`, and measures what stays bounded.
+- **Flooded at.** `WireLimits.MaxAppLinks` (16) verified links at once (each from an address under `MaxAppLinksPerAddress`'s 4, so four
+  addresses, or four loopback aliases, are used and the test says which), each sending posts without reading its replies until
+  `WireLimits.RepliesWaiting` + 1 (257) are queued, so the connection is cut as the wire cuts a reader that takes none (`WirePeer`'s 256),
+  and each post a context of exactly `WireLimits.CommandBytes` less the verb's own bytes (the largest line the wire reads) beside
+  oversize lines of `CommandBytes` + 1 and bodies that are not a context. A second leg floods the table itself, in Core and
+  without a socket, with `ShowBusPeers.MaxPeers` + 1 (129) distinct ids on an injected clock.
+- **What must stay bounded.** The kept table at 128 contexts (`peers.max`); each context at 64 KiB (`context.bytes`, the line's
+  `link.command.bytes` the same number, so a line that fits is a context that fits and a longer one is `413` with its size
+  and never kept); a context kept 30 s (`context.kept.ms`) on the injected clock and then dropped by the next read, never by a timer;
+  one journal row on the first keep of an id (never on a latest-wins replacement; 100.1 states whether an id dropped after 30 s and posting
+  again is a first keep, and the test holds that rule by count); one refusal summary
+  a minute, summing the refusals of every poster by reason and carrying no context text, no key and no kid; the replies waiting per connection
+  at 256; and the work on the desk's thread, which is none: a post is parsed on the reader task and the table is written by one reference
+  swap, so the show thread's tick and a STATE are read in the flood and answered.
+- **What the test measures** (fields first, words never alone): the table's count after the flood (at most 128; with only 64 keys
+  possible, `AppKeys.MaxKeys`, and one id per key, a LINK flood can reach 16 at once and 64 over reconnects, so the 128 ceiling is held
+  by the Core leg and by a count over the socket legs, and the PLAN says it is a ceiling no key set reaches today and not a governor
+  with a cause: removing the cost was not possible, the spec fixes the number); the bytes held (at most 128 times 64 KiB, asserted
+  from the table's own sum, not by a process measure); the journal's rows by kind (one per first keep); the summary lines per injected
+  minute (at most one; the count inside it equal to the refusals sent); every refusal uncounted against the connection's LINK lockout
+  (`ERR this key speaks for …` is an uncounted refusal, so a poster speaking for the wrong id is not locked out of its own key); the
+  connections cut at the 257th unread reply and no other; and the Eye's gather by revision, which must not rebuild on a context posted
+  again unchanged (`KeptContext.Next`'s digest, 99.1's hash), so the flood costs the picture nothing it did not cost before.
+- **No measurement this round** beyond that test: it is a deterministic bound on counts and bytes, not a time or a rate; no ladder or
+  governor is added (the doctrine's *measured, then governed*), and the test is the fence for the bounds the spec already fixes.
+
+**The round's platform paths.** None. A line carrier's new verb, a table and a reader: no display topology, hot-plug, audio endpoint,
+WebView2, process or watchdog, twin or registry path moves, and no `CUT` or `TAKE` verb is added (the plan's rule that bare `TAKE` and `CUT`
+are not wire verbs stands). Nothing the verb says changes the air.
+
+**What the round does not do, said at its opening.** It does not give PlayMap a `CONTEXT POST` (G37); it does not give Stagewatch's
+connector one (no unit of the plan does yet); it does not post AGMessage's context (AG-10 is the sibling's, after this round's papers);
+it does not take a context from a level-0 connection (a pairing code speaks for no one node); it does not let an assistant propose the
+verb or any node list it among its `commands` (a post is a node's own act, §6); it does not carry a posted context over the twin or into
+a file (L61 says so); it does not add a Companion variable for a posted context unless 100.1's readers reach the deck (the module is
+named only if it moves); and it adds no verb that takes or cuts.
+
+**The closing sentence's rig row.** The round has a verb an output can show, `CONTEXT POST`, and its row is the one 99.6 named for the
+Eye (`patterns.supercheck.txt`, *Show network* → *Eye network*) with the journal's row for the first keep, read beside the Eye's NETWORK
+band: a poster's kept context is one told cluster on the card its link proved, and the journal's `ContextPost` row (100.1 names the kind)
+carries the id and the digest's first eight hex and no text. No such room is on the bench (no poster is built), so the reading is the scripted
+peer's, on the bench and not on a rig, and the round is `unwalked` in the rig's sense; no walk row is asked.
+
+**The units as they will land.** 100.1 commits on this opening, validated for what it touches: the build, Core, Rendering (where
+`ControlProtocolTests` live) and App by parts, and the module's four steps only if STATE, EYE or `lines.txt` moves. 100.2's papers
+depend only on 100.1. Sections 118.2 onward are written by 100.2.
