@@ -194,6 +194,12 @@ public static class TestApp
         Views.Controls.LazyPage.PauseOverride ??= static () => false;
         QualityService.MachineGB = 32;                                          // the ladder starts at full: a small container is not a small desk
         Patterns.Rendering.Media.RenderFence.ResetForTests();                        // the sinks of the last test's windows are gone with them
+        // On the rig one process is one desk, so the health counters are that desk's session: each desk under test starts its own before
+        // it is built, as the fault tests already reset around theirs, and reads no count the suite's history left. The reset clears all
+        // of them — the contained errors and the last one's words, the watchdog's restart count and its note, and the uptime's start — so
+        // a test that needs a restart count or a note sets it after Boot. It is no mend for a still desk on its own: a leftover thread's
+        // late error still counts here.
+        Patterns.Core.Services.HealthMonitor.Reset();
 
         var owns = dir is null;
         dir ??= TempRun.Folder(prefix, callerFile, callerMember).Path;

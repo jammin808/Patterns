@@ -779,6 +779,8 @@ public sealed partial class MainViewModel
         AdminGpuSpark = Spark(metrics.History.Tail(180, x => Math.Max(0, x.GpuBusyPct)), 100);
         AdminVramSpark = Spark(metrics.History.Tail(180, x => Math.Max(0, x.VramUsedMB)), s.VramTotalMB > 0 ? s.VramTotalMB : null);
 
+        // The list is rebuilt when a suggestion comes, goes or changes its light; a reading that moves within one light (the
+        // count, the percentage, the free space) replaces its own row in place, so the person reads it live and the list never churns.
         var key = string.Join("|", metrics.Suggestions.Select(x => x.Id + (int)x.Severity));
         if (key != _suggestionsKey)
         {
@@ -786,7 +788,17 @@ public sealed partial class MainViewModel
             AdminSuggestions.Clear();
             foreach (var advice in metrics.Suggestions)
             {
-                AdminSuggestions.Add(new SuggestionRow(advice.Title, advice.Detail, SeverityBrush(advice)));
+                AdminSuggestions.Add(new SuggestionRow(advice.Said, advice.Detail, SeverityBrush(advice)));
+            }
+        }
+        else
+        {
+            for (var i = 0; i < metrics.Suggestions.Count && i < AdminSuggestions.Count; i++)
+            {
+                var advice = metrics.Suggestions[i];
+                var shown = AdminSuggestions[i];
+                if (shown.Title != advice.Said || shown.Detail != advice.Detail)
+                    AdminSuggestions[i] = shown with { Title = advice.Said, Detail = advice.Detail };
             }
         }
 

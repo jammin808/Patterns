@@ -800,10 +800,10 @@ public class ShowBusAppTests
             Link(vm, services, stagewatch);
             PumpUntil(() => services.Kernel.Stagewatch.Sight.Context is not null);
             PumpUntil(() => stagewatch.Pings > 0);
-            services.Eye.Refresh();
-            var builds = services.Eye.Cost.Total;
+            // The count begins once the desk has taken its own first readings (its status tick, its sampler's sample of the process's
+            // contained errors), never on a desk younger than its own 1 s clocks.
+            var still = StillDesk.Baseline(services);
             var rev = services.AppsRev;
-            var before = services.Eye.Graph;
             Assert.True(rev > 0);
             Assert.Contains(services.Apps(DateTime.UtcNow), a => ShowBusView.LinkedApp(a) && a.KindWords == "Stagewatch");
             var ticks = 0;
@@ -815,11 +815,9 @@ public class ShowBusAppTests
                 services.Eye.Refresh();
                 ticks++;
             }
-            // What moved, if anything did: the first thing whose words, line or light the rebuild changed — so a failure names its cause.
-            var moved = services.Eye.Graph.Nodes.FirstOrDefault(n => before.Find(n.Id) is not { } was || was.Sub != n.Sub || was.Light != n.Light || !was.Words.SequenceEqual(n.Words));
-            var words = moved is null ? "nothing drawn moved" : $"{moved.Id}: {moved.Sub} · {string.Join(" | ", moved.Words.Except(before.Find(moved.Id)?.Words ?? Array.Empty<string>()))}";
-            Assert.True(builds == services.Eye.Cost.Total, $"{services.Eye.Cost.Total - builds} rebuilds in {ticks} ticks of a still link — {words}");
-            Assert.True(rev == services.AppsRev, $"the apps' revision moved {services.AppsRev - rev} times in {ticks} ticks — {words}");
+            // A rebuild names the first node that moved, with the contained errors counted at both ends of the window.
+            StillDesk.AssertStill(services, still, ticks, "a still link");
+            Assert.True(rev == services.AppsRev, $"the apps' revision moved {services.AppsRev - rev} times in {ticks} ticks — {StillDesk.Moved(still.Graph, services.Eye.Graph)}");
             // The gather handed the hash the revision it took with the apps, in the apps' place.
             Assert.Equal(services.AppsRev, services.Eye.AppsRev);
         }

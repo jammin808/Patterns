@@ -1,3 +1,4 @@
+using System.Globalization;
 using Patterns.Core.Model;
 
 namespace Patterns.Core.Services;
@@ -378,8 +379,16 @@ public enum HealthSeverity
     Warning,
 }
 
-/// <summary>One line of operator guidance. Ids are stable so the UI list doesn't churn.</summary>
-public sealed record HealthSuggestion(string Id, HealthSeverity Severity, string Title, string Detail);
+/// <summary>
+/// One line of operator guidance. Ids are stable so the UI list doesn't churn; the title is a steady label that carries no reading
+/// (the Super Check's ADVICE row and the Eye's desk hash it), and the reading it was raised on — a percentage, a count, the free space —
+/// rides beside it in <see cref="Reading"/>, which every reader a person reads shows (<see cref="Said"/>) and nothing hashes.
+/// </summary>
+public sealed record HealthSuggestion(string Id, HealthSeverity Severity, string Title, string Detail, string Reading = "")
+{
+    /// <summary>The title with its reading, as a person reads it: "Patterns' CPU use is high: 72%".</summary>
+    public string Said => Reading.Length > 0 ? $"{Title}: {Reading}" : Title;
+}
 
 /// <summary>Facts the advisor needs that aren't in the metric samples themselves.</summary>
 public sealed class AdvisorContext
@@ -412,9 +421,10 @@ public static class HealthAdvisor
         if (cpuSys > 85)
         {
             list.Add(new HealthSuggestion("cpu-high", HealthSeverity.Warning,
-                $"The computer's CPU is at {cpuSys:0}%",
+                "The computer's CPU is very busy",
                 "Something on this machine is working very hard. Close background apps (browsers, sync clients, " +
-                "updates); if it's Patterns itself, lower particle counts, blur and the number of multiview tiles."));
+                "updates); if it's Patterns itself, lower particle counts, blur and the number of multiview tiles.",
+                string.Create(CultureInfo.InvariantCulture, $"{cpuSys:0}%")));
         }
         else
         {
@@ -422,18 +432,20 @@ public static class HealthAdvisor
             if (cpuApp > 60)
             {
                 list.Add(new HealthSuggestion("cpu-app-high", HealthSeverity.Advice,
-                    $"Patterns is using {cpuApp:0}% CPU",
+                    "Patterns' CPU use is high",
                     "Heavy content — fewer particles, less blur, fewer multiview tiles or a lower stream " +
-                    "resolution will bring it down."));
+                    "resolution will bring it down.",
+                    string.Create(CultureInfo.InvariantCulture, $"{cpuApp:0}%")));
             }
         }
 
         if (now is { RamSystemPct: > 90 })
         {
             list.Add(new HealthSuggestion("ram-high", HealthSeverity.Warning,
-                $"The computer's memory is {now.RamSystemPct:0}% full",
+                "The computer's memory is nearly full",
                 "Windows will start paging and everything stutters. Close other applications — browsers " +
-                "are the usual culprit."));
+                "are the usual culprit.",
+                string.Create(CultureInfo.InvariantCulture, $"{now.RamSystemPct:0}% full")));
         }
 
         // Leak check: compare the first and last 30-second aggregates once ≥10 minutes exist.
@@ -446,9 +458,10 @@ public static class HealthAdvisor
             {
                 var minutes = (lt.Count * MetricsHistory.AggregateEvery) / 60;
                 list.Add(new HealthSuggestion("ram-leak", HealthSeverity.Warning,
-                    $"Patterns' memory grew {late - early:0} MB in {minutes} min",
+                    "Patterns' memory keeps growing",
                     "That looks like a leak. At the next break, use Restart app below — the watchdog puts the " +
-                    "show straight back. Save the show file first, and mention what content was running."));
+                    "show straight back. Save the show file first, and mention what content was running.",
+                    string.Create(CultureInfo.InvariantCulture, $"grew {late - early:0} MB in {minutes} min")));
             }
 
             var earlyHandles = lt.Take(4).Average(s => (double)s.Handles);
@@ -457,17 +470,18 @@ public static class HealthAdvisor
             {
                 list.Add(new HealthSuggestion("handles-growth", HealthSeverity.Warning,
                     "Windows handle count keeps climbing",
-                    $"{earlyHandles:0} → {lateHandles:0} — a resource is not being released. Restart at the " +
-                    "next break and check patterns.log."));
+                    "A resource is not being released. Restart at the next break and check patterns.log.",
+                    string.Create(CultureInfo.InvariantCulture, $"{earlyHandles:0} → {lateHandles:0}")));
             }
         }
 
         if (now is { VramTotalMB: > 0, VramUsedMB: >= 0 } && now.VramUsedMB / now.VramTotalMB > 0.85)
         {
             list.Add(new HealthSuggestion("vram-high", HealthSeverity.Advice,
-                $"Graphics memory is {now.VramUsedMB / now.VramTotalMB * 100:0}% full",
+                "Graphics memory is nearly full",
                 "Close other GPU apps, or reduce output count, multiview tiles and stream resolution. A full " +
-                "GPU drops frames without warning."));
+                "GPU drops frames without warning.",
+                string.Create(CultureInfo.InvariantCulture, $"{now.VramUsedMB / now.VramTotalMB * 100:0}% full")));
         }
 
         if (ctx.OutputsLive && ctx.ContentContinuous)
@@ -486,9 +500,10 @@ public static class HealthAdvisor
             else if (fps > 0 && fps < ctx.TargetFps * 0.8)
             {
                 list.Add(new HealthSuggestion("fps-low", HealthSeverity.Advice,
-                    $"Outputs are averaging {fps:0} fps",
+                    "Outputs are below their frame rate",
                     $"Below the {ctx.TargetFps:0} fps this content wants. In order of effect: fewer particles, " +
-                    "lower blur, fewer multiview tiles, fewer NDI senders, and check the GPU choice under Graphics."));
+                    "lower blur, fewer multiview tiles, fewer NDI senders, and check the GPU choice under Graphics.",
+                    string.Create(CultureInfo.InvariantCulture, $"averaging {fps:0} fps")));
             }
             else if (history.SumRecent(60, s => s.SlowFrames) > 12)
             {
@@ -502,25 +517,27 @@ public static class HealthAdvisor
         if (ctx.StreamError.Length > 0)
         {
             list.Add(new HealthSuggestion("stream-stopped", HealthSeverity.Warning,
-                $"The stream stopped by itself: {ctx.StreamError}",
+                "The stream stopped by itself",
                 "It switched itself off so a dead encoder could not take the app down, and nothing else noticed. " +
-                "Check the destination URL, the key and the bandwidth on the Stream page, then start it again."));
+                "Check the destination URL, the key and the bandwidth on the Stream page, then start it again.",
+                ctx.StreamError));
         }
 
         if (now is { DiskFreeGB: >= 0 and < 2 })
         {
             list.Add(new HealthSuggestion("disk-low", HealthSeverity.Warning,
-                $"Only {now.DiskFreeGB:0.0} GB free on this drive",
-                "Logs, settings and recovery files live here. Free some space before the show."));
+                "Little free space on this drive",
+                "Logs, settings and recovery files live here. Free some space before the show.",
+                string.Create(CultureInfo.InvariantCulture, $"{now.DiskFreeGB:0.0} GB free")));
         }
 
         if (now is { OnBattery: true })
         {
-            var pct = now.BatteryPct >= 0 ? $" ({now.BatteryPct}%)" : "";
             list.Add(new HealthSuggestion("battery", HealthSeverity.Warning,
-                $"Running on battery{pct}",
+                "Running on battery",
                 "Plug the computer in. Laptops throttle the CPU and GPU on battery, and a mid-show sleep or " +
-                "flat battery takes every screen down."));
+                "flat battery takes every screen down.",
+                now.BatteryPct >= 0 ? string.Create(CultureInfo.InvariantCulture, $"{now.BatteryPct}%") : ""));
         }
 
         if (ctx.DiscreteGpuPresent && !ctx.UsingDiscreteGpu)
@@ -538,19 +555,23 @@ public static class HealthAdvisor
                 "For show days, turn it on (Stability below): a crash or freeze then self-recovers in seconds."));
         }
 
+        // The count is every error the log recorded (each Log.Error) and a failing desk poll once a minute per area, not frames alone.
         if (now is { Faults: > 0 })
         {
             list.Add(new HealthSuggestion("faults", now.Faults >= 5 ? HealthSeverity.Advice : HealthSeverity.Info,
-                $"{now.Faults} render fault{(now.Faults == 1 ? "" : "s")} caught and contained",
-                "The show kept running. If the count keeps climbing, check patterns.log and note which content " +
-                "was up when it moved."));
+                "Errors caught and contained",
+                "Every error the log recorded counts here — a frame whose draw threw, a device, link or wire handler that threw — " +
+                "and a failing desk poll once a minute. The show kept running. If the count keeps climbing, check patterns.log " +
+                "and note what was up when it moved.",
+                string.Create(CultureInfo.InvariantCulture, $"{now.Faults} this session")));
         }
 
         if (ctx.WatchdogRestarts > 0)
         {
             list.Add(new HealthSuggestion("restarts", HealthSeverity.Info,
-                $"The watchdog restarted the app {ctx.WatchdogRestarts} time{(ctx.WatchdogRestarts == 1 ? "" : "s")}",
-                "The show came back by itself. patterns.watchdog.log records when and why."));
+                "The watchdog restarted the app",
+                "The show came back by itself. patterns.watchdog.log records when and why.",
+                string.Create(CultureInfo.InvariantCulture, $"{ctx.WatchdogRestarts} time{(ctx.WatchdogRestarts == 1 ? "" : "s")}")));
         }
 
         if (list.Count == 0)

@@ -100,7 +100,7 @@ public class BeaconTests
         var stopped = Advise(History(90, 60), new AdvisorContext { StreamError = "the encoder reported an error" });
         var stream = Assert.Single(stopped, s => s.Id == "stream-stopped");
         Assert.Equal(HealthSeverity.Warning, stream.Severity);
-        Assert.Contains("the encoder reported an error", stream.Title);
+        Assert.Contains("the encoder reported an error", stream.Said);
         Assert.DoesNotContain(Advise(History(90, 60), new AdvisorContext()), s => s.Id == "stream-stopped");
     }
 

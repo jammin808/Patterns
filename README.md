@@ -1804,7 +1804,7 @@ fault containment, and settings that can never brick startup.
   screens on load, mirroring exactly what they mirrored before.
 - **Super-check** — one button on the Machine page: the computer (CPU, memory, disk, power),
   the graphics cards and which one renders, every display with its mode and refresh rate, the
-  outputs and their frame rate against the master, render faults and the watchdog, the live
+  outputs and their frame rate against the master, render faults, contained errors and the watchdog, the live
   picture's age, NDI sends
   and the runtime, the stream, audio devices, the remote, video playback and the advisor's
   advice — every row with a green, amber or red light, an overall headline, and the **level of
@@ -1870,7 +1870,8 @@ fault containment, and settings that can never brick startup.
   outputs re-opened and the audio track resumed** (a sidecar file remembers what was live;
   a clean close never auto-restores). Restarts back off and stop if something genuinely
   crash-loops. Individual render faults never get that far: they're contained per frame and
-  counted on a health line (uptime · restarts · faults caught) on the Show page and remotes.
+  counted, with every other error the log recorded, on a health line (uptime ·
+  restarts · faults caught) on the Show page and remotes.
 - **Every input, on its own, anywhere you want it** — live sources are a pool, not a slot:
   a camera on screen 1, the graphics PC's NDI feed on screen 2 and a walk-in video on screen 3,
   all at once, each with its own decoder. Use the same feed in several places — two screens, the

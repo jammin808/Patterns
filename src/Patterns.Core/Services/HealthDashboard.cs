@@ -138,7 +138,7 @@ public static class HealthDashboard
         if (!f.OutputsLive)
         {
             return faults > 0
-                ? new DashboardTile("render", "RENDER", CheckLight.Amber, $"{faults} fault{(faults == 1 ? "" : "s")}", "contained per frame — the log says which pattern" + desk)
+                ? new DashboardTile("render", "RENDER", CheckLight.Amber, $"{faults} fault{(faults == 1 ? "" : "s")}", "every error the log recorded, not frames alone — patterns.log names each" + desk)
                 : new DashboardTile("render", "RENDER", deskStutters ? CheckLight.Amber : CheckLight.Grey, "idle", "outputs closed · no faults" + desk);
         }
         var worst = Pick(now?.WorstFrameMs, f.WorstFrameMs);

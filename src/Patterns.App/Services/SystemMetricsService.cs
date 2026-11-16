@@ -800,7 +800,7 @@ public sealed class SystemMetricsService : IDisposable
             }
             foreach (var advice in Suggestions)
             {
-                sb.AppendLine(CultureInfo.InvariantCulture, $"Advice [{advice.Severity}]: {advice.Title} — {advice.Detail}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"Advice [{advice.Severity}]: {advice.Said} — {advice.Detail}");
             }
 
             // Round 65.9: the machine as Windows describes it, and the rig against the commissioned one.

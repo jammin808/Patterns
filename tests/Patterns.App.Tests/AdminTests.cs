@@ -80,6 +80,40 @@ public class AdminTests
     }
 
     [AvaloniaFact]
+    public void AReadingMovingWithinOneLightReplacesItsOwnRowAndNeverResetsTheList()
+    {
+        var (services, vm, _, _) = Boot();
+        try
+        {
+            // The sampler stopped: the samples are the test's.
+            services.Metrics.Live = false;
+            for (var i = 0; i < 70; i++) services.Metrics.Ingest(Healthy(i) with { Faults = 5 });
+            vm.PollNow();
+            var rows = vm.AdminSuggestions.Count;
+            Assert.Contains(vm.AdminSuggestions, r => r.Title == "Errors caught and contained: 5 this session");
+
+            var actions = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+            vm.AdminSuggestions.CollectionChanged += (_, e) => actions.Add(e.Action);
+            services.Metrics.Ingest(Healthy(70) with { Faults = 6 });
+            vm.PollNow();
+            Assert.Equal(rows, vm.AdminSuggestions.Count);
+            Assert.Contains(vm.AdminSuggestions, r => r.Title == "Errors caught and contained: 6 this session");
+            Assert.DoesNotContain(vm.AdminSuggestions, r => r.Title.StartsWith("Errors caught and contained: 5", StringComparison.Ordinal));
+            Assert.True(actions.SequenceEqual(new[] { System.Collections.Specialized.NotifyCollectionChangedAction.Replace }),
+                $"one row replaced in place, the list never reset: {string.Join(", ", actions)}");
+
+            // A poll with nothing moved touches nothing.
+            actions.Clear();
+            vm.PollNow();
+            Assert.Empty(actions);
+        }
+        finally
+        {
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
     public void AdvisorRowsFollowTheMetrics()
     {
         var (services, vm, _, _) = Boot();

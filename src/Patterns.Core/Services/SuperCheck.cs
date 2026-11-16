@@ -676,8 +676,10 @@ public static class SuperCheck
                     f.WorstFrameMs > 50 ? "a visible stutter — a background task or a heavy source" : ""));
             }
         }
-        if (f.Faults > 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Amber, $"{f.Faults} this session", "contained per frame; the log says which pattern"));
-        else if (f.Faults == 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Green, "none"));
+        // Every error the log recorded this session (each Log.Error) and a failing desk poll once a minute per area — the frames whose
+        // draw threw are the Render faults row's; the count rides in the value, so a second error moves no word the Eye hashes.
+        if (f.Faults > 0) rows.Add(new CheckRow(s, "Contained errors", CheckLight.Amber, $"{f.Faults} this session", "every error the log recorded (a frame's draw, a device, link or wire handler) and a failing desk poll once a minute; the log names each"));
+        else if (f.Faults == 0) rows.Add(new CheckRow(s, "Contained errors", CheckLight.Green, "none"));
         DeskTick(f, rows, s);
         PageSwitch(f, rows, s);
         RenderFrame(f, rows, s);
@@ -803,7 +805,10 @@ public static class SuperCheck
     /// <summary>
     /// The desk's tick: green under a desk frame, amber past one (the desk skipped a frame), red
     /// past a stutter — with the area that took the time, so a probe that blocks the UI thread is
-    /// named here before it is felt at the desk. An area that threw turns a green row amber.
+    /// named here before it is felt at the desk. An area that threw turns a green row amber. The
+    /// readings — the times, the worst tick's area, how many areas failed — ride in the value; the
+    /// note says what the light means and nothing that moves while it stands, so the Eye that hashes
+    /// it (<see cref="EyeFacts.AttentionWords"/>) moves with the light alone.
     /// </summary>
     private static void DeskTick(CheckFacts f, List<CheckRow> rows, string section)
     {
@@ -812,17 +817,18 @@ public static class SuperCheck
         var area = f.DeskTickWorstArea.Length > 0 ? $" ({f.DeskTickWorstArea})" : "";
         var light = worst > TickBudget.StutterMs ? CheckLight.Red : worst > TickBudget.SlowMs ? CheckLight.Amber : CheckLight.Green;
         var value = $"{(f.DeskTickAverageMs >= 0 ? $"{f.DeskTickAverageMs:0.0} ms" : "—")} · worst {worst:0.0} ms{area}"
-                    + (f.DeskSlowTicks > 0 ? $" · {f.DeskSlowTicks} past {TickBudget.SlowMs:0} ms" : "");
+                    + (f.DeskSlowTicks > 0 ? $" · {f.DeskSlowTicks} past {TickBudget.SlowMs:0} ms" : "")
+                    + (f.DeskTickFaults > 0 ? $" · {f.DeskTickFaults} area{(f.DeskTickFaults == 1 ? "" : "s")} failed" : "");
         var note = light switch
         {
-            CheckLight.Red => $"the desk stutters — something on the UI thread blocks the tick{area}; the log names it",
+            CheckLight.Red => "the desk stutters — something on the UI thread blocks the tick (the worst tick's area beside its time); the log names it",
             CheckLight.Amber => "the desk skipped a frame in the last minute — a probe that blocks would show here first",
             _ => "",
         };
         if (f.DeskTickFaults > 0)
         {
             if (light == CheckLight.Green) light = CheckLight.Amber;
-            var failed = $"{f.DeskTickFaults} area{(f.DeskTickFaults == 1 ? "" : "s")} failed and the tick carried on — see the log";
+            const string failed = "an area failed and the tick carried on — see the log";
             note = note.Length > 0 ? $"{note}; {failed}" : failed;
         }
         rows.Add(new CheckRow(section, "Desk tick", light, value, note));
@@ -1381,6 +1387,11 @@ public static class SuperCheck
             : new CheckRow("VIDEO", "Playback", CheckLight.Amber, "libVLC not available", f.VideoNote.Length > 0 ? f.VideoNote : "video files, capture, clips and the stream need the full build"));
     }
 
+    /// <summary>
+    /// The advisor's suggestions, one row each: the item the suggestion's steady title, the reading it was raised on in front of
+    /// its detail in the value — so a count or a percentage moving within one light moves the value a person reads and never the
+    /// item the Eye hashes (<see cref="EyeFacts.AttentionWords"/>); a suggestion appearing, going or changing its light still does.
+    /// </summary>
     private static void AdviceRows(CheckFacts f, List<CheckRow> rows)
     {
         foreach (var a in f.Advice)
@@ -1391,7 +1402,8 @@ public static class SuperCheck
                 HealthSeverity.Advice => CheckLight.Amber,
                 _ => CheckLight.Green,
             };
-            rows.Add(new CheckRow("ADVICE", a.Title, light, a.Detail));
+            var value = a.Reading.Length == 0 ? a.Detail : a.Detail.Length == 0 ? a.Reading : a.Reading + " — " + a.Detail;
+            rows.Add(new CheckRow("ADVICE", a.Title, light, value));
         }
     }
 

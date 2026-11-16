@@ -120,7 +120,9 @@ public sealed partial class PeerLinkWireTests
         Assert.Equal((EyeGraph.DeskId, EyeOrigin.Link), (heardEdge.To, heardEdge.Origin));
         Assert.StartsWith("✓ linked to this desk by LINK", heardEdge.Words, StringComparison.Ordinal);
         Assert.Equal(HeardElsewhere(desk) + 1, BusHeard(desk));
-        var builds = desk.Services.Eye.Cost.Total;
+        // The count begins once the desk has taken its own first readings (its status tick, its sampler's sample of the process's
+        // contained errors), never on a desk younger than its own 1 s clocks.
+        var still = StillDesk.Baseline(desk.Services);
         var rev = desk.Services.Eye.AppsRev;
         Assert.True(rev > 0 && rev == desk.Services.AppsRev, $"the gather read revision {rev}; the desk's apps stand at {desk.Services.AppsRev}");
         for (var tick = 0; tick < 10; tick++)
@@ -129,7 +131,8 @@ public sealed partial class PeerLinkWireTests
             Dispatcher.UIThread.RunJobs();
             desk.Services.Eye.Refresh();
         }
-        Assert.True(builds == desk.Services.Eye.Cost.Total, $"{desk.Services.Eye.Cost.Total - builds} rebuilds in 10 ticks of a still link and hello; the apps' revision {rev} → {desk.Services.Eye.AppsRev}");
+        // A rebuild names the first node that moved, with the contained errors counted at both ends of the window.
+        StillDesk.AssertStill(desk.Services, still, 10, $"a still link and hello (the apps' revision {rev} → {desk.Services.Eye.AppsRev})");
         Assert.Equal(rev, desk.Services.Eye.AppsRev);
 
         // CLOSE is the desk operator's: refused from a deck, the wire and a running order, and the link stands.

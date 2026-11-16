@@ -167,7 +167,7 @@ public class SuperCheckTests
         }
         Assert.Equal(CheckLight.Amber, report.Rows.Single(r => r.Item == "Connected").Light);
         Assert.Equal(CheckLight.Amber, report.Rows.Single(r => r.Item == "Worst frame").Light);
-        Assert.Equal(CheckLight.Amber, report.Rows.Single(r => r.Item == "Render faults").Light);
+        Assert.Equal(CheckLight.Amber, report.Rows.Single(r => r.Item == "Contained errors").Light);
         Assert.Equal(CheckLight.Amber, report.Rows.Single(r => r.Item == "Output devices").Light);
         Assert.Equal(CheckLight.Amber, report.Rows.Single(r => r.Item == "Playback").Light);
         Assert.Contains("[RED]", SuperCheck.ToText(report));
@@ -197,17 +197,99 @@ public class SuperCheckTests
         var blocked = Row(140, "remote", avg: 9, slow: 12);
         Assert.Equal(CheckLight.Red, blocked.Light);
         Assert.Contains("stutters", blocked.Note);
-        Assert.Contains("(remote)", blocked.Note);
+        Assert.Contains("(remote)", blocked.Value);
+        Assert.DoesNotContain("(remote)", blocked.Note);   // the worst tick's area is a reading: it rides in the value the Eye does not hash
 
         // An area that threw turns a green row amber and says so; the light past that is the timing's.
         var failed = Row(4, "audio", faults: 2);
         Assert.Equal(CheckLight.Amber, failed.Light);
-        Assert.Equal("2 areas failed and the tick carried on — see the log", failed.Note);
+        Assert.Equal("an area failed and the tick carried on — see the log", failed.Note);
+        Assert.EndsWith(" · 2 areas failed", failed.Value);
         var failedAndBlocked = Row(140, "remote", faults: 1);
         Assert.Equal(CheckLight.Red, failedAndBlocked.Light);
         Assert.Contains("stutters", failedAndBlocked.Note);
-        Assert.Contains("1 area failed", failedAndBlocked.Note);
+        Assert.Contains("1 area failed", failedAndBlocked.Value);
         Assert.Contains("Desk tick", SuperCheck.ToText(SuperCheck.Run(new CheckFacts { DeskTickWorstMs = 4 })));
+    }
+
+    /// <summary>The Super Check's rows that ask for attention, as the Eye's desk hashes them (AppServices.AttentionRows, EyeFacts.AttentionWords).</summary>
+    private static IReadOnlyList<string> AttentionWords(CheckFacts facts)
+        => SuperCheck.Run(facts).Rows.Where(r => r.Light is CheckLight.Amber or CheckLight.Red).Select(EyeFacts.AttentionWords).ToList();
+
+    private static MetricsHistory Minute(Func<int, MetricSample> make)
+    {
+        var h = new MetricsHistory();
+        for (var i = 0; i < 90; i++) h.Add(make(i));
+        return h;
+    }
+
+    /// <summary>Ten minutes of samples: the long-term aggregates' twenty, the first half at one reading and the second at another.</summary>
+    private static MetricsHistory TenMinutes(Func<int, MetricSample> make)
+    {
+        var h = new MetricsHistory();
+        for (var i = 0; i < 20 * MetricsHistory.AggregateEvery; i++) h.Add(make(i));
+        return h;
+    }
+
+    private static MetricSample Calm(int i) => new()
+    {
+        Utc = new DateTime(2026, 11, 16, 12, 0, 0, DateTimeKind.Utc).AddSeconds(i),
+        CpuAppPct = 8, CpuSystemPct = 20, RamAppMB = 600, RamSystemPct = 45, RamTotalMB = 32768,
+        VramUsedMB = 800, VramTotalMB = 8192, OutputFps = 60, DiskFreeGB = 120, Threads = 40, Handles = 900,
+    };
+
+    [Fact]
+    public void AReadingMovingWithinOneLightMovesNoAttentionWordAndARowAppearingDoes()
+    {
+        var live = new AdvisorContext { OutputsLive = true, ContentContinuous = true, TargetFps = 60 };
+        CheckFacts Advised(Func<int, MetricSample> make, AdvisorContext? ctx = null)
+            => new() { Advice = HealthAdvisor.Advise(Minute(make), ctx ?? new AdvisorContext()) };
+        CheckFacts Grown(Func<int, MetricSample> make) => new() { Advice = HealthAdvisor.Advise(TenMinutes(make), new AdvisorContext()) };
+        const int Half = 10 * MetricsHistory.AggregateEvery;
+
+        // Each leg: the same suggestion at two readings of one light. The words the Eye hashes stand; the value a person reads moves.
+        var legs = new (string Name, CheckFacts A, CheckFacts B)[]
+        {
+            ("faults 5 then 6", Advised(i => Calm(i) with { Faults = 5 }), Advised(i => Calm(i) with { Faults = 6 })),
+            ("Patterns' CPU 70 then 71", Advised(i => Calm(i) with { CpuAppPct = 70 }), Advised(i => Calm(i) with { CpuAppPct = 71 })),
+            ("the computer's CPU 90 then 95", Advised(i => Calm(i) with { CpuSystemPct = 90 }), Advised(i => Calm(i) with { CpuSystemPct = 95 })),
+            ("memory 92 then 95", Advised(i => Calm(i) with { RamSystemPct = 92 }), Advised(i => Calm(i) with { RamSystemPct = 95 })),
+            ("graphics memory 87 then 90", Advised(i => Calm(i) with { VramUsedMB = 0.87 * 8192 }), Advised(i => Calm(i) with { VramUsedMB = 0.90 * 8192 })),
+            ("fps 40 then 41", Advised(i => Calm(i) with { OutputFps = 40, OutputWindows = 1 }, live), Advised(i => Calm(i) with { OutputFps = 41, OutputWindows = 1 }, live)),
+            ("disk 1.5 then 1.2 GB", Advised(i => Calm(i) with { DiskFreeGB = 1.5 }), Advised(i => Calm(i) with { DiskFreeGB = 1.2 })),
+            ("battery 40 then 35", Advised(i => Calm(i) with { OnBattery = true, BatteryPct = 40 }), Advised(i => Calm(i) with { OnBattery = true, BatteryPct = 35 })),
+            ("the desk tick's failed areas 1 then 2", new CheckFacts { DeskTickWorstMs = 4, DeskTickFaults = 1 }, new CheckFacts { DeskTickWorstMs = 4, DeskTickFaults = 2 }),
+            ("the stuttering tick's area remote then audio", new CheckFacts { DeskTickWorstMs = 140, DeskTickWorstArea = "remote" }, new CheckFacts { DeskTickWorstMs = 140, DeskTickWorstArea = "audio" }),
+            ("Patterns' memory grew 450 then 500 MB", Grown(i => Calm(i) with { RamAppMB = i < Half ? 600 : 1050 }), Grown(i => Calm(i) with { RamAppMB = i < Half ? 600 : 1100 })),
+            ("handles 900 → 3000 then 900 → 3200", Grown(i => Calm(i) with { Handles = i < Half ? 900 : 3000 }), Grown(i => Calm(i) with { Handles = i < Half ? 900 : 3200 })),
+            // A rename guard: the SHOW row's count already rode in its value; the leg holds the row's new name to the same rule.
+            ("contained errors 1 then 2", new CheckFacts { Faults = 1 }, new CheckFacts { Faults = 2 }),
+        };
+        foreach (var (name, a, b) in legs)
+        {
+            var (wordsA, wordsB) = (AttentionWords(a), AttentionWords(b));
+            Assert.True(wordsA.Count > 0, $"{name}: the leg asks for attention");
+            Assert.True(wordsA.SequenceEqual(wordsB), $"{name}: the Eye's words moved — {string.Join(" | ", wordsA)} → {string.Join(" | ", wordsB)}");
+            var (valuesA, valuesB) = (SuperCheck.Run(a).Rows.Select(r => r.Value).ToList(), SuperCheck.Run(b).Rows.Select(r => r.Value).ToList());
+            Assert.False(valuesA.SequenceEqual(valuesB), $"{name}: the reading a person reads is in the value, and it moved");
+        }
+
+        // The faults suggestion's reading reaches every reader a person reads: the row's value and the suggestion said whole.
+        Assert.Contains(Grown(i => Calm(i) with { RamAppMB = i < Half ? 600 : 1050 }).Advice, a => a.Id == "ram-leak" && a.Reading == "grew 450 MB in 10 min");
+        Assert.Contains(Grown(i => Calm(i) with { Handles = i < Half ? 900 : 3200 }).Advice, a => a.Id == "handles-growth" && a.Reading == "900 → 3200");
+
+        var five = Assert.Single(HealthAdvisor.Advise(Minute(i => Calm(i) with { Faults = 5 }), new AdvisorContext()), s => s.Id == "faults");
+        Assert.Equal("Errors caught and contained: 5 this session", five.Said);
+        var row = Assert.Single(SuperCheck.Run(new CheckFacts { Advice = new[] { five } }).Rows, r => r.Section == "ADVICE");
+        Assert.Equal(("Errors caught and contained", CheckLight.Amber), (row.Item, row.Light));
+        Assert.StartsWith("5 this session — Every error the log recorded", row.Value, StringComparison.Ordinal);
+
+        // A row appearing, going or changing its light is a fact, and it still moves the words: faults 4 (advice, green) then 5 (amber);
+        // a green tick that then skips a frame; no contained error, then one.
+        Assert.False(AttentionWords(Advised(i => Calm(i) with { Faults = 4 })).SequenceEqual(AttentionWords(Advised(i => Calm(i) with { Faults = 5 }))));
+        Assert.False(AttentionWords(new CheckFacts { DeskTickWorstMs = 4 }).SequenceEqual(AttentionWords(new CheckFacts { DeskTickWorstMs = 30 })));
+        Assert.False(AttentionWords(new CheckFacts { DeskTickWorstMs = 30 }).SequenceEqual(AttentionWords(new CheckFacts { DeskTickWorstMs = 140 })));
+        Assert.False(AttentionWords(new CheckFacts { Faults = 0 }).SequenceEqual(AttentionWords(new CheckFacts { Faults = 1 })));
     }
 
     [Fact]
