@@ -474,6 +474,17 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 101 — a speaker message that never left reads `not-sent` (module 3.25.0, unchanged)
+
+- **`$(patterns:stage_speaker_ack)` and the `stage_speaker_ack_is` feedback** read the same words; what moved is when the desk
+  says them (101.2): `not-sent` whenever no byte of the message's request left the desk — the link dropped while it waited its
+  turn, no connection could be made, or none within the call's 4 s — and `unconfirmed` only once the request was written and no
+  answer came. A key lit on `unconfirmed` no longer lights for a message that never left; one lit on `not-sent` now does.
+- No action, variable, feedback or wire line is new: `lines.txt` is unchanged and the version stays 3.25.0.
+- **What the module does not read of round 101** (said by round 101's papers): the approval desk's words about this desk's
+  context, which the Nodes card's line draws beside the key's standing (101.3, 101.6) — STATE carries no such field, and
+  `$(patterns:stagewatch_key)` already reads the standing.
+
 ## Round 100 — a link the desk has closed is no open link on a key (module 3.25.0)
 
 - **`told` on STATE's `decks` rows** (100.5). An app link this desk has told its last word — its operator's CLOSE, a revoke, a
@@ -544,7 +555,9 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
   (`stage_speaker_ack_is`) lights a key on any of those words — a WRAP UP key amber while it waits, green once seen.
   `stage_pending` keeps its meaning and clears once a message sent through the Stagewatch is answered there. When the
   link cannot carry it the button's answer says why, and the message is on the desk's displays only. A desk before round
-  94 sends none of the three: they read empty and the feedback lights for no word.
+  94 sends none of the three: they read empty and the feedback lights for no word. From round 101 the desk says
+  `not-sent` whenever no byte of the message's request left it and `unconfirmed` only once the request was written and no
+  answer came (*Round 101* above).
 - **A clip held with its clock.** The transport's PAUSE now holds a playlist item with its playlist's clock and a
   stinger's clip with its ending; STOP puts a playlist item back to its top, held, and is refused on a stinger's clip
   (`STINGER STOP` puts the show back). `$(patterns:video_pausable)` and `$(patterns:video_stoppable)` read STATE's

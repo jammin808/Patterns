@@ -781,7 +781,12 @@ What the wire and its neighbours do since round 89 (`docs/PLAN.md` §107), in on
   before it runs, and posted again from 3 s, doubling to 30 s, for 30 minutes until a 2xx or a 409 "settled" answers it.
   A post the approval desk's answer says nothing of — no answer, a 5xx, a 408 — is unconfirmed, never refused or failed:
   this desk's context is posted again five seconds on, and a proposal is not posted again blind but looked for in
-  `?from=<id>`, sent again only when a read made after its post does not list it. An
+  `?from=<id>`, sent again only when a read made after its post does not list it. Round 101: the Nodes card's line says what the
+  approval desk's last answer to this desk's context said — a 408 or 5xx "Stagewatch <name> did not confirm this desk's context
+  (…) — posted again in five seconds", any other refusal "Stagewatch <name> refused this desk's context — <its own words>", the key
+  masked out of them — and draws it with the key's standing as one value the link holds, so a 429 then a 403 never shows "key not
+  accepted" beside the rate limit's words. A 2xx takes back only words a context answer wrote (a hold's and the proposals' stay), and
+  an answer a newer verdict overtook writes none. STATE carries no approval words; `bus.stagewatch.key` is the standing. An
   approved line that is not an `APPLY` of this desk's runs through the wire's own path, its refusals intact. Round 91:
   an `APPLY` runs only as the proposal this desk made — proposed from this desk's own id and collected under the id
   the approval desk answered this desk's post with. The same line re-proposed by another node, or under another id,

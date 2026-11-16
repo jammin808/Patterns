@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 101 — 2026-11-16 — a repair round: CI's run 336 and two bench sightings of round 100, each read against the code; a still desk's window pins the Desk tick light, a speaker call that never reached a connection is not-sent, a context answer's words are written before the key's standing they go with
 
-`round-101` · PLAN §119 · REVIEW round 101 · 3,789 tests · module 3.25.0 (unchanged) · evidence: CI's file (run 336 on `a794633`, round 100's papers: one App test of 1,089 red; runs 332 to 335 green) and two sightings on this bench that round 100's papers recorded and did not make rows, each case read by one reader and one adversarial check against the code at `a794633`, nothing run; no field files and no rig report; no measurement · Walk: unwalked
+`round-101` · PLAN §119 · REVIEW round 101 · 3,801 tests · module 3.25.0 (unchanged) · evidence: CI's file (run 336 on `a794633`, round 100's papers: one App test of 1,089 red; runs 332 to 335 green) and two sightings on this bench that round 100's papers recorded and did not make rows, each case read by one reader and one adversarial check against the code at `a794633`, nothing run; the maintainer's answer of 2026-11-16 for the inserted 101.5; 101.3's own open list, read against the code, for the inserted 101.6; CI's runs 337 to 341 green; no field files and no rig report; no measurement · Walk: none asked
 
 - **The round opens (101.0).** PLAN §119.1 names the round (a repair round the cross-app plan does not carry, opened like round 92), finds
   nothing new in `docs/field/`, reads CI (runs 332 to 335 green, 336 red on one test), and reads each of the three cases in the §96.1
@@ -31,6 +31,31 @@ is the Bitfocus Companion module, where its version moved.
   written before the key's standing they go with), 101.4 (the papers). OPEN: L133 and L134 (b) as above, and one row the round expects to
   add: the *Desk tick* row's amber bound, one tick past 16 ms anywhere in the last minute, is unmeasured against the rig's distribution.
   No measurement this round; no platform path; no code changes in the opening.
+- **A still window pins the *Desk tick* light (101.1, from CI's run 336).** Tests only: `StillDesk.Baseline` records one tick past the
+  stutter bound before it reads anything, so a real tick inside a window moves the row's reading and no word the Eye hashes; the
+  window says whether the pin was still in the ring. `StillDeskTests` holds it on recorded ticks (27.3 ms and 400 ms move no word, an
+  area fault still rebuilds once), and its twin holds the product's rule unpinned. What the pin stops catching, and the link areas no
+  budget test holds, are written in L134 (b).
+- **A speaker call that never reached a connection is not-sent (101.2, from two bench sightings).** The request's own mark
+  (`MarkedBody`, set only once the handler writes on a connection handed to it) decides: unset is *not sent* ("the link to
+  Stagewatch <name> dropped before it was sent", or "no connection … could be made"), set keeps *unconfirmed*; a deadline that runs
+  out before a connection is *not sent* too. Every reader of a speaker receipt follows (the Run strip, the cue row, the journal,
+  STATE, the deck, the assistant). No pure classification table: two App fences, a runtime fence on real sockets and a mutation hold it.
+- **A context answer's words are written before the key's standing they go with (101.3, from one bench sighting).** A 429 then a 403
+  no longer draws "key not accepted" beside the rate limit's words on the Nodes line; the words are made before the answer is applied
+  and written under the run's gate ahead of the key.
+- **The SDK pin moves to 10.0.404, the 10.0.4xx band (101.5, inserted on the maintainer's answer of 2026-11-16).** The newer band's
+  analyzers report nothing in the tree (Debug and Release rebuilds and the win-x64 publish, 0 warnings, 0 errors), so nothing was
+  mended; a machine with only the 1xx band is refused with exit 155. CI's run 341 installed 10.0.404 in every job. L121 amended:
+  Stagewatch's half met, the PC's open (QUALIFICATION §29's row).
+- **The key's standing and the approval desk's words are one value (101.6, inserted from 101.3's own open list).** A 2xx context
+  answer takes back only a context answer's words, an answer a newer verdict overtook writes none, and the Nodes line's reader takes
+  the pair in one read — fenced on the product's reader. What stays: the approval queue's words of an overtaken answer (L133).
+- **The papers (101.4).** PLAN §119 completed (101.5 and 101.6 in the unit table in commit order), REVIEW round 101 (Walk: none
+  asked), README (the speaker's not-sent, the round's ledger entry, the count), REMOTE (the context answer's words), COMPANION
+  (`stage_speaker_ack` since round 101), QUALIFICATION §29 (the toolchain row), OPEN (L121, L133 and L134 amended; L135 added: the
+  *Desk tick* row's amber bound is unmeasured against the rig's distribution) and round 100's tag row. The speaker's not-sent journal
+  row beside the Run strip's NOT SENT TO STAGEWATCH, when a link drops with a message queued, is the rig's reading; not read on a rig.
 
 ## Round 100 — 2026-11-16 — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested
 

@@ -896,6 +896,25 @@ the Nodes page and the Super Check are amber "seen in clear", one journal row. R
 in the file, the bundle, the journal or the log; a sealed key readable by the other user; a key in clear that opened anything.
 The row above stays as it is, unwalked.
 
+## 29. The toolchain on the maintainer's PC (round 101)
+
+Not a walk and not a matrix of the room: the one row that says the PC builds what CI builds. `global.json` at the root pins the SDK
+— 10.0.404, `rollForward` `latestPatch`, no previews — so the accepted band is the **10.0.4xx** band from 10.0.404 up (round 101.5, the
+maintainer's answer that this is the band a current Visual Studio carries; before it the pin named 10.0.115, the 10.0.1xx band). CI
+installs it from `global.json` in every job (run 341, 43902954444, read 10.0.404 in each `setup-dotnet` step). OPEN L121's last open half
+is this row.
+
+**Do.** On the PC, in the repository's root: `dotnet --version` (it reads the SDK `global.json` selects, or refuses: "A compatible .NET
+SDK was not found. Requested SDK version: 10.0.404", exit 155, when only another band is installed), `dotnet --list-sdks`, then
+`dotnet build Patterns.sln -c Release -v q` and `build/publish-win-x64.cmd`.
+
+**Pass.** `dotnet --version` names a 10.0.4xx SDK at 10.0.404 or above; the build and the publish end with 0 warnings and 0 errors. A
+fail is the refusal's words, or a warning the band reports that CI's run on the same commit did not — the warning's rule and file beside it.
+
+| Date | Commit | `dotnet --version` | `--list-sdks` (the 10.0 lines) | Build: warnings / errors | Publish | Result |
+|---|---|---|---|---|---|---|
+| | | | | | | not read |
+
 ## What a fail means
 
 A fail is a row with the reading that failed beside it and the log's lines from that minute

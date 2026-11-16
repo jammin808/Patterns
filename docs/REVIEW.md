@@ -5291,3 +5291,124 @@ where an item needs a new mechanism, the fold-in writes it as open with its desi
   lens (PLAN §118.16). Not read on a rig: no app in the room posts to this desk yet.
 - Walk: unwalked — 100.4 and 100.6 move the device links' connection start and end (PJLink, Pixera, serial), which 100.4's commit names a
   platform path; met only by fakes on loopback, with no QUALIFICATION section to hold a row. `CONTEXT POST` moves no platform path.
+
+## Round 101 review — a repair round: CI's run 336 and two bench sightings of round 100, each read against the code; a still window pins the Desk tick light, a speaker call that never reached a connection is not-sent, a context answer's words go with the key's standing they belong to; and two units inserted, the SDK pin's band and the standing and its words as one value
+
+### 101.0 — the round opened
+
+- A repair round the cross-app plan does not carry (PLAN §119.1), opened like rounds 92 and 100. Evidence class: CI's file (run 336
+  on `a794633`: one App test of 1,089 red; runs 332 to 335 green) and two bench sightings round 100's papers recorded and did not make
+  rows, each case read by one reader and one adversarial check against the code at `a794633`, nothing run. `docs/field/` holds only
+  its README.
+- **Corrected at the opening:** round 100's papers read the speaker sighting's second message as written before the link went; the
+  code shows it was never written. L133's clause (b) named a 403 among the answers whose record tears; a 403's hold never reaches
+  `KeyRefused`. Round 100's sections are not rewritten; §119.1 says so.
+
+### 101.1 — a still window pins the *Desk tick* light
+
+- **Found by CI.** Run 336: `ShowBusAppTests.ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick`, one rebuild — a real 27.3 ms
+  tick turned the green *Desk tick* row amber inside the window. Evidence class: CI's file, read against the code, nothing run.
+- **Proved in the code:** the test's defect — a change of light is a change of hashed words, and the window left the light to the
+  runner's wall clock. **Done** (PLAN §119.5): the pin in `StillDesk.Baseline`, the guard that the window ended with the pin in the
+  ring, `Moved` naming every node; the fence in `StillDeskTests` and its unpinned twin. Tests only. **Mutation:** one (the pin out),
+  failed with run 336's own words.
+- **Left:** what the pin stops catching (a subject that slows the tick) and the link areas no budget test holds; one bench sighting of
+  the `cpu-app-high` advice moving inside a still window (L134 (b), amended).
+
+### 101.2 — a speaker call that never reached a connection is not-sent
+
+- **Found on the bench.** Two sightings of the speaker test (REVIEW round 100's suites note). Evidence class: bench sightings, read
+  against the code, nothing run.
+- **Proved in the code:** the product's defect — a call was classed by the exception's type and the link's token, so a request that never
+  left was said *unconfirmed*. **Done** (PLAN §119.6): `MarkedBody`, the classification by the request's own mark, the deadline case
+  moved to not-sent, the `BeforeSpeakerSend` seam; two App fences and a runtime fence on real loopback sockets. **Mutation:** one (the
+  mark ignored for a cancellation), both App fences failed.
+- **Not built, said:** the pure classification table §119.1 asked for. **Read, not changed:** `PeerLinkMachine.Close()` settles a
+  command queued and never drained *unconfirmed*; no Patterns command reaches it (no caller of `Send` or `Written` under `src/`).
+
+### 101.3 — a context answer's words written before the key's standing
+
+- **Found on the bench.** One sighting in 100.6's validate of `ARateLimitHolds…` on its 403's words. Evidence class: a bench sighting,
+  read against the code, nothing run.
+- **Proved in the code:** the product's defect — the post wrote the words after `Answered` had written the key's standing. **Done**
+  (PLAN §119.7): `ContextAnswerWords` (pure), the words handed to `Stand` and written before the key, `Face` and `StatusAndApprovals`,
+  `StandingWritten`; the fence on every standing write. **Mutation:** one (the parent's order), both legs failed.
+- **Departed:** the fence at the writer, not a widened `Published`; the readers' order held by reading only. **Left:** its own list —
+  the 2xx's words, an overtaken answer's words, the readers' pair (101.6).
+
+### 101.5 — the SDK pin moves to the 10.0.4xx band, inserted
+
+- **Asked by the maintainer.** Evidence class: the maintainer's answer of 2026-11-16 (the ecosystem's owner answers, item 3) — the band a
+  current Visual Studio carries; not measured here.
+- **Done** (PLAN §119.8): `global.json` at 10.0.404 with `latestPatch` and no previews; `SdkPinTests` unchanged but its comment, 98.6's
+  eight mutations each still failing it and the old pin failing two tests; README's build paragraph and ANALYSIS §7.
+- **Found by the newer band's analysis, and mended: nothing.** Whole Debug and Release rebuilds and the win-x64 single-file publish read
+  0 warnings and 0 errors on 10.0.404; a machine with only 10.0.115 is refused with exit 155.
+- **L121 amended:** Stagewatch's half met (SW23.0 `a466d83`, its pin at `a794633` since SW24.1t `b59c654`); the PC's half open, its row
+  now QUALIFICATION §29. **CI:** run 341 on `bcbb74e` green on every job, 10.0.404 in each `setup-dotnet` step that installs an SDK —
+  the proof the band builds there.
+
+### 101.6 — the key's standing and the approval desk's words as one value, inserted
+
+- **Found by reading.** 101.3's own open list, read against the code. Evidence class: a unit's open list read against the code.
+- **Done** (PLAN §119.9): `KeyStanding` held per run and replaced whole under the run's gate; `Face` reads it once; a 2xx's own words
+  (`ContextSaid`: it takes back only a context answer's words); an overtaken answer writes none (`SayContext`, `Stand`); the readers'
+  fence on `StatusAndApprovals`, the product's reader. **Mutations:** three, each failed (a 2xx taking nothing back; the reader built of
+  two reads, "769 of 769 values read were never written"; the asked check dropped).
+- **Left (L133):** the approval queue's refusal words through `Say` with no asked check, and `ApprovalsLive` cleared by an overtaken
+  answer; a socket verdict that takes the key leaves a hold's words. Design written: `Say` takes `asked`.
+
+### 101.4 — the papers
+
+- §119.2's table (101.5 and 101.6 added in commit order) and §119.4 to §119.16; this section; the CHANGELOG entry completed (Walk: none
+  asked); README (the round's ledger entry, the speaker's not-sent, the count, the build paragraph's pointer to §29); `docs/REMOTE.md`
+  (the context answer's words on the Nodes line; the `STAGE MESSAGE` row is 101.2's); `docs/COMPANION.md` (round 101:
+  `stage_speaker_ack`'s not-sent and unconfirmed; the module unchanged); `docs/QUALIFICATION.md` §29 (the toolchain row); `docs/OPEN.md`;
+  the tag table's row 100 (`a794633`, checked with `git rev-parse`).
+- **Read again at the papers, and corrected:** the CHANGELOG's round 101 entry had the opening only, its count 3,789 and its walk
+  `unwalked` though no unit moved a platform path; README's count was 3,789 and its speaker paragraph said nothing of when not-sent is
+  said; COMPANION's speaker variable did not say the words' new meaning; QUALIFICATION had no row for the toolchain L121 waits on.
+- **R3:** every unit of the opening and the two inserted ones are committed; none moved; each inserted unit waited on nothing outside the
+  round.
+
+### The round's lesson
+
+Two values a reader draws side by side are one value. 101.3 ordered the writes and the reads of the key's standing and the approval
+desk's words, and left the order held by reading alone; 101.6 made them one immutable value replaced whole, after which no order rule was
+needed and the fence could sit on the product's reader. Where a reader joins two facts, the writer hands it one.
+
+### The review's items, answered
+
+- **CI's run 336:** answered by 101.1 (the test's defect), with what the pin stops catching written in L134 (b).
+- **The bench's sightings carried by round 100:** the speaker test (101.2, the product's defect) and `ARateLimitHolds…` (101.3 and 101.6,
+  the product's). `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore` was not seen again; it stays unexplained and
+  is not a row.
+- **The maintainer's answer of 2026-11-16 (the SDK band):** 101.5.
+- **101.3's open list:** 101.6, with what stays in L133.
+- **101.2's "for the papers":** the pure table not built and `PeerLinkMachine.Close()` read (PLAN §119.6, §119.14).
+- **101.1's "for the papers":** the gap the pin opens and the `cpu-app-high` sighting (L134 (b)).
+
+### The ledger's rows, answered
+
+- **Amended:** L121 (101.5: the pin at 10.0.404; the PC's half open, QUALIFICATION §29), L133 ((b) corrected to 401 and 429; (c) added,
+  closed by 101.3 and 101.6 but for the approval queue's words of an overtaken answer), L134 (b) (101.1: the *Desk tick* light closed for
+  the `AssertStill` windows; the gap the pin opens; the `cpu-app-high` sighting).
+- **Added:** L135 — the *Desk tick* row's amber bound (one tick past 16 ms in the last minute turns the row amber on a desk whose
+  housekeeping lane runs whole) is unmeasured against the rig's distribution; a P95 or slow-tick-count rule waits for a measurement from
+  the rig.
+- **Closed:** none. Open: eighty-one; closed: fifty-four.
+
+### The suites
+
+- The units' own validates are listed in PLAN §119.13; at the close Core 1,874, Rendering 728, Devices 42, Audio 14, Assistant 39,
+  Audience 3, App 1,101 — 3,801; the module 3.25.0, 52 tests.
+- These papers' own runs, with `--no-build` on the build 101.6 left (the papers change no source): Core whole, which reads the papers
+  (`ChangelogTests`, `SdkPinTests`, `DeskWordsFenceTests`, `ShowBusSpecTests`), 1,874 green; Devices 42, Audio 14, Assistant 39 and
+  Audience 3 green; the App suite listed at 1,101 tests (`--list-tests`), not run by the papers. The close's whole validate — the build,
+  all seven suites and the module's four steps on the tree as committed — is the committing stage's and is recorded with its commit.
+- **CI:** 336 red (one App test, answered by 101.1); 337 to 341 green on every job (`release` skipped, no tag; run 341 installed 10.0.404);
+  101.6 (`85761f5`) not pushed when these papers were written, so its run and these papers' are the next papers' first rows (PLAN §119.4).
+- **The rig's reading:** the journal's not-sent row for a stage message beside the Run strip's SPEAKER MESSAGE △ NOT SENT TO STAGEWATCH
+  when a link drops with a message queued (PLAN §119.16). Not read on a rig: no Stagewatch was lost mid-message on a rig this round.
+- Walk: none asked — no unit moved display topology, hot-plug, audio endpoints, WebView2, the process or watchdog, the twin, the registry
+  or CUT/TAKE; 101.5's pin is the toolchain, whose reading on the maintainer's PC is QUALIFICATION §29's row (L121), not a walk.
