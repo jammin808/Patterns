@@ -1017,6 +1017,362 @@ public class StageSpeakerAppTests
         }
     }
 
+    /// <summary>
+    /// One of the speaker's calls held on the lane past its last check and before its send (<see cref="StagewatchLinkService.BeforeSpeakerSend"/>):
+    /// the tokens it was handed, and whether it has been reached. Released once; every hold after it passes at once.
+    /// </summary>
+    private sealed class SendHold
+    {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private CancellationToken _link;
+        private CancellationToken _within;
+        private int _reached;
+
+        public bool Reached => Volatile.Read(ref _reached) != 0;
+
+        /// <summary>The link's token at the held call: cancelled once the link has ended.</summary>
+        public CancellationToken Link => Reached ? _link : default;
+
+        /// <summary>The call's own token (the link's and its deadline's).</summary>
+        public CancellationToken Within => Reached ? _within : default;
+
+        public async Task Hold(CancellationToken link, CancellationToken within)
+        {
+            if (!Reached)
+            {
+                (_link, _within) = (link, within);
+                Volatile.Write(ref _reached, 1);
+            }
+            await _release.Task;
+        }
+
+        public void Release() => _release.TrySetResult();
+    }
+
+    [AvaloniaFact]
+    public void ACallHeldBeforeItsSendWhileTheLinkGoesIsNotSentAndNeverReachesTheStagewatch()
+    {
+        var b = TestApp.Boot();
+        using var gone = new SpeakerStagewatch();
+        var link = b.Services.Kernel.Stagewatch;
+        var hold = new SendHold();
+        try
+        {
+            // One message written and applied; the next passes every check against the route and is held before its send while
+            // the Stagewatch goes away and the link ends. No connection is ever handed to it — not one byte of it left: not sent,
+            // with the lane's own words, never unconfirmed ("it may be on the speaker's screen") — and the Stagewatch saw one.
+            Link(b, gone);
+            Sent(b, "Written");
+            var written = Last(b);
+            PumpUntil(() => written.SwAck == "sent", 20000, () => written.SwAck);
+            link.BeforeSpeakerSend = hold.Hold;
+            Sent(b, "Never written");
+            var never = Last(b);
+            PumpUntil(() => hold.Reached, 20000, () => never.SwAck);
+            gone.GoAway();
+            // The link's own token is the fact: cancelled only once the link has ended (its route dropped before it).
+            PumpUntil(() => !link.Route.Can && hold.Link.IsCancellationRequested, 30000, () => $"the route: {link.Route} · {link.Status}");
+            hold.Release();
+            PumpUntil(() => never.SwAck != StageSpeakerWords.Requested, 20000, () => never.SwAck);
+            Assert.Equal((StageSpeakerWords.NotSent, $"the link to Stagewatch {Name} dropped before it was sent"), (never.SwAck, never.SwWords));
+            Assert.Contains(Rows(b), r => r.Outcome == "not-sent" && r.Message == $"stage message → Stagewatch {Name}: not sent (the link to Stagewatch {Name} dropped before it was sent) — shown on this desk's displays only");
+            Assert.DoesNotContain(Rows(b), r => r.Outcome == "unconfirmed");
+            // Every reader of the receipt: STATE's stage, the strip's glance and the page this desk draws.
+            Assert.Equal(("desk", StageSpeakerWords.NotSent), (Speaker(b).From, Speaker(b).Ack));
+            Assert.Contains("SPEAKER MESSAGE △ NOT SENT TO STAGEWATCH", b.Services.GlanceWords, StringComparison.Ordinal);
+            Assert.Equal(never.Id, b.Services.Stage.SpeakerShown()!.Id);
+            // Nothing is sent late.
+            ShowBus12AppTests.PumpFor(500);
+            Assert.Single(gone.Messages);
+            Assert.Equal(StageSpeakerWords.NotSent, never.SwAck);
+        }
+        finally
+        {
+            link.BeforeSpeakerSend = null;
+            hold.Release();
+            Unlink(b);
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ACallWhoseDeadlineRunsOutBeforeAConnectionIsHandedToItIsNotSent()
+    {
+        var b = TestApp.Boot();
+        using var sw = new SpeakerStagewatch();
+        var link = b.Services.Kernel.Stagewatch;
+        var hold = new SendHold();
+        try
+        {
+            link.SpeakerCallWithin = TimeSpan.FromMilliseconds(600);
+            Link(b, sw);
+            // The call's deadline runs out before any connection is handed to it, the link still up: no byte of it left — not sent,
+            // "no connection could be made", never unconfirmed "no answer in 0.6 s" (that is a request written and not answered).
+            link.BeforeSpeakerSend = hold.Hold;
+            Sent(b, "Late dial");
+            var late = Last(b);
+            PumpUntil(() => hold.Reached && hold.Within.IsCancellationRequested, 20000, () => late.SwAck);
+            Assert.False(hold.Link.IsCancellationRequested, "the link stays up: " + link.Status);
+            hold.Release();
+            PumpUntil(() => late.SwAck != StageSpeakerWords.Requested, 20000, () => late.SwAck);
+            Assert.Equal((StageSpeakerWords.NotSent, $"no connection to Stagewatch {Name} could be made"), (late.SwAck, late.SwWords));
+            Assert.Contains(Rows(b), r => r.Outcome == "not-sent" && r.Message == $"stage message → Stagewatch {Name}: not sent (no connection to Stagewatch {Name} could be made) — shown on this desk's displays only");
+            Assert.DoesNotContain(Rows(b), r => r.Outcome == "unconfirmed");
+            Assert.Empty(sw.Messages);
+
+            // The link goes on carrying the next message, and the one not sent is never sent late.
+            link.BeforeSpeakerSend = null;
+            link.SpeakerCallWithin = StagewatchFrame.SideCallWithin;
+            Sent(b, "Next");
+            var next = Last(b);
+            PumpUntil(() => next.SwAck == "sent", 20000, () => next.SwAck);
+            Assert.Equal(new[] { StagewatchMessageBytes.MessageRoute("Next") }, sw.Messages.Select(m => m.Path));
+            Assert.Equal(StageSpeakerWords.NotSent, late.SwAck);
+        }
+        finally
+        {
+            link.BeforeSpeakerSend = null;
+            hold.Release();
+            Unlink(b);
+            b.Dispose();
+        }
+    }
+
+    // ---- the request's mark, against the runtime this tree pins -----------------------------------------------------------
+
+    /// <summary>A handler as the link's: no proxy, every socket dialled by <paramref name="connect"/>.</summary>
+    private static SocketsHttpHandler MarkHandler(Func<SocketsHttpConnectionContext, CancellationToken, ValueTask<Stream>> connect)
+        => new() { UseProxy = false, ConnectCallback = connect };
+
+    private static async ValueTask<Stream> DialLoopback(SocketsHttpConnectionContext context, CancellationToken token)
+    {
+        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, context.DnsEndPoint.Port), token);
+        }
+        catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+        {
+            socket.Dispose();
+            throw;
+        }
+        return new NetworkStream(socket, ownsSocket: true);
+    }
+
+    private static async Task<(StagewatchLinkService.MarkedBody Body, Exception? Thrown)> PostMarked(HttpMessageHandler handler, int port, CancellationToken ct,
+        StagewatchLinkService.MarkedBody? marked = null)
+    {
+        var body = marked ?? new StagewatchLinkService.MarkedBody();
+        using var http = new HttpClient(handler, disposeHandler: false);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{port}/api/message/Mark/info/off/ack") { Content = body };
+        try
+        {
+            using var response = await http.SendAsync(request, ct);
+            return (body, null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+        {
+            return (body, ex);
+        }
+    }
+
+    /// <summary>
+    /// The fence of "unmarked means nothing left": a connection's stream that reads the request's mark at the first byte written
+    /// to the socket. A handler that flushed the head before asking the content to write itself would find the mark unset here.
+    /// </summary>
+    private sealed class FirstWriteProbe(Stream inner, Func<bool> mark) : Stream
+    {
+        private int _atFirstWrite; // 0 nothing written yet, 1 written with the mark unset, 2 written with the mark set
+
+        /// <summary>The mark as the first byte left: null while nothing has been written.</summary>
+        public bool? MarkAtFirstWrite => Volatile.Read(ref _atFirstWrite) switch { 0 => null, 1 => false, _ => true };
+
+        private void Note()
+        {
+            if (Volatile.Read(ref _atFirstWrite) == 0) Interlocked.CompareExchange(ref _atFirstWrite, mark() ? 2 : 1, 0);
+        }
+
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => inner.CanWrite;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() => inner.Flush();
+        public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override int Read(Span<byte> buffer) => inner.Read(buffer);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => inner.ReadAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => inner.ReadAsync(buffer, cancellationToken);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            Note();
+            inner.Write(buffer, offset, count);
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            Note();
+            inner.Write(buffer);
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            Note();
+            return inner.WriteAsync(buffer, offset, count, cancellationToken);
+        }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            Note();
+            return inner.WriteAsync(buffer, cancellationToken);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            await inner.DisposeAsync();
+            await base.DisposeAsync();
+        }
+    }
+
+    /// <summary>A listener on loopback that accepts one connection and reads one request's head whole, then holds the connection unanswered.</summary>
+    private sealed class SilentListener : IDisposable
+    {
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly TaskCompletionSource<string> _head = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private TcpClient? _client;
+
+        public int Port { get; }
+        public Task<string> Head => _head.Task;
+
+        public SilentListener()
+        {
+            _listener.Start();
+            Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+            _ = Serve();
+        }
+
+        private async Task Serve()
+        {
+            try
+            {
+                _client = await _listener.AcceptTcpClientAsync();
+                var s = _client.GetStream();
+                var head = new List<byte>();
+                var one = new byte[1];
+                while (await s.ReadAsync(one) > 0)
+                {
+                    head.Add(one[0]);
+                    if (head.Count >= 4 && head[^1] == '\n' && head[^2] == '\r' && head[^3] == '\n' && head[^4] == '\r') break;
+                }
+                _head.TrySetResult(Encoding.ASCII.GetString(head.ToArray()));
+            }
+            catch (Exception ex) when (ex is SocketException or IOException or ObjectDisposedException)
+            {
+                _head.TrySetException(ex);
+            }
+        }
+
+        public void Dispose()
+        {
+            _listener.Stop();
+            _client?.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task TheRequestsMarkIsSetOnlyOnceAConnectionWasHandedToItAndItsBytesAreAnEmptyBodysOwn()
+    {
+        // A connect refused: no connection, no mark. The port is held bound and never listened on for the whole test, so no other
+        // listener can take it and every connect to it is refused.
+        using var held = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        held.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        var closed = ((IPEndPoint)held.LocalEndPoint!).Port;
+        using (var handler = MarkHandler(DialLoopback))
+        {
+            var (body, thrown) = await PostMarked(handler, closed, CancellationToken.None);
+            Assert.True(thrown is HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError }, "a refused connect: " + thrown);
+            Assert.False(body.Began);
+        }
+
+        // The bench's shape: the link's cancel lands inside the connect, which is refused — the send says only that it was
+        // cancelled, and the mark says what the type cannot: nothing left.
+        using (var cancel = new CancellationTokenSource())
+        using (var handler = MarkHandler(async (_, _) =>
+               {
+                   await cancel.CancelAsync();
+                   throw new SocketException((int)SocketError.ConnectionRefused);
+               }))
+        {
+            var (body, thrown) = await PostMarked(handler, closed, cancel.Token);
+            Assert.True(thrown is OperationCanceledException, "a cancel inside a refused connect: " + thrown);
+            Assert.False(body.Began);
+        }
+
+        // Cancelled while its connect is still pending.
+        using (var cancel = new CancellationTokenSource())
+        {
+            var dialling = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var handler = MarkHandler(async (_, token) =>
+            {
+                dialling.TrySetResult();
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("a pending connect ends only by its cancel");
+            });
+            var send = PostMarked(handler, closed, cancel.Token);
+            await dialling.Task;
+            await cancel.CancelAsync();
+            var (body, thrown) = await send;
+            Assert.True(thrown is OperationCanceledException, "a cancel while connecting: " + thrown);
+            Assert.False(body.Began);
+        }
+
+        // Written to a listener that reads the head whole and never answers, then cancelled: the mark is set — it may have run.
+        // The connection's stream reads the mark as the first byte goes to the socket: it is already set then, so no byte of the
+        // request can leave while the mark is unset.
+        var written = new StagewatchLinkService.MarkedBody();
+        FirstWriteProbe? wire = null;
+        using (var silent = new SilentListener())
+        using (var cancel = new CancellationTokenSource())
+        using (var handler = MarkHandler(async (context, token) => wire = new FirstWriteProbe(await DialLoopback(context, token), () => written.Began)))
+        {
+            var send = PostMarked(handler, silent.Port, cancel.Token, written);
+            var head = await silent.Head;
+            await cancel.CancelAsync();
+            var (body, thrown) = await send;
+            Assert.True(thrown is OperationCanceledException, "a cancel after the request was written: " + thrown);
+            Assert.True(body.Began);
+            Assert.NotNull(wire);
+            Assert.True(wire.MarkAtFirstWrite, "the mark as the request's first byte went to the socket: " + (wire.MarkAtFirstWrite?.ToString() ?? "nothing written"));
+            Assert.Contains("Content-Length: 0\r\n", head, StringComparison.Ordinal);
+        }
+
+        // The same bytes on the wire as an empty array's content.
+        string Head(string text) => string.Join("\r\n", text.Split("\r\n").Where(l => !l.StartsWith("Host:", StringComparison.Ordinal)));
+        var heads = new List<string>();
+        foreach (var content in new HttpContent[] { new ByteArrayContent([]), new StagewatchLinkService.MarkedBody() })
+        {
+            using var silent = new SilentListener();
+            using var cancel = new CancellationTokenSource();
+            using var handler = MarkHandler(DialLoopback);
+            using var http = new HttpClient(handler, disposeHandler: false);
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{silent.Port}/api/message/Mark/info/off/ack") { Content = content };
+            var send = http.SendAsync(request, cancel.Token);
+            heads.Add(Head(await silent.Head));
+            await cancel.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => send);
+        }
+        Assert.Equal(heads[0], heads[1]);
+    }
+
     // ---- when the link cannot carry it ---------------------------------------------------------------------------------
 
     [AvaloniaFact]

@@ -2471,6 +2471,13 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     public TimeSpan SpeakerCallWithin { get; set; } = StagewatchFrame.SideCallWithin;
 
     /// <summary>
+    /// The test fence's hold on one of the speaker's calls, awaited on the speaker's lane after the call's last check against the
+    /// route and before its request is sent, with the link's token and the call's own (the link's and its deadline): a test holds
+    /// a call there while the link drops or the deadline runs out. Null on every desk; nothing on the wire reaches it.
+    /// </summary>
+    public Func<CancellationToken, CancellationToken, Task>? BeforeSpeakerSend { get; set; }
+
+    /// <summary>
     /// What became of one of the speaker's calls — each call answered exactly once, on the UI thread: its receipt read by 13.12.3,
     /// or why it was never sent.
     /// </summary>
@@ -2670,8 +2677,9 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     /// link ended since it was asked is not-sent, with why), then posted with its id and read by 13.12.3. A 401 and a 429 go through
     /// 13.7.3's one door (<see cref="Answered"/>: a relink, the key's hold, the rate limit's wait); a 403 to a message or a clear
     /// says the key may not send them and holds nothing else; a 403 to an ACK is only that ACK's refusal. No answer after the
-    /// request was written is unconfirmed, never refused; a connection that could not be made is not-sent — and it can only be
-    /// this call's first, since a POST here always carries a body (<see cref="Request"/>), which the handler never sends twice.
+    /// request was written is unconfirmed, never refused; a request whose body the handler never began is not-sent — no byte of it
+    /// can have left (<see cref="MarkedBody"/>) — however its send ended: the link gone first ("dropped before it was sent"), or no
+    /// connection made, refused or not made within <see cref="SpeakerCallWithin"/> ("no connection … could be made").
     /// </summary>
     private async Task<StageReceipt> SpeakerCallAsync(Connection c, HeardShow show, HttpClient http, Uri baseUri, string apiKey, SpeakerCall call, CancellationToken ct)
     {
@@ -2685,16 +2693,21 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         long retryAfter;
         using var deadline = new CancellationTokenSource(SpeakerCallWithin, Time);
         using var within = CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);
+        if (BeforeSpeakerSend is { } seam) await seam(ct, within.Token);
+        // This request's own mark, read only for it: null (no body of the mark's) is read as begun, so it can only ever say unconfirmed.
+        MarkedBody? sent = null;
         try
         {
             using var request = Request(c, HttpMethod.Post, new Uri(baseUri, call.Path), apiKey);
+            sent = request.Content as MarkedBody;
             request.Headers.TryAddWithoutValidation("X-Request-Id", call.Id);
             using var response = await http.SendAsync(request, within.Token);
             status = (int)response.StatusCode;
             body = await response.Content.ReadAsStringAsync(within.Token);
             retryAfter = RetryAfterOf(response);
         }
-        catch (HttpRequestException ex) when (ex.HttpRequestError is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError or HttpRequestError.SecureConnectionError)
+        catch (HttpRequestException ex) when (ex.HttpRequestError is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError or HttpRequestError.SecureConnectionError
+            && sent is { Began: false })
         {
             Interlocked.Increment(ref _sideFaults);
             return new StageReceipt(LinkOutcome.NotSent, 0, $"no connection to Stagewatch {name} could be made");
@@ -2702,6 +2715,11 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
         {
             Interlocked.Increment(ref _sideFaults);
+            // Never begun: no connection was handed to this request, so not one byte of it left — whatever cancelled it (13.12.3).
+            if (sent is { Began: false })
+                return new StageReceipt(LinkOutcome.NotSent, 0, ct.IsCancellationRequested
+                    ? $"the link to Stagewatch {name} dropped before it was sent"
+                    : $"no connection to Stagewatch {name} could be made");
             return new StageReceipt(LinkOutcome.Unconfirmed, 0,
                 ct.IsCancellationRequested ? $"the link dropped before Stagewatch {name} answered"
                 : ex is OperationCanceledException ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"no answer in {SpeakerCallWithin.TotalSeconds:0.#} s")
@@ -2722,15 +2740,12 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
     }
 
     /// <summary>
-    /// One side call's request. A POST always carries a body — an empty one when it has nothing to say, the same bytes on the
-    /// wire (<c>Content-Length: 0</c>) — because the HTTP handler sends a request with no body again, on a new connection, when
-    /// the connection it went on closes before an answer byte: once any byte of a command may have reached the Stagewatch it is
-    /// never sent again (Show Bus 1.3 §13.12.7), and with no second connect a refused connect is only ever the first, so a
-    /// not-sent outcome means nothing left (13.12.3).
-    /// </summary>
-    /// <summary>
     /// One side call's request, with the credential its connection may carry: on a LINK socket the S of its verified link and never
     /// the key (13.7.1) — none before the verdict or after a refusal; on a level-0 socket that carried the key, the key as a bearer.
+    /// A POST always carries a body — an empty <see cref="MarkedBody"/> when it has nothing to say, the same bytes on the wire
+    /// (<c>Content-Length: 0</c>) — because the HTTP handler sends a request with no body again, on a new connection, when the
+    /// connection it went on closes before an answer byte: once any byte of a command may have reached the Stagewatch it is never
+    /// sent again (Show Bus 1.3 §13.12.7), and the body's mark says whether any byte of it can have left (13.12.3).
     /// </summary>
     private static HttpRequestMessage Request(Connection c, HttpMethod method, Uri url, string apiKey, string? json = null)
     {
@@ -2741,8 +2756,44 @@ public sealed class StagewatchLinkService : IDisposable, ISpeakerCarrier
         }
         else if (apiKey.Length > 0) r.Headers.TryAddWithoutValidation("Authorization", "Bearer " + apiKey);
         if (json is not null) r.Content = new StringContent(json, Encoding.UTF8, "application/json");
-        else if (method == HttpMethod.Post) r.Content = new ByteArrayContent([]);
+        else if (method == HttpMethod.Post) r.Content = new MarkedBody();
         return r;
+    }
+
+    /// <summary>
+    /// An empty request body (<c>Content-Length: 0</c>, the bytes an empty array's content puts on the wire) that marks the moment
+    /// the HTTP handler began writing it. The handler asks a request's content to write itself only on a connection handed to that
+    /// request, its head held in the connection's buffer until then (HTTP/1.1, the only version these requests ask for), and from
+    /// that moment it never sends the request again on another connection: unmarked, no byte of the request can have left — a
+    /// connect refused, still pending or cancelled, or the request still waiting for a connection; marked, it may have. One mark
+    /// per request, never cleared. Public for the runtime fence that holds this against a real listener.
+    /// </summary>
+    public sealed class MarkedBody : HttpContent
+    {
+        private int _began;
+
+        /// <summary>Whether the handler began writing the request: false means not one byte of it can have left this desk.</summary>
+        public bool Began => Volatile.Read(ref _began) != 0;
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        {
+            Volatile.Write(ref _began, 1);
+            return Task.CompletedTask;
+        }
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
+        {
+            Volatile.Write(ref _began, 1);
+            return Task.CompletedTask;
+        }
+
+        protected override void SerializeToStream(Stream stream, TransportContext? context, CancellationToken cancellationToken) => Volatile.Write(ref _began, 1);
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return true;
+        }
     }
 
     private static long RetryAfterOf(HttpResponseMessage response) => response.Headers.RetryAfter?.Delta is { } delta ? (long)Math.Ceiling(delta.TotalSeconds) : 0;
