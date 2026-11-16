@@ -10,6 +10,28 @@ back. From round 79 each entry names its evidence class: the maintainer's list, 
 a verbal report from the rig, the show laptop's files, web research. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 101 — 2026-11-16 — a repair round: CI's run 336 and two bench sightings of round 100, each read against the code; a still desk's window pins the Desk tick light, a speaker call that never reached a connection is not-sent, a context answer's words are written before the key's standing they go with
+
+`round-101` · PLAN §119 · REVIEW round 101 · 3,789 tests · module 3.25.0 (unchanged) · evidence: CI's file (run 336 on `a794633`, round 100's papers: one App test of 1,089 red; runs 332 to 335 green) and two sightings on this bench that round 100's papers recorded and did not make rows, each case read by one reader and one adversarial check against the code at `a794633`, nothing run; no field files and no rig report; no measurement · Walk: unwalked
+
+- **The round opens (101.0).** PLAN §119.1 names the round (a repair round the cross-app plan does not carry, opened like round 92), finds
+  nothing new in `docs/field/`, reads CI (runs 332 to 335 green, 336 red on one test), and reads each of the three cases in the §96.1
+  shape: the test, its failing words, what the code shows, whose defect and what it asks. **The still-desk window (the test's defect):**
+  `ShowBusAppTests.ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick` met L134 (b)'s named residue, a real desk tick of 27.3 ms
+  moving the *Desk tick* row from green to amber inside a window that counts real ticks; the product is right to rebuild on a lit row's
+  change, and the test left the row's light to the runner's timing. **The speaker call (the product's defect):** a queued message that
+  never reached a socket is told `unconfirmed` ("it may be on the speaker's screen") when the link's cancel lands inside its send, because
+  the call is classed by the exception's type and the token, not by whether the request reached a connection. Round 100's papers
+  read that sighting's second message as written before the link went; the code shows it was never written (a serial lane, a listener
+  stopped before the first call ends, `Connection: close` on every answer), and the opening says so without rewriting round 100's sections.
+  **The context answer's words (the product's defect):** a keyed context post's answer writes the key's standing before its approval
+  words, on a pool thread on every run, so the Nodes card line can draw "key not accepted" beside the previous answer's words; L133's
+  clause (b) is corrected (a 403 never reaches the record's hold) and a third two-step named. The units: 101.1 (tests: a still window
+  pins the *Desk tick* light), 101.2 (a speaker call that never reached a connection is not-sent), 101.3 (a context answer's words are
+  written before the key's standing they go with), 101.4 (the papers). OPEN: L133 and L134 (b) as above, and one row the round expects to
+  add: the *Desk tick* row's amber bound, one tick past 16 ms anywhere in the last minute, is unmeasured against the rig's distribution.
+  No measurement this round; no platform path; no code changes in the opening.
+
 ## Round 100 — 2026-11-16 — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested
 
 `round-100` · PLAN §118 · REVIEW round 100 · 3,789 tests · module 3.25.0 · evidence: a handed-in critique (the Eye design, `eye.md`, EYE.4, with its critique's issue 13); CI's file for runs 319 to 335 (327 to 329 and 331 red, each read by one reader and one adversarial check against the code, nothing run) for the inserted 100.3, 100.4 and 100.7; sightings on this bench for 100.5 and 100.8; two adversarial readers of 100.4's fold-in for 100.6; no field files and no rig report; no measurement beyond the flood test's counts · Walk: unwalked (the device links' connection start and end)

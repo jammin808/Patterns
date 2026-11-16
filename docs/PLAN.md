@@ -17609,3 +17609,219 @@ where that poster's context is one told cluster on the card its link proved, and
 (§118.14), so the reading is the tests' and the scripted peer's, on the bench; the round is `unwalked` in the rig's sense. For 100.4 and
 100.6 the row is the journal's `DeviceReceipt` of a Pixera or PJLink line across a reconnect (not-sent or *unconfirmed*), read beside the
 Devices card — not read on a rig either.
+
+## 119. Round 101 — a repair round: CI's run 336 and two bench sightings of round 100, each read against the code; a still desk's window pins the Desk tick light, a speaker call that never reached a connection is not-sent, a context answer's words are written before the key's standing they go with
+
+### 119.1 What opened the round, and what the files said
+
+**The round's number and its requester.** This is a repair round the cross-app plan does not carry (`docs/ecosystem/master-plan.md`
+names no Patterns round after its P99, which is round 100 here), opened like round 92 (§110.1) and round 100 (§118.1): no new ask from
+the maintainer. The units have no plan section and no brief; this section and the inserted units' commit bodies are the whole of it.
+The evidence class is CI's file — run 336 on `a794633` (round 100's papers), one App test of the suite — and two sightings on this
+bench that round 100's papers recorded and did not make rows (REVIEW round 100's suites note; PLAN §118.13), each read by one reader and
+one adversarial check against the code at `a794633`, nothing run. Where a reader and its check disagree the check is the later word,
+and this section says where it is.
+
+**What the files said.** Nothing new came in: `docs/field/` holds only its README, as at the last eight openings (`ls docs/field`
+read at this head: no `round-NN` folder). The files this opening reads are CI's and the bench's.
+
+**CI's runs on round 100's pushes, read from GitHub at this opening** (`gh run list`, `gh run view`):
+
+| Run | What it said | What it means | What it asks |
+|---|---|---|---|
+| 332 (`d4ebc37`, 100.5), 333 (`ac06129`, 100.6), 334 (`7e7eea5`, 100.7), 335 (`3d6700a`, 100.8) | Green, every job; `portable-exe` and `release` skipped (no tag) | Round 100's units 100.5 to 100.8 are confirmed on both runners, 335 now ended (§118's papers left it running) | Nothing; closed here |
+| 336 (43861976541), `a794633` (100.2, round 100's papers), 11:55 to 12:22 UTC | `rollback-script`, `companion-module`, `lifecycle` and `windows-smoke` green; `test` red: Devices 42, Audio 14, Assistant 39, Audience 3, Rendering 728 and Core 1,874 green, App 1,088 of 1,089, **one failure**, `ShowBusAppTests.ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick` (23 m 12 s) | The papers' commit changed no source; the failure is a flake of the code of 100.7's tree, the first in the still-Eye tests since 100.7 | case 1 below |
+
+Runs 327 to 329 and 331 (red) and 330 (green) are read in §118.1 and §118.2. The run on this opening's commit is the next papers' first row.
+
+**The three cases, in the §96.1 shape.** Each case's readings are the first reader's, corrected by its adversarial check.
+
+**Case 1 — `ShowBusAppTests.ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick` (run 336; the test's defect).**
+- *The test and its words.* The test (`ShowBusAppTests.cs:793`) takes `StillDesk.Baseline`, pumps the dispatcher thirty times at
+  100 ms and asserts the Eye rebuilt nothing (`StillDesk.AssertStill`). It failed with "1 rebuilds in 30 ticks of a still link — desk:
+  outputs closed · Grey → outputs closed · Grey · words gone [] new [Desk tick: △ the desk skipped a frame in the last minute — a probe
+  that blocks would show here first]", and `DeskWords` at the baseline "desk ticks 1 (last 9.1 ms, worst 9.1 ms in health, 0 area faults)"
+  against "desk ticks 4 (last 27.3 ms, worst 27.3 ms in audio, 0 area faults)".
+- *What the code shows.* The desk's 1 s status timer (`MainViewModel.cs:487`) runs real ticks inside the window, each timed by
+  `Stopwatch` (`MainViewModel.Poll.cs`) and recorded in `TickBudget`, whose worst is the maximum over its 60-tick ring
+  (`TickBudget.Window`) and whose amber bound is `SlowMs` 16, red `StutterMs` 50 (`TickBudget.cs:14,17`). A tick of 27.3 ms took the
+  worst past 16: the *Desk tick* row went from green (absent from `AttentionRows`) to amber, its constant note joined the desk node's
+  hashed words (`EyeFacts.AttentionWords`: item, mark, note), and the next Eye read rebuilt once. That is L134 (b)'s named residue,
+  sighted: a machine-timing fact moved inside a window that counts real ticks. Every other candidate L134 (b) names is at zero in the
+  same words (contained errors 0 at both ends, area faults 0, no wire, web, deck, link, heard-node or Companion count); the
+  *area fault* arm of the row (`SuperCheck.cs`) is ruled out by "0 area faults". What the check adds to the reader: 27.3 ms is the whole
+  tick, and "audio" only names its largest area — the area's own time is computed and kept in no word, so audio's share is not known;
+  the test harness runs every tick heavier than a show's (`TestApp.Boot` gives the housekeeping lane a 10 s budget, `PollLanes.BudgetMs =
+  10_000`, `TestApp.cs:213`, where a show runs it under 4 ms), which is a contributor to the exposure and not a reason to change the knob
+  (tests read the lane's lines after one poll through it); and `StillDesk.Moved` returns at the first node that differs, so "only the
+  desk node moved" is the words' reading, not shown.
+- *Whose defect.* **The test's.** The product is right to rebuild on a lit row's change (`NetworkMenusAppTests`' slow leg holds that,
+  `still.Rev > read` after a tick past the stutter bound). The test's own summary says the still desk rebuilds nothing "not even with an
+  amber Super Check row whose reading runs on (a test desk's tick is slow)", but whether that row is lit, and whether its light changes
+  inside the window, was left to the runner's real timing: the baseline tick took 9.1 ms, so the row was green.
+- *What it asks.* 101.1: `StillDesk.Baseline` pins the *Desk tick* light red after its first-tick wait by recording one tick past the
+  stutter bound into the desk's own budget (the shape `NetworkMenusAppTests.cs:142` already uses), so no real tick can move the light
+  (the worst is the ring's maximum and red's note is constant) and the readings move under one light in the value — which makes each
+  window also prove 100.3's rule that a reading moving within one light moves no hashed word. The pin's tick count is carried in
+  `StillBaseline` so a failing window's words say whether the pin is still inside the ring (a window holds at most about thirteen ticks,
+  far inside 60). **A fence of its own, written as the check corrected it:** the reader's version took the baseline over the real first
+  tick, which the pin's mutation could not control (a first tick past 50 ms makes the row red already, and the mutation would pass); the
+  fence fills the ring with `TickBudget.Window` ticks of 1 ms first (as `NetworkMenusAppTests.cs:138` does), so the row starts green on
+  recorded facts alone and the baseline's first-tick wait pumps nothing, asserts the pinned red row after the baseline, records 27.3 ms and
+  then 400 ms and holds each with `AssertStill`, and as a negative control records an area fault and expects exactly one rebuild
+  whose words say an area failed — the pin is no blanket. Not widened: no wait, no count, no assertion. **What the pin stops,
+  named:** a subject that made the desk tick slow would no longer show in these windows (the Desk tick light would have flipped); the
+  windows never claimed it, and `DeskPollTests`' budget tests hold the tick's cost.
+- *What stays named (L134 (b)).* The *Desk tick* light closes for the `AssertStill` windows; the rest stays named and unsighted:
+  the `cpu-app-high` advice (`Administration.cs`, on the test host's CPU over all cores), the *Memory ceiling* row (the host's working
+  set), the *Render frame* row's note, which names the worst frame's stage while the light stands (a reading in hashed words, against
+  100.3's rule: `SuperCheck.cs`, `FrameAdvice`; reachable only if a sink draws inside a window), and the *Start-up* row's phases.
+  **The product question this raises, no measurement this round:** one tick past 16 ms anywhere in the last minute lights the row amber
+  for a minute (the Super Check's headline, the Eye's desk card and the assistant's brief with it). The 16 and 50 ms bounds were reasoned
+  from a 60 Hz frame and a felt stutter (PLAN round 79 §16.1); what was measured is the healthy cost (0.3 to 1.6 ms a tick) and round
+  71's field cause (203.1 ms every tick, COM on each). A rule by the 95th percentile or by a count of slow ticks would keep round 71's
+  case and drop one outlier, and it is a governor: it needs the rig's distribution first. **This round adds the row** (OPEN, 101.4):
+  the amber bound is unmeasured against the rig's own distribution; it closes by a field record of the show laptop's ticks (the metrics
+  CSV or the Super Check file). No measurement: none exists here.
+
+**Case 2 — `StageSpeakerAppTests.WhenTheLinkGoesWhatWasInFlightIsUnconfirmedWhatWasNeverWrittenIsNotSentAndNothingIsSentLate` (two
+bench sightings; the product's defect).**
+- *The test and its words.* The sighting REVIEW round 100's suites note records (the first run of App part 2 of 100.2's close) timed
+  out at the test's 30 s wait with the first message `unconfirmed` and the second `unconfirmed` too, its words "the link dropped before
+  Stagewatch Hall A answered"; the test accepts `not-sent` for the second, and it passed three times alone and on the part's rerun.
+  The test holds the first POST at the fake and queues "Never written" behind it on the serial speaker lane, then `GoAway()`
+  (`_listener.Stop()`, then `DropAll()`).
+- *Where Round 100's papers read it otherwise than the code shows.* REVIEW round 100's suites note says the sighting timed out "with
+  both messages `unconfirmed` (the second had been written before the link went)". **The code contradicts that.** The second message was
+  never written: the lane is serial (`SpeakerCallsAsync` takes a call only after the previous returns), the first call cannot end before
+  `DropAll`, which runs after `Stop`; every answer of the fake carries `Connection: close` and `DropAll` closed its accepted
+  connections, so the second call has nothing to reuse and must dial a stopped listener; the fake counts a call only after reading its
+  request head, which a stopped listener cannot, and the test's own `Assert.Single(gone.Messages)` says the same. Nor did the papers
+  attach the sighting to a row: REVIEW says "carried and not made a row", and OPEN L134 carries `EndpointAppTests` and the still-Eye
+  tests, not this test. This section corrects the reading; round 100's sections are not rewritten.
+- *What the code shows.* `SpeakerCallAsync` (`StagewatchLinkService.cs`) decides not-sent against unconfirmed by the exception's type and
+  by whether the link's token is cancelled, never by whether the request reached a connection. Its top guard passes (token not yet
+  cancelled, socket still `Open`), then `http.SendAsync` dials the stopped port; the link's receive loop meanwhile ends and its `finally`
+  cancels the token (`linked.CancelAsync()`). A cancel that lands inside `SendAsync` reaches the catch as a cancellation, not as
+  `HttpRequestException(ConnectionError)`, so it misses the not-sent catch and falls into the catch whose words are
+  `ct.IsCancellationRequested ? "the link dropped before Stagewatch {name} answered"` — **unconfirmed** for a message no socket ever
+  carried. The words fix where the cancel fell (not at the guard, or it would say "dropped before it was sent"; not before the dial's
+  refusal, or it would say "no connection … could be made"). Which of three runtime shapes turned the dial into a cancellation (the
+  client's translation of a connect failure under a cancelled token, the connect wrapper's, a request cancelled while queued for a
+  connection) is .NET behaviour read from memory, not shown here; the mend does not depend on it. The window is narrower than the first
+  reading drew it: the /ws connection was accepted first and `DropAll` closes in that order, so the link's receive continuation must lag
+  the whole lane through the first call's failure, its classification, the dequeue, the guard and the dial — a loaded bench's pool
+  starvation allows it, which is why it passes alone.
+- *Whose defect.* **The product's.** In the room it tells the operator that a queued message "may be on the speaker's screen" when it
+  never left the desk; a clear that follows it counts the message as reached (`After`'s rule accepts `unconfirmed`); and any speaker call
+  is exposed the same way when the link drops as the next starts — a message, a clear, a forwarded ACK. 13.12.3's rule (a line never
+  written is not-sent) and the method's own comment ("a connection that could not be made is not-sent") are broken. Not exposed: the
+  test's second section (Unlink: the cancel is what fails the held call, so it always precedes the guard), the written-then-closed
+  tests (they stay unconfirmed), and the owed-results, approvals and context side calls (their catches filter on `!ct.IsCancellationRequested`
+  and only schedule a retry).
+- *What it asks.* 101.2: the request records the fact that decides it — a private content for the speaker's calls whose serialisation
+  sets a volatile mark, which the handler reaches only once a connection has been handed to the request (so the mark unset means no byte
+  of the request can have left, and set means it may have) — and the catch classifies by the mark, not by the token: mark unset and the
+  link gone is not-sent "the link to Stagewatch {name} dropped before it was sent" (the words the lane already uses), mark unset
+  otherwise not-sent "no connection to Stagewatch {name} could be made", mark set the present unconfirmed words unchanged. **Fences, as the check
+  corrected them:** the required one drives the real path — an internal awaitable seam on the link between the guard and the send, in the
+  style of `SpeakerCallWithin` and 100.8's `Published`, held by a new `StageSpeakerAppTests` case that runs `GoAway()` and waits for the
+  route to drop before the second call's send continues, then asserts `never.SwAck == "not-sent"` with the "dropped before it was sent"
+  words, the not-sent journal row and `Assert.Single(gone.Messages)`; without the mend it reads `unconfirmed` every time and it needs no clock and
+  widens no wait. The pure classification table and a runtime-shape leg (a connect callback that cancels the request's token and
+  throws a refused connect, asserting the send throws a cancellation, the mark unset) supplement it and do not stand for it (a mutation
+  that ignores the mark would pass them); a loopback listener that reads the whole head and then has the token cancelled is the negative
+  control (mark set, unconfirmed). **The second behaviour change, named and fenced:** a request still waiting for a connection when
+  `SpeakerCallWithin` runs out (the deadline, the token not cancelled) moves from unconfirmed "no answer in X s" to not-sent — right by
+  13.12.3, and fenced by a held dial with the deadline at 600 ms as the neighbouring tests do. The test itself is not touched.
+  **What a next sighting would say** after the mend: an `unconfirmed` second message with the mark set and `gone.Messages.Count == 1`
+  — a foreign listener that took the freed port, or a pooled connection whose far end closed and was not yet seen; the words and the
+  mark tell them apart from this. `PeerLinkMachine`'s own "the link dropped before … answered" (`PeerLinkMachine.cs`, a per-command
+  `WrittenAt`) is read in the same unit, since it may already separate written from unwritten.
+
+**Case 3 — `ShowBusAppTests.ARateLimitHoldsKeyedCallsWithTheVerdictStandingAndA403IsSaidInItsWords` (one bench sighting in 100.6's validate,
+on its 403 words; the product's defect).**
+- *The test and its words.* After the fake flips from a 429 to a 403, the test waited until the link's key read not accepted and then
+  read `ApprovalWords`, which still carried the 429's "rate limit: too many requests with this key". Green alone three times and on the
+  part's rerun. REVIEW round 100 recorded it as carried; the journal paraphrased the value and did not quote it, so a next sighting's
+  xunit `Actual` decides: exactly "Stagewatch localhost refused this desk's context — rate limit: too many requests with this key" is
+  this mechanism; one beginning "approval desk:" is `Stand`'s approvals branch, one beginning "Stagewatch localhost did not confirm" is a
+  failed post — either would be another.
+- *What the code shows.* `PostOwnContextAsync` applies a keyed context answer in two steps. `Answered` reaches `Apply`, `Stand`, which
+  writes the standing `run.Key = after` (volatile, under `run.Gate`; for a 403 word "none", keyed, so `NotAccepted`), then `Follow`
+  (the log line and a UI post, outside every gate) and returns; only then does the method write `_approvalWords` for a refused or
+  unconfirmed answer. Until that write lands the words are the previous post's. The same order stood at `ac06129`; 100.8's split of `Apply`
+  into `Stand` and `Follow` did not create it. The reader said the tail runs on the UI thread in the usual case and on the pool only
+  when the lane thread is preempted; **its check corrects that**: `DispatcherOperation<T>` completes its task under Avalonia's
+  synchronisation context and .NET does not run a continuation inline there, so the tail after `await UiThread.InvokeAsync(...)` runs on
+  the pool on every run — the gap between the key's write and the words' write is open on every run (microseconds idle, widened by
+  `Follow`'s synchronous log append under the process-wide log gate and a pool thread's preemption under load), which fits three
+  green runs alone and one failure in a loaded part. This is read from Avalonia 11.3.20's and .NET 10's sources by the check, not run here.
+- *Whose defect.* **The product's.** The Nodes card line joins `ApprovalWords` (`NodesService.cs:94`, the only product reader) beside
+  `link.Status`, which carries the key's line (`:95`), so a poll inside the gap draws "key not accepted" beside the rate limit's words; the
+  same window opens for a 401 (the key refused), a 429 (the busy hold) and a 2xx that takes or leaves the standing. The test's assertion
+  is right.
+- *Against L133 (b).* The row's clause (b) names a keyed call's answer "(401, 403, 429)" and says `Follow`'s `KeyRefused` holds the
+  record later than `Stand` writes the standing. **For a 403 that is wrong:** the step's hold is `Node`, `holdMs` stays 0, `Follow` never
+  reaches `KeyRefused` and the record never moves, so (b)'s torn pair (the record and the key) applies to a 401 and a 429 only. The pair that
+  tears here is the standing and the approval words, a third two-step of the same answer, which L133's proposed mend (`Stand` and the
+  core's part in one `lock (_core)`) would leave open.
+- *What it asks.* 101.3: the context answer's words are computed before the answer is applied (a pure helper that makes today's
+  choice between "did not confirm … posted again in five seconds" and "refused this desk's context — {words}") and handed down
+  `Answered` to `Apply` to `Stand` as one more optional argument (null for every other caller); `Stand` writes `_approvalWords`
+  inside `lock (run.Gate)` after its own approval-desk words (so the final value is today's) and **before** the volatile `run.Key = after`,
+  so a reader that reads the key and then the words sees the pair whole. The method's own write stays for every answer that applies no
+  step — a 404, a 5xx, a 408, **and a 401 that asks to relink** (that branch returns from `Answered` before any step, so the reader's design,
+  which moved the write into `Stand` alone, would have dropped its words) — and for a stale answer, whose behaviour is not changed in
+  this unit (the reader's "side effect" that a stale answer stops writing its words over a newer verdict's was wrong: verdicts write no
+  approval words, only the approvals branch and the context, proposal and collect paths do). **Readers read the key first and the
+  words second:** `Face()` returns the record, the key and the words in that order, and `NodesService` takes the pair from it — as it reads
+  now (words at `:94`, the status at `:95`) the mend would leave an old-words, new-key pair possible. **The fence:** `Published`,
+  the 100.8 fence's reading of every saying, is raised for every move of the standing — `Follow` says the change when the standing
+  moved — and carries the words; `ARateLimitHolds…` collects every reading from before the 403 flip and asserts none pairs a key not accepted
+  with the rate limit's words and every reading with the key not accepted carries the 403 words; without the reorder it fails on every
+  run (the words are written after `Follow`), and a second leg takes a reading right after `Stand`'s key write so the fence holds the order
+  where it is made and not where it is told. No wait is widened and the test's assertions are not changed. The widened `Published`
+  event and the added publication on each standing move are argued for by *every reader*, not by the cause, and the unit says so.
+  **What it leaves (L133):** (a) the level-0 rise to an older Stagewatch and (b) the 401 and 429 answers' record against their key stay open;
+  101.3 mends (c), the standing and the approval words of a keyed context answer, and L133 says so.
+
+**The sightings §118.1 carried.** `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore` was not seen again (no run of
+the round failed it) and stays unexplained, not a row. The two others above are read here and are no longer carried: case 3 is 100.6's
+validate sighting of `ARateLimitHolds…`, case 2 the sighting REVIEW round 100's suites note records.
+
+### 119.2 The unit table, and what already stands
+
+Each dependency is this tree's number. The round has no plan unit; the table is the round's own.
+
+| Unit | What it is | Depends on | What already stands, and where it came from | What is to build |
+|---|---|---|---|---|
+| 101.0 | this opening: PLAN §119.1 and the changelog's round 101 entry | round 100's papers (`a794633`) | — | — |
+| 101.1 | tests: a still window pins the *Desk tick* light | 101.0; 100.3 (readings in the value, steady words) and 100.7 (`StillDesk`'s baselines after the desk's ticks) | `StillDesk.Baseline` waits for the first tick and the sampler and reads the desk's words; `AssertStill`, `AssertUnmoved`, `AfterTicks`; `NetworkMenusAppTests` pins the light red in its slow leg by recording a tick past `StutterMs` (`:142`); `TickBudget.Record`, `RecordFault`; `SuperCheck.DeskTick` rules the light by the ring's worst; `AttentionRows` hands the lit rows to the Eye | the pin in `Baseline` and the tick count carried in `StillBaseline`; the fence in `StillDeskTests` (ring pre-filled, pinned red row asserted, 27.3 ms and 400 ms held, an area fault as the negative control); no product change |
+| 101.2 | a speaker call that never reached a connection is not-sent | 101.0 | `SpeakerCallAsync` classifies by exception type and the link's token; the lane's other not-sent words ("dropped before it was sent", "no connection … could be made"); `Request`'s empty body; the written-then-closed tests; `StageSpeakerAppTests`' hold and `GoAway` | the request's mark, the classification by it, the internal seam, the required App fence, the supplementary legs, the deadline case fenced; the read of `PeerLinkMachine`'s "dropped before … answered" |
+| 101.3 | a context answer's words are written before the key's standing they go with | 101.0 | `Answered` → `Apply` → `Stand` (the standing under `run.Gate`) → `Follow`; `PostOwnContextAsync` writes `_approvalWords` after `Answered` returns; `Face()` and `SightWithLink` (100.8) read the record and the key; `Published` (100.8, the fence's reading) | the pure words helper and the argument down to `Stand`; the write before the key; `Face()` with the words and `NodesService` through it; `Follow` says a move of the standing and `Published` carries the words; the fence in `ARateLimitHolds…` and its second leg |
+| 101.4 | the papers: PLAN §119 completed, REVIEW round 101 (Walk), CHANGELOG, OPEN (L133, L134, and one row added), round 100's tag row (`a794633`) | 101.1 to 101.3 | — | — |
+
+**The OPEN rows this round touches.** L133 (its clause (b) corrected to the 401 and 429 answers, clause (c) added and closed by 101.3,
+(a) and the rest of (b) stay), L134 (b) (the *Desk tick* light closed for the `AssertStill` windows by 101.1; the cpu advice, the memory
+ceiling, the render frame's note and the start-up row's phases stay named). **The row the round expects to add:** the *Desk tick* row's
+amber bound (one tick past 16 ms anywhere in the last minute) is unmeasured against the rig's own distribution — a field record of the
+show laptop's ticks closes it, and a rule by the 95th percentile or a count of slow ticks is a governor that waits for it (PLAN round 79
+§16.1 gave the bounds; round 71 §89 is the field cause). The check's second find, that the *Render frame* row's note moves with the worst
+frame's stage while its light stands, is carried in L134 (b), not a row of its own.
+
+### 119.3 The rig, and what this opening does not do
+
+**The rig.** The round has verbs an output can show, and each names its reading: 101.2's is the journal's not-sent row for a stage
+message (`stage message → Stagewatch {name}: not sent (…) … shown on this desk's displays only`), read beside the speaker's screen and
+this desk's own displays, not read on a rig (no Stagewatch is lost mid-message here); 101.3's is the Nodes card's line and STATE's
+`bus.stagewatch` after a refused context post, read beside Stagewatch's refusal — not read on a rig either; 101.1 is tests only and has
+no verb. Both the reading and "not read" are written in the unit's papers (101.4).
+
+**No measurement this round.** None for the amber bound (no tick distribution exists on this bench or in `docs/field/`), none for which
+runtime shape carried the cancel in case 2, none for why a tick took 27.3 ms in case 1 (a GC pause, a first-run path or preemption: the
+tick's words carry wall time only; a next sighting would need, per tick, the collection and pause deltas and the UI thread's CPU time
+against its wall time, and the slowest area's own milliseconds, which the budget does not keep). Nothing is governed: no ladder, no
+limit, no bound moves. **No platform path** is touched by the opening (no code change), and none by the units as designed
+(`StagewatchLinkService`'s speaker lane and context post are the link's, not display topology, hot-plug, audio endpoints, WebView2, the
+process or watchdog, the twin, the registry or CUT/TAKE); the round's walk is `unwalked` in the rig's sense.
