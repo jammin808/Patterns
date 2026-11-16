@@ -255,5 +255,29 @@ between two cards is a link only when a record says so. `docs/PLAN.md` §117 is 
 - **Bounded by counts, held by tests:** 256 relayed edges, 256 cross-app claims, 32 mentions per context and 128 in all, 8 forced
   chain ends, the brief's 16 apps in full and 240 lines; no measurement on a rig, no governor.
 - **Not yet.** The replay's link edges stay grey (L125); NDI across apps is not an edge (L126); an app that posts nothing here — an
-  AGMessage until `CONTEXT POST`, round 100 — is a heard card (L127); this desk draws no edge of its own from a screen to the
+  AGMessage until it posts by `CONTEXT POST`, which round 100 below adds — is a heard card (L127); this desk draws no edge of its own from a screen to the
   granted window it shows, and no wire word opens or folds a cluster (L107); the problems queue still has no memory (L44).
+
+### Round 100 — what an app says of itself, drawn as told
+
+Round 99 drew each app once and said where every node and line came from; an app this desk neither links nor drives was a card with
+nothing in it. Round 100 lets such an app say what it is doing: over a link its key proved, it posts its own context with `CONTEXT
+POST` (Show Bus 1.3 §6), and the Eye draws it where the method puts a claim — on that app's card, as told. `docs/PLAN.md` §118 is the
+design and the proof.
+
+- **A told cluster on the card the key proved.** The posted context fills the card of the app whose id the link's key speaks for, its
+  things drawn as that app's own words (source *told*), never on a card of its own, never on another app's. A post for any other id
+  or kind is refused, and nothing of it kept.
+- **Never the evidence that the app is there.** The link it came over and the hello say that; the posted words say only what the app
+  says of itself, so a card is never green by them. A link this desk dials to the same app leads, and a posted context never takes its
+  place, even while that link has nothing to say.
+- **Not current once its link is gone.** When the link the context came over ends — or from the moment this desk tells it its last
+  word — the card is its hello's alone: grey, its headline "? — the link it posted its context over has ended or is closing — what it
+  said of itself is not current", its counting things "?". What was posted is kept 30 s and in no file; with no hello there is no card.
+- **Bounded, and cheap when still.** At most 128 posting apps, 64 KiB each, the latest for each; the words that would carry a key, a
+  window's address or a path are held before the Eye sees them. A post again unchanged moves no revision, so the picture does not
+  rebuild for it.
+- **The readers.** The NETWORK band and the NETWORK lens, the Nodes card, the brief, STATE's `bus.apps[].posted` and `bus.posted`, and
+  the Super Check's grey *Posted contexts* row read the one projection. A closing link is drawn grey and counted in no light (100.5).
+- **Not yet.** No app in the room posts to this desk: AGMessage's and PlayMap's units that post come after this round, and no unit gives
+  Stagewatch's connector the verb (L127). A posted context does not cross a takeover (L61).

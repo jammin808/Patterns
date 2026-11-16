@@ -485,6 +485,10 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
   choice say *not up yet, closing or ended*.
 - No action, feedback or wire line is new: `lines.txt` is unchanged. `CONTEXT POST` (100.1) is another app's verb; the module
   sends none. The version moves to 3.25.0 in every file that carries it.
+- **What the module does not read of round 100** (said by round 100's papers): STATE's `bus.apps[].posted`, `bus.posted` and
+  `bus.postRefused` (100.1) reach no variable — a posted context is a told source on its app's card, and the deck's `eye_network`
+  already says the network in one line; a device row's `unconfirmed` (100.6) reaches no variable or feedback either, so a line ended
+  amber at a reconnect shows nothing on a deck while `devices_failing` rightly stays false (`docs/OPEN.md` L132).
 
 ## Round 99 — the God's Eye's show network on a key (module 3.24.0)
 

@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 100 — 2026-11-16 — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested
 
-`round-100` · PLAN §118 · REVIEW round 100 · 3,735 tests · module 3.25.0 · evidence: a handed-in critique (the Eye design, `eye.md`, EYE.4, with its critique's issue 13) and CI's file for runs 319 to 327; no field files and no rig report; no measurement beyond the flood test's counts
+`round-100` · PLAN §118 · REVIEW round 100 · 3,789 tests · module 3.25.0 · evidence: a handed-in critique (the Eye design, `eye.md`, EYE.4, with its critique's issue 13); CI's file for runs 319 to 335 (327 to 329 and 331 red, each read by one reader and one adversarial check against the code, nothing run) for the inserted 100.3, 100.4 and 100.7; sightings on this bench for 100.5 and 100.8; two adversarial readers of 100.4's fold-in for 100.6; no field files and no rig report; no measurement beyond the flood test's counts · Walk: unwalked (the device links' connection start and end)
 
 - **The round opens (100.0).** PLAN §118.1 names the round's number (the plan's round 99) and its unit table, 100.0 to 100.2, each
   dependency under this tree's numbers (99.6's papers, 98.3's scoped keys) and beside 100.1 what already stands and what is to build
@@ -25,6 +25,34 @@ is the Bitfocus Companion module, where its version moved.
   test's bound: `WireLimits.MaxAppLinks` verified links each past `WireLimits.RepliesWaiting` unread, posts at `WireLimits.CommandBytes`,
   and a Core leg at 129 ids, holding the table at 128, each context at 64 KiB, 30 s kept, one journal row on a first keep and one refusal
   summary a minute. No platform path; no code changes in the opening.
+- **`CONTEXT POST` (100.1).** Another app gives this desk its context over a verified PeerLink: on the wire's port alone, from a link
+  `LINK` verified with a key of scope `post` or above, for the node that key speaks for; every other door refused in its words, none
+  counted against the key. Kept latest-wins for 128 ids, 64 KiB each, 30 s, dropped by the next read; one journal row on an id's first
+  keep (the digest's first eight hex, never the text), one refusal summary a minute; scrubbed of keys, window addresses, the messenger's
+  token and screen addresses and paths. Drawn as a told cluster on the card its key proved — the Eye's NETWORK band, the Nodes card, the
+  brief, STATE's `bus.apps[].posted` — never green by itself and never in place of a link this desk dials; STATE's `bus.posted` and
+  `bus.postRefused`; the Super Check's grey *Posted contexts* row. The flood test: sixteen verified links at the wire's line cap.
+- **A still desk's baseline follows its own first readings (100.3, inserted from CI's runs 327 and 328).** The still-Eye tests take their
+  baseline after the desk's first tick and sample; a reading moving within one light moves no word the Eye hashes (steady titles, the
+  reading in the value); the SHOW row counting every error the log recorded is *Contained errors*.
+- **A device session takes each connection's start once (100.4, inserted from CI's run 327).** A cue sent as a box connects is no longer
+  forgotten by the connection's start; Pixera's lines are keyed and its receipts strict; a look-up a start-over forgets ends not-sent.
+  Whether run 327 was this race or a stalled read stays undecided; the test's words now tell them apart.
+- **A link told its last word is closing (100.5, inserted from a bench sighting).** From this desk's CLOSE, a revoke, a new token or an
+  unreadable line, every reader counts the link as no open link until its connection ends: its card is the hello's, its edge grey,
+  CLOSE greyed; STATE's `decks[].told`; module 3.25.0's `desk_app_links` leaves it out.
+- **A device session sees its connection's end (100.6, inserted from two readers of 100.4's fold-in).** A connection's end is a fact the
+  desk reads; a line never sent is never counted; a timed-out Pixera line plays nothing later; a projector with a password is sent
+  nothing before its greeting; a reconnect ends a keyless box's older lines *unconfirmed*.
+- **The Eye's still-baselines follow what the desk's ticks left (100.7, inserted from CI's run 331).** Tests only: each still assertion
+  takes its baseline after the desk's own Eye read and names what moved.
+- **The Stagewatch link's rise is published whole (100.8, inserted from two bench sightings; OPEN L128).** The LINK verdict's key
+  standing is written in the step that makes the record live, and every reader reads the record and the key in one read.
+- **The papers (100.2).** PLAN §118 completed (the six inserted units with their evidence, what each proved and left undecided, where the
+  round departed from its opening), REVIEW round 100 (Walk: unwalked), README, REMOTE (STATE's `bus` row for posted contexts; the verb's
+  bounds), COMPANION, `docs/EYE.md` §7, OPEN (L128 closed; L61, L107, L124 and L127 amended; L134 added) and round 99's tag row. The
+  journal's `ContextPost` row and the Super Check's *Posted contexts* row, read beside the Eye's NETWORK lens, are the rig's row; not read
+  on a rig — no app in the room posts to this desk yet.
 
 ## Round 99 — 2026-11-15 — the Eye sees the room: one card per app folded by proof of identity, each link an edge that says its source, the lights computed once, and the feed, the desk and the wire in step
 

@@ -5159,3 +5159,135 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   `retarget` row beside the Nodes page's Stagewatch card (PLAN §117.15). Not read on a rig: no such room is on the bench.
 - Walk: none asked — no platform path moved (no display topology, hot-plug, audio endpoint, WebView2, process, watchdog, twin or
   registry path, no `CUT` or `TAKE`); 99.7 changes the link's target, not its carrier.
+
+## Round 100 review — `CONTEXT POST`: another app gives its context over a verified PeerLink, kept as a told cluster, bounded and flood-tested; and six units inserted from CI's red runs, the bench and a fold-in read again
+
+### 100.0 — the round opened
+
+- The plan's round 99 (its P99.0 to P99.2) is round 100 here, §118. The requester: the maintainer's show-network ask and the owner's "all
+  recommended". Evidence class: a handed-in critique — the Eye design's EYE.4 and its critique's issue 13 — beside the code; CI's runs
+  319 to 327 read as the files. `docs/field/` holds only its README.
+- The opening named no platform path, the flood test's bound and the OPEN rows it would touch, and carried `RemoteTrustTests`' one
+  sighting unexplained.
+
+### 100.1 — `CONTEXT POST`
+
+- **Done.** PLAN §118.3: the gate on the reader task in its order, no refusal counted against a key, the table (latest wins, 128 ids, 64
+  KiB, 30 s, dropped by a read), one journal row per first keep, one refusal summary a minute, the scrub, a told source on the card its
+  key proved for the Eye, the Nodes card, the brief, STATE and the context's peers; STATE's `bus.posted` and `postRefused`; the Super
+  Check's grey *Posted contexts* row.
+- **The review's items, folded in:** the stale headline and light after the link ends; explicit `null`s that crashed the link (`Parse`
+  null-safe); the scope words after a revoke; the canary sweep run while the poster's card is drawn; `agn_` and `/d/` held and every
+  peers word cleaned; `Keep` reporting what it lets go. **Mutations:** none recorded.
+
+### 100.3 — a still desk's baseline, inserted
+
+- **Found by CI.** Runs 327 and 328 (and 329 again before the unit landed): `ShowBusAppTests`' still link and `PeerLinkWireTests.List`'s
+  still link and hello, one rebuild each where none was counted. Evidence class: CI's file, read by one reader per failure and one
+  adversarial check each against the code at `d1c3df7`, nothing run.
+- **Proved in the code:** the baselines were taken before the sampler's and the status tick's first readings, and the words the Eye
+  hashes carried readings (the ADVICE title's process-wide fault count, the *Desk tick* note's area). **Done** (PLAN §118.4): baselines
+  that follow the desk's own first readings; steady titles with the reading in the value; *Contained errors* named for what it counts.
+- **Undecided:** a *Desk tick* light that changes inside the window still rebuilds, as a fact; its sighting's words name it (L134).
+
+### 100.4 — a device session takes each connection's start once, inserted
+
+- **Found by CI.** Run 327's `EndpointAppTests` Pixera test: "nothing arrived". Evidence class: CI's file, read by one reader and one
+  adversarial check against the code at `d1c3df7`, nothing run.
+- **Proved in the code:** a cue encoded between a connection's publication and its start's turn was forgotten by that start. **Done**
+  (PLAN §118.5): `IConnectionLink.Connection`, the start taken once, Pixera's keyed lines and strict receipts, forgotten look-ups ended
+  not-sent. **Undecided:** whether run 327 was this race or a stall of the read loop; the test's timeout words now tell them apart
+  (`In >= 1` with `result 4711` the race, `In 0` a stall; L134). **Mutation:** one, failed. Its commit named device links a platform
+  path, unwalked; L124 narrowed.
+
+### 100.5 — a link told its last word is closing, inserted
+
+- **Found on this bench.** One sighting during 100.3's validate: 100.1's `CONTEXT POST` App test read `bus.apps` after `ERR … — closed`
+  and found the card. Evidence class: a bench sighting, read by one reader and one adversarial check against the code, nothing run.
+- **Done** (PLAN §118.6): `Told` on a link's row, `Open => !Ended && !Told`, every reader counting a told row as no open link; STATE's
+  `decks[].told`, EYE JSON's accepted `told`; module 3.25.0. **Mutations:** two, each failed. **Left:** L131 (added by the unit).
+
+### 100.6 — a device session sees its connection's end, inserted
+
+- **Found by reading.** Two adversarial readers of what 100.4's fold-in wrote, read against the code, nothing run.
+- **Mended** (PLAN §118.7): a connection's end as a fact (`Ended`), writes judged by what became of their bytes, a timed-out Pixera line
+  that lets go of its handle, stale items dropped and said once, RAW ids the desk holds refused, a password projector sent nothing before
+  its greeting, keyless boxes' older lines ended *unconfirmed*. **Mutations:** two, each failed.
+- **Left:** a late answer from a slow Pixera loses its cue (ENDPOINTS.md says to raise the timeout); the deck's *unconfirmed* (L132,
+  added by the unit); the serial open path read, not run (L124).
+
+### 100.7 — the Eye's still-baselines follow the ticks, inserted
+
+- **Found by CI.** Run 331 on `258ca83` (100.4): `NetworkMenusAppTests`' link test, expected 1 rebuild, 2 — a test red for the first time.
+  Evidence class: CI's file, read by one reader and one adversarial check against the code, nothing run.
+- **Proved in the code:** a tick's Eye read runs before the tick records what it leaves, so the next tick's Eye reads it; the baseline
+  had no read between. **Done** (PLAN §118.8): `StillDesk.AfterTicks`, `At`, `AssertUnmoved`, a slow-tick fence; tests only.
+  **Mutations:** three, each failed. **Undecided:** a hashed fact another thread moves inside the window still rebuilds, named by the
+  words (L134).
+
+### 100.8 — the Stagewatch link's rise published whole, inserted
+
+- **Found on this bench.** Two more sightings of the gap 99.5's probe measured, in `PeerLinkWireTests.Retarget`'s sibling theory.
+  Evidence class: bench sightings, read against the code.
+- **Done** (PLAN §118.9): the LINK verdict's key standing written in the step that makes the record live; every reader reads the record
+  and the key in one read; the fence `PeerLinkWireTests.Rise`. **Mutation:** both tests failed on the parent. **Closed:** L128 for the
+  level-1 rise and verdicts on a live link. **Left:** L133 (added by the unit).
+
+### 100.2 — the papers
+
+- §118.2 to §118.16; this section; the CHANGELOG entry completed; README (the round's ledger entry, the show network's round line, the
+  count); `docs/REMOTE.md` (STATE's `bus` row: `apps[].posted`, `bus.posted`, `bus.postRefused`; the `CONTEXT POST` row's bounds and
+  tests); `docs/COMPANION.md` (what the module does not read of round 100); `docs/EYE.md` §7 (round 100); `docs/OPEN.md`; the tag
+  table's row 99 (`52e176b`).
+- **Read again at the papers, and corrected:** REMOTE's STATE `bus` row had none of 100.1's fields (the verb's row named them, the row
+  did not); README's count was 3,735 and its ledger had no round 100; the CHANGELOG's round 100 entry had only the opening; EYE.md's
+  round 99 section still said an AGMessage is a heard card "until `CONTEXT POST`, round 100" with nothing after it; OPEN's L107 still
+  listed `CONTEXT POST` among what was not added and L61 said the posted contexts wait on it.
+- **R3:** 100.1 and the six inserted units are committed; none moved; each inserted unit waited on nothing outside the round.
+
+### The round's lesson
+
+A fold-in that builds a mechanism no second reader has read is a unit of its own. 100.4's did: to answer the review's items it built the
+reading of a line of a connection the session has moved on from, the strict keyed receipts and the forgotten look-ups, and committed them
+on its own validate. 100.6 is what reading them found — a connection's end inferred, not observed; writes counted whether or not their
+bytes went; a play that could still go behind a failed receipt. From here a fold-in makes only the smallest change each review item names;
+where an item needs a new mechanism, the fold-in writes it as open with its design, and the mechanism is a unit with a reader of its own.
+
+### The review's items, answered
+
+- **The Eye critique's issue 13 and EYE.4:** `CONTEXT POST` gated before the router, a posted context's `node.t` and `node.id` held to
+  the key's, kept as a told cluster on the card the link proved (100.1).
+- **G37 (AGMessage and Patterns never read each other's context):** this desk's half — a verified post kept and drawn — is done (100.1);
+  AGMessage's AG-10 and PlayMap's PM-12 post after these papers; the gap stays open on their side (L127).
+- **CI's red runs 327 to 329 and 331:** each failure answered by an inserted unit (100.3, 100.4, 100.7), with what stayed undecided
+  written as L134.
+- **The bench's sightings:** 100.1's `CONTEXT POST` test (100.5); the record before its key (100.8, L128). Carried, not rows:
+  `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore` (§118.1; not seen again) and
+  `ShowBusAppTests.ARateLimitHoldsKeyedCalls…` (once in 100.6's validate, on its 403 words; green alone three times and on the rerun).
+
+### The ledger's rows, answered
+
+- **Closed:** L128 (100.8, for the level-1 rise and verdicts on a live link).
+- **Amended:** L61 (the posted contexts after a takeover), L107 (`CONTEXT POST` out of what is not added), L124 (serial a link of
+  connections with its start and end; its open path read, not run), L127 (this desk's half closed; the posting apps named).
+- **Added:** L134 (what CI's red runs left undecided). Added by their units: L131 (100.5), L132 (100.6), L133 (100.8).
+- **Read and kept:** L115, L125, L126, L129, L130.
+- Closed rows: fifty-four; open: eighty.
+
+### The suites
+
+- The units' own validates are listed in PLAN §118.13; at the close Core 1,874, Rendering 728, Devices 42, Audio 14, Assistant 39,
+  Audience 3, App 1,089 — 3,789; the module 3.25.0, 52 tests. These papers' own runs, with `--no-build` on the build 100.8 left (the papers change no
+  source): Core whole, which reads the papers (`ChangelogTests`, `SdkPinTests`, `DeskWordsFenceTests`, `ShowBusSpecTests`), 1,874 green;
+  Devices 42, Audio 14, Assistant 39 and Audience 3 green. The close's whole validate — the build, all seven suites and the module's four steps on the tree as committed — is the
+  committing stage's and is recorded with its commit. It ran green: the build, every suite and the module's four steps; the App suite by parts
+  (1,089, `APP SUITE GREEN BY PARTS`). One sighting, carried and not made a row: in the first run of part 2,
+  `StageSpeakerAppTests.WhenTheLinkGoesWhatWasInFlightIsUnconfirmedWhatWasNeverWrittenIsNotSentAndNothingIsSentLate` timed out at its 30 s
+  wait with both messages `unconfirmed` (the second had been written before the link went), and passed three times alone and in the
+  part's rerun; the test and the code it reads were last touched before round 100, so the next sighting's words decide whether it is a race in the test's hold.
+- **CI:** 327 red (three App tests), 328 and 329 red (one), 330 green, 331 red (one), 332 to 334 green on every job, 335 on `3d6700a`
+  still running when these papers were written, `test` the one job open (§118.2). The run on these papers is the next papers' first row.
+- **The rig's reading:** the journal's `Remote`/`ContextPost` row and the Super Check's *Posted contexts* row, beside the Eye's NETWORK
+  lens (PLAN §118.16). Not read on a rig: no app in the room posts to this desk yet.
+- Walk: unwalked — 100.4 and 100.6 move the device links' connection start and end (PJLink, Pixera, serial), which 100.4's commit names a
+  platform path; met only by fakes on loopback, with no QUALIFICATION section to hold a row. `CONTEXT POST` moves no platform path.
