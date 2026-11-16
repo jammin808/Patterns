@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -59,7 +60,21 @@ public class NetworkMenusAppTests
     /// its link's record under LINKS, the rows following the record's clock while the picture stands still.
     /// </summary>
     [AvaloniaFact]
-    public void ALinkIsHitWhereItIsDrawnItsClickIsItsCardItsRightClickItsMenuAndALinkedCardListsItsRecord()
+    public void ALinkIsHitWhereItIsDrawnItsClickIsItsCardItsRightClickItsMenuAndALinkedCardListsItsRecord() => ALinkedCard(slowTick: false);
+
+    /// <summary>
+    /// The same desk whose tick before the count was slow (a cold or loaded runner): a tick records its time after its own Eye read, so
+    /// the Desk tick row it leaves is first read by the next tick's Eye. The count's baseline takes that row before the count begins, and
+    /// the tick that moves only the link's samples still rebuilds nothing and raises only the LINKS rows.
+    /// </summary>
+    [AvaloniaFact]
+    public void AfterASlowTickTheLinkedCardsSamplesAloneStillRebuildNothingAndRaiseOnlyItsLinks() => ALinkedCard(slowTick: true);
+
+    /// <summary>
+    /// The count holds the counted tick's own Eye read only: what that tick leaves after its read is read by no tick inside the count.
+    /// A linked card standing still across many ticks is held by the multi-tick counts of <see cref="StillDesk.AssertStill"/>.
+    /// </summary>
+    private static void ALinkedCard(bool slowTick)
     {
         var b = TestApp.Boot();
         var (services, vm) = (b.Services, b.Vm);
@@ -117,15 +132,29 @@ public class NetworkMenusAppTests
             vm.EyeSelectedId = "app:" + sw;
             var row = Assert.Single(vm.EyeLinks);
             Assert.Equal("clock +12 ms ±3 · 5 samples", row.Clock);
-            vm.PollNow();                                                                             // the picture settled on its facts
+            // The slow leg: the desk's last minute of ticks fast, so the Desk tick row is green (amber only by an area's fault) when the
+            // next tick's Eye reads it; that tick is then recorded past the stutter bound after its Eye read, as a tick records its own
+            // time, and the row turns red for the next read whatever it was.
+            if (slowTick) for (var t = 0; t < TickBudget.Window; t++) services.DeskTick.Record(1);
+            vm.PollNow();                                                                             // the desk's tick before the count
             Assert.Equal("clock +12 ms ±3 · 5 samples", Assert.Single(vm.EyeLinks).Clock);
+            var read = services.Eye.Rev;
+            if (slowTick) services.DeskTick.Record(TickBudget.StutterMs + 1);
+            // The count's baseline follows what the ticks so far left (the Desk tick row among it), read by the desk's own Eye read.
+            var still = StillDesk.AfterTicks(services, vm);
+            if (slowTick)
+            {
+                Assert.Contains(services.AttentionRows(), r => r.Item == "Desk tick" && r.Light == CheckLight.Red);
+                Assert.True(still.Rev > read, string.Create(CultureInfo.InvariantCulture,
+                    $"the slow tick's row did not move the picture before the count began (revision {read} → {still.Rev}) — {StillDesk.DeskWords(services)}"));
+            }
             var raised = new List<string>();
             vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? "");
             samples = 9;
-            var rev = services.Eye.Rev;
             vm.PollNow();
-            Assert.Equal(rev, services.Eye.Rev);
+            StillDesk.AssertUnmoved(services, still, "a tick that moved only the link's samples");
             Assert.Contains(nameof(vm.EyeLinks), raised);
+            Assert.DoesNotContain(nameof(vm.EyeRev), raised);                                       // the LINKS rows alone, never the picture's words
             Assert.Equal("clock +12 ms ±3 · 9 samples", Assert.Single(vm.EyeLinks).Clock);
         }
         finally

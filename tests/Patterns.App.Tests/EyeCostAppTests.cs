@@ -62,9 +62,13 @@ public sealed class EyeCostAppTests
             Assert.Equal(graph.Nodes.Count, services.Eye.Cost.Last!.Value.Nodes);
             Assert.Equal(graph.Edges.Count, services.Eye.Cost.Last!.Value.Edges);
 
-            // The context's words move under the same revision: the key reads the revision, so nothing is rebuilt.
+            // The context's words move under the same revision: the key reads the revision, so nothing is rebuilt. The baseline is
+            // the test's own read just above, and no tick runs before the next; a move names what moved.
+            var at = StillDesk.At(services);
             headline = "Stage left — moved";
-            Assert.False(services.Eye.Refresh());
+            var rebuilt = services.Eye.Refresh();
+            StillDesk.AssertUnmoved(services, at, "a context whose words moved under the same revision");
+            Assert.False(rebuilt);
             Assert.Same(graph, services.Eye.Graph);
             Assert.Equal(builds, services.Eye.Cost.Total);
             // Its receiver keeps a new revision: one rebuild, measured.

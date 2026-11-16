@@ -85,10 +85,12 @@ public class EyeAppTests
             Assert.Contains(g.Edges, e => e.From == EyeGraph.DeskId && e.To == deviceNode.Id && e.Kind == EyeEdgeKind.Drives);
             Assert.True(services.Eye.Placement.Of(screen.Id).W > 0);
 
-            // Nothing moved: the same facts hash the same, the picture is not rebuilt and the revision holds.
-            var rev = services.Eye.Rev;
-            Assert.False(services.Eye.Refresh());
-            Assert.Equal(rev, services.Eye.Rev);
+            // Nothing moved: the same facts hash the same, the picture is not rebuilt and the revision holds. The baseline is the
+            // test's own read just above, and no tick runs before the next; a move names what moved.
+            var at = StillDesk.At(services);
+            var rebuilt = services.Eye.Refresh();
+            StillDesk.AssertUnmoved(services, at, "a second read of the same facts");
+            Assert.False(rebuilt);
 
             // The rail: the worst light's count and its colour.
             vm.PollNow();

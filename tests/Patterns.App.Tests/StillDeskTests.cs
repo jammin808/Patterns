@@ -62,11 +62,10 @@ public sealed class StillDeskTests
             services.Metrics.Live = false;
             services.Metrics.Ingest(Calm(0) with { Faults = 5 });
             services.Eye.Refresh();
-            var builds = services.Eye.Cost.Total;
-            var before = services.Eye.Graph;
+            var at = StillDesk.At(services);
             services.Metrics.Ingest(Calm(0) with { Faults = 6 });
             services.Eye.Refresh();
-            Assert.True(builds == services.Eye.Cost.Total, $"a sixth contained error rebuilt the Eye — {StillDesk.Moved(before, services.Eye.Graph)}");
+            StillDesk.AssertUnmoved(services, at, "a sixth contained error");
             // The reading still reaches the person: the Super Check's value and the suggestion said whole.
             Assert.Contains(services.AttentionRows(), r => r.Item == "Errors caught and contained" && r.Value.StartsWith("6 this session", StringComparison.Ordinal));
             Assert.Contains(services.Metrics.Suggestions, s => s.Said == "Errors caught and contained: 6 this session");
@@ -74,17 +73,16 @@ public sealed class StillDeskTests
             // Patterns' CPU over the advisor's minute: 70 % then 71 %, one light.
             for (var i = 1; i <= 60; i++) services.Metrics.Ingest(Calm(i) with { CpuAppPct = 70 });
             services.Eye.Refresh();
-            builds = services.Eye.Cost.Total;
-            before = services.Eye.Graph;
+            at = StillDesk.At(services);
             for (var i = 61; i <= 120; i++) services.Metrics.Ingest(Calm(i) with { CpuAppPct = 71 });
             services.Eye.Refresh();
-            Assert.True(builds == services.Eye.Cost.Total, $"Patterns' CPU moving 70 → 71 % rebuilt the Eye — {StillDesk.Moved(before, services.Eye.Graph)}");
+            StillDesk.AssertUnmoved(services, at, "Patterns' CPU moving 70 → 71 %");
             Assert.Contains(services.Metrics.Suggestions, s => s.Id == "cpu-app-high" && s.Reading == "71%");
 
             // A suggestion appearing is a fact: four contained errors are advice in green, the fifth turns it amber and the Eye rebuilds once.
             for (var i = 121; i <= 180; i++) services.Metrics.Ingest(Calm(i) with { Faults = 4 });
             services.Eye.Refresh();
-            builds = services.Eye.Cost.Total;
+            var builds = services.Eye.Cost.Total;
             services.Metrics.Ingest(Calm(181) with { Faults = 5 });
             services.Eye.Refresh();
             Assert.Equal(builds + 1, services.Eye.Cost.Total);
