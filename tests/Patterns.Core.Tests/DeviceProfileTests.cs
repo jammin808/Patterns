@@ -310,6 +310,66 @@ public class DeviceProfileTests
     }
 
     [Fact]
+    public void APixeraLineThatEndsLetsItsWaitingLookUpGoAndItsLateHandlePlaysNothing()
+    {
+        var s = new PixeraSession();
+        Assert.Single(s.Encode("TIMELINE Main PLAY", out _));                                    // look-up id 1, keyed px1
+        Assert.False(s.Abandon("px9"));                                                           // nobody's line
+        Assert.True(s.Abandon("px1"));                                                            // its look-up was still waiting: the play never went
+        Assert.Equal(0, s.PendingCount);
+        Assert.False(s.Abandon("px1"));
+        Assert.Empty(s.TakeForgotten());                                                         // the line has ended already: no start-over ends it again
+        var late = s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":4711}");
+        Assert.Equal((0, false, false, ""), (late.SendNext.Count, late.Ack, late.IsError, late.AckKey));
+        Assert.StartsWith("result 4711 — the answer to a look-up let go", late.Words, StringComparison.Ordinal);
+
+        // A line whose look-up was answered holds no step: ending it lets nothing go.
+        Assert.Single(s.Encode("TIMELINE Main PLAY", out _));                                    // id 2
+        Assert.Single(s.OnReceived("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":7}").SendNext);       // the play, id 3
+        Assert.False(s.Abandon("px2"));
+        Assert.StartsWith("not-sent — its look-up had no answer in 2 s", PixeraSession.UnansweredLookUpWords(TimeSpan.FromSeconds(2)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void APixeraRawRequestWhoseIdTheDeskHoldsIsRefusedAndTheDesksIdsSkipTheTypedOnes()
+    {
+        var s = new PixeraSession();
+        Assert.Single(s.Encode("TIMELINE Main PLAY", out _));                                    // id 1, waiting
+        Assert.Empty(s.Encode("RAW {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Pixera.Utility.getApiRevision\"}", out var problem));
+        Assert.Contains("id 1 is one of this desk's own requests", problem, StringComparison.Ordinal);
+        Assert.Empty(s.Encode("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"x\"}", out _));          // typed bare, the same rule
+        s.OnConnected();                                                                          // id 1 let go: still the desk's, still refused
+        Assert.Empty(s.Encode("RAW {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"x\"}", out _));
+
+        Assert.Single(s.Encode("RAW {\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"x\"}", out _));    // an id the desk has not made
+        Assert.Single(s.Encode("RAW {\"jsonrpc\":\"2.0\",\"method\":\"x\"}", out _));             // no id: sent as typed
+        Assert.Single(s.Encode("RAW {not json", out _));                                          // not JSON: sent as typed, the box answers
+        Assert.Single(s.Encode("API Pixera.Utility.getApiRevision", out _));
+        Assert.Equal("px2", s.SentKey("API"));
+        Assert.Single(s.Encode("API Pixera.Utility.getApiRevision", out _));
+        Assert.Equal("px4", s.SentKey("API"));                                                    // the typed 3 skipped
+    }
+
+    [Fact]
+    public void AProjectorWithAPasswordEncodesNothingOnAConnectionBeforeItsGreeting()
+    {
+        var s = new PjLinkSession("JBMIAProjectorLink");
+        s.OnConnected();
+        Assert.Empty(s.Encode("POWER ON", out var problem));
+        Assert.Equal(PjLinkSession.NotGreetedWords, problem);
+        s.OnReceived("PJLINK 1 498e4a67");
+        Assert.Equal(PjLinkSession.Digest("498e4a67", "JBMIAProjectorLink") + "%1POWR 1\r", Text(Assert.Single(s.Encode("POWER ON", out _))));
+        s.OnConnected();                                                                          // the next connection: its own greeting first
+        Assert.Empty(s.Encode("POWER ?", out _));
+        s.OnReceived("PJLINK 0");
+        Assert.Equal("%1POWR ?\r", Text(Assert.Single(s.Encode("POWER ?", out _))));
+
+        var open = new PjLinkSession("");                                                         // no password: nothing to sign, nothing to wait for
+        open.OnConnected();
+        Assert.Equal("%1POWR 1\r", Text(Assert.Single(open.Encode("POWER ON", out _))));
+    }
+
+    [Fact]
     public void PresetsAndLabelsAndTheAddressWordsCarryTheProfile()
     {
         var projector = DeviceProfiles.Preset(DeviceProfile.PjLink, 1);

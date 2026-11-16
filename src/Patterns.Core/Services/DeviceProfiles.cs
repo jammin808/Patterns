@@ -97,6 +97,13 @@ public abstract class ProfileSession
     public virtual ProfileReply? OnReceivedOfEnded(string text) => null;
 
     /// <summary>
+    /// The line of this key (<see cref="SentKey"/>) has ended, however it ended: every step the session still holds for it (a Pixera
+    /// look-up waiting for its handle) is let go, so a late answer plays nothing and settles nothing. True when such a step was still
+    /// waiting — the command it led to was never written; false for most boxes, which hold no steps.
+    /// </summary>
+    public virtual bool Abandon(string key) => false;
+
+    /// <summary>
     /// Whether every answer to a request this session made carries its line's key, so a keyed answer settles only the line of that
     /// key and a line keyed "" (a request whose answer the session cannot tell) takes only an answer keyed "".
     /// </summary>
@@ -264,6 +271,10 @@ public sealed class PjLinkSession : ProfileSession
     private string? _seed;
     private bool _digestSent;
     private bool _authOff;
+    private bool _greeted;
+
+    /// <summary>The refusal for a command a projector with a password has not greeted this connection for: its seed is not known yet.</summary>
+    public const string NotGreetedWords = "not-sent — the projector has not greeted this connection yet, and the password signs the seed its greeting carries; try again in a moment";
 
     public PjLinkSession(string password) => _password = password ?? "";
 
@@ -281,6 +292,7 @@ public sealed class PjLinkSession : ProfileSession
         _seed = null;
         _digestSent = false;
         _authOff = false;
+        _greeted = false;
     }
 
     /// <summary>The command body for the words — "POWR 1", "INPT 31", "AVMT 30", "LAMP ?" — or null when the words are not PJLink's.</summary>
@@ -352,6 +364,9 @@ public sealed class PjLinkSession : ProfileSession
         problem = "";
         var body = Body(words);
         if (body is null) return None($"'{words}' is not a PJLink command — {DeviceProfiles.Words(DeviceProfile.PjLink)}.", out problem);
+        // With a password, nothing goes on a connection before its greeting: a command written then would carry no digest, or one of
+        // another connection's seed, and the projector would refuse it as a wrong password.
+        if (_password.Length > 0 && !_greeted) return None(NotGreetedWords, out problem);
         var prefix = "";
         if (_seed is { Length: > 0 } seed && !_digestSent)
         {
@@ -381,12 +396,14 @@ public sealed class PjLinkSession : ProfileSession
             {
                 _seed = rest.Length > 2 ? rest[2..].Trim() : "";
                 _digestSent = false;
+                _greeted = true;
                 return ProfileReply.Of("connected — authentication on");
             }
             if (rest.StartsWith('0'))
             {
                 _authOff = true;
                 _seed = null;
+                _greeted = true;
                 return ProfileReply.Of("connected — no authentication");
             }
             if (rest.StartsWith("ERRA", StringComparison.OrdinalIgnoreCase)) return ProfileReply.Of("authentication failed — check the Password box", true);
@@ -622,6 +639,10 @@ public sealed class PixeraSession : ProfileSession
     /// <summary>The receipt's words for a command whose look-up's connection ended before the command could go on it.</summary>
     public const string ForgottenWords = "not-sent — the connection its look-up was asked on ended before the command could go on it, so the command itself never went; it did not run";
 
+    /// <summary>The receipt's words for a line whose look-up had no answer within its timeout: the command it leads to never went.</summary>
+    public static string UnansweredLookUpWords(TimeSpan timeout) =>
+        $"not-sent — its look-up had no answer in {timeout.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s, so the command itself never went; it did not run, and a handle that comes later plays nothing";
+
     /// <summary>How many request ids are remembered with the line they serve; an older one that was never answered is let go.</summary>
     public const int AskedKept = 256;
 
@@ -634,6 +655,9 @@ public sealed class PixeraSession : ProfileSession
     private readonly HashSet<int> _gone = new();
     private readonly Queue<int> _goneOrder = new();
     private readonly List<string> _forgotten = new();
+    // Ids typed into RAW requests lately: the desk's own requests skip them, so no answer to a RAW line is read as the desk's.
+    private readonly HashSet<int> _typed = new();
+    private readonly Queue<int> _typedOrder = new();
     private string? _serving;
     private string _lastKey = "";
     private int _id;
@@ -649,7 +673,26 @@ public sealed class PixeraSession : ProfileSession
             if (_asked.TryGetValue(id, out var key) && !_forgotten.Contains(key)) _forgotten.Add(key);
         }
         _pending.Clear();
-        // The oldest forgotten look-ups go past AskedKept, and with them their ids' lines, so a late answer to one is nobody's yes.
+        TrimGone();
+    }
+
+    /// <summary>The look-ups still waiting for this line are let go as a start-over lets them go; their line has already ended.</summary>
+    public override bool Abandon(string key)
+    {
+        if (key.Length == 0) return false;
+        var waiting = _pending.Keys.Where(id => _asked.TryGetValue(id, out var k) && k == key).ToList();
+        foreach (var id in waiting)
+        {
+            _pending.Remove(id);
+            if (_gone.Add(id)) _goneOrder.Enqueue(id);
+        }
+        TrimGone();
+        return waiting.Count > 0;
+    }
+
+    /// <summary>The oldest forgotten look-ups go past AskedKept, and with them their ids' lines, so a late answer to one is nobody's yes.</summary>
+    private void TrimGone()
+    {
         while (_goneOrder.Count > AskedKept)
         {
             var old = _goneOrder.Dequeue();
@@ -722,12 +765,21 @@ public sealed class PixeraSession : ProfileSession
     /// <summary>One request frame: the JSON-RPC envelope with the next id, the terminator after it.</summary>
     public byte[] Request(string method, object? parameters, out int id)
     {
-        id = ++_id;
+        do
+        {
+            id = ++_id;
+        }
+        while (_typed.Contains(id));
         var key = _serving ?? KeyOf(id);
         if (_serving is null && _lastKey.Length == 0) _lastKey = key;
         _asked[id] = key;
         _askedOrder.Enqueue(id);
-        while (_askedOrder.Count > AskedKept) _asked.Remove(_askedOrder.Dequeue());
+        // The oldest go past AskedKept, but never a look-up still waiting: its id keeps its line until it is answered or let go.
+        while (_askedOrder.Count > AskedKept)
+        {
+            var old = _askedOrder.Dequeue();
+            if (!_pending.ContainsKey(old)) _asked.Remove(old);
+        }
         var json = JsonSerializer.Serialize(new { jsonrpc = "2.0", id, method, @params = parameters });
         return Bytes(json + Terminator);
     }
@@ -738,14 +790,14 @@ public sealed class PixeraSession : ProfileSession
         _lastKey = "";
         var w = (words ?? "").Trim();
         if (w.Length == 0) return None("Nothing to send.", out problem);
-        if (w.StartsWith('{')) return One(w + Terminator);
+        if (w.StartsWith('{')) return Raw(w, out problem);
         var parts = w.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var verb = parts[0].ToUpperInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
         switch (verb)
         {
             case "RAW":
-                return arg.StartsWith('{') ? One(arg + Terminator) : None("RAW wants the JSON-RPC request itself, starting with {.", out problem);
+                return arg.StartsWith('{') ? Raw(arg, out problem) : None("RAW wants the JSON-RPC request itself, starting with {.", out problem);
             case "API":
             {
                 var ap = arg.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -791,6 +843,39 @@ public sealed class PixeraSession : ProfileSession
         }
     }
 
+    /// <summary>
+    /// A RAW request as typed, whose answer is the sender's: refused, with the reason, when its id is one of this desk's own requests
+    /// still known (waiting, asked or let go), since its answer could not be told from the desk's; its id is kept a while so the desk's
+    /// next requests skip it.
+    /// </summary>
+    private IReadOnlyList<byte[]> Raw(string json, out string problem)
+    {
+        problem = "";
+        if (TypedId(json) is { } id)
+        {
+            if (_asked.ContainsKey(id) || _pending.ContainsKey(id) || _gone.Contains(id))
+                return None($"not-sent — id {id.ToString(CultureInfo.InvariantCulture)} is one of this desk's own requests to this Pixera; give the RAW request another id", out problem);
+            if (_typed.Add(id)) _typedOrder.Enqueue(id);
+            while (_typedOrder.Count > AskedKept) _typed.Remove(_typedOrder.Dequeue());
+        }
+        return One(json + Terminator);
+    }
+
+    /// <summary>The whole-number id a typed JSON-RPC request carries; null for none, another kind, or text that is not JSON (sent as typed).</summary>
+    private static int? TypedId(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("id", out var idEl)
+                && idEl.ValueKind == JsonValueKind.Number && idEl.TryGetInt32(out var id) ? id : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>A request whose reply — a handle — is put into the next step.</summary>
     private byte[] Lookup(string method, object parameters, Func<long, IReadOnlyList<byte[]>> then)
     {
@@ -820,12 +905,12 @@ public sealed class PixeraSession : ProfileSession
             // The line this answer belongs to, by the request it answers: it settles that line's receipt and no other ("" for an id
             // this session did not make, a RAW request's).
             var key = _asked.Remove(id, out var k) ? k : "";
-            // A look-up a start-over forgot: its line already ended not-sent; its answer, a handle or an error, is a note that plays
-            // nothing and settles nothing.
+            // A look-up let go (a start-over forgot it, or its line ended): its line has already ended; its answer, a handle or an
+            // error, is a note that plays nothing and settles nothing.
             if (_gone.Remove(id))
             {
                 var said = root.TryGetProperty("error", out var lateError) ? $"error {lateError}" : root.TryGetProperty("result", out var lateResult) ? $"result {lateResult}" : "an answer";
-                return ProfileReply.Of($"{said} — the answer to a look-up of a connection that ended; nothing sent on");
+                return ProfileReply.Of($"{said} — the answer to a look-up let go when its connection or its line ended; nothing sent on");
             }
             if (root.TryGetProperty("error", out var error))
             {

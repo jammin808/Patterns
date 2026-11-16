@@ -62,7 +62,7 @@ public sealed class QueuedDispatchCollection
 public sealed class ConnectionStartTests
 {
     private const string Reply = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":4711}";
-    private const string EndedNote = " — said on a connection that ended; nothing sent on";
+    private const string EndedNote = DeviceService.EndedNote;
 
     private static void Queued(Action<QueuedDispatch, FakeConnectionLink, DeviceService, DeviceConfig, List<DeviceReceipt>> body)
     {
@@ -72,6 +72,7 @@ public sealed class ConnectionStartTests
         var host = new NodeHost();
         var device = DeviceProfiles.Preset(DeviceProfile.Pixera, 1);
         device.Port = "10.0.0.30";
+        device.ConfirmTimeoutMs = 30000;   // no leg rests on the clock: a line ends by what the test does, or at the area's close
         host.State.Interactive.Devices.Add(device);
         host.State.Interactive.Enabled = true;
         var link = new FakeConnectionLink();

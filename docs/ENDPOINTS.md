@@ -98,11 +98,31 @@ a pattern is written against what the box actually says.
   reach any method the reference lists. Check it against your Pixera before the show. The line's
   receipt is the play's own answer, never the look-up's, and an answer to a request this desk
   made settles only its own line (a `RAW` line, whose id is yours, takes only an answer whose id
-  the desk did not make). A line fired as the box connects is looked up on that connection; if
-  the connection ends before the play can go on it, the play is never sent, and the line's
-  receipt says *not-sent* ("it did not run") on the card, in STATE and in the journal
-  (`DeviceReceipt`, `Failed`). A handle that still arrives afterwards plays nothing. A play's own
-  answer that arrives as its connection ends still settles its line.
+  the desk did not make). A `RAW` request whose id is one the desk itself still holds — a
+  request it is waiting on or has let go — is refused with the reason ("give the RAW request
+  another id") and nothing is sent; an id you type is skipped by the desk's own requests for a
+  while after, so the two never meet. A line fired as the box connects is looked up on that
+  connection; if the connection ends before the play can go on it — the box hung up, whether or
+  not it is back yet — the play is never written and never counted, and the line's receipt says
+  *not-sent* ("it did not run") on the card, in STATE and in the journal (`DeviceReceipt`,
+  `Failed`). A look-up the box does not answer within the device's timeout ends the same way:
+  *not-sent — its look-up had no answer*, since the play never went. Either way a handle that
+  still arrives afterwards plays nothing: a slow but healthy Pixera that answers after the
+  timeout loses that cue rather than playing it behind a receipt, a cue row and a health line
+  that already said it failed — raise the device's timeout for a box that is slow to look up. A
+  play's own answer that arrives as its connection ends still settles its line; a play written
+  and never answered within the timeout fails with *no answer*, as any box's unanswered line
+  does.
+- A projector with a password is sent nothing on a connection until it has greeted it (its
+  greeting carries the seed the password signs): a command in that moment is refused *not-sent*
+  with the reason, rather than going without a digest and coming back as a wrong password. A
+  projector's or a plain board's answer carries no id of the command it answers, so its yes or
+  no said on one connection never settles a line written on another: a line still waiting when
+  the link reconnects ends *unconfirmed* ("written on a connection that ended before the box
+  answered; it may have run") — amber on the card and the Eye, `Unconfirmed` in the journal,
+  never the health line's failure. A line waiting on its observation query is the exception: it
+  stays waiting across the reconnect, and the new connection's reading of the same state may
+  still observe it. The Companion module does not show a device's *unconfirmed* yet (OPEN).
 - Passwords are kept with the show, as the rig's addresses are. A show file that travels carries
   them.
 - A twin (a second Patterns in step — `docs/PLAN.md` §48) carries the devices with the show, but

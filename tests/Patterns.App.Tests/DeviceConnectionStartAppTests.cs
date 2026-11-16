@@ -18,16 +18,25 @@ public sealed class ConnectionFakeLink : IDeviceLink, IConnectionLink
 {
     private readonly object _gate = new();
     private readonly List<string> _written = new();
+    private readonly List<string> _lost = new();
     private bool _published;
 
+    /// <summary>What reached an open connection; a write while none is open records nothing, as on a real link whose stream is gone.</summary>
     public IReadOnlyList<string> Written
     {
         get { lock (_gate) return _written.ToList(); }
     }
 
+    /// <summary>What the desk tried to write while no connection was open: a write the desk should never have tried.</summary>
+    public IReadOnlyList<string> Lost
+    {
+        get { lock (_gate) return _lost.ToList(); }
+    }
+
     public bool Disposed { get; private set; }
     public int Starts { get; private set; }
     public long Connection { get; private set; }
+    public long Ended { get; private set; }
     public string Status => Disposed ? "closed" : _published ? "open (fake)" : "connecting…";
     public bool IsOpen => !Disposed && _published;
     public event Action<string>? LineReceived;
@@ -38,7 +47,11 @@ public sealed class ConnectionFakeLink : IDeviceLink, IConnectionLink
 
     public void Write(string framedLine)
     {
-        lock (_gate) _written.Add(framedLine);
+        lock (_gate)
+        {
+            if (IsOpen) _written.Add(framedLine);
+            else _lost.Add(framedLine);
+        }
     }
 
     /// <summary>A new connection published and open; its start not said yet.</summary>
@@ -46,6 +59,7 @@ public sealed class ConnectionFakeLink : IDeviceLink, IConnectionLink
     {
         Started("a connection");
         Moving?.Invoke();
+        Ended = Connection;   // a real link ends one connection before it publishes the next
         Connection++;
         _published = true;
     }
@@ -61,6 +75,7 @@ public sealed class ConnectionFakeLink : IDeviceLink, IConnectionLink
     public void Drop()
     {
         Started("a drop");
+        Ended = Connection;
         _published = false;
         Moving?.Invoke();
     }
@@ -99,6 +114,7 @@ public class DeviceConnectionStartAppTests
         var px = DeviceProfiles.Preset(DeviceProfile.Pixera, 1);
         px.Port = "10.0.0.30";
         px.HearsShow = false;
+        px.ConfirmTimeoutMs = 30000;   // no leg rests on the clock: a line ends by what the test does, or at the desk's close
         b.Vm.State.Interactive.Devices.Add(px);
         b.Vm.State.Interactive.Enabled = true;
         Dispatcher.UIThread.RunJobs();
@@ -111,7 +127,7 @@ public class DeviceConnectionStartAppTests
         b.Services.Actions.Execute(new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Pixera", Value = "TIMELINE Main PLAY" }.ToAction(), ActionOrigin.Desk);
 
     private static string Said(TestApp.Booted b, DeviceConfig px, ConnectionFakeLink fake, List<DeviceReceipt> receipts) =>
-        $"written [{string.Join(" | ", fake.Written)}]; traffic {b.Services.Devices.Traffic(px.Id)}; status '{px.Status}'; receipts [{string.Join(" | ", receipts.Select(r => r.Line))}]";
+        $"written [{string.Join(" | ", fake.Written)}]; lost [{string.Join(" | ", fake.Lost)}]; traffic {b.Services.Devices.Traffic(px.Id)}; status '{px.Status}'; receipts [{string.Join(" | ", receipts.Select(r => r.Line))}]";
 
     /// <summary>The look-up, then the play with the handle its answer carried; the card says the handle was found; no receipt yet.</summary>
     private static void AssertPlayed(TestApp.Booted b, DeviceConfig px, ConnectionFakeLink fake, List<DeviceReceipt> receipts)
@@ -189,7 +205,7 @@ public class DeviceConnectionStartAppTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(fake.Written.Count == 1, Said(b, px, fake, receipts));                            // the look-up and nothing after it
-            Assert.Equal((1L, Reply + " — said on a connection that ended; nothing sent on"), (b.Services.Devices.Traffic(px.Id)!.Value.In, b.Services.Devices.Traffic(px.Id)!.Value.LastIn));
+            Assert.Equal((1L, Reply + DeviceService.EndedNote), (b.Services.Devices.Traffic(px.Id)!.Value.In, b.Services.Devices.Traffic(px.Id)!.Value.LastIn));
             var receipt = Assert.Single(receipts);
             Assert.Equal((false, LinkOutcome.NotSent, "Failed"), (receipt.Ok, receipt.Outcome, receipt.JournalOutcome));
             Assert.Equal(PixeraSession.ForgottenWords, receipt.Answer);
@@ -204,6 +220,42 @@ public class DeviceConnectionStartAppTests
             fake.Say("{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":99}");
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("\"handle\":99", fake.Written[^1], StringComparison.Ordinal);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AHandleReadAfterTheBoxHungUpWithNoNextConnectionIsNeverWrittenAndItsLineIsNotSentOnEveryReader()
+    {
+        // The usual order on a real link: the handle is read, the box hangs up, and the desk's thread drains the handle while the
+        // link waits to redial. Nothing is written for the play, the traffic does not count it, and the line is not-sent on the
+        // card, STATE, the journal and the health line.
+        var b = TestApp.Boot();
+        try
+        {
+            var (px, fake, receipts) = Pixera(b);
+            fake.Publish();
+            fake.RaiseOpened();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(Timeline(b).Ok);
+            fake.Say(Reply);
+            fake.Drop();                                                                                 // no connection published after it
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(fake.Written.Count == 1, Said(b, px, fake, receipts));                            // the look-up and nothing after it
+            Assert.True(fake.Lost.Count == 0, Said(b, px, fake, receipts));                               // and the play never even tried
+            var traffic = b.Services.Devices.Traffic(px.Id)!.Value;
+            Assert.Equal((1L, 1L, Reply + DeviceService.EndedNote), (traffic.In, traffic.Out, traffic.LastIn));
+            var receipt = Assert.Single(receipts);
+            Assert.Equal((false, LinkOutcome.NotSent, "Failed", PixeraSession.ForgottenWords), (receipt.Ok, receipt.Outcome, receipt.JournalOutcome, receipt.Answer));
+            var row = JsonDocument.Parse(new CommandRouter(b.Services).StateJson()).RootElement.GetProperty("devices")[0];
+            Assert.Equal($"TIMELINE Main PLAY — {PixeraSession.ForgottenWords}", row.GetProperty("lastFailure").GetString());
+            Assert.True(row.GetProperty("failing").GetBoolean());
+            Assert.Contains(b.Services.Journal.Tail(50), e => e.Kind == "DeviceReceipt" && e.Outcome == "Failed" && e.Message.Contains(PixeraSession.ForgottenWords, StringComparison.Ordinal));
+            Assert.Contains(PixeraSession.ForgottenWords, b.Services.Devices.HealthWords, StringComparison.Ordinal);
         }
         finally
         {

@@ -17,7 +17,11 @@ public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
     private readonly object _gate = new();
     private readonly List<string> _written = new();
     private readonly List<string> _faults = new();
+    private readonly List<string> _lost = new();
+    private bool _closed;
     public IReadOnlyList<string> Written { get { lock (_gate) return _written.ToList(); } }
+    /// <summary>What was written while no connection was open: it went nowhere, as on a real link whose stream is gone.</summary>
+    public IReadOnlyList<string> Lost { get { lock (_gate) return _lost.ToList(); } }
     public IReadOnlyList<string> Faults { get { lock (_gate) return _faults.ToList(); } }
     public bool Disposed { get; private set; }
     public int Starts { get; private set; }
@@ -25,7 +29,7 @@ public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
     public (bool Lines, bool Moving, bool Opened) HandlersAtStart { get; private set; }
     public Action<FakeConnectionLink>? OnStart { get; init; }
     public string Status => Disposed ? "closed" : Starts == 0 ? "connecting…" : "open (fake)";
-    public bool IsOpen => !Disposed && Starts > 0;
+    public bool IsOpen => !Disposed && Starts > 0 && !_closed;
     public event Action<string>? LineReceived;
     public event Action? Moving;
     public event Action? Opened;
@@ -37,10 +41,12 @@ public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
     }
     public void Write(string framedLine)
     {
-        lock (_gate) _written.Add(framedLine);
+        lock (_gate) (IsOpen ? _written : _lost).Add(framedLine);
     }
     /// <summary>The connections published so far: one more at each <see cref="Connect"/> and <see cref="Publish"/>, before its start is said.</summary>
     public long Connection { get; private set; }
+    /// <summary>The last connection that ended: at <see cref="Drop"/>, and at a <see cref="Publish"/> for the one before it, as a real link ends one before the next.</summary>
+    public long Ended { get; private set; }
     public void Connect()
     {
         Publish();
@@ -50,8 +56,21 @@ public sealed class FakeConnectionLink : IDeviceLink, IConnectionLink
     public void Publish()
     {
         Move();
-        if (Starts > 0) Connection++;
+        if (Starts == 0) return;
+        Ended = Connection;
+        Connection++;
+        _closed = false;
     }
+    /// <summary>The box hung up: the connection is over and counted so, its stream gone (a write records nothing); no next one yet.</summary>
+    public void Drop()
+    {
+        if (Unstarted("a drop")) return;
+        Ended = Connection;
+        _closed = true;
+        Moving?.Invoke();
+    }
+    /// <summary>A write failed: the link is no longer open, but its read loop has not yet seen the end (Ended unmoved).</summary>
+    public void Break() => _closed = true;
     public void Move()
     {
         if (!Unstarted("Moving")) Moving?.Invoke();

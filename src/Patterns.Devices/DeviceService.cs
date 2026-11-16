@@ -33,15 +33,22 @@ public interface IDeviceLink : IDisposable
     void WriteBytes(byte[] frame) => Write(Encoding.UTF8.GetString(frame));
 
     /// <summary>
-    /// Writes one frame and says how far it got: a connection that took the bytes is Delivered,
-    /// an HTTP answer is Delivered and a 2xx Accepted, a datagram or a note is Sent and no more.
-    /// The default is the write, then the link's own word on whether it is still open.
+    /// Writes one frame now and says what became of its bytes: Delivered when a connection took them, Failed with the reason when
+    /// there was none to take them or the write threw — never counted as sent. A link made of connections judges by the stream it
+    /// took once for this write (TCP, serial); the default is the write, then the link's own word on whether it is still open.
     /// </summary>
-    Task<LinkDelivery> DeliverAsync(byte[] frame)
+    LinkDelivery Deliver(byte[] frame)
     {
         WriteBytes(frame);
-        return Task.FromResult(IsOpen ? LinkDelivery.Delivered() : LinkDelivery.Failed(Status));
+        return IsOpen ? LinkDelivery.Delivered() : LinkDelivery.Failed(Status);
     }
+
+    /// <summary>
+    /// Writes one frame and says how far it got: a connection that took the bytes is Delivered,
+    /// an HTTP answer is Delivered and a 2xx Accepted, a datagram or a note is Sent and no more.
+    /// The default is <see cref="Deliver"/>.
+    /// </summary>
+    Task<LinkDelivery> DeliverAsync(byte[] frame) => Task.FromResult(Deliver(frame));
 
     /// <summary>Raised with every whole line the device sends, on the link's own thread.</summary>
     event Action<string>? LineReceived;
@@ -63,11 +70,23 @@ public interface IConnectionLink
     /// How many connections this link has published, counted from 1 (0 before the first). It rises on the link's thread before the
     /// new connection can be written on — before its stream is published, before <see cref="Opened"/> and before any line it reads —
     /// so a handler that reads it as it is raised knows which connection said it. A writer that reads it knows the connection its
-    /// bytes are meant for, not the one they go on: the link can move between the read and the write. A Pixera look-up sent in that
-    /// moment is one the new connection's start forgets, so its line ends not-sent and nothing it leads to plays; any other box's
-    /// line simply goes on the new connection. The window is narrowed to that moment, not closed.
+    /// bytes are meant for, not the one they go on: the link can move between the read and the write, and what that moment gives
+    /// differs by profile. A Pixera look-up sent in it is one the new connection's start forgets: its line ends not-sent and nothing
+    /// it leads to plays. A PJLink line with a password goes without the digest of the new connection's seed and the projector
+    /// refuses it (ERRA); the new connection's start has already ended that line unconfirmed, so the refusal meets the oldest line
+    /// still waiting, which may be a newer line of the new connection, and settles it as rejected. A plain line goes on
+    /// the new connection, its receipt waiting on the old one: the new connection's start ends it unconfirmed (it may have run) and
+    /// no answer of the new connection settles it. A node's proof stops at <see cref="Moving"/>, so nothing goes. The window is
+    /// narrowed, not closed.
     /// </summary>
     long Connection { get; }
+
+    /// <summary>
+    /// The last connection that has ended (<see cref="Connection"/>'s number; 0 before any). It rises on the link's thread as soon as
+    /// the connection is over, before its stream is let go, so a line of connection N read when <c>Ended &gt;= N</c> is a line of a
+    /// connection there is no longer any writing on, whether or not the next one is published yet.
+    /// </summary>
+    long Ended { get; }
 }
 
 /// <summary>How far one frame got on its link.</summary>
@@ -134,6 +153,8 @@ public sealed class DeviceService : IDisposable
         public required ProfileSession Session;
         /// <summary>The connection whose start the session has taken (<see cref="IConnectionLink.Connection"/>); 0 before any. Desk thread only.</summary>
         public long StartTaken;
+        /// <summary>The connection whose quiet writes (the poll, the input ask) were last said refused for want of the projector's greeting: said once per connection, never once per poll.</summary>
+        public long NotGreetedSaid = -1;
         public DateTime NextPollUtc;
         public DateTime NextInputUtc;
         public Dictionary<string, string>? Heard;
@@ -154,11 +175,15 @@ public sealed class DeviceService : IDisposable
         public required string Key;
         public required ConfirmLevel Wanted;
         public required long Seq;
+        /// <summary>The connection its last write was meant for (<see cref="IConnectionLink.Connection"/>); 0 on a link not made of connections. Desk thread only.</summary>
+        public long Connection;
         public ConfirmLevel Reached;
         public bool Observing;
         public string Expect = "";
         /// <summary>The cue execution this line belongs to, "" for a line nobody's row waits on (the wire's DEVICE verb, the page's SEND).</summary>
         public string Execution = "";
+        /// <summary>A frame of the line found no connection to take it (or its write threw): the line was never sent and is never counted as sent.</summary>
+        public bool Undelivered;
         public readonly TaskCompletionSource<DeviceReceipt> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -328,16 +353,17 @@ public sealed class DeviceService : IDisposable
                 made = link;
                 var open = new Open { Config = d, Link = link, Key = KeyOf(d), Session = session };
                 var connections = link as IConnectionLink;
-                // On the link's thread, as each is raised: a line and a connection's start carry the connection that said them.
-                link.LineReceived += line => OnLine(id, line, 0, connections?.Connection ?? 0);
+                // On the link's thread, as each is raised: a line and a connection's start carry the link and the connection that said
+                // them, so the desk's thread reads them only while that link is still the device's.
+                link.LineReceived += line => OnLine(id, link, line, 0, connections?.Connection ?? 0);
                 if (connections is not null && session is ShowBusNodeSession node)
                 {
                     // On the link's thread: the proof stops holding before the new connection can be written on, and the connection's
                     // start reaches the desk's thread in order with its lines, carrying which connection it is.
                     connections.Moving += () => node.LinkMoved();
-                    connections.Opened += () => OnLine(id, null, node.LinkGeneration, connections.Connection);
+                    connections.Opened += () => OnLine(id, link, null, node.LinkGeneration, connections.Connection);
                 }
-                else if (connections is not null) connections.Opened += () => OnLine(id, null, 0, connections.Connection);
+                else if (connections is not null) connections.Opened += () => OnLine(id, link, null, 0, connections.Connection);
                 _open[id] = open;
                 Log.Info($"Device '{d.Name}' opening: {DeviceAddress.Describe(d)}");
                 // Only now, every handler on and the device in the table: a connection that comes up inside Start (a loopback
@@ -482,11 +508,14 @@ public sealed class DeviceService : IDisposable
         _nodeSights = sights;
     }
 
-    /// <summary>13.12.3: a node's commands written on a connection that dropped before it answered them are unconfirmed — they may have run.</summary>
-    private void Unconfirmed(Open open, string words)
+    /// <summary>
+    /// 13.12.3: commands written on a connection that dropped before the box answered them are unconfirmed — they may have run; with
+    /// <paramref name="before"/>, only those written on a connection older than it.
+    /// </summary>
+    private void Unconfirmed(Open open, string words, long before = long.MaxValue)
     {
         List<Pending> waiting;
-        lock (_pendings) waiting = _pendings.Where(p => ReferenceEquals(p.Open, open) && !p.Observing).ToList();
+        lock (_pendings) waiting = _pendings.Where(p => ReferenceEquals(p.Open, open) && !p.Observing && p.Connection < before).ToList();
         foreach (var p in waiting) Complete(p, p.Reached, false, words, LinkOutcome.Unconfirmed);
     }
 
@@ -564,6 +593,8 @@ public sealed class DeviceService : IDisposable
     private bool WriteTo(Open open, string line, out string problem, bool quiet = false, bool track = false, string execution = "", bool fact = false)
     {
         problem = "";
+        // Counted only when the link took every frame: a write, tracked or not, that found no connection to take it was never sent.
+        var counted = !quiet;
         // Nothing is encoded into a session that has not taken the start of the connection it will be written on: a write that comes
         // between a connection's publication and its start's turn on this thread takes that start itself, and the start's own turn
         // then finds it taken. No line is drained to get here. (The link can still move between this read and the write: see
@@ -592,6 +623,9 @@ public sealed class DeviceService : IDisposable
         {
             if (fact && problem.Length == 0) return false;   // a fact this profile does not carry: nothing to say
             if (problem.Length == 0) problem = $"'{line}' could not be sent to {open.Config.Name}.";
+            var waitingForGreeting = quiet && problem == PjLinkSession.NotGreetedWords;
+            if (waitingForGreeting && open.NotGreetedSaid == open.StartTaken) return false;
+            if (waitingForGreeting) open.NotGreetedSaid = open.StartTaken;
             Log.Warn($"Device '{open.Config.Name}': {problem}");
             return false;
         }
@@ -609,15 +643,24 @@ public sealed class DeviceService : IDisposable
                 Wanted = DeviceConfirmation.Effective(open.Config),
                 Seq = Interlocked.Increment(ref _seq),
                 Execution = execution,
+                Connection = open.StartTaken,
             };
             lock (_pendings) _pendings.Add(pending);
             _ = DeliverAsync(pending, frames);
+            // Every link judges a frame as it takes it (its DeliverAsync answers at once), so a line a frame of which found no
+            // connection is known here, before it could be counted.
+            counted = !quiet && !pending.Undelivered;
         }
         else
         {
-            foreach (var frame in frames) open.Link.WriteBytes(frame);
+            foreach (var frame in frames)
+            {
+                if (open.Link.Deliver(frame).Ok) continue;
+                counted = false;
+                break;
+            }
         }
-        if (!quiet)
+        if (counted)
         {
             open.Out++;
             open.LastOut = line;
@@ -640,6 +683,7 @@ public sealed class DeviceService : IDisposable
                 last = await pending.Open.Link.DeliverAsync(frame);
                 if (!last.Ok)
                 {
+                    if (last.Reached == ConfirmLevel.Sent) pending.Undelivered = true;
                     Complete(pending, last.Reached, false, last.Reached == ConfirmLevel.Sent ? $"not delivered: {last.Words}" : $"rejected: {last.Words}");
                     return;
                 }
@@ -662,6 +706,13 @@ public sealed class DeviceService : IDisposable
             }
             // Else the box answers on its own time: the session reads the reply in Handle, and the timeout is the fence.
             await Task.Delay(timeout);
+            if (pending.Open.Session.KeysEveryAnswer)
+            {
+                // A session that keys its answers may still hold a step of this line (a Pixera look-up): it is let go on the desk's
+                // thread, in one turn with the receipt, so nothing of the line plays after the receipt has said it failed.
+                Dispatch.Post(() => TimedOut(pending, timeout));
+                return;
+            }
             Complete(pending, pending.Reached, false, pending.Open.Session.Unanswered(timeout, pending.Reached, pending.Wanted),
                 pending.Open.Session is ShowBusNodeSession ? LinkOutcome.Unconfirmed : null);   // 13.12.3: no answer in time — it may have run
         }
@@ -671,6 +722,27 @@ public sealed class DeviceService : IDisposable
         }
     }
 
+    /// <summary>
+    /// A keyed line's timeout, on the desk's thread: its steps the session still holds are let go first, so a late answer plays
+    /// nothing. A line whose look-up was never answered never had its command written: it ends not-sent (Show Bus 13.12.3: it did not
+    /// run); any other ends unanswered as every box's does.
+    /// </summary>
+    private void TimedOut(Pending pending, TimeSpan timeout)
+    {
+        lock (_pendings)
+        {
+            if (!_pendings.Contains(pending)) return;   // settled meanwhile, or the area closed
+        }
+        // Pixera is the one session that both keys every answer and holds steps Abandon can let go, so these are its words; a second
+        // such profile brings its own.
+        if (pending.Open.Session.Abandon(pending.Key))
+        {
+            Complete(pending, pending.Reached, false, PixeraSession.UnansweredLookUpWords(timeout), LinkOutcome.NotSent);
+            return;
+        }
+        Complete(pending, pending.Reached, false, pending.Open.Session.Unanswered(timeout, pending.Reached, pending.Wanted));
+    }
+
     /// <summary>Accepted, and Observed wanted: the query goes, and the next answer that carries the expected words closes the receipt.</summary>
     private void Observe(Pending pending)
     {
@@ -678,6 +750,7 @@ public sealed class DeviceService : IDisposable
         pending.Observing = true;
         pending.Expect = cfg.ObserveExpect.Trim();
         TakeStart(pending.Open);
+        pending.Connection = pending.Open.StartTaken;
         var frames = pending.Open.Session.Encode(cfg.ObserveQuery, out var problem);
         // A profile that keys every answer answers the observation by the query's own reply: the line waits on the query's key.
         if (frames.Count > 0 && pending.Open.Session.KeysEveryAnswer) pending.Key = pending.Open.Session.SentKey(cfg.ObserveQuery);
@@ -686,14 +759,23 @@ public sealed class DeviceService : IDisposable
             Complete(pending, ConfirmLevel.Accepted, false, $"accepted, not observed — the query could not be sent ({problem})");
             return;
         }
-        foreach (var frame in frames) pending.Open.Link.WriteBytes(frame);
+        foreach (var frame in frames)
+        {
+            var put = pending.Open.Link.Deliver(frame);
+            if (put.Ok) continue;
+            Complete(pending, ConfirmLevel.Accepted, false, $"accepted, not observed — the query could not be sent ({put.Words})");
+            return;
+        }
     }
 
     /// <summary>
     /// A reply, on the UI thread: the oldest line waiting on this device that it can answer takes it as its yes, its no, or its
     /// observation. A profile that keys every answer to its own request (<see cref="ProfileSession.KeysEveryAnswer"/>) settles only
     /// the line of that key, and a line it cannot key only by an answer keyed ""; any other profile's unkeyed answer or line meets
-    /// the oldest waiting.
+    /// the oldest waiting. On a link made of connections an unkeyed yes or no only ever meets lines of its own connection: a line of an
+    /// older one has ended unconfirmed at the start the answer's connection took before any of its lines was read (StartOver), and a
+    /// line of a gone connection is never read here (HandleGone). An observation is the exception: a line waiting on its observation
+    /// query outlives a start-over, so the next connection's reading of the same state (a later poll's answer) may still settle it.
     /// </summary>
     private void Acknowledge(Open open, ProfileReply reply, string line)
     {
@@ -743,6 +825,9 @@ public sealed class DeviceService : IDisposable
         Dispatch.Post(() =>
         {
             if (_disposed) return;
+            // A line that has ended, however it ended, leaves nothing of itself in its session: a step still held for it (a Pixera
+            // look-up) is let go, so a late answer plays nothing behind the receipt.
+            if (pending.Key.Length > 0) pending.Open.Session.Abandon(pending.Key);
             if (!ok) Log.Warn($"Device '{receipt.Device}': {receipt.Line}");
             if (!ok && !unsure) LastFailed = receipt;
             else if (ok && LastFailed is { } failed && failed.Device == receipt.Device) LastFailed = null;   // the box that said no answers again
@@ -793,8 +878,16 @@ public sealed class DeviceService : IDisposable
         _learning[deviceName.Trim()] = onLine;
     }
 
-    private readonly System.Collections.Concurrent.ConcurrentQueue<(string Id, string? Line, long Generation, long Connection)> _inbound = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(string Id, IDeviceLink Link, string? Line, long Generation, long Connection)> _inbound = new();
     private int _draining;
+    private long _staleDropped;
+    private IDeviceLink? _staleSaid;
+
+    /// <summary>
+    /// Lines and connection starts dropped on the desk's thread because the link that raised them is no longer their device's (the
+    /// device was closed, or reopened on a new link by a changed address, password or profile); each such link is said once in the log.
+    /// </summary>
+    public long StaleDropped => Interlocked.Read(ref _staleDropped);
 
     /// <summary>
     /// A line from a device, on the link's thread: queued, and run on the UI thread like every
@@ -810,10 +903,11 @@ public sealed class DeviceService : IDisposable
     /// </summary>
     /// <param name="line">A line, or null for a connection that has just come up (its own start, in order with its lines).</param>
     /// <param name="generation">For a connection that came up, which one it is (a Show Bus node's proof belongs to it); 0 otherwise.</param>
+    /// <param name="link">The link that raised it: read only while that link is still the device's.</param>
     /// <param name="connection">The link's connection that said it (<see cref="IConnectionLink.Connection"/>); 0 for a link not made of connections.</param>
-    private void OnLine(string id, string? line, long generation, long connection)
+    private void OnLine(string id, IDeviceLink link, string? line, long generation, long connection)
     {
-        _inbound.Enqueue((id, line, generation, connection));
+        _inbound.Enqueue((id, link, line, generation, connection));
         if (Interlocked.Exchange(ref _draining, 1) != 0) return;
         Dispatch.Post(Drain);
     }
@@ -824,6 +918,15 @@ public sealed class DeviceService : IDisposable
         {
             while (_inbound.TryDequeue(out var item))
             {
+                // An item belongs to the link that raised it. A link that is no longer its device's — closed, or replaced in one pass
+                // by a link for a changed address, password or profile — says nothing to the device's session now: its connection
+                // numbers are another link's, and read into the new link's session they would make every line of it look gone.
+                if (_disposed) continue;
+                if (!_open.TryGetValue(item.Id, out var open) || !ReferenceEquals(open.Link, item.Link))
+                {
+                    Stale(item.Id, item.Link);
+                    continue;
+                }
                 if (item.Line is { } line) Handle(item.Id, line, item.Connection);
                 else Opened(item.Id, item.Generation, item.Connection);
             }
@@ -837,10 +940,23 @@ public sealed class DeviceService : IDisposable
         }
     }
 
+    /// <summary>An item of a link that is no longer its device's: counted, never read; the first of each such link is said in the log.</summary>
+    private void Stale(string id, IDeviceLink link)
+    {
+        Interlocked.Increment(ref _staleDropped);
+        if (ReferenceEquals(_staleSaid, link)) return;
+        _staleSaid = link;
+        var name = _services.State.Interactive.Devices.FirstOrDefault(d => d.Id == id)?.Name ?? id;
+        Log.Info($"Device '{name}': what its last link said after that link was closed or replaced is dropped, never read into the device it was replaced for.");
+    }
+
     /// <summary>
     /// The connection the link has published last (<see cref="IConnectionLink.Connection"/>), 0 for a link not made of connections.
     /// </summary>
     private static long Current(Open open) => open.Link is IConnectionLink c ? c.Connection : 0;
+
+    /// <summary>The last connection the link has seen end (<see cref="IConnectionLink.Ended"/>), 0 for a link not made of connections.</summary>
+    private static long Ended(Open open) => open.Link is IConnectionLink c ? c.Ended : 0;
 
     /// <summary>
     /// The session takes its link's newest connection's start, once per connection, on this thread: whichever comes first — a write
@@ -858,13 +974,21 @@ public sealed class DeviceService : IDisposable
 
     /// <summary>
     /// What the last connection knew starts over; a line whose next step the session forgot with it (a Pixera command whose look-up
-    /// was asked on the connection that ended) ends not-sent (Show Bus 13.12.3), since that step can never go.
+    /// was asked on the connection that ended) ends not-sent (Show Bus 13.12.3), since that step can never go. On a link made of
+    /// connections, a box whose answers carry no key of their request (a projector, a board) can no longer answer a line written on
+    /// an earlier connection, and no answer of this one is that line's: it ends unconfirmed (written, no answer, it may have run), as
+    /// a node's do at its own start.
     /// </summary>
     private void StartOver(Open open)
     {
         open.Session.OnConnected();
         foreach (var key in open.Session.TakeForgotten()) Unsent(open, key);
+        if (open.Link is IConnectionLink && !open.Session.KeysEveryAnswer && open.Session is not ShowBusNodeSession)
+            Unconfirmed(open, UnansweredOnEndedWords, before: open.StartTaken);
     }
+
+    /// <summary>The receipt's words for a line written on a connection that ended before a box whose answers carry no key answered it.</summary>
+    public const string UnansweredOnEndedWords = "unconfirmed — written on a connection that ended before the box answered; it may have run";
 
     /// <summary>The line of this key, whose next step can never go on the connection its look-up was asked on, ends not-sent.</summary>
     private void Unsent(Open open, string key)
@@ -893,12 +1017,14 @@ public sealed class DeviceService : IDisposable
         {
             foreach (var frame in node is not null ? node.OnOpenedAt(generation) : open.Session.OnOpened())
             {
-                open.Link.WriteBytes(frame);
-                open.Out++;
+                if (open.Link.Deliver(frame).Ok) open.Out++;
             }
         }
         PublishNodes();
     }
+
+    /// <summary>What the card says after a line whose next step could not go because its connection had ended.</summary>
+    public const string EndedNote = " — said on a connection that ended; nothing sent on";
 
     private void Handle(string id, string line, long connection)
     {
@@ -907,9 +1033,9 @@ public sealed class DeviceService : IDisposable
             // A session reads the lines of the connection whose start it holds. A node reads its own by its generation (its proof
             // belongs to a connection). Any other box's line said on a connection the session has already started over from is that
             // gone connection's: counted and shown, never read into what the new connection knows; only an answer the session can
-            // key to its own line settles that line. A line of the connection the session holds while the link has moved on is read
-            // and settles what it answers, but what it would send next can no longer go on its connection and is never written on
-            // the next one.
+            // key to its own line settles that line. A line of the connection the session holds after that connection has ended —
+            // whether or not the next one is published yet — is read and settles what it answers, but what it would send next can no
+            // longer go on its connection and is never written on the next one.
             var ended = false;
             if (open.Session is not ShowBusNodeSession && open.Link is IConnectionLink)
             {
@@ -919,7 +1045,7 @@ public sealed class DeviceService : IDisposable
                     HandleGone(open, line);
                     return;
                 }
-                ended = connection < Current(open);
+                ended = connection < Current(open) || connection <= Ended(open);
             }
             open.In++;
             var tookFacts = open.Session.TakesFacts;
@@ -931,16 +1057,27 @@ public sealed class DeviceService : IDisposable
             {
                 // The next step of a line can never go: the line ends not-sent (Show Bus 13.12.3: never written; it did not run).
                 unsent = reply.AckKey;
-                reply = reply with { Words = $"{line} — said on a connection that ended; nothing sent on", SendNext = Array.Empty<byte[]>() };
+                reply = reply with { Words = line + EndedNote, SendNext = Array.Empty<byte[]>() };
+            }
+            foreach (var frame in reply.SendNext)
+            {
+                // Judged by what became of its bytes: a step whose connection ended between the line's reading and its writing was
+                // never sent, is never counted as sent, and its line ends not-sent.
+                if (open.Link.Deliver(frame).Ok)
+                {
+                    open.Out++;
+                    continue;
+                }
+                if (reply.AckKey.Length > 0)
+                {
+                    unsent = reply.AckKey;
+                    reply = reply with { Words = line + EndedNote };
+                }
+                break;
             }
             open.LastIn = reply.Words;
             open.Config.Runtime = open.Config.Runtime.Replied(reply.Words.Length > 0 ? reply.Words : line, DateTime.UtcNow);
             if (unsent.Length > 0) Unsent(open, unsent);   // after the box's word: the desk's not-sent is the card's last word
-            foreach (var frame in reply.SendNext)
-            {
-                open.Link.WriteBytes(frame);
-                open.Out++;
-            }
             if (reply.IsError) Log.Warn($"Device '{open.Config.Name}' answered: {reply.Words}");
             open.Config.Status = StatusLine(open);
             // Round 65.11: an answer that reads through the input pattern is what the box receives — said to the desk, never acted on.
@@ -1118,6 +1255,7 @@ public sealed class SerialDeviceLink : IDeviceLink, IConnectionLink
     private volatile bool _disposed;
     private int _started;
     private long _connection;
+    private long _ended;
 
     public SerialDeviceLink(string port, int baud)
     {
@@ -1146,16 +1284,29 @@ public sealed class SerialDeviceLink : IDeviceLink, IConnectionLink
 
     public long Connection => Interlocked.Read(ref _connection);
 
-    public void Write(string framedLine)
+    public long Ended => Interlocked.Read(ref _ended);
+
+    public void Write(string framedLine) => Put(framedLine);
+
+    /// <summary>The frame through the port this write takes once: Delivered when the port took it, Failed when no port is open or the write threw.</summary>
+    public LinkDelivery Deliver(byte[] frame) => Put(Encoding.UTF8.GetString(frame));
+
+    public Task<LinkDelivery> DeliverAsync(byte[] frame) => Task.FromResult(Deliver(frame));
+
+    private LinkDelivery Put(string framedLine)
     {
+        var serial = _serial;
+        if (serial is null) return LinkDelivery.Failed(_status);
         try
         {
-            _serial?.Write(framedLine);
+            serial.Write(framedLine);
+            return LinkDelivery.Delivered();
         }
         catch (Exception ex)
         {
             _status = "write failed: " + ex.Message;
             _open = false;
+            return LinkDelivery.Failed(_status);
         }
     }
 
@@ -1213,6 +1364,7 @@ public sealed class SerialDeviceLink : IDeviceLink, IConnectionLink
             }
             finally
             {
+                if (up) Interlocked.Exchange(ref _ended, Interlocked.Read(ref _connection));   // over, before the port is let go
                 _open = false;
                 _serial = null;
                 try
@@ -1268,6 +1420,7 @@ public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
     private volatile bool _disposed;
     private int _started;
     private long _connection;
+    private long _ended;
 
     /// <param name="split">How the byte stream is cut into frames — lines unless the box frames otherwise (Pixera's 0xPX).</param>
     public TcpDeviceLink(string host, int port, Func<StringBuilder, IReadOnlyList<string>>? split = null)
@@ -1298,22 +1451,31 @@ public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
 
     public long Connection => Interlocked.Read(ref _connection);
 
-    public void Write(string framedLine) => WriteBytes(Encoding.UTF8.GetBytes(framedLine));
+    public long Ended => Interlocked.Read(ref _ended);
 
-    public void WriteBytes(byte[] frame)
+    public void Write(string framedLine) => Deliver(Encoding.UTF8.GetBytes(framedLine));
+
+    public void WriteBytes(byte[] frame) => Deliver(frame);
+
+    /// <summary>The frame through the stream this write takes once: Delivered when it took the bytes, Failed when there was no connection or the write threw.</summary>
+    public LinkDelivery Deliver(byte[] frame)
     {
+        var stream = _stream;
+        if (stream is null) return LinkDelivery.Failed(_status);
         try
         {
-            var stream = _stream;
-            if (stream is null) return;
             stream.Write(frame, 0, frame.Length);
+            return LinkDelivery.Delivered();
         }
         catch (Exception ex)
         {
             _status = "write failed: " + ex.Message;
             _open = false;
+            return LinkDelivery.Failed(_status);
         }
     }
+
+    public Task<LinkDelivery> DeliverAsync(byte[] frame) => Task.FromResult(Deliver(frame));
 
     private async Task LoopAsync()
     {
@@ -1354,6 +1516,7 @@ public sealed class TcpDeviceLink : IDeviceLink, IConnectionLink
             }
             finally
             {
+                if (up) Interlocked.Exchange(ref _ended, Interlocked.Read(ref _connection));   // over, before the stream is let go
                 _open = false;
                 _stream = null;
                 client?.Dispose();
