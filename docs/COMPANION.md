@@ -474,6 +474,22 @@ hue, and an Encoders section: `audio_level_knob` and `music_level_knob` for a St
 `music_level_step`; absolute, clamped, nothing while disconnected) and a press is STOP ALL. Tick
 **Navigator** in the connection's preset groups. A 3.13.0 deck ignores the rows.
 
+## Round 99 — the God's Eye's show network on a key (module 3.24.0)
+
+- **The show network in one line and one light** (3.24.0, a minor version: two variables, a feedback, a lens and a preset
+  added; Show Bus 1.3 §13.16). STATE's `eye` row appends `apps`, `linksRed`, `linksAmber`, `network` and `linksWorst`.
+  `$(patterns:eye_network)` is the Eye's one line of the show network — the apps it knows, the desk's links, the worst link
+  with its card and what it says, what the bounds leave out — the same line the Super Check's *Eye network* row, STATE and the
+  assistant's brief read; `$(patterns:eye_links_worst)` is the worst light among the desk's links (red, amber, green, or grey
+  while every link is not up yet or has ended; empty with no link). The `eye_links` feedback lights a key by that light.
+- **The NETWORK lens.** `eye_lens` carries `network` (`EYE LENS network`, a lens since round 99.4: the desk, every other app's
+  card, every other Patterns node and the links between them); the Eye page gains LENS NETWORK and a NETWORK key that shows the
+  line, is lit by the worst link and presses the lens. `lines.txt` gained the lens's line with 99.4; 99.5 added none.
+- **What a deck still does not read.** STATE's `bus.apps[]` rows carry the light's `mark` and the held link's `link` state
+  from round 99; the module reads neither (the Nodes page, the Eye and STATE say them). The Eye's marks and counted problems stay
+  as L106 says; no Eye verb is new, and no key opens or folds a cluster (L107).
+- The version moves to 3.24.0 in every file that carries it, once for the round.
+
 ## Round 96 — a Stagewatch window granted to the desk, and a link that proves itself (module 3.22.0)
 
 - **A granted window on a key** (3.22.0, a minor version: two actions, a variable and two presets added; Show Bus 1.3

@@ -16894,3 +16894,249 @@ device; 99.6 names the exact line from what 99.1 to 99.5 write. No such room is 
 and App; 99.2 also Assistant; 99.4 and 99.5 also the module's four steps); the App suite is run by parts, one at a time. 99.6's papers
 depend only on units that wait on nothing outside the round: none of 99.1 to 99.5 waits on Stagewatch's or PlayMap's work. Sections
 117.2 onward are written by 99.6.
+
+### 117.2 The table completed, and the units as they landed (99.6)
+
+**One unit inserted, none moved.** The opening's table held 99.0 to 99.6. The round inserted **99.7** between 99.2 and 99.3: a
+recovery defect of the typed-address Stagewatch link that Stagewatch's interop lane found at this tree's pin `2515017` (row S6.1)
+and two readers read against the code. Its evidence class is a sibling's test lane read against the code — not the plan, not a
+critique. In the order the units were committed:
+
+| Unit | Commit | What it is | Evidence | CI's run on its push |
+|---|---|---|---|---|
+| 99.0 | `7555b02` | the opening (§117.1) | the plan, the Eye design and its critique; CI's runs 318 and 319 | 320 (43729647498): green |
+| 99.1 | `e990739` | `EyeNetwork`: one card per proved id, a link drawn once as its edge, `@` ends placed or counted (§117.3) | the Eye design EYE.2, the critique's issues 1 to 3, 18, 19 | 321 (43737959241): green |
+| 99.2 | `8f62a0b` | one projection for lights, five readers, one fence, a bounded brief (§117.4) | the Eye design EYE.2's lights, the critique's issues 8a, 9, 20 | 322 (43746420945): green |
+| 99.7 | `ff01e34` | a typed-address Stagewatch link looks again and moves once to the node whose dial proves the key (§117.5) | Stagewatch's interop lane, row S6.1 at `2515017`, read by two readers | 323 (43755832303): green |
+| 99.3 | `04c2990` | the feed: one composition of the show network for every reader (§117.6) | the Eye design EYE.3; one measurement | 324 (43764580472): green |
+| 99.4 | `6f5600f` | the desk's readers: `NetworkMenus`, claims, links hit where drawn, LINKS, `EYE LENS NETWORK`, Accept new id (§117.7) | the Eye design EYE.5's first part, the critique's issues 4, 10, 12; G24, G35 | 325 (43771405852): green |
+| 99.5 | `dc3166c` | the wire's readers: EYE JSON, STATE `eye` and `bus.apps`, the module at 3.24.0, the Super Check's *Eye network* row (§117.8) | the Eye design EYE.5's second part, the critique's issue 20 | 326 (43782781077): green |
+
+Round 98's papers, `2515017`, ran as 319 (43728931758): green, every job — the reading §117.1 left to these papers. Every run of
+this round's pushes from 319 to 326 is green on every job (`test`, `lifecycle`, `companion-module`, `portable-exe`, `windows-smoke`,
+`rollback-script`): no red run to name.
+
+**R3.** Every unit of 99.1 to 99.5 is committed; none moved. 99.7 waited on nothing outside the round. The papers depend only on
+units that wait on nothing outside it.
+
+### 117.3 One card per proved id (99.1 — Show Bus 1.3 §6, §13.16; the Eye design EYE.2)
+
+**What landed** (`e990739`). `EyeNetwork` (Core, pure): `EyeOrigin`, a source on every node and edge (own, link, told, relayed,
+heard); the fold — `Fold`, `LinkedId` by `LINK` proof first, `DeviceFolds` moved here from `ShowBusView.Folds`; a level-0 deck that
+never folds and says both sightings (`DeckWords`); a Patterns node's twin context, beacon and hello as one card `node:<instance>`
+(`TwinService.NodeContexts` now returns the instance); §6's ends (`TryEnd`, `IsId`) and kinds read from §6's eleven words only
+(`TryKind`: a number, a list or another word is refused, never defaulted); counting things of a quiet link shown "? — reason"; the
+bounds (relayed 256, cross-app 256, mentions 32 per context and 128 in all, 8 forced chain ends inside the dozen); `ShortId` and
+the export's canary. In `Eye.Build` a context's link item with a row to a node is that link's edge, worded as the app's claim, its
+other rows re-anchored to the far node; where this desk holds or accepts that link the record leads and the claim is not drawn. A
+peers row naming a drawn node is a relayed edge, else a grey mention, never in the relaying app's colour. Rows left out are counted
+(`EyeGraph.Unplaced`) and said in the NETWORK band's words. The relayed Stagewatch is the grey item `link:relay`. The export
+(`FromEye`) writes own things by short id, accepted links as `link:<peer id>` with their P2 rows and its own `@<app>/<item>` edges,
+never a borrowed, told or relayed thing; words that would carry a key, a window's address or a path are said as held.
+
+**What readers see change** (99.1's commit names them for these papers): a twin node's peers row carries the node's context id;
+STATE `bus.apps` ids for twin nodes are `node:<instance>`; the desk's context publishes the links it accepted (L122's first clause);
+a folded twin card is not exported as an own item.
+
+**What stood before and is kept:** the NETWORK band, its bounds and slots (95.1, 95.2); the level-0 device fold by address and context
+id (97.2, `68737e1`); a record on its edge verbatim (93.3); the accepted link as one edge to its app's card (98.4, `8c123a4`).
+
+**Tests:** `EyeNetworkTests` (16), `SyntheticNetworkTests`' talking-room theory; rewritten, none skipped, for 13.16 or the node card's
+id: two `EyeLayoutTests`, `LinkRecordReadersTests`' relay test, two `ShowBus12Tests`, `ShowBus12AppTests`' timer node test,
+`EyeCostTests`' node tuple. **Mutations:** undoing the record-leads rule, the hello-id rule, the kind words and the export's cleaning
+each failed a test.
+
+### 117.4 One projection for lights (99.2 — Show Bus 1.3 §13.16; EYE.2's lights; the critique's issues 8a, 9, 20)
+
+**What landed** (`8f62a0b`). `ShowBusView.Network` computes each app's light once (`AppLight`: light, mark, headline, own headline,
+`i` notes, the context as shown) for five readers — the Eye's cards (`Eye.Build`), the context's peers (`Peers`), the Nodes cards
+(`ShowAppCard.Of`), the brief (`BriefLines`) and STATE's `bus.apps` (`StateRows`, read by `CommandRouter.ShowBusRow`); STATE's
+`bus.stagewatch` light and headline come from the same projection. Precedence, never the worse of the sources: where this desk holds
+a link, the link decides whether the app is there; the hello decides only where none is held; a hello alone is never green; a
+heard-only app quiet or gone is grey, amber and red only when the show needs it. A lower source that disagrees adds an `i` note. A
+link that is not live marks its counting things "? — its link is <state> — no count is current" (`LinkNotCurrent`). The brief is
+bounded: the needed first, then the linked, at most 16 in full (`BriefApps`), the rest counted by kind and light, each app's claims
+under "<app> says:", at most 240 lines (`BriefMaxLines`). The Nodes page takes its apps through the kernel as the other readers do.
+
+**Tests:** `ShowBusTests`' fence over the five readers (`TheShowNetworkIsOneProjection…`), with STATE's `bus.stagewatch` light and
+headline; `TheBriefIsBoundedTheNeededFirstAndTheRestCounted`; the Eye layout, cost, network and record-reader tests with a Needed leg
+wherever an unneeded light moved. **Mutations:** none recorded. **Measurement:** none; the brief's bounds are counts held by a test.
+
+### 117.5 A typed-address link moves once to the node whose dial proves the key (99.7 — inserted; Show Bus 1.3 §2, 13.4.3)
+
+**The defect** (Stagewatch's interop lane, row S6.1, at pin `2515017`). A Stagewatch that restarts opens its web port before its
+first hello is heard, so a redial in that gap took the bare address as its target; the key bound to the node was held back there,
+the record offered BIND KEY for the address, and nothing looked again while the connection lived. Two readers read the row against
+the code before the unit was written.
+
+**What landed** (`ff01e34`). `StagewatchAt` (Core) is the one rule for who a typed address names: a live hello from that address (the
+datagram's source) on the typed port, the pinned one of several, never an id in conflict — read by the dial (`Resolve`), the
+evaluator and `EyeNetwork.LinkedTo`. On each beat the evaluator looks again at a live connection whose target is the address itself
+and moves it once, through the core's redial (no failure counted), only where `StagewatchAt.ProvesThere` holds: a key set and going
+to the node, an acceptor not found older than `LINK`, TLS or this machine. Where the node's dial would be refused now (the key's
+hold, a certificate changed against the node's pin, a dial of it this run saw refused) the address's public view is kept and the
+record says why in place of BIND KEY. A move the node refuses goes back at once (`BackOff`) and stays back while that node's process
+is heard (`Run.BackedOff`). Keyless and public-only links never move (13.4.3), nor a key bound elsewhere, nor a connection that
+already carries the key at the address. Journal rows `StagewatchLink` with `retarget`, `back` and `kept` (kept said once a run for
+each reason), each with its log line. REMOTE's typed-address paragraph says it.
+
+**Rejected:** waiting a hello period before dialling a typed address — it only moves the race, delays every recovery and breaks a
+typed address as its own record. **Tests:** `StagewatchAtTests` (the dial and the evaluator each against a written table),
+`StagewatchLinkCoreTests`, `PeerLinkWireTests.Retarget` (no key, key bound elsewhere, key proved at the address — none moves; a move
+the node refuses — three dials, one retarget, one back, one kept row, the show live, the key sent to neither). **Mutations:** `BackOff`
+returning false, or `ProvesThere` skipped, each failed the move-back test and all three stays-on-address legs. **Its reading in the
+lane:** Stagewatch's `857539f` pins this tree at `ff01e34`; S6.1 passes as written and is held tighter (the record names the rig's
+node, live at level 1, proof mutual), and one run caught the race and saw the move 1.4 s after the redial.
+
+### 117.6 The feed (99.3 — EYE.3)
+
+**What landed** (`04c2990`). `ShowBusFeed` (Core) holds what the desk has of the show network; `ShowBusView.Compose` applies, in this
+order, the apps (the hello, the Stagewatch link, devices), then `Accept` (the acceptor's list), then the twin's nodes;
+`AppServices.Apps` builds it and adds what only the desk knows (a changed certificate, the speaker, needed, the windows). Every reader
+takes that one composition. `LINK` proves the connector's `t:id`; its rows fold onto the app that says that id under that kind, an
+id no other source names becomes an app of its own while its link is open, and a row proved under another kind stays an `i` note
+(`KindNote`). Any kind is linkable by proof; an address alone still links only a Stagewatch. The Eye's gather reads `AppsRev`
+(`AppsWithRev` hands the list and its revision from one take), so a still list costs nothing.
+
+**Measured:** a still desk linked to `FakeStagewatch` rebuilt the Eye 3 times in 27 ticks over 3 s — the desk node's attention words
+carried a Super Check row's moving reading ("Desk tick: 96.6 ms", then "73.7 ms"). The words now say each row by its item, its mark
+and its note, never the reading: 0 rebuilds in 27 ticks, held by
+`ShowBusAppTests.ALinkedStagewatchStandingStillRebuildsNothingTickAfterTick`. **Tests:** `ShowBusFeedTests` (one edge with a heard and
+a gone hello, `bus.heard` by the hello, the plain link leading versus beside a dialled one, a row of another kind, the more card);
+`PeerLinkWireTests.List`'s legs. **Mutation:** bringing back the Hears edge beside an open accepted link failed the Core test.
+
+### 117.7 The desk's readers (99.4 — EYE.5's first part; G24, G35)
+
+**What landed** (`6f5600f`). `NetworkMenus` (Core) is the one builder of LINK, DEVICE, KEY and ITS LINK TO THIS DESK for the Nodes
+card (`DeskMenus.ShowApp`), the Eye's app card (`EyeMenus.For`) and the new link menu (`EyeMenus.ForEdge`, `EdgeSubject`). New entries:
+Make a key for this app, Let its key speak for another connector, and Accept new id (greyed with the reason while nothing answers in
+the Stagewatch's place; `StagewatchAcceptId` appended, desk-only, unsayable on the wire, refused by MIDI learn and every other origin).
+`EyeMarks.IsClaim` is the one rule of a claim; `EyeGeometry` gives the canvas and the hit-test one segment (6 px). `EyeLens.Network`
+keeps the desk, the app and node cards and the links between them. A beacon node gone quiet is red only when the show needs it. On
+the canvas claims are dotted with the says glyph, things known only by a hello are ringed, a click on a link opens a link card and a
+right-click its menu; the side card lists LINKS from each record, following the record's clock, hidden while a replay is open.
+
+**Accept new id** (the review's high finding; Show Bus 1.3 §13.4.3): the key bound to one id is never proved to or sent toward
+another — `PeerLinkMachine.AcceptNewId` holds the key back from the accepted id and the link dials it keyless; the Nodes page carries
+ACCEPT NEW ID beside LOWER FLOOR, the same action as both menus. **Tests:** `NetworkMenusTests`,
+`StagewatchLinkCoreTests.AcceptNewIdBindsTheNodeThatAnsweredAndNeverProvesTheOldNodesKeyToIt`, `NetworkMenusAppTests`,
+`PeerLinkWireTests.AcceptNewIdBinds…`; three tests changed with the contract (a gone heard-only node grey, the LINK group's ids end
+with `link.newid`, `EYE LENS network` a lens). **Mutation:** letting the key go to the accepted id failed both. **Not done here**
+(said by the unit): Accept new id binds the running link only (L129); a beacon-only node meets no need today, so a gone one is grey.
+
+### 117.8 The wire's readers (99.5 — EYE.5's second part; the critique's issue 20)
+
+**What landed** (`dc3166c`). `EyeEdge` carries the 13.16.3 record of a link this desk holds and the 13.16.5 row of one its wire
+accepted; `EyeGraph` adds `Apps`, `LinkLights`, `LeftEdges` and `NetworkLine`, the one line STATE, the deck, the Super Check and the
+brief read. EYE JSON appends `app`, `source`, `collapsed` to each thing; `source`, `claim`, `link` to each edge (null for every other
+edge and in a replay); `left.edges`; `apps`, `linkLights`, `unplaced` at the end; `EyeLinksNow` keeps a record's clock current between
+rebuilds. STATE's `eye` appends `apps`, `linksRed`, `linksAmber`, `network`, `linksWorst`; `bus.apps` rows append `mark` and `link`. The
+link fields reach paired connections only (ADR-016), held by a test. The Super Check gains a grey *Eye network* row after the links
+rows. Module 3.24.0: `eye_network`, `eye_links_worst`, the `eye_links` feedback, LENS NETWORK and a NETWORK key; `lines.txt` unchanged
+(99.4 added `EYE LENS network`). A twin's node link is no PeerLink (13.18), so it is never one of the desk's links. **Tests:**
+`EyeWireTests` and `PeerLinkWireTests.EyeWire` (the relayed bound, an accepted row gone from the gather, an ended row's when and why,
+a bus row's mark). **Mutations:** none recorded.
+
+**Departures from the design, named here as the unit asked:** EYE JSON's tail field is `linkLights` as the plan's brief names it, not
+eye.md §6's `links`; STATE's `eye` row appends `linksWorst` after the plan's four fields, since red and amber counts alone cannot tell
+green from grey; the Eye page's NETWORK band note does not carry the network line (each link is drawn with its own light and mark).
+**The Retarget test's wait:** a probe over four legs saw a record live with the key's word empty once, 26 ms before the word came —
+two publications apart in the link service, not this unit's; the wait reads both facts and still asserts `key` (L128).
+
+### 117.9 The reversals as built, and where the round departed from §117.1
+
+| Reversal (§117.1) | As built | Where it departs |
+|---|---|---|
+| **A gone heard-only app is grey** | 99.2's projection: heard-only quiet or gone is grey, red only where the show needs it, an acceptor's row never red; the beacon node follows the needed rule in 99.4 | §117.1's table put the beacon node in 99.2; its unit row (and the code) put it in 99.4, where it landed. No beacon-only node meets §13.1's needs today (the twin's nodes fold into their needed context card), so a gone beacon-only node is grey |
+| **A stuck show** | The card amber (as since round 89); its counting things "? — no time shown — its show is stuck" | §117.1 and eye.md D5 said "a green link" and "? instead of red". The copied contract is final and says otherwise: 13.16.1's stuck row ("every value from it ✕ 'no time shown'") and §6 P5 keep the counting things red ✕ whether or not the show needs the app, and the link edge amber △, the record's own light (99.2) |
+| **PlayMap sits in the NETWORK band** | One card per app by the fold of 99.1: a PlayMap heard by its hello, driven as a device (folded by address and context id) or linked by proof is one card in the band | A Patterns node only the beacon names is still a CONTROL card in tier 2: 99.1 moved its band to 99.4, which did not move it (L130). The NETWORK lens shows it |
+
+Two more readers' changes the units name: `bus.heard` (the deck's `showbus_heard`) counts the apps live by the projection's state
+(99.2), as it counted a typed-address link that never said hello, so a link this desk dials whose hello is gone still counts; 99.3
+(`ShowBusView.HeardLive`) leaves out an app live only by a link its wire accepted unless its own hello is live too; and a needed refused key with a held record is red in every reader, a record-less link gone
+and not needed amber, a live link whose hello is gone live with an `i` note (99.2).
+
+### 117.10 Every reader, and what the round did not reach
+
+- **The desk.** The Eye page: one card per app, sources, claims dotted, links hit, a link card, LINKS on the side card, the NETWORK
+  lens chip; the Nodes page's cards from the same projection, ACCEPT NEW ID beside LOWER FLOOR, Make key bound to the hello's kind.
+  **The right-click menus**, in step with the buttons: the Nodes card, the Eye's app card and its links build from `NetworkMenus`.
+  Help's lens step names the NETWORK lens (corrected at these papers: it still said "NETWORK is a band of the picture, not a lens").
+- **The Run strip** — unchanged: the network is the Eye's and the Nodes page's to draw.
+- **STATE** — `eye`'s five appended fields, `bus.apps[].mark` and `link`, `bus.heard` without the apps live only by an accepted link, `bus.stagewatch` from the projection,
+  twin nodes as `node:<instance>`.
+- **The Eye** — everything above; EYE JSON's appended fields; the replay's links null (L125).
+- **The wire** — `EYE LENS network`; EYE's and STATE's fields to paired connections only; no new verb. **The journal** —
+  `StagewatchLink` `retarget`, `back`, `kept` (99.7); Accept new id's row (99.4).
+- **The Super Check** — *Eye network* (grey, SHOW NETWORK).
+- **The deck** — module 3.24.0's `eye_network`, `eye_links_worst`, `eye_links`, LENS NETWORK and the NETWORK key; the deck reads no
+  `bus.apps[].mark` or `link` (named in COMPANION).
+- **The assistant** — the brief bounded, "<app> says:" grouping, the network line after the headline, Accept new id named as a
+  person's on the desk.
+- **The context other apps read** — own things by short id, accepted links as `link:<peer id>` with their rows, peers rows from the
+  projection.
+- **Not reached, said:** the replay's link edges (L125), NDI across apps (L126), an app that posts nothing (L127), the record's two
+  publications (L128), Accept new id across a restart (L129), the beacon-only node's band (L130), a desk-drawn screen→window edge and
+  a cluster's wire word (L107), the queue's memory (L44), the takeover's dropped links (L61).
+
+### 117.11 With AI offline
+
+Nothing needs a key or the internet: the fold, the lights and the records are this desk's reading of what it already holds. The
+assistant reads the bounded brief and the network line; it proposes no Accept new id, Trust, ACCEPT or key verb.
+
+### 117.12 The proof
+
+- **CI** (§117.2, GitHub's Actions list for this repository): 319 on round 98's papers and 320 to 326 on this round's pushes green,
+  every job; 326 on `dc3166c` green, every job (its `test` job ended 01:17 UTC on 2026-11-16, `portable-exe` 01:23).
+- **The units' own validates:** 99.1 — Core 1,818, Rendering 724, App 1,064 by parts; 99.2 — Core 1,819, Rendering 724, Assistant 39,
+  App 1,064; 99.7 — Core 1,828, Rendering 724, App 1,071; 99.3 — Core 1,837, Rendering 724, Assistant 39, App 1,072; 99.4 — Core 1,847,
+  Rendering 724, App 1,075, the module's four steps; 99.5 — Core 1,855, Rendering 724, App 1,076, the module's four steps (52 tests;
+  part 3 failed once on `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore`, a path the unit does not touch,
+  green alone four times of four and on its rerun). APP SUITE GREEN BY PARTS each.
+- **At the close:** Core 1,855, Rendering 724, Devices 24, Audio 14, Assistant 39, Audience 3, App 1,076 — 3,735 in all (99.5's
+  validate for Core, Rendering and App; these papers' runs for the four small suites and Core, which reads the papers); the module
+  3.24.0, 52 tests. The close's whole validate is the committing stage's, and REVIEW round 99 records what it read.
+- **Mutation checks:** 99.1 four rules, 99.7 two, 99.3 one, 99.4 one; 99.2 and 99.5 record none, and these papers run none (the one
+  source line they change is Help's words). Said, not hidden: the five-reader fence and the paired-only gate are held by tests no
+  mutation has yet been shown to fail; the next round that edits `ShowBusView.Network` or the EYE gate runs one each.
+- **Measured:** 99.3's still desk (3 rebuilds in 27 ticks before, 0 after); 99.5's probe of the record's two publications (26 ms
+  once in four legs). The bounds are counts held by deterministic tests; no governor is added.
+
+### 117.13 What the round did not do
+
+- **The walk: none asked.** No platform path moved (§117.1): no display topology, hot-plug, audio endpoint, WebView2, process,
+  watchdog, twin or registry path, and no `CUT` or `TAKE` verb. 99.7 changes the link's choice of target, not its carrier.
+- **No `CONTEXT POST`** (round 100, its flood test at the wire's cap): an app that posts nothing is a heard card (L127).
+- **The Eye itself pins nothing, merges no two ids, lowers no floor** and never colours a node green from a hello; the entries
+  its menus share with the Nodes card (Trust, ACCEPT, Lower floor, Accept new id) are a person's presses of the same desk actions,
+  journalled as before and never proposed (§117.1's "does not lower a floor, pin or merge from the Eye", read as the Eye's own).
+- **No deck `LINK`, no problems-queue dismiss (L44), no NDI edge across apps (L126), no replay of link edges (L125).**
+- **Nothing asked of Stagewatch or PlayMap.** Stagewatch 2.24 (`fe8224e`, beside this round) publishes its context by §6's P1–P8,
+  among them `window -serves-> @<holder>`, which the Eye's `@` ends place on this desk — read in its tree, not run here; PlayMap
+  offers no `LINK` yet and its devices stay at level 0.
+- **No verb that takes or cuts.**
+
+### 117.14 The ledger and the papers (99.6)
+
+- **OPEN.** Closed: none. Amended: L44 (what the NETWORK band adds to the queue), L61 (the accepted links visible on the desk that
+  accepted them, still unsaid after a takeover; the posted contexts round 100's), L107 (the `@` ends, the NETWORK lens and STATE's
+  fields done; the replay, NDI and posting clauses moved to rows of their own; a desk-drawn screen→window edge and a cluster's wire
+  word stay), L122 (its first clause closed by 99.1 and 99.3; a feedback per app link stays). Added: L125 (the replay's link edges),
+  L126 (NDI across apps), L127 (an app that posts nothing — an AGMessage until `CONTEXT POST`), L128 (a record live before its key's
+  word, 99.5's probe), L129 (Accept new id binds the running link only, 99.4), L130 (the beacon-only node's band, 99.1's move not
+  made). Read and kept: L106, L112, L113. Seventy-seven open, fifty-three closed.
+- **The papers:** §117.2 to §117.15; REVIEW round 99; CHANGELOG (99.1 to 99.7, the count, the module); README (the round's ledger entry,
+  the show network's round line, the count); `docs/REMOTE.md` (EYE's appended fields, `EYE LENS network` a lens, STATE's `eye` and
+  `bus.apps` fields, `bus.heard`, the typed address); `docs/COMPANION.md` (module 3.24.0); `docs/EYE.md` §7 (round 99); Help's lens
+  step (one line of words in `Help.cs`, the only source line the papers change); `docs/OPEN.md`; the tag table's row 98 (`2515017`).
+  QUALIFICATION is not touched: no platform path moved.
+
+### 117.15 The rig's reading
+
+The round's verbs an output can show are the Eye's own: `EYE LENS network` and the network it draws. Their row is the Super Check's
+(`patterns.supercheck.txt`): SHOW NETWORK, *Eye network*, grey, the words of `EyeGraph.NetworkLine` — "<n> apps · <n> links", then
+the worst link's count, light and card with what it says, then what is left out — read beside the Eye page's NETWORK band on a desk
+with a Stagewatch linked and a PlayMap driven as a device, where each link the line counts is one edge with its own mark; and, for
+99.7, the journal's `StagewatchLink` row with `retarget` (or `back`, `kept`), read beside the Nodes page's Stagewatch card after a
+Stagewatch at a typed address restarts. Not read on a rig: no such room is on the bench, so the reading is `unwalked` in the rig's
+sense; no walk row is asked.

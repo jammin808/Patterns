@@ -219,6 +219,41 @@ geometry, then measures what the picture costs. `docs/PLAN.md` §113 is the desi
   focus's walk is taken once per picture, and a link off the screen is not drawn. Each rebuild is timed where it runs,
   and `patterns.metrics.csv` gains `eyeBuildWorstMs`, `eyeBuilds` and `eyeNodes` — measured, not governed: a limit waits
   for the rows a rig writes.
-- **Not yet.** No line crosses from one app to another (the window chain waits on a window lease), the replay leaves
+- **Not yet (round 95's words; round 99 below answers three of them).** No line crosses from one app to another (the window chain waits on a window lease), the replay leaves
   link edges grey, NDI chains across apps are not drawn, and no wire word opens a cluster or names a NETWORK lens
   (`docs/OPEN.md` L107); the deck and the assistant have not taken the marks (L106).
+
+### Round 99 — one app, one card; each link an edge that says its source
+
+Round 95 laid the band out; round 99 decides what stands on it. The method's rule — a thing is drawn where it is, once, with
+the evidence for its light — is applied to the apps themselves: two doors that heard one Stagewatch are one card, and a line
+between two cards is a link only when a record says so. `docs/PLAN.md` §117 is the design and the proof.
+
+- **One id, one card, by proof.** `EyeNetwork.Fold` folds every app by the strongest proof of who it is: the id a `LINK` proved,
+  then a level-0 device only where its address and its context's own id agree, never a level-0 deck (it is said apart, both
+  sightings named), and a Patterns node's hello, beacon and twin context as one `node:<instance>` card. The id an app's context
+  says of itself is a claim, never a name the Eye places another node by.
+- **Every node and link says its source** — this desk's own, a link's record, an app's own context (told), another app's word
+  about a third (relayed), or a hello alone (heard) — on the canvas, the side card, EYE JSON and the brief. A claim is dotted with
+  ❝ beside it and never lights another app's thing; a thing known only by a hello is drawn ringed.
+- **A link is its record's edge.** A link this desk holds (the Stagewatch link, a device link that drives a node) or accepted on
+  its wire is drawn once, from its own 13.16.3 record or 13.16.5 row; the app's own word for the same link follows as "<app>
+  says: …" and an `i` note where its light differs. §6's `@` ends are placed on the desk or on the thing this desk exports by that
+  id, else counted as not placed; the relayed Stagewatch is a grey link item, "relayed by the desk".
+- **One light, five readers.** `ShowBusView.Network` lights each app once for the Eye's cards, the context's peers, the Nodes
+  cards, the brief and STATE: a link this desk holds decides whether the app is there; a hello alone is never green; a heard-only
+  app gone quiet is grey, red only where the show needs it; a lower source that disagrees is an `i` note; counting things from a
+  link that is not live are "? — no count is current". A fence holds the five to the same light.
+- **One feed.** The hello table, the Stagewatch link, node devices, the accepted links (folded onto the app whose `t:id` `LINK`
+  proved) and the twin's nodes are one composition every reader takes; the gather works by revision. Measured: a still desk
+  rebuilt the picture 3 times in 27 ticks because a Super Check reading rode the desk node's words; none after the words said
+  the mark and not the reading.
+- **The readers.** Links are hit where drawn (6 px), open a link card and the same LINK, DEVICE, KEY and ITS LINK TO THIS DESK
+  groups the Nodes card has (`NetworkMenus`); the side card lists LINKS from each record; `EYE LENS network` keeps the show
+  network alone; EYE JSON and STATE's `eye` row carry the apps, the links by light, the one network line and what the bounds cut;
+  the Super Check's *Eye network* row and the deck's `eye_network` say that line.
+- **Bounded by counts, held by tests:** 256 relayed edges, 256 cross-app claims, 32 mentions per context and 128 in all, 8 forced
+  chain ends, the brief's 16 apps in full and 240 lines; no measurement on a rig, no governor.
+- **Not yet.** The replay's link edges stay grey (L125); NDI across apps is not an edge (L126); an app that posts nothing here — an
+  AGMessage until `CONTEXT POST`, round 100 — is a heard card (L127); this desk draws no edge of its own from a screen to the
+  granted window it shows, and no wire word opens or folds a cluster (L107); the problems queue still has no memory (L44).

@@ -5054,3 +5054,108 @@ Walk: unwalked (`docs/QUALIFICATION.md` §27).
   is on the bench.
 - Walk: unwalked — TLS on the wire's port (QUALIFICATION §27's round 98 note) and DPAPI's kept keys (§28's round 98 note), both
   rows unwalked until the maintainer fills them on the rig.
+
+## Round 99 review — the Eye sees the room: one card per app folded by proof, each link an edge that says its source, the lights computed once, the feed, the desk and the wire in step; and a typed-address link found again
+
+### 99.0 — the round opened
+
+- The plan's round 98 (its P98.0 to P98.6) is round 99 here, §117. The requester: the maintainer's show-network ask and the owner's
+  "all recommended". Evidence class: a handed-in critique — the Eye design (`eye.md`, EYE.2 to EYE.5) and its critique (issues 1 to
+  4, 8a, 9, 10, 12, 18 to 20) — beside the code; CI's runs 318 and 319 read as the files. `docs/field/` holds only its README.
+- The opening named no platform path and no measurement, and three reversals beside what rounds 95, 97 and 98 already held.
+
+### 99.1 — one card per proved id
+
+- **Done.** PLAN §117.3: `EyeNetwork` (the fold by `LINK` proof, the level-0 device fold, a deck never folded, `node:<instance>`),
+  sources on every node and edge, a held or accepted link drawn once as its record's edge, `@` ends placed or counted, the relay a
+  grey link item, the export by short ids with its canary.
+- **The review's items, all taken** (eleven, the device-driven link drawn twice the medium one). **Tests:** `EyeNetworkTests`,
+  `SyntheticNetworkTests`; six rewritten for 13.16 or the node card's id, none skipped. **Mutations:** four rules, each failed.
+
+### 99.2 — one projection for lights
+
+- **Done.** PLAN §117.4: `ShowBusView.Network` for five readers, precedence not "worst", "? — no count is current", the bounded brief;
+  the fence over the five.
+- **Departures named for these papers**, each answered in §117.9: a stuck show's counting things red ✕ by the contract's 13.16.1 and
+  §6 P5, its link amber; the beacon node's needed rule in 99.4; `bus.heard` by the projection's state. **Mutations:** none recorded.
+
+### 99.7 — a typed-address link found again, inserted
+
+- **Found by a sibling's lane.** Stagewatch's interop lane, row S6.1, at this tree's pin `2515017`: a Stagewatch that restarts opens
+  its port before its first hello; a redial in that gap took the bare address, held the bound key back and offered BIND KEY with
+  nothing looking again. Read against the code by two readers.
+- **Done.** PLAN §117.5: `StagewatchAt` the one rule for the dial and the evaluator; the look again on each beat, a move once only
+  where the node's dial proves the key, `BackOff` and `Run.BackedOff`, the kept reasons, `PublicBecause` per connection; journal rows
+  `retarget`, `back`, `kept`. REMOTE's typed-address paragraph says it. **Rejected:** waiting a hello period before the dial.
+- **Mutations:** two, each failed. **Proved where it was found:** Stagewatch's `857539f` pins `ff01e34`; S6.1 passes and is held
+  tighter. **OPEN:** its commit asks no row.
+
+### 99.3 — the feed
+
+- **Done.** PLAN §117.6: `ShowBusFeed` and `Compose` — one composition every reader takes; accepted links folded by the `t:id` `LINK`
+  proved; any kind linkable by proof; the gather by revision.
+- **Measured:** a still desk rebuilt the Eye 3 times in 27 ticks (a Super Check reading in the desk node's words), 0 after; held by
+  a test. **The review's items, folded in** (nine, two edges to the desk and `bus.heard` among them). **Mutation:** one, failed.
+
+### 99.4 — the desk's readers
+
+- **Done.** PLAN §117.7: `NetworkMenus` for the Nodes card, the Eye's cards and its links; claims dotted with the says glyph; links
+  hit where drawn with a link card and menu; LINKS on the side card; `EYE LENS network`; Make key, Let its key speak for, Accept new
+  id (the Nodes page's ACCEPT NEW ID too).
+- **The review's high finding, taken:** Accept new id never proves or sends the old node's key to the accepted id (13.4.3).
+  **Mutation:** one, failed both tests. **Left for these papers:** Accept new id across a restart (L129); the beacon-only node never
+  needed today (§117.9).
+
+### 99.5 — the wire's readers
+
+- **Done.** PLAN §117.8: EYE JSON's appended fields with each link's record (null in a replay), STATE `eye` and `bus.apps` appended,
+  the paired-only gate held by a test, the Super Check's *Eye network* row, module 3.24.0.
+- **Departures named:** `linkLights` not `links`; `linksWorst` beyond the plan's four fields; the NETWORK band's note without the
+  line. **Found on the way:** a record live 26 ms before its key's word, in one probe leg of four (L128). **Mutations:** none
+  recorded. Its App part 3 failed once on `RemoteTrustTests.AnOpenDeskAndATrustedLoopbackAreGreetedWithStateAsBefore` (a path the
+  unit does not touch), green alone four of four and on the part's rerun; not seen in any CI run of the round.
+
+### 99.6 — the papers
+
+- §117.2 to §117.15; this section; the CHANGELOG entry completed; README (the round's ledger entry, the show network's round line,
+  the count); `docs/REMOTE.md` (EYE's appended fields, `EYE LENS network` a lens, STATE's `eye` and `bus.apps` fields and `bus.heard`,
+  the typed address); `docs/COMPANION.md` (module 3.24.0); `docs/EYE.md` §7; `docs/OPEN.md`; the tag table's row 98 (`2515017`).
+- **Read again at the papers, and corrected:** REMOTE's `EYE LENS` row still said `EYE LENS network` answers `ERR` ("the NETWORK
+  band is not a lens"), and the Help topic's lens step still said "NETWORK is a band of the picture, not a lens" though 99.4 made it
+  one and its help body says so — both now name the NETWORK lens (`Help.cs`, one line of words, the papers' only source change).
+  REMOTE's EYE row and STATE's `eye` and `bus` rows had none of 99.5's fields; README's count was 3,663; COMPANION had no round 99.
+- **R3:** every unit of 99.1 to 99.5 is committed; none moved. The inserted 99.7 waited on nothing outside the round.
+
+### The review's items, answered
+
+- **The Eye critique's issues, by the unit the plan gave each:** 1 to 3, 18 and 19 — 99.1's fold, sources and claims; 8a, 9 and 20
+  — 99.2's one projection, its fence over five readers and the bounded brief, with 20's wire half in 99.5 (the fields to paired
+  connections only, held by a test); 4, 10 and 12 — 99.4's menus in step, the lens and links hit where drawn.
+- **G24 (a Patterns screen shows a Stagewatch window across apps):** the Eye places a context's `@` ends (99.1), and Stagewatch 2.24
+  writes `window -serves-> @<holder>` — read in its tree, not run here; the edge this desk would draw from its own screen to the
+  granted window stays L107's.
+- **G35 (PlayMap's card):** one card per app by the fold (99.1), the device's menus from `NetworkMenus` (99.4).
+- **The three reversals:** §117.9 says each as built and where it departs from §117.1, the stuck show's by the copied contract.
+
+### The ledger's rows, answered
+
+- **Closed:** none.
+- **Amended:** L44, L61, L107, L122 (its first clause closed by 99.1 and 99.3).
+- **Added:** L125 (the replay's link edges), L126 (NDI across apps), L127 (an app that posts nothing until `CONTEXT POST`), L128 (a
+  record live before its key's word), L129 (Accept new id across a restart), L130 (the beacon-only node's band).
+- **Read and kept:** L106, L112, L113.
+- Closed rows: fifty-three; open: seventy-seven.
+
+### The suites
+
+- The units' own validates are listed in PLAN §117.12; at the close Core 1,855, Rendering 724, Devices 24, Audio 14, Assistant 39,
+  Audience 3, App 1,076 — 3,735; the module 3.24.0, 52 tests. These papers' own runs: the build (the Help line), the four small
+  suites, Rendering and Core whole, which reads the papers (`ChangelogTests`, `SdkPinTests`, `DeskWordsFenceTests`,
+  `ShowBusSpecTests`), Core 1,855 green, and `HelpAppTests` for the Help line. The close's whole validate — all seven suites and the module's four steps on the tree as committed
+  — is the committing stage's and is recorded with its commit.
+- **CI:** runs 319 to 326 green, every job (§117.2), 326 on `dc3166c` (99.5) the last of them; no red run this round. The run on
+  these papers is the next papers' first row.
+- **The rig's reading:** the Super Check's *Eye network* row beside the Eye's NETWORK band, and the journal's `StagewatchLink`
+  `retarget` row beside the Nodes page's Stagewatch card (PLAN §117.15). Not read on a rig: no such room is on the bench.
+- Walk: none asked — no platform path moved (no display topology, hot-plug, audio endpoint, WebView2, process, watchdog, twin or
+  registry path, no `CUT` or `TAKE`); 99.7 changes the link's target, not its carrier.

@@ -12,7 +12,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 99 — 2026-11-15 — the Eye sees the room: one card per app folded by proof of identity, each link an edge that says its source, the lights computed once, and the feed, the desk and the wire in step
 
-`round-99` · PLAN §117 · REVIEW round 99 · 3,663 tests · module 3.23.0 · evidence: a handed-in critique (the Eye design, `eye.md`, with its critique's issues 1 to 4, 8a, 9, 10, 12 and 18 to 20) and CI's file for runs 318 and 319; no field files and no rig report; no measurement
+`round-99` · PLAN §117 · REVIEW round 99 · 3,735 tests · module 3.24.0 · evidence: a handed-in critique (the Eye design, `eye.md`, with its critique's issues 1 to 4, 8a, 9, 10, 12 and 18 to 20), a sibling's test lane for the inserted 99.7 (Stagewatch's interop lane, row S6.1 at pin `2515017`, read against the code by two readers) and CI's file for runs 318 to 326 (all green); no field files and no rig report; one measurement (99.3's still desk, the Eye rebuilt 3 times in 27 ticks before and none after) and 99.5's probe of a link's two publications · Walk: none asked
 
 - **The round opens (99.0).** PLAN §117.1 names the round's number (the plan's round 98) and its unit table, 99.0 to 99.6, each
   dependency under this tree's numbers (93.3, 96.2, 97.2 and 98.4) and beside each what already stands and what is to build; reads
@@ -23,6 +23,38 @@ is the Bitfocus Companion module, where its version moved.
   and counting things "?" (the card is amber since round 89; its link is drawn amber and its counting things red), and PlayMap sits
   in the NETWORK band (a node device does since 97.2; a node the beacon lists is still a CONTROL card). No platform path and
   no measurement.
+- **One card per proved id (99.1).** `EyeNetwork` folds every app by proof of identity — the id `LINK` proved first, a level-0
+  device only where its address and context id agree, a level-0 deck never, a Patterns node's hello, beacon and twin context as
+  one `node:<instance>` card; every node and link says its source (own, link, told, relayed, heard), a link this desk holds or
+  accepts is drawn once as its record's edge and the app's own word for it as its claim; §6's `@` ends are placed or counted;
+  the relayed Stagewatch is a grey link item; the desk's own context exports its things by short ids, its accepted links among
+  them, never a key, a window's address or a path.
+- **One projection for lights (99.2).** `ShowBusView.Network` lights each app once for the Eye's cards, the context's peers, the
+  Nodes cards, the brief and STATE's `bus.apps`, a fence holding the five: a link this desk holds decides whether the app is
+  there, a hello alone is never green, a heard-only app gone quiet is grey, red only where the show needs it; counting things of
+  a link that is not live are "? — no count is current"; the brief is bounded (the needed first, 16 apps in full, 240 lines).
+- **A typed-address Stagewatch link moves once to the node its dial proves (99.7, inserted).** A Stagewatch that restarts opens
+  its port before its first hello; a redial in that gap took the bare address and held the key back with nothing looking again
+  (Stagewatch's interop lane, row S6.1 at `2515017`). Now the link looks again on each beat and dials once as the node a live
+  hello names there, only where that dial carries and proves the key; a refused move goes back at once, a kept reason is said.
+  S6.1 passes at this commit's pin in Stagewatch's lane.
+- **The feed (99.3).** One composition of the show network — the hello table, the Stagewatch link, node devices, the accepted
+  links folded onto the app whose `t:id` `LINK` proved, the twin's nodes — read by every reader; any kind is linkable by proof;
+  the Eye's gather works by revision. Measured: a still desk rebuilt the Eye 3 times in 27 ticks (a Super Check reading in the
+  desk node's words), none after.
+- **The desk's readers (99.4).** `NetworkMenus` is the one builder of the LINK, DEVICE, KEY and ITS LINK TO THIS DESK groups for
+  the Nodes card, the Eye's cards and its links; claims are dotted with a says glyph, links are hit where drawn and open a link
+  card and menu, the side card lists LINKS from each record, `EYE LENS network` is a lens; *Accept new id* (the LINK group and
+  the Nodes page's ACCEPT NEW ID) binds the id that answered and never sends the old node's key to it.
+- **The wire's readers (99.5).** EYE JSON appends each thing's `app`, `source`, `collapsed`, each edge's `source`, `claim` and
+  `link` (a held link's record or an accepted link's row, null in a replay), `left.edges`, `apps`, `linkLights` and `unplaced`;
+  STATE's `eye` appends `apps`, `linksRed`, `linksAmber`, `network`, `linksWorst`, and `bus.apps` rows `mark` and `link`, to
+  paired connections only; the Super Check's *Eye network* row; module 3.24.0's `eye_network`, `eye_links_worst`, the
+  `eye_links` feedback and a NETWORK key.
+- **The papers (99.6).** PLAN §117 completed (the units as they landed, the reversals as built and where the round departed from
+  its design), REVIEW round 99 (Walk: none asked), README, REMOTE (EYE's and STATE's fields, the NETWORK lens, the typed address),
+  COMPANION, `docs/EYE.md` §7, the Help topic's lens step, OPEN (L44, L61, L107 and L122 amended; L125 to L130 added) and round 98's
+  tag row. The Super Check's *Eye network* row, read beside the Eye's NETWORK band, is the rig's row; not read on a rig.
 
 ## Round 98 — 2026-11-14 — the acceptor: TLS on the wire's port, LINK and LINK PROOF with refusals that look alike, scoped app keys, the list of what this desk accepted, and receipts kept
 
