@@ -146,18 +146,24 @@ public sealed record ShowContext
         try
         {
             var c = JsonSerializer.Deserialize<ShowContext>(json, Options);
-            if (c is null || c.Node is null || c.Node.Kind.Length == 0) return null;
+            // A sender may write an explicit null where a word belongs: every word is read as "" from here on, so no reader of what
+            // this returns meets a null (a context is read off another machine's wire, and a reader that throws on it fails open).
+            if (c is null || c.Node is null || (c.Node.Kind ?? "").Length == 0) return null;
             var (commands, dropped) = KeptCommands(c.Commands);
             return c with
             {
+                Node = c.Node with { Kind = c.Node.Kind ?? "", Id = c.Node.Id ?? "", Name = c.Node.Name ?? "" },
                 Light = NormalLight(c.Light),
-                Items = (c.Items ?? Array.Empty<ShowContextItem>()).Where(i => i is not null && i.Id.Length > 0).Take(MaxItems).Select(i => i with { Light = NormalLight(i.Light) }).ToList(),
-                Links = (c.Links ?? Array.Empty<ShowContextLink>()).Where(l => l is not null && EndsRead(l)).Take(MaxItems * 2).Select(l => l with { Light = NormalLight(l.Light) }).ToList(),
+                Headline = c.Headline ?? "",
+                Items = (c.Items ?? Array.Empty<ShowContextItem>()).Where(i => i is not null && (i.Id ?? "").Length > 0).Take(MaxItems)
+                    .Select(i => i with { Kind = i.Kind ?? "", Label = i.Label ?? "", State = i.State ?? "", Light = NormalLight(i.Light) }).ToList(),
+                Links = (c.Links ?? Array.Empty<ShowContextLink>()).Where(l => l is not null && EndsRead(l)).Take(MaxItems * 2).Select(l => l with { Kind = l.Kind ?? "", Light = NormalLight(l.Light) }).ToList(),
                 LinksRefused = (c.Links ?? Array.Empty<ShowContextLink>()).Count(l => l is not null && !EndsRead(l)),
-                Recent = (c.Recent ?? Array.Empty<ShowContextLine>()).Where(r => r is not null).TakeLast(MaxRecent).ToList(),
+                Recent = (c.Recent ?? Array.Empty<ShowContextLine>()).Where(r => r is not null).TakeLast(MaxRecent).Select(r => r with { Text = r.Text ?? "" }).ToList(),
                 Commands = commands,
                 CommandsDropped = dropped,
-                Peers = (c.Peers ?? Array.Empty<ShowContextPeer>()).Where(x => x is not null).Take(32).Select(x => x with { Light = NormalLight(x.Light) }).ToList(),
+                Peers = (c.Peers ?? Array.Empty<ShowContextPeer>()).Where(x => x is not null).Take(32)
+                    .Select(x => x with { Kind = x.Kind ?? "", Id = x.Id ?? "", Name = x.Name ?? "", Headline = x.Headline ?? "", Heard = x.Heard ?? "", Link = x.Link ?? "", Verified = x.Verified ?? "", Light = NormalLight(x.Light) }).ToList(),
             };
         }
         catch (JsonException)

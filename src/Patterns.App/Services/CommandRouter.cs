@@ -89,6 +89,9 @@ public sealed class CommandRouter : IRouter
         }
     }
 
+    /// <summary>The answer CONTEXT POST hears from every door but the wire's port (Show Bus 1.3 §6).</summary>
+    public const string ContextPostElsewhere = "CONTEXT POST is taken on the wire (TCP) alone, from a link LINK verified with a key of scope post for the node it names";
+
     /// <summary>A revision the tablet long-polls on: bumped by the control service on every push-worthy change.</summary>
     public Func<long>? Rev { get; set; }
 
@@ -119,6 +122,10 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Err("the PeerLink handshake is the wire's (TCP); the web sends X-Patterns-Token with each request");
             case RemoteCommandKind.Context:
                 return ControlProtocol.Ok(ContextJson());
+            case RemoteCommandKind.ContextPost:
+                // Show Bus 1.3 §6: taken by the wire's port alone, from a link LINK verified — never from the web, OSC, a deck's
+                // line through the router, a running order or an assistant; the JSON is never echoed.
+                return ControlProtocol.Err(ContextPostElsewhere);
             case RemoteCommandKind.Status:
                 return ControlProtocol.Ok(StateJson());
             case RemoteCommandKind.Unknown:
@@ -811,9 +818,14 @@ public sealed class CommandRouter : IRouter
             heard = apps.Count(ShowBusView.HeardLive),                                   // heard, never an app live only by a link this desk's wire accepted
             // Round 97: the device that drives a node, at the row's end ("" for none).
             // Round 99: the light's shape and the state of the link this desk holds to it ("" for none), at the row's end.
-            apps = rows.Select(r => new { kind = r.Kind, id = r.Id, name = r.Name, light = r.Light, headline = r.Headline, conflict = r.Conflict, device = r.Device, mark = r.Mark, link = r.Link }).ToArray(),
+            // Round 100: whether what it says of itself came by CONTEXT POST (§6), at the row's end.
+            apps = rows.Select(r => new { kind = r.Kind, id = r.Id, name = r.Name, light = r.Light, headline = r.Headline, conflict = r.Conflict, device = r.Device, mark = r.Mark, link = r.Link, posted = r.Posted }).ToArray(),
             stagewatch = StagewatchRow(apps),
             dropped = _services.Beacon.ShowBus.Dropped,                                  // Show Bus 1.3 §2: apps the full hello table put out to make room since start — appended at the row's end
+            // Show Bus 1.3 §6: the contexts other apps posted and this desk keeps now, each by kind, id, age and size — never its text; and
+            // the posts refused in the minute now open, by reason — appended at the row's end.
+            posted = _services.Control.Posted.Select(p => new { kind = p.T, id = p.Id, ageMs = p.AgeMs(_services.Control.PostedNowMs()), bytes = p.Bytes }).ToArray(),
+            postRefused = _services.Control.PostRefusals.Values.Sum(),
         };
     }
 

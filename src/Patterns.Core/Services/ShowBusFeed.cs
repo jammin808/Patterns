@@ -3,14 +3,18 @@ namespace Patterns.Core.Services;
 /// <summary>
 /// What this desk holds of the show network, handed to the one composition every reader takes (<see cref="ShowBusView.Compose"/>):
 /// the hello table as it stands (bounded by <see cref="ShowBusPeers.MaxPeers"/>), the Stagewatch link's sight with its record, context
-/// and revision, the Show Bus nodes driven as devices, the acceptor's list (Show Bus 1.3 §13.16.5) and this desk's own nodes' contexts
-/// over the twin. Nothing here is a key, a proof or a session credential.
+/// and revision, the Show Bus nodes driven as devices, the acceptor's list (Show Bus 1.3 §13.16.5), the contexts other apps posted over
+/// a verified PeerLink (§6, CONTEXT POST: a source of their own, told) and this desk's own nodes' contexts over the twin. Nothing here
+/// is a key, a proof or a session credential.
 /// </summary>
 public sealed record ShowBusFeed(IReadOnlyList<ShowBusPeer> Peers, StagewatchSight Sight)
 {
     public IReadOnlyList<ShowBusNodeSight> Devices { get; init; } = Array.Empty<ShowBusNodeSight>();
 
     public IReadOnlyList<AppLinkRow> Accepted { get; init; } = Array.Empty<AppLinkRow>();
+
+    /// <summary>The contexts other apps posted over a verified PeerLink and this desk keeps now (<see cref="PostedContexts"/>), each by the id its key proved.</summary>
+    public IReadOnlyList<PostedContext> Posted { get; init; } = Array.Empty<PostedContext>();
 
     public IReadOnlyList<(string Instance, string Name, KeptContext Kept, DateTime AtUtc)> Twin { get; init; }
         = Array.Empty<(string Instance, string Name, KeptContext Kept, DateTime AtUtc)>();

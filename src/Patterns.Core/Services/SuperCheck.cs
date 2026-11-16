@@ -316,6 +316,12 @@ public sealed class CheckFacts
     /// </summary>
     public string EyeNetwork { get; init; } = "";
 
+    /// <summary>Show Bus 1.3 §6: the contexts other apps posted over a verified PeerLink and this desk keeps now — by kind, id, name, age and size, never their text.</summary>
+    public IReadOnlyList<PostedContextFact> PostedContexts { get; init; } = Array.Empty<PostedContextFact>();
+
+    /// <summary>Show Bus 1.3 §6: the CONTEXT POSTs refused in the minute now open, by reason.</summary>
+    public IReadOnlyDictionary<string, int> PostRefusals { get; init; } = new Dictionary<string, int>();
+
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
 
@@ -1326,6 +1332,26 @@ public static class SuperCheck
         // a device's), so the count says what the Eye draws and lights nothing twice.
         if (f.EyeNetwork.Length > 0)
             rows.Add(new CheckRow("SHOW NETWORK", "Eye network", CheckLight.Grey, f.EyeNetwork, "what the Eye's NETWORK band draws (STATE eye.network) — each link is lit on its own row"));
+        PostedContexts(f, rows);
+    }
+
+    /// <summary>
+    /// Show Bus 1.3 §6: "Posted contexts" — the contexts other apps gave this desk by CONTEXT POST over a verified PeerLink, each by its
+    /// node and its age, and the posts refused this minute by reason. Grey: what another app says of itself is told, lights nothing of
+    /// this desk's, and is drawn on its card in the Eye's NETWORK band; the journal's <c>ContextPost</c> row is its first keep. No row while
+    /// none is kept and none was refused.
+    /// </summary>
+    private static void PostedContexts(CheckFacts f, List<CheckRow> rows)
+    {
+        var refused = f.PostRefusals.Values.Sum();
+        if (f.PostedContexts.Count == 0 && refused == 0) return;
+        var inv = CultureInfo.InvariantCulture;
+        var value = f.PostedContexts.Count == 0
+            ? "none kept"
+            : string.Join(" · ", f.PostedContexts.Select(p => string.Create(inv, $"{ShowBusPeers.KindWords(p.T)} {(p.Name.Length > 0 ? p.Name : p.Id)} {p.AgeMs / 1000} s ago")));
+        var note = string.Create(inv, $"told by each app over its link, kept {ContextPost.KeptMs / 1000} s after each post (at most {ContextPost.MaxContexts}) — drawn on its card in the Eye's NETWORK band; the journal's ContextPost row is its first keep")
+            + (refused > 0 ? "; refused this minute: " + string.Join(", ", f.PostRefusals.Select(r => string.Create(inv, $"{r.Value} {r.Key}"))) : "");
+        rows.Add(new CheckRow("SHOW NETWORK", "Posted contexts", CheckLight.Grey, value, note));
     }
 
     private static void ShowNetworkLinks(CheckFacts f, List<CheckRow> rows)

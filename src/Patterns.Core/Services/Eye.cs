@@ -211,6 +211,13 @@ public sealed record EyeShowApp(string Id, string KindWords, string Name, ShowBu
     public long ContextRev { get; init; }
 
     /// <summary>
+    /// Show Bus 1.3 §6: its context came by CONTEXT POST over the link its key proved (<see cref="ShowBusView.Told"/>) — a told
+    /// source of its own, drawn as its things and never what says whether it is there; false for a context read over a link this desk
+    /// dials, the twin or none.
+    /// </summary>
+    public bool Posted { get; init; }
+
+    /// <summary>
     /// What the hash reads of a context handed in with no revision (an app built by hand): its text, so a picture is never left
     /// stale for want of a revision; "" whenever a revision stands for it — every receiver on the desk keeps one.
     /// </summary>

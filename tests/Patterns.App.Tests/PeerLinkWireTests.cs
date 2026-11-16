@@ -584,6 +584,14 @@ public sealed partial class PeerLinkWireTests
             return new Lines(client, ssl, shown);
         }
 
+        /// <summary>A plain connection from one of this machine's loopback addresses (127.0.0.x), so a test can stand for several machines.</summary>
+        public static async Task<Lines> DialFrom(int port, IPAddress from)
+        {
+            var client = new TcpClient(new IPEndPoint(from, 0));
+            await client.ConnectAsync(IPAddress.Loopback, port, Timeout());
+            return new Lines(client, client.GetStream(), null);
+        }
+
         public static async Task<Lines> Accept(TcpListener listener)
         {
             var client = await listener.AcceptTcpClientAsync(Timeout());

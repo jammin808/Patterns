@@ -978,6 +978,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         {
             Devices = Devices.NodeSights,                                                // round 97: PlayMap nodes driven as devices
             Accepted = Control.AppLinkList,                                              // Show Bus 1.3 §13.16.5: the links LINK verified on this desk's wire
+            Posted = Control.Posted,                                                     // §6: the contexts other apps posted over those links, told
             Twin = Twin.NodeContexts(utcNow),                                            // round 88: the desk's own nodes, each from its own context (L52)
         };
         var apps = ShowBusView.Compose(feed, utcNow)

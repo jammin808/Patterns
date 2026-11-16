@@ -166,12 +166,13 @@ public class PairingTokenTests
             RemoteCommandKind.ScreenSignal, RemoteCommandKind.ScreenEdid, RemoteCommandKind.RigStatus, RemoteCommandKind.CommissionStatus,
             RemoteCommandKind.EyeStatus, RemoteCommandKind.EyeAt, RemoteCommandKind.MidiStatus, RemoteCommandKind.StagewatchStatus,
         };
-        var verbs = new[] { RemoteCommandKind.Action, RemoteCommandKind.Record, RemoteCommandKind.NavDeck };
+        var verbs = new[] { RemoteCommandKind.Action, RemoteCommandKind.Record, RemoteCommandKind.NavDeck, RemoteCommandKind.ContextPost };
         Assert.Equal(open, ControlProtocol.OpenKinds);
         Assert.Equal(Enum.GetValues<RemoteCommandKind>().Order(), open.Concat(refusedReads).Concat(verbs).Order());   // every kind on one side, once
         foreach (var kind in open) Assert.True(ControlProtocol.OpenBeforePairing(new RemoteCommand(kind, default)), kind.ToString());
         foreach (var kind in refusedReads.Concat(verbs)) Assert.False(ControlProtocol.OpenBeforePairing(new RemoteCommand(kind, default)), kind.ToString());
         foreach (var kind in refusedReads) Assert.True(ControlProtocol.IsQuery(new RemoteCommand(kind, default)), kind.ToString());
+        foreach (var kind in verbs) Assert.False(ControlProtocol.IsQuery(new RemoteCommand(kind, default)), kind.ToString());   // CONTEXT POST writes the posted table
 
         // Parsed as a deck and the desk's own asks of other machines spell them.
         foreach (var line in new[] { "HELLO FOH deck", "AUTH x", "AUTH-PROOF ab", "NONCE", "PING", "PING 1760101234567", "NAV", "NAV STATUS", "NAV PAGES", "NAV RAILS",

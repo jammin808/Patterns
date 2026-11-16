@@ -278,6 +278,7 @@ public class AppKeysTests
     [InlineData("SHOWLOCK ON", "operate")]
     [InlineData("STAGEWATCH LINK OFF", "operate")]
     [InlineData("NAV DECK Looks", "operate")]
+    [InlineData("CONTEXT POST {\"v\":1}", "post")]
     public void EachVerbFamilyNeedsItsScopeAndIsRefusedBelowIt(string line, string needed)
     {
         var cmd = ControlProtocol.Parse(line);
@@ -285,8 +286,9 @@ public class AppKeysTests
         Assert.Equal(needed, AppKeyScopes.Needed(cmd));
         foreach (var scope in LinkAcceptor.Scopes)
             Assert.Equal(LinkAcceptor.Rank(scope) >= LinkAcceptor.Rank(needed), AppKeyScopes.Allows(scope, cmd));
-        // post runs what follow runs, and no verb of this wire is post's alone.
-        Assert.Equal(AppKeyScopes.Allows("follow", cmd), AppKeyScopes.Allows("post", cmd));
+        // post runs what follow runs, and CONTEXT POST (§6) is the one line kind that is post's alone.
+        if (!AppKeyScopes.PostKinds.Contains(cmd.Kind)) Assert.Equal(AppKeyScopes.Allows("follow", cmd), AppKeyScopes.Allows("post", cmd));
+        else Assert.True(AppKeyScopes.Allows("post", cmd) && !AppKeyScopes.Allows("follow", cmd));
     }
 
     [Fact]
@@ -304,7 +306,7 @@ public class AppKeysTests
     }
 
     /// <summary>
-    /// Every line kind of the wire is named in exactly one of the scope map's lists, so a kind the wire gains later fails here until it
+    /// Every line kind of the wire is named in exactly one of the scope map's lists (follow, post, operate), so a kind the wire gains later fails here until it
     /// is placed; the ones named operate need operate whatever action they carry.
     /// </summary>
     [Fact]
@@ -313,10 +315,11 @@ public class AppKeysTests
         foreach (var kind in Enum.GetValues<RemoteCommandKind>())
         {
             var follow = AppKeyScopes.FollowKinds.Contains(kind);
+            var post = AppKeyScopes.PostKinds.Contains(kind);
             var operate = AppKeyScopes.OperateKinds.Contains(kind);
-            Assert.True(follow ^ operate, $"{kind} must be named in exactly one of FollowKinds and OperateKinds");
+            Assert.True((follow ? 1 : 0) + (post ? 1 : 0) + (operate ? 1 : 0) == 1, $"{kind} must be named in exactly one of FollowKinds, PostKinds and OperateKinds");
             var cmd = new RemoteCommand(kind, new ShowAction(ShowActionKind.BlackoutOn));
-            Assert.Equal(follow ? "follow" : "operate", AppKeyScopes.Needed(cmd));
+            Assert.Equal(follow ? "follow" : post ? "post" : "operate", AppKeyScopes.Needed(cmd));
         }
         Assert.Equal("operate", AppKeyScopes.Needed(ControlProtocol.Parse("ASSISTANT ASK what is on screen 2")));
         Assert.Equal("drive", AppKeyScopes.Needed(new RemoteCommand(RemoteCommandKind.Action, new ShowAction(ShowActionKind.CueGo))));

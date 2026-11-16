@@ -546,6 +546,13 @@ public sealed partial class ControlService : IDisposable
                     if (await LinkLineAsync(peer, link, rid, body, address, overTls, limits, helloName)) break;
                     continue;
                 }
+                if (cmd.Kind == RemoteCommandKind.ContextPost)
+                {
+                    // Show Bus 1.3 §6: CONTEXT POST is the port's, ahead of the router and the pairing door — checked, parsed and kept
+                    // here on the connection's reader task; the desk's thread is handed a reference and nothing runs.
+                    if (!peer.LastSaid) ContextPostLine(peer, rid, cmd.Text);
+                    continue;
+                }
                 if (cmd.Kind is RemoteCommandKind.Auth or RemoteCommandKind.AuthProof)
                 {
                     // The connection proves the show's pairing token: the port answers, the router never sees it.

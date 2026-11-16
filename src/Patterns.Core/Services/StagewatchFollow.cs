@@ -715,10 +715,39 @@ public static class ShowBusView
     /// <summary>
     /// The show network as this desk holds it, composed once for every reader (the Eye design's EYE.3 feed): the bounded hello table,
     /// the Stagewatch link's record, context and revision, the Show Bus nodes driven as devices, the links this desk's wire accepted by
-    /// LINK, and this desk's own nodes over the twin — in that order, each folded by evidence of identity alone. Pure.
+    /// LINK, the contexts other apps posted over them (<see cref="Told"/>), and this desk's own nodes over the twin — in that order,
+    /// each folded by evidence of identity alone. Pure.
     /// </summary>
     public static IReadOnlyList<EyeShowApp> Compose(ShowBusFeed feed, DateTime utcNow)
-        => Accept(Apps(feed.Peers, utcNow, feed.Sight, feed.Devices), feed.Accepted).Concat(Nodes(feed.Twin, utcNow)).ToList();
+        => Told(Accept(Apps(feed.Peers, utcNow, feed.Sight, feed.Devices), feed.Accepted), feed.Posted).Concat(Nodes(feed.Twin, utcNow)).ToList();
+
+    /// <summary>
+    /// The contexts other apps posted over a verified PeerLink (Show Bus 1.3 §6, CONTEXT POST), onto the card of the app whose id the
+    /// link's key proved: each a told source of its own — what the app says of itself — and never what says whether it is there.
+    /// Precedence, highest first: a link this desk dials (the Stagewatch link, a node device) — its record says whether the app is there
+    /// and its own context, read over it, is the app's, so a posted context never takes its place, even while that link has none; then
+    /// the accepted link the context came over and the hello, which say whether the app is there; then the posted context, which says
+    /// only what the app says of itself (its light lights the card only while a link this desk holds says the app is there — see
+    /// <see cref="Light"/>). A context alone draws no card: an id no other source names now (its link ended, no hello) keeps its
+    /// context in the table for <see cref="ContextPost.KeptMs"/> and in the Super Check's words, and nothing in the picture. A posted
+    /// context of a kind other than the card's is another claim and is not folded.
+    /// </summary>
+    public static IReadOnlyList<EyeShowApp> Told(IReadOnlyList<EyeShowApp> apps, IReadOnlyList<PostedContext> posted)
+    {
+        if (posted.Count == 0) return apps;
+        var list = apps.ToList();
+        foreach (var p in posted)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                var a = list[i];
+                if (!string.Equals(a.Id, p.Id, StringComparison.Ordinal) || a.Linked || a.DeviceId.Length > 0 || a.Context is not null) continue;
+                if (!string.Equals(a.KindWords, ShowBusPeers.KindWords(p.T), StringComparison.Ordinal)) continue;
+                list[i] = a with { Context = Steady(p.Kept.Context), ContextRev = p.Kept.Rev, Posted = true };
+            }
+        }
+        return list;
+    }
 
     /// <summary>
     /// The links this desk's wire accepted that LINK verified, onto the apps (Show Bus 1.3 §13.16.5): LINK proved the connector's t:id,
@@ -926,7 +955,8 @@ public static class ShowBusView
     /// peers rows (<see cref="Peers"/>), the Nodes page's cards (<see cref="ShowAppCard.Of(AppLight)"/>), the assistant's brief
     /// (<see cref="BriefLines"/>) and STATE's <c>bus.apps</c> (<see cref="StateRows"/>): one <see cref="AppLight"/> per app, one app
     /// per id (<see cref="EyeNetwork.Fold"/>, the Eye's fold, so where one id reaches the readers twice every reader draws it once), in
-    /// the order of each id's first sighting.
+    /// the order of each id's first sighting. A context posted by CONTEXT POST (<see cref="Told"/>) is the lowest source: it says what
+    /// the app says of itself, never whether it is there, never in place of a link this desk dials, and never green by itself.
     /// </summary>
     public static IReadOnlyList<AppLight> Network(IReadOnlyList<EyeShowApp> apps) => EyeNetwork.Fold(apps).Select(Light).ToList();
 
@@ -948,6 +978,7 @@ public static class ShowBusView
         if (!AcceptedLeads(a) && a.Accepted.FirstOrDefault(r => !r.Ended && r.Light == CheckLight.Amber) is { } beside)
             notes.Add($"i its link to this desk by LINK is {beside.Mark} amber — {AmberWords(beside)}");
         if (KindNote(a) is { Length: > 0 } kind) notes.Add(kind);
+        if (a.Posted) notes.Add(HoldsLink(a) ? PostedNote : PostedEndedNote);
         var shown = Shown(a);
         if (record is { IsOn: true, IsLive: false })
         {
@@ -966,11 +997,15 @@ public static class ShowBusView
                 : a.Needed ? CheckLight.Red : held ? CheckLight.Amber : CheckLight.Grey;
             return new AppLight(a, away, "", "", notes, shown);
         }
-        var light = shown is not null ? ShowContext.LightOf(shown.Light) : HoldsLink(a) ? CheckLight.Green : CheckLight.Grey;
+        // A posted context says what the app says of itself only while the link it came over is held: once that link has ended the app
+        // is drawn by its hello alone (grey, its cautions amber) and its headline says why, never the old context's light or words — a
+        // count it said stays out of every reader; its counting things are "?" (Shown).
+        var postedEnded = a.Posted && !HoldsLink(a);
+        var light = postedEnded ? CheckLight.Grey : shown is not null ? ShowContext.LightOf(shown.Light) : HoldsLink(a) ? CheckLight.Green : CheckLight.Grey;
         var caution = a.Stuck || KeyAmber(a) || ConflictAmber(a) || (record is { IsLive: true } r && r.LightValue == CheckLight.Amber) || AcceptedAmber(a);
         if (caution && light is CheckLight.Green or CheckLight.Grey) light = CheckLight.Amber;
-        var own = a.Stuck ? StuckWords : shown?.Headline ?? "";
-        var headline = a.Stuck ? StuckWords : KeyLineLeads(a) ? a.Key.Line : ConflictAmber(a) ? a.Conflict : AcceptedAmber(a) ? AcceptedHeadline(a) : own;
+        var own = postedEnded ? "" : a.Stuck ? StuckWords : shown?.Headline ?? "";
+        var headline = a.Stuck ? StuckWords : KeyLineLeads(a) ? a.Key.Line : ConflictAmber(a) ? a.Conflict : AcceptedAmber(a) ? AcceptedHeadline(a) : postedEnded ? PostedEndedHeadline : own;
         return new AppLight(a, light, headline, own, notes, shown);
     }
 
@@ -997,10 +1032,23 @@ public static class ShowBusView
     /// </summary>
     public static string LinkNotCurrent(EyeShowApp a)
     {
+        if (a.Posted && !HoldsLink(a)) return PostedEndedWhy;
         if (!HoldsLink(a)) return "";
         if (a.Link is { IsOn: true } r) return r.IsLive ? "" : r.State == "stale" ? "its link is quiet" : "its link is " + r.State;
         return a.State == ShowBusState.Stale ? "its link is quiet" : "";
     }
+
+    /// <summary>Why nothing a posted context says is current once the link it came over has ended (it is kept <see cref="ContextPost.KeptMs"/> all the same).</summary>
+    public const string PostedEndedWhy = "the link it posted its context over has ended";
+
+    /// <summary>The headline every reader says of an app whose posted context's link has ended, in place of that context's own.</summary>
+    public const string PostedEndedHeadline = "? — " + PostedEndedWhy + " — what it said of itself is not current";
+
+    /// <summary>The i note on an app whose context came by CONTEXT POST over the link it holds to this desk.</summary>
+    public const string PostedNote = "i what it says of itself came by CONTEXT POST over its link to this desk — told, not checked";
+
+    /// <summary>The i note on an app whose context came by CONTEXT POST over a link that has ended since.</summary>
+    public const string PostedEndedNote = "i what it says of itself came by CONTEXT POST over a link that has ended — kept 30 s, not current";
 
     /// <summary>What a counting thing of a link that is not live says after why (<see cref="LinkNotCurrent"/>).</summary>
     public const string NoCountWords = " — no count is current";
@@ -1016,7 +1064,7 @@ public static class ShowBusView
     public static IReadOnlyList<ShowBusAppRow> StateRows(IReadOnlyList<EyeShowApp> apps) => Network(apps).Select(lit =>
     {
         var p = PeerOf(lit);
-        return new ShowBusAppRow(p.Kind, p.Id, p.Name, p.Light, p.Headline, lit.App.Conflict.Length > 0, lit.App.Device) { Mark = lit.Mark, Link = LinkState(lit.App) };
+        return new ShowBusAppRow(p.Kind, p.Id, p.Name, p.Light, p.Headline, lit.App.Conflict.Length > 0, lit.App.Device) { Mark = lit.Mark, Link = LinkState(lit.App), Posted = lit.App.Posted };
     }).ToList();
 
     /// <summary>
@@ -1316,6 +1364,9 @@ public sealed record ShowBusAppRow(string Kind, string Id, string Name, string L
 
     /// <summary>The state of the record of the link this desk holds to the app (<see cref="ShowBusView.LinkState"/>), "" with none.</summary>
     public string Link { get; init; } = "";
+
+    /// <summary>Show Bus 1.3 §6: what the app says of itself came by CONTEXT POST (<see cref="EyeShowApp.Posted"/>).</summary>
+    public bool Posted { get; init; }
 }
 
 /// <summary>Round 87: one other show app on the Nodes page — its kind in its colour, its name, and a line of what it is doing.</summary>

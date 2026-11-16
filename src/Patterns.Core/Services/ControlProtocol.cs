@@ -80,6 +80,13 @@ public enum RemoteCommandKind
     /// wire's port, which holds the connection's one proof; nothing runs. Text is the line after its verb.
     /// </summary>
     Link,
+    /// <summary>
+    /// Show Bus 1.3 §6: <c>CONTEXT POST &lt;json&gt;</c> — another app gives this desk its context over a verified PeerLink (Text is
+    /// the JSON). Taken by the wire's port alone, ahead of the router, on a connection LINK verified with a key of scope <c>post</c>
+    /// or above for the node it names (<see cref="ContextPost"/>); every other door refuses it. It writes the posted table and nothing
+    /// else: no air, no take, no setting.
+    /// </summary>
+    ContextPost,
 }
 
 /// <summary>
@@ -302,7 +309,11 @@ public static class ControlProtocol
             case "PING": return Query(RemoteCommandKind.Ping, arg);
             case "NONCE": return arg.Length == 0 ? Query(RemoteCommandKind.Nonce) : Unknown(s);
             case "AUTH-PROOF": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.AuthProof, arg);
-            case "CONTEXT": return arg.Length == 0 || arg.Equals("STATUS", StringComparison.OrdinalIgnoreCase) ? Query(RemoteCommandKind.Context) : Unknown(s);
+            case "CONTEXT":
+                if (arg.Length == 0 || arg.Equals("STATUS", StringComparison.OrdinalIgnoreCase)) return Query(RemoteCommandKind.Context);
+                // Show Bus 1.3 §6: the JSON after POST, whole; an unknown word after CONTEXT stays unknown.
+                if (arg.Split(' ', 2)[0].Equals("POST", StringComparison.OrdinalIgnoreCase)) return Query(RemoteCommandKind.ContextPost, arg.Length > 4 ? arg[4..].Trim() : "");
+                return Unknown(s);
             // "STOPALL" as one token: an older build parses "STOP ALL" as STOP and closes the outputs.
             case "STOPALL": return Act(ShowActionKind.StopAll);
             case "HELLO": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.Hello, arg);
@@ -1509,12 +1520,13 @@ public static class ControlProtocol
     /// <summary>
     /// True for a line that reads and never writes — STATUS, PING, HELLO, AUTH, CUE LIST, the MENU
     /// and the other queries, and an unknown line, which only earns its "unknown command" answer.
-    /// Every action is a mutating verb (round 65), and so are RECORD and NAV DECK (round 75): RECORD
+    /// Every action is a mutating verb (round 65), and so are RECORD and NAV DECK (round 75) and CONTEXT POST, which writes the
+    /// posted table (Show Bus 1.3 §6): RECORD
     /// subscribes the connection to the desk's action feed and NAV DECK writes the deck's whereabouts
     /// into STATE, the Remote page and the Eye. Whether a read may be asked before pairing is
     /// <see cref="OpenBeforePairing"/>'s, never this.
     /// </summary>
-    public static bool IsQuery(RemoteCommand cmd) => cmd.Kind is not (RemoteCommandKind.Action or RemoteCommandKind.Record or RemoteCommandKind.NavDeck);
+    public static bool IsQuery(RemoteCommand cmd) => cmd.Kind is not (RemoteCommandKind.Action or RemoteCommandKind.Record or RemoteCommandKind.NavDeck or RemoteCommandKind.ContextPost);
 
     /// <summary>
     /// ADR-016 (round 91, scope A): what a wire connection may ask before it pairs, by name — the handshake (HELLO, AUTH,
@@ -1563,6 +1575,7 @@ public static class ControlProtocol
         RemoteCommandKind.PlayStatus => "PLAY STATUS",
         RemoteCommandKind.AssistantAsk => "ASSISTANT",
         RemoteCommandKind.StagewatchStatus => "STAGEWATCH STATUS",
+        RemoteCommandKind.ContextPost => ContextPost.Verb,
         _ => cmd.Kind.ToString().ToUpperInvariant(),
     };
 

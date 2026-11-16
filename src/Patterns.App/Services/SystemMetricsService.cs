@@ -722,6 +722,8 @@ public sealed class SystemMetricsService : IDisposable
             DeskStall = _services.Control.DeskStall,                                                  // LP-1: the desk thread's stall as the wire measured it
             ShowNetworkLinks = new[] { _services.Kernel.Stagewatch.Record },                          // Show Bus 1.3 §13.16.4: the link's record, read once
             EyeNetwork = _services.Eye.Graph.NetworkLine,                                            // the Eye's read of the show network, beside the Eye
+            PostedContexts = _services.Control.Posted.Select(p => new PostedContextFact(p.T, p.Id, p.Kept.Context.Node.Name, p.AgeMs(_services.Control.PostedNowMs()), p.Bytes)).ToList(),   // §6: told, by age
+            PostRefusals = _services.Control.PostRefusals,
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             PrivatePages = privatePages,

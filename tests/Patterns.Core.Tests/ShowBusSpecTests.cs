@@ -146,6 +146,8 @@ public sealed partial class ShowBusSpecTests
         ("report.retry.max.ms", Relation.Same, () => Ms(OwedReports.RetryMost)),
         ("report.retry.for.ms", Relation.Same, () => Ms(OwedReports.RetryFor)),
         ("log.repeat.summary.ms", Relation.Same, () => Ms(PeerLink.RepeatSummary)),
+        // §6's CONTEXT POST on the wire: how long a posted context is kept after it came.
+        ("context.kept.ms", Relation.Same, () => ContextPost.KeptMs),
         // The acceptor on the wire (13.5, 13.6.3, 13.14): the keys it makes, its unfinished LINKs and wrong proofs, and the wire's
         // own two bounds a link's lines live under. The ones kept in a second place are held there too (below).
         ("peerlink.key.bits.min", Relation.MakesAtLeast, () => AppKeys.KeyBits),
@@ -195,7 +197,6 @@ public sealed partial class ShowBusSpecTests
         ["window.max"] = Windows,
         ["view.wrong.per.minute"] = Windows,
         ["window.grants"] = Windows,
-        ["context.kept.ms"] = "a node that takes CONTEXT POST keeps one this long; this desk takes none yet (§8.2)",
         ["proposal.undelivered.ms"] = "the approval desk's (§11): Stagewatch keeps the queue; this desk proposes and collects",
         ["proposal.result.ms"] = "the approval desk's (§11): Stagewatch keeps the queue; this desk proposes and collects",
         ["peerlink.hold.disconnect.ms"] = "the connector's hold after an acceptor operator's disconnect, which no verdict or message of 1.3 names: not scheduled",
@@ -356,6 +357,10 @@ public sealed partial class ShowBusSpecTests
         // of 13.6.3's ledgers; a key the desk makes carries its bits as 32 symbols of five, in the shape LINK takes; and the alphabet a
         // granted window's path is read in is §12's.
         Assert.Equal(Whole("peerlink.unpaired.per.address"), WireLimits.Default.UnfinishedPerAddress);
+        // §6's posted table: at most peers.max ids, each at most context.bytes as sent, its refusals summed once a log.repeat.summary.ms.
+        Assert.True(Whole("peers.max") == ContextPost.MaxContexts, "the posted table's bound is not §14's peers.max");
+        Assert.True(Whole("context.bytes") == ContextPost.MaxBytes, "a posted context's bound is not §14's context.bytes");
+        Assert.True(Whole("log.repeat.summary.ms") == ContextPostRefusals.SummaryMs, "the refusal summary's minute is not §14's log.repeat.summary.ms");
         var made = AppKeys.NewKey();
         Assert.True(LinkAcceptor.IsKeyShape(made), "a key this desk makes is not of the shape LINK takes");
         Assert.True((made.Length - AppKeys.Prefix.Length) * 5 >= Whole("peerlink.key.bits.min"), "a key this desk makes carries fewer than §14's peerlink.key.bits.min bits");

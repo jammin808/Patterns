@@ -363,8 +363,8 @@ public static class AppKeys
 
 /// <summary>
 /// The owner's P-scopes on this desk's verbs (Show Bus 1.3 §13.5.3, §8.2's row): a key's link at <c>follow</c> reads — STATE,
-/// STATUS, CONTEXT, EYE and every other read — and subscribes (RECORD); at <c>post</c> it adds its own context, proposals and their
-/// results, of which this wire has none yet, so it runs what <c>follow</c> runs; at <c>drive</c> it adds the verbs a playout desk
+/// STATUS, CONTEXT, EYE and every other read — and subscribes (RECORD); at <c>post</c> it adds its own context (CONTEXT POST, Show
+/// Bus 1.3 §6; proposals and their results this wire has none of yet); at <c>drive</c> it adds the verbs a playout desk
 /// runs — clip transport (VIDEO), CUE GO and CUE STANDBY, the playlist's section (SECTION) and STAGE MESSAGE; at <c>operate</c>
 /// everything, as the operator. No OUTPUTS, TAKE or CUT, SCREEN or setting is a line a key below <c>operate</c> may send: every
 /// action and line kind not named below is <c>operate</c>'s, so a verb the wire gains later waits for <c>operate</c> until it is
@@ -399,6 +399,9 @@ public static class AppKeyScopes
         RemoteCommandKind.Record, RemoteCommandKind.StagewatchStatus, RemoteCommandKind.Link,
     };
 
+    /// <summary>The line kinds a <c>post</c> link adds to <see cref="FollowKinds"/>, each by name: CONTEXT POST, its own context (§6).</summary>
+    public static IReadOnlySet<RemoteCommandKind> PostKinds { get; } = new HashSet<RemoteCommandKind> { RemoteCommandKind.ContextPost };
+
     /// <summary>
     /// The line kinds only an <c>operate</c> link runs, each by name: every action not in <see cref="DriveKinds"/>, NAV DECK (a deck's
     /// whereabouts written into STATE — a deck's, not an app's) and ASSISTANT ASK (the desk's assistant and its key, asked on the
@@ -409,10 +412,11 @@ public static class AppKeyScopes
         RemoteCommandKind.Action, RemoteCommandKind.NavDeck, RemoteCommandKind.AssistantAsk,
     };
 
-    /// <summary>The lowest scope that runs <paramref name="cmd"/>: <c>follow</c>, <c>drive</c> or <c>operate</c> (no verb of this wire is <c>post</c>'s alone).</summary>
+    /// <summary>The lowest scope that runs <paramref name="cmd"/>: <c>follow</c>, <c>post</c> (CONTEXT POST alone), <c>drive</c> or <c>operate</c>.</summary>
     public static string Needed(RemoteCommand cmd)
     {
         if (FollowKinds.Contains(cmd.Kind)) return "follow";
+        if (PostKinds.Contains(cmd.Kind)) return "post";
         if (cmd.Kind == RemoteCommandKind.Action && DriveKinds.Contains(cmd.Action.Kind)) return "drive";
         return "operate";
     }

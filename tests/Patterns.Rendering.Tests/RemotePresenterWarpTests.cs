@@ -147,6 +147,10 @@ public class ControlProtocolTests
     [InlineData("STAGEWATCH LINK http://10.0.0.9", RemoteCommandKind.Unknown)]
     [InlineData("STAGEWATCH FOLLOW SOMETIMES", RemoteCommandKind.Unknown)]
     [InlineData("STAGEWATCH UNLINK", RemoteCommandKind.Unknown)]
+    [InlineData("CONTEXT POST {\"v\":1}", RemoteCommandKind.ContextPost)]          // Show Bus 1.3 §6: the port's alone, ahead of the router
+    [InlineData("context post", RemoteCommandKind.ContextPost)]
+    [InlineData("CONTEXT POSTED", RemoteCommandKind.Unknown)]
+    [InlineData("CONTEXT PUT {}", RemoteCommandKind.Unknown)]
     public void ParsesTheWiresOwnWords(string line, RemoteCommandKind kind)
     {
         var cmd = ControlProtocol.Parse(line);

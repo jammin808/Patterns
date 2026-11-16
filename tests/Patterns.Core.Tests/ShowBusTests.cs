@@ -850,6 +850,12 @@ public class ShowBusTests
             => new("main", "a1b2c3d4", "Hall A", "ws", 1, "pinned", "03e9b152", "mutual", "52f6a0b1c2d3e4f5", "post", state, state == "refused" ? "certificate" : state == "held" ? "key" : "", "live",
                 Array.Empty<string>(), light, LinkRecord.MarkOf(ShowContext.LightOf(light)), words, 0, 0, 0, null, new LinkRecordClock(null, null, null, 0, false), new LinkCounts(0, 0, 0, 0, 0, 0), null);
         var linked = new EyeShowApp("a1b2c3d4", "Stagewatch", "Hall A", ShowBusState.Live, true, "10.0.0.9:9924") { Context = StagewatchContext(), Heard = "live" };
+        var postedRow = new AppLinkRow("lid0123456789ab", "messenger:77aa77aa", "AGM", "10.0.0.20", false, true, "key", "52f6a0b1c2d3e4f5", "post", Now);
+        var posted = new EyeShowApp("77aa77aa", "AGMessage", "AGM", ShowBusState.Live, false, "10.0.0.20")
+        {
+            Kind = "messenger", Heard = "live", Posted = true, ContextRev = 7, Accepted = new[] { postedRow },
+            Context = StagewatchContext("green") with { Node = new ShowContextNode { Kind = "messenger", Id = "77aa77aa", Name = "AGM" } },
+        };
         var cases = new (string Case, EyeShowApp App, CheckLight Light)[]
         {
             ("gone, heard only", new EyeShowApp("66cc66cc", "Slides agent", "Side", ShowBusState.Gone, false, "") { Heard = "gone" }, CheckLight.Grey),
@@ -859,6 +865,13 @@ public class ShowBusTests
             ("held", linked with { Link = Record("held", "amber", "Hall A refused this desk's key (revoked) — next try 20:15:05") }, CheckLight.Amber),
             ("certificate changed, needed", linked with { State = ShowBusState.Gone, Link = Record("refused", "red", "CERTIFICATE CHANGED: Hall A now shows ab12 … — nothing sent; accept it on the Nodes page"), Needed = true }, CheckLight.Red),
             ("certificate changed", linked with { State = ShowBusState.Gone, Link = Record("refused", "amber", "CERTIFICATE CHANGED: Hall A now shows ab12 … — nothing sent; accept it on the Nodes page") }, CheckLight.Amber),
+            // Show Bus 1.3 §6's CONTEXT POST, the lowest source: what the app says of itself lights the card while the link its key
+            // proved is open, and never green by itself once that link has ended and only its hello is left.
+            ("posted, its link open", posted, CheckLight.Green),
+            ("posted, its link ended, its hello heard", posted with { Accepted = new[] { postedRow with { EndedUtc = Now } } }, CheckLight.Grey),
+            // Once that link has ended the card is its hello's alone: an amber it posted is not current either.
+            ("posted amber, its link ended", posted with { Accepted = new[] { postedRow with { EndedUtc = Now } }, Context = StagewatchContext() with { Node = new ShowContextNode { Kind = "messenger", Id = "77aa77aa", Name = "AGM" } } }, CheckLight.Grey),
+            ("posted amber, its link ended, needed and its hello gone", posted with { State = ShowBusState.Gone, Heard = "gone", Needed = true, Accepted = new[] { postedRow with { EndedUtc = Now } }, Context = StagewatchContext() with { Node = new ShowContextNode { Kind = "messenger", Id = "77aa77aa", Name = "AGM" } } }, CheckLight.Red),
             // A green context and a green live record: only precedence passes it green (the worse of hello and link is red or amber).
             ("live, linked, its hello gone", linked with { Heard = "gone", Context = StagewatchContext("green"), Link = Record("live", "green", "Hall A · pinned 03e9 b152 · PeerLink 1") }, CheckLight.Green),
             // The record decides while the link is not live, though the sight it rides on still says live.
@@ -881,6 +894,26 @@ public class ShowBusTests
             Assert.True(first.Contains($" — {ShowContext.Word(light)}", StringComparison.Ordinal), $"{name}: the brief says {first}");
             var state = Assert.Single(ShowBusView.StateRows(one));
             Assert.True(ShowContext.Word(light) == state.Light, $"{name}: STATE's bus.apps row {state.Light}");
+        }
+        // A posted context whose link has ended: no reader says its headline (a count it said is not current) — the peers row and
+        // STATE's bus.apps say why in its place, the Eye's card and the Nodes card neither, the brief not as what the app says.
+        foreach (var (name, app, _) in cases.Where(c => c.App.Posted && c.App.Accepted.All(r => r.Ended)))
+        {
+            var one = new[] { app };
+            var stale = app.Context!.Headline;
+            var node = Graph(app).Nodes.Single(n => n.Id == "app:" + app.Id);
+            Assert.True(!node.Sub.Contains(stale, StringComparison.Ordinal) && !node.Words.Any(w => w.Contains(stale, StringComparison.Ordinal)), $"{name}: the Eye's card says {node.Sub}");
+            var row = Assert.Single(ShowBusView.Peers(one));
+            var stateRow = Assert.Single(ShowBusView.StateRows(one));
+            if (app.State == ShowBusState.Live)
+            {
+                Assert.True(ShowBusView.PostedEndedHeadline == row.Headline, $"{name}: the peers row says {row.Headline}");
+                Assert.True(ShowBusView.PostedEndedHeadline == stateRow.Headline, $"{name}: STATE's bus.apps row says {stateRow.Headline}");
+            }
+            Assert.DoesNotContain(stale, row.Headline, StringComparison.Ordinal);
+            Assert.DoesNotContain(stale, stateRow.Headline, StringComparison.Ordinal);
+            Assert.DoesNotContain(stale, ShowAppCard.Of(app).Line, StringComparison.Ordinal);
+            Assert.DoesNotContain(ShowBusView.BriefLines(one), l => l.Contains(stale, StringComparison.Ordinal));
         }
         // STATE's bus.stagewatch headline is the bus.apps row's, and no count from a link that is not live is said as current (13.10.6).
         foreach (var (name, app, _) in cases.Where(c => c.App.Linked))
